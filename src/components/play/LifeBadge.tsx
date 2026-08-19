@@ -72,7 +72,7 @@ export function LifeBadge({
     pips.push({
       key: entry.id,
       label: String(entry.amount),
-      title: `${entry.amount} commander damage from ${entry.name} — ${entry.lethal} is lethal`,
+      title: `${entry.amount} commander damage from ${entry.name}. ${entry.lethal} is lethal.`,
       danger: entry.amount >= entry.lethal,
     });
   }
@@ -80,7 +80,7 @@ export function LifeBadge({
     pips.push({
       key: 'poison',
       label: `${poison}☠`,
-      title: `${poison} poison counters — ${poisonLethal} is lethal`,
+      title: `${poison} poison counters. ${poisonLethal} is lethal.`,
       danger: poison >= poisonLethal,
     });
   }

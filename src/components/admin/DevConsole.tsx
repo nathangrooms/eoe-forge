@@ -56,25 +56,16 @@ interface Finding {
   detail: string | null;
   recommendation: string | null;
   status: DevStatus;
+  /** 'tracked' was raised here. 'audit' came from the 2026-08-18 audit. */
+  source: 'tracked' | 'audit';
+  /** Stable id in the source document, e.g. af-001. Null for tracked rows. */
+  source_ref: string | null;
+  created_at: string;
 }
 
-interface AuditFinding {
-  id: string;
-  area: string;
-  title: string;
-  file: string | null;
-  severity: Severity;
-  category: string;
-  detail: string;
-  recommendation: string;
-}
-
-interface AuditData {
-  generated: string;
-  fullReport: string;
-  areas: { area: string; summary: string }[];
-  findings: AuditFinding[];
-}
+/* The report the audit rows were written from. It lives in the repo, is not
+   built and is not deployed, so naming it costs nothing. */
+const AUDIT_REPORT = 'docs/overhaul/AUDIT.md';
 
 interface DevLog {
   id: string;
@@ -230,7 +221,7 @@ export function DevConsole() {
   const [tasks, setTasks] = useState<DevTask[]>([]);
   const [findings, setFindings] = useState<Finding[]>([]);
   const [logs, setLogs] = useState<DevLog[]>([]);
-  const [audit, setAudit] = useState<AuditData | null>(null);
+  const [audit, setAudit] = useState<Finding[] | null>(null);
   const [auditLoading, setAuditLoading] = useState(false);
   const [severityFilter, setSeverityFilter] = useState<Severity | 'all'>('all');
   const [areaFilter, setAreaFilter] = useState<string>('all');
@@ -242,7 +233,7 @@ export function DevConsole() {
       const [w, t, f, l] = await Promise.all([
         db.from('dev_workstreams').select('*').order('sort_order'),
         db.from('dev_tasks').select('*').order('sort_order'),
-        db.from('dev_findings').select('*').order('created_at', { ascending: false }),
+        db.from('dev_findings').select('*').eq('source', 'tracked').order('created_at', { ascending: false }),
         db.from('dev_logs').select('*').order('created_at', { ascending: false }).limit(200),
       ]);
       const firstError = w.error || t.error || f.error || l.error;
@@ -260,14 +251,27 @@ export function DevConsole() {
 
   useEffect(() => { load(); }, []);
 
-  /* The audit backlog is ~330 KB, so it is code-split and fetched only when the
-     admin actually opens the Findings tab rather than on every admin page load. */
+  /* The audit backlog is ~330 KB of internal findings: file paths, severities
+     and what is wrong with each one. It used to be a JSON file imported from
+     here, which meant Vite emitted it as a chunk and served it to anyone who
+     asked, on the site's own domain. It lives in `dev_findings` now, which anon
+     cannot read at all.
+
+     Still fetched only when the admin opens the Findings tab, for the same
+     reason it was code-split before: it is large and most admin visits never
+     look at it. Ordered by `source_ref` (af-001 … af-278), the order the audit
+     was written in. */
   const loadAudit = async () => {
     if (audit || auditLoading) return;
     setAuditLoading(true);
     try {
-      const mod = await import('@/data/auditFindings.json');
-      setAudit((mod.default ?? mod) as unknown as AuditData);
+      const { data, error } = await db
+        .from('dev_findings')
+        .select('*')
+        .eq('source', 'audit')
+        .order('source_ref');
+      if (error) throw error;
+      setAudit((data ?? []) as Finding[]);
     } catch {
       /* backlog is optional — the console still works without it */
     } finally {
@@ -290,7 +294,7 @@ export function DevConsole() {
     const doneTasks = tasks.filter(t => t.status === 'done').length;
     const merged = [
       ...findings.map(f => ({ severity: f.severity, status: f.status })),
-      ...(audit?.findings ?? []).map(f => ({ severity: f.severity, status: 'planned' as DevStatus })),
+      ...(audit ?? []).map(f => ({ severity: f.severity, status: f.status })),
     ];
     const openFindings = merged.filter(f => f.status !== 'done' && f.status !== 'cancelled').length;
     const criticalFindings = merged.filter(
@@ -305,9 +309,8 @@ export function DevConsole() {
     };
   }, [tasks, findings, workstreams, audit]);
 
-  /* Tracked findings (dev_findings, mutable status) merged with the static audit
-     backlog. Tracked rows win on identical title so a promoted finding does not
-     appear twice. */
+  /* Tracked findings (mutable status) merged with the audit backlog. Tracked
+     rows win on identical title so a promoted finding does not appear twice. */
   type MergedFinding = {
     id: string; area: string; title: string; file: string | null;
     severity: Severity | null; category: string | null;
@@ -319,7 +322,7 @@ export function DevConsole() {
     const rank: Record<Severity, number> = { critical: 0, high: 1, medium: 2, low: 3 };
     const tracked: MergedFinding[] = findings.map(f => ({ ...f, tracked: true }));
     const trackedTitles = new Set(tracked.map(f => f.title));
-    const backlog: MergedFinding[] = (audit?.findings ?? [])
+    const backlog: MergedFinding[] = (audit ?? [])
       .filter(f => !trackedTitles.has(f.title))
       .map(f => ({ ...f, tracked: false }));
     return [...tracked, ...backlog].sort(
@@ -331,6 +334,15 @@ export function DevConsole() {
     () => [...new Set(allFindings.map(f => f.area))].sort(),
     [allFindings]
   );
+
+  /* The date the audit was written. Every backlog row was stamped with it on
+     import, so it is read back off the rows rather than kept as a literal. */
+  const auditGenerated = useMemo(() => {
+    const stamps = (audit ?? []).map(f => f.created_at).filter(Boolean).sort();
+    if (stamps.length === 0) return null;
+    const d = new Date(stamps[0]);
+    return Number.isNaN(d.valueOf()) ? null : d.toISOString().slice(0, 10);
+  }, [audit]);
 
   const visibleFindings = useMemo(
     () => allFindings.filter(
@@ -525,9 +537,9 @@ export function DevConsole() {
             ))}
           </div>
 
-          {audit && (
+          {auditGenerated && (
             <p className="text-xs text-muted-foreground pt-2">
-              Audit generated {audit.generated}. Full untruncated report: <code>{audit.fullReport}</code>
+              Audit generated {auditGenerated}. Full untruncated report: <code>{AUDIT_REPORT}</code>
             </p>
           )}
         </TabsContent>

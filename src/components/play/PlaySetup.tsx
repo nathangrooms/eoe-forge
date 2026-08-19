@@ -111,7 +111,7 @@ const MODES: Array<{
     id: 'online',
     label: 'Online',
     blurb:
-      'Not built yet. The rules engine already sends its moves over a transport, but only the local one exists — there is no matchmaking and no shared table to join.',
+      'Not built yet. The rules engine already sends its moves over a transport, but only the local one exists. There is no matchmaking and no shared table to join.',
     icon: Globe,
     ready: false,
   },
@@ -174,7 +174,7 @@ function DeckPicker({
       </Select>
       {selected && (selected.cardCount ?? 0) === 0 && (
         <p className="mt-1 text-[11px] text-foreground">
-          That deck is empty — this seat gets a seeded commander deck instead.
+          That deck is empty, so this seat gets a seeded commander deck instead.
         </p>
       )}
     </div>
@@ -294,7 +294,7 @@ export function PlaySetup({
             {loadingDecks
               ? 'Loading your decks…'
               : decks.length === 0
-                ? 'No saved decks found — a seeded commander deck will be built for you.'
+                ? 'No saved decks found. A seeded commander deck will be built for you.'
                 : `${decks.length} deck${decks.length === 1 ? '' : 's'} available.`}
           </p>
 
@@ -325,8 +325,8 @@ export function PlaySetup({
               </Button>
             </div>
             <p className="mt-1.5 text-[11px] text-muted-foreground">
-              The shuffle is seeded, so the same seed and the same decks deal the same game — which
-              is what makes a bad draw reproducible instead of anecdotal.
+              The shuffle is seeded, so the same seed and the same decks deal the same game. That is
+              what makes a bad draw reproducible instead of anecdotal.
             </p>
           </div>
         </div>

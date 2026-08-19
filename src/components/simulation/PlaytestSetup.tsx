@@ -117,7 +117,7 @@ function SeatCard({
           <span className="text-[0.7rem] text-muted-foreground">
             {deck
               ? deck.cardCount === 0
-                ? 'Empty — a seeded deck will stand in'
+                ? 'Empty, so a seeded deck will stand in'
                 : `${deck.cardCount} cards`
               : '99 cards'}
           </span>

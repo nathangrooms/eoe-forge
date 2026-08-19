@@ -236,6 +236,35 @@ test('turn structure is not a play and produces no line', () => {
   assert.equal(describePlay(state, 'p1', []), null);
 });
 
+/**
+ * A creature dying in combat is not a play, and it is not the attacker's.
+ *
+ * This is the batch `advanceActions` returns at the combat damage step:
+ * `resolveCombat` pushes a `MOVE_ZONE` to the graveyard for every creature that
+ * took lethal damage, and `resolveCombatAndAdvance` puts `ADVANCE_STEP` on the
+ * end of it. `nextBotMove` never returns a `MOVE_ZONE`, so before this guard the
+ * only way to reach the move branch at all was through this batch, and the
+ * band read "Surrak moves Rumbling Baloth to the graveyard" for a creature
+ * Surrak had just killed and never owned. That is a rules consequence dressed
+ * up as somebody's decision, which is the one thing this module must not do.
+ */
+test('a creature dying to combat damage is a consequence, not a decision', () => {
+  const state = put(
+    table(),
+    'baloth',
+    { name: 'Rumbling Baloth', typeLine: 'Creature — Beast' },
+    'battlefield'
+  );
+
+  assert.equal(
+    describePlay(state, 'p2', [
+      { type: 'MOVE_ZONE', instanceId: 'baloth', to: 'graveyard', at: 1 },
+      { type: 'ADVANCE_STEP', at: 1 },
+    ]),
+    null
+  );
+});
+
 test('a card that is not in the game produces no line rather than a guess', () => {
   const state = table();
   assert.equal(

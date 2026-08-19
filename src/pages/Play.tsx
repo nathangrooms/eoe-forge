@@ -61,7 +61,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { Loader2 } from 'lucide-react';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { useAuth } from '@/components/AuthProvider';
 import { Button } from '@/components/ui/button';
@@ -648,11 +647,25 @@ export default function Play() {
           onChange={setSetup}
           onStart={startGame}
         />
-        {starting && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        )}
+        {/*
+          There is deliberately NO overlay here.
+
+          This used to render `fixed inset-0 ... bg-background/70` with a
+          spinner in it while the decks were being resolved: a dimmed,
+          full-screen, click-eating backdrop, which is the one thing play mode
+          is not allowed to have. It also bought nothing. `PlaySetup` already
+          disables its start button and turns it into "Shuffling up…" with a
+          spinner in the button itself, which is where the reader is already
+          looking, so the overlay dimmed the whole page to repeat a message
+          that was six pixels away.
+
+          It survived this long because the screenshot harness cannot see it:
+          `scripts/play-preview-shots.mjs` skips any full-screen candidate whose
+          class list contains the string `bg-background`, to let the immersive
+          board's own opaque `bg-background` root through, and `bg-background/70`
+          contains that string too. Measured with that exemption removed, it was
+          the only full-screen dimmer left in either surface.
+        */}
       </StandardPageLayout>
     );
   }

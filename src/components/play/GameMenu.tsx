@@ -131,7 +131,7 @@ export function GameMenu({
           <div className="rounded-lg bg-foreground/[0.05] p-3">
             <p className="text-xs font-medium text-foreground">Board</p>
             <p className="mb-2 text-[10px] leading-tight text-muted-foreground">
-              A ceiling — a crowded row shrinks below it rather than running off the mat.
+              A ceiling. A crowded row shrinks below it rather than running off the mat.
             </p>
             <CardSizeSlider
               storageKey="play-board"
@@ -145,7 +145,7 @@ export function GameMenu({
           <div className="rounded-lg bg-foreground/[0.05] p-3">
             <p className="text-xs font-medium text-foreground">Hand</p>
             <p className="mb-2 text-[10px] leading-tight text-muted-foreground">
-              The hand is the biggest thing on the table — this is how big.
+              The hand is the biggest thing on the table. This is how big.
             </p>
             <CardSizeSlider
               storageKey="play-hand"
@@ -172,7 +172,7 @@ export function GameMenu({
           />
           <MenuToggle
             label="Free cast"
-            hint="Goldfishing — ignore mana entirely"
+            hint="Goldfishing. Ignore mana entirely"
             active={freeCast}
             onClick={onToggleFreeCast}
           />

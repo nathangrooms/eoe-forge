@@ -1,9 +1,10 @@
 // AI Visual Display Component
 // Renders charts, tables, and graphs from structured AI data
 
+import { lazy, Suspense } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Tooltip, Legend } from 'recharts';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { BarChart3, PieChart as PieChartIcon, LineChart as LineChartIcon, Table2 } from 'lucide-react';
 
@@ -33,14 +34,18 @@ interface AIVisualDisplayProps {
   compact?: boolean;
 }
 
-const DEFAULT_COLORS = [
-  'hsl(var(--spacecraft))',
-  'hsl(var(--celestial))',
-  'hsl(var(--cosmic))',
-  'hsl(var(--primary))',
-  'hsl(var(--secondary))',
-  'hsl(var(--accent))',
-];
+/**
+ * The charting library is fetched only when an answer actually carries a chart.
+ *
+ * Recharts is 377 kB raw / 104 kB gzipped and it used to be part of the first
+ * load of every page that can reach this panel: Tutor, the deck analysis panel
+ * and the generated deck list. A chart is now drawn only when the question is
+ * about the thing the chart shows, so most answers draw none at all and the
+ * reader was waiting on a library that never rendered. The box below is
+ * reserved at its final height before this arrives, so nothing moves when it
+ * lands.
+ */
+const AIVisualChart = lazy(() => import('./AIVisualChart'));
 
 export function AIVisualDisplay({ data, compact = false }: AIVisualDisplayProps) {
   if (!data.charts && !data.tables) return null;
@@ -59,84 +64,12 @@ export function AIVisualDisplay({ data, compact = false }: AIVisualDisplayProps)
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className={compact ? "h-48" : "h-64"}>
-              {chart.type === 'bar' && (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chart.data}>
-                    <XAxis 
-                      dataKey={chart.xKey || 'name'} 
-                      tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }}
-                    />
-                    <YAxis tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }} />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'hsl(var(--background))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px'
-                      }}
-                    />
-                    <Bar 
-                      dataKey={chart.yKey || 'value'} 
-                      fill={chart.colors?.[0] || DEFAULT_COLORS[0]}
-                      radius={[8, 8, 0, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-              {chart.type === 'pie' && (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={chart.data}
-                      dataKey={chart.yKey || 'value'}
-                      nameKey={chart.nameKey || 'name'}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={compact ? 60 : 80}
-                      label
-                    >
-                      {chart.data.map((_, index) => (
-                        <Cell 
-                          key={`cell-${index}`} 
-                          fill={chart.colors?.[index] || DEFAULT_COLORS[index % DEFAULT_COLORS.length]} 
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'hsl(var(--background))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px'
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              )}
-              {chart.type === 'line' && (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chart.data}>
-                    <XAxis 
-                      dataKey={chart.xKey || 'name'} 
-                      tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }}
-                    />
-                    <YAxis tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }} />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'hsl(var(--background))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px'
-                      }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey={chart.yKey || 'value'} 
-                      stroke={chart.colors?.[0] || DEFAULT_COLORS[0]}
-                      strokeWidth={2}
-                      dot={{ fill: chart.colors?.[0] || DEFAULT_COLORS[0] }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
+            <div className={compact ? 'h-48' : 'h-64'}>
+              <Suspense
+                fallback={<Skeleton className={compact ? 'h-48 w-full' : 'h-64 w-full'} />}
+              >
+                <AIVisualChart chart={chart} compact={compact} />
+              </Suspense>
             </div>
           </CardContent>
         </Card>

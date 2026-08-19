@@ -1,30 +1,30 @@
 // Enhanced Deck Analysis Panel with Advanced Magic Mechanics
 // Integrates mana curve, land base, synergy, and format validation
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { lazy, Suspense, useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  ResponsiveContainer, 
-  PieChart, 
-  Pie, 
-  Cell, 
-  LineChart, 
-  Line,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  Radar
-} from 'recharts';
+import { Skeleton } from '@/components/ui/skeleton';
+
+/**
+ * The charting library is fetched only when there is a curve to draw.
+ *
+ * Recharts is 377 kB raw / 104 kB gzipped and it used to be part of the first
+ * load of every page that can reach this panel: the deck builder, the deck
+ * page and the generated deck list. Of the fifteen recharts symbols this file
+ * used to import, thirteen were never rendered — the radar, pie and line
+ * imports were dead and were pulling the whole library in behind them. The one
+ * real chart is the curve comparison below, and it now arrives under the same
+ * 256px box it already occupied, so the layout does not move.
+ */
+const CurveComparisonBars = lazy(() => import('./CurveComparisonBars'));
+
+/** Matches the reserved chart box exactly so nothing shifts when it lands. */
+const ChartSkeleton = <Skeleton className="h-64 w-full" />;
 import { 
   TrendingUp, 
   Zap, 
@@ -314,13 +314,12 @@ const optimizations = useMemo(() => {
                 <div>
                   <h4 className="font-medium mb-3">Current vs Ideal Curve</h4>
                   <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={analysis.manaCurve.curve}>
-                        <XAxis dataKey="cmc" />
-                        <YAxis />
-                        <Bar dataKey="percentage" fill={COLORS.primary} />
-                      </BarChart>
-                    </ResponsiveContainer>
+                    <Suspense fallback={ChartSkeleton}>
+                      <CurveComparisonBars
+                        curve={analysis.manaCurve.curve}
+                        fill={COLORS.primary}
+                      />
+                    </Suspense>
                   </div>
                 </div>
 

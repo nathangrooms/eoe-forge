@@ -233,7 +233,21 @@ export function describePlay(
   /* Everything else worth a line                                           */
   /* ---------------------------------------------------------------------- */
 
-  const move = actions.find(action => action.type === 'MOVE_ZONE');
+  /*
+   * A batch that advances the step is turn structure, and every `MOVE_ZONE`
+   * inside it is a CONSEQUENCE rather than a decision: `resolveCombat` pushes
+   * one to the graveyard for each creature that took lethal damage, and
+   * `resolveCombatAndAdvance` appends `ADVANCE_STEP` to that list. Narrating it
+   * produced "Surrak moves Rumbling Baloth to the graveyard" for a creature
+   * Surrak had just killed and never controlled, because the seat handed in
+   * here is whichever seat the driver was asking, not the card's controller.
+   *
+   * This module's contract is the batch a seat DECIDED on. A death is the rules
+   * answering back, the log records it already, and inventing an author for it
+   * is the fabrication this project forbids.
+   */
+  const structural = actions.some(action => action.type === 'ADVANCE_STEP');
+  const move = structural ? undefined : actions.find(action => action.type === 'MOVE_ZONE');
   if (move && move.type === 'MOVE_ZONE') {
     const card = state.cards[move.instanceId];
     if (!card) return null;

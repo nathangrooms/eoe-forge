@@ -281,7 +281,7 @@ export function PlayHUD({
         </div>
 
         <ol
-          aria-label={`Turn structure — ${STEP_LABELS[state.step]}`}
+          aria-label={`Turn structure, currently ${STEP_LABELS[state.step]}`}
           className="hidden min-w-0 items-center gap-0.5 rounded-lg bg-muted/40 p-0.5 md:flex"
         >
           {PHASES.map((entry, index) => {
@@ -336,7 +336,7 @@ export function PlayHUD({
             onClick={onAdvance}
           />
           <HudToggle
-            label="Game menu — card size, table settings"
+            label="Game menu: card size and table settings"
             icon={SlidersHorizontal}
             active={menuOpen}
             onClick={onOpenMenu}

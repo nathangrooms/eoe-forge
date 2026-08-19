@@ -579,8 +579,8 @@ export const GameCardView = memo(function GameCardView({
           }}
           title={
             restrained
-              ? `${card.name} entered the battlefield this turn — it cannot attack or use abilities that need tapping until your next turn begins. Haste would remove this.`
-              : `${card.name} entered the battlefield this turn but has haste — it can attack and tap immediately.`
+              ? `${card.name} entered the battlefield this turn. It cannot attack, or use abilities that need tapping, until your next turn begins. Haste would remove this.`
+              : `${card.name} entered the battlefield this turn but has haste, so it can attack and tap immediately.`
           }
           aria-label={restrained ? 'Summoning sick' : 'Has haste'}
         >
@@ -601,7 +601,9 @@ export const GameCardView = memo(function GameCardView({
               : 'bg-background/90 text-foreground backdrop-blur-sm'
           )}
         >
-          {stats ?? '—'}
+          {/* A middle dot, not an em-dash: the copy rule covers every glyph
+              that lands on screen, placeholders included. */}
+          {stats ?? '·'}
         </span>
       )}
     </div>

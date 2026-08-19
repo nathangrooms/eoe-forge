@@ -1,13 +1,27 @@
-import { useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TrendingUp, TrendingDown, Clock, RefreshCw, Database } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 import { format, subDays, parseISO } from 'date-fns';
 import { toast } from 'sonner';
+
+/**
+ * The charting library is fetched only when there is a line to draw.
+ *
+ * Recharts is 377 kB raw / 104 kB gzipped and it used to be part of the
+ * marketplace's first load. A chart is drawn only for a printing that already
+ * has stored snapshots, so most readers were paying for a library that never
+ * rendered anything. The panel reserves 150px either way and already showed a
+ * 150px skeleton, and that same skeleton stands in while this arrives, so the
+ * layout does not move.
+ */
+const CardPriceLine = lazy(() => import('./CardPriceLine'));
+
+/** Matches the loading skeleton exactly so nothing shifts when the chart lands. */
+const ChartSkeleton = <Skeleton className="h-[150px] w-full" />;
 
 interface CardPriceHistoryChartProps {
   cardId: string;
@@ -154,43 +168,9 @@ export function CardPriceHistoryChart({
       <CardContent>
         {hasRealData ? (
           <div className="h-[150px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={priceHistory}>
-                <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                <XAxis
-                  dataKey="displayDate"
-                  tick={{ fontSize: 10 }}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 10 }}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(value) => `$${value}`}
-                  domain={['dataMin - 0.5', 'dataMax + 0.5']}
-                />
-                <Tooltip
-                  formatter={(value: number) => [`$${value.toFixed(2)}`, 'Price']}
-                  labelFormatter={(label) => label}
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--background))',
-                    border: 'none',
-                    borderRadius: '8px',
-                    boxShadow: '0 10px 25px -5px hsl(0 0% 0% / 0.5)',
-                    fontSize: '12px'
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="price"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 4, fill: 'hsl(var(--primary))' }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            <Suspense fallback={ChartSkeleton}>
+              <CardPriceLine points={priceHistory} />
+            </Suspense>
           </div>
         ) : (
           <div className="h-[150px] flex flex-col items-center justify-center text-center">

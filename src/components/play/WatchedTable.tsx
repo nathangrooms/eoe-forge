@@ -60,6 +60,7 @@ import { GameFeed } from './GameFeed';
 import { TurnBanner } from './TurnBanner';
 import { ZoneTravelLayer } from './ZoneTravelLayer';
 import { useCastSpotlight, useLifeDeltas } from './useTableMotion';
+import { resolveWatchedSeat } from './watchedSeat';
 import {
   BOARD_CARD_DEFAULT,
   HAND_CARD_DEFAULT,
@@ -123,6 +124,8 @@ export function WatchedTable({
   const [follow, setFollow] = useState(false);
   /** One seat, filling the board. `/play` calls this hand mode. */
   const [soloSeat, setSoloSeat] = useState(false);
+  /** Why the table moved seat on its own, when it did. Cleared by any choice. */
+  const [reseated, setReseated] = useState<string | null>(null);
 
   /* The player's own card sizes, read from the SAME two preferences `/play`
      writes. A playtest that draws cards at a size the player never chose is not
@@ -149,12 +152,30 @@ export function WatchedTable({
   const lifeDeltas = useLifeDeltas(state);
   const spotlight = useCastSpotlight(state, SPOTLIGHT_MS);
 
-  /* A seat that leaves the game is not a seat to watch from. */
+  /**
+   * A seat that leaves the game WHILE IT IS STILL BEING PLAYED is not a seat to
+   * watch from, and being moved off one is said out loud rather than just done.
+   *
+   * This used to move the reader off any losing seat on every render,
+   * unconditionally, which meant the seat picker stopped working the instant
+   * the game ended: pressing the loser's button set `watchedId`, this put it
+   * straight back on the next render, and nothing on screen changed or said
+   * why. Measured at the end of a real watched game, before the fix:
+   *
+   *   pressed:            "Watch the table from Yeva 2's seat"
+   *   seat buttons after: Yeva pressed=true, Yeva 2 pressed=false
+   *
+   * Reading the losing board is most of the reason to stay on this screen once
+   * the result is in. The rule, and the cases it has to get right, now live in
+   * `watchedSeat.ts` where a test can reach them.
+   */
+  const gameOver = state.status !== 'playing';
   useEffect(() => {
-    if (state.players.some(player => player.id === watchedId && !player.hasLost)) return;
-    const alive = state.players.find(player => !player.hasLost) ?? state.players[0];
-    if (alive) setWatchedId(alive.id);
-  }, [state.players, watchedId]);
+    const { seatId, reason } = resolveWatchedSeat(state.players, watchedId, gameOver);
+    if (!seatId || seatId === watchedId) return;
+    setWatchedId(seatId);
+    setReseated(reason);
+  }, [state.players, watchedId, gameOver]);
 
   useEffect(() => {
     if (!follow) return;
@@ -181,12 +202,21 @@ export function WatchedTable({
   const hand = handMetrics(viewport.height, handCardWidth, soloSeat);
   const spotlightWidth = Math.round(Math.min(300, Math.max(180, viewport.width * 0.19)));
 
-  const openSeat = useCallback((playerId: PlayerId) => {
+  /** A seat the reader asked for. Clears any notice about one they did not. */
+  const chooseSeat = useCallback((playerId: PlayerId) => {
     setFollow(false);
+    setReseated(null);
     setWatchedId(playerId);
-    setSoloSeat(true);
-    setInspectId(null);
   }, []);
+
+  const openSeat = useCallback(
+    (playerId: PlayerId) => {
+      chooseSeat(playerId);
+      setSoloSeat(true);
+      setInspectId(null);
+    },
+    [chooseSeat]
+  );
 
   const winner =
     state.status === 'complete' && state.winnerIds.length > 0
@@ -291,6 +321,28 @@ export function WatchedTable({
         <TurnBanner state={state} viewerPlayerId={watchedId} />
 
         {/*
+          The table moved seat on its own, and says so.
+
+          It only ever does this for one reason: the seat being watched was
+          knocked out mid-game, so it will never take another decision and its
+          hand will never change again. Being moved without being told is the
+          same silent failure as a control that does nothing, so it gets a
+          sentence, in the mat's own material, cleared by the next seat the
+          reader picks.
+        */}
+        {reseated && state.status === 'playing' && (
+          <div
+            className="pointer-events-none absolute inset-x-0 z-[45] flex justify-center px-2"
+            style={{ top: HUD_INSET + 8 }}
+          >
+            <div className="relative overflow-hidden rounded-lg px-4 py-1.5 shadow-[0_12px_30px_rgba(0,0,0,0.55)]">
+              <Playmat tone="board" rounded="rounded-lg" className="absolute inset-0 h-full w-full" />
+              <p className="relative text-xs text-foreground">{reseated}</p>
+            </div>
+          </div>
+        )}
+
+        {/*
           The result, drawn INTO the mat.
 
           This used to be `bg-background/90` plus `backdrop-blur-md`, which is a
@@ -369,19 +421,21 @@ export function WatchedTable({
               <button
                 key={player.id}
                 type="button"
-                onClick={() => {
-                  setFollow(false);
-                  setWatchedId(player.id);
-                }}
+                onClick={() => chooseSeat(player.id)}
                 aria-pressed={watchedId === player.id}
                 title={`Watch the table from ${player.name}'s seat`}
+                /* Being out of the game and being the seat on screen are two
+                   different facts, so they are drawn as two different things:
+                   the strike-through says knocked out, the fill says this is
+                   the board you are looking at. Ordering them as one ternary
+                   meant a losing seat you had deliberately switched to drew as
+                   unselected, which reads as the button having failed. */
                 className={cn(
                   'rounded-md px-2 py-0.5 text-xs transition-colors',
-                  player.hasLost
-                    ? 'text-muted-foreground line-through'
-                    : watchedId === player.id
-                      ? 'bg-foreground text-background'
-                      : 'text-muted-foreground hover:text-foreground'
+                  player.hasLost && 'line-through',
+                  watchedId === player.id
+                    ? 'bg-foreground text-background'
+                    : 'text-muted-foreground hover:text-foreground'
                 )}
               >
                 {player.name} {player.life}
@@ -389,7 +443,10 @@ export function WatchedTable({
             ))}
             <button
               type="button"
-              onClick={() => setFollow(value => !value)}
+              onClick={() => {
+                setReseated(null);
+                setFollow(value => !value);
+              }}
               aria-pressed={follow}
               title="Move to whichever seat is taking its turn"
               className={cn(

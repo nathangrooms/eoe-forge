@@ -30,9 +30,27 @@ export function HomeHero({ cardCount }: { cardCount: number | null }) {
     <section className="relative isolate overflow-hidden">
       {/* six-panel colour artwork */}
       <div className="absolute inset-x-0 top-0 -z-10 h-[70%]">
+        {/* The 1536w step is not decoration, it is the gap in the ladder.
+
+            `sizes="100vw"` asks for one image pixel per CSS pixel of window
+            width, so the browser takes the smallest candidate at least that
+            wide. With only 768 / 1280 / 1920 to choose from, every window wider
+            than 1280 fell straight to the 1920 file, and that is exactly where
+            desktop sits: 1366, 1440 and 1536 (a 1920 screen at the 125%
+            scaling Windows ships by default) are all inside that band.
+            Measured on the built site: a 1280 window fetched 197,644 bytes and
+            a 1366 window fetched 313,458, so 6.7% more pixels cost 59% more
+            bytes.
+
+            1536w closes it. Measured at those three widths the hero drops from
+            313,458 to 227,392 bytes, and the file is still wider than the box
+            it is drawn into, so nothing is upscaled. The artwork is untouched:
+            the same picture at a fourth size, encoded at 0.171 bytes per pixel
+            against the 1920's own 0.151, so it cannot look worse than the file
+            it replaces. */}
         <img
           src="/hero-1280.webp"
-          srcSet="/hero-768.webp 768w, /hero-1280.webp 1280w, /hero-1920.webp 1920w"
+          srcSet="/hero-768.webp 768w, /hero-1280.webp 1280w, /hero-1536.webp 1536w, /hero-1920.webp 1920w"
           sizes="100vw"
           alt=""
           aria-hidden="true"

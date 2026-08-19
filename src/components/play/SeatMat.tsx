@@ -230,7 +230,7 @@ function ZoneTile({
 
   if (!onClick) {
     return (
-      <span className={shell} style={{ height, width }} title={`${title} — ${count}`}>
+      <span className={shell} style={{ height, width }} title={`${title}, ${count} card${count === 1 ? '' : 's'}`}>
         {body}
       </span>
     );
@@ -240,7 +240,7 @@ function ZoneTile({
     <button
       type="button"
       onClick={onClick}
-      title={`${title} — ${count}`}
+      title={`${title}, ${count} card${count === 1 ? '' : 's'}`}
       aria-label={`${title}, ${count} card${count === 1 ? '' : 's'}`}
       className={cn(
         shell,
@@ -615,7 +615,7 @@ export function SeatMat({
 
       <ZoneTile
         label={tax > 0 ? `Cmd +${tax}` : 'Cmd'}
-        title={tax > 0 ? `Command zone — ${tax} commander tax` : 'Command zone'}
+        title={tax > 0 ? `Command zone, ${tax} commander tax` : 'Command zone'}
         count={player.zones.command.length}
         height={tileHeight}
         width={sideWidth - 4}
@@ -803,9 +803,32 @@ export function SeatMat({
                       Turn
                     </span>
                   )}
+                  {/*
+                    "Out", not the whole reason.
+
+                    This row is `flex-nowrap` inside a bounded, `overflow-hidden`
+                    box: the name TRUNCATES and every chip is `shrink-0`. So a
+                    chip holding a sentence took the whole strip, squeezed the
+                    name to nothing, and then clipped itself mid-word anyway.
+                    Measured on a knocked-out seat, the header read
+
+                      [WATCHING] [BOT] LIFE TOTAL REACHED ZE
+
+                    with no player name on it at all. That is unreadable twice
+                    over: a seat you cannot identify, labelled with half a word.
+                    A chip is a chip-sized fact; the reason is a sentence, so it
+                    goes where sentences go. The log already records it in full.
+                  */}
                   {dead && (
-                    <span className="shrink-0 rounded-full bg-background/70 px-1.5 text-[9px] font-medium uppercase leading-4 text-muted-foreground backdrop-blur-sm">
-                      {player.lossReasons[0] ? lossReasonLabel(player.lossReasons[0]) : 'Out'}
+                    <span
+                      title={
+                        player.lossReasons[0]
+                          ? `Out of the game: ${lossReasonLabel(player.lossReasons[0])}.`
+                          : 'Out of the game.'
+                      }
+                      className="shrink-0 rounded-full bg-background/70 px-1.5 text-[9px] font-medium uppercase leading-4 text-muted-foreground backdrop-blur-sm"
+                    >
+                      Out
                     </span>
                   )}
                 </div>

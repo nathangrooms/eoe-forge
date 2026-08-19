@@ -109,7 +109,7 @@ export function ZonePanel({
 
       <p className="shrink-0 px-3 pb-2 text-[10px] leading-tight text-muted-foreground">
         {hidden
-          ? 'Hidden zone — you can see the count, not the cards.'
+          ? 'Hidden zone. You can see the count, not the cards.'
           : zone === 'library'
             ? `${cards.length} cards, top of the library first. Looking here is a search.`
             : `${cards.length} card${cards.length === 1 ? '' : 's'}. Click one to preview it.`}

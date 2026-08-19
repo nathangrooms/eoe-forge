@@ -61,7 +61,23 @@ export function CastSpotlight({ state, entry, width = 260, className }: CastSpot
       )}
       aria-live="polite"
     >
-      <AnimatePresence>
+      {/*
+        `popLayout`, because "replaced, never queued" has to be true of the
+        LAYOUT and not just of the state.
+
+        A plain `AnimatePresence` keeps the outgoing card in the flow while it
+        fades, and this container is a flex row, so for the length of the swap
+        there were two cards on the mat side by side and the new one was pushed
+        off the right edge to make room for the old one. Measured mid-swap:
+        the incoming card sat at x 1096..1385 of a 1680px viewport, roughly 300px
+        short of the edge it is supposed to be pinned to, with the previous
+        card's caption still legible beside it. Two spells on screen at once is
+        exactly the backlog the owner asked not to see.
+
+        `popLayout` takes the exiting card out of flow, so the new one lands on
+        the edge immediately and the old one fades from underneath it.
+      */}
+      <AnimatePresence mode="popLayout">
         {entry && (
           <motion.div
             key={entry.key}

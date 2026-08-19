@@ -438,7 +438,7 @@ export function PlayTable({
         ? 'Press another sword to add it to the swing, or attack.'
         : 'Press the sword on a creature to send it in. Greyed-out creatures cannot attack.'
       : armedCard
-        ? `${armedCard.name} is ready — now press the attacker it stands in front of.`
+        ? `${armedCard.name} is ready. Now press the attacker it stands in front of.`
         : 'Press the shield on one of your creatures, then the attacker it blocks.';
 
   return (

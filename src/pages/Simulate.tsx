@@ -36,6 +36,7 @@ import { GoldfishTable } from '@/components/simulation/goldfish/GoldfishTable';
 import { PlaytestSetup, type SeatDeckId } from '@/components/simulation/PlaytestSetup';
 import { WatchedTable } from '@/components/play/WatchedTable';
 import { useWatchedGame } from '@/components/play/useWatchedGame';
+import { uniqueSeatNames } from '@/components/play/seatNames';
 import { resolveDeckDetailed, toGameFormat, type DeckSummary } from '@/lib/play/deckSource';
 import { buildTable, type BuiltTable, type PlayDeck, type PlayerId } from '@/lib/game';
 import {
@@ -79,34 +80,10 @@ const CARD_COLUMNS =
 type Tab = 'live' | 'goldfish';
 type GoldfishStage = 'setup' | 'mulligan' | 'playing';
 
-/** A short, table-friendly name for a seat: its commander, not "Player 2". */
-function seatNameFor(deck: PlayDeck, index: number): string {
-  const commander = deck.commanders[0];
-  const source = commander?.name ?? deck.name;
-  const short = source.split(/[,—-]/)[0].trim();
-  /* Never "You". Nobody sits at this table: every seat is played by the bot,
-     and a seat called "You" made the winner line read "You wins." */
-  if (short.length === 0) return `Seat ${index + 1}`;
-  return short;
-}
-
-/**
- * Seat names, made distinguishable.
- *
- * Two seats can genuinely land on the same commander — the same deck picked
- * twice, or two seats falling back to the same offline list when the card
- * database is unreachable — and a table with two seats both called "Yeva" is a
- * table you cannot follow. The duplicate is numbered rather than renamed, so
- * the deck it came from is still readable.
- */
-function uniqueSeatNames(decks: readonly PlayDeck[]): string[] {
-  const seen: Record<string, number> = {};
-  return decks.map((deck, index) => {
-    const base = seatNameFor(deck, index);
-    seen[base] = (seen[base] ?? 0) + 1;
-    return seen[base] === 1 ? base : `${base} ${seen[base]}`;
-  });
-}
+/* Seat naming lives in `@/components/play/seatNames`, which is a `.ts` so that
+   `node --test` can reach it. It sat here as two helpers in this `.tsx` and
+   shipped a split that treated a hyphen as a separator, so a table running The
+   Ur-Dragon had a seat called "The Ur" and no test could see it. */
 
 export default function Simulate() {
   const [tab, setTab] = useState<Tab>('live');

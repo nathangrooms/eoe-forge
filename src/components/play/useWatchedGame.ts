@@ -195,8 +195,16 @@ export function useWatchedGame(options: UseWatchedGameOptions): UseWatchedGameRe
     /* Read the sentence off the DECISION, before it is applied: the cards are
        still in the zones they are leaving, so "from hand" and the names of the
        lands being tapped are readable. `playLine.ts` explains at length why
-       this is not derived from a state diff. */
-    const line = describePlay(current, actor, actions);
+       this is not derived from a state diff.
+
+       Only a real decision gets a sentence. When `nextBotMove` returns nothing
+       the batch is `advanceActions`, which is the turn structure moving on, and
+       at the combat damage step that batch carries a `MOVE_ZONE` to the
+       graveyard for every creature that died. Describing it credited `actor`
+       with killing a creature it did not control: "Surrak moves Rumbling Baloth
+       to the graveyard", about a creature Surrak had just destroyed. Deaths
+       belong to the log, which already records them and gets the owner right. */
+    const line = move ? describePlay(current, actor, move.actions) : null;
 
     const next = applyActions(current, actions);
 

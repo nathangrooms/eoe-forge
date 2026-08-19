@@ -1,16 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
 import {
   TrendingUp,
   TrendingDown,
@@ -29,6 +20,21 @@ import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { formatPrice, toNumber } from '@/components/collection/browser/types';
 import type { CollectionCard } from '@/types/collection';
+
+/**
+ * The charting library is fetched only when there is a line to draw.
+ *
+ * Recharts is 377 kB raw / 104 kB gzipped and it used to be part of the
+ * collection page's first load. It also rode along on every other signed-in
+ * page, because `/collection` is one of the four routes App.tsx warms up on
+ * idle. The panel already reserves a 300px box and shows a 300px skeleton
+ * while the history query runs, and the same skeleton stands in while this
+ * arrives, so the layout does not move either way.
+ */
+const ValueHistoryLine = lazy(() => import('@/components/collection/ValueHistoryLine'));
+
+/** Matches the loading skeleton exactly so nothing shifts when the chart lands. */
+const ChartSkeleton = <Skeleton className="h-[300px] w-full" />;
 
 interface PriceHistoryChartProps {
   collectionCards: CollectionCard[];
@@ -251,40 +257,9 @@ export function PriceHistoryChart({ collectionCards }: PriceHistoryChartProps) {
         </div>
 
         <div className="h-[300px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={priceData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis
-                dataKey="date"
-                className="text-xs"
-                tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                interval="preserveStartEnd"
-              />
-              <YAxis
-                className="text-xs"
-                tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                tickFormatter={value => `$${Number(value).toLocaleString()}`}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--popover))',
-                  color: 'hsl(var(--popover-foreground))',
-                  border: 'none',
-                  borderRadius: '8px',
-                  boxShadow: '0 10px 25px -5px hsl(0 0% 0% / 0.5)',
-                }}
-                formatter={(value: number) => [formatPrice(value), 'Value']}
-              />
-              <Line
-                type="monotone"
-                dataKey="value"
-                stroke="hsl(var(--foreground))"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 4 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          <Suspense fallback={ChartSkeleton}>
+            <ValueHistoryLine points={priceData} />
+          </Suspense>
         </div>
 
         <p className="text-xs text-muted-foreground">

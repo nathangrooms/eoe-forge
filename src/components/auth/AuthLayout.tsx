@@ -37,9 +37,17 @@ export function AuthLayout({
     <div className="relative min-h-screen">
       {/* ---------------- artwork: full bleed, all five colours ---------------- */}
       <div className="absolute inset-0 -z-10" aria-hidden="true">
+        {/* Same four-step ladder as the homepage hero, and the same reason: the
+            gap between 1280 and 1920 swallowed every ordinary desktop width, so
+            1366, 1440 and 1536 windows all pulled the 313 kB file. See the note
+            in `HomeHero` for the measurements.
+
+            The `src` fallback is the 1280, not the 1920. `src` is only read by
+            a browser that does not understand `srcSet`, and handing that
+            browser the largest file of the four is backwards. */}
         <img
-          src="/hero-1920.webp"
-          srcSet="/hero-768.webp 768w, /hero-1280.webp 1280w, /hero-1920.webp 1920w"
+          src="/hero-1280.webp"
+          srcSet="/hero-768.webp 768w, /hero-1280.webp 1280w, /hero-1536.webp 1536w, /hero-1920.webp 1920w"
           sizes="100vw"
           alt=""
           decoding="async"

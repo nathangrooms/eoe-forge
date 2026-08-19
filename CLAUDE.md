@@ -130,9 +130,63 @@ work. `sync_status.scryfall_cards` has been stuck `running` at page 46 / 32,726 
 since 2026-08-18, which is why the sets above are still missing.
 
 Fix is `round(stalled_mins, 1)` passed through `%s` on **both** `format()` calls (plain `%s` on a
-numeric prints full precision). **Deliberately not applied**: repairing the watchdog makes the next
-15-minute tick kick off a full ~32k-card sync against production. That is almost certainly what we
-want, but it should be a decision, not a side effect of a review.
+numeric prints full precision). ~~Deliberately not applied.~~ **Applied 2026-08-19**, migration
+`fix_sync_watchdog_format_specifier_and_schedule_unique_refresh`, because the printings sync below
+is a 553-page resumable run and the watchdog is the thing that rescues it.
+
+### 6.3 We held one printing of every card — fixed 2026-08-19
+
+`cards` was 34,088 rows over 33,037 distinct `oracle_id`s: **1.03 printings per card**. Every
+alternate art, borderless, extended art, showcase, promo and reprint was being discarded at the
+source, by one parameter in `scryfall-sync`:
+
+```
+https://api.scryfall.com/cards/search?q=-is%3Adigital+game%3Apaper&unique=cards
+```
+
+Measured against Scryfall for that exact query on 2026-08-19:
+`unique=cards` **32,726** · `unique=art` **47,604** · `unique=prints` **96,732**.
+
+It matters because three things are about a *printing*, not a card, and none of them can work
+against one printing per card: **collection value** (printings differ enormously in price and you
+own a particular one), **the scanner** (it identifies a card BY its artwork), and **marketplace
+listings** (a listing is always for a specific printing).
+
+Now `unique=prints`. The constant lives in one place, `CATALOGUE_UNIQUE` in
+`supabase/functions/scryfall-sync/index.ts`.
+
+#### The two card sources — read this before writing any card query
+
+Holding every printing creates the opposite danger, and it is worse than the problem it fixes: a
+commander picker that offers the same legend eight times, or a suggestion list that spends every
+slot on reprints of Sol Ring. So there are **two sources and every caller declares which it wants**:
+
+| Source | Holds | Use for |
+|---|---|---|
+| **`public.cards_unique`** | one row per `oracle_id` | **the default.** Search, commander selection, all suggestions and recommendations, deck-building candidate pools, the optimiser, MTG Brain, deck lists |
+| `public.cards` | every printing | only where the printing IS the subject: collection rows, marketplace listings, scanner results, the art-variants list on a card page |
+
+In app code go through `src/lib/cards/cardQuery.ts` — `uniqueCards()` and `cardPrintings()` — rather
+than writing `from('cards')`, which reads like "the cards table" and silently returns printings.
+The rule and the dedupe itself live in `src/lib/cards/source.ts`, tested by `source.test.ts`.
+
+**Which printing represents a card:** cheapest USD price, a priced printing beats an unpriced one,
+ties break on the lowest `id`. That is the deck optimiser's existing convention
+(`deck-optimizer/_engine/deck/recommend/rank.ts`, `cheaper()`), copied rather than reinvented, and
+it is written in exactly three places that are checked against each other: the `order by` of
+`cards_unique`, `comparePrintings()` in `source.ts`, and the optimiser. Verified: for all 995
+oracle_ids with more than one printing, all three choose the same row.
+
+`cards_unique` is a **materialized view** with a UNIQUE index on `oracle_id`, so the database itself
+refuses to hold a duplicate. It is rebuilt by the `cards-unique-refresh` cron job every 15 minutes,
+which no-ops when nothing changed and refuses to run mid-sync. It **cannot** be refreshed from a
+PostgREST request: `authenticator` carries `statement_timeout=8s` and a CONCURRENT refresh takes
+minutes, so `refresh_cards_unique()` records the request and returns when the caller has no time.
+
+> ⚠️ **Adding a column to `cards` does not add it to `cards_unique`.** A materialized view freezes
+> its definition. Re-run `cards_unique_tracks_every_column_of_cards` after any `alter table cards`,
+> or callers reading the view get "column does not exist". `public.cards_unique_column_drift()`
+> returns what is missing.
 
 ---
 
@@ -543,3 +597,35 @@ attribution.
 8 decks, alphabetically clustered, which looks like fixture data rather than real
 play. Real ranked decklists are needed before any coverage number is
 decision-grade.
+
+
+## Correction: the coverage numbers were measured on a slice (19 Aug 2026)
+
+The figures quoted earlier in this file and in RULES-ENGINE-COVERAGE.md
+(manual 11,205 / vanilla 367 / partial 196 / keywords 148 / automated 84) were
+measured over the FIRST 12,000 ROWS BY ID, not the catalogue. The denominator was
+short by 2.8x. `scripts/measure-ability-coverage.ts` does not complete: it hits a
+Postgres 57014 statement timeout around row 20,000.
+
+Re-measured over all 34,088 rows by refetching at 500/page with retries:
+
+  manual 32,025 · vanilla 858 · partial 590 · keywords 332 · automated 283
+  needsManual = 32,615 = 95.7% of the catalogue
+
+**And `automationFor` is the wrong metric anyway.** It is the older reporting
+path. The number that describes what actually happens in a game is
+`abilityEngineOwns`, the compiled-ability bridge wired into triggers.ts, which
+owns **906 cards (2.66%)**. Union with the old detector's automated set is 949
+(2.78%).
+
+So the honest headline is: **the engine genuinely runs the abilities of about
+2.7% of the catalogue**, and correctly marks the rest as needing a human.
+
+Tagger figures confirmed and corrected: TAG_RULES has 66 entries and 66 canonical
+tags, plus 11 alias names of which one is also canonical, giving ALL_TAGS = 76.
+All 76 fire. Of 34,088 cards, 34,066 (99.9%) carry at least one tag and 25,074
+(73.6%) carry a non-type role tag. The 22 untagged match `tags = '{}'` in the
+database exactly, so TypeScript and SQL parity holds live.
+
+Whenever a coverage number is quoted anywhere, state the denominator and how it
+was measured. Two separate agents have now been misled by that slice.

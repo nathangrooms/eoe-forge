@@ -349,3 +349,32 @@ everywhere a user reads words, not just the homepage.
 
 These are copy rules for the interface. Code comments are exempt, and should keep
 explaining WHY at the length that takes.
+
+
+## Product decisions (owner, 19 Aug 2026)
+
+Asked directly and answered directly. These settle questions that had been
+implicit and were being guessed at.
+
+**1. Play mode is a CORE feature. Invest heavily.**
+It is a headline reason people use DeckMatrix, not a bonus beside collection and
+deckbuilding. Consequences:
+- A card that resolves and does nothing is a SERIOUS bug, not a known limitation.
+- Card coverage is worth real investment. Today only 84 of ~12,000 cards are
+  fully automated and 11,205 are marked manual.
+- The manual marker must always be visible. The engine already computes
+  `automationFor(card).needsManual` correctly and nothing renders it, so the
+  engine is honest and the interface is not.
+- Manual controls (counters, keywords, tap, move zone) must be easy, because most
+  cards will need them for a long time.
+
+**2. Goal: launch polish in the foreground, depth in the background.**
+Both, not either. Visible breakage and desktop polish take priority in the
+foreground while long-running engine and card-knowledge work continues behind it.
+Do not stop building depth, and do not let depth block shipping.
+
+**3. XMage card extraction: proceed if the numbers are good.**
+Approved to build without further sign-off provided the spike shows a high clean
+mapping rate. Report numbers as it goes. See XMAGE-EXTRACTION-SPIKE.md.
+XMage is MIT so this is legal with attribution. Forge remains GPL-3.0 and
+strictly off-limits.

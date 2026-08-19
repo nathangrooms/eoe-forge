@@ -51,10 +51,15 @@ export function AuthLayout({
         <div className="absolute inset-0 bg-background/30" />
         {/* The page needs a floor. Stripping the scrims back to let the art
             through went too far and left the artwork ending on a hard edge at
-            the bottom of the viewport. This fades it out properly without
-            covering the panels: it starts well down the image and only reaches
-            full background at the very bottom. */}
-        <div className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-background via-background/70 to-transparent" />
+            the bottom of the viewport.
+
+            It holds FULL background for the bottom quarter, deliberately: the
+            five colour symbols and their labels are baked into the artwork
+            itself, and half-covering them looked like a rendering fault rather
+            than a design. Cover them properly. The fade then runs up through
+            three fifths of the height so the transition is never a visible
+            line. */}
+        <div className="absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-background from-25% via-background/80 to-transparent" />
       </div>
 
       <div className="relative flex min-h-screen flex-col">
@@ -75,18 +80,19 @@ export function AuthLayout({
           )}
         </header>
 
-        {/* The form used to sit hard against the right edge, which left it
-            crowding the frame and reading as an afterthought pasted on top.
-            It now sits inboard with real margin, and the tagline keeps the
-            left. */}
-        <div className="mx-auto flex w-full max-w-[110rem] flex-1 items-center justify-center gap-10 px-6 pb-10 lg:justify-between lg:px-16 xl:px-24">
+        {/* Centred. It sat hard against the right edge first, which read as
+            pasted on, and inboard-right still left the composition lopsided
+            against a symmetrical five-panel artwork. The art is a centred
+            spread, so the thing you came here to do belongs on its axis. The
+            tagline stacks above the form rather than beside it. */}
+        <div className="flex flex-1 flex-col items-center justify-center px-6 pb-10">
           {/* The tagline sits over the art on wide screens, where there is room
               for it without covering the panels. */}
-          <div className="hidden max-w-lg lg:block">
-            <p className="text-3xl font-medium leading-snug text-balance drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]">
+          <div className="mb-8 hidden max-w-xl text-center lg:block">
+            <p className="text-3xl font-medium leading-snug text-balance drop-shadow-[0_2px_12px_rgba(0,0,0,0.85)]">
               Every card you own, in one place.
             </p>
-            <p className="mt-4 max-w-sm text-sm leading-relaxed text-foreground/80 drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
+            <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-foreground/85 drop-shadow-[0_2px_10px_rgba(0,0,0,0.95)]">
               Catalogue your collection, track where each card is stored, and build decks
               against what is already on your shelf.
             </p>

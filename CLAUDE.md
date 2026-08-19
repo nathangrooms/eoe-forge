@@ -327,3 +327,25 @@ fringes on thin type over dark backgrounds and reads as a styling bug that is no
 Verify importers against the CURRENT tree before deleting. An earlier sweep removed ten deck
 components that were genuinely in use, including `CommanderPowerDisplay` and `MatchAnalytics`;
 they had to be restored. `grep` for the import path, do not trust an audit line alone.
+
+
+## Copy rules (project-wide, all user-facing text)
+
+Added 19 Aug 2026 on the owner's instruction about the homepage. These apply
+everywhere a user reads words, not just the homepage.
+
+1. **No jargon.** Write for a Commander player who does not know this product and
+   does not know software. Product-invented vocabulary and engineering words do
+   not belong in the interface: "portability", "round trip", "subscore weights",
+   "taxonomy", "canonical", "engine", "pipeline", "surface", "primitive". Say
+   what the thing does in the words a player would use at a table. If a feature
+   cannot be described without its own invented term, it is not explaining itself.
+
+2. **No em-dashes in user-facing copy.** Rewrite the sentence rather than
+   swapping the dash for a semicolon or brackets. A sentence that needed an
+   em-dash usually wanted to be two sentences.
+
+3. Short beats long. Fewer, plainer words.
+
+These are copy rules for the interface. Code comments are exempt, and should keep
+explaining WHY at the length that takes.

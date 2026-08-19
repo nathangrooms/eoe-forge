@@ -658,10 +658,21 @@ export function AIOptimizerPanel({
     for (const land of lands.slice(0, 12)) {
       const local = findDeckCard(land.name);
       const card = local?.image_uris ? local : await fetchCard(land.name);
+
+      // A card taken from the decklist carries art but not necessarily prices,
+      // so fall back to Scryfall rather than showing a land with no cost. Only
+      // when the local copy actually lacks one, which keeps this to at most a
+      // handful of extra requests across the twelve.
+      let price = usdPrice((card as any)?.prices);
+      if (price === null && local) {
+        price = usdPrice((await fetchCard(land.name))?.prices);
+      }
+
       results.push({
         type: land.type === 'add' ? 'add' : 'remove',
         name: land.name,
         card: card ?? null,
+        price,
         reason: land.reason || '',
         priority: land.priority || 'medium',
         category: land.category || undefined,

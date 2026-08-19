@@ -27,6 +27,13 @@ export interface LandRecommendation {
   name: string;
   /** Full card object for `<CardImage>`. `null` if Scryfall lookup failed. */
   card: any | null;
+  /**
+   * `null` when Scryfall has no USD price, never coerced to 0. Lands were the
+   * one tab that showed no money at all, which made "add this land" a
+   * recommendation you could not cost. A fetch land and a basic are the same
+   * suggestion until you can see one is $18 and the other is free.
+   */
+  price: number | null;
   reason: string;
   priority: 'high' | 'medium' | 'low';
   category?: string;
@@ -246,6 +253,7 @@ function LandGroup({
                    renders its own skeleton for a card with no art, which beats
                    dropping the recommendation on the floor. */
                 card={land.card ?? { name: land.name }}
+                price={land.price}
                 reason={land.reason}
                 tags={land.category ? <TilePill>{land.category}</TilePill> : undefined}
                 action={action(land)}

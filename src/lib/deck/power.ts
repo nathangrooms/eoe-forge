@@ -1,623 +1,39 @@
 /**
- * THE deck power score.
+ * THE deck power score. The accessor every surface uses.
  *
- * DeckMatrix used to carry five different "power" numbers — `powerLevel`,
- * `powerScore`, `edhPower`, `user_decks.power_level` and `power.score` — each
- * produced by a different model on a different scale, so one deck could read
- * 5 on the dashboard, 6.28 in the builder banner and 6.6 in the analysis modal
- * at the same moment.
+ * The model is in `src/engine/power/`, so an edge function can carry a
+ * byte-identical copy of it and reach the same number. The deterministic half
+ * of the adapter is in `./powerAdapter.ts`, so `node --test` can reach it
+ * without a Supabase client. This file is what is left: reading and writing
+ * `user_decks.edh_analysis`, plus a re-export of everything else so that the
+ * twenty-six modules importing `@/lib/deck/power` did not have to change.
  *
- * This module is the only producer. Every surface calls {@link computeDeckPower}
- * (or reads a stored result through {@link deckPowerFromSummary}) and renders
- * the result through `@/components/deck/PowerScore`. There is no second model,
- * no second scale and no second set of band thresholds.
- *
- * The engine underneath is `EDHPowerCalculator` — nine weighted subscores over
- * four curated catalogues, mapped through a logistic to 1–10, plus a seeded
- * 10,000-iteration Monte Carlo for the playability figures. That engine is
- * deliberately *not* re-exported: callers get {@link DeckPower}, a flat shape
- * with one scale per field, so nothing downstream can invent its own rescaling.
- *
- * ## Staleness
- *
- * A score is only meaningful for the decklist it was computed from, so every
- * result carries the {@link deckListHash} of that list. A stored score whose
- * hash no longer matches the deck is returned with `stale: true`, and
- * `PowerScore` refuses to render a stale number as if it were current. A wrong
- * number shown confidently is worse than no number.
+ * The one rule that matters: there is no second model, no second scale and no
+ * second set of band thresholds anywhere in this repository, and
+ * `src/engine/one-brain.test.ts` fails if that stops being true.
  */
 
 import { supabase } from '@/integrations/supabase/client';
-import type { Card as EngineCard } from '@/lib/deckbuilder/types';
-import type { Card as StoreCard } from '@/stores/deckStore';
+import { fetchDeckCards } from '@/lib/deck/deckCards';
 import {
-  EDHPowerCalculator,
-  type EDHPowerScore,
-} from '@/lib/deckbuilder/score/edh-power-calculator';
-import { DeckCoach, type CoachingOperation } from '@/lib/deckbuilder/score/coach';
-import { fetchDeckCards, type DeckCardRow } from '@/lib/deck/deckCards';
+  POWER_ENGINE_VERSION,
+  computeDeckPower,
+  deckListHash,
+  entriesFromDeckRows,
+  bandForScore,
+  bracketIdForScore,
+  bandLabel,
+  DECK_BRACKETS,
+  type DeckPower,
+  type DeckPowerDiagnostics,
+  type DeckPowerSubscores,
+  type PowerBand,
+  type BracketId,
+  type Subscore,
+  type CastabilityReadout,
+} from './powerAdapter.ts';
 
-/* ------------------------------------------------------------------ *
- * Bands, brackets and colour
- * ------------------------------------------------------------------ */
-
-export type PowerBand = 'casual' | 'mid' | 'high' | 'cedh';
-
-/**
- * The one threshold table.
- *
- * These are `EDHPowerCalculator.defaultConfig.thresholds`. Before unification
- * four different sets of cuts were live at once (the SQL summary used 3/6/8,
- * the tile bracket helper used 2/4/6/8, the meter's text colour used 3/6/8 and
- * the engine used 3.4/6.6/8.5), so a deck at 6.5 was "high" on the tile and
- * "mid" in the analysis panel. Anything that needs a cut imports these.
- */
-export const POWER_BANDS = {
-  casualMax: 3.4,
-  midMax: 6.6,
-  highMax: 8.5,
-} as const;
-
-export function bandForScore(score: number): PowerBand {
-  if (score <= POWER_BANDS.casualMax) return 'casual';
-  if (score <= POWER_BANDS.midMax) return 'mid';
-  if (score <= POWER_BANDS.highMax) return 'high';
-  return 'cedh';
-}
-
-const BAND_LABEL: Record<PowerBand, string> = {
-  casual: 'Casual',
-  mid: 'Mid power',
-  high: 'High power',
-  cedh: 'cEDH',
-};
-
-export function bandLabel(band: PowerBand): string {
-  return BAND_LABEL[band];
-}
-
-/** Short form for tiles, where the band sits next to the number. */
-const BAND_SHORT: Record<PowerBand, string> = {
-  casual: 'Casual',
-  mid: 'Mid',
-  high: 'High',
-  cedh: 'cEDH',
-};
-
-export function bandShortLabel(band: PowerBand): string {
-  return BAND_SHORT[band];
-}
-
-/**
- * `text-power-1|4|7|10` are the registered power tokens — the only colour the
- * monochrome palette allows for this readout. Keyed off the band so the colour
- * and the word can never disagree.
- */
-export function powerTextClass(band: PowerBand): string {
-  switch (band) {
-    case 'casual':
-      return 'text-power-1';
-    case 'mid':
-      return 'text-power-4';
-    case 'high':
-      return 'text-power-7';
-    case 'cedh':
-      return 'text-power-10';
-  }
-}
-
-export function powerFillClass(band: PowerBand): string {
-  switch (band) {
-    case 'casual':
-      return 'bg-power-1';
-    case 'mid':
-      return 'bg-power-4';
-    case 'high':
-      return 'bg-power-7';
-    case 'cedh':
-      return 'bg-power-10';
-  }
-}
-
-export type BracketId = 1 | 2 | 3 | 4 | 5;
-
-export interface DeckBracket {
-  id: BracketId;
-  name: string;
-  blurb: string;
-}
-
-/** Wizards' Commander Brackets, worded to match the EDH analysis panel. */
-export const DECK_BRACKETS: Record<BracketId, DeckBracket> = {
-  1: {
-    id: 1,
-    name: 'Exhibition',
-    blurb: 'No extra turns, no mass land denial, no two-card combos, no game changers',
-  },
-  2: {
-    id: 2,
-    name: 'Core',
-    blurb: 'No chained extra turns, no mass land denial, no two-card combos',
-  },
-  3: {
-    id: 3,
-    name: 'Upgraded',
-    blurb: 'Late-game combos only, at most three game changers',
-  },
-  4: { id: 4, name: 'Optimized', blurb: 'No restrictions — built to win' },
-  5: { id: 5, name: 'cEDH', blurb: 'Competitive, tuned against the strongest decks' },
-};
-
-/**
- * Score → bracket, straddling the same cuts as {@link bandForScore} so a
- * "Casual" deck can only ever land in bracket 1 or 2. Bracket 1 splits the
- * casual band; every other boundary *is* a band boundary.
- */
-export function bracketIdForScore(score: number): BracketId {
-  if (score <= 2) return 1;
-  if (score <= POWER_BANDS.casualMax) return 2;
-  if (score <= POWER_BANDS.midMax) return 3;
-  if (score <= POWER_BANDS.highMax) return 4;
-  return 5;
-}
-
-export function bracketForScore(score: number): DeckBracket {
-  return DECK_BRACKETS[bracketIdForScore(score)];
-}
-
-/* ------------------------------------------------------------------ *
- * The result shape
- * ------------------------------------------------------------------ */
-
-export type SubscoreKey =
-  | 'speed'
-  | 'interaction'
-  | 'tutors'
-  | 'resilience'
-  | 'card_advantage'
-  | 'mana'
-  | 'consistency'
-  | 'stax_pressure'
-  | 'synergy';
-
-/** Weights the engine applies. Surfaced so the breakdown can explain itself. */
-export const SUBSCORE_WEIGHTS: Record<SubscoreKey, number> = {
-  speed: 0.2,
-  interaction: 0.15,
-  tutors: 0.12,
-  resilience: 0.12,
-  mana: 0.12,
-  consistency: 0.12,
-  card_advantage: 0.1,
-  stax_pressure: 0.04,
-  synergy: 0.03,
-};
-
-/** Display order: heaviest contribution first, so the breakdown reads as a cause. */
-export const SUBSCORE_ORDER: SubscoreKey[] = [
-  'speed',
-  'interaction',
-  'tutors',
-  'resilience',
-  'mana',
-  'consistency',
-  'card_advantage',
-  'stax_pressure',
-  'synergy',
-];
-
-export const SUBSCORE_LABELS: Record<SubscoreKey, string> = {
-  speed: 'Speed',
-  interaction: 'Interaction',
-  tutors: 'Tutors',
-  resilience: 'Resilience',
-  card_advantage: 'Card advantage',
-  mana: 'Mana base',
-  consistency: 'Consistency',
-  stax_pressure: 'Stax pressure',
-  synergy: 'Synergy',
-};
-
-export const SUBSCORE_DESCRIPTIONS: Record<SubscoreKey, string> = {
-  speed: 'Fast mana and a low curve — how early the deck can act',
-  interaction: 'Removal, counterspells and other answers',
-  tutors: 'Search effects that make the game plan repeatable',
-  resilience: 'Protection, recursion and recovery after a wipe',
-  card_advantage: 'Draw engines that stop the deck running out of gas',
-  mana: 'Fixing, untapped sources and land count',
-  consistency: 'Curve, redundancy and how often the deck does its thing',
-  stax_pressure: 'Resource denial applied to the rest of the table',
-  synergy: 'How well the list works with its commander and itself',
-};
-
-/** Every subscore is 0–100. One scale, everywhere. */
-export type DeckPowerSubscores = Record<SubscoreKey, number>;
-
-/**
- * The seeded simulation figures. Percentages are 0–100; `avgManaValue` and
- * `expectedWinTurn` are plain floats. Seed is fixed at {@link POWER_SEED} so
- * two surfaces scoring the same list get byte-identical numbers.
- */
-export interface DeckPowerSimulation {
-  keepable7Pct: number;
-  t1ColorPct: number;
-  t2TwoColorsPct: number;
-  untappedLandPct: number;
-  avgManaValue: number;
-  manaRocksAndDorks: number;
-  expectedWinTurn: number;
-  comboPresent: boolean;
-}
-
-export interface DeckPowerDiagnostics {
-  tutorCount: number;
-  gameChangerCount: number;
-  noTutors: boolean;
-  noGameChangers: boolean;
-}
-
-/** The single typed result. Nothing else in the app describes a power score. */
-export interface DeckPower {
-  /** 1–10, one decimal. The number. */
-  score: number;
-  band: PowerBand;
-  bracket: BracketId;
-  subscores: DeckPowerSubscores;
-  simulation: DeckPowerSimulation;
-  diagnostics: DeckPowerDiagnostics;
-  /** Human-readable strengths and weaknesses straight from the engine. */
-  drivers: string[];
-  drags: string[];
-  legality: { ok: boolean; issues: string[] };
-  /** Hash of the decklist this score was computed from. */
-  hash: string;
-  /** ISO timestamp of the computation. */
-  scoredAt: string;
-  /**
-   * True when this is a stored score whose decklist has since changed. A stale
-   * score must never be rendered as the deck's current power.
-   */
-  stale: boolean;
-  /** `engine` = computed here and now; `stored` = read back from the database. */
-  source: 'engine' | 'stored';
-  engineVersion: number;
-}
-
-/**
- * Bumped whenever the engine, its catalogues or this adapter change in a way
- * that would move scores. Stored results from an older version are treated as
- * absent rather than shown alongside fresh ones.
- */
-export const POWER_ENGINE_VERSION = 1;
-
-/** Fixed simulation seed. Determinism is the whole point. */
-export const POWER_SEED = 42;
-
-/* ------------------------------------------------------------------ *
- * Deck list input
- * ------------------------------------------------------------------ */
-
-/**
- * One decklist row. Quantity matters: the engine's simulation shuffles the
- * real deck, so a list stored as "Forest ×10" has to become ten cards or the
- * keepable-seven figure is computed against a 60-card deck that does not exist.
- */
-export interface PowerDeckEntry {
-  card: EngineCard;
-  quantity: number;
-  isCommander?: boolean;
-  /**
-   * The name to hash on, when it differs from the card's own name.
-   *
-   * The stored hash has to be reproducible from `deck_cards.card_name` alone,
-   * because that is all the deck summary and the dashboard queries carry. A
-   * joined `cards.name` can differ from it — a double-faced card is stored as
-   * "Front" in one place and "Front // Back" in the other — and a hash computed
-   * from the wrong one would mark every deck permanently stale.
-   */
-  hashName?: string;
-}
-
-/**
- * Quantity-aware, order-independent decklist hash (FNV-1a, hex).
- *
- * The builder's old `generateCardsHash` sorted names and ignored quantity, so
- * swapping three Islands for three Mountains of the same count left the hash
- * unchanged and the cached score looked current. This one folds quantity in.
- */
-export function deckListHash(entries: Array<{ name: string; quantity: number }>): string {
-  const normalized = entries
-    .filter(e => e?.name)
-    .map(e => `${e.name.trim().toLowerCase()}:${Math.max(1, Math.round(e.quantity || 1))}`)
-    .sort()
-    .join('|');
-
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < normalized.length; i++) {
-    hash ^= normalized.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-  return `${hash.toString(16).padStart(8, '0')}-${normalized.length.toString(16)}`;
-}
-
-function entryHash(entries: PowerDeckEntry[]): string {
-  return deckListHash(
-    entries.map(e => ({ name: e.hashName ?? e.card.name, quantity: e.quantity }))
-  );
-}
-
-/* ------------------------------------------------------------------ *
- * Adapters — every card shape in the app funnels through one of these
- * ------------------------------------------------------------------ */
-
-function blankEngineCard(name: string): EngineCard {
-  return {
-    id: '',
-    oracle_id: '',
-    name,
-    mana_cost: '',
-    cmc: 0,
-    type_line: '',
-    oracle_text: '',
-    colors: [],
-    color_identity: [],
-    keywords: [],
-    legalities: {},
-    prices: { usd: '0' },
-    set: '',
-    set_name: '',
-    collector_number: '',
-    rarity: 'common',
-    layout: 'normal',
-    is_legendary: false,
-    tags: new Set<string>(),
-    derived: { mv: 0, colorPips: {}, producesMana: false, etbTapped: false },
-  };
-}
-
-/** Deck rows loaded by `fetchDeckCards` (deck detail page, analysis modal). */
-export function entriesFromDeckRows(rows: DeckCardRow[]): PowerDeckEntry[] {
-  return rows
-    .filter(row => !row.is_sideboard)
-    .map(row => {
-      const base = blankEngineCard(row.card?.name || row.card_name);
-      const card: EngineCard = {
-        ...base,
-        id: row.card_id,
-        oracle_id: row.card_id,
-        mana_cost: row.card?.mana_cost || '',
-        cmc: row.card?.cmc ?? 0,
-        type_line: row.card?.type_line || '',
-        oracle_text: row.card?.oracle_text || '',
-        colors: row.card?.colors ?? [],
-        color_identity: row.card?.color_identity ?? [],
-        power: row.card?.power ?? undefined,
-        toughness: row.card?.toughness ?? undefined,
-        keywords: row.card?.keywords ?? [],
-        legalities: (row.card?.legalities ?? {}) as EngineCard['legalities'],
-        prices: { usd: row.card?.prices?.usd ?? '0' },
-        set: row.card?.set_code || '',
-        set_name: row.card?.set_code || '',
-        rarity: (row.card?.rarity as EngineCard['rarity']) || 'common',
-        is_legendary:
-          row.card?.is_legendary ??
-          (row.card?.type_line || '').toLowerCase().includes('legendary'),
-        derived: {
-          mv: row.card?.cmc ?? 0,
-          colorPips: {},
-          producesMana: false,
-          etbTapped: false,
-        },
-      };
-      return {
-        card,
-        quantity: Math.max(1, row.quantity || 1),
-        isCommander: row.is_commander,
-        // Hash on the stored name so this matches what `compute_deck_summary`
-        // and the dashboard queries can reproduce.
-        hashName: row.card_name,
-      };
-    });
-}
-
-/** Zustand store cards (builder, AI builder, public deck page). */
-export function entriesFromStoreCards(
-  cards: StoreCard[],
-  commander?: StoreCard | null
-): PowerDeckEntry[] {
-  const convert = (card: StoreCard, isCommander: boolean): PowerDeckEntry => {
-    const base = blankEngineCard(card.name);
-    return {
-      quantity: Math.max(1, card.quantity || 1),
-      isCommander,
-      card: {
-        ...base,
-        id: card.id || '',
-        oracle_id: card.id || '',
-        mana_cost: card.mana_cost || '',
-        cmc: card.cmc ?? 0,
-        type_line: card.type_line || '',
-        oracle_text: card.oracle_text || '',
-        colors: card.colors ?? [],
-        // Colour identity is not the same thing as colour. Aliasing the two
-        // scored every deck against the wrong commander baseline.
-        color_identity: card.color_identity?.length ? card.color_identity : (card.colors ?? []),
-        power: card.power,
-        toughness: card.toughness,
-        keywords: card.mechanics ?? card.keywords ?? [],
-        legalities: (card.legalities ?? {}) as EngineCard['legalities'],
-        prices: { usd: card.prices?.usd ?? '0' },
-        set: card.set || '',
-        set_name: card.set_name || '',
-        collector_number: card.collector_number || '',
-        rarity: (card.rarity as EngineCard['rarity']) || 'common',
-        layout: card.layout || 'normal',
-        is_legendary: (card.type_line || '').toLowerCase().includes('legendary'),
-        derived: { mv: card.cmc ?? 0, colorPips: {}, producesMana: false, etbTapped: false },
-      },
-    };
-  };
-
-  const entries = cards.map(card => convert(card, card.category === 'commanders'));
-
-  // A commander held outside the card list (the builder keeps it in its own
-  // slot) still has to be scored, or colour identity and synergy evaluate
-  // against no commander at all.
-  if (commander && !entries.some(e => e.isCommander && e.card.name === commander.name)) {
-    entries.unshift(convert(commander, true));
-  }
-  return entries;
-}
-
-/** Plain `{name, quantity}` lists — AI build results, imports. */
-export function entriesFromNamedCards(
-  cards: Array<{ name: string; quantity?: number; isCommander?: boolean }>
-): PowerDeckEntry[] {
-  return cards.map(c => ({
-    card: blankEngineCard(c.name),
-    quantity: Math.max(1, c.quantity || 1),
-    isCommander: c.isCommander,
-  }));
-}
-
-/* ------------------------------------------------------------------ *
- * The one accessor
- * ------------------------------------------------------------------ */
-
-export interface ComputeDeckPowerOptions {
-  format?: string;
-  /** Overrides the commander found via `isCommander` on the entries. */
-  commander?: EngineCard;
-}
-
-/** Small memo so a tile, a modal and a panel scoring the same list pay once. */
-const scoreCache = new Map<string, DeckPower>();
-const SCORE_CACHE_LIMIT = 64;
-
-function cacheScore(key: string, value: DeckPower) {
-  if (scoreCache.size >= SCORE_CACHE_LIMIT) {
-    const oldest = scoreCache.keys().next().value;
-    if (oldest !== undefined) scoreCache.delete(oldest);
-  }
-  scoreCache.set(key, value);
-}
-
-function toSimulation(engine: EDHPowerScore): DeckPowerSimulation {
-  return {
-    keepable7Pct: engine.playability.keepable7_pct,
-    t1ColorPct: engine.playability.t1_color_hit_pct,
-    t2TwoColorsPct: engine.playability.t2_two_colors_hit_pct,
-    untappedLandPct: engine.playability.untapped_land_ratio,
-    avgManaValue: engine.playability.avg_cmc,
-    manaRocksAndDorks: engine.playability.rocks_dorks_count,
-    expectedWinTurn: engine.goldfish.exp_win_turn,
-    comboPresent: engine.goldfish.combo_presence,
-  };
-}
-
-/**
- * Score a decklist. **This is the only way a power number is produced.**
- *
- * Returns `null` for an empty list rather than a zero — "no cards" is not a
- * power level, and rendering 0/10 for an empty deck is exactly the kind of
- * confident-but-wrong number this module exists to remove.
- */
-export function computeDeckPower(
-  entries: PowerDeckEntry[],
-  options: ComputeDeckPowerOptions = {}
-): DeckPower | null {
-  const usable = entries.filter(e => e?.card?.name);
-  if (usable.length === 0) return null;
-
-  const format = options.format || 'commander';
-  const hash = entryHash(usable);
-  const cacheKey = `${format}:${hash}`;
-  const cached = scoreCache.get(cacheKey);
-  if (cached) return cached;
-
-  const commander =
-    options.commander ?? usable.find(e => e.isCommander)?.card ?? undefined;
-
-  // Expand quantities. The simulation shuffles this array as the real deck.
-  const expanded: EngineCard[] = [];
-  for (const entry of usable) {
-    if (entry.isCommander && entry.card.name === commander?.name) continue;
-    for (let i = 0; i < entry.quantity; i++) expanded.push(entry.card);
-  }
-  if (expanded.length === 0) return null;
-
-  let engine: EDHPowerScore;
-  try {
-    engine = EDHPowerCalculator.calculatePower(expanded, format, POWER_SEED, commander);
-  } catch (error) {
-    console.error('Deck power calculation failed:', error);
-    return null;
-  }
-
-  const score = Math.round(engine.power * 10) / 10;
-  const band = bandForScore(score);
-
-  const result: DeckPower = {
-    score,
-    band,
-    bracket: bracketIdForScore(score),
-    subscores: engine.subscores,
-    simulation: toSimulation(engine),
-    diagnostics: {
-      tutorCount: engine.diagnostics.tutors.count_raw,
-      gameChangerCount: engine.diagnostics.game_changers.count,
-      noTutors: engine.flags.no_tutors,
-      noGameChangers: engine.flags.no_game_changers,
-    },
-    drivers: engine.drivers,
-    drags: engine.drags,
-    legality: engine.legality,
-    hash,
-    scoredAt: new Date().toISOString(),
-    stale: false,
-    source: 'engine',
-    engineVersion: POWER_ENGINE_VERSION,
-  };
-
-  cacheScore(cacheKey, result);
-  return result;
-}
-
-/**
- * Coaching towards a target power level.
- *
- * A *target* is not a score — it is where the player wants the deck to land.
- * Keeping the two apart in the type system is half the reason this module
- * exists, so coaching takes the canonical {@link DeckPower} plus a separate
- * target rather than overloading one number with both meanings.
- */
-export function coachDeckPower(
-  entries: PowerDeckEntry[],
-  power: DeckPower,
-  targetPower: number,
-  format = 'commander'
-): { recommendations: string[]; operations: CoachingOperation[] } {
-  const expanded: EngineCard[] = [];
-  for (const entry of entries) {
-    for (let i = 0; i < Math.max(1, entry.quantity); i++) expanded.push(entry.card);
-  }
-
-  try {
-    return DeckCoach.generateRecommendations(
-      {
-        subscores: power.subscores,
-        targetPower,
-        currentPower: power.score,
-        format,
-        commander: entries.find(e => e.isCommander)?.card,
-      },
-      expanded
-    );
-  } catch (error) {
-    console.error('Deck coaching failed:', error);
-    return { recommendations: [], operations: [] };
-  }
-}
+export * from './powerAdapter.ts';
 
 /* ------------------------------------------------------------------ *
  * Persistence
@@ -628,6 +44,9 @@ export function coachDeckPower(
  * deliberately separate from — the `metrics` block the edhpowerlevel.com
  * scraper writes. Two different opinions, two different keys, never merged
  * into one field.
+ *
+ * The evidence is stored too. It is a few kilobytes and it is the difference
+ * between a stored score you can still explain and a stored number.
  */
 export interface StoredDeckPower {
   version: number;
@@ -635,11 +54,13 @@ export interface StoredDeckPower {
   band: PowerBand;
   bracket: BracketId;
   subscores: DeckPowerSubscores;
-  simulation: DeckPowerSimulation;
+  evidence: Subscore[];
+  castability: CastabilityReadout;
   diagnostics: DeckPowerDiagnostics;
   drivers: string[];
   drags: string[];
   legality: { ok: boolean; issues: string[] };
+  unreliable: boolean;
   hash: string;
   scoredAt: string;
 }
@@ -651,15 +72,35 @@ function toStored(power: DeckPower): StoredDeckPower {
     band: power.band,
     bracket: power.bracket,
     subscores: power.subscores,
-    simulation: power.simulation,
+    evidence: power.evidence,
+    castability: power.castability,
     diagnostics: power.diagnostics,
     drivers: power.drivers,
     drags: power.drags,
     legality: power.legality,
+    unreliable: power.unreliable,
     hash: power.hash,
     scoredAt: power.scoredAt,
   };
 }
+
+/** What a stored score has instead of a computed cut list: nothing. */
+const EMPTY_READOUT: CastabilityReadout = {
+  averagePct: null,
+  medianPct: null,
+  hardToCastCount: 0,
+  threshold: 50,
+  scoredCount: 0,
+  avgManaValue: 0,
+  landCount: 0,
+  manaRocksAndDorks: 0,
+  untappedLandPct: 0,
+  keepable7Pct: null,
+  turnOneColourPct: null,
+  sourcesByColour: { W: 0, U: 0, B: 0, R: 0, G: 0 },
+  hardest: [],
+  approximate: false,
+};
 
 /**
  * Rehydrate a stored score.
@@ -668,6 +109,10 @@ function toStored(power: DeckPower): StoredDeckPower {
  * not match what the score was computed from, the result comes back with
  * `stale: true` and every renderer treats it as "needs rescoring" rather than
  * as the deck's power.
+ *
+ * `cuts` comes back empty. A cut list is only meaningful against a live
+ * decklist, and returning a stored one would let a page suggest cutting a card
+ * that is no longer in the deck.
  */
 export function deckPowerFromStored(
   stored: unknown,
@@ -686,13 +131,16 @@ export function deckPowerFromStored(
     band,
     bracket: raw.bracket ?? bracketIdForScore(score),
     subscores: (raw.subscores ?? {}) as DeckPowerSubscores,
-    simulation: (raw.simulation ?? {}) as DeckPowerSimulation,
+    evidence: raw.evidence ?? [],
+    castability: raw.castability ?? EMPTY_READOUT,
+    cuts: [],
     diagnostics:
       raw.diagnostics ??
       ({ tutorCount: 0, gameChangerCount: 0, noTutors: false, noGameChangers: false } as const),
     drivers: raw.drivers ?? [],
     drags: raw.drags ?? [],
     legality: raw.legality ?? { ok: true, issues: [] },
+    unreliable: raw.unreliable ?? false,
     hash: raw.hash ?? '',
     scoredAt: raw.scoredAt ?? '',
     stale: currentHash !== null && raw.hash !== currentHash,

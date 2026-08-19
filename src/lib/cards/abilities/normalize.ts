@@ -186,7 +186,14 @@ const UNSAFE_SHORT_NAMES = new Set([
  * characters or more, and never from `UNSAFE_SHORT_NAMES` — the guard against
  * "Will, Scholar of Frost" rewriting the word "will" across the catalogue.
  */
-function selfNames(card: AbilityCard): string[] {
+/*
+ * Exported because `roundtrip.ts` normalises a FRAGMENT of oracle text — the part
+ * a model claimed to have compiled — and must fold self-names exactly as
+ * `normalizeCard` folds them across the whole. A second, near-identical name list
+ * over there would be somewhere for the two to disagree, and a disagreement shows
+ * up as the round-trip reporting a dropped word that is really the card's name.
+ */
+export function selfNames(card: AbilityCard): string[] {
   const names = new Set<string>();
   const addWithShortForm = (raw: string): void => {
     const lower = raw.toLowerCase().trim();

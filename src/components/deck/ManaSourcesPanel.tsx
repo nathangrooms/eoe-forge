@@ -17,7 +17,7 @@ import { PlayabilityLegend } from './DeckCardFilters';
  * The deck's mana base, read out of the castability engine.
  *
  * Every figure on this panel is computed from the decklist by
- * `src/lib/deck/playability.ts` — source counts are real copies, the average
+ * `src/engine/playability/castability.ts` — source counts are real copies, the average
  * is by construction the mean of the column on the Cards tab, and nothing here
  * is a target, a grade or a recommended land count. There is no "you should
  * run 38 lands" line because that number cannot be derived from this deck, and

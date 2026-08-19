@@ -27,7 +27,12 @@ import { ArrowRight, Crown } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { seatBoxStyle, seatContentStyle, seatingFor, type Seat, type SeatLayout } from '@/lib/game';
+/* `@/lib/game/seating` rather than `@/lib/game`. Seating is standalone
+ * geometry with no imports of its own; the barrel beside it is the rules
+ * engine. Reaching this section through the barrel put 88 KB of layers,
+ * ability compiler and effect rules on the homepage, where no game is being
+ * played, purely to draw four seats around a picture of a table. */
+import { seatBoxStyle, seatContentStyle, seatingFor, type Seat, type SeatLayout } from '@/lib/game/seating';
 import { MatSurface } from '@/components/life/MatSurface';
 import type { MatColor } from '@/components/life/mats';
 

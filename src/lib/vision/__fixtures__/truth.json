@@ -1,0 +1,150 @@
+[
+ {
+  "id": "6c382c6a-ec47-4b8d-8ad4-cfc935765742",
+  "name": "Thriving Bluff",
+  "oracle_id": "91fceb34-0f2d-4392-be27-00dcd765637f",
+  "set": "tle",
+  "set_name": null,
+  "cn": "260",
+  "layout": "normal",
+  "group": "F_regression",
+  "group_size": 4,
+  "sibling_ids": [
+   "6c382c6a-ec47-4b8d-8ad4-cfc935765742",
+   "82c96473-d7b9-48dc-9569-cdb649c78463",
+   "8a6d17e6-c7f3-4433-a3f2-82076fb10031",
+   "c1932fa3-12bb-46aa-854f-87e0977e09be"
+  ]
+ },
+ {
+  "id": "82c96473-d7b9-48dc-9569-cdb649c78463",
+  "name": "Thriving Bluff",
+  "oracle_id": "91fceb34-0f2d-4392-be27-00dcd765637f",
+  "set": "msc",
+  "set_name": null,
+  "cn": "578",
+  "layout": "normal",
+  "group": "F_regression",
+  "group_size": 4,
+  "sibling_ids": [
+   "6c382c6a-ec47-4b8d-8ad4-cfc935765742",
+   "82c96473-d7b9-48dc-9569-cdb649c78463",
+   "8a6d17e6-c7f3-4433-a3f2-82076fb10031",
+   "c1932fa3-12bb-46aa-854f-87e0977e09be"
+  ]
+ },
+ {
+  "id": "8ef53e5e-709c-4613-a5ab-6bf12961b2e1",
+  "name": "Massacre Girl, Known Killer",
+  "oracle_id": "ccb39f4a-2684-4eb7-9066-aad81ae08962",
+  "set": "ecc",
+  "set_name": null,
+  "cn": "79",
+  "layout": "normal",
+  "group": "A_multi_printing",
+  "group_size": 2,
+  "sibling_ids": [
+   "8ef53e5e-709c-4613-a5ab-6bf12961b2e1",
+   "cb1c8800-9d33-485c-b776-042003b9ea92"
+  ]
+ },
+ {
+  "id": "cb1c8800-9d33-485c-b776-042003b9ea92",
+  "name": "Massacre Girl, Known Killer",
+  "oracle_id": "ccb39f4a-2684-4eb7-9066-aad81ae08962",
+  "set": "mkm",
+  "set_name": null,
+  "cn": "94",
+  "layout": "normal",
+  "group": "A_multi_printing",
+  "group_size": 2,
+  "sibling_ids": [
+   "8ef53e5e-709c-4613-a5ab-6bf12961b2e1",
+   "cb1c8800-9d33-485c-b776-042003b9ea92"
+  ]
+ },
+ {
+  "id": "3d9d840e-1f13-44e3-a4de-903cfa58a346",
+  "name": "Showdown of the Skalds",
+  "oracle_id": "6107f9aa-3373-4166-b4b8-a26fd6d69c72",
+  "set": "khm",
+  "set_name": null,
+  "cn": "229",
+  "layout": "saga",
+  "group": "C_special_frame",
+  "group_size": 1,
+  "sibling_ids": [
+   "3d9d840e-1f13-44e3-a4de-903cfa58a346"
+  ]
+ },
+ {
+  "id": "cc44eaa4-59a4-419e-b1d1-d92f354ff588",
+  "name": "Spellbook Seeker // Careful Study",
+  "oracle_id": "df5e4100-8c83-42d6-af96-1a1ec84a9210",
+  "set": "sos",
+  "set_name": null,
+  "cn": "68",
+  "layout": "prepare",
+  "group": "C_special_frame",
+  "group_size": 1,
+  "sibling_ids": [
+   "cc44eaa4-59a4-419e-b1d1-d92f354ff588"
+  ]
+ },
+ {
+  "id": "f25d56f9-aa54-4657-9ac9-e93fbba3e715",
+  "name": "Sejiri Shelter // Sejiri Glacier",
+  "oracle_id": "d54e4e37-042b-44a5-918d-757308545d4d",
+  "set": "znr",
+  "set_name": null,
+  "cn": "37",
+  "layout": "modal_dfc",
+  "group": "D_double_faced",
+  "group_size": 1,
+  "sibling_ids": [
+   "f25d56f9-aa54-4657-9ac9-e93fbba3e715"
+  ]
+ },
+ {
+  "id": "8325c570-4d74-4e65-891c-3e153abf4bf9",
+  "name": "Ulvenwald Mystics // Ulvenwald Primordials",
+  "oracle_id": "4418ff27-57c0-4c94-8aee-6151e4f8b0f9",
+  "set": "isd",
+  "set_name": null,
+  "cn": "208",
+  "layout": "transform",
+  "group": "D_double_faced",
+  "group_size": 1,
+  "sibling_ids": [
+   "8325c570-4d74-4e65-891c-3e153abf4bf9"
+  ]
+ },
+ {
+  "id": "42679318-e5c4-4aa4-8097-97552defc8bf",
+  "name": "Vogar, Necropolis Tyrant",
+  "oracle_id": "1d704c2f-cd24-4a04-a51a-da7984dcd358",
+  "set": "gn3",
+  "set_name": null,
+  "cn": "3",
+  "layout": "normal",
+  "group": "E_control",
+  "group_size": 1,
+  "sibling_ids": [
+   "42679318-e5c4-4aa4-8097-97552defc8bf"
+  ]
+ },
+ {
+  "id": "20471a3b-90f9-4463-9b43-fc7b9b28f5d1",
+  "name": "Orazca Frillback",
+  "oracle_id": "2da32ec3-f42f-4edc-b5b3-e5f39fcf370c",
+  "set": "jmp",
+  "set_name": null,
+  "cn": "416",
+  "layout": "normal",
+  "group": "E_control",
+  "group_size": 1,
+  "sibling_ids": [
+   "20471a3b-90f9-4463-9b43-fc7b9b28f5d1"
+  ]
+ }
+]

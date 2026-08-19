@@ -14,6 +14,21 @@ import {
 } from 'lucide-react';
 import { CollectionStats } from '@/types/collection';
 import { formatPrice, formatCardCount } from '@/features/collection/value';
+import { formatPriceOrUnknown } from '@/components/collection/browser/types';
+
+/**
+ * The USD price of one non-foil copy, or null when the catalogue has none.
+ *
+ * Deliberately not `parseFloat(x || '0')`: that turns "we have no price for
+ * this" into "this card is free", and 1,010 of the 34,088 rows in `cards` have
+ * no USD price at all, including every Arena rebalanced printing.
+ */
+function unitUsd(item: { card?: { prices?: Record<string, string | null> | null } | null }) {
+  const raw = item.card?.prices?.usd;
+  if (raw === null || raw === undefined || raw === '') return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
 
 interface CollectionAnalyticsProps {
   stats: CollectionStats;
@@ -246,9 +261,15 @@ export function CollectionAnalytics({ stats, loading }: CollectionAnalyticsProps
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-green-600">{formatPrice(cardValue)}</p>
+                    <p className="font-bold text-green-600">
+                      {formatPriceOrUnknown(cardValue)}
+                    </p>
                     <p className="text-xs text-muted-foreground">
-                      {formatPrice(parseFloat(item.card?.prices?.usd || '0'))}/each
+                      {/* `parseFloat(undefined || '0')` is 0, and 0 through a
+                          currency formatter prints "$0.00", which is how a card
+                          holding only a foil price came to be listed as costing
+                          nothing each. */}
+                      {unitUsd(item) === null ? 'No price' : `${formatPrice(unitUsd(item)!)}/each`}
                     </p>
                   </div>
                 </div>

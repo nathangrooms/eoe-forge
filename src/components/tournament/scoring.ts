@@ -439,3 +439,60 @@ export function generateEliminationBracket(players: string[]): Round[] {
 
   return rounds;
 }
+
+/* ------------------------------------------------------------------ *
+ * The round-by-round trail
+ * ------------------------------------------------------------------ */
+
+/** What happened to one player in one round. */
+export interface RoundOutcome {
+  round: number;
+  /** `pending` covers both "still playing" and "not paired yet". */
+  outcome: 'win' | 'loss' | 'draw' | 'bye' | 'pending';
+  /** Games won by this player, then by their opponent. Absent when pending. */
+  games?: [number, number];
+  /** Null for a bye, and for a round this player was not paired in. */
+  opponent: string | null;
+}
+
+/**
+ * Every round of the event from one player's side, oldest round first.
+ *
+ * This is the column a printed standings sheet has and this app did not: the
+ * table showed a 1-1-1 record with no way to see which round the draw was in or
+ * who it was against. It is derived, never stored, so it cannot disagree with
+ * the matches it is read from.
+ *
+ * A round the player was not paired in still produces an entry, so every
+ * player's trail is the same length and the rounds line up in a column.
+ */
+export function roundTrail(player: string, rounds: Round[]): RoundOutcome[] {
+  return rounds.map(round => {
+    const match = round.matches.find(m => m.player1 === player || m.player2 === player);
+    if (!match) return { round: round.number, outcome: 'pending' as const, opponent: null };
+
+    const isP1 = match.player1 === player;
+    const opponent = isP1 ? match.player2 : match.player1;
+
+    if (opponent === 'BYE') {
+      return { round: round.number, outcome: 'bye' as const, opponent: null };
+    }
+
+    if (match.status !== 'completed' || !match.result) {
+      return {
+        round: round.number,
+        outcome: 'pending' as const,
+        opponent: opponent === 'TBD' ? null : opponent,
+      };
+    }
+
+    const games: [number, number] = isP1
+      ? [match.player1Score, match.player2Score]
+      : [match.player2Score, match.player1Score];
+
+    const outcome =
+      match.result === 'draw' ? 'draw' : (match.result === 'p1') === isP1 ? 'win' : 'loss';
+
+    return { round: round.number, outcome, games, opponent };
+  });
+}

@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { CardDetail, CardDetailHeading } from '@/components/cards/CardDetail';
 import { Maximize2, X } from 'lucide-react';
 import { cardDetailPath } from './card-link';
+import { CardPrices } from '@/components/pricing';
 
 /**
  * Card detail docked beside the list you came from.
@@ -126,6 +127,12 @@ export function CardDetailPane({
         onAddToWishlist={onAddToWishlist}
         onAddToDeck={onAddToDeck}
       />
+
+      {/* Every price we hold for this printing, not just the TCGplayer one.
+          `CardDetail` reads `usd` and `usd_foil` and nothing else, so a player
+          weighing a card in the deck builder could not see the Cardmarket or
+          Magic Online price sitting in the same row. */}
+      <CardPrices card={card} surface="inset" className="mt-4" />
     </section>
   );
 }

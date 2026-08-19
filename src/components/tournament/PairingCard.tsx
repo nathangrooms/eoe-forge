@@ -16,6 +16,16 @@
  *   entry is safe. There was previously no way at all to correct a mis-tap.
  * - **Exact games when they matter.** 2–1s and 1–1 time-limit draws go in
  *   through an expander that stays out of the way until asked for.
+ *
+ * The geometry is the homepage's, and it is the homepage's because the homepage
+ * was right. Its mock drew a pairing as two whole commander cards facing each
+ * other at 146px with the name centred underneath; this drew two 88px
+ * thumbnails with a text block glued to the side of each, mirrored on the right
+ * so nothing on the two halves lined up. A commander at 88px is a coloured
+ * smudge, and a TO reading a table number off a laptop across a shop counter
+ * cannot use it. So the seat is a column now: card, name, record, deck, stacked
+ * and centred, with the card taking whatever width the layout can spare up to a
+ * cap. At 1680 that is a little over 190px, better than double what it was.
  */
 
 import { useEffect, useState } from 'react';
@@ -77,7 +87,7 @@ export function PairingCard({
         <MatchStatus done={done} drawn={drawn} awaiting={awaiting} live={editable && !done} />
       </header>
 
-      <div className="grid grid-cols-1 items-stretch gap-2 p-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-3 sm:p-4 sm:pt-3">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-stretch gap-2 p-3 sm:gap-3 sm:p-4 sm:pt-3">
         <Seat
           view={player1}
           games={match.player1Score}
@@ -87,7 +97,9 @@ export function PairingCard({
           onWin={editable && !done && !awaiting ? () => onRecord('p1', 2, 0) : undefined}
         />
 
-        <div className="flex items-center justify-center sm:flex-col sm:justify-center">
+        {/* Both seats are the same column, so `vs` sits on the centre line of
+            the two cards rather than floating between two mismatched blocks. */}
+        <div className="flex items-center justify-center">
           <span
             aria-hidden="true"
             className="text-[0.6rem] font-semibold uppercase tracking-[0.24em] text-muted-foreground/60"
@@ -102,7 +114,6 @@ export function PairingCard({
           won={done && match.result === 'p2'}
           lost={done && match.result === 'p1'}
           showGames={done}
-          mirrored
           onWin={editable && !done && !awaiting ? () => onRecord('p2', 0, 2) : undefined}
         />
       </div>
@@ -163,7 +174,7 @@ export function PairingCard({
         <div className="flex flex-wrap items-center justify-between gap-2 bg-muted/30 px-3 py-2.5 sm:px-4">
           <p className="text-xs text-muted-foreground">
             {drawn
-              ? `Drawn ${match.player1Score}–${match.player2Score} — 1 match point each`
+              ? `Drawn ${match.player1Score}–${match.player2Score}. 1 match point each`
               : `${match.result === 'p1' ? player1.name : player2.name} wins ${Math.max(
                   match.player1Score,
                   match.player2Score
@@ -243,28 +254,42 @@ interface SeatProps {
   won: boolean;
   lost: boolean;
   showGames: boolean;
-  /** Right-aligned layout for the far side of the table. */
-  mirrored?: boolean;
   /** Present only while the result can be taken — makes the whole seat the button. */
   onWin?: () => void;
 }
 
-function Seat({ view, games, won, lost, showGames, mirrored = false, onWin }: SeatProps) {
+/**
+ * One side of the table.
+ *
+ * A column, not a row: the commander card on top at whatever width the layout
+ * can spare, then the name, the live record and the deck under it. The cap
+ * exists so a single pairing on a very wide screen does not turn into two
+ * poster-sized cards; everything below it scales with the column.
+ */
+function Seat({ view, games, won, lost, showGames, onWin }: SeatProps) {
   const isTbd = view.name === 'TBD';
   const interactive = !!onWin;
 
+  /*
+   * While the result can still be taken, the whole seat is the "record win"
+   * button, so nothing inside it may be separately clickable: nested
+   * interactive content is invalid, and a TO tapping a commander to score the
+   * table would be thrown out to a card page instead of scoring it. Once the
+   * match is closed the seat is inert again, and the card and the deck name
+   * become the links they are everywhere else in the event.
+   */
   const body = (
     <>
-      <div className="w-[68px] shrink-0 sm:w-[88px]">
-        <CommanderPortrait view={view} size="sm" dimmed={lost} />
+      <div className="w-[min(100%,11.5rem)]">
+        <CommanderPortrait view={view} size="md" dimmed={lost} linked={!interactive} />
       </div>
 
-      <div className={cn('flex min-w-0 flex-1 flex-col gap-1', mirrored && 'sm:items-end')}>
-        <div className={cn('flex min-w-0 items-center gap-1.5', mirrored && 'sm:flex-row-reverse')}>
-          {won && <Crown aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-foreground" />}
+      <div className="flex w-full min-w-0 flex-1 flex-col items-center gap-1 text-center">
+        <div className="flex min-w-0 max-w-full items-center gap-1.5">
+          {won && <Crown aria-hidden="true" className="h-4 w-4 shrink-0 text-foreground" />}
           <span
             className={cn(
-              'truncate text-sm font-semibold text-foreground',
+              'truncate text-base font-semibold text-foreground',
               lost && 'text-muted-foreground'
             )}
           >
@@ -274,16 +299,16 @@ function Seat({ view, games, won, lost, showGames, mirrored = false, onWin }: Se
 
         {!isTbd && (
           <>
-            <RecordLine standing={view.standing} className={cn(mirrored && 'sm:text-right')} />
-            <DeckLine view={view} className={cn(mirrored && 'sm:flex-row-reverse')} />
+            <RecordLine standing={view.standing} />
+            <DeckLine view={view} linked={!interactive} className="max-w-full justify-center" />
           </>
         )}
 
-        <div className={cn('mt-auto flex items-center gap-2 pt-1', mirrored && 'sm:justify-end')}>
+        <div className="mt-auto flex items-center justify-center gap-2 pt-1.5">
           {showGames && (
             <span
               className={cn(
-                'rounded-md px-2 py-0.5 text-sm font-semibold tabular-nums',
+                'rounded-md px-2.5 py-0.5 text-base font-semibold tabular-nums',
                 won ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground'
               )}
             >
@@ -307,8 +332,7 @@ function Seat({ view, games, won, lost, showGames, mirrored = false, onWin }: Se
   );
 
   const shell = cn(
-    'group flex w-full items-stretch gap-3 rounded-xl p-2.5 text-left transition-colors motion-reduce:transition-none',
-    mirrored && 'sm:flex-row-reverse sm:text-right',
+    'group flex w-full flex-col items-center gap-2.5 rounded-xl p-2.5 transition-colors motion-reduce:transition-none sm:p-3',
     won && 'bg-muted',
     !won && !interactive && 'bg-muted/20',
     interactive && 'bg-muted/20 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
@@ -336,19 +360,20 @@ function ByeCard({ tableNumber, player }: { tableNumber: number; player: PlayerV
         </span>
       </header>
 
-      <div className="flex items-stretch gap-3 p-3 sm:p-4 sm:pt-3">
-        <div className="w-[68px] shrink-0 sm:w-[88px]">
-          <CommanderPortrait view={player} size="sm" />
+      <div className="flex items-stretch gap-4 p-3 sm:p-4 sm:pt-3">
+        <div className="w-[min(38%,11.5rem)] shrink-0">
+          <CommanderPortrait view={player} size="md" />
         </div>
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <span className="truncate text-sm font-semibold text-foreground">{player.name}</span>
+        <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5">
+          <span className="truncate text-base font-semibold text-foreground">{player.name}</span>
           <RecordLine standing={player.standing} />
           <DeckLine view={player} />
         </div>
       </div>
 
       <p className="bg-muted/30 px-4 py-2.5 text-xs text-muted-foreground">
-        Odd field — awarded a 2–0 win. Nobody takes a second bye while another player can.
+        The field is odd, so this seat is awarded a 2–0 win. Nobody takes a second bye while
+        another player can.
       </p>
     </article>
   );
@@ -406,7 +431,7 @@ function GameScoreEntry({
       {tied && (
         <p className="text-center text-xs text-muted-foreground">
           {allowDraw
-            ? 'Equal games record as a draw — 1 match point each.'
+            ? 'Equal games record as a draw, worth 1 match point each.'
             : 'A bracket match needs a winner to advance.'}
         </p>
       )}

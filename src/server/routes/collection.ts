@@ -1,4 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
+import { uniqueCards, cardPrintings } from '@/lib/cards/cardQuery';
+import { fetchPrintingSpreads } from '@/lib/cards/printings';
+import { valueOwned } from '@/lib/pricing/printings';
 import type { Database } from '@/integrations/supabase/types';
 import { 
   Card, 
@@ -46,24 +49,45 @@ export class CollectionAPI {
         foil: item.foil,
         condition: item.condition as CollectionCard['condition'],
         price_usd: item.price_usd || undefined,
+        printing_chosen: (item as any).printing_chosen === true,
         created_at: item.created_at,
         updated_at: item.updated_at,
         card: transformDbCard((item as any).cards)
       }));
-      
-      // Calculate totals
+
+      /*
+       * The total is a range with a stated middle now, not one number.
+       *
+       * A collection row points at a printing, and printings of one card differ
+       * enormously in price. Every row written before 19 Aug 2026 took its
+       * printing from a catalogue holding exactly one of them, so nobody chose
+       * it. Summing those at their assigned printing's price produces a
+       * confident figure that is not this owner's figure.
+       *
+       * `valueOwned` keeps the two apart: settled copies (the owner picked the
+       * printing, or the card only ever had one) are added up, and the rest are
+       * reported as the range their real printings span. Both halves come from
+       * the database. Neither is invented.
+       */
+      const spreads = await fetchPrintingSpreads(items.map(i => i.card?.oracle_id));
+      const value = valueOwned(
+        items.map(item => ({
+          prices: item.card?.prices,
+          quantity: item.quantity,
+          foil: item.foil,
+          oracleId: item.card?.oracle_id,
+          printingChosen: item.printing_chosen,
+        })),
+        spreads,
+        'USD'
+      );
+
       const totals = {
         unique: items.filter(item => (item.quantity + item.foil) > 0).length,
         count: items.reduce((sum, item) => sum + item.quantity + item.foil, 0),
-        // Foil copies are priced with usd_foil; the previous version applied the
-        // non-foil price to every copy, so this total disagreed with every other
-        // valuation in the app.
-        valueUSD: items.reduce((sum, item) => {
-          const prices = (item.card?.prices ?? {}) as Record<string, string | null | undefined>;
-          const usd = parseFloat(prices.usd ?? '') || 0;
-          const usdFoil = parseFloat(prices.usd_foil ?? '') || usd;
-          return sum + item.quantity * usd + item.foil * usdFoil;
-        }, 0),
+        // The settled figure only. Callers needing the whole picture read
+        // `value`, which carries the range and the unsettled row count.
+        valueUSD: value.settled,
         avgCmc: 0 // Calculate in UI utility
       };
 
@@ -72,7 +96,8 @@ export class CollectionAPI {
           id: user.id,
           user_id: user.id,
           items,
-          totals
+          totals,
+          value
         }
       };
     } catch (error) {
@@ -89,8 +114,9 @@ export class CollectionAPI {
       }
 
       // Try to find card by ID first, then by name if it's a Scryfall format
-      let { data: card, error: cardError } = await supabase
-        .from('cards')
+      // A printing id, so read the printings. This is the one lookup here
+      // where the caller already knows exactly which printing it means.
+      let { data: card, error: cardError } = await cardPrintings()
         .select('*')
         .eq('id', cardId)
         .maybeSingle();
@@ -183,15 +209,15 @@ export class CollectionAPI {
         return { error: 'User not authenticated' };
       }
 
-      // Search for card by name
-      let cardQuery = supabase
-        .from('cards')
-        .select('*')
-        .ilike('name', cardName);
-
-      if (setCode) {
-        cardQuery = cardQuery.eq('set_code', setCode);
-      }
+      // A typed name resolves to ONE card, then to a printing.
+      //
+      // Without a set code the user has not chosen a printing, so read
+      // cards_unique: it answers with the cheapest printing, deterministically,
+      // instead of whichever of a card's forty rows the planner returned first.
+      // With a set code they HAVE named a printing, so read the printings.
+      let cardQuery = setCode
+        ? cardPrintings().select('*').ilike('name', cardName).eq('set_code', setCode)
+        : uniqueCards().select('*').ilike('name', cardName);
 
       const { data: cards, error: cardError } = await cardQuery.limit(1);
 
@@ -314,9 +340,10 @@ export class CollectionAPI {
     pageSize: number = 60
   ): Promise<ApiResponse<CardSearchResult>> {
     try {
-      let dbQuery = supabase
-        .from('cards')
-        .select('*', { count: 'exact' });
+      // One row per card: this is a search, and its `count` is shown to the
+      // user as "how many cards matched". Counting printings would report
+      // roughly three times the real number of cards.
+      let dbQuery = uniqueCards().select('*', { count: 'exact' });
 
       // Apply search query
       if (query.trim()) {
@@ -408,15 +435,11 @@ export class CollectionAPI {
 
           const { cardName, quantity, foil, setCode } = parseResult;
 
-          // Search for card
-          let cardQuery = supabase
-            .from('cards')
-            .select('*')
-            .ilike('name', cardName);
-
-          if (setCode) {
-            cardQuery = cardQuery.eq('set_code', setCode);
-          }
+          // Same rule as the single add: a set code names a printing, a bare
+          // name names a card and gets the cheapest printing of it.
+          let cardQuery = setCode
+            ? cardPrintings().select('*').ilike('name', cardName).eq('set_code', setCode)
+            : uniqueCards().select('*').ilike('name', cardName);
 
           const { data: cards } = await cardQuery.limit(1);
           

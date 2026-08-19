@@ -13,7 +13,9 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { CardImage } from '@/components/cards';
-import { formatPrice, toNumber } from '@/components/collection/browser/types';
+import { formatPrice } from '@/components/collection/browser/types';
+import { PriceTag } from '@/components/pricing';
+import { readAmount } from '@/lib/pricing';
 import { cn } from '@/lib/utils';
 
 interface WishlistItem {
@@ -62,8 +64,11 @@ export function WishlistListView({
   const [targetValue, setTargetValue] = useState('');
 
   const isPriceBelowTarget = (item: WishlistItem) => {
-    if (!item.target_price_usd || !item.card?.prices?.usd) return false;
-    return toNumber(item.card.prices.usd) <= item.target_price_usd;
+    // null, not 0, for a price we do not have, so an unpriced card is never
+    // announced as being below the target.
+    const current = readAmount(item.card?.prices?.usd);
+    if (!item.target_price_usd || current == null) return false;
+    return current <= item.target_price_usd;
   };
 
   const handleSaveTarget = (item: WishlistItem) => {
@@ -78,7 +83,6 @@ export function WishlistListView({
   return (
     <div className="space-y-2">
       {items.map((item) => {
-        const currentPrice = toNumber(item.card?.prices?.usd);
         const isBelowTarget = isPriceBelowTarget(item);
         const isExpanded = expandedItem === item.id;
         const priorityConfig = PRIORITY_CONFIG[item.priority as keyof typeof PRIORITY_CONFIG] || PRIORITY_CONFIG.medium;
@@ -137,7 +141,9 @@ export function WishlistListView({
                 {/* Price & Actions */}
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <div className="font-bold tabular-nums">{formatPrice(currentPrice)}</div>
+                    {/* "$0.00" here used to mean "we have no price", which
+                        reads as worthless. PriceTag says so in words. */}
+                    <PriceTag card={item.card} className="font-bold" />
                     {isBelowTarget && (
                       <span className="inline-flex items-center rounded bg-primary px-1.5 py-0.5 text-xs font-medium text-primary-foreground">
                         <TrendingDown className="mr-1 h-3 w-3" aria-hidden="true" />

@@ -10,11 +10,22 @@
  * A player with no registered deck gets a designed card-shaped panel — their
  * monogram set in the same geometry as a real card — rather than a hole in the
  * layout.
+ *
+ * Both pieces are navigational by default, because until now none of them were:
+ * every commander on the pairings, the standings, the roster, the bracket and
+ * the podium was a picture of a card that did nothing when you clicked it. The
+ * design law is flat — *"a card click always navigates to /cards/:id"* — so the
+ * commander art opens the commander, and the deck name under it opens the deck
+ * it belongs to. `linked={false}` is the opt-out for the one place it cannot
+ * apply: a live pairing seat is itself the "record win" button, and interactive
+ * content nested inside a button is both invalid and hostile to the TO who is
+ * trying to score the round.
  */
 
 import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { CardImage, CARD_ASPECT, type CardImageSize } from '@/components/cards';
+import { CardImage, CARD_ASPECT, useOpenCard, type CardImageSize } from '@/components/cards';
 import { ManaPip } from '@/components/ui/mana-cost';
 import type { Standing } from './scoring';
 import type { PlayerView } from './playerViews';
@@ -46,7 +57,29 @@ export interface CommanderPortraitProps {
   eager?: boolean;
   className?: string;
   onClick?: () => void;
+  /**
+   * Let the card open its commander. Default true.
+   *
+   * Set false only where an ancestor is already the click target — a live
+   * pairing seat is a `<button>` that records the win, and a card that
+   * navigated out of the round mid-scoring would be a trap.
+   */
+  linked?: boolean;
   children?: React.ReactNode;
+}
+
+/**
+ * The commander a seat should open.
+ *
+ * `view.card` is present only once artwork has resolved, so the registration's
+ * own `commanderName` is the fallback: a deck whose commander has no art on
+ * file still draws the monogram panel, and that panel should still be a way in
+ * to the card. Returns null for a seat with no deck — BYE, TBD, unregistered —
+ * which is what keeps those inert instead of linking to `/cards/undefined`.
+ */
+function commanderNameFor(view: PlayerView): string | null {
+  const name = view.card?.name ?? view.deck?.commanderName ?? null;
+  return name && name.trim() ? name : null;
 }
 
 /**
@@ -63,9 +96,15 @@ export function CommanderPortrait({
   eager = false,
   className,
   onClick,
+  linked = true,
   children,
 }: CommanderPortraitProps) {
   const pips = useMemo(() => sortIdentity(view.deck?.colors), [view.deck?.colors]);
+  const openCard = useOpenCard();
+
+  const commander = commanderNameFor(view);
+  /* An explicit handler always wins; otherwise the card opens its commander. */
+  const activate = onClick ?? (linked && commander ? () => openCard({ name: commander }) : undefined);
 
   if (view.card) {
     return (
@@ -74,8 +113,12 @@ export function CommanderPortrait({
         size={size}
         fill
         eager={eager}
-        onClick={onClick}
-        title={`${view.card.name} — ${view.deck?.deckName ?? view.name}`}
+        onClick={activate}
+        title={
+          activate && !onClick
+            ? `Open ${view.card.name}`
+            : `${view.card.name}, ${view.deck?.deckName ?? view.name}`
+        }
         className={className}
         imageClassName={cn(dimmed && 'opacity-45 grayscale')}
       >
@@ -89,15 +132,16 @@ export function CommanderPortrait({
   return (
     <div className={cn('relative w-full select-none', className)}>
       <div
-        role={onClick ? 'button' : undefined}
-        tabIndex={onClick ? 0 : undefined}
-        onClick={onClick}
+        role={activate ? 'button' : undefined}
+        tabIndex={activate ? 0 : undefined}
+        aria-label={activate && !onClick && commander ? `Open ${commander}` : undefined}
+        onClick={activate}
         onKeyDown={
-          onClick
+          activate
             ? e => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  onClick();
+                  activate();
                 }
               }
             : undefined
@@ -106,7 +150,7 @@ export function CommanderPortrait({
           'relative flex w-full flex-col items-center justify-center gap-[6%] overflow-hidden bg-muted p-[8%] text-center',
           'shadow-lg shadow-black/30',
           dimmed && 'opacity-45',
-          onClick && 'cursor-pointer'
+          activate && 'cursor-pointer'
         )}
         style={{ aspectRatio: CARD_ASPECT, borderRadius: CARD_RADIUS }}
       >
@@ -161,13 +205,22 @@ export function RecordLine({
   );
 }
 
-/** Deck name plus colour identity — the line under a player's name. */
+/**
+ * Deck name plus colour identity — the line under a player's name.
+ *
+ * The name is a link to the deck it names. An event registers a real deck out
+ * of `user_decks`, so `/deck/:id` is a page that exists; the registration keeps
+ * the id precisely so the event survives independently of it. `linked={false}`
+ * for a live pairing seat, which is already a button (see `CommanderPortrait`).
+ */
 export function DeckLine({
   view,
   className,
+  linked = true,
 }: {
   view: PlayerView;
   className?: string;
+  linked?: boolean;
 }) {
   const pips = sortIdentity(view.deck?.colors);
 
@@ -179,6 +232,8 @@ export function DeckLine({
     );
   }
 
+  const { deckId, deckName } = view.deck;
+
   return (
     <span className={cn('flex min-w-0 items-center gap-1.5', className)}>
       {pips.length > 0 && (
@@ -188,7 +243,17 @@ export function DeckLine({
           ))}
         </span>
       )}
-      <span className="truncate text-xs text-muted-foreground">{view.deck.deckName}</span>
+      {linked && deckId ? (
+        <Link
+          to={`/deck/${deckId}`}
+          title={`Open ${deckName}`}
+          className="truncate rounded text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+        >
+          {deckName}
+        </Link>
+      ) : (
+        <span className="truncate text-xs text-muted-foreground">{deckName}</span>
+      )}
     </span>
   );
 }

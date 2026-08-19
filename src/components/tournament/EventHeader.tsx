@@ -7,6 +7,13 @@
  *
  * The round clock is part of the header rather than a separate panel because it
  * is the one number that changes while nobody is touching the screen.
+ *
+ * The blurred ground is the approved identity pattern, and it earns its place
+ * the way that pattern requires: the art is the commander of the deck belonging
+ * to the player this header already names as leading the event. It is art OF
+ * something on this screen, not wallpaper. Before any result is in there is no
+ * leader, so the ground is simply absent rather than filled with a generic
+ * picture, and it is the only one on the page.
  */
 
 import { useState } from 'react';
@@ -24,6 +31,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { viewFor, type PlayerView } from './playerViews';
 import type { Standing, Tournament } from './scoring';
 
 function formatClock(ms: number): string {
@@ -37,6 +45,8 @@ function formatClock(ms: number): string {
 export interface EventHeaderProps {
   tournament: Tournament;
   standings: Standing[];
+  /** The render models the rest of the event already built; used for the ground. */
+  views: Map<string, PlayerView>;
   totalRounds: number;
   timerRemaining: number;
   onStartClock: () => void;
@@ -57,6 +67,7 @@ const STRUCTURE_LABEL: Record<Tournament['format'], string> = {
 export function EventHeader({
   tournament,
   standings,
+  views,
   totalRounds,
   timerRemaining,
   onStartClock,
@@ -77,8 +88,31 @@ export function EventHeader({
   const leader = standings.find(s => !s.dropped);
   const isLastScheduled = tournament.currentRound >= totalRounds;
 
+  /* Only once a result is in. Before that there is no leader and therefore no
+     subject, and a ground with no subject is wallpaper. */
+  const leaderCard =
+    leader && tournament.rounds.length > 0 ? viewFor(views, leader.player).card : null;
+  const ground = leaderCard?.image_uris.art_crop ?? leaderCard?.image_uris.normal ?? null;
+
   return (
-    <section className="overflow-hidden rounded-2xl bg-card shadow-sm">
+    <section className="relative isolate overflow-hidden rounded-2xl bg-card shadow-sm">
+      {ground && (
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
+          <img
+            src={ground}
+            alt=""
+            draggable={false}
+            decoding="async"
+            className="h-full w-full scale-125 object-cover opacity-60 blur-2xl"
+          />
+          {/* A flat scrim first, so contrast never depends on which part of the
+              art happened to land behind a given letter, then a fade so the
+              band does not end on a line. */}
+          <div className="absolute inset-0 bg-card/80" />
+          <div className="absolute inset-0 bg-gradient-to-r from-card via-transparent to-card/70" />
+        </div>
+      )}
+
       <div className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <h1 className="truncate text-xl font-semibold text-foreground sm:text-2xl">
@@ -163,12 +197,12 @@ export function EventHeader({
         />
         <Stat
           label="Results in"
-          value={tables === 0 ? '—' : `${decided} / ${tables}`}
+          value={tables === 0 ? 'None yet' : `${decided} / ${tables}`}
           hint={tables === 0 ? 'Not started' : `${tables} table${tables === 1 ? '' : 's'}`}
         />
         <Stat
           label={tournament.status === 'completed' ? 'Champion' : 'Leader'}
-          value={leader ? leader.player : '—'}
+          value={leader ? leader.player : 'Nobody yet'}
           hint={leader ? `${leader.points} pts · ${leader.wins}–${leader.losses}–${leader.draws}` : 'No results yet'}
           truncate
         />

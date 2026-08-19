@@ -192,8 +192,20 @@ export function CommanderSelector({ currentCommander, onSelect }: CommanderSelec
         onClick={() => handleCommanderSelect(card)}
         title={`${card.name} — choose as commander`}
       >
+        {/*
+          Bottom-right, not top-left.
+
+          At top-left this pill sat exactly on the card's printed title bar, so
+          on every tile in the wall the first part of the commander's name was
+          hidden behind its own rank — "#3 …n, Nimble Pilferer" instead of
+          "Ragavan, Nimble Pilferer". At the 157px this grid renders at, the name
+          under the card is the only other place it appears, and it truncates.
+          The bottom-right corner carries the collector/artist line, which is
+          the one region of a card face nothing needs to read here. Price
+          already owns bottom-left. See .shots/audit/deck-builder-commander-1680.png.
+        */}
         {rank !== undefined && (
-          <span className="pointer-events-none absolute left-1.5 top-1.5 rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-white backdrop-blur-sm">
+          <span className="pointer-events-none absolute bottom-1.5 right-1.5 rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-white backdrop-blur-sm">
             #{rank}
           </span>
         )}

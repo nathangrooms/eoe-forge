@@ -114,7 +114,7 @@ export function DeckPicker({
           <Library aria-hidden="true" className="h-5 w-5 text-muted-foreground" />
           <p className="text-sm font-medium text-foreground">No decks in your library yet</p>
           <p className="max-w-xs text-xs text-muted-foreground">
-            Players can still be entered without one — register a deck later and the standings pick
+            Players can still be entered without one. Register a deck later and the standings pick
             up its commander automatically.
           </p>
           <Button asChild variant="secondary" size="sm" className="mt-1">

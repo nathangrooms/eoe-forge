@@ -403,6 +403,7 @@ export function TournamentManager() {
       <EventHeader
         tournament={selected}
         standings={standings}
+        views={views}
         totalRounds={totalRounds}
         timerRemaining={timerRemaining}
         onStartClock={startClock}
@@ -451,7 +452,7 @@ export function TournamentManager() {
             />
             {selected.format === 'swiss' && selected.players.length % 2 === 1 && (
               <span className="text-xs text-muted-foreground">
-                Odd field — one bye is awarded each round.
+                The field is odd, so one bye is awarded each round.
               </span>
             )}
           </div>
@@ -485,6 +486,7 @@ export function TournamentManager() {
                 <StandingsTable
                   standings={standings}
                   views={views}
+                  rounds={selected.rounds}
                   finished={selected.status === 'completed'}
                 />
               )}

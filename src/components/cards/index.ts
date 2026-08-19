@@ -74,6 +74,17 @@ export {
 export { OracleText, type OracleTextProps } from './OracleText';
 export { CardLegalityGrid, type CardLegalityGridProps } from './CardLegalityGrid';
 export { CardPrintingsRow, type CardPrintingsRowProps } from './CardPrintingsRow';
+/**
+ * The one place a printing gets chosen. A collection row saying which copy is
+ * in the box, a listing saying which copy is for sale, and the card page's
+ * art-variants shelf are all this component.
+ */
+export {
+  PrintingPicker,
+  hasFinish,
+  type PrintingPickerProps,
+  type PrintingFinish,
+} from './PrintingPicker';
 export { CardPriceHistory, type CardPriceHistoryProps } from './CardPriceHistory';
 export {
   CardWorksWellWith,

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -23,9 +24,12 @@ import {
 } from 'lucide-react';
 import { useScanStore, type ScannedCard } from './store';
 import { scryfallFuzzySearch, type CardCandidate } from './cardRecognition';
+import { useLocalRecognition } from './useLocalRecognition';
+import { fetchPrintings } from './printingLookup';
+import { identifyWithVisionModel, frameToDataUrl } from './visionFallback';
 import { logActivity } from '@/features/dashboard/hooks';
 import { useAutoCapture } from './useAutoCapture';
-import { CardImage } from '@/components/cards';
+import { CardImage, cardDetailPath } from '@/components/cards';
 
 /**
  * A scan candidate carries one image URL, not a Scryfall image set. This wraps
@@ -39,6 +43,44 @@ function cardShapeOf(candidate: { name: string; imageUrl?: string }) {
     name: candidate.name,
     image_uris: url ? { small: url, normal: url, large: url } : {},
   };
+}
+
+/**
+ * The "Added to collection" card, as a link to the card it names.
+ *
+ * Drawn at `sm` (110px) rather than the 48px it used to be: this is the one
+ * card on the viewfinder a person is asked to look at and judge, and a 48px
+ * thumbnail is not something you can check a printing against.
+ */
+function LastAddedIdentity({ card }: { card: ScannedCard }) {
+  const href = cardDetailPath({ id: card.cardId, name: card.name });
+
+  const body = (
+    <>
+      <CardImage card={cardShapeOf(card)} size="sm" hideFlip className="shrink-0" />
+      <div className="flex-1 min-w-0">
+        <p className="text-xs text-white/70 flex items-center gap-1">
+          <Check className="h-3 w-3" /> Added to collection
+        </p>
+        <p className="font-medium text-white truncate">{card.name}</p>
+        <p className="text-xs text-white/50 uppercase">{card.setCode}</p>
+      </div>
+    </>
+  );
+
+  if (!href) {
+    return <div className="flex min-w-0 flex-1 items-center gap-3">{body}</div>;
+  }
+
+  return (
+    <Link
+      to={href}
+      title={`Open ${card.name}`}
+      className="flex min-w-0 flex-1 items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      {body}
+    </Link>
+  );
 }
 
 interface CameraScanViewProps {
@@ -89,6 +131,21 @@ export function CameraScanView({ onCardAdded }: CameraScanViewProps) {
   const [lastAddedCard, setLastAddedCard] = useState<ScannedCard | null>(null);
   const [decks, setDecks] = useState<Array<{ id: string; name: string }>>([]);
   const [storageContainers, setStorageContainers] = useState<Array<{ id: string; name: string }>>([]);
+
+  /**
+   * Local, in-browser recognition. Replaces the per-scan Gemini call that used
+   * to sit on this path.
+   *
+   * The old flow posted every captured frame to `scan-card-ai`, which cost a
+   * model call and a network round trip per card and only ever returned a NAME
+   * — so the printing was whichever row happened to sort first. Hashing the art
+   * against an index of every printing we hold is faster, free, works offline,
+   * and can actually distinguish printings whose art differs.
+   */
+  const local = useLocalRecognition({ enableOcr: true });
+  /** Set when local recognition gave up, which is the only way the model is reachable. */
+  const [modelOffer, setModelOffer] = useState<string | null>(null);
+  const [modelBusy, setModelBusy] = useState(false);
 
   // Fetch decks and storage containers for settings
   useEffect(() => {
@@ -248,92 +305,161 @@ export function CameraScanView({ onCardAdded }: CameraScanViewProps) {
     }
   }, [addRecentScan, onCardAdded]);
 
-  // Capture frame and send to AI
-  const captureAndAnalyze = useCallback(async (imageData?: ImageData) => {
+  /**
+   * Identify the card in the current frame, locally.
+   *
+   * This used to POST the frame to `scan-card-ai` (Gemini) on every single
+   * scan. That cost a model call and a network round trip per card, failed
+   * offline, and — because the model returns a card NAME and nothing else —
+   * could never identify which PRINTING you were holding. Whichever row sorted
+   * first went into the collection, and printings of the same card differ in
+   * price by orders of magnitude.
+   *
+   * Now the art is perceptual-hashed against an index of every printing we
+   * hold, in the browser, in about a millisecond. The model is still available
+   * but only behind an explicit button, and only after this has said it could
+   * not identify the card. See `visionFallback.ts`.
+   */
+  const captureAndAnalyze = useCallback(async (_imageData?: ImageData) => {
     if (processing) return;
+    if (!videoRef.current) return;
 
     setProcessing(true);
-    setScanStatus('capturing');
+    setModelOffer(null);
+    setScanStatus('analyzing');
 
     try {
-      let imageBase64: string;
-
-      if (imageData) {
-        // Use provided ImageData from auto-capture
-        const canvas = document.createElement('canvas');
-        canvas.width = imageData.width;
-        canvas.height = imageData.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) throw new Error('Could not get canvas context');
-        ctx.putImageData(imageData, 0, 0);
-        imageBase64 = canvas.toDataURL('image/jpeg', 0.8);
-      } else {
-        // Manual capture
-        if (!videoRef.current || !canvasRef.current) return;
-        const video = videoRef.current;
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
-        if (!ctx || video.videoWidth === 0) return;
-
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        ctx.drawImage(video, 0, 0);
-        imageBase64 = canvas.toDataURL('image/jpeg', 0.8);
-      }
-
-      setScanStatus('analyzing');
-
-      // Send to AI for card recognition
-      const { data, error } = await supabase.functions.invoke('scan-card-ai', {
-        body: { image: imageBase64 }
-      });
-
-      if (error) throw error;
-
-      const cardName = data?.cardName;
-
-      if (!cardName) {
-        setScanStatus('error');
-        setLastRecognized(null);
-        setTimeout(() => setScanStatus('idle'), 1000);
+      const result = await local.recognise(videoRef.current);
+      if (!result) {
+        setScanStatus('idle');
         return;
       }
 
-      setLastRecognized(cardName);
+      if (result.status === 'no-card' || result.status === 'no-match' || result.status === 'uncertain') {
+        setCandidates([]);
+        setLastRecognized(null);
+        // The ONLY place the model becomes reachable. Offering is not calling.
+        setModelOffer(result.offerVisionFallback ? result.explanation : null);
+        setScanStatus(result.status === 'no-card' ? 'idle' : 'error');
+        setTimeout(() => setScanStatus('idle'), 1200);
+        return;
+      }
+
       setScanStatus('matching');
 
-      // Search for the card
-      const result = await scryfallFuzzySearch(cardName);
-
-      if (result.candidates.length === 0) {
+      // Turn the engine's ids into cards with art, names and prices.
+      const printings = await fetchPrintings(result.candidates.map((c) => c.cardId));
+      if (printings.length === 0) {
         setScanStatus('error');
-        setLastRecognized(`No match: "${cardName}"`);
-        setTimeout(() => {
-          setScanStatus('idle');
-          setLastRecognized(null);
-        }, 1500);
+        setTimeout(() => setScanStatus('idle'), 1200);
         return;
       }
 
-      // If high confidence and auto-add enabled, add immediately
-      if (result.best && result.best.score >= 0.9 && settings.autoAdd) {
-        await addCardToCollection(result.best);
-        setScanStatus('success');
-        setLastRecognized(null);
-        setTimeout(() => setScanStatus('idle'), 1500);
-      } else {
-        setCandidates(result.candidates);
-        setScanStatus('idle');
+      const asCandidates: CardCandidate[] = printings.map((p) => {
+        const hit = result.candidates.find((c) => c.cardId === p.cardId);
+        return {
+          // A 0..1 display score derived from the engine's own Hamming
+          // distance: 0 bits is certain, 16 bits is worthless. `THRESHOLDS.review`
+          // (14) is the point past which the engine discards a hit entirely, so
+          // 16 is just beyond the last distance that can reach here.
+          //
+          // The fallback is 0, not a middling 0.5. `printings` is derived from
+          // `result.candidates`, so a miss means the row came back without a
+          // matching candidate — i.e. we have no distance for it at all. A
+          // no-evidence case must not be recorded as half-confident: this value
+          // ends up in `ScannedCard.confidence`, which `/scan` averages and
+          // shows as a percentage.
+          score: hit ? Math.max(0, Math.min(1, 1 - hit.pDistance / 16)) : 0,
+          oracleId: p.oracleId,
+          name: p.name,
+          setCode: p.setCode,
+          cardId: p.cardId,
+          imageUrl: p.imageUris.normal || p.imageUris.large || p.imageUris.small || '',
+          priceUsd: p.priceUsd ?? undefined,
+        };
+      });
+
+      setLastRecognized(asCandidates[0]?.name ?? null);
+
+      // Auto-add ONLY when the engine committed to a single printing. When it
+      // says "choose-printing" there are several printings it cannot tell
+      // apart, and adding one silently is exactly the bug this rewrite exists
+      // to remove — so those always go to the user, whatever the setting says.
+      const committed = result.status === 'resolved' && result.resolvedCardId;
+      if (committed && settings.autoAdd) {
+        const chosen = asCandidates.find((c) => c.cardId === result.resolvedCardId);
+        if (chosen) {
+          await addCardToCollection(chosen);
+          setScanStatus('success');
+          setLastRecognized(null);
+          setTimeout(() => setScanStatus('idle'), 1200);
+          return;
+        }
       }
 
-    } catch (error: any) {
+      setCandidates(asCandidates);
+      setScanStatus('idle');
+    } catch (error) {
       console.error('Scan error:', error);
       setScanStatus('error');
       setTimeout(() => setScanStatus('idle'), 1500);
     } finally {
       setProcessing(false);
     }
-  }, [processing, settings.autoAdd, addCardToCollection]);
+  }, [processing, settings.autoAdd, addCardToCollection, local]);
+
+  /**
+   * Call the vision model. Reachable ONLY from the button rendered when
+   * `modelOffer` is set, i.e. only after local recognition failed.
+   *
+   * The model reads a name, never a printing, so its answer is still presented
+   * as a list of printings for the user to choose from rather than committed to.
+   */
+  const runVisionModel = useCallback(async () => {
+    if (!videoRef.current) return;
+    const dataUrl = frameToDataUrl(videoRef.current);
+    if (!dataUrl) return;
+    setModelBusy(true);
+    try {
+      const res = await identifyWithVisionModel(dataUrl);
+      setLastRecognized(res.name);
+      setCandidates(
+        res.printings.map((p) => ({
+          // 1 means "a human confirmed this", not "the algorithm was sure".
+          //
+          // This was 0.8 — a number nothing measured. It mattered because the
+          // value lands in `ScannedCard.confidence`, which `/scan` averages and
+          // renders as a percentage: an invented 0.8 quietly inflated a quality
+          // figure the user reads, for the one path where the local recogniser
+          // had in fact failed completely.
+          //
+          // There is no image-derived confidence to report here. The model
+          // returns a NAME and no printing, so every printing of that name is
+          // equally plausible until the user taps one — and they tap it while
+          // looking at its art. The only true statement available is that the
+          // identity was confirmed by a person rather than by a hash, and 1
+          // encodes that without pretending a measurement happened.
+          score: 1,
+          oracleId: p.oracleId,
+          name: p.name,
+          setCode: p.setCode,
+          cardId: p.cardId,
+          imageUrl: p.imageUris.normal || p.imageUris.large || p.imageUris.small || '',
+          priceUsd: p.priceUsd ?? undefined,
+        })),
+      );
+      setModelOffer(
+        res.notInCatalogue
+          ? `The model read this as "${res.name}", but we do not hold that card yet.`
+          : null,
+      );
+    } catch (err) {
+      console.error('Vision model error:', err);
+      setModelOffer('The vision model call failed. Try reframing and scanning again.');
+    } finally {
+      setModelBusy(false);
+    }
+  }, []);
 
   // Auto-capture hook - ultra-aggressive settings for maximum speed
   useAutoCapture(
@@ -663,7 +789,30 @@ export function CameraScanView({ onCardAdded }: CameraScanViewProps) {
             </Button>
           </div>
         ) : (
-          <div className="p-4">
+          <div className="p-4 space-y-3">
+            {/*
+              * The vision model, offered and never taken automatically.
+              *
+              * This block only appears when local recognition has said it could
+              * not identify the card. Pressing it is a paid model call over the
+              * network; nothing in the scan flow presses it for you.
+              */}
+            {modelOffer ? (
+              <div className="rounded-lg bg-white/5 p-3 space-y-2">
+                <p className="text-xs leading-relaxed text-white/60">{modelOffer}</p>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={modelBusy}
+                  onClick={runVisionModel}
+                >
+                  {modelBusy ? (
+                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                  ) : null}
+                  {modelBusy ? 'Asking the model...' : 'Use the online vision model'}
+                </Button>
+              </div>
+            ) : null}
             <div className="flex gap-2">
               <Input
                 value={manualSearch}
@@ -683,24 +832,26 @@ export function CameraScanView({ onCardAdded }: CameraScanViewProps) {
           </div>
         )}
 
-        {/* Last Added Card with Undo */}
+        {/*
+         * Last added card, with undo — and, finally, with a way in to the card.
+         *
+         * Owner: *"Scanned cards, should be able to click the last added to your
+         * collection."* This block is literally that card, and it was the last
+         * dead end left in the scan flow: `/scan` links its tiles and the
+         * session pile on `/scan/camera` links its tiles, while the one thing
+         * captioned "Added to collection" — the card a person actually reaches
+         * for to check the scanner got it right — did nothing when clicked.
+         *
+         * The Undo button stays a sibling of the link rather than inside it, so
+         * there is no interactive content nested in the anchor. `href` is null
+         * only for a scan carrying neither an id nor a name, which the store
+         * cannot produce; the tile falls back to plain markup in that case
+         * instead of rendering a link to nowhere.
+         */}
         {lastAddedCard && (
           <div className="px-4 pb-4">
             <div className="flex items-center gap-3 p-3 rounded-lg bg-white/10">
-              <CardImage
-                card={cardShapeOf(lastAddedCard)}
-                size="xs"
-                hideFlip
-                interactive={false}
-                className="shrink-0"
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-white/70 flex items-center gap-1">
-                  <Check className="h-3 w-3" /> Added to collection
-                </p>
-                <p className="font-medium text-white truncate">{lastAddedCard.name}</p>
-                <p className="text-xs text-white/50 uppercase">{lastAddedCard.setCode}</p>
-              </div>
+              <LastAddedIdentity card={lastAddedCard} />
               <Button
                 variant="ghost"
                 size="sm"

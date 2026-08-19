@@ -122,6 +122,122 @@ export type Database = {
           },
         ]
       }
+      card_list_items: {
+        Row: {
+          arrived_at: string | null
+          arrived_card_id: string | null
+          arrived_finish: string | null
+          bought_at: string | null
+          card_id: string
+          card_name: string
+          created_at: string
+          filed_at: string | null
+          filed_container_id: string | null
+          filed_deck_id: string | null
+          finish: string
+          id: string
+          kind: string
+          list_id: string
+          note: string | null
+          oracle_id: string | null
+          paid_currency: string | null
+          paid_unit: number | null
+          quantity: number
+          source: string
+          source_deck_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          arrived_at?: string | null
+          arrived_card_id?: string | null
+          arrived_finish?: string | null
+          bought_at?: string | null
+          card_id: string
+          card_name: string
+          created_at?: string
+          filed_at?: string | null
+          filed_container_id?: string | null
+          filed_deck_id?: string | null
+          finish?: string
+          id?: string
+          kind: string
+          list_id: string
+          note?: string | null
+          oracle_id?: string | null
+          paid_currency?: string | null
+          paid_unit?: number | null
+          quantity?: number
+          source?: string
+          source_deck_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          arrived_at?: string | null
+          arrived_card_id?: string | null
+          arrived_finish?: string | null
+          bought_at?: string | null
+          card_id?: string
+          card_name?: string
+          created_at?: string
+          filed_at?: string | null
+          filed_container_id?: string | null
+          filed_deck_id?: string | null
+          finish?: string
+          id?: string
+          kind?: string
+          list_id?: string
+          note?: string | null
+          oracle_id?: string | null
+          paid_currency?: string | null
+          paid_unit?: number | null
+          quantity?: number
+          source?: string
+          source_deck_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "card_list_items_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "card_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      card_lists: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       card_condition_photos: {
         Row: {
           collection_item_id: string
@@ -221,6 +337,83 @@ export type Database = {
         }
         Relationships: []
       }
+      tutor_conversations: {
+        Row: {
+          card_id: string | null
+          card_name: string | null
+          created_at: string
+          deck_id: string | null
+          deck_name: string | null
+          id: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          card_id?: string | null
+          card_name?: string | null
+          created_at?: string
+          deck_id?: string | null
+          deck_name?: string | null
+          id?: string
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          card_id?: string | null
+          card_name?: string | null
+          created_at?: string
+          deck_id?: string | null
+          deck_name?: string | null
+          id?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      tutor_messages: {
+        Row: {
+          cards: Json
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          role: string
+          user_id: string
+          visual_data: Json | null
+        }
+        Insert: {
+          cards?: Json
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          role: string
+          user_id: string
+          visual_data?: Json | null
+        }
+        Update: {
+          cards?: Json
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          role?: string
+          user_id?: string
+          visual_data?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tutor_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "tutor_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cards: {
         Row: {
           cmc: number | null
@@ -243,6 +436,8 @@ export type Database = {
           oracle_text: string | null
           power: string | null
           prices: Json | null
+          edhrec_rank: number | null
+          produced_mana: string[] | null
           rarity: string | null
           set_code: string
           tags: string[] | null
@@ -271,6 +466,8 @@ export type Database = {
           oracle_text?: string | null
           power?: string | null
           prices?: Json | null
+          edhrec_rank?: number | null
+          produced_mana?: string[] | null
           rarity?: string | null
           set_code: string
           tags?: string[] | null
@@ -299,6 +496,8 @@ export type Database = {
           oracle_text?: string | null
           power?: string | null
           prices?: Json | null
+          edhrec_rank?: number | null
+          produced_mana?: string[] | null
           rarity?: string | null
           set_code?: string
           tags?: string[] | null
@@ -1156,6 +1355,7 @@ export type Database = {
           created_at: string | null
           foil: boolean | null
           id: string
+          pocket: number | null
           qty: number
           slot_id: string | null
           updated_at: string | null
@@ -1166,6 +1366,7 @@ export type Database = {
           created_at?: string | null
           foil?: boolean | null
           id?: string
+          pocket?: number | null
           qty: number
           slot_id?: string | null
           updated_at?: string | null
@@ -1176,6 +1377,7 @@ export type Database = {
           created_at?: string | null
           foil?: boolean | null
           id?: string
+          pocket?: number | null
           qty?: number
           slot_id?: string | null
           updated_at?: string | null
@@ -1654,6 +1856,53 @@ export type Database = {
     }
     Functions: {
       admin_platform_stats: { Args: never; Returns: Json }
+      card_list_add: {
+        Args: {
+          p_card_id: string
+          p_card_name: string
+          p_finish?: string
+          p_kind: string
+          p_note?: string
+          p_oracle_id?: string
+          p_quantity?: number
+          p_source?: string
+          p_source_deck_id?: string
+        }
+        Returns: Database["public"]["Tables"]["card_list_items"]["Row"]
+      }
+      card_list_ensure: { Args: { p_kind: string }; Returns: string }
+      card_list_file: {
+        Args: {
+          p_container_id?: string
+          p_deck_id?: string
+          p_item_id: string
+          p_to_collection?: boolean
+        }
+        Returns: Database["public"]["Tables"]["card_list_items"]["Row"]
+      }
+      card_list_mark_arrived: {
+        Args: {
+          p_arrived_at?: string
+          p_arrived_card_id?: string
+          p_arrived_finish?: string
+          p_item_id: string
+        }
+        Returns: Database["public"]["Tables"]["card_list_items"]["Row"]
+      }
+      card_list_mark_bought: {
+        Args: {
+          p_bought_at?: string
+          p_item_id: string
+          p_paid_currency?: string
+          p_paid_unit?: number
+          p_quantity?: number
+        }
+        Returns: Database["public"]["Tables"]["card_list_items"]["Row"]
+      }
+      card_list_reset: {
+        Args: { p_item_id: string }
+        Returns: Database["public"]["Tables"]["card_list_items"]["Row"]
+      }
       check_feature_access: {
         Args: { _feature_key: string; _user_id: string }
         Returns: Json
@@ -1729,6 +1978,25 @@ export type Database = {
         Returns: undefined
       }
       show_limit: { Args: never; Returns: number }
+      storage_add_slot: {
+        Args: { p_container: string; p_name: string }
+        Returns: {
+          container_id: string
+          id: string
+          name: string
+          position: number | null
+        }
+      }
+      storage_move_cards: {
+        Args: {
+          p_item_id: string
+          p_qty: number
+          p_to_container: string
+          p_to_pocket?: number | null
+          p_to_slot?: string | null
+        }
+        Returns: string
+      }
       show_trgm: { Args: { "": string }; Returns: string[] }
       toggle_deck_favorite: { Args: { deck_id: string }; Returns: Json }
       trigger_scryfall_sync: { Args: { p_action?: string }; Returns: number }

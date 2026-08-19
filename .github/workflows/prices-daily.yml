@@ -1,0 +1,135 @@
+name: Daily prices
+
+# Records what every card is worth today, then records what every collection is
+# worth today.
+#
+# Why GitHub Actions rather than a job inside the database: this project already
+# lost six months to a price job that stopped on 2026-02-20 and told nobody. The
+# database has no run history a person will look at, no failure email and no
+# re-run button. This has all three.
+
+on:
+  schedule:
+    # 06:20 UTC. Scryfall refreshes prices once a day, and the catalogue job
+    # supervises from 04:30 for at most ninety minutes, so it is done by 06:00
+    # and cards.prices is today's by the time this reads it. Step one does not
+    # depend on that anyway: it takes prices from Scryfall's bulk file directly,
+    # which is why it covers printings the catalogue has not reached yet.
+    - cron: '20 6 * * *'
+  workflow_dispatch:
+    inputs:
+      batch:
+        description: 'Cards per page. Lower it if the database is busy.'
+        required: false
+        default: '1000'
+      chunk:
+        description: 'Rows per write in the bulk file step. Lower it if writes time out.'
+        required: false
+        default: '1000'
+
+# Never two price runs at once. They share a staging table.
+concurrency:
+  group: prices-daily
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  snapshot:
+    name: Card prices
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Step one: today's price for EVERY PRINTING, from Scryfall's one daily
+      # bulk file. It goes first because it is the only place today's price
+      # exists for printings the catalogue sync has not reached. Measured
+      # 2026-08-19: 101,587 priced paper printings in the file against 56,504
+      # rows in `cards`. Waiting for the catalogue would throw those days away,
+      # and the clock only ever runs forwards.
+      #
+      # One 74 MB download replaces about 100,000 API calls, which is what
+      # Scryfall's rate limit page requires of anyone at this volume.
+      # The dispatch inputs go through the environment, never through the
+      # command line. A ${{ }} expression in a `run:` block is pasted into the
+      # shell before the shell ever sees it, so whatever somebody typed into the
+      # box on the Actions page would run as a command with the service role key
+      # already in the environment. Through env, it is a string.
+      - name: Record every printing from the Scryfall bulk file
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CHUNK: ${{ inputs.chunk || '1000' }}
+        run: node scripts/prices/daily-sweep.mjs --chunk "$CHUNK"
+
+      # Step two: the tier 1 guarantee, and anything the file did not cover.
+      # Both steps write through apply_price_sweep, so they share one definition
+      # of "the price moved" and cannot disagree with each other. Running this
+      # after the bulk step is cheap: most cards already have today's row and
+      # the gate skips them.
+      - name: Record today's prices
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BATCH: ${{ inputs.batch || '1000' }}
+        run: node scripts/data/pipeline.mjs price-snapshot --batch "$BATCH"
+
+  collection-value:
+    name: Collection values
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: snapshot
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Record what every collection is worth
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/data/pipeline.mjs collection-value
+
+  tell-someone:
+    name: Raise an issue if it failed
+    runs-on: ubuntu-latest
+    needs: [snapshot, collection-value]
+    if: failure()
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const title = 'Daily prices did not run';
+            const body = [
+              'The daily price job failed.',
+              '',
+              `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              '',
+              'While this is failing, price history has a hole in it and nothing else will tell you.',
+              'The job is safe to re-run: it picks up from where it stopped and never writes a day twice.',
+            ].join('\n');
+            const open = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: 'data-pipeline',
+            });
+            const existing = open.data.find(i => i.title === title);
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing.number, body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title, body, labels: ['data-pipeline'],
+              });
+            }

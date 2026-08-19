@@ -24,13 +24,15 @@ import type {
   CardFilter,
   Duration,
   ManaColor,
+  ManaSpendRestriction,
   PlayerSelector,
   Selector,
   TargetSpec,
   ValueExpr,
+  WatchedEvent,
   Zone,
 } from './dsl.ts';
-import { andF, notF, orF } from './dsl.ts';
+import { andF, isWatchableFilter, notF, orF } from './dsl.ts';
 
 /* ------------------------------------------------------------------ *
  * Counts
@@ -443,8 +445,17 @@ export function parseObject(input: string): ObjectRef | null {
 
   if (!s) return extra.length ? finish({ is: 'any' }, isCard) : null;
 
-  // Head noun, possibly "artifact or enchantment".
-  const heads = s.split(/ or /).map((h) => h.trim()).filter(Boolean);
+  // Head noun, possibly "artifact or enchantment" — or "artifacts and
+  // enchantments", which names the SAME set. "The number of artifacts and
+  // enchantments your opponents control" counts permanents that are either, not
+  // permanents that are both, so the two connectives mean one thing in head
+  // position and splitting on both is a rules identity, not a loosening.
+  //
+  // It cannot silently swallow a sentence, because every head still has to
+  // parse: "destroy target creature and draw a card" splits to a second head of
+  // "draw a card", whose first word is not a type, and the whole phrase is
+  // refused exactly as it was before.
+  const heads = s.split(/ or | and /).map((h) => h.trim()).filter(Boolean);
   if (!heads.length) return null;
 
   const headFilters: CardFilter[] = [];
@@ -527,6 +538,259 @@ export function parsePlayer(
     default:
       return null;
   }
+}
+
+/* ------------------------------------------------------------------ *
+ * E9 — computed values
+ *
+ * `ValueExpr` and its evaluator (`context.ts`'s `evalValue`) were both finished
+ * before this function existed. The gap E9 names was never the type space or
+ * the runtime; it was here, in the front end: across the whole compiler exactly
+ * ONE non-numeric `ValueExpr` was ever constructed — `{v:'x'}` — and `{v:'count'}`
+ * was constructed zero times. Every "equal to the number of …" in the catalogue
+ * therefore became a `{do:'manual'}` note while the machinery to express it sat
+ * unused two files away.
+ *
+ * The same refusal discipline as everything else here: an amount phrase this
+ * cannot read comes back `null`, and `null` becomes a counted gap. A quantity
+ * guessed wrong is not a smaller version of the right answer — "draw cards
+ * equal to the number of creatures you control" resolving as "draw 1" is a card
+ * that looks like it worked.
+ * ------------------------------------------------------------------ */
+
+/** Player groups a value phrase can count. Longest first. */
+const PLAYER_GROUP_COUNTS: Array<[RegExp, PlayerSelector]> = [
+  [/^opponents you have$/, { who: 'each-opponent' }],
+  [/^your opponents$/, { who: 'each-opponent' }],
+  [/^opponents$/, { who: 'each-opponent' }],
+  [/^players in the game$/, { who: 'each-player' }],
+  [/^players$/, { who: 'each-player' }],
+];
+
+/** Life-total phrases. `~`-relative and "that player" forms are deliberately absent. */
+const LIFE_TOTALS: Array<[RegExp, PlayerSelector]> = [
+  [/^your life total$/, { who: 'you' }],
+  [/^the number of life you have$/, { who: 'you' }],
+];
+
+/**
+ * A quantity phrase -> a `ValueExpr`, or `null` to refuse.
+ *
+ * Reads "3", "the number of creatures you control", "the number of artifacts
+ * and enchantments your opponents control", "the number of cards in your hand",
+ * "twice the number of Elves you control", "your life total" and "the number of
+ * opponents you have".
+ *
+ * It deliberately does NOT read "its power", "that creature's toughness" or any
+ * phrase whose subject is bound by an earlier sentence: resolving one of those
+ * means guessing which object "it" was, and the whole point of a computed value
+ * is that it is computed from something we can actually name.
+ */
+export function parseValueExpr(input: string): ValueExpr | null {
+  const s = input.trim().toLowerCase().replace(/[.,]+$/, '');
+  if (!s) return null;
+
+  // A plain count, including "x" — which the caller may then rebind.
+  const direct = parseCount(s);
+  if (direct !== null) return direct;
+
+  // "The number of creatures that died this turn" is history, not board state.
+  const history = parseWatchValue(s.replace(/^the number of /, ''));
+  if (history) return history;
+
+  for (const [re, who] of LIFE_TOTALS) if (re.test(s)) return { v: 'life', of: who };
+
+  // Multipliers. "Half" is absent on purpose: "half X, rounded up" and "rounded
+  // down" are different numbers and the phrase that says which is not always
+  // in the same sentence.
+  const scaled = s.match(/^(twice|three times) (.+)$/);
+  if (scaled) {
+    const inner = parseValueExpr(scaled[2]);
+    if (inner === null) return null;
+    return { v: 'mul', of: [scaled[1] === 'twice' ? 2 : 3, inner] };
+  }
+
+  const counted = s.match(/^the number of (.+)$/);
+  if (!counted) return null;
+  const what = counted[1].trim();
+
+  for (const [re, who] of PLAYER_GROUP_COUNTS) if (re.test(what)) return { v: 'count-players', of: who };
+
+  const ref = parseObject(what);
+  if (!ref) return null;
+  // "The number of TARGET creatures" is not a thing, and a bound count phrase
+  // ("the number of that creature") is a subject we cannot name.
+  if (ref.targeted) return null;
+  // Singular means the phrase named one specific object rather than a set —
+  // counting a set we did not read is how a count comes back wrong.
+  if (!ref.each) return null;
+  return { v: 'count', of: objectSelector(ref) };
+}
+
+/**
+ * "for each <thing>" -> the multiplier it names. Objects and player groups
+ * both, because "you gain 1 life for each opponent" is as common as "for each
+ * creature you control".
+ */
+export function parseForEachValue(input: string): ValueExpr | null {
+  const s = input.trim().toLowerCase().replace(/[.,]+$/, '');
+  if (!s) return null;
+  const history = parseWatchValue(s);
+  if (history) return history;
+  for (const [re, who] of PLAYER_GROUP_COUNTS) {
+    // "for each opponent" is singular where "the number of opponents" is plural.
+    if (re.test(s) || re.test(s + 's')) return { v: 'count-players', of: who };
+  }
+  const ref = parseObject(s);
+  if (!ref || ref.targeted) return null;
+  // Unlike "the number of …", the plural check is NOT applied here. "For each"
+  // is a set iteration by construction and the catalogue writes its noun
+  // singular — "for each creature you control" — so demanding a plural would
+  // refuse the ordinary spelling and accept only the rare one.
+  return { v: 'count', of: objectSelector(ref) };
+}
+
+/* ------------------------------------------------------------------ *
+ * E6 — history phrases
+ *
+ * "The number of creatures that died this turn" is not a board question. The
+ * creatures are gone; nothing on the battlefield can be counted to answer it.
+ * These phrases compile to `{v:'watch'}`, a declarative query over the action
+ * log — see the `WatchQuery` block in `dsl.ts` for why it is a query rather
+ * than a mutable watcher, and `src/lib/game/abilities/watch.ts` for the fold.
+ *
+ * ## What this is worth, honestly
+ *
+ * The catalogue's history phrases have a very flat tail: 56 distinct spellings
+ * of "for each … this turn" across 135 rows, the largest single form appearing
+ * 38 times and being storm's reminder text. The seven templates below are the
+ * ones frequent enough and unambiguous enough to be worth a rule; everything
+ * else is refused. This is a small unlock and it is reported as a small one.
+ *
+ * ## And what it does NOT buy
+ *
+ * A card compiling to `{v:'watch'}` becomes REPRESENTABLE. It does not become
+ * automated: no caller folds a log yet, so the value evaluates to 0.
+ * `unrunnableReason` therefore refuses to let the ability engine own such a
+ * card, and `runEffects` emits a note naming the query. Both guards exist
+ * precisely because 0 is a wrong answer that looks like a quiet one.
+ * ------------------------------------------------------------------ */
+
+/** The filter of an object phrase, but only if a past snapshot could answer it. */
+function watchableObject(phrase: string): { filter: CardFilter; controller?: PlayerSelector } | null {
+  const ref = parseObject(phrase);
+  if (!ref || ref.targeted) return null;
+  if (ref.zone && ref.zone !== 'battlefield') return null; // a zone phrase is not an event
+  if (!isWatchableFilter(ref.filter)) return null;
+  return ref.controller ? { filter: ref.filter, controller: ref.controller } : { filter: ref.filter };
+}
+
+const YOU: PlayerSelector = { who: 'you' };
+
+/**
+ * A "… this turn" phrase -> a `{v:'watch'}` expression, or `null` to refuse.
+ *
+ * Takes the noun phrase WITHOUT its "the number of" / "for each" prefix, so one
+ * table serves both spellings.
+ */
+export function parseWatchValue(input: string): ValueExpr | null {
+  const s = input.trim().toLowerCase().replace(/[.,]+$/, '');
+  if (!/ this turn$/.test(s)) return null;
+  const body = s.slice(0, -' this turn'.length).trim();
+  if (!body) return null;
+
+  const watch = (event: WatchedEvent, measure: 'events' | 'amount'): ValueExpr => ({
+    v: 'watch',
+    query: { event, window: 'this-turn', measure },
+  });
+
+  /* "creatures that died this turn", "nontoken creatures that died under your
+     control this turn". */
+  const died = body.match(/^(.+?) that died(?: under your control)?$/);
+  if (died) {
+    const object = watchableObject(died[1]);
+    if (!object) return null;
+    const controller = /under your control$/.test(body) ? YOU : object.controller;
+    return watch(controller ? { saw: 'died', what: object.filter, controller } : { saw: 'died', what: object.filter }, 'events');
+  }
+
+  /* "creatures that attacked this turn". */
+  const attacked = body.match(/^(.+?) that attacked$/);
+  if (attacked) {
+    const object = watchableObject(attacked[1]);
+    if (!object) return null;
+    return watch(
+      object.controller ? { saw: 'attacked', what: object.filter, controller: object.controller } : { saw: 'attacked', what: object.filter },
+      'events',
+    );
+  }
+
+  /* "cards you've drawn this turn". `measure:'amount'` because one DRAW of
+     three cards is three cards, not one event. */
+  if (/^cards youve drawn$/.test(body)) return watch({ saw: 'drew', by: YOU }, 'amount');
+
+  /* "spells you've cast this turn", "instant and sorcery spells you've cast
+     this turn", "spells cast this turn". */
+  const yourSpells = body.match(/^(?:(.+?) )?spells youve cast$/);
+  if (yourSpells) {
+    if (!yourSpells[1]) return watch({ saw: 'spell-cast', by: YOU }, 'events');
+    const object = watchableObject(yourSpells[1]);
+    if (!object) return null;
+    return watch({ saw: 'spell-cast', what: object.filter, by: YOU }, 'events');
+  }
+  if (/^spells cast$/.test(body)) return watch({ saw: 'spell-cast' }, 'events');
+
+  /* "tokens you created this turn". */
+  if (/^tokens you created$/.test(body)) return watch({ saw: 'token-created', by: YOU }, 'amount');
+
+  return null;
+}
+
+/* ------------------------------------------------------------------ *
+ * E8 — conditional mana (CR 106.6)
+ * ------------------------------------------------------------------ */
+
+/**
+ * "Spend this mana only to cast artifact spells" -> the restriction, or `null`.
+ *
+ * Four templates cover the clear majority of the 164 occurrences in the
+ * catalogue. Everything else — "only on costs that contain {X}", "only to pay
+ * cumulative upkeep costs", "only to cast a creature spell of the chosen type"
+ * — is refused, because a restriction read loosely is worse than none at all:
+ * mana that should have been locked to creatures paying for a counterspell is
+ * exactly the silent upgrade this extension exists to prevent.
+ */
+export function parseManaSpendRestriction(input: string): ManaSpendRestriction | null {
+  const raw = input.trim().replace(/[.]+$/, '');
+  const s = raw.toLowerCase();
+
+  const only = s.match(/^spend this mana only to (.+)$/);
+  if (!only) return null;
+  const rest = only[1].trim();
+
+  if (rest === 'activate abilities') return { spendOn: 'activate', text: raw };
+  if (rest === 'cast spells') return { spendOn: 'cast', text: raw };
+
+  // "cast artifact spells or activate abilities of artifacts" — one filter, two
+  // permitted uses. The two noun phrases must AGREE; a card that let creature
+  // mana activate artifact abilities would be a different card.
+  const both = rest.match(/^cast (.+?) spells? or activate (?:an )?abilit(?:y|ies) of (?:an? )?(.+?)(?: source)?$/);
+  if (both) {
+    const spell = parseObject(both[1]);
+    const source = parseObject(both[2]);
+    if (!spell || !source || spell.targeted || source.targeted) return null;
+    if (JSON.stringify(spell.filter) !== JSON.stringify(source.filter)) return null;
+    return { spendOn: 'cast-or-activate', what: spell.filter, text: raw };
+  }
+
+  const cast = rest.match(/^cast (.+?) spells?$/);
+  if (cast) {
+    const ref = parseObject(cast[1]);
+    if (!ref || ref.targeted) return null;
+    return { spendOn: 'cast', what: ref.filter, text: raw };
+  }
+
+  return null;
 }
 
 /* ------------------------------------------------------------------ *

@@ -127,22 +127,45 @@ export async function getPublicDeck(slug: string): Promise<PublicDeckData | null
 }
 
 /**
- * Track share event
+ * Track share event.
+ *
+ * The deck id is resolved through the `get_public_deck` RPC, NOT through a
+ * direct read of `user_decks`. That distinction is the whole reason this
+ * function works.
+ *
+ * `user_decks` has exactly two SELECT policies: `is_public = true` and
+ * `auth.uid() = user_id`. Publishing a deck (`enableDeckShare` above) sets
+ * `public_enabled`, `public_slug` and `published_at` — it never touches
+ * `is_public`. So for the logged-out visitor this function actually runs for,
+ * a `.from('user_decks').eq('public_slug', slug)` read matches no policy and
+ * comes back empty. The old code did exactly that, returned early on the empty
+ * result, and therefore recorded no event and incremented no view count for
+ * any deck, ever. `deck_share_events` held 0 rows, which read as "nobody has
+ * shared a deck" rather than "the recorder has never once fired".
+ *
+ * `get_public_deck` is SECURITY DEFINER, keyed on `public_enabled = true`, and
+ * granted to `anon` — the same call `getPublicDeck` already makes to render
+ * the page. Using it keeps the resolution rule identical to the RLS INSERT
+ * policy on `deck_share_events`, which gates on
+ * `is_published_share_target(deck_id, slug)` — also `public_enabled` plus
+ * slug. Both sides now agree, so a legitimate event is accepted and a forged
+ * one is not.
+ *
+ * The insert stays a bare `.insert()` with no `.select()` chained: returning
+ * the row would require SELECT on `deck_share_events`, whose SELECT policy is
+ * owner-only, and a logged-out visitor is not the owner.
  */
 export async function trackShareEvent(
   slug: string,
   event: 'view' | 'copy' | 'qr' | 'embed'
 ): Promise<void> {
   try {
-    // Get deck ID from slug
-    const { data: deckData } = await supabase
-      .from('user_decks')
-      .select('id')
-      .eq('public_slug', slug)
-      .eq('public_enabled', true)
-      .single();
+    const { data: deckInfo } = await supabase.rpc('get_public_deck', {
+      deck_slug: slug,
+    });
 
-    if (!deckData) return;
+    const deckId = (deckInfo as { id?: string } | null)?.id;
+    if (!deckId) return;
 
     // Hash UA and IP for privacy
     const ua = navigator.userAgent;
@@ -150,7 +173,7 @@ export async function trackShareEvent(
 
     // Insert event
     await supabase.from('deck_share_events').insert({
-      deck_id: deckData.id,
+      deck_id: deckId,
       slug,
       event,
       ua_hash: uaHash,

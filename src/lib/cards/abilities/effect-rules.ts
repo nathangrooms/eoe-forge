@@ -21,16 +21,28 @@
  * "what should the vocabulary grow next" is a number rather than an opinion.
  */
 
-import type { Effect, PlayerSelector, Selector, TargetSpec, TokenSpec, ValueExpr } from './dsl.ts';
+import type {
+  Cost,
+  Effect,
+  ManaSpendRestriction,
+  PlayerSelector,
+  Selector,
+  TargetSpec,
+  TokenSpec,
+  ValueExpr,
+} from './dsl.ts';
 import { manual } from './dsl.ts';
 import {
   NUM,
   PLAYER,
   objectSelector,
   parseCount,
+  parseForEachValue,
   parseKeywordList,
+  parseManaSpendRestriction,
   parseObject,
   parsePlayer,
+  parseValueExpr,
   registerTarget,
 } from './grammar.ts';
 
@@ -50,12 +62,38 @@ export interface BuildCtx {
    * `confidence: 'approximate'`, which the runtime logs on resolution.
    */
   approximate: boolean;
+  /**
+   * E9. What "X" means in THIS phrase, bound from a trailing ", where X is …"
+   * clause. Absent, an `x` in a count position stays `{v:'x'}` — the number the
+   * player announced when casting — which is a different thing entirely, and
+   * conflating the two would make Dockside Extortionist create however many
+   * Treasures the caster typed in.
+   */
+  xValue?: ValueExpr;
+  /**
+   * E8. A restriction peeled off the end of a mana ability's body ("Spend this
+   * mana only to cast artifact spells"), waiting to be attached to the
+   * `add-mana` effects in the same body.
+   */
+  manaRestriction?: ManaSpendRestriction;
+  /**
+   * Set the moment `manaRestriction` lands on an `add-mana`. If a body carries
+   * a restriction and this never becomes true, the restriction was DROPPED, and
+   * the caller refuses the whole body rather than shipping unrestricted mana.
+   */
+  manaRestrictionUsed?: boolean;
 }
 
 export interface EffectRule {
   id: string;
   re: RegExp;
-  build(m: RegExpMatchArray, ctx: BuildCtx): Effect[] | null;
+  /**
+   * `depth` is the recursion depth `compileEffectPhrase` is at. A rule that
+   * compiles a sub-phrase (an opponent-facing cost wrapping an effect) must
+   * pass `depth + 1` down, so the recursion bound stays one bound rather than
+   * one per rule that forgot about it.
+   */
+  build(m: RegExpMatchArray, ctx: BuildCtx, depth: number): Effect[] | null;
   note?: string;
 }
 
@@ -72,7 +110,28 @@ export function phraseSelector(phrase: string, ctx: BuildCtx, prompt: string): S
   if (/^(enchanted|equipped) /.test(p)) return { sel: 'attached' };
   const ref = parseObject(p);
   if (!ref) return null;
-  if (ref.targeted) return registerTarget(ref, ctx.addTarget, prompt);
+  if (ref.targeted) {
+    // `TargetSpec.min`/`max` are numbers, so "up to X target creatures" has no
+    // faithful spelling. `registerTarget` used to round a computed count down to
+    // 1, which announces one target for a card that named several — an
+    // under-resolution that looks like a resolution.
+    if (typeof ref.count !== 'number') return null;
+    return registerTarget(ref, ctx.addTarget, prompt);
+  }
+  // An untargeted phrase naming a BOUNDED quantity — "a creature you control",
+  // "another creature", "two lands you control" — is a choice its controller
+  // makes on resolution, and the `Selector` union cannot say "one of these,
+  // chosen later": `objectSelector` only ever produces `{sel:'all'}`, which
+  // means EVERY match. Building it anyway compiles "return a land you control
+  // to its owner's hand" into "return all your lands" — a wrong effect wearing
+  // the clothes of a modelled one, and now that the trigger runtime resolves
+  // compiled abilities for real, one the engine would actually perform.
+  //
+  // So refuse, exactly as this file refuses anything it cannot read: the caller
+  // turns the `null` into `{do:'manual'}`, coverage stops being 'full', and
+  // `abilityEngineOwns` leaves the card with the old detector, which asks for
+  // it by hand. Only `each`/`all`/plural phrases genuinely mean every match.
+  if (!ref.each) return null;
   return objectSelector(ref);
 }
 
@@ -91,6 +150,100 @@ function recipient(phrase: string, ctx: BuildCtx): Selector | PlayerSelector | n
   const player = parsePlayer(p, (spec) => ctx.addTarget(spec));
   if (player) return player;
   return phraseSelector(p, ctx, 'Choose target');
+}
+
+/* ------------------------------------------------------------------ *
+ * E9 — amounts
+ * ------------------------------------------------------------------ */
+
+/**
+ * A count word in an effect rule, with `x` rebound when the phrase said what X
+ * is.
+ *
+ * Every rule in the table below reads its amount through this rather than
+ * through `parseCount` directly. That is the whole of E9's front end at the
+ * rule level: one function, called everywhere a number used to be read, so
+ * "where X is the number of …" works on every rule at once instead of on the
+ * handful somebody remembered to update.
+ */
+function countOf(word: string, ctx: BuildCtx): ValueExpr | null {
+  const parsed = parseCount(word);
+  if (parsed === null) return null;
+  if (typeof parsed !== 'number' && parsed.v === 'x' && ctx.xValue !== undefined) return ctx.xValue;
+  return parsed;
+}
+
+/** `base × factor`, without the `{v:'mul', of:[1, …]}` noise for the common base of 1. */
+function scaleValue(base: ValueExpr, factor: ValueExpr): ValueExpr {
+  if (base === 1) return factor;
+  if (base === 0) return 0;
+  return { v: 'mul', of: [base, factor] };
+}
+
+/**
+ * One effect, with its single quantity multiplied — how " for each …" is read.
+ *
+ * `null` for every effect whose quantity is not a single scalar, and that is
+ * the guard, not a limitation: "destroy target creature for each artifact you
+ * control" has no number to scale, so the phrase is refused and reported rather
+ * than compiled into something that destroys one creature and looks fine.
+ *
+ * `set-life` is excluded deliberately. "Your life total becomes 3 for each …"
+ * is not a card, and scaling a SET rather than a DELTA is the kind of quiet
+ * arithmetic error that only shows up mid-game.
+ */
+function scaleEffect(effect: Effect, factor: ValueExpr): Effect | null {
+  switch (effect.do) {
+    case 'gain-life':
+    case 'lose-life':
+    case 'poison':
+      return { ...effect, amount: scaleValue(effect.amount, factor) };
+    case 'damage':
+      return { ...effect, amount: scaleValue(effect.amount, factor) };
+    case 'draw':
+    case 'mill':
+      return { ...effect, count: scaleValue(effect.count, factor) };
+    case 'discard':
+      return { ...effect, count: scaleValue(effect.count, factor) };
+    case 'create-token':
+      return { ...effect, count: scaleValue(effect.count, factor) };
+    case 'add-counters':
+    case 'remove-counters':
+      return { ...effect, count: scaleValue(effect.count, factor) };
+    case 'player-counter':
+      return { ...effect, count: scaleValue(effect.count, factor) };
+    case 'add-mana':
+      return { ...effect, count: scaleValue(effect.count ?? 1, factor) };
+    case 'pump': {
+      // "+1/+0 for each …" scales the side that has a number and leaves the
+      // other at zero, which is what the card says.
+      const scaled: Effect = {
+        ...effect,
+        power: effect.power === 0 ? 0 : scaleValue(effect.power, factor),
+        toughness: effect.toughness === 0 ? 0 : scaleValue(effect.toughness, factor),
+      };
+      return scaled;
+    }
+    default:
+      return null;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * E8 — attaching a spend restriction
+ * ------------------------------------------------------------------ */
+
+/**
+ * One `add-mana`, carrying whatever spend restriction the body declared.
+ *
+ * Every rule that produces mana goes through this, and it is the only place
+ * `manaRestrictionUsed` is set — so "the restriction reached the mana" is a
+ * fact the code records rather than one a reader has to verify by eye.
+ */
+function restrictedMana(effect: Extract<Effect, { do: 'add-mana' }>, ctx: BuildCtx): Effect {
+  if (!ctx.manaRestriction) return effect;
+  ctx.manaRestrictionUsed = true;
+  return { ...effect, restriction: ctx.manaRestriction };
 }
 
 /** `"~"` or `"it"` in subject position. `"it"` is inference, so it flags approximate. */
@@ -138,6 +291,18 @@ const TOKEN_CARD_TYPES = new Set(['artifact', 'creature', 'enchantment', 'land',
  * wrong type line is a permanent that behaves wrongly for the rest of the game.
  */
 function buildToken(power: string, toughness: string, descriptor: string, keywords: string[] | null): TokenSpec | null {
+  // `TokenSpec.power` is a STRING, printed on the token, and there is no member
+  // of it that can hold a `ValueExpr`. So an X/X token is not something this
+  // vocabulary can express, and emitting one puts the literal text "x" where a
+  // number belongs: `powerOf` reads it as 0, state-based actions bin the token
+  // on the spot, and the card looks like it resolved.
+  //
+  // "Create an X/X green Spirit creature token, where X is the number of lands
+  // you control" is therefore refused outright. E9 binds the X — the token's
+  // COUNT could use it — but the token's own printed power cannot, and being
+  // able to read half a sentence is not permission to compile it.
+  if (!/^\d+$/.test(power) || !/^\d+$/.test(toughness)) return null;
+
   const colors: Array<'W' | 'U' | 'B' | 'R' | 'G'> = [];
   const types: string[] = [];
   const subtypes: string[] = [];
@@ -188,7 +353,7 @@ export const EFFECT_RULES: EffectRule[] = [
     note: '"draw a card" (implicit you), "each opponent draws two cards".',
     build(m, ctx) {
       const who = playerOr(m[1], ctx);
-      const count = parseCount(m[2]);
+      const count = countOf(m[2], ctx);
       if (!who || count === null) return null;
       return [{ do: 'draw', who, count }];
     },
@@ -198,7 +363,7 @@ export const EFFECT_RULES: EffectRule[] = [
     re: new RegExp(`^(?:(${P}) )?mills? (${N}) cards?$`),
     build(m, ctx) {
       const who = playerOr(m[1], ctx);
-      const count = parseCount(m[2]);
+      const count = countOf(m[2], ctx);
       if (!who || count === null) return null;
       return [{ do: 'mill', who, count }];
     },
@@ -208,7 +373,7 @@ export const EFFECT_RULES: EffectRule[] = [
     re: new RegExp(`^(?:(${P}) )?discards? (${N}) cards?( at random)?$`),
     build(m, ctx) {
       const who = playerOr(m[1], ctx);
-      const count = parseCount(m[2]);
+      const count = countOf(m[2], ctx);
       if (!who || count === null) return null;
       const e: Effect = { do: 'discard', who, count };
       if (m[3]) (e as { random?: boolean }).random = true;
@@ -233,7 +398,7 @@ export const EFFECT_RULES: EffectRule[] = [
     re: new RegExp(`^(?:(${P}) )?gains? (${N}) life$`),
     build(m, ctx) {
       const who = playerOr(m[1], ctx);
-      const amount = parseCount(m[2]);
+      const amount = countOf(m[2], ctx);
       if (!who || amount === null) return null;
       return [{ do: 'gain-life', who, amount }];
     },
@@ -243,7 +408,7 @@ export const EFFECT_RULES: EffectRule[] = [
     re: new RegExp(`^(${P}) loses? (${N}) life$`),
     build(m, ctx) {
       const who = playerOr(m[1], ctx);
-      const amount = parseCount(m[2]);
+      const amount = countOf(m[2], ctx);
       if (!who || amount === null) return null;
       return [{ do: 'lose-life', who, amount }];
     },
@@ -254,7 +419,7 @@ export const EFFECT_RULES: EffectRule[] = [
     note: 'Covers "~ deals 3 damage to any target" and every recipient shape.',
     build(m, ctx) {
       if (!selfSubject(m[1], ctx)) return null;
-      const amount = parseCount(m[2]);
+      const amount = countOf(m[2], ctx);
       if (amount === null) return null;
       const to = recipient(m[3], ctx);
       if (!to) return null;
@@ -266,7 +431,7 @@ export const EFFECT_RULES: EffectRule[] = [
     re: new RegExp(`^(${P}) gets? (${N}) poison counters?$`),
     build(m, ctx) {
       const who = playerOr(m[1], ctx);
-      const amount = parseCount(m[2]);
+      const amount = countOf(m[2], ctx);
       if (!who || amount === null) return null;
       return [{ do: 'poison', who, amount }];
     },
@@ -281,8 +446,8 @@ export const EFFECT_RULES: EffectRule[] = [
   {
     id: 'experience',
     re: new RegExp(`^you get (${N}) experience counters?$`),
-    build(m) {
-      const count = parseCount(m[1]);
+    build(m, ctx) {
+      const count = countOf(m[1], ctx);
       if (count === null) return null;
       return [{ do: 'player-counter', who: { who: 'you' }, counter: 'experience', count }];
     },
@@ -363,11 +528,17 @@ export const EFFECT_RULES: EffectRule[] = [
       if (!ref) return null;
       const to = m[2] === 'your hand' ? 'hand' : 'battlefield';
       if (ref.targeted) {
+        // The count is the number of targets, and `TargetSpec` holds numbers.
+        // "Return up to X target Zombie cards …, where X is the number of
+        // opponents you have" cannot be spelled, and the old hardcoded `max: 1`
+        // returned one card for a card that named several.
+        if (typeof ref.count !== 'number') return null;
         const spec: Omit<TargetSpec, 'ref'> = {
-          what: 'card', zone: 'graveyard', filter: ref.filter, min: ref.upTo ? 0 : 1, max: 1,
+          what: 'card', zone: 'graveyard', filter: ref.filter, min: ref.upTo ? 0 : ref.count, max: ref.count,
           controller: { who: 'you' }, prompt: 'Choose a card in your graveyard',
         };
-        return [{ do: 'return-from', zone: 'graveyard', who: { who: 'you' }, what: { sel: 'target', ref: ctx.addTarget(spec) }, count: 1, to }];
+        if (ref.count > 1) spec.distinct = true;
+        return [{ do: 'return-from', zone: 'graveyard', who: { who: 'you' }, what: { sel: 'target', ref: ctx.addTarget(spec) }, count: ref.count, to }];
       }
       return [{ do: 'return-from', zone: 'graveyard', who: { who: 'you' }, what: objectSelector({ ...ref, zone: 'graveyard' }), count: ref.count, to }];
     },
@@ -412,7 +583,7 @@ export const EFFECT_RULES: EffectRule[] = [
     re: new RegExp(`^(?:(${P}) )?creates? (${N}) ([a-z]+) tokens?$`),
     build(m, ctx) {
       const who = playerOr(m[1], ctx);
-      const count = parseCount(m[2]);
+      const count = countOf(m[2], ctx);
       const token = PREDEFINED_TOKENS[m[3]];
       if (!who || count === null || !token) return null;
       return [{ do: 'create-token', who, token, count }];
@@ -426,7 +597,7 @@ export const EFFECT_RULES: EffectRule[] = [
     ),
     build(m, ctx) {
       const who = playerOr(m[1], ctx);
-      const count = parseCount(m[2]);
+      const count = countOf(m[2], ctx);
       if (!who || count === null) return null;
       const [power, toughness] = m[3].split('/');
       const keywords = m[5] ? parseKeywordList(m[5]) : null;
@@ -440,7 +611,7 @@ export const EFFECT_RULES: EffectRule[] = [
     id: 'add-counters',
     re: new RegExp(`^put (${N}) (\\+\\d+/\\+\\d+|-\\d+/-\\d+|[a-z]+) counters? on (.+)$`),
     build(m, ctx) {
-      const count = parseCount(m[1]);
+      const count = countOf(m[1], ctx);
       if (count === null) return null;
       const what = phraseSelector(m[3], ctx, 'Choose where to put counters');
       if (!what) return null;
@@ -451,7 +622,7 @@ export const EFFECT_RULES: EffectRule[] = [
     id: 'remove-counters',
     re: new RegExp(`^remove (${N}) (\\+\\d+/\\+\\d+|-\\d+/-\\d+|[a-z]+) counters? from (.+)$`),
     build(m, ctx) {
-      const count = parseCount(m[1]);
+      const count = countOf(m[1], ctx);
       if (count === null) return null;
       const what = phraseSelector(m[3], ctx, 'Choose where to remove counters');
       if (!what) return null;
@@ -506,23 +677,32 @@ export const EFFECT_RULES: EffectRule[] = [
     },
   },
 
-  /* ---------------- mana ---------------- */
+  /* ---------------- mana ----------------
+   *
+   * E8 lands here as one line per rule: `restrictedMana`. The restriction is
+   * peeled off the body by `compileEffectBody` and parked on the context, and
+   * every rule that produces mana asks for it. A rule that forgot to would ship
+   * unrestricted mana, so `compileEffectBody` refuses any body whose restriction
+   * nothing claimed. */
   {
     id: 'add-mana',
     re: /^add ((?:\{[wubrgcs0-9x]\})+)$/,
-    build(m) {
-      return [{ do: 'add-mana', who: { who: 'you' }, mana: m[1].toUpperCase() }];
+    build(m, ctx) {
+      return [restrictedMana({ do: 'add-mana', who: { who: 'you' }, mana: m[1].toUpperCase() }, ctx)];
     },
   },
   {
     id: 'add-mana-choice',
     re: /^add (\{[wubrgc]\})(?:, (\{[wubrgc]\}))?,? or (\{[wubrgc]\})$/,
     note: 'A dual land\'s "add {R} or {G}" is a player CHOICE, and {do:"choose-mode"} is exactly the DSL member for one — no new vocabulary needed, and the decision lands in the action log as an ANSWER_CHOICE like every other decision.',
-    build(m) {
+    build(m, ctx) {
       const symbols = [m[1], m[2], m[3]].filter(Boolean).map((s) => s.toUpperCase());
       return [{
         do: 'choose-mode', min: 1, max: 1,
-        modes: symbols.map((s) => ({ text: `Add ${s}`, effects: [{ do: 'add-mana', who: { who: 'you' }, mana: s } as Effect] })),
+        modes: symbols.map((s) => ({
+          text: `Add ${s}`,
+          effects: [restrictedMana({ do: 'add-mana', who: { who: 'you' }, mana: s }, ctx)],
+        })),
       }];
     },
   },
@@ -530,14 +710,14 @@ export const EFFECT_RULES: EffectRule[] = [
     id: 'add-mana-any-color',
     re: /^add (one|two|three) mana of any (?:one )?color$/,
     note: 'Every signet, every Sol-Ring-alike, every "any color" land. Five enumerated modes, which is what "any color" means.',
-    build(m) {
+    build(m, ctx) {
       const n = m[1] === 'one' ? 1 : m[1] === 'two' ? 2 : 3;
       const colors = ['{W}', '{U}', '{B}', '{R}', '{G}'];
       return [{
         do: 'choose-mode', min: 1, max: 1,
         modes: colors.map((c) => {
           const mana = c.repeat(n);
-          return { text: `Add ${mana}`, effects: [{ do: 'add-mana', who: { who: 'you' }, mana } as Effect] };
+          return { text: `Add ${mana}`, effects: [restrictedMana({ do: 'add-mana', who: { who: 'you' }, mana }, ctx)] };
         }),
       }];
     },
@@ -560,6 +740,105 @@ export const EFFECT_RULES: EffectRule[] = [
     build(m, ctx) {
       const who = playerOr(m[1], ctx);
       return who ? [{ do: 'lose-game', who }] : null;
+    },
+  },
+
+  /* ---------------- E9: amounts written as a phrase ----------------
+   *
+   * "Draw cards equal to the number of …" is the shape that cannot go through
+   * `countOf`, because there is no count WORD to read — the quantity IS the
+   * phrase. These rules are appended rather than folded into the ones above so
+   * that a card the compiler already handled takes exactly the same path it did
+   * before, and a coverage delta is a card that was gained rather than a card
+   * that quietly changed shape. */
+  {
+    id: 'draw-equal-to',
+    re: new RegExp(`^(?:(${P}) )?draws? cards equal to (.+)$`),
+    build(m, ctx) {
+      const who = playerOr(m[1], ctx);
+      const count = parseValueExpr(m[2]);
+      if (!who || count === null) return null;
+      return [{ do: 'draw', who, count }];
+    },
+  },
+  {
+    id: 'gain-life-equal-to',
+    re: new RegExp(`^(?:(${P}) )?gains? life equal to (.+)$`),
+    build(m, ctx) {
+      const who = playerOr(m[1], ctx);
+      const amount = parseValueExpr(m[2]);
+      if (!who || amount === null) return null;
+      return [{ do: 'gain-life', who, amount }];
+    },
+  },
+  {
+    id: 'lose-life-equal-to',
+    re: new RegExp(`^(${P}) loses? life equal to (.+)$`),
+    build(m, ctx) {
+      const who = playerOr(m[1], ctx);
+      const amount = parseValueExpr(m[2]);
+      if (!who || amount === null) return null;
+      return [{ do: 'lose-life', who, amount }];
+    },
+  },
+  {
+    id: 'damage-equal-to',
+    re: /^(~|it) deals damage equal to (.+?) to (.+)$/,
+    build(m, ctx) {
+      if (!selfSubject(m[1], ctx)) return null;
+      const amount = parseValueExpr(m[2]);
+      if (amount === null) return null;
+      const to = recipient(m[3], ctx);
+      if (!to) return null;
+      return [{ do: 'damage', to, amount }];
+    },
+  },
+  {
+    id: 'pump-x',
+    re: /^(.+?) gets? \+x\/\+x until end of turn$/,
+    note: 'Only reachable once a ", where X is …" clause has bound X; unbound, `{v:"x"}` would be the announced X of a spell that never announced one.',
+    build(m, ctx) {
+      if (ctx.xValue === undefined) return null;
+      const what = phraseSelector(m[1], ctx, 'Choose a creature');
+      if (!what) return null;
+      return [{ do: 'pump', what, power: ctx.xValue, toughness: ctx.xValue, duration: 'end-of-turn' }];
+    },
+  },
+
+  /* ---------------- E4: an opponent-facing optional cost ----------------
+   *
+   * Both spellings of one rule. The player being offered the cost is the one
+   * the trigger was about, and `{who:'trigger-player'}` is the only selector
+   * that says so — `{who:'each-opponent'}` would tax the whole table for one
+   * opponent's draw. */
+  {
+    id: 'unless-that-player-pays',
+    re: /^(.+?) unless that player pays ((?:\{[^}]+\})+)$/,
+    note: 'Rhystic Study. The "you may" stays INSIDE, because the opponent decides first and the controller decides second.',
+    build(m, ctx, depth) {
+      const inner = compileEffectPhrase(m[1], ctx, depth + 1);
+      if (!inner) return null;
+      return [{
+        do: 'unless-pays',
+        who: { who: 'trigger-player' },
+        cost: [{ pay: 'mana', cost: m[2].toUpperCase() } as Cost],
+        effects: inner,
+      }];
+    },
+  },
+  {
+    id: 'that-player-may-pay',
+    re: /^that player may pay ((?:\{[^}]+\})+)\. if (?:the|that) player doesnt, (.+)$/,
+    note: 'Smothering Tithe. Same rule as above, written the other way round by the card.',
+    build(m, ctx, depth) {
+      const inner = compileEffectPhrase(m[2], ctx, depth + 1);
+      if (!inner) return null;
+      return [{
+        do: 'unless-pays',
+        who: { who: 'trigger-player' },
+        cost: [{ pay: 'mana', cost: m[1].toUpperCase() } as Cost],
+        effects: inner,
+      }];
     },
   },
 ];
@@ -617,7 +896,7 @@ export function compileEffectPhrase(phrase: string, ctx: BuildCtx, depth = 0): E
   for (const rule of EFFECT_RULES) {
     const m = p.match(rule.re);
     if (!m) continue;
-    const built = rule.build(m, ctx);
+    const built = rule.build(m, ctx, depth);
     if (built) return built;
     // A rule that matched and declined does not stop the search: another rule
     // may read the same phrase, and splitting may still succeed.
@@ -631,6 +910,43 @@ export function compileEffectPhrase(phrase: string, ctx: BuildCtx, depth = 0): E
   }
 
   if (depth >= 4) return null;
+
+  /* E9 — ", where X is <value>".
+   *
+   * Bound BEFORE the phrase is re-read, and restored after, so X means one
+   * thing inside this phrase and nothing outside it. A ctx field that stayed
+   * set would leak the binding into the next sentence of the same ability,
+   * which is how "create X Treasures" and "draw X cards" end up agreeing when
+   * the card never said they should. */
+  const whereX = p.match(/^(.+?),? where x is (.+)$/);
+  if (whereX && ctx.xValue === undefined) {
+    const bound = parseValueExpr(whereX[2]);
+    if (bound !== null) {
+      ctx.xValue = bound;
+      const inner = compileEffectPhrase(whereX[1], ctx, depth + 1);
+      ctx.xValue = undefined;
+      if (inner) return inner;
+    }
+  }
+
+  /* E9 — "<effect> for each <thing>".
+   *
+   * Accepted only when the left half compiles to EXACTLY ONE effect that has
+   * exactly one quantity to scale. Two effects would leave the scope of "for
+   * each" ambiguous — "you gain 1 life and draw a card for each creature" does
+   * not say which half repeats — and an effect with no quantity has nothing to
+   * multiply, so both are refused rather than resolved with a guess. */
+  const forEach = p.match(/^(.+?) for each (.+)$/);
+  if (forEach) {
+    const factor = parseForEachValue(forEach[2]);
+    if (factor !== null) {
+      const inner = compileEffectPhrase(forEach[1], ctx, depth + 1);
+      if (inner && inner.length === 1) {
+        const scaled = scaleEffect(inner[0], factor);
+        if (scaled) return [scaled];
+      }
+    }
+  }
 
   for (const connective of CONNECTIVES) {
     let from = 0;
@@ -658,6 +974,39 @@ export function compileEffectPhrase(phrase: string, ctx: BuildCtx, depth = 0): E
 export function compileEffectBody(body: string, ctx: BuildCtx): Effect[] {
   const cleaned = body.trim().replace(/[.]+$/, '');
   if (!cleaned) return [];
+
+  /* E8 — peel "Spend this mana only to …" off the end.
+   *
+   * It is a property of the mana the rest of the body produced, not a separate
+   * effect, and left in the sentence list it becomes a `{do:'manual'}` note —
+   * a note a player reads AFTER spending the mana on something the card said
+   * they could not. So it comes off first, rides on the context, and every
+   * `add-mana` rule attaches it.
+   *
+   * If nothing attached it, the body was not a mana ability after all (or was
+   * one we misread), and the ORIGINAL text is recompiled with no restriction
+   * set, so the clause lands in `manual` exactly as it did before. Never
+   * "restriction dropped, mana kept". */
+  const restrictionAt = cleaned.search(/(^|\. )spend this mana only /);
+  if (restrictionAt >= 0 && !ctx.manaRestriction) {
+    const head = cleaned.slice(0, restrictionAt).replace(/[.\s]+$/, '');
+    const tail = cleaned.slice(restrictionAt).replace(/^\.\s*/, '');
+    const restriction = parseManaSpendRestriction(tail);
+    // The head must actually produce mana. Without this the discarded attempt
+    // below could have registered targets on the shared build context, leaving
+    // an ability carrying `TargetSpec`s nothing points at.
+    if (restriction && head && /(^|\. )add /.test(head)) {
+      ctx.manaRestriction = restriction;
+      ctx.manaRestrictionUsed = false;
+      const attempt = compileEffectBody(head, ctx);
+      const used = ctx.manaRestrictionUsed as boolean;
+      ctx.manaRestriction = undefined;
+      ctx.manaRestrictionUsed = undefined;
+      if (used) return attempt;
+      // Fall through and compile the whole thing unrestricted-but-honest: the
+      // restriction sentence stays in the body and becomes a visible note.
+    }
+  }
 
   const whole = compileEffectPhrase(cleaned, ctx);
   if (whole) return whole;

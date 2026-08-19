@@ -161,8 +161,10 @@ export function CardDetail({
   const activeFace = flippable ? face : undefined;
   const setCode = getSetCode(card).toUpperCase();
   const setName = getSetName(card);
-  const price = card.prices?.usd ? `$${parseFloat(card.prices.usd).toFixed(2)}` : null;
-  const foilPrice = card.prices?.usd_foil ? `$${parseFloat(card.prices.usd_foil).toFixed(2)}` : null;
+  // The two lines that used to live here read `usd` and `usd_foil` and nothing
+  // else, which is why a player clicking a card from the marketplace only ever
+  // saw a TCGplayer number. Prices are read by `src/lib/pricing` now, which
+  // reads all six slots. See `CardPrices`.
   const oracle = getOracleText(card, activeFace);
 
   return (
@@ -308,14 +310,11 @@ export function CardDetail({
                 <span className="tabular-nums">#{Number(card.edhrec_rank).toLocaleString()}</span>
               </DetailRow>
             )}
-            {(price || foilPrice) && (
-              <DetailRow label="Price (USD)">
-                <span className="tabular-nums">
-                  {price ?? '—'}
-                  {foilPrice && <span className="text-muted-foreground"> · {foilPrice} foil</span>}
-                </span>
-              </DetailRow>
-            )}
+            {/* No price row here. `CardDetailPane` draws `CardPrices` directly
+                below this list, which shows TCGplayer, Cardmarket and Magic
+                Online rather than the one dollar figure this row carried, so
+                keeping the row meant two price displays in one panel and the
+                smaller one was the misleading half. */}
             {card.artist && <DetailRow label="Artist">{card.artist}</DetailRow>}
           </div>
 

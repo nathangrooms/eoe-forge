@@ -382,6 +382,55 @@ test('an unknown noun phrase is refused, never defaulted to "any"', () => {
   assert.ok(parseObject('artifact creature you control'));
 });
 
+test('"a creature you control" is a choice, and is refused rather than read as "all"', () => {
+  // The exact failure this file's header warns about: a clause read WRONGLY.
+  // `Selector` has no way to say "one of these, chosen on resolution" — the
+  // only untargeted option is `{sel:'all'}`, which means every match. So
+  // Whitemane Lion, which returns ONE creature you control, must not compile
+  // into an effect that returns all of them. Once the trigger runtime resolves
+  // compiled abilities for real, that difference is a board wipe.
+  const lion = compile({
+    name: 'Whitemane Lion', type_line: 'Creature — Cat',
+    oracle_text: "Flash\nWhen this creature enters, return a creature you control to its owner's hand.",
+  });
+  const lionEffects = effectsOf(lion.abilities.find((a) => a.kind === 'triggered')!);
+  assert.equal(lionEffects.length, 1);
+  assert.equal(lionEffects[0].do, 'manual', 'the choice is handed to the player, not guessed');
+  assert.notEqual(lion.coverage, 'full', 'so nothing downstream may claim it understands the card');
+
+  // Guildless Commons is the same shape on lands, and the wrong reading sends
+  // the land that just entered straight back to hand.
+  const commons = compile({
+    name: 'Guildless Commons', type_line: 'Land',
+    oracle_text: "This land enters tapped.\nWhen this land enters, return a land you control to its owner's hand.\n{T}: Add {C}{C}.",
+  });
+  assert.ok(
+    hasManualEffect(effectsOf(commons.abilities.find((a) => a.kind === 'triggered')!)),
+    'returning "a land you control" is likewise a choice'
+  );
+
+  // The positive half, so the refusal is narrow and not a blanket one: "each"
+  // and plurals really do mean every match, and a named target still targets.
+  const oath = compile({
+    name: 'Oath of Ajani', type_line: 'Legendary Enchantment',
+    oracle_text: 'When Oath of Ajani enters, put a +1/+1 counter on each creature you control.',
+  });
+  const oathEffects = effectsOf(oath.abilities[0]);
+  assert.equal(oathEffects[0].do, 'add-counters');
+  assert.deepEqual((oathEffects[0] as { what: unknown }).what, {
+    sel: 'all',
+    where: { is: 'type', value: 'creature' },
+    controller: { who: 'you' },
+    zone: 'battlefield',
+  });
+
+  const shock = compile({
+    name: 'Test Bounce', type_line: 'Instant',
+    oracle_text: "Return target creature to its owner's hand.",
+  });
+  assert.equal(effectsOf(shock.abilities[0])[0].do, 'move-zone', 'a targeted bounce still compiles');
+});
+
 test('a connective split is taken only when BOTH halves compile', () => {
   const ok = compile({ name: 'Test Rite', type_line: 'Instant', oracle_text: 'You gain 2 life and draw a card.' }).abilities[0];
   assert.deepEqual(allEffects(ok), [

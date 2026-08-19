@@ -16,7 +16,7 @@
  *   `HomeScanner`     a CSS camera — body, viewfinder, focus brackets around a
  *                     whole 5:7 card, shutter, and the fuzzy match resolving
  *                     underneath.
- *   `HomeBrain`       a real 100-card precon, with the answer computed from it.
+ *   `HomeTutor`       a real 100-card precon, with the answer computed from it.
  *   `HomePrecons`     `PRECON_INDEX` — 184 real products, whole commander cards.
  *
  * `HomeStorage` also started here and moved to its own module; it is exported
@@ -27,5 +27,5 @@ export { HomeSearch } from '@/components/marketing/HomeSearch';
 export { HomePortability } from '@/components/marketing/HomePortability';
 export { HomePower } from '@/components/marketing/HomePower';
 export { HomeScanner } from '@/components/marketing/HomeScanner';
-export { HomeBrain } from '@/components/marketing/HomeBrain';
+export { HomeTutor } from '@/components/marketing/HomeTutor';
 export { HomePrecons } from '@/components/marketing/HomePrecons';

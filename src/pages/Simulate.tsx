@@ -34,8 +34,8 @@ import { GoldfishSetup, type GoldfishDeckOption } from '@/components/simulation/
 import { OpeningHand } from '@/components/simulation/goldfish/OpeningHand';
 import { GoldfishTable } from '@/components/simulation/goldfish/GoldfishTable';
 import { PlaytestSetup, type SeatDeckId } from '@/components/simulation/PlaytestSetup';
-import { PlaytestTable } from '@/components/simulation/PlaytestTable';
-import { useAutoGame } from '@/components/simulation/useAutoGame';
+import { WatchedTable } from '@/components/play/WatchedTable';
+import { useWatchedGame } from '@/components/play/useWatchedGame';
 import { resolveDeckDetailed, toGameFormat, type DeckSummary } from '@/lib/play/deckSource';
 import { buildTable, type BuiltTable, type PlayDeck, type PlayerId } from '@/lib/game';
 import {
@@ -87,8 +87,28 @@ function seatNameFor(deck: PlayDeck, index: number): string {
   const commander = deck.commanders[0];
   const source = commander?.name ?? deck.name;
   const short = source.split(/[,—-]/)[0].trim();
-  if (short.length === 0) return index === 0 ? 'You' : `Bot ${index}`;
+  /* Never "You". Nobody sits at this table: every seat is played by the bot,
+     and a seat called "You" made the winner line read "You wins." */
+  if (short.length === 0) return `Seat ${index + 1}`;
   return short;
+}
+
+/**
+ * Seat names, made distinguishable.
+ *
+ * Two seats can genuinely land on the same commander — the same deck picked
+ * twice, or two seats falling back to the same offline list when the card
+ * database is unreachable — and a table with two seats both called "Yeva" is a
+ * table you cannot follow. The duplicate is numbered rather than renamed, so
+ * the deck it came from is still readable.
+ */
+function uniqueSeatNames(decks: readonly PlayDeck[]): string[] {
+  const seen: Record<string, number> = {};
+  return decks.map((deck, index) => {
+    const base = seatNameFor(deck, index);
+    seen[base] = (seen[base] ?? 0) + 1;
+    return seen[base] === 1 ? base : `${base} ${seen[base]}`;
+  });
 }
 
 export default function Simulate() {
@@ -110,7 +130,7 @@ export default function Simulate() {
   const [running, setRunning] = useState(true);
   const [speedMs, setSpeedMs] = useState(450);
 
-  const { state, feed, halted, stepOnce, restart } = useAutoGame({
+  const { state, feed, lastPlay, halted, stepOnce, restart } = useWatchedGame({
     table,
     aggression,
     speedMs,
@@ -302,6 +322,8 @@ export default function Simulate() {
         resolved.push(outcome.deck);
       }
 
+      const names = uniqueSeatNames(resolved);
+
       const built = buildTable({
         id: `playtest-${seed}-${Date.now()}`,
         seed,
@@ -309,7 +331,7 @@ export default function Simulate() {
         format: resolved[0].format,
         seats: resolved.map((deck, index) => ({
           deck,
-          playerName: seatNameFor(deck, index),
+          playerName: names[index],
           playerId: `p${index + 1}` as PlayerId,
           // Every seat, the first included: this is a game you watch.
           isBot: true,
@@ -433,11 +455,10 @@ export default function Simulate() {
   // etc until you press start".
   if (tab === 'live' && table && state) {
     return (
-      <PlaytestTable
+      <WatchedTable
         state={state}
-        viewerPlayerId={state.players[0]?.id ?? 'p1'}
-        botPlayerIds={table.botPlayerIds}
         feed={feed}
+        lastPlay={lastPlay}
         halted={halted}
         running={running}
         onRunning={setRunning}

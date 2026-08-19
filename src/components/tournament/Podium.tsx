@@ -62,7 +62,7 @@ export function Podium({ standings, views, eventName, gameFormat, rounds }: Podi
               {champion.name}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              wins {eventName} — {gameFormat}, {rounds} round{rounds === 1 ? '' : 's'}
+              wins {eventName}. {gameFormat}, {rounds} round{rounds === 1 ? '' : 's'}
             </p>
           </div>
 

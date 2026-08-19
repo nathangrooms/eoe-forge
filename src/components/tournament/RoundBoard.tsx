@@ -134,7 +134,7 @@ export function RoundBoard({
                 ? 'No pairings in this round.'
                 : complete
                   ? `All ${total} match${total === 1 ? '' : 'es'} recorded.`
-                  : `${decided} of ${total} results in — ${total - decided} still playing.`}
+                  : `${decided} of ${total} results in. ${total - decided} still playing.`}
             </p>
           </div>
 
@@ -174,7 +174,16 @@ export function RoundBoard({
 
       {/* Pairings */}
       {round && round.matches.length > 0 ? (
-        <div className="grid gap-3 2xl:grid-cols-2">
+        /*
+          Columns follow the width that is actually there, not a breakpoint.
+          `2xl:grid-cols-2` measured the WINDOW, so a 1,680px screen showing the
+          standings rail got two 630px tables and half a row of nothing under
+          them, while a 1,280px screen got one 900px table holding two 88px
+          thumbnails. auto-fill against a 24rem floor gives three tables at
+          1,680, two at 1,280 and one on a phone, and it is the same rule
+          whether the rail is up or not.
+        */
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,24rem),1fr))] gap-3">
           {round.matches.map((match, index) => (
             <PairingCard
               key={match.id}
@@ -194,7 +203,7 @@ export function RoundBoard({
           <Loader2 aria-hidden="true" className="h-5 w-5 text-muted-foreground" />
           <p className="text-sm font-medium text-foreground">This round has no pairings yet</p>
           <p className="max-w-sm text-xs text-muted-foreground">
-            Finish the current round and pair the next one — Swiss seats players on record and never
+            Finish the current round and pair the next one. Swiss seats players on record and never
             repeats a match-up while a legal alternative exists.
           </p>
         </div>

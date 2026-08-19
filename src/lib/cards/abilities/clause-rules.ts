@@ -13,6 +13,7 @@
  */
 
 import type {
+  CardFilter,
   Cost,
   Modification,
   PlayerSelector,
@@ -30,6 +31,7 @@ import {
   NUM,
   objectSelector,
   parseCount,
+  parseForEachValue,
   parseKeywordList,
   parseKeywordWithParameter,
   parseObject,
@@ -426,28 +428,137 @@ export function parseStatic(paragraph: string, ctx: BuildCtx): StaticShape | nul
     if (who) return { affects: who, modifications: [{ layer: 'restriction', rule: { rule: 'cant-untap', who } }] };
   }
 
-  /* Cost modification. "Artifact spells you cast cost {1} less to cast." */
-  const cheaper = p.match(/^(.+?) spells you cast cost \{(\d+)\} (less|more) to cast$/);
-  if (cheaper) {
-    const ref = parseObject(cheaper[1]);
-    if (ref && !ref.targeted) {
-      const delta = Number(cheaper[2]) * (cheaper[3] === 'less' ? -1 : 1);
-      return {
-        affects: { sel: 'self' },
-        modifications: [{
-          layer: 'cost-modify',
-          applies: { sel: 'all', where: ref.filter, zone: 'stack' },
-          delta, genericOnly: true, forWhom: { who: 'you' },
-        }],
-      };
-    }
-  }
-  const selfCheaper = p.match(/^~ costs \{(\d+)\} (less|more) to cast$/);
-  if (selfCheaper) {
-    const delta = Number(selfCheaper[1]) * (selfCheaper[2] === 'less' ? -1 : 1);
+  /* E4 — cost modification. See `parseCostModification`. */
+  const costMod = parseCostModification(p);
+  if (costMod) return costMod;
+
+  return null;
+}
+
+/* ------------------------------------------------------------------ *
+ * E4 — cost modification
+ *
+ * Four spellings of one rule, and the differences between them are the whole
+ * point, because they differ in WHOSE spells get cheaper:
+ *
+ *   "Artifact spells you cast cost {1} less"    -> the controller only
+ *   "Spells your opponents cast cost {1} more"  -> the opponents only
+ *   "Noncreature spells cost {1} more"          -> every player, you included
+ *   "This spell costs {1} less for each …"      -> the source itself, computed
+ *
+ * The old rule read only the first and hardcoded `forWhom: you`. Read that way,
+ * Sphere of Resistance taxes the table and not its controller — a tax the
+ * caster silently never pays. The catalogue writes all four, so `forWhom` is
+ * read from the sentence rather than assumed.
+ *
+ * The fourth is E4 meeting E9: `delta` has always been a `ValueExpr`, and
+ * "for each artifact you control" is the single most common cost-modifying
+ * clause in the catalogue (36 rows). Nothing but a front end was missing.
+ * ------------------------------------------------------------------ */
+
+/** `{is:'any'}` when the phrase named no restriction at all — "spells you cast". */
+function spellFilter(phrase: string | undefined): CardFilter | null {
+  const s = (phrase ?? '').trim();
+  if (!s) return { is: 'any' };
+  const ref = parseObject(s);
+  if (!ref || ref.targeted) return null;
+  return ref.filter;
+}
+
+/** A flat delta, or a computed one when the clause ended in "for each …". */
+function costDelta(magnitude: number, direction: string, forEach: string | undefined): ValueExpr | null {
+  const signed = direction === 'less' ? -magnitude : magnitude;
+  if (!forEach) return signed;
+  const factor = parseForEachValue(forEach);
+  return factor === null ? null : { v: 'mul', of: [signed, factor] };
+}
+
+/**
+ * A `{layer:'cost-modify'}` static, or `null`.
+ *
+ * `applies` is written with `zone:'stack'` because the thing being made cheaper
+ * is a SPELL. `costAdjustmentFor` matches the filter against the card wherever
+ * it actually is when somebody asks — which is the hand, because a cost is
+ * computed before the spell is announced. That mismatch is why cost reduction
+ * measured exactly zero for as long as it existed; see the note in `statics.ts`.
+ */
+function parseCostModification(p: string): StaticShape | null {
+  const you = { who: 'you' } as PlayerSelector;
+
+  /* "This spell costs {1} less to cast for each artifact you control." */
+  const selfForEach = p.match(/^~ costs \{(\d+)\} (less|more) to cast for each (.+)$/);
+  if (selfForEach) {
+    const delta = costDelta(Number(selfForEach[1]), selfForEach[2], selfForEach[3]);
+    if (delta === null) return null;
     return {
       affects: { sel: 'self' },
-      modifications: [{ layer: 'cost-modify', applies: { sel: 'self' }, delta, genericOnly: true, forWhom: { who: 'you' } }],
+      modifications: [{ layer: 'cost-modify', applies: { sel: 'self' }, delta, genericOnly: true, forWhom: you }],
+    };
+  }
+
+  /* "This spell costs {1} less to cast." */
+  const self = p.match(/^~ costs \{(\d+)\} (less|more) to cast$/);
+  if (self) {
+    return {
+      affects: { sel: 'self' },
+      modifications: [{
+        layer: 'cost-modify',
+        applies: { sel: 'self' },
+        delta: Number(self[1]) * (self[2] === 'less' ? -1 : 1),
+        genericOnly: true,
+        forWhom: you,
+      }],
+    };
+  }
+
+  /* "<kind> spells you cast cost {N} less/more to cast", optionally "for each …". */
+  const yours = p.match(/^(?:(.+?) )?spells you cast cost \{(\d+)\} (less|more) to cast(?: for each (.+))?$/);
+  if (yours) {
+    const filter = spellFilter(yours[1]);
+    const delta = costDelta(Number(yours[2]), yours[3], yours[4]);
+    if (!filter || delta === null) return null;
+    return {
+      affects: { sel: 'self' },
+      modifications: [{
+        layer: 'cost-modify',
+        applies: { sel: 'all', where: filter, zone: 'stack' },
+        delta, genericOnly: true, forWhom: you,
+      }],
+    };
+  }
+
+  /* "<kind> spells your opponents cast cost {N} more to cast." */
+  const theirs = p.match(/^(?:(.+?) )?spells your opponents cast cost \{(\d+)\} (less|more) to cast$/);
+  if (theirs) {
+    const filter = spellFilter(theirs[1]);
+    if (!filter) return null;
+    return {
+      affects: { sel: 'self' },
+      modifications: [{
+        layer: 'cost-modify',
+        applies: { sel: 'all', where: filter, zone: 'stack' },
+        delta: Number(theirs[2]) * (theirs[3] === 'less' ? -1 : 1),
+        genericOnly: true,
+        forWhom: { who: 'each-opponent' },
+      }],
+    };
+  }
+
+  /* "<kind> spells cost {N} more to cast" — no "you cast", so EVERY player, the
+     controller included. Sphere of Resistance, not a one-sided tax. */
+  const everyone = p.match(/^(?:(.+?) )?spells cost \{(\d+)\} (less|more) to cast$/);
+  if (everyone) {
+    const filter = spellFilter(everyone[1]);
+    if (!filter) return null;
+    return {
+      affects: { sel: 'self' },
+      modifications: [{
+        layer: 'cost-modify',
+        applies: { sel: 'all', where: filter, zone: 'stack' },
+        delta: Number(everyone[2]) * (everyone[3] === 'less' ? -1 : 1),
+        genericOnly: true,
+        forWhom: { who: 'each-player' },
+      }],
     };
   }
 
@@ -488,6 +599,39 @@ export function parseReplacement(paragraph: string): ReplacementShape | null {
       event: { on: 'enters', who: { sel: 'self' } },
       result: { do: 'enters-tapped' },
       selfReplacement: true,
+    };
+  }
+
+  /* Doublers. `{do:'multiply'}` and both events have been in the DSL since it
+     was written; the front end had no rule that produced them, which is why
+     Doubling Season compiled to two `unrecognised` clauses and a coverage of
+     'manual' — a card the compiler read none of, for want of two regexes.
+
+     `counter` is left OFF the `counter-placed` event on purpose: the card says
+     "one or more counters", so naming a kind would double +1/+1 counters and
+     quietly not double loyalty. */
+  const tokenDoubler = p.match(
+    /^if an effect would create one or more tokens under your control, it creates (twice|three times) that many(?: of those)? tokens instead$/,
+  );
+  if (tokenDoubler) {
+    return {
+      event: { on: 'token-created', whose: { who: 'you' } },
+      result: { do: 'multiply', factor: tokenDoubler[1] === 'twice' ? 2 : 3 },
+      selfReplacement: false,
+    };
+  }
+
+  const counterDoubler = p.match(
+    /^if an effect would put one or more counters on a permanent you control, it puts (twice|three times) that many(?: of those)? counters on that permanent instead$/,
+  );
+  if (counterDoubler) {
+    return {
+      event: {
+        on: 'counter-placed',
+        target: { sel: 'all', where: { is: 'any' }, controller: { who: 'you' }, zone: 'battlefield' },
+      },
+      result: { do: 'multiply', factor: counterDoubler[1] === 'twice' ? 2 : 3 },
+      selfReplacement: false,
     };
   }
 

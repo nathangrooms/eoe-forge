@@ -18,6 +18,7 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { uniqueCards } from '@/lib/cards/cardQuery';
 import { Card as CardType } from '@/types/collection';
 import { formatPrice } from '@/features/collection/value';
 import { CardImage } from '@/components/cards';
@@ -74,9 +75,11 @@ export function EnhancedCardSearch({ onCardSelect }: EnhancedCardSearchProps) {
   const searchCards = async (query: string, page: number = 1) => {
     setIsLoading(true);
     try {
-      let dbQuery = supabase
-        .from('cards')
-        .select('*');
+      // One row per card. `cards` holds every printing, and this query pages 24
+      // rows at a time, so searching it directly would fill a page of results
+      // with reprints of two or three cards. Somebody looking for a card wants
+      // the card; a specific printing is chosen afterwards, on the card page.
+      let dbQuery = uniqueCards().select('*');
 
       // Apply text search
       if (query.trim()) {

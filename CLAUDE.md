@@ -163,7 +163,7 @@ slot on reprints of Sol Ring. So there are **two sources and every caller declar
 
 | Source | Holds | Use for |
 |---|---|---|
-| **`public.cards_unique`** | one row per `oracle_id` | **the default.** Search, commander selection, all suggestions and recommendations, deck-building candidate pools, the optimiser, MTG Brain, deck lists |
+| **`public.cards_unique`** | one row per `oracle_id` | **the default.** Search, commander selection, all suggestions and recommendations, deck-building candidate pools, the optimiser, Tutor, deck lists |
 | `public.cards` | every printing | only where the printing IS the subject: collection rows, marketplace listings, scanner results, the art-variants list on a card page |
 
 In app code go through `src/lib/cards/cardQuery.ts` — `uniqueCards()` and `cardPrintings()` — rather
@@ -263,11 +263,45 @@ improvement, core_functionality), `task_priority` (high, medium, low), `subscrip
 
 **Extensions:** `pg_cron` and `pg_net` are both installed and available for scheduling.
 
-### Edge Functions (20, all ACTIVE)
-`scryfall-sync`, `simple-sync`, `test-scryfall` · `ai-deck-builder`, `ai-deck-builder-v2`, `mtg-brain`,
+### `meta_*` tables — third-party decklists, combos and inclusion data (added 2026-08-19)
+
+Closes the "no co-occurrence data" gap, partially and honestly. Full record:
+**`docs/overhaul/META-INGESTION.md`**. Terms research: `docs/overhaul/DECKLIST-DATA.md`.
+
+**Only two sources are ingested, both MIT:** MTGJSON (decklists) and Commander Spellbook
+(combos). **EDHREC, MTGGoldfish, MTGTop8, Archidekt, Moxfield and Topdeck.gg are NOT ingested**
+and must not be without written permission or a key — the clause each verdict rests on is in
+`THIRD-PARTY-NOTICES.md`. Adding a source means reading its terms first.
+
+Three shapes, three sets of tables: `meta_decks`/`meta_deck_cards`, `meta_combos`/
+`meta_combo_cards`, and the derived `meta_card_inclusion`/`meta_card_pairs`. **Cards are keyed
+by `oracle_id`, never by name or printing id** — `cards` now holds every printing, so
+`oracle_id` is non-unique there and no FK can point at it.
+
+Three rules that are load-bearing:
+
+1. **Every aggregate stores its denominator.** A scope below `meta_min_scope_decks()` (30)
+   produces **no row at all**, not a row with a caveat. Per-commander inclusion is therefore
+   empty and that is correct: precons give roughly one deck per commander. Format-scope
+   inclusion is real (Sol Ring in 77 of 79 commander precons).
+2. **The transform lives in SQL, once** (`meta_load_spellbook_page`, `meta_load_mtgjson_deck`).
+   The edge functions contain none. `meta_deck_type_allowlist` decides what is a decklist —
+   MTGJSON labels 3,004 things a "deck" and only 873 are; `MTGO Redemption` is a 383-card whole
+   set that would poison every co-occurrence figure.
+3. **The resume cursor clears on the COMPLETION path only.** `meta_finish_ingest` plus a trigger
+   on `meta_ingest_runs`; a **failed** run keeps its cursor so the retry resumes. This is the
+   bug that froze `scryfall-sync` for months.
+
+Ingestion is driven either by `public.meta_drain_tick(source, batch)` from pg_cron (no secret in
+the cron command) or by the two edge functions. **Commander Spellbook enforces an undocumented
+rate limit** — a burst of 100 returns 429 for all of them — so batches stay small and back off.
+
+### Edge Functions (22, all ACTIVE)
+`scryfall-sync`, `simple-sync`, `test-scryfall` · `ai-deck-builder`, `ai-deck-builder-v2`, `mtg-brain` (**Tutor** — see 12.x),
 `gemini-deck-coach`, `deck-optimizer`, `calculate-deck-power`, `edh-power-check` ·
 `scan-match`, `scan-card-ai` · `daily-price-capture`, `capture-card-price`, `capture-collection-value`,
-`price-drop-alerts` · `fetch-precons`, `proxy-image`, `rate-limiter`
+`price-drop-alerts` · `fetch-precons`, `proxy-image`, `rate-limiter` ·
+`mtgjson-deck-sync`, `spellbook-combo-sync`
 
 Three overlapping sync functions (`scryfall-sync`, `simple-sync`, `test-scryfall`) and two overlapping
 AI builders (`ai-deck-builder`, `ai-deck-builder-v2`) suggest consolidation is needed.
@@ -370,11 +404,112 @@ Direct quotes, kept verbatim so intent is not diluted:
 **Public:** `/` Homepage · `/login` · `/register` · `/reset-password` · `/forgot-password` · `/p/:slug` PublicDeck
 
 **Protected:** `/dashboard` · `/collection` · `/marketplace` · `/scan` · `/decks` · `/precons` ·
-`/deck-builder` · `/deck/:id` · `/builder` · `/smart-builder` · `/brain` · `/templates` · `/cards` ·
+`/deck-builder` · `/deck/:id` · `/builder` · `/smart-builder` · `/tutor` · `/templates` · `/cards` ·
 `/wishlist` · `/simulate` · `/tournament` · `/settings` · `/admin` · `/landing`
 
 Component-count hotspots: `deck-builder/` **95**, `ui/` 55, `collection/` 32, `marketing/` 28,
 `simulation/` 19, `marketplace/` 18, `admin/` 14, `wishlist/` 13.
+
+---
+
+## 10a. MTG Brain is called **Tutor** — 2026-08-19
+
+Owner: *"is there something we can rename mtg brain to? Not really a fan of the name - dont want to
+use any words like AI as people in magic community hate AI."*
+
+To **tutor** in Magic is to search your library for exactly the card you need. Every player knows the
+word, it describes the feature precisely, and it carries no technology connotation.
+
+**Ban list for this feature, and for user-facing copy generally:** no "AI", "assistant", "smart",
+"intelligent", "powered by", "neural", "GPT", "model", "bot". Write as though a knowledgeable player
+is answering, because from the player's side that is the experience. The system prompt enforces this
+on the output too.
+
+| Thing | Now |
+|---|---|
+| Route | `/tutor`. **`/brain` still works**, as a `<Navigate replace>` redirect. Links exist. |
+| Page | `src/pages/Tutor.tsx` |
+| Components | `src/components/tutor/` |
+| Homepage section | `src/components/marketing/HomeTutor.tsx` |
+| Left nav | "Tutor", icon `BookOpenCheck` |
+| Tables | `tutor_conversations`, `tutor_messages` (renamed while empty; constraints and policies renamed too) |
+| Feature flag | `feature_flags.key = 'tutor'` (was `mtg_brain`) |
+| **Edge function** | **still `supabase/functions/mtg-brain/`** — deliberate, see below |
+
+### Why the edge function keeps the old id
+A directory name under `supabase/functions/` **is** the deployed function id. Renaming it does not
+move a function, it creates a second one and leaves the first deployed with the old code. Deployment
+is `git push` → Lovable, and the bundle and the function do not go live in the same instant, so the
+gap is a window where every question 404s. Seven call sites invoke it and six live in files owned by
+other work (`AIAnalysisPanel`, `BrainAnalysis`, `EnhancedDeckAnalysis`, `ScanInsightsHelper`,
+`AITemplateRecommendations`, `AIBuilder`). The endpoint name is never seen by a player. The reason is
+written at the top of `index.ts` so nobody "tidies" it.
+
+---
+
+## 10b. What was wrong with Tutor, and what fixed it — 2026-08-19
+
+The owner's session: *"Which lands can I upgrade?"* → a pie chart, then *"please provide a list of
+the 36 lands you currently have"*. Verdict: *"wasn't very good and kept showing me graphs when not
+needed and didnt attach any reference cards, then it told me it didn't know what lands i even have
+so where is deck context and do chats continue?"*
+
+> ⚠️ **The rewrite existed in the repo but had never been deployed.** The live function was still
+> version 80, the original code, with every fault below intact. Deployed as version 83 on 2026-08-19
+> via the Supabase management API, `verify_jwt` preserved as `false`. **Check what is deployed before
+> believing a fix is live.**
+
+1. **The decklist was gated behind a regex** (`/(card list|specific cards|which cards|…)/i`) and then
+   cut with `.substring(0, 1200)`. "Which lands can I upgrade?" does not contain "which cards", so
+   the list was withheld and the answer correctly said it did not know. Now always sent, in full:
+   measured **92 entries, 4,679 chars, ~1,170 tokens**. Each land carries what it TAPS FOR.
+2. **Charts were a reflex**, not a response: `if (charts.length === 0 …)` then
+   `if (charts.length < 2 …)`, so every deck question got up to two charts. A chart is now drawn only
+   when the question is about the thing the chart shows, and a chart the question did not ask for is
+   dropped server-side even when the tool is called.
+3. **Cards depended on a "Referenced Cards:" section** being emitted. Names are now read out of the
+   prose and resolved against `cards`, which is the authority. A name that resolves to nothing was
+   invented and is silently dropped.
+4. **Chats are rows now**, `tutor_conversations` / `tutor_messages`, RLS scoped to `auth.uid()`,
+   `anon` holds **no table grant at all**. History is trimmed by size (24,000 chars), not `slice(-6)`.
+5. **The mana numbers were wrong.** `B:5 C:34 G:8 R:0 U:5 W:3` for a four-colour Atraxa deck, because
+   lands were bucketed by `card.colors`, which is **empty for every land ever printed**. Lands are
+   classified by `cards.produced_mana` now. Coverage of 4,478 land rows: 1,699 synced from Scryfall,
+   2,634 derived from rules text by `derive_produced_mana()`, **145 still unknown** — and unknown
+   means the breakdown is **withheld**, not guessed.
+
+### Two performance defects found by running it, not by reading it
+- `findLandCandidates` carried `.ilike('type_line', '%Land%')`. A leading-wildcard ILIKE cannot use a
+  btree index, so it was served by the GIN trigram index at **~5 s**, bitmap-ANDed into a **17.4 s**
+  query against the **8 s `statement_timeout`** the edge role carries. It therefore **never once
+  returned** (`land candidate query failed: canceling statement due to statement timeout` on every
+  call). It also filtered out **zero rows** — 575 before and after. Removed; the type is checked in
+  JS. Measured after: **3.9 s under load**, and the land engine now reports
+  `12 weak lands, 45 candidates`.
+- `resolveCards` did `const { data } = await …`, discarding the error, so a failed catalogue lookup
+  and "none of these are cards" looked identical. That is how a run resolving **0 of 86 real card
+  names** looked healthy. Errors are logged now.
+
+### The honesty bug that mattered most
+With a deck attached but the page's card join still in flight, the prompt printed
+`No cards were sent with this deck.` directly under the heading *"This is the complete list. You have
+it. Never ask the user what is in this deck."* Two claims that together assert an empty list **is**
+the deck. Observed live. Now the prompt branches: no list means it says so and is explicitly told not
+to name cards, not to guess what the commander usually plays, and not to ask the user to type it out.
+`Tutor.tsx` also refuses to send while the attached deck is still loading.
+
+### Still outstanding
+- **`scryfall-sync` must start writing `produced_mana`** from Scryfall's own field. Until it does,
+  1,699 land rows are synced, 2,634 are derived from rules text, and **145 stay unclassified** and are
+  reported as unknown. That file belongs to other work, so the sync change has to follow.
+- `findLandCandidates` reads `public.cards`, not `public.cards_unique`, and dedupes by name in JS.
+  When it was written `cards_unique` did not carry `produced_mana`; it does now (checked: 40 columns,
+  `produced_mana` present, after `cards_unique_tracks_every_column_of_cards`). Results are correct
+  either way because of the name dedupe, but the source should move to `cards_unique` per section 6.3.
+- The land candidate query is ~3.9 s under the load measured on 2026-08-19 against an 8 s
+  `statement_timeout`. That is passing, not comfortable. If it starts timing out again, a partial
+  index on `(edhrec_rank) where edhrec_rank is not null and type_line ilike '%Land%'` is the fix; it
+  was not created at the time because the database was saturated and the build kept being cancelled.
 
 ---
 

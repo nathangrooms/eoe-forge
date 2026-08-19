@@ -1,20 +1,27 @@
-import { useEffect, useMemo, useState } from 'react';
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  Line,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { carryForward, type PriceObservation } from '@/lib/prices/history';
 import { cn } from '@/lib/utils';
 import { TrendingDown, TrendingUp } from 'lucide-react';
 import { CardPrices } from '@/components/pricing';
+
+/**
+ * The charting library is fetched only when there is a line to draw.
+ *
+ * Recharts is 377 kB raw / 104 kB gzipped and it used to be part of every card
+ * page's first load, which was roughly a third of the whole page. Most cards
+ * have no stored history at all, so most readers were paying for a chart that
+ * never rendered. The panel already reserves a 180px skeleton while the price
+ * query runs, and the same skeleton stands in while this arrives, so the
+ * layout does not move either way.
+ */
+const CardPriceChart = lazy(() => import('@/components/cards/CardPriceChart'));
+
+/** Matches the loading skeleton exactly so nothing shifts when the chart lands. */
+const ChartSkeleton = (
+  <div className="h-[180px] w-full min-w-0 animate-pulse rounded-lg bg-muted/40 motion-reduce:animate-none" />
+);
 
 /**
  * Price, and only price that exists.
@@ -320,106 +327,9 @@ export function CardPriceHistory({
           </p>
         ) : (
           <>
-            {/* min-w-0 and overflow-hidden are LOAD BEARING here.
-
-              recharts' ResponsiveContainer measures its parent and writes an
-              explicit pixel width onto itself. A grid or flex child defaults to
-              min-width:auto, so once the chart has measured wide it can never
-              shrink back, and the whole column ratchets outward. That is the
-              classic recharts overflow, and it is why the card page hung past
-              its container. */}
-            <div className="h-[180px] w-full min-w-0 overflow-hidden">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={visible} margin={{ top: 4, right: 4, bottom: 0, left: -12 }}>
-                  <defs>
-                    <linearGradient id="dm-price-fill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(var(--foreground))" stopOpacity={0.18} />
-                      <stop offset="100%" stopColor="hsl(var(--foreground))" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid
-                    vertical={false}
-                    stroke="hsl(var(--muted-foreground))"
-                    strokeOpacity={0.15}
-                  />
-                  <XAxis
-                    dataKey="label"
-                    tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
-                    tickLine={false}
-                    axisLine={false}
-                    minTickGap={24}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
-                    tickLine={false}
-                    axisLine={false}
-                    width={52}
-                    tickFormatter={(v: number) => `$${v.toFixed(2)}`}
-                    domain={['auto', 'auto']}
-                  />
-                  <Tooltip
-                    cursor={{ stroke: 'hsl(var(--muted-foreground))', strokeOpacity: 0.3 }}
-                    formatter={(value: number, key: string, item: any) => {
-                      const money =
-                        key === 'eur' ? `€${value.toFixed(2)}` : `$${value.toFixed(2)}`;
-                      const label = key === 'eur' ? 'EUR' : 'USD';
-                      // Say so when the value is held over from an earlier day,
-                      // rather than letting a flat line imply a fresh reading.
-                      return item?.payload?.observed
-                        ? [money, label]
-                        : [`${money} (unchanged since ${item?.payload?.observedOn ?? 'earlier'})`, label];
-                    }}
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--popover))',
-                      border: 'none',
-                      borderRadius: '10px',
-                      boxShadow: '0 12px 32px -8px hsl(0 0% 0% / 0.6)',
-                      fontSize: '12px',
-                      color: 'hsl(var(--popover-foreground))',
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="usd"
-                    stroke="hsl(var(--foreground))"
-                    strokeWidth={2}
-                    fill="url(#dm-price-fill)"
-                    /* A dot marks a day we actually read a price. The line
-                       between dots is the last read price held steady, which is
-                       what a missing row means. It is not a guess and it is not
-                       a fall to zero, and the reader can see which is which. */
-                    dot={(props: any) =>
-                      props?.payload?.observed ? (
-                        <circle
-                          key={props.payload.date}
-                          cx={props.cx}
-                          cy={props.cy}
-                          r={2}
-                          fill="hsl(var(--foreground))"
-                        />
-                      ) : (
-                        <g key={props?.payload?.date} />
-                      )
-                    }
-                    activeDot={{ r: 3, fill: 'hsl(var(--foreground))' }}
-                    connectNulls
-                    name="usd"
-                  />
-                  {hasEur && (
-                    <Line
-                      type="monotone"
-                      dataKey="eur"
-                      stroke="hsl(var(--muted-foreground))"
-                      strokeWidth={1.5}
-                      strokeDasharray="4 3"
-                      dot={false}
-                      connectNulls
-                      name="eur"
-                    />
-                  )}
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+            <Suspense fallback={ChartSkeleton}>
+              <CardPriceChart points={visible} hasEur={hasEur} />
+            </Suspense>
 
             <p className="mt-2 text-xs text-muted-foreground">
               {readDays} day{readDays === 1 ? '' : 's'} we checked a price

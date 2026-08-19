@@ -14,6 +14,7 @@ import {
   powerFillClass,
   powerTextClass,
   type DeckPower,
+  type Subscore,
   type SubscoreKey,
 } from '@/lib/deck/power';
 
@@ -57,6 +58,9 @@ interface PowerScoreProps {
 }
 
 const SEGMENTS = 10;
+
+/** Placeholder for a figure that does not exist. Not a zero. */
+const EMDASH = '\u2014';
 
 /** Shared geometry, so a filled bar and an empty one occupy identical space. */
 function segmentRowClass(size: 'sm' | 'md') {
@@ -324,31 +328,143 @@ function CompactPower({
   );
 }
 
-/** A single 0–100 subscore row with its weight, so the total is explainable. */
-function SubscoreRow({ k, value, muted }: { k: SubscoreKey; value: number; muted: boolean }) {
-  const pct = Math.max(0, Math.min(100, Number.isFinite(value) ? value : 0));
+/**
+ * One subscore, with the cards it counted.
+ *
+ * The bar and the number were here before. What is new is everything under
+ * them: the sentence saying what was counted, and the named cards that add up
+ * to it. DeckMatrix has already shipped a score that read 35 to 39 out of 100
+ * for every deck and nobody caught it for a long time, because a bar with a
+ * number on it looks exactly the same whether or not it measured anything. A
+ * player who can see the cards can see when it is wrong.
+ */
+function SubscoreRow({ sub, muted }: { sub: Subscore; muted: boolean }) {
+  const [open, setOpen] = useState(false);
+  const value = sub.value;
+  const pct = value === null ? 0 : Math.max(0, Math.min(100, value));
+  const hasEvidence = sub.from.length > 0 || sub.holdingBack.length > 0;
+
   return (
     <div className="py-2">
       <div className="flex items-baseline justify-between gap-3">
-        <span className="truncate text-sm font-medium">{SUBSCORE_LABELS[k]}</span>
+        <span className="truncate text-sm font-medium">{SUBSCORE_LABELS[sub.key]}</span>
         <span className="flex items-baseline gap-2 text-xs tabular-nums text-muted-foreground">
           <span className="text-[0.65rem] uppercase tracking-wider">
-            ×{SUBSCORE_WEIGHTS[k].toFixed(2)}
+            &times;{sub.weight.toFixed(2)}
           </span>
-          <span className="text-sm font-semibold text-foreground">{Math.round(pct)}</span>
-          <span>/100</span>
+          {value === null ? (
+            <span className="text-sm font-semibold text-muted-foreground">Not measured</span>
+          ) : (
+            <>
+              <span className="text-sm font-semibold text-foreground">{Math.round(pct)}</span>
+              <span>/100</span>
+            </>
+          )}
         </span>
       </div>
+
       <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-foreground/10">
         <div
           className={cn('h-full rounded-full', muted ? 'bg-foreground/30' : 'bg-foreground/70')}
           style={{ width: `${pct}%` }}
         />
       </div>
+
+      {/* What was counted. Not a description of the metric, the measurement. */}
       <p className="mt-1 text-[0.68rem] leading-snug text-muted-foreground">
-        {SUBSCORE_DESCRIPTIONS[k]}
+        {value === null ? (sub.note ?? sub.measured) : sub.measured}
       </p>
+
+      {hasEvidence && (
+        <>
+          <button
+            type="button"
+            onClick={() => setOpen(v => !v)}
+            aria-expanded={open}
+            className="mt-1 text-[0.68rem] font-medium text-foreground/80 hover:text-foreground"
+          >
+            {open ? 'Hide the cards' : 'Show the cards'}
+          </button>
+
+          {open && (
+            <div className="mt-1.5 space-y-2 rounded-lg bg-background/60 p-2.5 shadow-sm">
+              {sub.from.length > 0 && (
+                <div>
+                  <p className="text-[0.6rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                    Where the points came from
+                  </p>
+                  <ul className="mt-1 space-y-0.5">
+                    {sub.from.map(c => (
+                      <li
+                        key={c.name}
+                        className="flex items-baseline justify-between gap-2 text-[0.72rem] leading-snug"
+                      >
+                        <span className="min-w-0">
+                          <span className="font-medium">{c.name}</span>
+                          {c.quantity > 1 && (
+                            <span className="text-muted-foreground"> &times;{c.quantity}</span>
+                          )}
+                          <span className="text-muted-foreground"> {c.why}</span>
+                        </span>
+                        <span className="flex-shrink-0 tabular-nums text-muted-foreground">
+                          +{c.points.toFixed(1)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  {sub.othersCount > 0 && (
+                    <p className="mt-1 text-[0.68rem] text-muted-foreground">
+                      and {sub.othersCount} more, worth {sub.othersPoints.toFixed(1)} between them
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {sub.holdingBack.length > 0 && (
+                <div>
+                  <p className="text-[0.6rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                    What is costing you points
+                  </p>
+                  <ul className="mt-1 space-y-0.5">
+                    {sub.holdingBack.map(c => (
+                      <li
+                        key={c.name}
+                        className="flex items-baseline justify-between gap-2 text-[0.72rem] leading-snug"
+                      >
+                        <span className="min-w-0">
+                          <span className="font-medium">{c.name}</span>
+                          {c.quantity > 1 && (
+                            <span className="text-muted-foreground"> &times;{c.quantity}</span>
+                          )}
+                          <span className="text-muted-foreground"> {c.why}</span>
+                        </span>
+                        <span className="flex-shrink-0 tabular-nums text-muted-foreground">
+                          &minus;{c.points.toFixed(1)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
     </div>
+  );
+}
+
+/**
+ * The subscores in display order.
+ *
+ * A stored score from before a subscore existed simply will not carry it, and
+ * ordering off `SUBSCORE_ORDER` rather than off the stored array means a
+ * missing one is absent rather than rendered as a zero.
+ */
+function orderedEvidence(power: DeckPower): Subscore[] {
+  const byKey = new Map(power.evidence.map(s => [s.key, s]));
+  return SUBSCORE_ORDER.map(k => byKey.get(k as SubscoreKey)).filter(
+    (s): s is Subscore => Boolean(s)
   );
 }
 
@@ -390,7 +506,7 @@ function ExpandedPower({
   const stale = power.stale;
   const tone = stale ? 'text-muted-foreground' : powerTextClass(power.band);
   const bracket = DECK_BRACKETS[power.bracket];
-  const sim = power.simulation;
+  const cast = power.castability;
 
   const num = (v: number | undefined, digits = 0) =>
     typeof v === 'number' && Number.isFinite(v) ? v.toFixed(digits) : '—';
@@ -448,36 +564,62 @@ function ExpandedPower({
         </div>
       </div>
 
-      {/* Seeded simulation — these are measurements, not opinions */}
+      {/* Exact castability. This block used to be headed "Opening-hand
+          simulation, 10,000 seeded draws"; the generator behind it repeated
+          after about 161 shuffles of a 99-card deck. These are closed-form. */}
       <div>
         <p className="mb-2 text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          Opening-hand simulation · 10,000 seeded draws
+          Can you cast your own deck
         </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <SimulationTile
+            label="Average castable"
+            value={cast.averagePct === null ? EMDASH : `${num(cast.averagePct)}%`}
+            hint={`Across ${cast.scoredCount} cards with a cost`}
+          />
+          <SimulationTile
+            label="Hard to cast"
+            value={String(cast.hardToCastCount)}
+            hint={`Under ${cast.threshold}% on the turn they cost`}
+          />
+          <SimulationTile
             label="Keepable sevens"
-            value={`${num(sim?.keepable7Pct)}%`}
-            hint="Two lands, colour access, castable spells"
+            value={cast.keepable7Pct === null ? EMDASH : `${num(cast.keepable7Pct)}%`}
+            hint="Two to five lands in your opener"
           />
           <SimulationTile
             label="Turn-one colour"
-            value={`${num(sim?.t1ColorPct)}%`}
-            hint="Untapped source in the opener"
-          />
-          <SimulationTile
-            label="Two colours by T2"
-            value={`${num(sim?.t2TwoColorsPct)}%`}
-            hint="Second colour available on turn two"
-          />
-          <SimulationTile
-            label="Untapped lands"
-            value={`${num(sim?.untappedLandPct)}%`}
-            hint={`Avg MV ${num(sim?.avgManaValue, 2)}`}
+            value={cast.turnOneColourPct === null ? EMDASH : `${num(cast.turnOneColourPct)}%`}
+            hint={`Average mana value ${num(cast.avgManaValue, 2)}`}
           />
         </div>
+
+        {cast.hardest.length > 0 && (
+          <div className="mt-2 rounded-lg bg-muted/40 p-3 shadow-sm">
+            <p className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Hardest to pay for
+            </p>
+            <ul className="mt-1.5 space-y-0.5">
+              {cast.hardest.map(card => (
+                <li
+                  key={card.name}
+                  className="flex items-baseline justify-between gap-3 text-xs leading-snug"
+                >
+                  <span className="min-w-0 truncate font-medium">{card.name}</span>
+                  <span className="flex-shrink-0 tabular-nums text-muted-foreground">
+                    {num(card.pct)}% by turn {card.turn}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-1.5 text-[0.68rem] leading-snug text-muted-foreground">
+              These are the same cards the optimiser puts at the top of its cut list.
+            </p>
+          </div>
+        )}
       </div>
 
-      {/* Nine weighted subscores */}
+      {/* Ten weighted subscores, each carrying its evidence */}
       <div className="rounded-xl bg-muted/40 p-4 shadow-sm">
         <button
           type="button"
@@ -488,7 +630,7 @@ function ExpandedPower({
           <span>
             <span className="block text-sm font-bold">Why this score</span>
             <span className="block text-xs text-muted-foreground">
-              Nine weighted subscores, 0–100 each
+              Ten parts, each one showing the cards it counted
             </span>
           </span>
           <ChevronDown
@@ -501,13 +643,8 @@ function ExpandedPower({
 
         {showBreakdown && (
           <div className="mt-3 grid grid-cols-1 gap-x-6 md:grid-cols-2">
-            {SUBSCORE_ORDER.map(key => (
-              <SubscoreRow
-                key={key}
-                k={key}
-                value={power.subscores?.[key] ?? 0}
-                muted={stale}
-              />
+            {orderedEvidence(power).map(sub => (
+              <SubscoreRow key={sub.key} sub={sub} muted={stale} />
             ))}
           </div>
         )}

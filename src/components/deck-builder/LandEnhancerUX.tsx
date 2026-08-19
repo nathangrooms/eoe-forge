@@ -158,7 +158,7 @@ export function LandEnhancerUX({ entries, power, identity, className }: LandEnha
 
   const tappedCount = stats.tappedLands.reduce((sum, l) => sum + l.quantity, 0);
   const landPct = (stats.landCount / Math.max(1, stats.totalCards)) * 100;
-  const sim = power?.simulation;
+  const cast = power?.castability;
 
   /**
    * The community rule of thumb for a Commander manabase: roughly 13–14 sources
@@ -180,7 +180,7 @@ export function LandEnhancerUX({ entries, power, identity, className }: LandEnha
           Manabase
         </h3>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          Measured from this decklist and the same seeded simulation the power score uses.
+          Measured from this decklist, by the same maths the power score uses.
         </p>
       </div>
 
@@ -201,13 +201,17 @@ export function LandEnhancerUX({ entries, power, identity, className }: LandEnha
         />
         <Tile
           label="Keepable sevens"
-          value={sim ? `${sim.keepable7Pct.toFixed(0)}%` : '—'}
-          hint="10,000 seeded draws"
+          value={
+            cast?.keepable7Pct != null ? `${cast.keepable7Pct.toFixed(0)}%` : '—'
+          }
+          hint="Two to five lands in your opener"
         />
         <Tile
           label="Turn-one colour"
-          value={sim ? `${sim.t1ColorPct.toFixed(0)}%` : '—'}
-          hint={sim ? `Two colours by T2: ${sim.t2TwoColorsPct.toFixed(0)}%` : undefined}
+          value={
+            cast?.turnOneColourPct != null ? `${cast.turnOneColourPct.toFixed(0)}%` : '—'
+          }
+          hint="A land that makes a colour, in the opener"
         />
       </div>
 

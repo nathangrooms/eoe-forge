@@ -1,0 +1,4 @@
+{
+  "_comment": "XMage engine primitives DeckMatrix has actually implemented as DSL verbs. Drives drift.mjs triage: a primitive listed here that changes upstream WITHOUT a rename is a possible live defect in shipped cards. Empty is the honest state today - no verb has been written by porting a named XMage primitive. Add an entry only when a verb is written against a specific XMage class and verified against it.",
+  "primitives": []
+}

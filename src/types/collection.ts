@@ -1,4 +1,6 @@
 // Collection TypeScript Types
+import type { OwnedValue } from '@/lib/pricing/printings';
+
 export type CardId = string;     // scryfall id (printing)
 export type OracleId = string;   // scryfall oracle id
 
@@ -45,6 +47,15 @@ export interface CollectionCard {
   foil: number;
   condition: 'mint' | 'near_mint' | 'excellent' | 'good' | 'light_played' | 'played' | 'poor';
   price_usd?: number;
+  /**
+   * True once the owner said which printing this row is.
+   *
+   * `card_id` has always pointed at some printing, but until 19 Aug 2026 the
+   * catalogue held one printing per card, so it was never a choice anybody
+   * made. False means we assigned it, and its price is a sample from a range
+   * rather than this collection's number. See `src/lib/pricing/printings.ts`.
+   */
+  printing_chosen?: boolean;
   created_at: string;
   updated_at: string;
   card?: Card;             // joined card data
@@ -54,12 +65,25 @@ export interface CollectionSnapshot {
   id: string;
   user_id: string;
   items: CollectionCard[];
-  totals: { 
-    unique: number; 
-    count: number; 
+  totals: {
+    unique: number;
+    count: number;
+    /**
+     * Value of the copies whose printing is settled and priced.
+     *
+     * NOT the whole collection when `value.assignedRows > 0`. Read `value` for
+     * the range and the count of rows nobody has said a printing for. A caller
+     * that prints this alone and calls it the total is making the mistake the
+     * printing model exists to stop.
+     */
     valueUSD: number;
     avgCmc: number;
   };
+  /**
+   * The breakdown behind `totals.valueUSD`: what is settled, what we hold no
+   * price for, and the range the unsettled rows span.
+   */
+  value?: OwnedValue;
 }
 
 export interface CollectionFilters {

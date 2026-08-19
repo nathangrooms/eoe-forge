@@ -37,6 +37,7 @@ import {
   type MoveToCollectionValues,
 } from '@/components/wishlist/MoveToCollectionPanel';
 import { formatPrice, toNumber } from '@/components/collection/browser/types';
+import { pickPrintingsByName } from '@/lib/wishlist/printing';
 import { CardGridSkeleton, CardSizeSlider, useCardSize } from '@/components/cards';
 import { ActiveFilterChips, CardFilterSheet, useCardFilterState } from '@/components/filters';
 import { matchesCardFilter, toLocalCard } from '@/lib/cards/local-filter';
@@ -91,20 +92,14 @@ const PRIORITY_FILTERS: { value: PriorityFilter; label: string }[] = [
 const CARD_COLUMNS =
   'id, name, set_code, collector_number, type_line, oracle_text, colors, color_identity, rarity, cmc, mana_cost, prices, image_uris, legalities, keywords, layout, faces, power, toughness, loyalty, is_reserved';
 
-/**
- * Which printing to show when a wishlist row has to be matched by name.
- *
- * Cheapest priced printing with an image wins; a printing with no price at all
- * loses to any that has one, so the total never falls back to zero when a
- * priced alternative exists. Deterministic, so the same card does not change
- * face between loads.
+/*
+ * Which printing to show when a wishlist row has to be matched by name now
+ * lives in `@/lib/wishlist/printing`, because the dashboard's wishlist tile has
+ * to answer the same question and was answering it the other way round — it
+ * kept the dearest printing while this page kept the cheapest, so the two
+ * screens reported $7,315.36 and $7,314.94 for the same four rows. One rule,
+ * one file, both callers.
  */
-function printingRank(card: any): number {
-  const usd = toNumber(card?.prices?.usd);
-  const hasImage = Boolean(card?.image_uris?.normal || card?.image_uris?.large);
-  if (usd <= 0) return Number.MAX_SAFE_INTEGER - (hasImage ? 1 : 0);
-  return hasImage ? usd : usd + 1_000_000;
-}
 
 export default function Wishlist() {
   const { user } = useAuth();
@@ -185,18 +180,14 @@ export default function Wishlist() {
         ),
       ];
 
-      const byName = new Map<string, any>();
+      let byName = new Map<string, any>();
       if (unresolvedNames.length > 0) {
         const { data: namedCards } = await supabase
           .from('cards')
           .select(CARD_COLUMNS)
           .in('name', unresolvedNames);
 
-        for (const row of namedCards ?? []) {
-          const key = String(row.name).toLowerCase();
-          const existing = byName.get(key);
-          if (!existing || printingRank(row) < printingRank(existing)) byName.set(key, row);
-        }
+        byName = pickPrintingsByName(namedCards ?? []);
       }
 
       setWishlistItems(
@@ -899,7 +890,20 @@ export default function Wishlist() {
           </TabsContent>
 
           <TabsContent value="add" className="mt-4">
-            <EnhancedUniversalCardSearch onCardWishlist={addToWishlist} showWishlistButton={true} />
+            {/*
+              PICKING, not browsing. The whole tab is "add something to the
+              wishlist", so a click on a card puts it on the list and the page
+              stays here. The heart stays as the named control for the same
+              thing, and the eye opens the card's own page. Same rule as the
+              storage and deck pickers. Do not "fix" it back to navigating.
+            */}
+            <EnhancedUniversalCardSearch
+              mode="pick"
+              onCardAdd={addToWishlist}
+              onCardWishlist={addToWishlist}
+              showAddButton={false}
+              showWishlistButton={true}
+            />
           </TabsContent>
         </Tabs>
       </div>

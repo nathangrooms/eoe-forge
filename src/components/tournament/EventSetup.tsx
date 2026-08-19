@@ -299,11 +299,15 @@ export function EventSetup() {
                 <p className="text-[0.6rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                   Rounds
                 </p>
-                <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
-                  {draft.players.length < 2 ? '—' : bracketRounds(draft.players.length)}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Fixed by the bracket — the field halves each round.
+                {draft.players.length < 2 ? (
+                  <p className="mt-1.5 text-sm text-foreground">Set once two players are in</p>
+                ) : (
+                  <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
+                    {bracketRounds(draft.players.length)}
+                  </p>
+                )}
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Fixed by the bracket. The field halves each round.
                 </p>
               </div>
             )}
@@ -358,7 +362,7 @@ export function EventSetup() {
             <SummaryFact icon={Layers} label={`${registeredDecks} decks registered`} />
             {oddField && draft.format === 'swiss' && (
               <span className="text-xs text-muted-foreground">
-                Odd field — one bye is awarded each round.
+                The field is odd, so one bye is awarded each round.
               </span>
             )}
           </div>

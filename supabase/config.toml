@@ -37,3 +37,10 @@ verify_jwt = false
 
 [functions.deck-optimizer]
 verify_jwt = false
+# Ingestion functions. verify_jwt = false so a scheduler can reach them; the service-role
+# check lives in the function body. See supabase/functions/*/index.ts.
+[functions.spellbook-combo-sync]
+verify_jwt = false
+
+[functions.mtgjson-deck-sync]
+verify_jwt = false

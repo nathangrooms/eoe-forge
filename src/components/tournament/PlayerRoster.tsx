@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatLabel } from '@/lib/deck/formats';
+import { CardImage } from '@/components/cards';
 import { CommanderPortrait, RecordLine } from './PlayerIdentity';
 import { viewFor, type PlayerView } from './playerViews';
 import { DeckPicker } from './DeckPicker';
@@ -34,6 +35,50 @@ export interface PlayerRosterProps {
   /** Roster editing is only offered before the first pairing is cut. */
   onAddPlayers?: (names: string[]) => void;
   onRemovePlayer?: (player: string) => void;
+}
+
+/**
+ * An event with nobody in it yet.
+ *
+ * This used to be a small centred paragraph, which on the create page left the
+ * whole right-hand two thirds of a 1,680px screen as black. What belongs in
+ * that space is not padding: it is the decks that are about to be registered,
+ * at a size worth looking at. They are read from the signed-in user's own
+ * library, so if the library is empty the strip is simply absent and nothing is
+ * invented to fill it.
+ */
+function EmptyRoster({ decks, loading }: { decks: DeckOption[]; loading: boolean }) {
+  const withArt = decks.filter(d => d.commanderCard).slice(0, 12);
+
+  return (
+    <div className="rounded-2xl bg-muted/30 p-6 sm:p-8">
+      <div className="max-w-xl">
+        <UserPlus aria-hidden="true" className="h-5 w-5 text-muted-foreground" />
+        <h3 className="mt-2 text-lg font-semibold text-foreground">Nobody has signed in yet</h3>
+        <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+          Type names above one at a time, or paste the whole sign-in sheet in one go, one name per
+          line. Each player then registers a deck, and their commander follows them through the
+          pairings, the standings and the podium.
+        </p>
+      </div>
+
+      {!loading && withArt.length > 0 && (
+        <div className="mt-7">
+          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+            {decks.length} deck{decks.length === 1 ? '' : 's'} in your library, ready to register
+          </p>
+          <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),15rem))] gap-3">
+            {withArt.map(deck => (
+              <div key={deck.id} className="min-w-0">
+                <CardImage card={deck.commanderCard} size="md" fill title={deck.name} />
+                <p className="mt-2 truncate text-xs text-muted-foreground">{deck.name}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 /** Accepts one name, a pasted column, or a comma-separated line. */
@@ -103,7 +148,7 @@ export function PlayerRoster({
                 submitDraft();
               }
             }}
-            placeholder="Add a player — or paste a whole list"
+            placeholder="Add a player, or paste a whole list"
             className="h-9 min-w-[12rem] flex-1 border-0 bg-background text-sm"
             aria-label="Add players"
           />
@@ -115,14 +160,7 @@ export function PlayerRoster({
       )}
 
       {tournament.players.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-2xl bg-muted/30 p-10 text-center">
-          <UserPlus aria-hidden="true" className="h-5 w-5 text-muted-foreground" />
-          <p className="text-sm font-medium text-foreground">Nobody has signed in yet</p>
-          <p className="max-w-sm text-xs text-muted-foreground">
-            Type names above one at a time, or paste the whole sign-in sheet in one go — one name
-            per line.
-          </p>
-        </div>
+        <EmptyRoster decks={decks} loading={decksLoading} />
       ) : (
         <ul className="space-y-2">
           {tournament.players.map(player => {
@@ -139,7 +177,9 @@ export function PlayerRoster({
                     view.dropped && 'opacity-50'
                   )}
                 >
-                  <div className="w-[58px] shrink-0">
+                  {/* A roster is a list of decks with people attached, so the
+                      deck has to be recognisable. 58px was not. */}
+                  <div className="w-[76px] shrink-0">
                     <CommanderPortrait view={view} size="sm" />
                   </div>
 
@@ -278,7 +318,7 @@ export function PlayerRoster({
 
       {tournament.status !== 'setup' && tournament.players.length > 0 && (
         <p className="text-xs text-muted-foreground">
-          A dropped player keeps every result they have already played — they are simply excluded
+          A dropped player keeps every result they have already played. They are simply excluded
           from all further pairings.
         </p>
       )}

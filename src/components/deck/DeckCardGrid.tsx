@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { PriceTag } from '@/components/pricing';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ChevronDown, ChevronRight } from 'lucide-react';
@@ -175,11 +176,10 @@ export function DeckCardGrid({
                         ) : (
                           <span />
                         )}
-                        {row.card?.prices?.usd && (
-                          <span className="text-xs tabular-nums text-muted-foreground">
-                            ${parseFloat(row.card.prices.usd).toFixed(2)}
-                          </span>
-                        )}
+                        {/* PriceTag rather than a raw parseFloat: a card we
+                            hold no price for used to render nothing at all, so
+                            the gap was invisible. It now says so. */}
+                        <PriceTag card={row.card} size="sm" />
                       </div>
                     </li>
                   ))}

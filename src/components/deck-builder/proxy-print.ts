@@ -279,6 +279,49 @@ export function chunkIntoPages<T>(slots: T[], perPage = PROXY_PER_PAGE): T[][] {
 }
 
 /* ------------------------------------------------------------------ *
+ * Decoding before printing
+ * ------------------------------------------------------------------ */
+
+/**
+ * Decode every image before the page is handed to the printer.
+ *
+ * `loading="eager"` starts the fetches but guarantees nothing about when they
+ * finish, and the print rasteriser does not wait. On a 12-page sheet almost
+ * every card is off-screen, so without this the likely outcome is a stack of
+ * paper with blank slots, discovered only after the ink is spent. Concurrency
+ * is capped so a 100-card list does not open 100 sockets at once.
+ *
+ * It lives here rather than inside one component because two surfaces now print
+ * this sheet — the deck builder's generator and the standalone proxy list — and
+ * a second copy would eventually drift into a second answer about when a sheet
+ * is safe to print.
+ */
+export async function preloadProxyImages(
+  urls: string[],
+  onProgress?: (percent: number) => void
+): Promise<void> {
+  const queue = [...urls];
+  let done = 0;
+  const worker = async () => {
+    for (;;) {
+      const url = queue.shift();
+      if (!url) return;
+      try {
+        const img = new Image();
+        img.src = url;
+        await img.decode();
+      } catch {
+        // A card that will not decode still prints its slot; the "no art" count
+        // in the hint line already tells the user how many there are.
+      }
+      done += 1;
+      onProgress?.(Math.round((done / Math.max(1, urls.length)) * 100));
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(6, urls.length) }, worker));
+}
+
+/* ------------------------------------------------------------------ *
  * Print isolation
  * ------------------------------------------------------------------ */
 

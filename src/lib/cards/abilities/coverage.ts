@@ -48,7 +48,12 @@ function walkManualHints(effects: readonly Effect[], out: Record<string, number>
   for (const e of effects) {
     if (e.do === 'manual') { bump(out, e.hint ?? '(no hint)'); continue; }
     if (e.do === 'if') { walkManualHints(e.then, out); if (e.else) walkManualHints(e.else, out); }
-    else if (e.do === 'for-each' || e.do === 'repeat' || e.do === 'may') walkManualHints(e.effects, out);
+    // `unless-pays` is in this list for the same reason the others are: an
+    // effect member that nests effects and is not walked here is a `manual`
+    // marker missing from the histogram — a to-do item nobody ever sees.
+    else if (e.do === 'for-each' || e.do === 'repeat' || e.do === 'may' || e.do === 'unless-pays') {
+      walkManualHints(e.effects, out);
+    }
     else if (e.do === 'choose-mode') for (const m of e.modes) walkManualHints(m.effects, out);
   }
 }

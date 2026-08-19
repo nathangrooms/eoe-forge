@@ -16,6 +16,7 @@ import { PowerSliderCoaching } from '@/components/deck-builder/PowerSliderCoachi
 import { LandEnhancerUX } from '@/components/deck-builder/LandEnhancerUX';
 import { MatchAnalytics } from '@/components/deck-builder/MatchAnalytics';
 import { PowerScore } from '@/components/deck/PowerScore';
+import { comparePower, logDivergence } from '@/lib/deck/powerCalibration';
 import { EnhancedMatchTracker } from '@/components/deck-builder/EnhancedMatchTracker';
 import { ArchetypeDetection } from '@/components/deck-builder/ArchetypeDetection';
 import { DeckBudgetTracker } from '@/components/deck-builder/DeckBudgetTracker';
@@ -487,8 +488,13 @@ const DeckBuilder = () => {
             score: powerData.score ?? null,
             playability: powerData.playability ?? null,
           };
-          console.log('Setting EDH Metrics:', metrics);
           setEdhMetrics(metrics);
+          // Logged whether or not they agree: a calibration check nobody
+          // records says nothing about whether the two models track each other.
+          logDivergence(
+            listCommander?.name ?? 'deck',
+            comparePower(power?.score ?? 0, liveLevel)
+          );
           
           // Store full analysis data
           const fullAnalysis: EdhAnalysisData = {
@@ -853,6 +859,21 @@ const DeckBuilder = () => {
                   </div>
                 </div>
 
+                {/* The calibration reading. Ours is computed from your actual
+                    decklist and mana base; theirs is parsed out of their
+                    rendered page. When they disagree by enough to act on, say
+                    so, and say which way. Never quietly replace ours. */}
+                {(() => {
+                  if (!power || edhPowerLevel === null) return null;
+                  const comparison = comparePower(power.score, edhPowerLevel);
+                  if (!comparison.worthShowing || !comparison.note) return null;
+                  return (
+                    <p className="mt-2 text-xs leading-snug text-muted-foreground">
+                      {comparison.note}
+                    </p>
+                  );
+                })()}
+
                 {edhMetrics && (
                   <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3 lg:grid-cols-5">
                     {(
@@ -955,7 +976,17 @@ const DeckBuilder = () => {
                     </p>
                   </Card>
                 )}
+                {/*
+                  PICKING, not browsing. You are here to put cards in a deck,
+                  and when `cardToReplace` is set you are halfway through
+                  swapping one out. A click that navigated to the card page
+                  would abandon that swap with the old card still in the deck.
+                  So the card body adds the card and the page stays put; the eye
+                  on each card opens its page. Same rule as the storage picker,
+                  written the same way on purpose. Do not "fix" it back.
+                */}
                 <EnhancedUniversalCardSearch
+                  mode="pick"
                   onCardAdd={(card) => {
                     if (cardToReplace) {
                       const oldCard = deck.cards.find(c => c.id === cardToReplace);

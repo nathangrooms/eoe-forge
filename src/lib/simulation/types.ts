@@ -1,3 +1,20 @@
+/**
+ * ⚠️ THE SECOND GAME ENGINE. Nothing a user can reach imports this.
+ *
+ * Measured 2026-08-19: every importer of `@/lib/simulation` is a component
+ * under `src/components/simulation/` whose own entry point (`GameBoard.tsx`)
+ * has zero importers, plus `src/hooks/useGameAnimations.ts`, which also has
+ * zero. No test imports it.
+ *
+ * `src/lib/game` is the engine. It has the reducer, the stack, CR 613 layers,
+ * state-based actions, CR 614 replacement effects, triggers and the bot; this
+ * has none of them, which is precisely why the playtest and `/play` used to
+ * disagree about what a card did. `/simulate` was migrated onto `src/lib/game`
+ * and no longer touches this file.
+ *
+ * Kept rather than deleted so the decision to bin ~3,600 lines is the owner's
+ * and not an agent's. Do NOT add to it, and do NOT wire it to a route.
+ */
 import { Card } from '@/lib/deckbuilder/types';
 
 export type Zone = 'library' | 'hand' | 'battlefield' | 'graveyard' | 'exile' | 'stack' | 'command';

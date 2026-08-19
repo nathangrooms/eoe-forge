@@ -125,7 +125,22 @@ interface AIOptimizerPanelProps {
    */
   power?: DeckPower | null;
   edhAnalysis?: EdhAnalysisData | null;
-  onApplyReplacements: (replacements: Array<{ remove: string; add: string }>) => void;
+  /**
+   * Apply swaps. `remove` and `add` are card names, as they always were.
+   *
+   * `addCardId` and `addCard` are additive and may be ignored: a caller that
+   * writes to the database resolves the name itself, but a caller holding a
+   * deck that has not been saved yet needs the card in hand. See
+   * `toReplacement`.
+   */
+  onApplyReplacements: (
+    replacements: Array<{
+      remove: string;
+      add: string;
+      addCardId?: string | null;
+      addCard?: any;
+    }>
+  ) => void;
   onAddCard?: (cardName: string) => void;
   onRemoveCard?: (cardName: string) => void;
 }
@@ -596,6 +611,8 @@ export function AIOptimizerPanel({
             c => c.toLowerCase() === String(rep.add).toLowerCase()
           ),
           synergy: rep.synergy || undefined,
+          // The id from OUR table, not Scryfall's. See `SwapSuggestion.newCard.cardId`.
+          cardId: typeof rep.addCardId === 'string' ? rep.addCardId : null,
         },
         priority: rep.priority || 'medium',
         category: rep.category || undefined,
@@ -696,14 +713,30 @@ export function AIOptimizerPanel({
     );
   };
 
+  /**
+   * One swap, in the shape a caller needs to actually perform it.
+   *
+   * `remove` and `add` are unchanged, so every existing handler keeps working
+   * untouched. `addCardId` and `addCard` are additive, and they are what let a
+   * caller holding an UNSAVED deck — the Deck Generator's result screen —
+   * substitute the card in memory instead of re-resolving the name against the
+   * database. `addCardId` is the id from our own `cards` table rather than the
+   * Scryfall printing on `newCard.card`, because that is the one
+   * `deck_cards.card_id` will accept.
+   */
+  const toReplacement = (swap: SwapSuggestion) => ({
+    remove: swap.currentCard.name,
+    add: swap.newCard.name,
+    addCardId: swap.newCard.cardId ?? null,
+    addCard: swap.newCard.card ?? null,
+  });
+
   const applySingleSwap = async (index: number) => {
     const swap = swapSuggestions[index];
     if (!swap) return;
     setIsApplying(true);
     try {
-      await onApplyReplacements([
-        { remove: swap.currentCard.name, add: swap.newCard.name },
-      ]);
+      await onApplyReplacements([toReplacement(swap)]);
       toast.success(`Replaced ${swap.currentCard.name} with ${swap.newCard.name}`);
       setSwapSuggestions(prev => prev.filter((_, i) => i !== index));
     } catch (e) {
@@ -723,9 +756,7 @@ export function AIOptimizerPanel({
 
     setIsApplying(true);
     try {
-      await onApplyReplacements(
-        selected.map(s => ({ remove: s.currentCard.name, add: s.newCard.name }))
-      );
+      await onApplyReplacements(selected.map(toReplacement));
       toast.success(`Applied ${selected.length} replacement${selected.length > 1 ? 's' : ''}`);
       setSwapSuggestions(prev => prev.filter(s => !s.selected));
     } catch (e) {

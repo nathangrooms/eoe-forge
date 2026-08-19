@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { DollarSign, TrendingDown, Bell, Heart, Layers, PackageCheck } from 'lucide-react';
-import { formatPriceCompact, toNumber } from '@/components/collection/browser/types';
+import { formatPriceCompact } from '@/components/collection/browser/types';
+import { readAmount, totalPrices, describeGapsShort } from '@/lib/pricing';
 import { cn } from '@/lib/utils';
 
 interface WishlistItem {
@@ -38,18 +39,21 @@ export function WishlistQuickStats({
   ownedByCard,
 }: WishlistQuickStatsProps) {
   const stats = useMemo(() => {
-    const totalValue = items.reduce(
-      (sum, item) => sum + toNumber(item.card?.prices?.usd) * item.quantity,
-      0
+    /* `totalPrices` adds up only the copies it could price and counts the rest,
+       instead of adding a missing price as zero and reporting a confident total
+       that is quietly too low. 588 of 38,603 printings carry no price at all. */
+    const value = totalPrices(
+      items.map(item => ({ prices: item.card?.prices, quantity: item.quantity })),
+      'USD'
     );
+    const totalValue = value.amount;
+    const unpriced = describeGapsShort(value);
     const totalCards = items.reduce((sum, item) => sum + item.quantity, 0);
     const alertsActive = items.filter(i => i.alert_enabled && i.target_price_usd).length;
-    const priceDrops = items.filter(
-      item =>
-        item.target_price_usd &&
-        item.card?.prices?.usd &&
-        toNumber(item.card.prices.usd) <= item.target_price_usd
-    ).length;
+    const priceDrops = items.filter(item => {
+      const current = readAmount(item.card?.prices?.usd);
+      return Boolean(item.target_price_usd && current != null && current <= item.target_price_usd);
+    }).length;
 
     const targetsSet = items.filter(i => i.target_price_usd).length;
     const deckDemand = neededByDeck
@@ -59,11 +63,33 @@ export function WishlistQuickStats({
       ? items.filter(i => (ownedByCard.get(i.card_id) ?? 0) > 0).length
       : 0;
 
-    return { totalValue, totalCards, alertsActive, priceDrops, targetsSet, deckDemand, alreadyOwned };
+    return {
+      totalValue,
+      unpriced,
+      pricedCopies: value.pricedCopies,
+      totalCards,
+      alertsActive,
+      priceDrops,
+      targetsSet,
+      deckDemand,
+      alreadyOwned,
+    };
   }, [items, neededByDeck, ownedByCard]);
 
-  const statItems = [
-    { icon: DollarSign, label: 'Total value', value: formatPriceCompact(stats.totalValue) },
+  const statItems: {
+    icon: typeof DollarSign;
+    label: string;
+    value: string;
+    /** Second line, used to admit what a total could not price. */
+    note?: string;
+    highlight?: boolean;
+  }[] = [
+    {
+      icon: DollarSign,
+      label: 'Total value',
+      value: stats.pricedCopies > 0 ? formatPriceCompact(stats.totalValue) : 'No prices yet',
+      note: stats.unpriced ?? undefined,
+    },
     { icon: Heart, label: 'Cards', value: stats.totalCards.toLocaleString() },
     ...(stats.targetsSet > 0
       ? [
@@ -128,6 +154,16 @@ export function WishlistQuickStats({
               {stat.label}
             </p>
             <p className="truncate text-lg font-bold tabular-nums">{stat.value}</p>
+            {stat.note && (
+              <p
+                className={cn(
+                  'truncate text-[0.7rem]',
+                  stat.highlight ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                )}
+              >
+                {stat.note}
+              </p>
+            )}
           </div>
         </div>
       ))}

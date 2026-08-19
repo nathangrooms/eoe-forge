@@ -1,3 +1,22 @@
+/**
+ * ⚠️ NOT REACHED BY ANY ROUTE. Measured 2026-08-19, and again before this line
+ * was written: `GameBoard` has zero importers in the tree, so the whole cluster
+ * under it — `DetailedPlayerZone`, `GroupedCardDisplay`, `AnimatedCard`,
+ * `FullCardDisplay`, `FloatingDamage`, `StackViewer` — is reachable from
+ * nothing a user can open.
+ *
+ * It draws `@/lib/simulation`, a SECOND game engine that has no stack, no
+ * layers, no state-based actions, no replacement effects and no triggers. The
+ * playtest ran on it, disagreed with `/play` about the rules for that reason,
+ * and was migrated: `/simulate` now renders `src/components/play/WatchedTable`
+ * over `src/lib/game`, the same reducer, bot and board `/play` uses.
+ *
+ * Left in place rather than swept, because this project has been damaged once
+ * by deleting components an audit called orphaned that were not. Do NOT build
+ * on it: anything added here is invisible to every user and cannot agree with
+ * the rules engine. If you want a feature from it, port it onto `@/lib/game`
+ * and put it in `src/components/play/`.
+ */
 import { GameState, Player } from '@/lib/simulation/types';
 import { DetailedPlayerZone } from './DetailedPlayerZone';
 import { StackViewer } from './StackViewer';

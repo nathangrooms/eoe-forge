@@ -175,6 +175,12 @@ export default function Cards() {
         it survives a reload, works with the back button, and can be pasted to
         someone else. Embedded mounts of this component (deck builder, storage,
         wishlist) leave it off, because there the URL belongs to the host page.
+
+        This is the one mount of this component that is genuinely BROWSING, so
+        it keeps the default `mode="browse"` and a click on a card opens the
+        card. Every other mount is a picker (storage add, collection add, deck
+        builder, wishlist add) and passes `mode="pick"`, because there a click
+        that navigates abandons whatever the person was in the middle of.
       */}
       <EnhancedUniversalCardSearch
         onCardAdd={addToCollection}
@@ -184,6 +190,7 @@ export default function Cards() {
         showFilters
         showAddButton
         showWishlistButton
+        showListButtons
         showViewModes
         showPresets
         urlSync

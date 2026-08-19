@@ -8,8 +8,101 @@ const corsHeaders = {
 
 const USER_AGENT = 'MTGDeckBuilder/1.0';
 const RATE_LIMIT_DELAY = 120; // 120ms between requests (safer rate limit)
-const BATCH_SIZE = 100; // Smaller batches for less memory
-const MAX_PAGES_PER_RUN = 25; // Much smaller - avoid worker limits
+/**
+ * Rows per upsert statement.
+ *
+ * This is a statement-timeout budget, not a memory one. PostgREST connects as
+ * `authenticator`, whose role settings carry `statement_timeout=8s`, and a
+ * write to `cards` is expensive: 23 indexes including five GIN, plus the
+ * role-tagging trigger, which fires twice per upserted row (once on the
+ * proposed INSERT, once on the conflicting UPDATE).
+ *
+ * Measured 2026-08-19 with EXPLAIN ANALYZE, re-upserting existing rows so the
+ * shape matches what the sync does:
+ *
+ *   100 rows ... 6,736 ms   (trigger 1,737 ms, the rest index and heap writes)
+ *    25 rows ... 1,192 ms   (trigger   240 ms)
+ *
+ * Linear at roughly 48 ms per row. At 100 the statement sat at 84% of the
+ * timeout with nothing to spare, and the first live run at unique=prints died
+ * on page 41 with 57014 while another process was reading the table. 25 leaves
+ * six times the headroom.
+ */
+const BATCH_SIZE = 25;
+
+/**
+ * Pages per invocation, before handing off to the next run.
+ *
+ * 175 cards per page at ~48 ms each is about 8.4 s of writing per page, so 15
+ * pages is roughly 125 s of work inside an edge function. The catalogue is 553
+ * pages, so a full run is around 37 chained invocations.
+ */
+const MAX_PAGES_PER_RUN = 15;
+
+/**
+ * How many times to halve a batch that timed out before giving up.
+ *
+ * A timeout is usually a busy moment rather than a broken row: something else
+ * was reading `cards` when this statement wanted to write it. Halving and
+ * retrying rides that out, where failing the page loses the whole page and
+ * waits fifteen minutes for the watchdog. Four halvings takes 25 rows down to
+ * a single row; if one row cannot be written in eight seconds the problem is
+ * not contention and the error deserves to surface.
+ */
+const MAX_BATCH_SPLITS = 4;
+
+/**
+ * The catalogue query, in ONE place.
+ *
+ * `unique` is the whole argument. Scryfall offers three values and they are not
+ * a preference; they change what we hold:
+ *
+ *   unique=cards   one row per card. Every alternate art, borderless, extended
+ *                  art, showcase, promo and reprint is discarded at the source.
+ *   unique=art     one row per distinct artwork.
+ *   unique=prints  every printing.
+ *
+ * This sync asked for `cards`, so the table held 34,088 rows over 33,037
+ * distinct oracle_ids: 1.03 printings per card, which is to say one printing of
+ * everything. Measured against Scryfall on 2026-08-19 for this exact query:
+ *
+ *   unique=cards   32,726
+ *   unique=art     47,604
+ *   unique=prints  96,732
+ *
+ * Three things need the printing and cannot be built without it. Collection
+ * value is per printing, because printings of one card differ enormously in
+ * price and valuing everything at a single printing's price is simply wrong.
+ * The scanner identifies a card BY its artwork and has nothing to match against
+ * when only one printing exists. A marketplace listing is always for a specific
+ * printing.
+ *
+ * The duplicate problem this creates is handled in the database, not here.
+ * `public.cards` holds every printing; `public.cards_unique` holds one row per
+ * oracle_id (cheapest printing, ties on lowest id) and is the default source
+ * for search, commanders, suggestions and candidate pools.
+ */
+const CATALOGUE_QUERY = '-is%3Adigital+game%3Apaper';
+const CATALOGUE_UNIQUE = 'prints';
+
+function cataloguePageUrl(page: number): string {
+  return `https://api.scryfall.com/cards/search?q=${CATALOGUE_QUERY}&unique=${CATALOGUE_UNIQUE}&page=${page}`;
+}
+
+/**
+ * Is a stored resume pointer still describing the catalogue we want?
+ *
+ * The pointer is a whole Scryfall URL frozen at the moment a run paused, so it
+ * carries the `unique` value that was in force then. When this constant
+ * changes, every stored pointer is describing the OLD catalogue, and resuming
+ * it would page through 187 pages of single printings and then declare the
+ * sync complete. The pointer has frozen this sync before; it is worth one
+ * explicit check.
+ */
+function pointerMatchesCatalogue(url: string | null | undefined): boolean {
+  if (!url) return false;
+  return url.includes(`unique=${CATALOGUE_UNIQUE}`);
+}
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -62,9 +155,47 @@ interface ScryfallCard {
   rarity: string;
   reserved?: boolean;
   games?: string[];
+
+  /**
+   * Printing identity. Every one of these was already on the card object and
+   * already being thrown away; they are what makes one printing tellable from
+   * another, which is the point of holding every printing at all.
+   */
+  artist?: string;
+  illustration_id?: string;
+  released_at?: string;
+  set_name?: string;
+  finishes?: string[];
+  border_color?: string;
+  frame_effects?: string[];
+  full_art?: boolean;
+  variation?: boolean;
+  promo?: boolean;
+
+  /** EDHREC popularity rank. Absent on roughly one card in a hundred. */
+  edhrec_rank?: number;
+
+  /** Wizards' Commander Bracket "Game Changer" flag. */
+  game_changer?: boolean;
 }
 
-/** Layouts Scryfall ships with a `card_faces` array. */
+/**
+ * Layouts Scryfall ships with a `card_faces` array.
+ *
+ * This list is a repair hint for `backfillFaces`, NOT a gate on the main sync
+ * path — `transformFaces` reads `card.card_faces` directly and so handles any
+ * layout, including ones invented after this file was written.
+ *
+ * It has already gone stale once and cost real data. Wizards added the
+ * `prepare` layout with Secrets of Strixhaven (`sos`/`soc`/`fra`); because it
+ * was absent here, `backfillFaces` never visited those rows and 52 cards sat
+ * with a null `oracle_text` AND a null `faces` — invisible to the ability
+ * compiler, which reads `faces ?? card_faces` and had nothing to read.
+ *
+ * `backfillFaces` no longer depends on this list alone (it also sweeps rows
+ * that are symptomatic regardless of layout), but keep it current anyway: it
+ * is what makes the targeted repair cheap.
+ */
 const MULTI_FACE_LAYOUTS = [
   'transform',
   'modal_dfc',
@@ -73,6 +204,7 @@ const MULTI_FACE_LAYOUTS = [
   'split',
   'flip',
   'adventure',
+  'prepare',
   'art_series',
 ];
 
@@ -120,22 +252,36 @@ async function getSyncState(): Promise<SyncState | null> {
     try {
       const parsed = JSON.parse(data.error_message);
       if (parsed.next_page_url && parsed.current_page) {
+        // A pointer written under a different `unique` value describes a
+        // different catalogue. Following it would walk the old, smaller result
+        // set to its end and then mark the sync complete, which is exactly how
+        // a stale pointer froze this sync once already. Discard it and start
+        // over rather than finish the wrong job.
+        if (!pointerMatchesCatalogue(parsed.next_page_url)) {
+          console.log('🧹 Discarding resume pointer from a previous catalogue mode');
+          return null;
+        }
         return parsed as SyncState;
       }
     } catch { /* not valid JSON */ }
   }
-  
-  // If running/stuck but no resume state, try to reconstruct from step_progress
-  if (data?.status === 'running' && data?.step_progress > 0) {
+
+  // If running/stuck but no resume state, try to reconstruct from step_progress.
+  // Page numbers are not comparable across catalogue modes either: page 46 of
+  // 187 single printings is nowhere near page 46 of 553 printings. Only rebuild
+  // when the stored progress was written under the current mode, which is what
+  // a matching pointer above would have proven. It did not, so start fresh.
+  if (data?.status === 'running' && data?.step_progress > 0
+      && pointerMatchesCatalogue(data?.error_message)) {
     const pageNum = data.step_progress;
     return {
-      next_page_url: `https://api.scryfall.com/cards/search?q=-is%3Adigital+game%3Apaper&unique=cards&page=${pageNum}`,
+      next_page_url: cataloguePageUrl(pageNum),
       total_processed: data.records_processed || 0,
       total_cards: data.total_records || 0,
       current_page: pageNum
     };
   }
-  
+
   return null;
 }
 
@@ -166,6 +312,11 @@ async function saveSyncState(state: SyncState) {
  * in the sync itself: if the trigger is ever dropped, the sync still produces
  * tagged rows rather than silently regressing to untagged ones.
  *
+ * Cheap now that `derive_card_tags` is memoised on its arguments
+ * (public.card_tag_memo): measured 31.3 ms per card computing from scratch
+ * against 0.40 ms on a cache hit, so re-deriving what the trigger just derived
+ * costs a lookup rather than a second classification.
+ *
  * Never fatal. Cards that are saved but not yet tagged are fixed by the next
  * `retag` pass; cards that are not saved at all are lost work.
  */
@@ -173,6 +324,66 @@ async function tagWrittenCards(ids: string[]): Promise<void> {
   if (ids.length === 0) return;
   const { error } = await supabase.rpc('retag_cards', { p_ids: ids });
   if (error) console.warn(`⚠️ retag_cards failed for ${ids.length} ids: ${error.message}`);
+}
+
+/**
+ * Rebuild `public.cards_unique`, the one-row-per-card view the rest of the
+ * product searches.
+ *
+ * It is a materialized view, so it does not update itself when `cards` changes.
+ * Refreshing is CONCURRENT inside the function, so readers keep seeing the
+ * previous contents until the new ones are ready and nobody sees an empty
+ * catalogue mid-refresh.
+ */
+async function refreshCardsUnique(): Promise<void> {
+  const { data, error } = await supabase.rpc('refresh_cards_unique');
+  if (error) {
+    console.warn(`⚠️ refresh_cards_unique failed: ${error.message}`);
+    return;
+  }
+  console.log(`🔁 ${data}`);
+}
+
+/** Postgres cancels a statement that outran statement_timeout with SQLSTATE 57014. */
+function isStatementTimeout(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  return error.code === '57014' || (error.message ?? '').includes('statement timeout');
+}
+
+/**
+ * Write one batch, halving it and retrying if the statement times out.
+ *
+ * The alternative was to make BATCH_SIZE small enough that a timeout is
+ * impossible, but there is no such number: the budget is shared with whatever
+ * else is reading the table at that moment, and `cards` is read by the whole
+ * app. So the batch size is chosen for the normal case and this handles the
+ * busy one.
+ *
+ * Splitting rather than simply retrying matters because the two halves are two
+ * statements with a fresh eight seconds each, so the retry is genuinely cheaper
+ * than the attempt that failed rather than the same gamble again.
+ *
+ * Any error that is not a timeout is thrown immediately. A malformed row will
+ * not fix itself by being sent in smaller groups, and retrying it would turn
+ * one clear failure into sixteen confusing ones.
+ */
+async function upsertCards(rows: Record<string, unknown>[], depth = 0): Promise<void> {
+  if (rows.length === 0) return;
+
+  const { error } = await supabase
+    .from('cards')
+    .upsert(rows, { onConflict: 'id', ignoreDuplicates: false });
+
+  if (!error) return;
+
+  if (!isStatementTimeout(error) || rows.length === 1 || depth >= MAX_BATCH_SPLITS) {
+    throw new Error(`DB error: ${error.message}`);
+  }
+
+  const half = Math.ceil(rows.length / 2);
+  console.warn(`⏳ Upsert of ${rows.length} timed out; splitting into ${half} + ${rows.length - half}`);
+  await upsertCards(rows.slice(0, half), depth + 1);
+  await upsertCards(rows.slice(half), depth + 1);
 }
 
 function getImageUris(card: ScryfallCard): Record<string, string> {
@@ -251,6 +462,23 @@ function transformCard(card: ScryfallCard) {
     is_legendary: (card.type_line || '').toLowerCase().includes('legendary'),
     is_reserved: card.reserved || false,
     rarity: card.rarity || 'common',
+
+    // --- Printing identity ------------------------------------------------
+    // Null rather than a default when Scryfall omits the field, so "we do not
+    // know" stays distinguishable from "false" or "empty". A borderless
+    // printing with `border_color: null` would be a lie; a missing one is not.
+    artist: card.artist ?? null,
+    illustration_id: card.illustration_id ?? null,
+    released_at: card.released_at ?? null,
+    set_name: card.set_name ?? null,
+    finishes: card.finishes ?? null,
+    border_color: card.border_color ?? null,
+    frame_effects: card.frame_effects ?? null,
+    full_art: card.full_art ?? null,
+    variation: card.variation ?? null,
+    promo: card.promo ?? null,
+    edhrec_rank: card.edhrec_rank ?? null,
+    game_changer: card.game_changer ?? null,
     // `tags` is deliberately absent. It is owned by the cards_apply_role_tags
     // trigger, which calls public.derive_card_tags on every insert and on any
     // update that touches name/type_line/oracle_text/keywords/mana_cost/cmc/faces.
@@ -290,8 +518,7 @@ async function syncCards(resumeState?: SyncState): Promise<{ success: boolean; p
     let pagesProcessedThisRun = 0;
     
     // Start URL
-    let currentUrl: string | null = resumeState?.next_page_url || 
-      'https://api.scryfall.com/cards/search?q=-is%3Adigital+game%3Apaper&unique=cards&page=1';
+    let currentUrl: string | null = resumeState?.next_page_url || cataloguePageUrl(1);
     
     if (!resumeState) {
       await updateSyncStatus('running', 0, 0, 'initializing', 0);
@@ -323,19 +550,17 @@ async function syncCards(resumeState?: SyncState): Promise<{ success: boolean; p
           // Insert in smaller batches
           for (let i = 0; i < transformed.length; i += BATCH_SIZE) {
             const batch = transformed.slice(i, i + BATCH_SIZE);
-            const { error } = await supabase
-              .from('cards')
-              .upsert(batch, { onConflict: 'id', ignoreDuplicates: false });
-            
-            if (error) {
-              console.error(`❌ DB error on page ${currentPage}:`, error.message);
+            try {
+              await upsertCards(batch);
+            } catch (writeError) {
+              console.error(`❌ DB error on page ${currentPage}:`, (writeError as Error).message);
               await saveSyncState({
                 next_page_url: currentUrl,
                 total_processed: totalProcessed,
                 total_cards: estimatedTotal,
                 current_page: currentPage
               });
-              throw new Error(`DB error: ${error.message}`);
+              throw writeError;
             }
 
             await tagWrittenCards(batch.map((c) => c.id));
@@ -387,6 +612,15 @@ async function syncCards(resumeState?: SyncState): Promise<{ success: boolean; p
     // marks the sync "completed" while it still holds a next_page_url, which makes a
     // partial sync look finished and confuses the next resume attempt.
     await updateSyncStatus('completed', totalProcessed, totalProcessed, 'complete', currentPage, null);
+
+    // The deduplicated view is derived from the table we just rewrote, and the
+    // chosen printing is the cheapest one, so new printings and new prices both
+    // change it. Refreshing here is what keeps "one row per card" honest;
+    // without it every search would keep answering from the previous catalogue.
+    // Never fatal: a stale view is worse than a fresh one but far better than a
+    // sync that reports failure after successfully writing every card.
+    await refreshCardsUnique();
+
     return { success: true, processed: totalProcessed, needsResume: false };
     
   } catch (error) {
@@ -398,8 +632,15 @@ async function syncCards(resumeState?: SyncState): Promise<{ success: boolean; p
 
 /**
  * Repairs rows written before `faces` was persisted, without re-walking the
- * whole 34k-card catalogue: only multi-face layouts are visited, 75 at a time
- * through Scryfall's /cards/collection endpoint.
+ * whole 34k-card catalogue: only candidate multi-face rows are visited, 75 at a
+ * time through Scryfall's /cards/collection endpoint.
+ *
+ * A candidate is a row whose layout is in MULTI_FACE_LAYOUTS *or* whose name
+ * carries Scryfall's ' // ' face separator. The name test is what makes this
+ * robust — the layout allowlist alone silently missed all 52 `prepare`-layout
+ * cards when that layout shipped with Secrets of Strixhaven, leaving them with
+ * neither `oracle_text` nor `faces` and therefore invisible to the ability
+ * compiler.
  *
  * Pagination is keyset on `id` (not offset) so it still terminates when a card
  * comes back from Scryfall with no `card_faces` — those rows stay null but sit
@@ -426,10 +667,25 @@ async function backfillFaces(opts: { onlyMissing?: boolean; deadlineMs?: number 
 
     // `.is()` only exists on the filter builder, so every filter has to be
     // applied before .order()/.limit() turn it into a transform builder.
+    //
+    // Selection is deliberately NOT the layout allowlist alone. That allowlist
+    // went stale when Wizards added the `prepare` layout and 52 cards were
+    // never visited. A multi-face card is identified far more reliably by its
+    // name carrying Scryfall's ' // ' face separator: measured against the live
+    // table, every one of the 802 rows that had `faces` also has '//' in its
+    // name (zero false negatives), and the pattern additionally caught the 52
+    // `prepare` rows the allowlist missed — whatever their layout. Matching on
+    // either keeps new layouts working without a code change.
+    //
+    // Exactly one false positive exists in 34,088 rows: 'SP//dr, Piloted by
+    // Peni' is a single-faced `normal` card with '//' inside its printed name.
+    // It costs one wasted slot in one /cards/collection batch — Scryfall
+    // returns it with no `card_faces`, it is counted as noFaces, and the keyset
+    // cursor moves past it rather than handing it out again.
     let filter = supabase
       .from('cards')
       .select('id')
-      .in('layout', MULTI_FACE_LAYOUTS)
+      .or(`layout.in.(${MULTI_FACE_LAYOUTS.join(',')}),name.like.*//*`)
       .gt('id', lastId);
 
     if (onlyMissing) filter = filter.is('faces', null);
@@ -465,11 +721,12 @@ async function backfillFaces(opts: { onlyMissing?: boolean; deadlineMs?: number 
     noFaces += cards.length - withFaces.length;
 
     if (withFaces.length > 0) {
-      const { error: writeError } = await supabase
-        .from('cards')
-        .upsert(withFaces.map(transformCard), { onConflict: 'id', ignoreDuplicates: false });
-
-      if (writeError) throw new Error(`DB write failed: ${writeError.message}`);
+      // Same batching and timeout handling as the main path: 75 rows of a
+      // 23-index table in one statement is well past the eight-second budget.
+      const repaired = withFaces.map(transformCard);
+      for (let i = 0; i < repaired.length; i += BATCH_SIZE) {
+        await upsertCards(repaired.slice(i, i + BATCH_SIZE));
+      }
       // Faces carry the oracle text of every side, and for 802 rows they carry
       // the ONLY oracle text — so a face backfill changes what these cards are
       // classified as, and they have to be re-tagged with it.
@@ -524,7 +781,8 @@ serve(async (req) => {
      *
      * Re-runnable and resumable: it walks a keyset cursor held in
      * `card_retag_progress` and returns after `budget_seconds`, so call it again
-     * until `done` is true. `restart: true` starts from the beginning.
+     * until `done` is true. `restart: true` starts from the beginning, and also
+     * empties public.card_tag_memo so the old classification is not handed back.
      */
     if (action === 'retag') {
       const { data, error } = await supabase.rpc('retag_all_cards', {
@@ -550,6 +808,21 @@ serve(async (req) => {
           : `Re-tagged ${state?.scanned ?? 0} cards so far; call again to continue.`,
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    /**
+     * Rebuild the one-row-per-card view by hand.
+     *
+     * The sync does this on completion and cron does it after the nightly price
+     * capture, so this is for the case where prices or rows were changed some
+     * other way and search is answering from the previous catalogue.
+     */
+    if (action === 'refresh-unique') {
+      const { data, error } = await supabase.rpc('refresh_cards_unique');
+      return new Response(JSON.stringify(error ? { error: error.message } : { message: data }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: error ? 500 : 200,
       });
     }
 

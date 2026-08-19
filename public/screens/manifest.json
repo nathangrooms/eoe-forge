@@ -1,0 +1,50 @@
+{
+  "generatedAt": "2026-08-19T04:16:05.344Z",
+  "note": "Screenshots of the real running app, captured by scripts/capture-app-screens.mjs. Card rows and card images are read from the live database; ownership and the tournament events are fixture, because no anonymous request may be shown a real person's collection and because events live in the organiser's own browser.",
+  "screens": [
+    {
+      "key": "tournament-pairings",
+      "caption": "Round three of a Swiss event, with every seat showing the deck it registered.",
+      "sources": [
+        {
+          "width": 1280,
+          "height": 800,
+          "src": "/screens/tournament-pairings-1280.webp"
+        }
+      ]
+    },
+    {
+      "key": "tournament-standings",
+      "caption": "Live standings with DCI tiebreakers and every player’s round-by-round record.",
+      "sources": [
+        {
+          "width": 1280,
+          "height": 800,
+          "src": "/screens/tournament-standings-1280.webp"
+        }
+      ]
+    },
+    {
+      "key": "life-counter",
+      "caption": "The life counter mid-game, one panel per seat, each turned to face its player.",
+      "sources": [
+        {
+          "width": 1280,
+          "height": 800,
+          "src": "/screens/life-counter-1280.webp"
+        }
+      ]
+    },
+    {
+      "key": "deck",
+      "caption": "A Commander deck, its commander, its curve and what it is worth.",
+      "sources": [
+        {
+          "width": 1280,
+          "height": 800,
+          "src": "/screens/deck-1280.webp"
+        }
+      ]
+    }
+  ]
+}

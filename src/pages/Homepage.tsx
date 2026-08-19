@@ -9,7 +9,7 @@ import { HomeFormatPicker } from '@/components/marketing/HomeFormatPicker';
 import { HomeStorage } from '@/components/marketing/HomeStorage';
 import { HomeAppVisual } from '@/components/marketing/HomeAppVisual';
 import {
-  HomeSearch, HomePortability, HomePower, HomeScanner, HomeBrain,
+  HomeSearch, HomePortability, HomePower, HomeScanner, HomeTutor,
 } from '@/components/marketing/HomeFeatureSections';
 import { HomePrecons } from '@/components/marketing/HomePrecons';
 import { HomeMarketplace } from '@/components/marketing/HomeMarketplace';
@@ -127,19 +127,54 @@ function HomeFooter() {
   );
 }
 
+/**
+ * How long the homepage will wait for the testing-banner flag before it gives
+ * up and draws itself. Long enough that a healthy database always wins the
+ * race and nobody ever sees the site flash before the holding page; short
+ * enough that an unhealthy one costs a moment rather than the whole visit.
+ */
+const FLAG_WAIT_MS = 1200;
+
 export default function Homepage() {
   const [showTestingBanner, setShowTestingBanner] = useState<boolean | null>(null);
   const [cardCount, setCardCount] = useState<number | null>(null);
 
+  /*
+   * The banner flag decides whether a visitor sees the site or a holding page,
+   * so it has to be known before anything is drawn. That made the database the
+   * thing standing between a visitor and their first pixel: until this query
+   * came back, `Homepage` returned null and deckmatrix.com was a blank white
+   * page. Measured with the database unreachable, it stayed blank forever, and
+   * on a normal visit it stayed blank for a full round trip after all the code
+   * had already arrived.
+   *
+   * So the wait is capped. If the flag has not arrived in `FLAG_WAIT_MS` the
+   * page draws itself, and the answer is still applied when it turns up. It
+   * fails towards the site rather than towards the holding page on purpose: a
+   * slow database briefly showing the real homepage is a much smaller problem
+   * than a slow database showing nothing at all.
+   */
   useEffect(() => {
+    let settled = false;
+    const apply = (value: boolean) => {
+      if (settled) return;
+      settled = true;
+      setShowTestingBanner(value);
+    };
+
+    const timer = window.setTimeout(() => apply(false), FLAG_WAIT_MS);
+
     (async () => {
       const { data } = await supabase
         .from('feature_flags')
         .select('enabled')
         .eq('key', 'show_testing_banner')
         .maybeSingle();
-      setShowTestingBanner(data?.enabled ?? false);
+      window.clearTimeout(timer);
+      apply(data?.enabled ?? false);
     })();
+
+    return () => window.clearTimeout(timer);
   }, []);
 
   /* Read the real row count so the one number on the page can never go stale. */
@@ -199,7 +234,7 @@ export default function Homepage() {
           decklist, a published power score, and per-format legality read from
           the card rather than a hand-kept list. */}
       <HomePrecons />
-      <HomeBrain />
+      <HomeTutor />
       <HomePower />
       <HomeFormatPicker />
 

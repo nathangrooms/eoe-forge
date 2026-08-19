@@ -1,4 +1,4 @@
-import { Card } from '@/lib/deckbuilder/types';
+import type { Card } from '../types';
 
 export interface CoachingOperation {
   op: string;

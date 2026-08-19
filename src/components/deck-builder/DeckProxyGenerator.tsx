@@ -22,6 +22,7 @@ import {
   hydrateProxyPrintings,
   isolateForPrint,
   mergePrinting,
+  preloadProxyImages,
   proxyDpi,
   sheetMargins,
   type HydrateResult,
@@ -172,36 +173,13 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
     [slots]
   );
 
-  /**
-   * Decode every image before handing the page to the printer.
-   *
-   * `loading="eager"` starts the fetches but guarantees nothing about when they
-   * finish, and the print rasteriser does not wait. On a 12-page sheet almost
-   * every card is off-screen, so without this the likely outcome is a stack of
-   * paper with blank slots — discovered only after the ink is spent. Concurrency
-   * is capped so a 100-card deck does not open 100 sockets at once.
-   */
-  const preloadImages = useCallback(async (urls: string[]) => {
-    let done = 0;
-    const queue = [...urls];
-    const worker = async () => {
-      for (;;) {
-        const url = queue.shift();
-        if (!url) return;
-        try {
-          const img = new Image();
-          img.src = url;
-          await img.decode();
-        } catch {
-          // A card that will not decode still prints its slot; the "no art"
-          // count in the hint line already tells the user how many there are.
-        }
-        done += 1;
-        setProgress(Math.round((done / Math.max(1, urls.length)) * 100));
-      }
-    };
-    await Promise.all(Array.from({ length: Math.min(6, urls.length) }, worker));
-  }, []);
+  /* Decoding before print now lives in `proxy-print.ts` beside the rest of the
+     sheet's rules, because the standalone proxy list prints the same sheet and
+     two copies of this would drift into two answers about when it is safe. */
+  const preloadImages = useCallback(
+    (urls: string[]) => preloadProxyImages(urls, setProgress),
+    []
+  );
 
   const printSheet = async () => {
     if (slots.length === 0) {

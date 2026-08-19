@@ -1,0 +1,112 @@
+name: Pipeline watchdog
+
+# Asks the database one question every three hours: is anything overdue?
+#
+# This is the most important file in the pipeline. The card sync in this project
+# stopped in January and nobody noticed until August, and the pg_cron watchdog
+# that was supposed to catch it threw an error on every single run for its
+# entire life. Silence is the failure mode. A job that stops must produce a red
+# tick, an email and an open issue, and it must do that from somewhere outside
+# the thing that broke.
+
+on:
+  schedule:
+    - cron: '0 */3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: pipeline-watchdog
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    name: Is anything overdue
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Ask the database
+        id: check
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node scripts/data/pipeline.mjs health | tee health.txt
+
+      - name: Put the answer in the run summary
+        if: always()
+        run: |
+          {
+            echo '## Data pipeline'
+            echo '```'
+            cat health.txt || echo 'The health check produced no output.'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Say so, loudly
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let detail = '';
+            try { detail = fs.readFileSync('health.txt', 'utf8'); } catch {}
+            const title = 'A data job has stopped running';
+            const body = [
+              'The watchdog found at least one job outside its window.',
+              '',
+              '```',
+              detail.slice(0, 60000) || 'The health check itself failed. That usually means the database is unreachable or a secret is missing.',
+              '```',
+              '',
+              `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              '',
+              'What to do is in docs/overhaul/DATA-PIPELINE.md, under "When it is not healthy".',
+            ].join('\n');
+            const open = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: 'data-pipeline',
+            });
+            const existing = open.data.find(i => i.title === title);
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing.number, body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title, body, labels: ['data-pipeline'],
+              });
+            }
+
+      - name: Close the issue once everything is healthy again
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const open = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: 'data-pipeline',
+            });
+            for (const issue of open.data) {
+              if (issue.title !== 'A data job has stopped running') continue;
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: issue.number,
+                body: 'Every watched job is back inside its window. Closing.',
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: issue.number, state: 'closed',
+              });
+            }

@@ -8,6 +8,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { AddToListButton } from '@/components/shopping';
 import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ManaCost } from '@/components/ui/mana-cost';
@@ -15,6 +16,7 @@ import { CATEGORY_LABEL, categorizeCard } from '@/lib/deck/cardCategories';
 import type { DeckCardRow } from '@/lib/deck/deckCards';
 import type { CardPlayability, ManaProfile } from '@/lib/deck/playability';
 import { PlayabilityMeter } from './PlayabilityMeter';
+import { describeGapsShort, formatAmount, readAmount, totalPrices } from '@/lib/pricing';
 
 /**
  * A real sortable decklist.
@@ -77,9 +79,17 @@ const TAIL_COLUMNS: Column[] = [
   { key: 'price', label: 'Price', numeric: true, className: 'w-28' },
 ];
 
-function priceOf(row: DeckCardRow): number {
-  const usd = parseFloat(row.card?.prices?.usd ?? '');
-  return Number.isNaN(usd) ? 0 : usd;
+/**
+ * The dollar price of one copy, or null when we do not have one.
+ *
+ * Null rather than 0 on purpose. Measured on the live `cards` table, the
+ * smallest stored `usd` is 0.01 and not one row holds a zero, so a zero here
+ * always means "no price" and printing it would tell a player the card is
+ * worthless. 5,186 of 52,130 printings have no `usd` at all, so this is not a
+ * rare branch.
+ */
+function priceOf(row: DeckCardRow): number | null {
+  return readAmount(row.card?.prices?.usd);
 }
 
 interface DeckCardTableProps {
@@ -137,7 +147,9 @@ export function DeckCardTable({
         case 'set':
           return (a.card?.set_code || '').localeCompare(b.card?.set_code || '');
         case 'price':
-          return priceOf(a) - priceOf(b);
+          // Unpriced rows sort below every real price, exactly where a 0 used
+          // to put them, so the sort order does not change under anyone.
+          return (priceOf(a) ?? -1) - (priceOf(b) ?? -1);
         case 'name':
         default:
           return (a.card?.name || a.card_name).localeCompare(b.card?.name || b.card_name);
@@ -162,8 +174,19 @@ export function DeckCardTable({
     return copy;
   }, [rows, sortKey, sortDir, playabilityFor]);
 
-  const totalPrice = rows.reduce((sum, row) => sum + priceOf(row) * row.quantity, 0);
+  /**
+   * The deck's dollar value, and the count of copies it could not price.
+   *
+   * The old sum added a 0 for every card we have no price for, so a decklist
+   * with unpriced cards showed a confident figure that was quietly too low and
+   * nothing on screen said so. This keeps the two facts together.
+   */
+  const total = totalPrices(
+    rows.map(row => ({ prices: row.card?.prices, quantity: row.quantity })),
+    'USD'
+  );
   const totalCards = rows.reduce((sum, row) => sum + row.quantity, 0);
+  const totalMissing = describeGapsShort(total);
 
   const toggleSort = (key: SortKey) => {
     if (key === sortKey) {
@@ -248,7 +271,7 @@ export function DeckCardTable({
               <TableRow
                 key={row.id}
                 className={cn(
-                  'border-0',
+                  'group border-0',
                   index % 2 === 1 && 'bg-muted/20',
                   onCardClick && 'cursor-pointer'
                 )}
@@ -258,9 +281,28 @@ export function DeckCardTable({
                 <TableCell>
                   <div className="flex items-center justify-between gap-3">
                     <span className="font-medium">{row.card?.name || row.card_name}</span>
-                    {row.card?.mana_cost ? (
-                      <ManaCost cost={row.card.mana_cost} size="sm" />
-                    ) : null}
+                    <span className="flex items-center gap-1.5">
+                      {/* Revealed on hover rather than stamped on all ninety
+                          nine rows: the same reveal the search results use, and
+                          the same button, so the action reads identically. */}
+                      <span className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:transition-none">
+                        <AddToListButton
+                          card={{ id: row.card_id, name: row.card?.name || row.card_name }}
+                          kind="shopping"
+                          display="icon"
+                          variant="ghost"
+                        />
+                        <AddToListButton
+                          card={{ id: row.card_id, name: row.card?.name || row.card_name }}
+                          kind="proxy"
+                          display="icon"
+                          variant="ghost"
+                        />
+                      </span>
+                      {row.card?.mana_cost ? (
+                        <ManaCost cost={row.card.mana_cost} size="sm" />
+                      ) : null}
+                    </span>
                   </div>
                   {!row.card && (
                     <span className="text-xs text-muted-foreground">
@@ -291,7 +333,13 @@ export function DeckCardTable({
                   {row.card?.set_code || '—'}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {price > 0 ? `$${(price * row.quantity).toFixed(2)}` : '—'}
+                  {price != null ? (
+                    formatAmount(price * row.quantity, 'USD')
+                  ) : (
+                    <span className="text-muted-foreground" title="No price for this printing">
+                      No price
+                    </span>
+                  )}
                 </TableCell>
               </TableRow>
             );
@@ -307,7 +355,19 @@ export function DeckCardTable({
             <TableCell className="hidden lg:table-cell" />
             <TableCell className="hidden lg:table-cell" />
             <TableCell className="text-right tabular-nums">
-              {totalPrice > 0 ? `$${totalPrice.toFixed(2)}` : '—'}
+              {total.pricedCopies > 0 ? (
+                formatAmount(total.amount, 'USD')
+              ) : (
+                <span className="font-normal text-muted-foreground">No prices yet</span>
+              )}
+              {totalMissing && (
+                <span
+                  className="block text-[0.7rem] font-normal text-muted-foreground"
+                  title={`${totalMissing} in this total had no price, so the real figure is higher.`}
+                >
+                  {totalMissing}
+                </span>
+              )}
             </TableCell>
           </TableRow>
         </TableBody>

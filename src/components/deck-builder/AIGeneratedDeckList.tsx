@@ -6,6 +6,7 @@ import { CardImage } from '@/components/cards';
 import { ColorIdentity } from '@/components/ui/mana-cost';
 import { OracleText } from '@/components/cards/OracleText';
 import { VisualDeckView } from '@/components/deck-builder/VisualDeckView';
+import { GeneratedDeckOptimizerPanel } from '@/components/deck-builder/GeneratedDeckOptimizerPanel';
 import { DeckQuickStats } from '@/components/deck-builder/DeckQuickStats';
 import { EdhAnalysisPanel, EdhAnalysisData } from '@/components/deck-builder/EdhAnalysisPanel';
 import { DeckValidationPanel } from '@/components/deck-builder/DeckValidationPanel';
@@ -28,6 +29,7 @@ import {
   AlertTriangle,
   BarChart3,
   Layers,
+  Wand2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { showSuccess } from '@/components/ui/toast-helpers';
@@ -60,6 +62,14 @@ interface AIGeneratedDeckListProps {
   onRefreshEdhAnalysis?: () => void;
   isLoadingEdhAnalysis?: boolean;
   isSaving?: boolean;
+  /**
+   * Apply optimiser swaps to the generated list, in place.
+   *
+   * Omit it and the "Improve this deck" control is not rendered at all, rather
+   * than rendered as a button opening a panel whose suggestions cannot be acted
+   * on.
+   */
+  onApplyReplacements?: (replacements: Array<{ remove: string; add: string }>) => void;
 }
 
 export function AIGeneratedDeckList({
@@ -78,31 +88,53 @@ export function AIGeneratedDeckList({
   onRefreshEdhAnalysis,
   isLoadingEdhAnalysis = false,
   isSaving = false,
+  onApplyReplacements,
 }: AIGeneratedDeckListProps) {
   const [activeTab, setActiveTab] = useState('cards');
+  const [optimising, setOptimising] = useState(false);
 
-  // Transform cards for VisualDeckView format
+  /**
+   * The deck, widened rather than narrowed.
+   *
+   * This used to build a fresh object with twelve hand-listed fields, and
+   * everything downstream — the grid, the score, the compatibility checker —
+   * saw only those twelve. That is exactly the shape of the bug this screen was
+   * shipping: the generator did not send `image_uris`, so the grid drew grey
+   * boxes, and nothing here could have noticed because the narrowing hid what
+   * was missing either way.
+   *
+   * So the card is SPREAD and then the few fields with defaults are set over
+   * the top. A column that arrives now reaches every consumer without this list
+   * having to be edited, and a column that does not arrive is visibly absent
+   * rather than quietly erased.
+   */
   const transformedCards = useMemo(() => {
     return cards.map(card => ({
+      ...card,
       id: card.id || `card-${Math.random()}`,
-      name: card.name,
       quantity: card.quantity || 1,
       cmc: card.cmc || 0,
       type_line: card.type_line || '',
       colors: card.colors || [],
       color_identity: card.color_identity || [],
-      mana_cost: card.mana_cost,
-      image_uris: card.image_uris,
-      prices: card.prices,
-      oracle_text: card.oracle_text,
-      // `ArchetypeDetection` below counts role tags. Generated cards arrive
-      // without them, so they are derived from the same rules the database
-      // uses; dropping the field made every tag-keyed detector report zero.
+      // `ArchetypeDetection` below counts role tags. A list imported as bare
+      // names arrives without them, so they are derived from the same rules the
+      // database column was written by; dropping the field made every tag-keyed
+      // detector report zero.
       tags: card.tags?.length ? card.tags : deriveCardTags(card),
     }));
   }, [cards]);
 
-  /** The generated list, scored by the canonical engine. */
+  /**
+   * The generated list, scored by the canonical engine.
+   *
+   * Scored from `transformedCards`, which is now the whole card. Against the
+   * old twelve-field copy this screen showed 6.1 for a deck the engine had just
+   * scored 6.9 server-side, because `keywords`, `power` and `toughness` never
+   * survived the copy and several subscores read them. Two numbers for one deck
+   * on one screen is the disease the engine exists to cure; they are one
+   * computation over one set of fields now.
+   */
   const generatedPower = useMemo(
     () =>
       computeDeckPower(
@@ -265,6 +297,19 @@ export function AIGeneratedDeckList({
                 <span />
               )}
             </div>
+            {/*
+              The optimiser, without leaving the page.
+              The owner: "you may want to run the optimiser from the generator."
+              It opens beside the deck rather than navigating, and it is handed
+              `generatedPower` — the evaluation this screen already ran — so the
+              advice and the score above it come from one reading of the deck.
+            */}
+            {onApplyReplacements && (
+              <Button onClick={() => setOptimising(true)} variant="secondary" size="sm">
+                <Wand2 className="mr-2 h-4 w-4" />
+                Improve this deck
+              </Button>
+            )}
             <Button onClick={onStartOver} variant="ghost" size="sm">
               <RotateCcw className="mr-2 h-4 w-4" />
               Start over
@@ -438,6 +483,29 @@ export function AIGeneratedDeckList({
           </section>
         </TabsContent>
       </Tabs>
+
+      {/*
+        `transformedCards` is handed over as it stands: it already carries
+        `oracle_text`, `color_identity`, `image_uris` and `prices`, which are
+        exactly the four fields the optimiser needs to measure castability and
+        to draw a card as a card. That is the same list the grid above renders,
+        so the panel cannot be reasoning about a different deck from the one on
+        screen.
+      */}
+      {onApplyReplacements && (
+        <GeneratedDeckOptimizerPanel
+          open={optimising}
+          onOpenChange={setOptimising}
+          deckName={deckName}
+          cards={transformedCards as any}
+          commander={commander ?? null}
+          power={generatedPower}
+          onApplyReplacements={replacements => {
+            onApplyReplacements(replacements);
+            setOptimising(false);
+          }}
+        />
+      )}
     </div>
   );
 }

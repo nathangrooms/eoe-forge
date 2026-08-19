@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
+import { readAmount } from '@/lib/pricing';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { CardImage } from '@/components/cards';
-import { Search, Plus, Heart, DollarSign, Package } from 'lucide-react';
+import { Search, Plus, Heart, DollarSign, Package, ShoppingCart, Loader2 } from 'lucide-react';
+import { AddToListButton } from '@/components/shopping';
+import { addToList, useCardLists } from '@/lib/shopping';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 
@@ -12,7 +15,8 @@ interface MissingCard {
   card_id: string;
   card_name: string;
   quantity: number;
-  estimated_price?: number;
+  /** USD for all the copies still needed, or null when we have no price. */
+  estimated_price?: number | null;
   rarity?: string;
   type_line?: string;
   set_name?: string;
@@ -36,6 +40,8 @@ export function MissingCardsPanel({ deckId, deckName }: MissingCardsPanelProps) 
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
+  const [addingAll, setAddingAll] = useState(false);
+  const reloadLists = useCardLists(state => state.load);
 
   useEffect(() => {
     if (deckId) {
@@ -104,10 +110,11 @@ export function MissingCardsPanel({ deckId, deckName }: MissingCardsPanelProps) 
             }
           }
 
-          const prices = cardDetails?.prices as any;
-          const estimatedPrice = prices?.usd
-            ? parseFloat(prices.usd) * needed
-            : 0;
+          /* null, not 0, when we have no price. A missing price used to be
+             added to the buy total as zero, which told a player the deck was
+             cheaper to finish than it is. */
+          const unit = readAmount((cardDetails?.prices as any)?.usd);
+          const estimatedPrice = unit == null ? null : unit * needed;
 
           const imageUris = cardDetails?.image_uris as any;
           missing.push({
@@ -122,12 +129,52 @@ export function MissingCardsPanel({ deckId, deckName }: MissingCardsPanelProps) 
         }
       }
 
-      setMissingCards(missing.sort((a, b) => (b.estimated_price || 0) - (a.estimated_price || 0)));
+      // Unpriced cards sort last rather than pretending to be the cheapest.
+      setMissingCards(missing.sort((a, b) => (b.estimated_price ?? -1) - (a.estimated_price ?? -1)));
     } catch (error) {
       console.error('Error loading missing cards:', error);
       showError('Error', 'Failed to load missing cards');
     } finally {
       setLoading(false);
+    }
+  };
+
+  /**
+   * Every missing card onto the shopping list in one press.
+   *
+   * This is the surface where a bulk action earns its place: somebody looking
+   * at twenty cards their deck is short of does not want to press twenty
+   * buttons. The quantity is the shortfall, so a deck needing two copies asks
+   * for two, and `card_list_add` raises the quantity of anything already on the
+   * list rather than writing a second row for it.
+   */
+  const addAllToShoppingList = async () => {
+    if (missingCards.length === 0) return;
+    setAddingAll(true);
+    let added = 0;
+    try {
+      for (const card of missingCards) {
+        await addToList({
+          kind: 'shopping',
+          cardId: card.card_id,
+          cardName: card.card_name,
+          quantity: card.quantity,
+          source: 'deck',
+          sourceDeckId: deckId,
+        });
+        added += 1;
+      }
+      // One refresh at the end rather than one per card, so the cart in the
+      // header lands on the right number without twenty round trips.
+      await reloadLists({ force: true });
+      showSuccess(
+        'On your shopping list',
+        `${added} ${added === 1 ? 'card' : 'cards'} from “${deckName}”.`
+      );
+    } catch (error: any) {
+      showError('Could not add them all', error?.message ?? 'Please try again.');
+    } finally {
+      setAddingAll(false);
     }
   };
 
@@ -194,7 +241,10 @@ export function MissingCardsPanel({ deckId, deckName }: MissingCardsPanelProps) 
 
     if (filter === 'all') return true;
 
-    const price = card.estimated_price || 0;
+    // An unpriced card belongs in no price band. It used to land in "under $2",
+    // which is a guess dressed as a filter result.
+    const price = card.estimated_price;
+    if (price == null) return false;
     switch (filter) {
       case 'high': return price >= 10;
       case 'medium': return price >= 2 && price < 10;
@@ -203,7 +253,8 @@ export function MissingCardsPanel({ deckId, deckName }: MissingCardsPanelProps) 
     }
   });
 
-  const totalValue = missingCards.reduce((sum, card) => sum + (card.estimated_price || 0), 0);
+  const totalValue = missingCards.reduce((sum, card) => sum + (card.estimated_price ?? 0), 0);
+  const unpricedCount = missingCards.filter(card => card.estimated_price == null).length;
 
   return (
     <div className="space-y-4">
@@ -213,11 +264,28 @@ export function MissingCardsPanel({ deckId, deckName }: MissingCardsPanelProps) 
           <div className="text-2xl font-semibold tabular-nums">{missingCards.length}</div>
           <div className="text-xs text-muted-foreground">cards missing from “{deckName}”</div>
         </div>
-        <div className="flex items-center gap-1 rounded-lg bg-muted/40 px-3 py-2 text-sm">
-          <DollarSign className="h-4 w-4 text-muted-foreground" />
-          <span className="font-medium tabular-nums">{totalValue.toFixed(2)}</span>
-          <span className="text-muted-foreground">estimated</span>
+        <div className="rounded-lg bg-muted/40 px-3 py-2 text-sm">
+          <div className="flex items-center gap-1">
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium tabular-nums">{totalValue.toFixed(2)}</span>
+            <span className="text-muted-foreground">estimated</span>
+          </div>
+          {unpricedCount > 0 && (
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {unpricedCount === 1
+                ? '1 card here has no price, so the real cost is higher.'
+                : `${unpricedCount} cards here have no price, so the real cost is higher.`}
+            </p>
+          )}
         </div>
+        <Button
+          className="ml-auto gap-2"
+          onClick={addAllToShoppingList}
+          disabled={addingAll || missingCards.length === 0}
+        >
+          {addingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShoppingCart className="h-4 w-4" />}
+          Add them all to my shopping list
+        </Button>
       </div>
 
       {/* Search and Filters */}
@@ -291,11 +359,11 @@ export function MissingCardsPanel({ deckId, deckName }: MissingCardsPanelProps) 
                       <div className="text-sm font-medium">
                         Need {card.quantity}
                       </div>
-                      {card.estimated_price ? (
-                        <div className="text-sm tabular-nums text-muted-foreground">
-                          ${card.estimated_price.toFixed(2)}
-                        </div>
-                      ) : null}
+                      <div className="text-sm tabular-nums text-muted-foreground">
+                        {card.estimated_price == null
+                          ? 'No price'
+                          : `$${card.estimated_price.toFixed(2)}`}
+                      </div>
                     </div>
                   </div>
 
@@ -309,6 +377,15 @@ export function MissingCardsPanel({ deckId, deckName }: MissingCardsPanelProps) 
                     </div>
 
                     <div className="flex gap-2">
+                      {/* The same button as the card page and card search, so
+                          the action reads the same wherever it is taken. */}
+                      <AddToListButton
+                        card={{ id: card.card_id, name: card.card_name }}
+                        kind="shopping"
+                        quantity={card.quantity}
+                        source="deck"
+                        deckId={deckId}
+                      />
                       <Button
                         variant="secondary"
                         size="sm"

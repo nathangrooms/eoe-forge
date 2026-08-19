@@ -21,6 +21,7 @@ import { useOpenCard } from '@/components/cards';
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
 import { DeckAdditionPanel } from '@/components/collection/DeckAdditionPanel';
 import { FavoriteDecksPreview } from '@/components/collection/FavoriteDecksPreview';
+import { CollectionArriving } from '@/components/shopping';
 
 import { StorageTab } from '@/components/storage/StorageTab';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
@@ -58,6 +59,31 @@ function valueOfItem(item: CollectionCard): number {
   const nonFoil = priceUSD(item.card, false);
   const foil = priceUSD(item.card, true) || nonFoil;
   return (item.quantity || 0) * nonFoil + (item.foil || 0) * foil;
+}
+
+/**
+ * Whether the copies the user actually owns can be priced.
+ *
+ * Not "does this printing have any price": `Nissa, Genesis Mage` has a foil
+ * price of $1.42 and no non-foil price, and the owner holds two non-foils, so
+ * the printing is priced and the stack is not. Asking the wider question let
+ * her into "Most Valuable Cards" ranked at $0.00 each. Non-foil copies need
+ * `usd`; foil copies take `usd_foil` and fall back to `usd`.
+ */
+function hasPrice(item: CollectionCard): boolean {
+  const prices = item.card?.prices as Record<string, string | null> | undefined;
+  if (!prices) return false;
+  const read = (key: string) => {
+    const raw = prices[key];
+    if (raw === null || raw === undefined || raw === '') return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  };
+  const usd = read('usd');
+  const foilUsd = read('usd_foil') ?? read('usd_etched') ?? usd;
+  if ((item.quantity || 0) > 0 && usd !== null) return true;
+  if ((item.foil || 0) > 0 && foilUsd !== null) return true;
+  return false;
 }
 
 function deckCategory(typeLine: string): DeckCard['category'] {
@@ -210,7 +236,12 @@ export default function Collection() {
 
     stats.avgCmc = cardsWithCmc > 0 ? totalCmc / cardsWithCmc : 0;
 
+    /* A card we cannot price has no place in a ranking of the most valuable
+       ones. Listing it at $0.00 at the bottom of the list is not a neutral
+       omission, it is a statement that the card is worthless, and it pushed a
+       genuinely valuable card out of the top ten to say it. */
     stats.topValueCards = cards
+      .filter(hasPrice)
       .map(item => ({ ...item, calculatedValue: valueOfItem(item) }))
       .sort((a, b) => b.calculatedValue - a.calculatedValue)
       .slice(0, 10);
@@ -227,6 +258,18 @@ export default function Collection() {
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     return cards.filter(item => new Date(item.created_at) > sevenDaysAgo).length;
   }, [cards]);
+
+  /**
+   * Owned rows the catalogue has no price for, so every total on this page can
+   * say how much of the collection it is not counting. The figure is real: five
+   * of the owner's 51 rows, and because they sort first by name they are the
+   * first thing the grid shows, which is why the page reads as though nothing
+   * has a price.
+   */
+  const unpricedCards = useMemo(
+    () => cards.filter(item => (item.quantity || 0) + (item.foil || 0) > 0 && !hasPrice(item)).length,
+    [cards]
+  );
 
   const handleExportBackup = () => {
     if (!snapshot) {
@@ -359,6 +402,7 @@ export default function Collection() {
                   : 0
               }
               recentlyAddedCount={recentlyAddedCount}
+              unpricedCards={unpricedCards}
               loading={loading}
             />
           </div>
@@ -424,6 +468,14 @@ export default function Collection() {
             value="collection"
             className="m-0 px-3 py-4 sm:px-4 sm:py-6 md:px-6"
           >
+            {/* Cards bought and not here yet. Deliberately above the collection
+                and outside every total on this page: a card in the post is a
+                card you do not own, and folding it in would inflate the value,
+                the count and the analytics. It renders nothing when nothing is
+                on the way, and it sits before the empty state so somebody whose
+                first ever purchase is still in transit sees it. */}
+            <CollectionArriving className="mb-6" />
+
             {loading ? (
               <CollectionLoadingSkeleton />
             ) : cards.length === 0 ? (
@@ -500,6 +552,7 @@ export default function Collection() {
                   // report used to print beside a value-ordered list.
                   value: item.calculatedValue,
                 }))}
+                unpricedCards={unpricedCards}
               />
 
               <CollectionAnalytics stats={collectionStats} loading={loading} />
@@ -528,7 +581,20 @@ export default function Collection() {
                 onSelectionChange={setDeckAdditionConfig}
               />
 
+              {/*
+                PICKING, not browsing. This tab exists to put cards into a
+                collection, a deck or a box, and the destination is already
+                chosen in the panel above it. A click that walked off to the
+                card page would throw that choice away mid-task, which is
+                exactly the complaint the owner made about storage. So the card
+                body adds the card and the page stays put; the eye on each card
+                opens its page.
+
+                Do not drop `mode="pick"` to make this match the card search
+                page. That page is a browsing surface and this one is not.
+              */}
               <EnhancedUniversalCardSearch
+                mode="pick"
                 onCardAdd={handleCardAddition}
                 placeholder="Search cards to add to collection, deck, or box"
                 showFilters={true}

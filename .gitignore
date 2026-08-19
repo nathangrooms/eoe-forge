@@ -54,3 +54,54 @@ proc/
 # play-mode screenshot harness, written by scripts/play-combat-shots.mjs
 play-harness.html
 src/dev/__playHarness.tsx
+
+# XMage extraction working data (planning instrument; XMage source is never vendored)
+scripts/coverage/.data/
+
+# LLM compilation working data: cached sample, run report, resume checkpoint, and
+# the journal of validated rows. Large, regenerable, and the journal can hold a
+# whole run's worth of model output.
+scripts/coverage/llm/.data/
+
+# price surface screenshot harness, written by scripts/price-shots.mjs
+price-harness.html
+src/dev/__priceHarness.tsx
+
+# price panel screenshot harness, written by scripts/price-panel-shots.mjs
+price-panel-harness.html
+src/dev/__pricePanelHarness.tsx
+
+# brain screenshot harness, written by scripts/brain-land-shots.mjs
+brain-harness.html
+src/dev/__brainHarness.tsx
+.tmp/
+
+# dashboard screenshot harness, written by scripts/dashboard-shots.mjs
+dashboard-harness.html
+src/dev/__dashboardHarness.tsx
+
+# storage screenshot harness, written by scripts/storage-shots.mjs
+storage-harness.html
+src/dev/__storageHarness.tsx
+
+# shopping and proxy list screenshot harness, written by scripts/shopping-shots.mjs
+shopping-harness.html
+src/dev/__shoppingHarness.tsx
+scripts/.storage-cards-seed.json
+
+# tournament screenshot harness, written by scripts/tournament-shots.mjs
+tournament-harness.html
+src/dev/__tournamentHarness.tsx
+
+# playtest screenshot harness, written by scripts/playtest-shots.mjs
+playtest-harness.html
+src/dev/__playtestHarness.tsx
+
+# deck generator screenshot harness, written by scripts/generator-shots.mjs
+generator-harness.html
+src/dev/__generatorHarness.tsx
+src/dev/__generatedDeck.json
+
+# real-app screenshot harness, written by scripts/capture-app-screens.mjs
+screens-harness.html
+src/dev/__screensHarness.tsx

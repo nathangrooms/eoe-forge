@@ -228,6 +228,29 @@ export function usePlayGame(options: UsePlayGameOptions): UsePlayGameResult {
   }, []);
 
   /*
+   * The dispatcher, beside `__dmGame`, for a screenshot run only.
+   *
+   * `__dmGame` already lets a Puppeteer run READ the live table rather than
+   * inferring it from pixels. This is the other half: some things a harness has
+   * to verify cannot be reached by pressing a pixel at all. Tapping a permanent
+   * on the OPPONENT'S side is the example that forced it — the owner reported
+   * layout shift there, and their board deliberately carries no tap chip,
+   * because you do not get to operate somebody else's cards.
+   *
+   * It goes down the same transport as every human click, so a harness using it
+   * is playing the game rather than poking at state. Stripped from production
+   * by `import.meta.env.DEV`; nothing in the app reads it.
+   */
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const debug = window as unknown as { __dmDispatch?: typeof dispatch };
+    debug.__dmDispatch = dispatch;
+    return () => {
+      delete debug.__dmDispatch;
+    };
+  }, [dispatch]);
+
+  /*
    * Publish the channel the board declares combat down.
    *
    * Combat is direct manipulation of a permanent — press the sword on the

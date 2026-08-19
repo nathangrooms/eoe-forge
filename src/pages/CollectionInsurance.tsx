@@ -20,6 +20,31 @@ function valueOfItem(item: CollectionCard): number {
   return (item.quantity || 0) * nonFoil + (item.foil || 0) * foil;
 }
 
+/**
+ * Whether the copies the user actually owns can be priced.
+ *
+ * Not "does this printing have any price": `Nissa, Genesis Mage` has a foil
+ * price of $1.42 and no non-foil price, and the owner holds two non-foils, so
+ * the printing is priced and the stack is not. Asking the wider question let
+ * her into "Most Valuable Cards" ranked at $0.00 each. Non-foil copies need
+ * `usd`; foil copies take `usd_foil` and fall back to `usd`.
+ */
+function hasPrice(item: CollectionCard): boolean {
+  const prices = item.card?.prices as Record<string, string | null> | undefined;
+  if (!prices) return false;
+  const read = (key: string) => {
+    const raw = prices[key];
+    if (raw === null || raw === undefined || raw === '') return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  };
+  const usd = read('usd');
+  const foilUsd = read('usd_foil') ?? read('usd_etched') ?? usd;
+  if ((item.quantity || 0) > 0 && usd !== null) return true;
+  if ((item.foil || 0) > 0 && foilUsd !== null) return true;
+  return false;
+}
+
 export default function CollectionInsurance() {
   const { snapshot, load } = useCollectionStore();
 
@@ -31,15 +56,19 @@ export default function CollectionInsurance() {
 
   const items = useMemo(() => snapshot?.items ?? [], [snapshot]);
 
-  const { totalCards, totalValue, topCards } = useMemo(() => {
+  const { totalCards, totalValue, topCards, unpricedCards } = useMemo(() => {
     let cards = 0;
     let value = 0;
+    let unpriced = 0;
     for (const item of items) {
-      cards += (item.quantity || 0) + (item.foil || 0);
+      const copies = (item.quantity || 0) + (item.foil || 0);
+      cards += copies;
       value += valueOfItem(item);
+      if (copies > 0 && !hasPrice(item)) unpriced += 1;
     }
 
     const top = [...items]
+      .filter(hasPrice)
       .map(item => ({ item, value: valueOfItem(item) }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 25)
@@ -52,7 +81,7 @@ export default function CollectionInsurance() {
         value: itemValue,
       }));
 
-    return { totalCards: cards, totalValue: value, topCards: top };
+    return { totalCards: cards, totalValue: value, topCards: top, unpricedCards: unpriced };
   }, [items]);
 
   return (
@@ -86,6 +115,7 @@ export default function CollectionInsurance() {
           collectionValue={totalValue}
           cardCount={totalCards}
           topCards={topCards}
+          unpricedCards={unpricedCards}
           showOpenLink={false}
         />
       </div>

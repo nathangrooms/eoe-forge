@@ -125,6 +125,17 @@ export type PlayerSelector =
   | { who: 'active' }
   | { who: 'defending' }
   | { who: 'monarch' }
+  /**
+   * "That player" — the player the trigger was ABOUT, not the one who controls
+   * the ability. Rhystic Study's "unless that player pays {1}" and Smothering
+   * Tithe's "that player may pay {2}" both name the one opponent whose cast or
+   * draw fired the trigger, and `{who:'each-opponent'}` would name all of them.
+   * It resolves to nobody unless the trigger bound it — the conservative
+   * direction, the same one `{who:'defending'}` already takes: an ability that
+   * asks nobody is a visible no-op; one that asks every opponent taxes three
+   * players for one card.
+   */
+  | { who: 'trigger-player' }
   | { who: 'target-player'; ref: number }
   | { who: 'controller-of'; of: Selector }
   | { who: 'owner-of'; of: Selector };
@@ -139,6 +150,109 @@ export type PlayerSelector =
  * evaluated against state at the moment the rules ask for it, and it survives
  * `JSON.stringify` on the way there.
  * ------------------------------------------------------------------ */
+
+/* ------------------------------------------------------------------ *
+ * E6 — watchers.
+ *
+ * Game state answers "what is true now". It cannot answer "what happened
+ * earlier this turn", because the moment an event is over the state that
+ * recorded it has been overwritten: a creature that died is not on the
+ * battlefield, a spell that resolved is not on the stack, and life that was
+ * gained is indistinguishable from life that was never lost.
+ *
+ * ## Why this is a QUERY and not a piece of state
+ *
+ * The obvious implementation — a mutable `Watcher` object the engine pokes on
+ * every event — is the one this project cannot have. It would be a second
+ * source of truth living outside the action log, so two clients replaying the
+ * same log could disagree, an undo would have to remember to unpoke it, and
+ * nothing would prove it had stayed in step. That is a mutable side channel,
+ * and a mutable side channel is how "looked automated, wasn't" happens.
+ *
+ * So a watcher here is **not state at all**. It is a declarative QUERY, pure
+ * JSON like everything else in this file, and its answer is a fold over the
+ * game's own action log — the artefact that is already the authority. Same log,
+ * same answer, on every client, for ever, with no bookkeeping to get wrong.
+ * `src/lib/game/abilities/watch.ts` is the fold.
+ *
+ * ## The honesty cost, stated plainly
+ *
+ * Nothing in the engine supplies that fold today. A `{v:'watch'}` evaluated
+ * without a log answers 0, and 0 is a WRONG answer, not a neutral one — so the
+ * ability bridge refuses to own any card whose effects contain one
+ * (`unrunnableReason`), and `runEffects` emits a note naming the query. This
+ * extension raises what the DSL can REPRESENT. It automates nothing by itself.
+ * ------------------------------------------------------------------ */
+
+export type WatchWindow = 'this-turn' | 'this-game';
+
+/**
+ * The events a watcher can count. Every member is one the action log genuinely
+ * distinguishes; the notable absentee is "sacrificed", which is a `MOVE_ZONE`
+ * to the graveyard exactly like a destruction and cannot be told apart from one
+ * after the fact. Refusing it is the precision rule, not an oversight.
+ */
+export type WatchedEvent =
+  | { saw: 'spell-cast'; what?: CardFilter; by?: PlayerSelector }
+  | { saw: 'land-played'; by?: PlayerSelector }
+  | { saw: 'died'; what?: CardFilter; controller?: PlayerSelector }
+  | { saw: 'entered'; what?: CardFilter; controller?: PlayerSelector }
+  | { saw: 'attacked'; what?: CardFilter; controller?: PlayerSelector }
+  | { saw: 'token-created'; by?: PlayerSelector }
+  | { saw: 'drew'; by?: PlayerSelector }
+  | { saw: 'gained-life'; by?: PlayerSelector }
+  | { saw: 'lost-life'; by?: PlayerSelector }
+  | { saw: 'dealt-damage'; by?: PlayerSelector; to?: 'player' | 'permanent' | 'any' };
+
+export interface WatchQuery {
+  event: WatchedEvent;
+  window: WatchWindow;
+  /**
+   * `'events'` counts occurrences — "the number of creatures that died this
+   * turn". `'amount'` sums the numeric payload — "the total life you gained
+   * this turn". They are different questions and one card may ask either, so
+   * the query says which rather than the reader inferring it.
+   */
+  measure: 'events' | 'amount';
+}
+
+/**
+ * Can this filter be answered from a snapshot of an object taken when the event
+ * happened?
+ *
+ * Only characteristics that do not move can. "Tapped", "attacking", power and
+ * toughness all change after the event and a past value would be a fabrication;
+ * "keyword" is layer-dependent and the layers that granted it may be gone. A
+ * filter that fails this test must never reach a `WatchQuery`, because
+ * `matchesSnapshot` would answer `false` for it and quietly under-count.
+ */
+export function isWatchableFilter(filter: CardFilter): boolean {
+  switch (filter.is) {
+    case 'type':
+    case 'subtype':
+    case 'supertype':
+    case 'name':
+    case 'color':
+    case 'colorless':
+    case 'multicolored':
+    case 'token':
+    case 'commander':
+    case 'any':
+      return true;
+    case 'mana-value':
+      // A computed bound would need a live context the snapshot does not have.
+      return typeof filter.value === 'number';
+    case 'not':
+      return isWatchableFilter(filter.of);
+    case 'and':
+    case 'or':
+      return filter.of.every(isWatchableFilter);
+    default:
+      // 'keyword', 'tapped', 'untapped', 'attacking', 'blocking', 'blocked',
+      // 'other', 'has-counter', 'power', 'toughness'.
+      return false;
+  }
+}
 
 export type ValueExpr =
   | number
@@ -155,7 +269,18 @@ export type ValueExpr =
   | { v: 'div'; a: ValueExpr; b: ValueExpr }
   | { v: 'min'; of: ValueExpr[] }
   | { v: 'max'; of: ValueExpr[] }
-  | { v: 'if'; condition: Condition; then: ValueExpr; else: ValueExpr };
+  | { v: 'if'; condition: Condition; then: ValueExpr; else: ValueExpr }
+  /**
+   * E6. A fold over the action log, not a lookup in a mutable watcher. See the
+   * `WatchQuery` block above for why, and for what it costs.
+   *
+   * One member covers both uses: a quantity ("draw a card for each creature
+   * that died this turn") and a condition, via
+   * `{if:'value', a:{v:'watch',…}, cmp:'gte', b:1}`. A separate `Condition`
+   * member would have been a second spelling of one idea and a second place for
+   * the evaluator to disagree with itself.
+   */
+  | { v: 'watch'; query: WatchQuery };
 
 export type Condition =
   | { if: 'count'; of: Selector; cmp: Cmp; value: ValueExpr }
@@ -193,8 +318,18 @@ export type Effect =
   | { do: 'add-counters' | 'remove-counters'; what: Selector; counter: string; count: ValueExpr }
   | { do: 'pump'; what: Selector; power: ValueExpr; toughness: ValueExpr; grant?: string[]; duration: Duration }
   | { do: 'gain-control'; what: Selector; who: PlayerSelector; duration: Duration }
-  /* mana & table */
-  | { do: 'add-mana'; who: PlayerSelector; mana: string }
+  /* mana & table.
+   *
+   * E8 — conditional mana. `restriction` is CR 106.6: mana that may only be
+   * spent on certain things. Leaving it off and adding the mana anyway is a
+   * silent upgrade — Cavern of Souls' mana would pay for anything and Ancient
+   * Ziggurat would ramp into a counterspell — so the restriction rides on the
+   * effect that produced the mana, which is the only place it can be enforced.
+   *
+   * `count` is E9 meeting E8: "Add {G} for each creature you control" is the
+   * same mana string produced a computed number of times. Absent means once.
+   */
+  | { do: 'add-mana'; who: PlayerSelector; mana: string; count?: ValueExpr; restriction?: ManaSpendRestriction }
   | { do: 'player-counter'; who: PlayerSelector; counter: string; count: ValueExpr }
   | { do: 'set-monarch'; who: PlayerSelector }
   | { do: 'lose-game' | 'win-game'; who: PlayerSelector }
@@ -204,6 +339,18 @@ export type Effect =
    * concept exists; only the effect member was missing. Flagged here so the DSL
    * owner accepts or rejects it deliberately rather than inheriting it. */
   | { do: 'counter'; what: Selector }
+  /* an opponent-facing optional cost.
+   *
+   * "Unless that player pays {1}" (Rhystic Study) and "that player may pay {2}.
+   * If the player doesn't, …" (Smothering Tithe) are the same shape: a player
+   * who is NOT the ability's controller is offered a cost, and the effects run
+   * only if they decline. Modelled as one member rather than two because the
+   * two oracle spellings are one rule.
+   *
+   * This is not `{do:'may'}` inverted. `may` asks the controller and does the
+   * thing on yes; this asks somebody else and does the thing on no, and getting
+   * the polarity wrong resolves the card backwards. */
+  | { do: 'unless-pays'; who: PlayerSelector; cost: Cost[]; effects: Effect[] }
   /* control flow */
   | { do: 'if'; condition: Condition; then: Effect[]; else?: Effect[] }
   | { do: 'for-each'; over: Selector | PlayerSelector; effects: Effect[] }
@@ -212,6 +359,26 @@ export type Effect =
   | { do: 'may'; who: PlayerSelector; text: string; effects: Effect[] }
   /* honesty */
   | { do: 'manual'; text: string; hint?: string };
+
+/* ------------------------------------------------------------------ *
+ * E8 — what restricted mana may be spent on (CR 106.6)
+ * ------------------------------------------------------------------ */
+
+/**
+ * "Spend this mana only to cast artifact spells."
+ *
+ * `what` is the filter the SPELL or the ABILITY'S SOURCE must satisfy. It is
+ * optional only for the shapes that genuinely restrict by kind alone — "spend
+ * this mana only to activate abilities" — never as a default: a restriction
+ * with no filter and no kind would be no restriction at all, and the compiler
+ * refuses the clause instead of emitting one.
+ */
+export interface ManaSpendRestriction {
+  spendOn: 'cast' | 'activate' | 'cast-or-activate';
+  what?: CardFilter;
+  /** The verbatim clause, so a player is told the restriction in the card's own words. */
+  text: string;
+}
 
 /* ------------------------------------------------------------------ *
  * Costs
@@ -281,7 +448,13 @@ export type ReplaceableEvent =
   | { on: 'damage'; to: Selector; from?: Selector; combatOnly?: boolean }
   | { on: 'draw'; whose: PlayerSelector }
   | { on: 'dies'; who: Selector }
-  | { on: 'counter-placed'; target: Selector; counter: string }
+  /**
+   * `counter` absent means ANY kind of counter. Doubling Season doubles "one or
+   * more counters", full stop; spelling that as a specific kind would double
+   * +1/+1 counters and quietly not double loyalty, which is the half of the
+   * card people play it for.
+   */
+  | { on: 'counter-placed'; target: Selector; counter?: string }
   | { on: 'life-gain' | 'life-loss'; whose: PlayerSelector }
   | { on: 'token-created'; whose: PlayerSelector }
   | { on: 'step'; step: Step; whose: PlayerSelector };
@@ -471,9 +644,186 @@ export function hasManualEffect(effects: readonly Effect[] | undefined): boolean
     if (e.do === 'for-each' && hasManualEffect(e.effects)) return true;
     if (e.do === 'repeat' && hasManualEffect(e.effects)) return true;
     if (e.do === 'may' && hasManualEffect(e.effects)) return true;
+    if (e.do === 'unless-pays' && hasManualEffect(e.effects)) return true;
     if (e.do === 'choose-mode' && e.modes.some((m) => hasManualEffect(m.effects))) return true;
   }
   return false;
+}
+
+/* ------------------------------------------------------------------ *
+ * Structural walkers
+ *
+ * These exist so "does this ability lean on something the engine cannot
+ * supply" is a QUESTION THE CODE ANSWERS, rather than a property somebody
+ * remembers to re-check when a rule is added. `trigger-bridge.ts` uses both to
+ * decide ownership, and a new nested effect member that is not walked here is
+ * a card that would slip through — which is why every container member is
+ * listed in one place.
+ * ------------------------------------------------------------------ */
+
+/** Every effect list nested inside one effect. One place, so nothing is missed. */
+function childEffectLists(effect: Effect): Effect[][] {
+  switch (effect.do) {
+    case 'if':
+      return effect.else ? [effect.then, effect.else] : [effect.then];
+    case 'for-each':
+    case 'repeat':
+    case 'may':
+    case 'unless-pays':
+      return [effect.effects];
+    case 'choose-mode':
+      return effect.modes.map((mode) => mode.effects);
+    default:
+      return [];
+  }
+}
+
+/** Every `ValueExpr` reachable from an effect tree, including nested ones. */
+export function valueExprsIn(effects: readonly Effect[]): ValueExpr[] {
+  const out: ValueExpr[] = [];
+
+  const walkValue = (value: ValueExpr | undefined): void => {
+    if (value === undefined || typeof value === 'number') return;
+    out.push(value);
+    switch (value.v) {
+      case 'add':
+      case 'mul':
+      case 'min':
+      case 'max':
+        for (const inner of value.of) walkValue(inner);
+        break;
+      case 'sub':
+      case 'div':
+        walkValue(value.a);
+        walkValue(value.b);
+        break;
+      case 'if':
+        walkValue(value.then);
+        walkValue(value.else);
+        walkCondition(value.condition);
+        break;
+      default:
+        break;
+    }
+  };
+
+  const walkCondition = (condition: Condition | undefined): void => {
+    if (!condition) return;
+    switch (condition.if) {
+      case 'count':
+        walkValue(condition.value);
+        break;
+      case 'value':
+        walkValue(condition.a);
+        walkValue(condition.b);
+        break;
+      case 'controls':
+        walkValue(condition.value);
+        break;
+      case 'not':
+        walkCondition(condition.of);
+        break;
+      case 'and':
+      case 'or':
+        for (const inner of condition.of) walkCondition(inner);
+        break;
+      default:
+        break;
+    }
+  };
+
+  const walkEffect = (effect: Effect): void => {
+    // Read every numeric-ish field by name. A `for (const v of Object.values)`
+    // would be shorter and would also walk `TokenSpec.power`, which is a string.
+    const anyEffect = effect as Record<string, unknown>;
+    for (const key of ['amount', 'count', 'times', 'min', 'max', 'power', 'toughness'] as const) {
+      const field = anyEffect[key];
+      if (typeof field === 'number' || (field && typeof field === 'object' && 'v' in (field as object))) {
+        walkValue(field as ValueExpr);
+      }
+    }
+    if (effect.do === 'if') walkCondition(effect.condition);
+    for (const list of childEffectLists(effect)) for (const inner of list) walkEffect(inner);
+  };
+
+  for (const effect of effects) walkEffect(effect);
+  return out;
+}
+
+/** Every `WatchQuery` an effect tree depends on. Empty means no turn history needed. */
+export function watchQueriesIn(effects: readonly Effect[]): WatchQuery[] {
+  return onlyWatches(valueExprsIn(effects));
+}
+
+function onlyWatches(values: readonly ValueExpr[]): WatchQuery[] {
+  return values
+    .filter((value): value is { v: 'watch'; query: WatchQuery } => typeof value !== 'number' && value.v === 'watch')
+    .map((value) => value.query);
+}
+
+/**
+ * Every `WatchQuery` an ABILITY depends on, effects and everything else.
+ *
+ * `watchQueriesIn` walks effect trees, and a `StaticAbility` has none: its
+ * numbers live in `modifications`, which is exactly where "this spell costs {1}
+ * less to cast for each creature that attacked this turn" puts its watch query.
+ * A caller checking only the effects would report that card as needing no
+ * history, which is the under-report this function exists to prevent.
+ */
+export function watchQueriesInAbility(ability: Ability): WatchQuery[] {
+  const values: ValueExpr[] = [...valueExprsIn(effectsOf(ability))];
+
+  if (ability.kind === 'static') {
+    for (const modification of ability.modifications) {
+      switch (modification.layer) {
+        case 'cost-modify':
+          values.push(modification.delta);
+          break;
+        case 'pt-set':
+        case 'pt-modify':
+          values.push(modification.power, modification.toughness);
+          break;
+        case 'restriction':
+          if (modification.rule.rule === 'max-lands-per-turn') values.push(modification.rule.n);
+          if (modification.rule.rule === 'damage-prevention' && modification.rule.amount !== 'all') {
+            values.push(modification.rule.amount);
+          }
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
+  if (ability.kind === 'replacement') {
+    const result = ability.result;
+    if (result.do === 'enters-with-counters') values.push(result.count);
+    if (result.do === 'multiply') values.push(result.factor);
+    if (result.do === 'prevent' && result.amount !== 'all') values.push(result.amount);
+  }
+
+  // Nested arithmetic inside those values still has to be walked.
+  const expanded: ValueExpr[] = [];
+  for (const value of values) {
+    expanded.push(value);
+    expanded.push(...valueExprsIn([{ do: 'gain-life', who: { who: 'you' }, amount: value }]));
+  }
+  return onlyWatches(expanded);
+}
+
+/** Every `PlayerSelector` an effect tree names, so a caller can check it is bindable. */
+export function playerSelectorsIn(effects: readonly Effect[]): PlayerSelector[] {
+  const out: PlayerSelector[] = [];
+  const walk = (effect: Effect): void => {
+    const anyEffect = effect as Record<string, unknown>;
+    for (const key of ['who', 'whose', 'to', 'over'] as const) {
+      const field = anyEffect[key];
+      if (field && typeof field === 'object' && 'who' in (field as object)) out.push(field as PlayerSelector);
+    }
+    for (const list of childEffectLists(effect)) for (const inner of list) walk(inner);
+  };
+  for (const effect of effects) walk(effect);
+  return out;
 }
 
 /** Every effect list an ability owns, so `hasManualEffect` can be run over it. */

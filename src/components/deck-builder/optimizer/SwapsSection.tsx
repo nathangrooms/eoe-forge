@@ -46,6 +46,16 @@ export interface SwapSuggestion {
     type?: string;
     inCollection?: boolean;
     synergy?: string;
+    /**
+     * The row id in OUR `cards` table, as the edge function resolved it.
+     *
+     * `card` above is whatever Scryfall returned for that name, which may be a
+     * printing we do not hold — and `deck_cards.card_id` carries a foreign key,
+     * so writing that id can fail. This one came out of a row the optimiser
+     * actually fetched, so it is the id a caller applying the swap must write.
+     * Null when the response did not carry one.
+     */
+    cardId?: string | null;
   };
   priority: 'high' | 'medium' | 'low';
   category?: string;

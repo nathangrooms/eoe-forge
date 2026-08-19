@@ -636,11 +636,24 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
                     {card.set_name} · {card.set_code.toUpperCase()}
                   </p>
 
+                  {/*
+                    `min-w-0` here is load-bearing, not tidying.
+
+                    A flex item defaults to `min-width: auto`, so `flex-1` alone
+                    could not shrink these three below their content width. The
+                    row measured ~238px inside a 219px tile at 1680x1050 and ran
+                    19px past the grid, which `StandardPageLayout`'s
+                    `overflow-x-hidden` then clipped silently: the last column's
+                    "+ List" was cut in half with no scrollbar to reveal it, and
+                    every row's controls ran into the next tile's.
+                    Before/after: .shots/audit/marketplace-1680.png — see
+                    docs/overhaul/VISUAL-AUDIT.md.
+                  */}
                   <div className="mt-1 flex gap-1.5">
                     <Button
                       variant="secondary"
                       size="sm"
-                      className="h-7 flex-1 px-2 text-xs"
+                      className="h-7 min-w-0 flex-1 px-2 text-xs"
                       onClick={() => handleShowPrices(card)}
                       aria-pressed={selectedCard?.id === card.id}
                     >
@@ -650,7 +663,7 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
                     <Button
                       variant="secondary"
                       size="sm"
-                      className="h-7 flex-1 px-2 text-xs"
+                      className="h-7 min-w-0 flex-1 px-2 text-xs"
                       onClick={() => handleAddToWatchlist(card)}
                     >
                       <Star className="mr-1 h-3 w-3" aria-hidden="true" />
@@ -659,7 +672,7 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
                     {onAddToShoppingList && (
                       <Button
                         size="sm"
-                        className="h-7 flex-1 px-2 text-xs"
+                        className="h-7 min-w-0 flex-1 px-2 text-xs"
                         onClick={() => handleAddToShoppingList(card)}
                       >
                         <Plus className="mr-1 h-3 w-3" aria-hidden="true" />

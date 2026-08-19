@@ -58,10 +58,15 @@ export function WishlistBuyPanel({
        same priority the band tile just restates the headline total. */
     const allBands = BANDS.map(band => {
       const rows = items.filter(item => item.priority === band.key);
+      // A band whose only card has no price used to print "$0.00", which reads
+      // as "these cards are free" rather than "we cannot price them". The count
+      // of priced rows is what tells the two apart.
+      const pricedRows = rows.filter(item => toNumber(item.card?.prices?.usd) > 0);
       return {
         ...band,
         count: rows.length,
-        total: rows.reduce((sum, item) => sum + priceOf(item), 0),
+        pricedCount: pricedRows.length,
+        total: pricedRows.reduce((sum, item) => sum + priceOf(item), 0),
       };
     }).filter(band => band.count > 0);
     const bands = allBands.length > 1 ? allBands : [];
@@ -117,8 +122,12 @@ export function WishlistBuyPanel({
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             Market price per printing, multiplied by the quantity you want
+            {/* Says what the total leaves out, in words that agree with
+                themselves: it read "1 card has no price recorded and count as
+                nothing" for a single card, and "counts as nothing" reads as if
+                the card is worth nothing rather than unknown. */}
             {summary.unpriced > 0 &&
-              ` · ${summary.unpriced} card${summary.unpriced === 1 ? ' has' : 's have'} no price recorded and count as nothing`}
+              ` · ${summary.unpriced} card${summary.unpriced === 1 ? ' is' : 's are'} not in this total because we have no price for ${summary.unpriced === 1 ? 'it' : 'them'} yet`}
           </p>
         </div>
 
@@ -167,10 +176,12 @@ export function WishlistBuyPanel({
           <div key={band.key} className="min-w-[12rem] flex-1 rounded-lg bg-muted/30 p-3">
             <p className="text-[0.7rem] text-muted-foreground">{band.label}</p>
             <p className="mt-0.5 text-lg font-bold tabular-nums text-foreground">
-              {formatPrice(band.total)}
+              {band.pricedCount > 0 ? formatPrice(band.total) : 'No price'}
             </p>
             <p className="text-xs tabular-nums text-muted-foreground">
               {band.count} card{band.count === 1 ? '' : 's'}
+              {band.pricedCount < band.count &&
+                `, ${band.count - band.pricedCount} not priced`}
             </p>
           </div>
         ))}

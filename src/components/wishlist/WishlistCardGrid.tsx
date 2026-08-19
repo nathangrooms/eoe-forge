@@ -19,7 +19,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { CardGrid, CardImage } from '@/components/cards';
-import { formatPrice, toNumber } from '@/components/collection/browser/types';
+import { formatPrice } from '@/components/collection/browser/types';
+import { PriceTag } from '@/components/pricing';
+import { readAmount } from '@/lib/pricing';
 import { cn } from '@/lib/utils';
 
 interface WishlistItem {
@@ -79,12 +81,12 @@ export function WishlistCardGrid({
   const [editingTarget, setEditingTarget] = useState<string | null>(null);
   const [targetValue, setTargetValue] = useState('');
 
-  const isPriceBelowTarget = (item: WishlistItem) =>
-    Boolean(
-      item.target_price_usd &&
-        item.card?.prices?.usd &&
-        toNumber(item.card.prices.usd) <= item.target_price_usd
-    );
+  /* `readAmount` returns null for a missing price rather than 0, so a card we
+     cannot price never reports itself as a deal at or below the target. */
+  const isPriceBelowTarget = (item: WishlistItem) => {
+    const current = readAmount(item.card?.prices?.usd);
+    return Boolean(item.target_price_usd && current != null && current <= item.target_price_usd);
+  };
 
   const handleSaveTarget = (item: WishlistItem) => {
     const price = parseFloat(targetValue);
@@ -98,7 +100,6 @@ export function WishlistCardGrid({
   return (
     <CardGrid width={width}>
       {items.map(item => {
-        const currentPrice = toNumber(item.card?.prices?.usd);
         const belowTarget = isPriceBelowTarget(item);
 
         const menu = (
@@ -246,9 +247,10 @@ export function WishlistCardGrid({
                     {item.card?.set_code || '—'}
                   </span>
                 </span>
-                <span className="shrink-0 font-semibold tabular-nums text-foreground">
-                  {formatPrice(currentPrice)}
-                </span>
+                {/* PriceTag, not formatPrice: a card we hold no price for used
+                    to render "$0.00" here, which reads as worthless rather than
+                    unknown. */}
+                <PriceTag card={item.card} size="sm" className="shrink-0 font-semibold" />
               </div>
               {item.target_price_usd && (
                 <div className="flex items-center gap-1 text-[11px] text-muted-foreground">

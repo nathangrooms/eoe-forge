@@ -17,10 +17,12 @@ import {
 } from '@/components/ai-builder/commander-query';
 
 import { supabase } from '@/integrations/supabase/client';
+import { uniqueCards } from '@/lib/cards/cardQuery';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { useAuth } from '@/components/AuthProvider';
 import { CommanderIntelligence } from '@/lib/deckbuilder/commander-intelligence';
-import { scoreDeckById } from '@/lib/deck/power';
+import { scoreDeckById, computeDeckPower, entriesFromStoreCards } from '@/lib/deck/power';
+import { comparePower, logDivergence } from '@/lib/deck/powerCalibration';
 import { cn } from '@/lib/utils';
 
 /**
@@ -474,14 +476,48 @@ export default function AIBuilder() {
       // that would make the deck unsaveable came back as a 422, not as an issue.
       errors.push(...((data.result?.validation?.issues as string[]) || []));
 
-      // EDH power check.
+      // Power check.
+      //
+      // This gate used to be decided by the scrape: if edhpowerlevel's number
+      // came back below the target it was reported to the user as a build
+      // failure. That made a third party's regex-parsed HTML the authority on
+      // whether OUR builder had done its job, and it failed open in the worst
+      // direction, because `if (edhPowerLevel && ...)` treats a scrape that
+      // returned nothing as a pass.
+      //
+      // Our own engine decides now. The scrape stays, as a labelled second
+      // opinion and a calibration reading, and it can neither pass nor fail a
+      // build.
       setBuildPhase(4);
-      const { data: powerCheckData } = await supabase.functions.invoke('edh-power-check', {
-        body: { decklist: { commander, cards: deckCards } },
-      });
-      const edhPowerLevel = powerCheckData?.powerLevel;
-      if (edhPowerLevel && edhPowerLevel < config.targetPower - 1) {
-        errors.push(`EDH power ${edhPowerLevel} is below the ${config.targetPower} target`);
+      const builtPower = computeDeckPower(
+        entriesFromStoreCards(
+          deckCards.map((card: any) => ({ ...card, quantity: card.quantity || 1 })),
+          commander as any
+        ),
+        { format: 'commander' }
+      );
+      if (builtPower && builtPower.score < config.targetPower - 1) {
+        errors.push(
+          `This deck scores ${builtPower.score.toFixed(1)} out of 10, under the ` +
+            `${config.targetPower} you asked for. ${builtPower.drags[0] ?? ''}`.trim()
+        );
+      }
+
+      // Never blocks: if their site is unreachable the build carries on.
+      let edhPowerLevel: number | null = null;
+      let calibration: ReturnType<typeof comparePower> | null = null;
+      try {
+        const { data: powerCheckData } = await supabase.functions.invoke('edh-power-check', {
+          body: { decklist: { commander, cards: deckCards } },
+        });
+        edhPowerLevel = powerCheckData?.powerLevel ?? null;
+        if (builtPower) {
+          calibration = comparePower(builtPower.score, edhPowerLevel);
+          logDivergence(commander?.name ?? 'new deck', calibration);
+        }
+        if (calibration?.worthShowing && calibration.note) errors.push(calibration.note);
+      } catch (error) {
+        console.warn('edhpowerlevel check unavailable, continuing:', error);
       }
 
       // Budget, from live prices on the cards that were actually picked.
@@ -517,7 +553,7 @@ export default function AIBuilder() {
         deckId: data.deckId,
         power: data.result?.analysis?.power || data.power || config.targetPower,
         edhPowerLevel: edhPowerLevel ?? null,
-        edhPowerUrl: powerCheckData?.url || fallbackEdhUrl,
+        edhPowerUrl: fallbackEdhUrl,
         totalValue,
         analysis: data.result?.analysis || data.analysis || {},
         changelog: data.result?.changeLog || data.changelog || [],
@@ -560,8 +596,11 @@ export default function AIBuilder() {
       if (data?.id) return data.id;
     }
     if (cmdr?.name) {
-      const { data } = await supabase
-        .from('cards')
+      // By name means by CARD, so read the one-row-per-card source. Against the
+      // printings table this would take whichever of a commander's forty rows
+      // came back first, and the deck would be saved pointing at a printing
+      // nobody chose. cards_unique answers with the cheapest one, every time.
+      const { data } = await uniqueCards()
         .select('id')
         .eq('name', cmdr.name)
         .limit(1)
@@ -751,6 +790,100 @@ export default function AIBuilder() {
     }
   };
 
+  /**
+   * Apply the optimiser's swaps to the deck that has not been saved yet.
+   *
+   * The owner: "you may want to run the optimiser from the generator." This is
+   * the write half of that. The panel opens beside the finished deck, and what
+   * it changes is this array — the same one the result screen renders, scores
+   * and eventually persists — so a swap the player accepts is visible in the
+   * grid immediately and is what gets saved.
+   *
+   * Two rules it will not break:
+   *
+   * - A card is only removed if it is genuinely in the deck, and the ADDED card
+   *   must arrive with a real database id. The optimiser resolves every name it
+   *   returns against `cards` before it hands it back, so it has one; a
+   *   suggestion that somehow does not is skipped rather than written, because
+   *   `deck_cards.card_id` is a foreign key and a deck that cannot be saved is
+   *   worse than a deck that ignored one piece of advice.
+   * - Copies are preserved. A removed card's quantity moves to the card
+   *   replacing it, so the deck stays at 100 and the save gate still passes.
+   */
+  const applyReplacements = useCallback(
+    (
+      replacements: Array<{
+        remove: string;
+        add: string;
+        addCardId?: string | null;
+        addCard?: any;
+      }>
+    ) => {
+      setBuildResult((prev: any) => {
+        if (!prev) return prev;
+        const cards: any[] = [...(prev.cards ?? [])];
+        let applied = 0;
+        let skipped = 0;
+
+        for (const swap of replacements) {
+          const index = cards.findIndex(
+            c => c.name?.toLowerCase() === swap.remove?.toLowerCase()
+          );
+          if (index === -1) {
+            skipped++;
+            continue;
+          }
+          const incoming = swap.addCard;
+          /*
+           * The id from OUR `cards` table, which the optimiser resolved, and
+           * never the one on the Scryfall object beside it. `deck_cards.card_id`
+           * carries a foreign key to `cards.id`, and Scryfall's chosen printing
+           * of a card is frequently not the printing we hold — so taking the id
+           * off `addCard` would save a deck row that Postgres rejects, or worse,
+           * point the deck at a printing nobody selected.
+           */
+          const id = typeof swap.addCardId === 'string' && swap.addCardId ? swap.addCardId : null;
+          if (!id) {
+            skipped++;
+            continue;
+          }
+          if (cards.some(c => c.id === id)) {
+            // Already in the deck. Adding it again would break singleton and
+            // the save gate would then refuse the whole deck.
+            skipped++;
+            continue;
+          }
+          cards[index] = {
+            ...incoming,
+            id,
+            name: incoming.name ?? swap.add,
+            quantity: cards[index].quantity || 1,
+          };
+          applied++;
+        }
+
+        if (applied === 0) {
+          showError(
+            'Nothing changed',
+            skipped === 1
+              ? 'That swap could not be applied to this deck.'
+              : `None of those ${skipped} swaps could be applied to this deck.`
+          );
+          return prev;
+        }
+
+        showSuccess(
+          applied === 1 ? 'Swap applied' : `${applied} swaps applied`,
+          skipped > 0
+            ? `${skipped} could not be applied and were left alone. Save the deck to keep the changes.`
+            : 'Save the deck to keep the changes.'
+        );
+        return { ...prev, cards };
+      });
+    },
+    []
+  );
+
   const refreshEdhAnalysis = async () => {
     if (!buildResult || !commander) return;
 
@@ -761,6 +894,12 @@ export default function AIBuilder() {
       });
 
       if (powerCheckData) {
+        // Calibration only. It updates the labelled second-opinion block and
+        // never our own score, which is not held in this object.
+        logDivergence(
+          commander?.name ?? 'deck',
+          comparePower(buildResult.power ?? 0, powerCheckData.powerLevel)
+        );
         setBuildResult((prev: any) => ({
           ...prev,
           edhPowerLevel: powerCheckData.powerLevel ?? prev.edhPowerLevel,
@@ -988,6 +1127,7 @@ export default function AIBuilder() {
               onRefreshEdhAnalysis={refreshEdhAnalysis}
               isLoadingEdhAnalysis={loadingEdhAnalysis}
               isSaving={saving}
+              onApplyReplacements={applyReplacements}
             />
           </motion.div>
         )}

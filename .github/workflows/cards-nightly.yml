@@ -1,0 +1,97 @@
+name: Nightly card catalogue
+
+# Makes sure a complete pass over the Scryfall catalogue happened.
+#
+# This job does NOT blindly start a sync. scryfall-sync keeps its resume pointer
+# in a single database row, so a second pass started over a run in flight would
+# fight the first one for that row. So it checks first: if a pass is running it
+# leaves it alone and only nudges it when it has stopped moving; if nothing ran
+# today it starts one; and it fails loudly if the catalogue is still incomplete
+# when it gives up.
+#
+# The sync itself is owned by supabase/functions/scryfall-sync. Nothing here
+# edits it.
+
+on:
+  schedule:
+    # 04:30 UTC, and the exact time is load bearing.
+    #
+    # pg_cron holds a job named scryfall-sync-nightly at 04:15 that calls
+    # trigger_scryfall_sync('sync') with no guard of its own, and the sync
+    # function's "already running" check is defeated whenever a resume pointer
+    # exists, which is always, mid pass. A pass started here at 03:15 would
+    # still be running when pg_cron fired a second one at 04:15, and both
+    # workers would advance the same single pointer row: pages read twice,
+    # pages skipped, and the exact collision the note above says this job
+    # avoids.
+    #
+    # Fifteen minutes AFTER pg_cron, this job finds the pass it is meant to
+    # supervise and only starts one itself when pg_cron did not fire. Ninety
+    # minutes of supervision from 04:30 still lands before the price job at
+    # 06:20.
+    - cron: '30 4 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: cards-nightly
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  catalogue:
+    name: Card catalogue
+    runs-on: ubuntu-latest
+    # A full pass is 96,732 cards over roughly 550 pages. Ninety minutes of
+    # supervision, and the run is resumable, so a timeout costs no progress.
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Make sure the catalogue is complete
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/data/pipeline.mjs cards-supervise --minutes 90
+
+  tell-someone:
+    name: Raise an issue if it failed
+    runs-on: ubuntu-latest
+    needs: catalogue
+    if: failure()
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const title = 'Card catalogue is not up to date';
+            const body = [
+              'The nightly catalogue job failed.',
+              '',
+              `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              '',
+              'Every deck suggestion, power score and search result is computed against this table.',
+              'When it is stale the app is confidently wrong rather than visibly broken, which is why this is an issue and not a log line.',
+              'The sync is resumable: re-running this job continues from the last page rather than starting over.',
+            ].join('\n');
+            const open = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: 'data-pipeline',
+            });
+            const existing = open.data.find(i => i.title === title);
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing.number, body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title, body, labels: ['data-pipeline'],
+              });
+            }

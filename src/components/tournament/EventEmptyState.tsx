@@ -42,7 +42,7 @@ export interface EventEmptyStateProps {
 }
 
 export function EventEmptyState({ decks, loading }: EventEmptyStateProps) {
-  const withArt = decks.filter(d => d.commanderCard).slice(0, 7);
+  const withArt = decks.filter(d => d.commanderCard).slice(0, 12);
 
   return (
     <section className="overflow-hidden rounded-2xl bg-card shadow-sm">
@@ -88,11 +88,15 @@ export function EventEmptyState({ decks, loading }: EventEmptyStateProps) {
           <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
             {decks.length} deck{decks.length === 1 ? '' : 's'} in your library, ready to register
           </p>
-          <div className="mt-3 flex gap-2.5 overflow-x-auto pb-1">
+          {/* A grid across the whole width, not a 84px strip ending a third of
+              the way across it. The cards are the reason anybody believes this
+              is a Magic tool rather than a bracket generator, so they get the
+              room. */}
+          <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),15rem))] gap-3">
             {withArt.map(deck => (
-              <div key={deck.id} className="w-[84px] shrink-0">
-                <CardImage card={deck.commanderCard} size="sm" fill />
-                <p className="mt-1.5 truncate text-[0.65rem] text-muted-foreground">{deck.name}</p>
+              <div key={deck.id} className="min-w-0">
+                <CardImage card={deck.commanderCard} size="md" fill title={deck.name} />
+                <p className="mt-2 truncate text-xs text-muted-foreground">{deck.name}</p>
               </div>
             ))}
           </div>

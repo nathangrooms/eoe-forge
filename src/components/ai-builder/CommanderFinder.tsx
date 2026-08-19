@@ -10,7 +10,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ManaPip } from '@/components/ui/mana-cost';
-import { Search, Users } from 'lucide-react';
+import { ChevronDown, Search, Users } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import {
   CMC_RANGES,
@@ -145,68 +146,80 @@ export function CommanderFinder({
     });
 
   return (
-    <aside
+    /* ONE ROW, NOT A PANEL.
+
+       As a sidebar this was 19rem of chips beside two visible commanders. Moved
+       to the top unchanged it was worse: twelve playstyle chips across the full
+       width push the cards below the fold, which is the opposite of the point.
+       Owner: "Takes up way too much space, especially playstyle", then "sort and
+       find take up so much space as well, should be right top option maybe?"
+
+       So the colours are pips, because they are six things you scan rather than
+       read; playstyle sits behind a control that says how many are on; and sort
+       and the search sit at the right end of the same row. The wall of
+       commanders is what this page is for. Narrowing it should cost one row. */
+    <section
       className={cn(
-        'flex flex-col gap-3 rounded-xl bg-card p-3 shadow-lg shadow-black/20',
+        'flex flex-wrap items-center gap-2 rounded-xl bg-card p-2.5 shadow-lg shadow-black/20',
         className
       )}
     >
-      <div className="flex items-center gap-2 px-1">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          Commander finder
-        </h2>
-        {active > 0 && (
-          <Badge variant="secondary" className="tabular-nums">
-            {active}
-          </Badge>
-        )}
+      <div className="flex flex-wrap items-center gap-1">
+        {MANA_COLORS.map(({ color, name }) => (
+          <Chip
+            key={color}
+            active={filters.colors.includes(color)}
+            onClick={() => toggleColor(color)}
+            title={name + '. Commanders you could legally build inside these colours.'}
+            className="inline-flex h-9 items-center px-2.5"
+          >
+            <ManaPip symbol={color} size="xs" />
+          </Chip>
+        ))}
       </div>
 
-      <Section
-        label="Colour identity"
-        hint="Commanders you could legally build inside these colours."
-      >
-        <div className="flex flex-wrap gap-1.5">
-          {MANA_COLORS.map(({ color, name }) => (
-            <Chip
-              key={color}
-              active={filters.colors.includes(color)}
-              onClick={() => toggleColor(color)}
-              className="inline-flex items-center gap-1.5"
-            >
-              <ManaPip symbol={color} size="xs" />
-              {name}
-            </Chip>
-          ))}
-        </div>
-      </Section>
-
-      <Section label="Playstyle" hint="Matched against the commander's own rules text.">
-        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-2">
-          {PLAYSTYLES.map(({ value, label, description }) => (
-            <Chip
-              key={value}
-              active={filters.playstyles.includes(value)}
-              onClick={() => togglePlaystyle(value)}
-              title={description}
-              className="text-center"
-            >
-              {label}
-            </Chip>
-          ))}
-        </div>
-      </Section>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="secondary" className="h-9 gap-1.5">
+            Playstyle
+            {filters.playstyles.length > 0 && (
+              <Badge variant="secondary" className="tabular-nums">
+                {filters.playstyles.length}
+              </Badge>
+            )}
+            <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-80">
+          <p className="mb-2 text-xs text-muted-foreground">
+            Matched against the commander&rsquo;s own rules text.
+          </p>
+          <div className="grid grid-cols-2 gap-1.5">
+            {PLAYSTYLES.map(({ value, label, description }) => (
+              <Chip
+                key={value}
+                active={filters.playstyles.includes(value)}
+                onClick={() => togglePlaystyle(value)}
+                title={description}
+                className="text-center"
+              >
+                {label}
+              </Chip>
+            ))}
+          </div>
+        </PopoverContent>
+      </Popover>
 
       <button
         type="button"
         onClick={() => setShowAdvanced(v => !v)}
-        className="px-1 text-left text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+        className="rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
       >
-        {showAdvanced ? 'Hide advanced filters' : 'Show advanced filters'}
+        {showAdvanced ? 'Fewer filters' : 'More filters'}
       </button>
 
       {showAdvanced && (
-        <>
+        <div className="flex w-full flex-wrap gap-2">
           <Section label="Commander mana value">
             <div className="flex flex-wrap gap-1.5">
               {CMC_RANGES.map(({ value, label, description }) => (
@@ -249,12 +262,18 @@ export function CommanderFinder({
               Pairable commanders only
             </Chip>
           </Section>
-        </>
+        </div>
       )}
 
-      <Section label="Sort">
+      {/* Sort and the search itself, at the right end of the same row. */}
+      <div className="ml-auto flex items-center gap-2">
+        {resultCount !== null && (
+          <span className="hidden text-xs text-muted-foreground sm:inline">
+            {resultCount.toLocaleString()} matched
+          </span>
+        )}
         <Select value={sortOrder} onValueChange={onSortOrderChange}>
-          <SelectTrigger id="commander-sort" className="h-9 border-0 bg-background/60">
+          <SelectTrigger id="commander-sort" className="h-9 w-[10.5rem] border-0 bg-background/60">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -265,27 +284,17 @@ export function CommanderFinder({
             ))}
           </SelectContent>
         </Select>
-      </Section>
-
-      {resultCount !== null && (
-        <p className="px-1 text-xs text-muted-foreground">
-          Last search matched {resultCount.toLocaleString()} commander
-          {resultCount === 1 ? '' : 's'}.
-        </p>
-      )}
-
-      <div className="flex items-center gap-2">
-        <Button onClick={onSearch} disabled={searching} className="flex-1">
-          <Search className="mr-2 h-4 w-4" />
-          {searching ? 'Searching…' : 'Find commanders'}
-        </Button>
         {active > 0 && (
-          <Button variant="ghost" onClick={onClear}>
+          <Button variant="ghost" className="h-9" onClick={onClear}>
             Clear
           </Button>
         )}
+        <Button className="h-9" onClick={onSearch} disabled={searching}>
+          <Search className="mr-2 h-4 w-4" />
+          {searching ? 'Searching' : 'Find'}
+        </Button>
       </div>
-    </aside>
+    </section>
   );
 }
 

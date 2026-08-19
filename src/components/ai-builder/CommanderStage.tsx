@@ -159,9 +159,18 @@ export function CommanderStage({
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)] lg:items-start">
-      {/* The finder, on the page. Sticky so it stays reachable as the wall
-          below it grows. */}
+    /* FILTERS ACROSS THE TOP, COMMANDERS UNDERNEATH AT FULL WIDTH.
+
+       This was a 19rem sticky sidebar with the results squeezed into what was
+       left, which at 1280 showed barely two commanders beside a column of chips.
+       Owner: "Deck generator filter should be at the top" and "should be more
+       like new deck page". The new deck page is right: its configuration is a
+       horizontal row and the commander wall gets the whole width, which is what
+       you are actually looking at.
+
+       The filters read as one row of controls rather than a panel competing
+       with the cards for attention. */
+    <div className="space-y-4">
       <CommanderFinder
         filters={filters}
         onFiltersChange={onFiltersChange}
@@ -171,7 +180,6 @@ export function CommanderStage({
         onClear={onClearFinder}
         searching={finderSearching}
         resultCount={finderResultCount}
-        className="lg:sticky lg:top-4"
       />
 
       <div className="min-w-0 space-y-4">

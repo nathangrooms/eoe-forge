@@ -279,7 +279,12 @@ export default function Decks() {
               <Library className="mr-2 h-4 w-4" />
               <span className="hidden sm:inline">Archetypes</span>
             </Button>
-            <Button onClick={() => setShowOnboardingFlow(true)}>
+            {/* Goes to the new deck page, the same place the left menu and the
+                top bar go. It used to open an onboarding wizard, so the same
+                words in three places did two different things. Owner: "new deck
+                button goes to a wizard - this is wrong, it should go to the new
+                deck page in left menu". */}
+            <Button onClick={() => navigate('/decks/new')}>
               <Plus className="mr-2 h-4 w-4" />
               New deck
             </Button>
@@ -342,7 +347,7 @@ export default function Decks() {
                     Clear filters
                   </Button>
                 ) : (
-                  <Button onClick={() => setShowOnboardingFlow(true)}>
+                  <Button onClick={() => navigate('/decks/new')}>
                     <Plus className="mr-2 h-4 w-4" />
                     New deck
                   </Button>

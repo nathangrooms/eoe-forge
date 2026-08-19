@@ -1,7 +1,7 @@
 /**
  * Unit tests for the in-house recommendation engine.
  *
- *   node --test --experimental-strip-types src/lib/deck/recommend/recommend.test.ts
+ *   node --test --experimental-strip-types src/engine/advise/recommend.test.ts
  *
  * Every fixture below is a real row, copied verbatim out of our own `cards`
  * table (2026-08-18) — including the three separate printings of Cultivate and
@@ -13,7 +13,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ALL_TAGS } from '../../cards/tagger.ts';
+import { ALL_TAGS } from '../knowledge/tagger.ts';
 import {
   ROLE_TAGS,
   ROLES,
@@ -25,7 +25,9 @@ import {
   rankCandidates,
   recommend,
   roleShortfall,
+  scoreCandidate,
   toSql,
+  WEIGHTS,
   UnindexedFormatError,
   type RawCardRow,
 } from './index.ts';
@@ -172,8 +174,23 @@ const POOL: RawCardRow[] = [
   FOREST,
 ];
 
-/** A thin G/U deck that is short of everything. */
+/**
+ * A thin G/U deck that is short of everything.
+ *
+ * Nine non-land cards, and the count is load-bearing: `rank.ts` will not claim
+ * a deck has a curve until it holds `CURVE_MIN_SPELLS` of them, because the
+ * mean mana value of three cards is a fact about three cards. Six of the nine
+ * are `filler-N` two-drops that carry no tags at all, so they move the mean and
+ * nothing else.
+ */
 function guProfile(extra: Parameters<typeof deriveDeckProfile>[0]['cards'] = []) {
+  const filler = Array.from({ length: 6 }, (_, i) => ({
+    oracleId: `filler-${i}`,
+    name: `Filler ${i}`,
+    typeLine: 'Creature — Human',
+    cmc: 2,
+    tags: [] as string[],
+  }));
   return deriveDeckProfile({
     format: 'commander',
     colorIdentity: ['G', 'U'],
@@ -181,6 +198,7 @@ function guProfile(extra: Parameters<typeof deriveDeckProfile>[0]['cards'] = [])
       { oracleId: 'own-1', name: 'Llanowar Elves', typeLine: 'Creature — Elf Druid', cmc: 1, tags: ['creature', 'mana-dork', 'ramp'] },
       { oracleId: 'own-2', name: 'Ponder', typeLine: 'Sorcery', cmc: 1, tags: ['sorcery', 'card-draw', 'draw'] },
       { oracleId: 'own-3', name: 'Colossal Dreadmaw', typeLine: 'Creature — Dinosaur', cmc: 6, tags: ['creature'] },
+      ...filler,
       ...extra,
     ],
   });
@@ -377,12 +395,35 @@ test('every reason clause comes from a signal that fired', async () => {
 
 test('curve fit is measured against the deck own mean, and reported', async () => {
   const profile = guProfile();
-  // (1 + 1 + 6) / 3 non-land cards.
-  assert.ok(Math.abs(profile.meanCmc - 8 / 3) < 1e-9);
+  // (1 + 1 + 6 + 2*6) / 9 non-land cards.
+  assert.ok(Math.abs(profile.meanCmc - 20 / 9) < 1e-9);
   const picks = await recommend(profile, source(POOL));
   const solRing = picks.find(p => p.card.name === 'Sol Ring');
-  // 2.67 - 1 = 1.7 below the curve.
-  assert.match(solRing.reason, /1\.7 mana value below your curve/);
+  // 2.22 - 1 = 1.2 below the curve.
+  assert.match(solRing.reason, /1\.2 mana value below your curve/);
+});
+
+/**
+ * A deck of three cards has a mean mana value. It does not have a CURVE.
+ *
+ * The guard used to be `spellCount > 0`, and the deck generator ranks its first
+ * candidates against a profile seeded with the commander alone. Every zero-cost
+ * card then collected the full curve bonus for being three mana below a "curve"
+ * consisting of one four-drop, which is how an Atraxa build came back as thirty
+ * pieces of free Equipment.
+ */
+test('a deck too small to have a curve makes no curve claim', async () => {
+  const tiny = deriveDeckProfile({
+    format: 'commander',
+    colorIdentity: ['G', 'U'],
+    cards: [
+      { oracleId: 'cmdr', name: 'Some Commander', typeLine: 'Legendary Creature', cmc: 6, tags: [] },
+    ],
+  });
+  const picks = await recommend(tiny, source(POOL));
+  for (const pick of picks) {
+    assert.doesNotMatch(pick.reason, /mana value (below|above) your curve/);
+  }
 });
 
 test('a card already in the deck is not recommended back', async () => {
@@ -509,4 +550,41 @@ test('ranking survives a pool the source should never have returned', () => {
   // Belt and braces: if the SQL is ever edited wrongly, this still holds.
   const dirty = [BOLT, LOTUS, FOREST].map(r => normalizeRow(r));
   assert.deepEqual(rankCandidates(dirty, guProfile()), []);
+});
+
+/* ------------------------------------------------------------------ *
+ * Popularity
+ * ------------------------------------------------------------------ */
+
+/**
+ * A caller may lean harder on popularity, but never past castability.
+ *
+ * The rule is a product decision, not an implementation detail: a card you
+ * cannot reliably cast is worth nothing however many other people play it. The
+ * clamp lives in `rank.ts` rather than at the call site so that a caller
+ * passing a large number gets the rule applied to them rather than around them.
+ */
+test('the popularity weight is clamped below castability', () => {
+  const profile = guProfile();
+  const ranked = normalizeRow({ ...SOL_RING, edhrec_rank: 1 });
+
+  const atDefault = scoreCandidate(ranked, profile).signals.find(s => s.kind === 'popularity');
+  const raised = scoreCandidate(ranked, profile, { popularityWeight: 2 }).signals.find(
+    s => s.kind === 'popularity'
+  );
+  const absurd = scoreCandidate(ranked, profile, { popularityWeight: 999 }).signals.find(
+    s => s.kind === 'popularity'
+  );
+
+  // Rank 1 means the decay is exactly 1, so each score IS the weight in force.
+  assert.equal(atDefault.score, WEIGHTS.popularity);
+  assert.equal(raised.score, 2);
+  assert.equal(absurd.score, WEIGHTS.playability);
+  assert.ok(WEIGHTS.playability > WEIGHTS.popularity);
+});
+
+test('a card the sync has not reached gets no popularity signal at all', () => {
+  const unranked = normalizeRow({ ...SOL_RING, edhrec_rank: null });
+  const signals = scoreCandidate(unranked, guProfile(), { popularityWeight: 2 }).signals;
+  assert.equal(signals.some(s => s.kind === 'popularity'), false);
 });

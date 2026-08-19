@@ -169,4 +169,13 @@ export interface RecommendOptions {
   preferBudget?: boolean;
   /** Override the declared role targets. */
   roleTargets?: Partial<Record<Role, number>>;
+  /**
+   * How hard to lean on EDHREC popularity, when the default is not right.
+   *
+   * Defaults to `WEIGHTS.popularity` and is clamped to `WEIGHTS.playability`,
+   * so no caller can put popularity above castability. Raised only by a caller
+   * ranking against an empty deck, where the signals that normally do the work
+   * have nothing to measure yet. See `popularityWeight` in `rank.ts`.
+   */
+  popularityWeight?: number;
 }

@@ -56,11 +56,12 @@ import {
   landRepeatDisposition,
 } from './validate.ts';
 import {
-  chooseSwapTargets,
-  collectCastability,
-  type DeckEntry,
+  evaluateUserDeck,
+  toSwapTargets,
+  type DeckEvaluation,
+  type ResolvedDeckLine,
   type SwapTarget,
-} from './swap-targets.ts';
+} from './deck-brain.ts';
 import {
   buildCandidateQuery,
   deriveDeckProfile,
@@ -77,7 +78,21 @@ import {
   type DeckProfile,
   type Recommendation,
   type Role,
-} from './_engine/deck/recommend/index.ts';
+} from './_engine/advise/index.ts';
+
+/**
+ * One line of the user's deck, resolved against the catalogue.
+ *
+ * Declared here now that `swap-targets.ts` is gone. `card` is null when the
+ * name did not resolve, and every downstream reader has to handle that rather
+ * than assume the client sent real card names.
+ */
+interface DeckEntry {
+  name: string;
+  card: CandidateCard | null;
+  quantity: number;
+  isCommander: boolean;
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -258,6 +273,16 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
   }
 
   /* --- 3. Profile the deck ----------------------------------------- */
+  // Two views of the same lines. `deckEntries` carries the normalised card the
+  // ranker and the validator read; `deckLines` carries the raw catalogue row,
+  // because the castability engine needs `oracle_text` and `normalizeRow` does
+  // not keep it.
+  const rowByName = new Map<string, CatalogRow>();
+  for (const row of deckRows) {
+    const key = normalizeName(row.name);
+    if (!rowByName.has(key)) rowByName.set(key, row);
+  }
+
   const deckEntries: DeckEntry[] = rawCards.map(c => {
     const name = String(c.name ?? '');
     return {
@@ -275,6 +300,13 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
       isCommander: true,
     });
   }
+
+  const deckLines: ResolvedDeckLine[] = deckEntries.map(e => ({
+    name: e.name,
+    row: rowByName.get(normalizeName(e.name)) ?? null,
+    quantity: e.quantity,
+    isCommander: e.isCommander,
+  }));
 
   const unresolved = deckEntries.filter(e => !e.card).map(e => e.name);
 
@@ -351,14 +383,40 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
   const landCandidates = landish.slice(0, LAND_CANDIDATE_LIMIT);
   const basics = await catalog.basicLands(legalityKey, colorIdentity);
 
-  /* --- 7. Swap targets, tolerant of a missing castability figure ---- */
-  const castability = collectCastability(deckContext, input.edhAnalysis);
-  const swapTargets = chooseSwapTargets(
-    deckEntries,
-    castability,
-    profile,
-    SWAP_TARGET_LIMIT
-  ).filter(t => !excluded.has(normalizeName(t.name)));
+  /* --- 7. The shared brain: one evaluation, score and cuts alike ---- */
+  // This is the same `evaluateDeck` the deck page calls, running on a
+  // byte-identical copy of the engine. The score below and the cut order below
+  // it come out of one computation, so the reason a card is at the top of the
+  // cut list IS the reason the score is what it is.
+  //
+  // `input.edhAnalysis` is still accepted and still forwarded to the prompt as
+  // context, but nothing here reads a castability figure out of it. It used to
+  // be the only source, and it was a scrape.
+  let evaluation: DeckEvaluation | null = null;
+  try {
+    evaluation = evaluateUserDeck(deckLines, legalityKey);
+  } catch (error) {
+    // A scoring failure must not take the whole optimisation down. The cut list
+    // then comes back empty and the prompt is told so, which is the honest
+    // degradation: no evidence is reported as no evidence.
+    console.error('deck evaluation failed', error);
+  }
+
+  const swapTargets = evaluation
+    ? toSwapTargets(
+        evaluation.cuts.filter(c => !excluded.has(normalizeName(c.name))),
+        SWAP_TARGET_LIMIT
+      )
+    : [];
+
+  if (evaluation) {
+    console.log(
+      `evaluation: power ${evaluation.power.score}/10 (${evaluation.power.band}), ` +
+        `castability ${evaluation.power.readout.averagePct?.toFixed(1) ?? 'n/a'}%, ` +
+        `${evaluation.power.readout.hardToCastCount} card(s) under ` +
+        `${evaluation.power.readout.threshold}%, ${evaluation.cuts.length} cut candidates`
+    );
+  }
 
   /* --- 8. Ask the model to choose from the pool --------------------- */
   const prompt = buildGroundedPrompt({
@@ -435,6 +493,7 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
       landCount,
       idealLandCount,
       swapTargets,
+      evaluation,
       colorIdentity,
       identitySource,
       unresolved,
@@ -1081,6 +1140,9 @@ async function attachRealData(args: {
  *   analysis.engine         version, whether the model was used, failure reason
  *   analysis.deck           measured role counts/targets, curve, deck themes
  *   analysis.swapTargets    cut candidates with their castability source
+ *   analysis.power          THE score, from the same engine the deck page runs.
+ *                           Same decklist in, same number out, and
+ *                           src/engine/one-brain.test.ts fails if they differ.
  *   analysis.categoriesSource  'model' | 'measured'
  *   per addition/removal/land: cardId, oracleId, imageUrl, setCode, rarity,
  *                              priceUsd, owned, ownedQuantity,
@@ -1107,6 +1169,7 @@ function buildResponse(args: {
   landCount: number;
   idealLandCount: number;
   swapTargets: SwapTarget[];
+  evaluation: DeckEvaluation | null;
   colorIdentity: Color[];
   identitySource: string;
   unresolved: string[];
@@ -1195,6 +1258,45 @@ function buildResponse(args: {
       castabilitySource: t.source,
       reason: t.reason,
     })),
+
+    /**
+     * The score, computed here rather than accepted from the caller.
+     *
+     * This is the field that makes the cut list checkable. `castability.average`
+     * is the mean the `castability` subscore IS, and every name in
+     * `swapTargets` with `castabilitySource: 'engine-castability'` is one of the
+     * cards dragging that mean down. A client can display the score beside the
+     * cuts and the two will always agree, because they came from one call.
+     *
+     * Null only when evaluation threw, and null means "not measured" rather
+     * than zero, the same rule the castability figures follow.
+     */
+    power: args.evaluation
+      ? {
+          score: args.evaluation.power.score,
+          band: args.evaluation.power.band,
+          bracket: args.evaluation.power.bracket,
+          raw: args.evaluation.power.raw,
+          unreliable: args.evaluation.power.unreliable,
+          subscores: args.evaluation.power.subscores.map(sub => ({
+            key: sub.key,
+            value: sub.value,
+            weight: sub.weight,
+            applicable: sub.applicable,
+            measured: sub.measured,
+            from: sub.from,
+            holdingBack: sub.holdingBack,
+            note: sub.note,
+          })),
+          castability: {
+            average: args.evaluation.power.readout.averagePct,
+            median: args.evaluation.power.readout.medianPct,
+            threshold: args.evaluation.power.readout.threshold,
+            hardToCastCount: args.evaluation.power.readout.hardToCastCount,
+            hardest: args.evaluation.power.readout.hardest,
+          },
+        }
+      : null,
   };
 }
 
@@ -1359,8 +1461,11 @@ function buildGroundedPrompt(p: {
         .join('\n')
     );
     out.push(
-      `A card with no castability figure is UNMEASURED, not weak. Prefer targets that ` +
-        `carry a real figure, and never treat a missing figure as a low one.`
+      `This order is not an opinion. It comes from the same evaluation that produced ` +
+        `the power score above: cards you cannot reliably pay for come first, worst ` +
+        `first, then cards that share nothing with the deck and fill no job it is ` +
+        `short of. A card with no castability figure is UNMEASURED, not weak, and a ` +
+        `missing figure must never be treated as a low one.`
     );
     out.push(``);
   }

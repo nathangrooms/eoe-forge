@@ -1,7 +1,7 @@
 /**
  * Unit tests for the role tagger.
  *
- *   node --test --experimental-strip-types src/lib/cards/tagger.test.ts
+ *   node --test --experimental-strip-types src/engine/knowledge/tagger.test.ts
  *
  * Oracle text below is copied verbatim from our own `cards` rows, including the
  * post-2024 templating ("When this creature enters", not "When CARDNAME enters

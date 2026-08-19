@@ -88,6 +88,38 @@ export const WEIGHTS = {
 const POPULARITY_HORIZON = 25000;
 
 /**
+ * How much this call may lean on popularity, clamped so the ordering holds.
+ *
+ * `WEIGHTS.popularity` (0.8) is right for the optimiser, which ranks additions
+ * to a deck that already exists: role gaps and shared tags are measured against
+ * sixty real cards, so there is plenty of signal and popularity is a tie-break.
+ *
+ * A deck generator has none of that. Against a profile seeded with the
+ * commander alone every role is equally short, so the role-gap signal is the
+ * same 3.0 for every card that carries any role tag at all, and what is left to
+ * separate them rewards being cheap. Measured on 2026-08-19 building an Atraxa
+ * deck from the live catalogue: Bone Saw scored 7.50 and Sol Ring 7.34, and the
+ * finished deck was thirty pieces of nearly-free Equipment. Popularity is the
+ * only broad evidence in this whole schema that a card is one people actually
+ * play — we hold no inclusion counts, no win rates and no synergy data — so a
+ * caller with an empty deck is allowed to lean on it harder.
+ *
+ * It is CLAMPED to `WEIGHTS.playability`, and that is not a style choice. The
+ * standing product rule is that a card you cannot reliably cast is worth
+ * nothing however popular it is, so castability must outrank popularity. A
+ * caller cannot break that rule by passing a bigger number; the clamp is here
+ * rather than at the call site so it holds for every caller, present and
+ * future.
+ */
+function popularityWeight(options: RecommendOptions): number {
+  const asked = options.popularityWeight;
+  if (typeof asked !== 'number' || !Number.isFinite(asked) || asked < 0) {
+    return WEIGHTS.popularity;
+  }
+  return Math.min(asked, WEIGHTS.playability);
+}
+
+/**
  * Below this a card is not offered at all.
  *
  * Deliberately well under the 40% at which a card in the deck already counts as
@@ -112,6 +144,24 @@ const CURVE_SPAN = 3;
 
 /** Below this, a curve difference is noise and no clause is emitted. */
 const CURVE_MIN_REPORTABLE = 0.5;
+
+/**
+ * Spells a deck needs before it can be said to have a curve at all.
+ *
+ * The guard used to be `spellCount > 0`, which is true of a deck consisting of
+ * one card — and that is not a hypothetical. The deck generator ranks its first
+ * candidates against a profile seeded with the commander alone, whose "mean
+ * mana value" is that commander's own cost. Measured on 2026-08-19 building an
+ * Atraxa deck: every card at mana value 1 or less scored the full +1.0 for
+ * "3.0 mana value below your curve", against a curve of one four-drop, and a
+ * Bone Saw therefore outranked Swords to Plowshares.
+ *
+ * Eight is a judgement, not a measurement: enough cards that the mean is about
+ * the deck rather than about one card, few enough that it stops mattering
+ * almost immediately. Every real deck the optimiser sees is far past it, so
+ * this changes nothing there.
+ */
+const CURVE_MIN_SPELLS = 8;
 
 /** Default ceiling used to scale the budget signal when none is given. */
 const DEFAULT_BUDGET_CEILING_USD = 20;
@@ -266,7 +316,7 @@ export function scoreCandidate(
   /* --- Curve fit ---------------------------------------------------- */
   // Positive delta = cheaper than the deck's own average.
   const delta = profile.meanCmc - card.cmc;
-  if (profile.spellCount > 0 && Math.abs(delta) >= CURVE_MIN_REPORTABLE) {
+  if (profile.spellCount >= CURVE_MIN_SPELLS && Math.abs(delta) >= CURVE_MIN_REPORTABLE) {
     const clamped = Math.max(-1, Math.min(1, delta / CURVE_SPAN));
     signals.push({
       kind: 'curve-fit',
@@ -289,10 +339,12 @@ export function scoreCandidate(
   }
 
   /* --- Popularity ---------------------------------------------------- */
-  // The weakest signal in the model, and deliberately so. It says "other people
-  // play this", which is worth something when two cards are otherwise level and
-  // worth nothing against a card that fixes a real deficiency. Absent for a
-  // card the sync has not reached, because unknown is not unpopular.
+  // Normally the weakest signal in the model, and deliberately so: it says
+  // "other people play this", which is worth something when two cards are
+  // otherwise level and worth nothing against a card that fixes a real
+  // deficiency. Absent for a card the sync has not reached, because unknown is
+  // not unpopular. See `popularityWeight` for the one case that raises it, and
+  // for why it can never be raised past castability.
   if (card.edhrecRank !== null && card.edhrecRank > 0) {
     const decay = Math.max(
       0,
@@ -301,7 +353,7 @@ export function scoreCandidate(
     if (decay > 0) {
       signals.push({
         kind: 'popularity',
-        score: WEIGHTS.popularity * decay,
+        score: popularityWeight(options) * decay,
         detail: `played in a lot of decks (EDHREC rank ${card.edhrecRank.toLocaleString('en')})`,
       });
     }

@@ -1,0 +1,494 @@
+/**
+ * The deck generator, tested on the properties that were actually broken.
+ *
+ *   node --test --experimental-strip-types src/engine/build/generate.test.ts
+ *
+ * The rows marked "verbatim" below are real `public.cards` rows read off the
+ * live catalogue on 2026-08-19, tags and `edhrec_rank` included, so a test that
+ * passes here describes what the generator will do against the real table.
+ * The filler pool is synthetic and says so: it exists only so a 99-card deck
+ * can be completed, and no assertion depends on what is in it.
+ */
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+
+import { generateDeck, allocateBasics, pipDemand, type BuildCard } from './generate.ts';
+import { normalizeRow, type RawCardRow } from '../advise/query.ts';
+
+const COMMANDER_LEGAL = { commander: 'legal' };
+
+function card(over: Partial<RawCardRow> & { id: string; name: string }, oracleText?: string): BuildCard {
+  const row: RawCardRow = {
+    oracle_id: over.oracle_id ?? over.id,
+    type_line: 'Sorcery',
+    cmc: '3',
+    color_identity: [],
+    tags: [],
+    mana_cost: null,
+    prices: null,
+    legalities: COMMANDER_LEGAL,
+    ...over,
+  } as RawCardRow;
+  return { ...normalizeRow(row, 'commander'), oracleText: oracleText ?? null };
+}
+
+/* ------------------------------------------------------------------ *
+ * Verbatim rows
+ * ------------------------------------------------------------------ */
+
+const ATRAXA = card({
+  id: 'atraxa-1',
+  oracle_id: 'atraxa-oracle',
+  name: "Atraxa, Praetors' Voice",
+  type_line: 'Legendary Creature — Phyrexian Angel Horror',
+  cmc: '4',
+  mana_cost: '{G}{W}{U}{B}',
+  color_identity: ['B', 'G', 'U', 'W'],
+  tags: ['creature', 'evasion', 'lifegain', 'proliferate'],
+  edhrec_rank: 2469,
+});
+
+const COMMAND_TOWER = card(
+  {
+    id: 'ct-1',
+    oracle_id: 'ct-oracle',
+    name: 'Command Tower',
+    type_line: 'Land',
+    cmc: '0',
+    color_identity: [],
+    tags: ['land'],
+    edhrec_rank: 2,
+  },
+  '{T}: Add one mana of any color in your commander’s color identity.'
+);
+
+const BREEDING_POOL = card(
+  {
+    id: 'bp-1',
+    oracle_id: 'bp-oracle',
+    name: 'Breeding Pool',
+    type_line: 'Land — Forest Island',
+    cmc: '0',
+    color_identity: ['G', 'U'],
+    tags: ['land'],
+    edhrec_rank: 60,
+    prices: { usd: '11.50' },
+  },
+  '({T}: Add {G} or {U}.)\nAs Breeding Pool enters, you may pay 2 life. If you don’t, it enters tapped.'
+);
+
+/** A famous land that fixes nothing. It must lose to lands that do. */
+const RELIQUARY_TOWER = card(
+  {
+    id: 'rt-1',
+    oracle_id: 'rt-oracle',
+    name: 'Reliquary Tower',
+    type_line: 'Land',
+    cmc: '0',
+    color_identity: [],
+    tags: ['land'],
+    edhrec_rank: 1,
+  },
+  'You have no maximum hand size.\n{T}: Add {C}.'
+);
+
+const INEXORABLE_TIDE = card({
+  id: 'tide-1',
+  oracle_id: 'tide-oracle',
+  name: 'Inexorable Tide',
+  type_line: 'Enchantment',
+  cmc: '5',
+  mana_cost: '{3}{U}{U}',
+  color_identity: ['U'],
+  tags: ['enchantment', 'proliferate'],
+});
+
+/** Cheap draw that also proliferates. Verbatim. */
+const CONTENTIOUS_PLAN = card({
+  id: 'plan-1',
+  oracle_id: 'plan-oracle',
+  name: 'Contentious Plan',
+  type_line: 'Sorcery',
+  cmc: '2',
+  mana_cost: '{1}{U}',
+  color_identity: ['U'],
+  tags: ['card-draw', 'draw', 'proliferate', 'sorcery'],
+  edhrec_rank: 2240,
+  prices: { usd: '0.40' },
+});
+
+const CULTIVATE = card({
+  id: 'cult-1',
+  oracle_id: 'cult-oracle',
+  name: 'Cultivate',
+  type_line: 'Sorcery',
+  cmc: '3',
+  mana_cost: '{2}{G}',
+  color_identity: ['G'],
+  tags: ['ramp', 'sorcery'],
+  edhrec_rank: 20,
+});
+
+const SWORDS = card({
+  id: 'stp-1',
+  oracle_id: 'stp-oracle',
+  name: 'Swords to Plowshares',
+  type_line: 'Instant',
+  cmc: '1',
+  mana_cost: '{W}',
+  color_identity: ['W'],
+  tags: ['instant', 'removal', 'removal-spot', 'targeted-removal'],
+});
+
+/** Out of identity. It must never appear, however good it looks. */
+const LIGHTNING_BOLT = card({
+  id: 'bolt-1',
+  oracle_id: 'bolt-oracle',
+  name: 'Lightning Bolt',
+  type_line: 'Instant',
+  cmc: '1',
+  mana_cost: '{R}',
+  color_identity: ['R'],
+  tags: ['instant', 'removal', 'targeted-removal'],
+  edhrec_rank: 5,
+});
+
+const BASICS: Record<string, BuildCard> = {
+  W: card({ id: 'plains-1', oracle_id: 'plains', name: 'Plains', type_line: 'Basic Land — Plains', cmc: '0', color_identity: ['W'], tags: ['basic-land', 'land'] }, '({T}: Add {W}.)'),
+  U: card({ id: 'island-1', oracle_id: 'island', name: 'Island', type_line: 'Basic Land — Island', cmc: '0', color_identity: ['U'], tags: ['basic-land', 'land'] }, '({T}: Add {U}.)'),
+  B: card({ id: 'swamp-1', oracle_id: 'swamp', name: 'Swamp', type_line: 'Basic Land — Swamp', cmc: '0', color_identity: ['B'], tags: ['basic-land', 'land'] }, '({T}: Add {B}.)'),
+  G: card({ id: 'forest-1', oracle_id: 'forest', name: 'Forest', type_line: 'Basic Land — Forest', cmc: '0', color_identity: ['G'], tags: ['basic-land', 'land'] }, '({T}: Add {G}.)'),
+};
+
+/* ------------------------------------------------------------------ *
+ * Synthetic filler — declared as such, and nothing asserts on it
+ * ------------------------------------------------------------------ */
+
+const IDENTITY = ['W', 'U', 'B', 'G'];
+const ROLE_TAG_CYCLE = [
+  ['ramp'],
+  ['card-draw'],
+  ['targeted-removal'],
+  ['counterspell'],
+  ['finisher'],
+  ['creature'],
+];
+
+function fillerPool(count: number): BuildCard[] {
+  const out: BuildCard[] = [];
+  for (let i = 0; i < count; i++) {
+    const colour = IDENTITY[i % IDENTITY.length];
+    const cmc = 1 + (i % 5);
+    out.push(
+      card({
+        id: `filler-${i}`,
+        oracle_id: `filler-${i}`,
+        name: `Filler ${String(i).padStart(3, '0')}`,
+        type_line: i % 3 === 0 ? 'Creature — Human' : 'Instant',
+        cmc: String(cmc),
+        mana_cost: `{${cmc - 1}}{${colour}}`,
+        color_identity: [colour],
+        tags: ROLE_TAG_CYCLE[i % ROLE_TAG_CYCLE.length],
+        prices: { usd: '0.25' },
+      })
+    );
+  }
+  return out;
+}
+
+/**
+ * Filler lands.
+ *
+ * `dual` decides whether each one taps for two colours or one, and that
+ * distinction is load-bearing rather than decoration: a four-colour deck whose
+ * only lands make one colour each genuinely cannot support `{3}{U}{U}`, and
+ * two tests below depend on the generator agreeing.
+ */
+function fillerLands(count: number, dual: boolean): BuildCard[] {
+  const out: BuildCard[] = [];
+  for (let i = 0; i < count; i++) {
+    const a = IDENTITY[i % IDENTITY.length];
+    const b = IDENTITY[(i + 1) % IDENTITY.length];
+    const colours = dual ? [a, b] : [a];
+    out.push(
+      card(
+        {
+          id: `land-${dual ? 'd' : 'm'}-${i}`,
+          oracle_id: `land-${dual ? 'd' : 'm'}-${i}`,
+          name: `Filler Land ${String(i).padStart(3, '0')}`,
+          type_line: 'Land',
+          cmc: '0',
+          color_identity: colours,
+          tags: ['land'],
+          prices: { usd: '0.25' },
+        },
+        `{T}: Add ${colours.map(c => `{${c}}`).join(' or ')}.`
+      )
+    );
+  }
+  return out;
+}
+
+const POOL: BuildCard[] = [
+  COMMAND_TOWER,
+  BREEDING_POOL,
+  RELIQUARY_TOWER,
+  INEXORABLE_TIDE,
+  CONTENTIOUS_PLAN,
+  CULTIVATE,
+  SWORDS,
+  LIGHTNING_BOLT,
+  ...fillerLands(60, true),
+  ...fillerPool(400),
+];
+
+function build(over: Partial<Parameters<typeof generateDeck>[0]> = {}) {
+  return generateDeck({
+    format: 'commander',
+    commander: ATRAXA,
+    pool: POOL,
+    basics: BASICS,
+    ...over,
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ * Tests
+ * ------------------------------------------------------------------ */
+
+test('the deck is exactly 99 cards, counted in copies', () => {
+  const deck = build();
+  assert.equal(deck.totalCopies, 99);
+  // Entries are fewer than copies, because basics stack. If these were equal
+  // the generator would be counting rows, which is the bug that shipped 79-card
+  // "Commander decks".
+  assert.ok(deck.entries.length < 99, `${deck.entries.length} entries`);
+});
+
+test('every card is inside the commander colour identity', () => {
+  const deck = build();
+  const allowed = new Set(ATRAXA.colorIdentity);
+  for (const entry of deck.entries) {
+    for (const colour of entry.card.colorIdentity) {
+      assert.ok(allowed.has(colour), `${entry.card.name} is outside the identity`);
+    }
+  }
+  assert.equal(deck.entries.some(e => e.card.name === 'Lightning Bolt'), false);
+});
+
+test('the commander is never also in the 99', () => {
+  const deck = build();
+  assert.equal(deck.entries.some(e => e.card.oracleId === ATRAXA.oracleId), false);
+});
+
+test('singleton holds for everything except basic lands', () => {
+  const deck = build();
+  for (const entry of deck.entries) {
+    if (entry.bucket === 'basic') continue;
+    assert.equal(entry.quantity, 1, `${entry.card.name} appears ${entry.quantity} times`);
+  }
+  const ids = deck.entries.map(e => e.card.oracleId);
+  assert.equal(new Set(ids).size, ids.length, 'a card was added twice');
+});
+
+test('the mana base is chosen for fixing, not for fame', () => {
+  const deck = build();
+  const names = deck.entries.map(e => e.card.name);
+  // Command Tower makes every colour in the identity and Breeding Pool makes
+  // two; Reliquary Tower is ranked first by popularity and makes none.
+  assert.ok(names.includes('Command Tower'));
+  assert.ok(names.includes('Breeding Pool'));
+  const fixingCount = deck.entries.filter(
+    e => e.bucket === 'land' && e.card.colorIdentity.length > 0
+  ).length;
+  assert.ok(fixingCount > 0, 'no coloured land was chosen');
+});
+
+test('every colour of the identity has sources in the finished deck', () => {
+  const deck = build();
+  for (const colour of ['W', 'U', 'B', 'G'] as const) {
+    assert.ok(
+      deck.manaProfile.sourcesByColour[colour] > 0,
+      `${colour} has ${deck.manaProfile.sourcesByColour[colour]} sources`
+    );
+  }
+});
+
+/**
+ * The commander is the theme, and the theme is a real signal.
+ *
+ * Contentious Plan and the filler draw spells all serve the `draw` role, so
+ * the role-gap signal cannot separate them. What separates them is that
+ * Contentious Plan shares `proliferate` with Atraxa, and `tag-signal.ts` prices
+ * that tag by how rare it is (101 cards in the catalogue) rather than counting
+ * it as one match among many. The old builder's substitute for this was
+ * `+2 if the commander's oracle text and the card's oracle text share the
+ * string "counter"`.
+ */
+test('the commander seeds synergy, so a card sharing its theme wins its slot', () => {
+  const deck = build();
+  const plan = deck.entries.find(e => e.card.name === 'Contentious Plan');
+  assert.ok(plan, 'Contentious Plan was not picked for a proliferate commander');
+  assert.match(plan!.reason, /proliferate/);
+  assert.equal(plan!.bucket, 'draw');
+});
+
+/**
+ * The headline product decision, as a test.
+ *
+ * Inexorable Tide is the single best thematic fit in the pool for a
+ * proliferate commander. Give the deck a mana base that cannot reliably
+ * produce `{U}{U}` by turn five and it must not be picked anyway — not ranked
+ * lower, not picked. That is `cannot-cast` in `rank.ts`, and it is the whole
+ * difference between castability driving the build and decorating it.
+ */
+test('a card the mana base cannot support is not picked, however well it fits', () => {
+  const thin = generateDeck({
+    format: 'commander',
+    commander: ATRAXA,
+    // Every land makes exactly one colour, so a four-colour deck has about
+    // nine blue sources and double blue on turn five is out of reach.
+    pool: [INEXORABLE_TIDE, ...fillerLands(60, false), ...fillerPool(400)],
+    basics: BASICS,
+  });
+  assert.equal(thin.entries.some(e => e.card.name === 'Inexorable Tide'), false);
+  assert.equal(thin.totalCopies, 99, 'the gate changed the deck size');
+});
+
+test('the reason on every card is the engine speaking, never free text', () => {
+  const deck = build();
+  for (const entry of deck.entries) {
+    assert.ok(entry.reason.length > 0, `${entry.card.name} has no reason`);
+  }
+  // A role pick names the role it filled and the count it filled it to.
+  const rolePick = deck.entries.find(e => e.bucket === 'ramp');
+  if (rolePick) assert.match(rolePick.reason, /fills a ramp gap \(\d+ of \d+\)/i);
+});
+
+test('a planner may only reorder cards already in the pool', () => {
+  const withPlan = build({ preferOracleIds: [CULTIVATE.oracleId, SWORDS.oracleId] });
+  const names = withPlan.entries.map(e => e.card.name);
+  assert.ok(names.includes('Cultivate'));
+  assert.ok(names.includes('Swords to Plowshares'));
+
+  // An id that is not in the pool changes nothing and cannot add a card.
+  const withGhost = build({ preferOracleIds: ['a-card-a-model-made-up'] });
+  assert.equal(withGhost.totalCopies, 99);
+  for (const entry of withGhost.entries) {
+    assert.ok(
+      POOL.some(c => c.oracleId === entry.card.oracleId) ||
+        Object.values(BASICS).some(c => c.oracleId === entry.card.oracleId),
+      `${entry.card.name} came from nowhere`
+    );
+  }
+});
+
+test('avoided cards do not appear', () => {
+  const deck = build({ avoidOracleIds: [CULTIVATE.oracleId, INEXORABLE_TIDE.oracleId] });
+  const names = deck.entries.map(e => e.card.name);
+  assert.equal(names.includes('Cultivate'), false);
+  assert.equal(names.includes('Inexorable Tide'), false);
+});
+
+test('the score and the castability come from one evaluation, not two', () => {
+  const deck = build();
+  const castability = deck.evaluation.power.subscores.find(s => s.key === 'castability');
+  assert.ok(castability, 'no castability subscore');
+  assert.equal(
+    Math.round(castability!.value * 10) / 10,
+    Math.round((deck.evaluation.playability.averagePct ?? 0) * 10) / 10
+  );
+  // The mana profile the deck reports IS the one the score was computed on.
+  assert.equal(deck.manaProfile, deck.evaluation.playability.profile);
+});
+
+test('a pool too small to fill the quotas says so rather than padding', () => {
+  const deck = generateDeck({
+    format: 'commander',
+    commander: ATRAXA,
+    pool: [COMMAND_TOWER, BREEDING_POOL, CULTIVATE, SWORDS],
+    basics: BASICS,
+  });
+  assert.ok(deck.shortfalls.length > 0, 'a starved pool reported no shortfall');
+  assert.ok(deck.shortfalls.some(s => /spell slots could not be filled/.test(s)));
+  // What it CAN fill, it fills: the basics still complete the mana base.
+  assert.ok(deck.landCopies > 0);
+});
+
+test('a budget swaps cards down instead of deleting them', () => {
+  const expensive = card({
+    id: 'exp-1',
+    oracle_id: 'exp-oracle',
+    name: 'Expensive Thing',
+    type_line: 'Artifact',
+    cmc: '2',
+    mana_cost: '{2}',
+    color_identity: [],
+    tags: ['ramp', 'mana-rock'],
+    edhrec_rank: 1,
+    prices: { usd: '400.00' },
+  });
+  const tight = generateDeck({
+    format: 'commander',
+    commander: ATRAXA,
+    pool: [expensive, ...POOL],
+    basics: BASICS,
+    budgetUsd: 60,
+  });
+  assert.equal(tight.totalCopies, 99, 'the budget pass changed the deck size');
+  assert.equal(tight.entries.some(e => e.card.name === 'Expensive Thing'), false);
+});
+
+/* ------------------------------------------------------------------ *
+ * The two exported helpers
+ * ------------------------------------------------------------------ */
+
+test('basics are allocated by the pips the deck actually asks for', () => {
+  const entries = allocateBasics({
+    identity: ['U', 'B'],
+    basics: BASICS,
+    slots: 12,
+    // Three times as many black pips as blue.
+    pips: { W: 0, U: 3, B: 9, R: 0, G: 0 },
+    // Both colours already well supplied, so rule 1 does nothing and rule 2
+    // decides the whole split.
+    sourcesByColour: { W: 0, U: 12, B: 12, R: 0, G: 0 },
+  });
+  const byName = Object.fromEntries(entries.map(e => [e.card.name, e.quantity]));
+  assert.equal(byName.Swamp + byName.Island, 12);
+  assert.ok(byName.Swamp > byName.Island, `${byName.Swamp} swamps vs ${byName.Island} islands`);
+});
+
+test('a colour the lands left short is repaired before pips are considered', () => {
+  const entries = allocateBasics({
+    identity: ['U', 'B'],
+    basics: BASICS,
+    slots: 12,
+    // Every pip is black, so pip weight alone would run zero Islands.
+    pips: { W: 0, U: 0, B: 20, R: 0, G: 0 },
+    sourcesByColour: { W: 0, U: 1, B: 14, R: 0, G: 0 },
+  });
+  const byName = Object.fromEntries(entries.map(e => [e.card.name, e.quantity]));
+  assert.ok(byName.Island >= 9, `only ${byName.Island} islands for a deck with 1 blue source`);
+});
+
+test('a hybrid pip is split between the colours that can pay it', () => {
+  const demand = pipDemand([
+    {
+      card: card({
+        id: 'hy-1',
+        name: 'Hybrid Thing',
+        mana_cost: '{W/U}{W/U}',
+        color_identity: ['W', 'U'],
+      }),
+      quantity: 1,
+      reason: '',
+      score: 0,
+      bucket: 'flex',
+      preferred: false,
+    },
+  ]);
+  assert.equal(demand.W, 1);
+  assert.equal(demand.U, 1);
+});

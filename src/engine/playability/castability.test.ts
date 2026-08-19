@@ -1,7 +1,7 @@
 /**
  * Tests for the castability engine.
  *
- *   node --test --experimental-strip-types src/lib/deck/playability.test.ts
+ *   node --test --experimental-strip-types src/engine/playability/castability.test.ts
  *
  * The runner is `node:test`, matching `src/lib/game/*.test.ts`. There is no
  * test runner in `package.json` and none in `node_modules` — the note at the
@@ -33,7 +33,7 @@ import {
   hypergeometricAtLeast,
   parseManaCost,
   type PlayabilityCardInput,
-} from './playability.ts';
+} from './castability.ts';
 
 /* ------------------------------------------------------------------ *
  * Fixtures

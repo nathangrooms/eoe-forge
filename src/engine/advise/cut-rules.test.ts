@@ -1,7 +1,7 @@
 /**
  * The rule that decides whether the optimiser may tell you to cut a card.
  *
- *   node --test --experimental-strip-types src/lib/deck/recommend/cut-rules.test.ts
+ *   node --test --experimental-strip-types src/engine/advise/cut-rules.test.ts
  *
  * WHY THIS EXISTS
  * ---------------
@@ -36,10 +36,10 @@ import assert from 'node:assert/strict';
 
 import {
   normalizeName,
-} from '../../../../supabase/functions/deck-optimizer/catalog.ts';
+} from '../../../supabase/functions/deck-optimizer/catalog.ts';
 import {
   cutRefusal,
-} from '../../../../supabase/functions/deck-optimizer/validate.ts';
+} from '../../../supabase/functions/deck-optimizer/validate.ts';
 
 /** A deck, as the validator holds it: normalised names. */
 const keys = (...names: string[]) => new Set(names.map(normalizeName));

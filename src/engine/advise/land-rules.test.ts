@@ -1,7 +1,7 @@
 /**
  * The two predicates the optimiser's land section is built on.
  *
- *   node --test --experimental-strip-types src/lib/deck/recommend/land-rules.test.ts
+ *   node --test --experimental-strip-types src/engine/advise/land-rules.test.ts
  *
  * WHY THESE ARE WORTH A TEST OF THEIR OWN
  * ---------------------------------------
@@ -31,7 +31,7 @@ import assert from 'node:assert/strict';
 import {
   isBasicLand,
   isLandCard,
-} from '../../../../supabase/functions/deck-optimizer/validate.ts';
+} from '../../../supabase/functions/deck-optimizer/validate.ts';
 
 /** Only `typeLine` is read, so only `typeLine` is supplied. */
 const card = (typeLine: string) =>

@@ -1,7 +1,7 @@
 /**
  * A repeated land name is a second COPY only when the land is basic.
  *
- *   node --test --experimental-strip-types src/lib/deck/recommend/land-repeat.test.ts
+ *   node --test --experimental-strip-types src/engine/advise/land-repeat.test.ts
  *
  * WHY THIS RULE NEEDS A TEST
  * --------------------------
@@ -32,7 +32,7 @@ import assert from 'node:assert/strict';
 
 import {
   landRepeatDisposition,
-} from '../../../../supabase/functions/deck-optimizer/validate.ts';
+} from '../../../supabase/functions/deck-optimizer/validate.ts';
 
 /** Only `typeLine` is read, so only `typeLine` is supplied. */
 const card = (typeLine: string) =>

@@ -42,7 +42,7 @@ import {
   isLegalIn,
   type CandidateCard,
   type Color,
-} from './_engine/deck/recommend/index.ts';
+} from './_engine/advise/index.ts';
 
 /** Why a suggestion was dropped. */
 export type DropReason =

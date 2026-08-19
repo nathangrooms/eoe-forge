@@ -1,7 +1,7 @@
 /**
  * Unit tests for the tag signal model.
  *
- *   node --test --experimental-strip-types src/lib/cards/tag-signal.test.ts
+ *   node --test --experimental-strip-types src/engine/knowledge/tag-signal.test.ts
  *
  * The tag arrays below are copied verbatim from our own `cards` rows, so a test
  * that passes here describes what the card detail page will actually do.

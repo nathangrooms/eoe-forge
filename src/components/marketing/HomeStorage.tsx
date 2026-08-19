@@ -108,7 +108,7 @@ function BinderPage({ cards }: { cards: FiledCard[] | null }) {
        as the deckbox, no need for it to be this large". The nine pockets still
        work at 400px because the point of the figure is the SHAPE of a binder
        page holding real cards, not reading the rules text on them. */
-    <figure className="relative w-full flex-[1_1_0%] max-w-[400px] xl:max-w-[440px]">
+    <figure className="relative w-full flex-[1_1_0%] max-w-[320px] xl:max-w-[360px]">
       {/* Page tabs — one per real template slot, so the binder has as many
           pages as the template declares. */}
       <div className="absolute inset-y-8 -right-1.5 z-0 flex flex-col justify-between sm:-right-2.5">
@@ -499,6 +499,15 @@ export function HomeStorage() {
 ​
        Now the two columns are built to relate. The right-hand column holds the
        binder and the deck box standing side by side on a shared bottom line
+       TOP-ALIGNED NOW, on the owner's instruction: "needs to top align with
+       deckbox and the title/header". Bottom alignment was chosen because it is
+       how objects sit on a real shelf, but with the binder cut to the deck box's
+       measure the two are close enough in height that a shared top edge lines
+       them up with the heading beside them, and the section reads as one row
+       starting at one line rather than three things floating at different
+       heights. The old reasoning follows, kept because it explains the earlier
+       fix to a genuinely different problem:
+
        (`items-end`), which is both how they sit on a real shelf and what makes
        the column's height a choice rather than an accident. The text column is
        sized to land within ~100px of it, so what is left reads as a deliberate
@@ -519,7 +528,7 @@ export function HomeStorage() {
        they used to share. The text does not sprawl when it goes full width:
        SectionHeading caps its measure at max-w-3xl either way. */
     <Section>
-      <div className="grid items-end gap-12 lg:grid-cols-12 lg:gap-14">
+      <div className="grid items-start gap-12 lg:grid-cols-12 lg:gap-14">
         <div className="min-w-0 lg:col-span-4">
           <SectionHeading
             align="left"
@@ -544,7 +553,7 @@ export function HomeStorage() {
           </SectionHeading>
         </div>
 
-        <div className="flex min-w-0 flex-wrap items-end justify-center gap-8 lg:flex-nowrap lg:col-span-8 lg:justify-end">
+        <div className="flex min-w-0 flex-wrap items-start justify-center gap-8 lg:flex-nowrap lg:col-span-8 lg:justify-end">
           <BinderPage cards={filed} />
           <DeckBox commander={commander} />
         </div>

@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { ownedValueUSD } from "@/features/collection/value";
+import { canPriceOwnedCopies, ownedValueUSD } from "@/features/collection/value";
 import {
   StorageContainer,
   StorageSlot,
@@ -81,17 +81,23 @@ export class StorageAPI {
     // Calculate unassigned totals
     let unassignedCount = 0;
     let unassignedValue = 0;
+    let unassignedUnpriced = 0;
     const unassignedCards = new Set<string>();
 
     collectionItems?.forEach((item: any) => {
       const assigned = assignedQuantities.get(item.card_id) || { normal: 0, foil: 0 };
       const unassignedNormal = Math.max(0, item.quantity - assigned.normal);
       const unassignedFoil = Math.max(0, item.foil - assigned.foil);
-      
+
       if (unassignedNormal > 0 || unassignedFoil > 0) {
         unassignedCards.add(item.card_id);
         unassignedCount += unassignedNormal + unassignedFoil;
         unassignedValue += ownedValueUSD(item.cards?.prices, unassignedNormal, unassignedFoil);
+        // Copies the sum above added as nothing. Counted rather than inferred
+        // from a zero, because a zero is also what a worthless card looks like.
+        if (!canPriceOwnedCopies(item.cards?.prices, unassignedNormal, unassignedFoil)) {
+          unassignedUnpriced += unassignedNormal + unassignedFoil;
+        }
       }
     });
 
@@ -99,6 +105,7 @@ export class StorageAPI {
     const enrichedContainers = containers?.map(container => {
       let itemCount = 0;
       let valueUSD = 0;
+      let unpricedCopies = 0;
       const uniqueCards = new Set<string>();
       const candidates: StoragePreviewCard[] = [];
 
@@ -114,6 +121,21 @@ export class StorageAPI {
             ? ownedValueUSD(prices, 0, item.qty)
             : ownedValueUSD(prices, item.qty, 0);
         }
+
+        /*
+         * Copies the line above contributed nothing for. Two ways that happens
+         * and both count: the catalogue holds no price for the finish stored,
+         * or the card is in a container but has fallen out of
+         * `user_collections` so `pricesByCard` cannot reach it at all. Either
+         * way the shelf tile's figure is short by those copies and has to say
+         * so, which is what opening the container already does.
+         */
+        const priceable = prices
+          ? item.foil
+            ? canPriceOwnedCopies(prices, 0, item.qty)
+            : canPriceOwnedCopies(prices, item.qty, 0)
+          : false;
+        if (!priceable) unpricedCopies += item.qty;
 
         // The card itself, for the pockets. `prices` here is the same `cards`
         // row the map above points at; the embedded copy also covers a card
@@ -156,6 +178,7 @@ export class StorageAPI {
         updated_at: container.updated_at,
         itemCount,
         valueUSD,
+        unpricedCopies,
         uniqueCards: uniqueCards.size,
         preview: candidates.slice(0, PREVIEW_LIMIT)
       };
@@ -166,6 +189,7 @@ export class StorageAPI {
       unassigned: {
         count: unassignedCount,
         valueUSD: unassignedValue,
+        unpricedCopies: unassignedUnpriced,
         uniqueCards: unassignedCards.size
       }
     };

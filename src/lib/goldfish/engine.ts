@@ -13,12 +13,20 @@
  * - Mana is counted from the untapped sources on the battlefield, with colour
  *   requirements checked against what those sources actually produce (parsed
  *   from the basic land types and from `Add {…}` in the oracle text).
- * - Opening-hand statistics are a Monte Carlo over the real library composition,
- *   not a formula and not a guess. The sample size is reported alongside.
+ * - Opening-hand statistics are solved exactly over the real library
+ *   composition, not sampled and not guessed.
  * - The engine deliberately does NOT implement the stack, triggers, targeting or
  *   activated abilities. A goldfish answers "does this list function on curve",
  *   and every surface that shows a number here says which one it is.
+ *
+ * The opening-hand statistics below are the one exception to "everything here
+ * is its own": they come from `engine/playability/opening.ts`, which is the
+ * product's only implementation of that arithmetic. See `openingHandStats`.
  */
+
+/* Relative and extensioned, like `lib/deck/powerAdapter.ts`, so `node --test`
+   can import this module without a path-alias resolver. */
+import { OPENING_HAND, openingLandDistribution } from '../../engine/playability/opening.ts';
 
 /** Raw `cards` row plus an instance id, handed straight to `<CardImage>`. */
 export interface GoldfishCard {
@@ -343,30 +351,58 @@ export function buildDeckList(
 }
 
 /* ------------------------------------------------------------------ *
- * Opening-hand statistics — Monte Carlo over the real library
+ * Opening-hand statistics — computed exactly, not sampled
  * ------------------------------------------------------------------ */
 
+/**
+ * How this library's opening seven divides up by land count.
+ *
+ * ## Why this stopped being a simulation
+ *
+ * It used to be one: 4,000 partial Fisher-Yates draws over the real library,
+ * labelled on screen as "4,000 simulated draws". Two things were wrong with
+ * that, and only the second one is obvious.
+ *
+ * The first is that drawing seven cards from a known library is a
+ * hypergeometric and has a closed form. `engine/playability/opening.ts` was
+ * written specifically to replace a sampled version of this exact figure on the
+ * deck page, and the module header there explains at length why. Sampling it
+ * again one tab over reintroduced the thing that was removed.
+ *
+ * The second is that it produced a SECOND ANSWER to a question the product
+ * already answers. The deck page's "Keepable sevens" and this tab's "2 to 5
+ * lands" are the same quantity. At 4,000 trials the sampled one carries about
+ * three quarters of a percentage point of standard error, so the same deck read
+ * differently on the two pages and moved every time the tab was reopened. One
+ * implementation, one number: that is the rule the power score is already held
+ * to, and there is no reason a playtest tab is exempt from it.
+ *
+ * The `rng` is therefore gone from this function. Nothing here is random any
+ * more, so nothing here needs seeding.
+ */
 export interface OpeningStats {
-  trials: number;
+  /** True once there are enough cards to draw a hand at all. */
+  measured: boolean;
   /** Index = number of lands in the seven, value = share of hands (0–1). */
   landHistogram: number[];
   averageLands: number;
   /** Share of hands with 2–5 lands — the band most EDH lists want to keep. */
   keepableShare: number;
-  /** Share of hands with 0 or 1 land. */
+  /** Share of hands with six or seven lands. */
   floodShare: number;
+  /** Share of hands with none or one. */
   screwShare: number;
 }
 
-export function simulateOpeningHands(library: readonly GoldfishCard[], trials: number, rng: Rng): OpeningStats {
-  const landFlags = library.map(isLand);
-  const size = landFlags.length;
-  const histogram = new Array(8).fill(0);
+export function openingHandStats(library: readonly GoldfishCard[]): OpeningStats {
+  const size = library.length;
+  const landCount = library.reduce((total, card) => total + (isLand(card) ? 1 : 0), 0);
+  const shares = openingLandDistribution(size, landCount);
 
-  if (size < 7) {
+  if (!shares) {
     return {
-      trials: 0,
-      landHistogram: histogram,
+      measured: false,
+      landHistogram: new Array(8).fill(0),
       averageLands: 0,
       keepableShare: 0,
       floodShare: 0,
@@ -374,26 +410,13 @@ export function simulateOpeningHands(library: readonly GoldfishCard[], trials: n
     };
   }
 
-  const indices = Array.from({ length: size }, (_, i) => i);
-
-  for (let t = 0; t < trials; t++) {
-    // Partial Fisher–Yates: only the seven cards drawn need to move.
-    let lands = 0;
-    for (let i = 0; i < 7; i++) {
-      const j = i + Math.floor(rng() * (size - i));
-      [indices[i], indices[j]] = [indices[j], indices[i]];
-      if (landFlags[indices[i]]) lands++;
-    }
-    histogram[lands]++;
-  }
-
-  const shares = histogram.map(count => count / trials);
-  const averageLands = shares.reduce((sum, share, lands) => sum + share * lands, 0);
-
   return {
-    trials,
+    measured: true,
     landHistogram: shares,
-    averageLands,
+    /* The mean of a hypergeometric is draws * successes / population, exactly.
+       Summing `share * lands` would give the same answer and is what the
+       sampled version did; this says where the number comes from. */
+    averageLands: (OPENING_HAND * landCount) / size,
     keepableShare: shares.slice(2, 6).reduce((a, b) => a + b, 0),
     screwShare: shares[0] + shares[1],
     floodShare: shares[6] + shares[7],

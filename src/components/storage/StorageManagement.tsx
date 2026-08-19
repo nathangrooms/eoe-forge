@@ -8,7 +8,7 @@ import type {
   StorageContainerSummary,
 } from '@/types/storage';
 import { CreateContainerPanel } from './CreateContainerPanel';
-import { ContainerObject, containerCapacity } from './ContainerObject';
+import { ContainerObject } from './ContainerObject';
 import { showError } from '@/components/ui/toast-helpers';
 import { formatPrice } from '@/components/collection/browser/types';
 import { cn } from '@/lib/utils';
@@ -100,6 +100,8 @@ export function StorageManagement({
   const totalValue = containers.reduce((sum, c) => sum + (c.valueUSD ?? 0), 0);
   const unassignedCount = overview?.unassigned.count ?? 0;
   const unassignedValue = overview?.unassigned.valueUSD ?? 0;
+  /* Copies that figure could not price, so it never reads as the whole answer. */
+  const unassignedUnpriced = overview?.unassigned.unpricedCopies ?? 0;
 
   if (loading) {
     return (
@@ -198,6 +200,15 @@ export function StorageManagement({
                   {unassignedCount === 1 ? 'card is' : 'cards are'} in your collection with no
                   container recorded
                   <span className="text-muted-foreground"> · {formatPrice(unassignedValue)}</span>
+                  {unassignedUnpriced > 0 && (
+                    <span className="text-muted-foreground">
+                      {' '}
+                      ·{' '}
+                      {unassignedUnpriced === 1
+                        ? '1 with no price yet'
+                        : `${unassignedUnpriced.toLocaleString()} with no price yet`}
+                    </span>
+                  )}
                 </p>
               </div>
             )}
@@ -234,7 +245,14 @@ function ContainerTile({
   onSelect: (container: StorageContainerSummary) => void;
 }) {
   const shown = container.preview?.length ?? 0;
-  const capacity = containerCapacity(container.type);
+  /**
+   * Nine pockets is a real property of a binder page. Everything else here has
+   * no capacity anybody ever set, so the empty state describes the object
+   * rather than claiming how much fits in it. It used to say "room for a deck"
+   * about a bulk box and a shelf, because `containerCapacity` is a count of
+   * preview slots and was being read as a card capacity.
+   */
+  const isBinder = container.type === 'binder';
   /**
    * How many distinct cards the object could not show. Real subtraction, and
    * the only honest way to say "there are 1,240 more in here" under a picture
@@ -282,7 +300,7 @@ function ContainerTile({
       <div className="mt-3 flex items-baseline justify-between gap-3 text-sm">
         {empty ? (
           <span className="text-muted-foreground">
-            Empty · {capacity === 9 ? 'nine pockets' : 'room for a deck'} waiting
+            {isBinder ? 'Empty · nine pockets a page, waiting' : 'Empty · nothing filed here yet'}
           </span>
         ) : (
           <span className="text-muted-foreground">
@@ -296,8 +314,21 @@ function ContainerTile({
           </span>
         )}
         {(container.valueUSD ?? 0) > 0 && (
-          <span className="shrink-0 font-semibold tabular-nums text-foreground">
-            {formatPrice(container.valueUSD)}
+          /* The figure, and what it is leaving out. Opening this container has
+             always shown the gap; the tile did not, so the shelf and the box
+             disagreed about the same box. A total that quietly drops the cards
+             it could not price is the one thing a value must not do. */
+          <span className="shrink-0 text-right">
+            <span className="block font-semibold tabular-nums text-foreground">
+              {formatPrice(container.valueUSD)}
+            </span>
+            {(container.unpricedCopies ?? 0) > 0 && (
+              <span className="block text-[0.7rem] font-normal tabular-nums text-muted-foreground">
+                {container.unpricedCopies === 1
+                  ? '1 with no price yet'
+                  : `${container.unpricedCopies.toLocaleString()} with no price yet`}
+              </span>
+            )}
           </span>
         )}
       </div>

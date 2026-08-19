@@ -546,7 +546,7 @@ export async function loadUserDeck(summary: DeckSummary): Promise<PlayDeck> {
   }
 
   if (cards.length === 0) {
-    throw new Error(`"${summary.name}" has no playable cards — check the card database sync.`);
+    throw new Error(`"${summary.name}" has no playable cards. Check the card database sync.`);
   }
 
   return {
@@ -652,7 +652,11 @@ function spellPool(identity: readonly ManaColor[]): Promise<CardRow[]> {
  * It used to be `.in('name', names).limit(120)`, which was right when the
  * catalogue held roughly one printing per card. It is not right now: the sync
  * moved to `unique=prints` (CLAUDE.md 6.3), so this project's `cards` table
- * holds **805 basic-land rows**. An unordered `.in(...) LIMIT 120` returns
+ * holds **3,898 basic-land rows with art** across the six names — re-counted
+ * against the live database on 2026-08-19 with an indexed lookup on `name`
+ * (Forest 792, Swamp 791, Mountain 789, Plains 768, Island 741, Wastes 17).
+ * The "805" this comment used to quote was measured before a later sync and no
+ * longer describes the table. An unordered `.in(...) LIMIT 120` returns
  * whatever 120 rows Postgres reaches first, and measured against the live
  * database on 2026-08-19 that was **120 Forests and nothing else**.
  *
@@ -906,7 +910,8 @@ export async function resolveDeckDetailed(
 
   if (summary) {
     try {
-      return { deck: await loadUserDeck(summary) };
+      const deck = await loadUserDeck(summary);
+      return { deck, notice: landlessNotice(deck) };
     } catch (error) {
       requestedFailure = error;
       console.warn('[play] falling back from user deck:', error);
@@ -919,7 +924,7 @@ export async function resolveDeckDetailed(
       deck,
       error: requestedFailure ?? undefined,
       notice: requestedFailure
-        ? `"${summary?.name}" could not be loaded (${describe(requestedFailure)}) — playing ${deck.name} instead.`
+        ? `Could not load "${summary?.name}". Playing ${deck.name} instead. Reason: ${describe(requestedFailure)}.`
         : undefined,
     };
   } catch (error) {
@@ -928,10 +933,35 @@ export async function resolveDeckDetailed(
       deck: fallbackDeck(seedOptions.name),
       error,
       notice: summary
-        ? `"${summary.name}" could not be loaded and the card database is unreachable (${describe(error)}) — playing the offline demo deck.`
-        : `The card database is unreachable (${describe(error)}) — playing the offline demo deck.`,
+        ? `Could not load "${summary.name}", and the card database is unreachable. Playing the offline demo deck. Reason: ${describe(error)}.`
+        : `The card database is unreachable. Playing the offline demo deck. Reason: ${describe(error)}.`,
     };
   }
+}
+
+/**
+ * A dealt deck with no land in it, said out loud.
+ *
+ * `buildSeedDeck` throws on this, which is right for a deck we assembled: the
+ * seeded pool got the wrong rows and the honest answer is to deal a different
+ * deck. A deck the PLAYER built cannot be treated the same way. It is theirs,
+ * and swapping it for something they did not ask for is the "it just plays a
+ * demo deck" complaint all over again.
+ *
+ * So it is dealt exactly as asked and the player is told what they are about to
+ * find out the hard way. That is the same rule the rest of play mode keeps: the
+ * engine knows, so the interface has to say it.
+ *
+ * It also catches the quiet version of the same failure. `loadUserDeck` skips
+ * an entry whose card row is missing from the catalogue, so a deck whose lands
+ * are the rows that went missing loads "successfully" with 61 spells and no
+ * land in it, which on screen is indistinguishable from the bug the owner
+ * reported as *"wouldnt even let me play a land"*.
+ */
+function landlessNotice(deck: PlayDeck): string | undefined {
+  const hasLand = deck.cards.some(card => (card.typeLine ?? '').toLowerCase().includes('land'));
+  if (hasLand) return undefined;
+  return `"${deck.name}" has no lands in it, so there will be nothing to play on turn one.`;
 }
 
 /** Back-compatible shape: the deck alone, notice discarded. */

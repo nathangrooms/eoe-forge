@@ -49,14 +49,11 @@ import {
   newGame,
   nextTurn,
   playLand,
-  simulateOpeningHands,
+  openingHandStats,
   type GoldfishCard,
   type GoldfishState,
   type OpeningStats,
 } from '@/lib/goldfish/engine';
-
-/** How many opening hands to simulate for the goldfish distribution readout. */
-const OPENING_TRIALS = 4000;
 
 /** Which card stands in for a deck with no commander — best legend, then any creature. */
 function faceRank(typeLine: string | null, isLegendary: boolean | null): number {
@@ -411,7 +408,7 @@ export default function Simulate() {
 
       setLibrary(builtLibrary);
       setCommander(builtCommander);
-      setStats(simulateOpeningHands(builtLibrary, OPENING_TRIALS, rng));
+      setStats(openingHandStats(builtLibrary));
       setGoldfish(drawOpening(newGame(builtLibrary, builtCommander, rng), 0, rng));
       setStage('mulligan');
     } catch (error) {
@@ -543,7 +540,7 @@ export default function Simulate() {
     return (
       <StandardPageLayout
         title="Playtest"
-        description="Goldfish one of your decks solo — draw a real opening hand, mulligan, and see whether it curves out"
+        description="Goldfish one of your decks solo. Draw a real opening hand, mulligan, and see whether it curves out."
         action={tabStrip}
       >
         <GoldfishSetup
@@ -563,7 +560,7 @@ export default function Simulate() {
       description={
         stage === 'mulligan'
           ? `${shape.total} cards · ${shape.lands} lands · ${shape.ramp} other mana sources · ${shape.averageMv.toFixed(2)} average mana value`
-          : 'Solo goldfish — no opponent, no blockers, just the list'
+          : 'Solo goldfish. No opponent, no blockers, just the list.'
       }
       action={
         <button

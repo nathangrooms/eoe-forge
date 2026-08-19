@@ -138,17 +138,45 @@ export function useCompact(query = '(max-width: 639px)'): boolean {
  * re-run the effect on each render of any caller that passes an inline arrow.
  */
 export function useDeferred<T>(near: boolean, load: () => Promise<T>): T | null {
-  const [data, setData] = useState<T | null>(null);
+  return useDeferredResult(near, load).data;
+}
+
+/**
+ * `useDeferred`, plus whether the loader has actually run.
+ *
+ * The plain version cannot tell "not fetched yet" from "fetched, and the answer
+ * is nothing", because both are `null`. For a loader that can genuinely answer
+ * nothing that is not a nuance, it is a bug on the live site: `loadPriceTracking`
+ * returns null whenever no card has two price snapshots, so `HomeMarketplace`
+ * sat on the homepage showing a pulsing skeleton chart and four pulsing rows,
+ * for ever, telling every visitor that data was on its way. A section with
+ * nothing to show has to say so; a permanent loading state is a claim that
+ * something is coming.
+ *
+ * `settled` is true once the promise has resolved or rejected, so a caller can
+ * draw a skeleton before it and the real answer, empty or not, after it.
+ */
+export function useDeferredResult<T>(
+  near: boolean,
+  load: () => Promise<T>
+): { data: T | null; settled: boolean } {
+  const [state, setState] = useState<{ data: T | null; settled: boolean }>({
+    data: null,
+    settled: false,
+  });
 
   useEffect(() => {
     if (!near) return;
     let cancelled = false;
     load()
       .then(result => {
-        if (!cancelled) setData(result);
+        if (!cancelled) setState({ data: result, settled: true });
       })
       .catch(() => {
-        /* A section that cannot load its rows renders its skeleton. */
+        /* A section that cannot load its rows has still finished trying, and
+           the honest rendering of "we could not get this" is the same as the
+           one for "there is nothing here". */
+        if (!cancelled) setState({ data: null, settled: true });
       });
     return () => {
       cancelled = true;
@@ -156,7 +184,7 @@ export function useDeferred<T>(near: boolean, load: () => Promise<T>): T | null 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [near]);
 
-  return data;
+  return state;
 }
 
 /* -------------------------------------------------------------------------- */

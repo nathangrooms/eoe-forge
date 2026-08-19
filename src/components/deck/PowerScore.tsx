@@ -249,8 +249,8 @@ function InlinePower({ power, className }: { power: DeckPower; className?: strin
       className={cn('min-w-0', className)}
       title={
         stale
-          ? 'Outdated — the decklist changed after this score was computed'
-          : `${bandLabel(power.band)} — ${bracket.blurb}`
+          ? 'Outdated. The decklist changed after this score was computed.'
+          : `${bandLabel(power.band)}. ${bracket.blurb}`
       }
     >
       <div className="flex items-baseline gap-1.5">
@@ -594,6 +594,21 @@ function ExpandedPower({
           />
         </div>
 
+        {/*
+          `approximate` is set when the solver ran out of states on some card
+          and fell back to a marginal product. `CastabilityReadout` says in as
+          many words that a caller must not present the figure as exact when it
+          is set, and this block did exactly that: `PlayabilityMeter` and
+          `ManaSourcesPanel` both honour the flag, and the headline readout on
+          the deck page, the one place the number is largest, ignored it.
+        */}
+        {cast.approximate && (
+          <p className="mt-2 text-[0.7rem] leading-snug text-muted-foreground">
+            One or more cards were too tangled to solve exactly, so these figures are close rather
+            than precise.
+          </p>
+        )}
+
         {cast.hardest.length > 0 && (
           <div className="mt-2 rounded-lg bg-muted/40 p-3 shadow-sm">
             <p className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -763,7 +778,7 @@ export function PowerScoreBadge({
         'inline-flex items-center gap-1.5 rounded-md bg-muted/60 px-2 py-1 text-xs font-semibold',
         className
       )}
-      title={power.stale ? 'Outdated — rescore this deck' : DECK_BRACKETS[power.bracket].blurb}
+      title={power.stale ? 'Outdated. Rescore this deck.' : DECK_BRACKETS[power.bracket].blurb}
     >
       <span className={cn('tabular-nums', tone)}>{formatPowerScore(power.score)}/10</span>
       <span className="text-muted-foreground">·</span>

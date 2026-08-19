@@ -200,7 +200,7 @@ export function ZoneRow({
         className
       )}
       style={{ height, paddingLeft: insetStart || undefined, paddingRight: insetEnd || undefined }}
-      aria-label={`${label} — ${cards.length} card${cards.length === 1 ? '' : 's'}`}
+      aria-label={`${label}, ${cards.length} card${cards.length === 1 ? '' : 's'}`}
     >
       {/* Above the cards, not behind them. A full row used to slice its own
           label in half — "CREATURES" arriving as "CR" reads as a broken render
@@ -334,7 +334,7 @@ export function ZoneBlock({
           className
         )}
         style={{ width, height }}
-        aria-label={`${label} — ${cards.length} card${cards.length === 1 ? '' : 's'}`}
+        aria-label={`${label}, ${cards.length} card${cards.length === 1 ? '' : 's'}`}
       >
         <span
           aria-hidden="true"
@@ -374,7 +374,7 @@ export function ZoneBlock({
         className
       )}
       style={{ width, height }}
-      aria-label={`${label} — ${cards.length} card${cards.length === 1 ? '' : 's'}`}
+      aria-label={`${label}, ${cards.length} card${cards.length === 1 ? '' : 's'}`}
     >
       <span
         aria-hidden="true"

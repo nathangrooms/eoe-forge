@@ -248,7 +248,7 @@ export function LibraryStack({
 
   if (!onClick) {
     return (
-      <span className={cn('inline-block', className)} title={`${label} — ${count}`}>
+      <span className={cn('inline-block', className)} title={`${label}: ${count}`}>
         {body}
       </span>
     );
@@ -258,7 +258,7 @@ export function LibraryStack({
     <button
       type="button"
       onClick={onClick}
-      title={`${label} — ${count}`}
+      title={`${label}: ${count}`}
       aria-label={`${label}, ${count} cards`}
       className={cn(
         'inline-block rounded-lg transition-transform duration-200 ease-out',

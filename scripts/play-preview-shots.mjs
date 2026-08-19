@@ -232,7 +232,7 @@ const cardBoxes = () => page.evaluate(() => {
 /** How much of each battlefield row's width the cards actually reach across. */
 const rowUse = () => page.evaluate(() =>
   [...document.querySelectorAll('[aria-label]')]
-    .filter(el => /^(Creatures|Lands) — /.test(el.getAttribute('aria-label') || ''))
+    .filter(el => /^(Creatures|Lands), /.test(el.getAttribute('aria-label') || ''))
     .map(el => {
       const r = el.getBoundingClientRect();
       const cards = [...el.querySelectorAll('[data-instance]')]

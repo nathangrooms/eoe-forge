@@ -31,8 +31,31 @@ interface CommanderPowerDisplayProps {
 /** The axes that decide how a commander deck plays out at a four-player table. */
 const COMMANDER_AXES: SubscoreKey[] = ['speed', 'interaction', 'resilience', 'synergy'];
 
-function Axis({ k, value, muted }: { k: SubscoreKey; value: number; muted: boolean }) {
-  const pct = Math.max(0, Math.min(100, Number.isFinite(value) ? value : 0));
+/**
+ * One axis.
+ *
+ * `value` is null when the score could not measure that axis for this deck, and
+ * that is NOT the same thing as a zero. The flat `power.subscores` record folds
+ * the two together (`subscore.value ?? 0` in `powerAdapter`), so reading the
+ * axis from there painted an empty bar and "0/100" for a commander whose
+ * direction simply could not be read. That is an invented failing grade for a
+ * question that was never answered, which is the exact thing `applicable` was
+ * added to prevent. So this reads `power.evidence`, which keeps the null.
+ */
+function Axis({ k, value, muted }: { k: SubscoreKey; value: number | null; muted: boolean }) {
+  if (value === null || !Number.isFinite(value)) {
+    return (
+      <div>
+        <div className="flex items-baseline justify-between gap-2 text-xs">
+          <span className="font-medium">{SUBSCORE_LABELS[k]}</span>
+          <span className="text-muted-foreground">Not measured</span>
+        </div>
+        <div className="mt-1 h-1.5 rounded-full bg-foreground/10" />
+      </div>
+    );
+  }
+
+  const pct = Math.max(0, Math.min(100, value));
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2 text-xs">
@@ -47,6 +70,20 @@ function Axis({ k, value, muted }: { k: SubscoreKey; value: number; muted: boole
       </div>
     </div>
   );
+}
+
+/**
+ * The axis's real value, keeping "not measured" separate from zero.
+ *
+ * `power.evidence` is the subscore list itself and carries both `applicable`
+ * and a nullable `value`. A stored score written before the evidence was kept
+ * has none, and in that case the flat record is all there is, so it is used and
+ * a stored zero is shown as a zero.
+ */
+function axisValue(power: DeckPower, key: SubscoreKey): number | null {
+  const subscore = power.evidence?.find(entry => entry.key === key);
+  if (subscore) return subscore.applicable ? subscore.value : null;
+  return power.subscores?.[key] ?? null;
 }
 
 function Diagnostic({ label, value, note }: { label: string; value: string; note: string }) {
@@ -86,7 +123,7 @@ export function CommanderPowerDisplay({
         <>
           <div className="space-y-2.5">
             {COMMANDER_AXES.map(key => (
-              <Axis key={key} k={key} value={power.subscores?.[key] ?? 0} muted={power.stale} />
+              <Axis key={key} k={key} value={axisValue(power, key)} muted={power.stale} />
             ))}
           </div>
 
@@ -96,7 +133,7 @@ export function CommanderPowerDisplay({
               value={String(power.diagnostics?.tutorCount ?? 0)}
               note={
                 power.diagnostics?.noTutors
-                  ? 'Too few for this power band — the engine applies a penalty'
+                  ? 'Too few for a deck at this level, so the score is marked down'
                   : 'Enough to make the game plan repeatable'
               }
             />
@@ -105,7 +142,7 @@ export function CommanderPowerDisplay({
               value={String(power.diagnostics?.gameChangerCount ?? 0)}
               note={
                 power.diagnostics?.noGameChangers
-                  ? 'No standout finishers — the engine applies a penalty'
+                  ? 'No standout finishers, so the score is marked down'
                   : 'Cards that can end a game on their own'
               }
             />

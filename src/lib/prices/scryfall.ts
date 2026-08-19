@@ -9,7 +9,11 @@
  *   - the browser, wherever a live Scryfall price is shown next to history
  *
  * The Deno copy at supabase/functions/price-bulk-sync/scryfall.ts must stay
- * byte-identical to this file. scryfall.test.ts fails if it drifts.
+ * byte-identical to this file. The test "the edge function copy of scryfall.ts
+ * is identical to the source", in src/lib/prices/history.test.ts, fails if it
+ * drifts. (This line used to name a `scryfall.test.ts`, which has never
+ * existed. A comment pointing at a guard that is not there is the same defect
+ * as a comment claiming a measurement that was never taken.)
  */
 
 /** Every price Scryfall publishes. The old capture silently dropped tix and etched. */

@@ -729,23 +729,41 @@ async function cardsById(ids) {
 /**
  * `loadPriceTracking` in sectionData.ts, run once.
  *
- * The newest snapshot's rows, banded to $5–$150 so the section shows cards a
- * Commander player recognises rather than the one four-figure outlier at the
- * top of the table; then every stored snapshot for the handful that survives.
+ * Banded to $5–$150 so the section shows cards a Commander player recognises
+ * rather than the one four-figure outlier at the top of the table.
+ *
+ * ## Candidates come from the OLDEST rows, not the newest
+ *
+ * This asked for the newest snapshot date, took the dearest five cards on it,
+ * and then discarded any with fewer than two points. On 19 August 2026 the
+ * daily sweep reached the whole catalogue for the first time, so tens of
+ * thousands of cards got their FIRST row that night, all five picks had exactly
+ * one point, and the function returned null. The homepage's price chart was
+ * dark. Measured the same day: 79 distinct snapshot days are stored, 684 cards
+ * carry two or more of them, and 641 of those include the newest day. There was
+ * plenty to draw; the selection simply could not reach any of it.
+ *
+ * Sorting the other way fixes it at the root. A card that appears on the oldest
+ * stored days is by definition a card with history, so the candidates are the
+ * long-tracked ones. Ascending order returns one row per card per day rather
+ * than one row per card, so the ids are de-duplicated before slicing; the
+ * previous version got that for free by filtering to a single date.
+ *
+ * The `series.length < 2` guard below stays. It is what stops a card that
+ * happens to sort early but holds one point from being charted, and it is the
+ * reason this function can still honestly return null.
  */
 async function priceTracking() {
-  const latest = await select('card_price_history', {
+  const candidates = await select('card_price_history', {
     select: 'card_id,card_name,price_usd,snapshot_date',
     price_usd: ['not.is.null', 'gte.5', 'lte.150'],
-    order: 'snapshot_date.desc,price_usd.desc',
-    limit: '60',
+    order: 'snapshot_date.asc,price_usd.desc',
+    limit: '200',
   }).catch(() => []);
 
-  if (!latest.length) return null;
+  if (!candidates.length) return null;
 
-  const newest = latest[0].snapshot_date;
-  const today = latest.filter(r => r.snapshot_date === newest);
-  const ids = today.slice(0, TRACKED_COUNT).map(r => r.card_id);
+  const ids = [...new Set(candidates.map(r => r.card_id).filter(Boolean))].slice(0, TRACKED_COUNT);
   if (!ids.length) return null;
 
   const [history, cards] = await Promise.all([

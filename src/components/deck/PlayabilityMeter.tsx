@@ -112,7 +112,8 @@ export function PlayabilityMeter({
         </ul>
         {explanation.approximate && (
           <p className="mt-2 text-xs text-muted-foreground">
-            Solved approximately — treat this figure as indicative.
+            This one was too tangled to solve exactly. Treat the figure as close rather than
+            precise.
           </p>
         )}
       </TooltipContent>

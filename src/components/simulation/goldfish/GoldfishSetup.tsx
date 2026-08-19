@@ -40,7 +40,7 @@ export function GoldfishSetup({ decks, selectedId, onSelect, onStart, starting }
         <Fish className="mx-auto h-8 w-8 text-muted-foreground" aria-hidden="true" />
         <p className="mt-4 text-sm font-medium text-foreground">No decks to goldfish yet</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Build a deck first — every card in it is drawn from your real list.
+          Build a deck first. Every card in it is drawn from your real list.
         </p>
       </div>
     );

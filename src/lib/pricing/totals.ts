@@ -7,8 +7,16 @@
  * price to 0 and adds it, so 51 owned cards with 6 unpriced ones report a
  * confident number that is quietly too low, and nothing on screen says so.
  *
- * Measured on production 19 Aug 2026: 726 of 52,130 printings carry no price
- * in any of the six slots, and 5,186 carry no `usd`. Those rows are not free.
+ * Measured on production 19 Aug 2026, on a 10% page sample of `cards`
+ * (9,670 rows of 97,140, `tablesample system (10) repeatable (42)`, because a
+ * full scan of a 255 MB table to answer this is exactly what the database
+ * discipline rules forbid): 1.1% of printings carry no price in any of the six
+ * slots and 16.2% carry no `usd`, which is roughly 1,100 and 15,800 rows. Those
+ * rows are not free.
+ *
+ * An earlier version of this note said "726 of 52,130 printings". That
+ * denominator was the row count partway through the printings sync and it went
+ * stale within hours. Quote the denominator and how it was taken, every time.
  *
  * So a total from this file is never a bare number. It is the sum of what we
  * could price, plus the count of what we could not, and the components are

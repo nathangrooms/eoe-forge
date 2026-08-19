@@ -117,13 +117,13 @@ export function GoldfishTable({
                   {commander.mana_cost && <ManaCost cost={commander.mana_cost} size="md" />}
                   <p className="text-xs leading-relaxed text-muted-foreground">
                     {state.commanderCasts > 0
-                      ? `Cast ${state.commanderCasts} time${state.commanderCasts === 1 ? '' : 's'} — commander tax adds ${state.commanderCasts * 2} generic, so it now costs ${costFor(state, commander, true).total}.`
+                      ? `Cast ${state.commanderCasts} time${state.commanderCasts === 1 ? '' : 's'}. Commander tax adds ${state.commanderCasts * 2} generic, so it now costs ${costFor(state, commander, true).total}.`
                       : `Costs ${costFor(state, commander, true).total} from the command zone. Each later cast adds two generic.`}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {commanderCastable
                       ? 'Castable right now with the mana in play.'
-                      : `${mana} mana untapped — not enough yet.`}
+                      : `${mana} mana untapped. Not enough yet.`}
                   </p>
                 </div>
               </div>

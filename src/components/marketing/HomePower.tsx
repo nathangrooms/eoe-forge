@@ -27,10 +27,17 @@ import { cn } from '@/lib/utils';
  * the model does not just weight abstractions, it looks for *named cards*, and
  * that list is a checked-in file rather than a prompt.
  *
- * So the weights stay (they are real constants, read from the engine's
- * `defaultConfig.weights` in src/lib/deckbuilder/score/edh-power-calculator.ts,
- * expressed there as 0.20 / 0.15 / 0.12 … and printed here as percentages), and
- * underneath them the section prints the catalogue the scorer reads.
+ * So the weights stay (they are real constants, imported from
+ * `SUBSCORE_WEIGHTS` in src/engine/power/weights.ts, stored there as fractions
+ * that sum to 1 and printed here as percentages), and underneath them the
+ * section prints the catalogue the scorer reads.
+ *
+ * This paragraph used to point at `defaultConfig.weights` in
+ * src/lib/deckbuilder/score/edh-power-calculator.ts and quote 0.20 / 0.15 /
+ * 0.12. That file was deleted when the engine was unified and those are not the
+ * numbers any more, which the note twenty lines below says outright. Two
+ * comments in one file disagreeing about where a public figure comes from is
+ * how a fabricated figure gets shipped next time.
  *
  * Honesty model:
  *   - `catalog.gamechangers.json` is imported from the scorer's own directory —
@@ -70,6 +77,18 @@ const SUBSCORES = SUBSCORE_ORDER.map(key => ({
   weight: Math.round(SUBSCORE_WEIGHTS[key] * 100),
   blurb: SUBSCORE_DESCRIPTIONS[key],
 }));
+
+/**
+ * The heaviest weight, so a bar's length is a share of the real top.
+ *
+ * The bars were drawn as `weight / 20`, a divisor that was correct while the
+ * heaviest subscore was 0.20. Castability is 0.22 now, so its bar computed to
+ * 110% and the track's `overflow-hidden` clipped it to a full one: castability
+ * and a hypothetical 20% would have drawn the same length, and the picture
+ * stopped agreeing with the number printed beside it. Derived, so it cannot go
+ * stale the next time the model is retuned.
+ */
+const HEAVIEST_WEIGHT = Math.max(...SUBSCORES.map(s => s.weight));
 
 const BANDS = ['Casual', 'Mid', 'High', 'cEDH'];
 
@@ -124,7 +143,7 @@ function WeightRow({ label, weight, blurb }: { label: string; weight: number; bl
       <div className="mt-2 h-2 overflow-hidden rounded-full bg-foreground/[0.08]">
         <div
           className="h-full rounded-full bg-foreground/75"
-          style={{ width: `${(weight / 20) * 100}%` }}
+          style={{ width: `${(weight / HEAVIEST_WEIGHT) * 100}%` }}
         />
       </div>
       <p className="mt-2 text-xs leading-snug text-muted-foreground">{blurb}</p>

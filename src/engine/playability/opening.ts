@@ -67,6 +67,37 @@ export function keepableSevenPct(librarySize: number, landCount: number): number
 }
 
 /**
+ * P(the opening seven holds exactly `k` lands), for every k from 0 to 7.
+ *
+ * Shares of one, summing to one. Same difference-of-tails trick as
+ * {@link keepableSevenPct}, so every bar is the exact BigInt figure and the
+ * bars and the roll-up above them cannot disagree.
+ *
+ * This exists because the playtest tab was sampling it. `/simulate` ran 4,000
+ * Fisher-Yates draws to draw the same histogram and to report the same "two to
+ * five lands" percentage the deck page computes exactly here, so one deck had
+ * two answers to one question and the sampled one moved every time it was
+ * opened. Sampling a hypergeometric is the exact thing this module was written
+ * to stop.
+ */
+export function openingLandDistribution(
+  librarySize: number,
+  landCount: number
+): number[] | null {
+  if (librarySize < OPENING_HAND || landCount < 0 || landCount > librarySize) return null;
+
+  // `hypergeometricAtLeast` returns 1 for k <= 0, so tail[0] is P(at least 0).
+  const tail: number[] = [];
+  for (let k = 0; k <= OPENING_HAND + 1; k++) {
+    tail.push(hypergeometricAtLeast(librarySize, landCount, OPENING_HAND, k));
+  }
+
+  const pmf: number[] = [];
+  for (let k = 0; k <= OPENING_HAND; k++) pmf.push(Math.max(0, tail[k] - tail[k + 1]));
+  return pmf;
+}
+
+/**
  * P(the opening seven holds at least one land that makes a colour), as a
  * percentage.
  *

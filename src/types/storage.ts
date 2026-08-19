@@ -79,6 +79,13 @@ export interface StoragePreviewCard {
 export interface StorageContainerSummary extends StorageContainer {
   itemCount: number;
   valueUSD: number;
+  /**
+   * Copies in this container that `valueUSD` could not price, so the shelf tile
+   * can say what its figure leaves out. Opening the container has always said
+   * so (`StorageContainerView` totals through `@/lib/pricing`); the tile on the
+   * shelf did not, so the two screens reported the same box differently.
+   */
+  unpricedCopies: number;
   uniqueCards: number;
   /**
    * The most valuable cards actually in this container, most valuable first.
@@ -92,6 +99,8 @@ export interface StorageOverview {
   unassigned: {
     count: number;
     valueUSD: number;
+    /** Same reason as `StorageContainerSummary.unpricedCopies`. */
+    unpricedCopies: number;
     uniqueCards: number;
   };
 }

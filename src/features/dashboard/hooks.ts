@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { deckListHash, deckPowerFromStored, type DeckPower } from '@/lib/deck/power';
-import { ownedValueUSD } from '@/features/collection/value';
+import { canPriceOwnedCopies, ownedValueUSD } from '@/features/collection/value';
 import { pickPrintingsByName, wishlistUnitPrice } from '@/lib/wishlist/printing';
 import { deckWork, type DeckWork } from './deckWork';
 
@@ -50,11 +50,14 @@ export interface DashboardSummary {
     totalCards: number;
     uniqueCards: number;
     /**
-     * Rows the catalogue holds no USD price for, so the total above is lower
-     * than the collection is really worth. On the owner's own 51 rows this is
-     * five: four Arena rebalanced printings that have never been sold on paper,
-     * and Kraum, Ludevic's Opus, which has a foil price but no non-foil one. A
-     * total that hides them is an under-count presented as a fact.
+     * Owned stacks we could not price, so the total above is lower than the
+     * collection is really worth. Counted with `canPriceOwnedCopies`, which is
+     * the same rule `/collection` uses, so the two screens report the same
+     * number. Re-measured 2026-08-19 against the owner's 52 rows: four, being
+     * three Arena rebalanced printings that have never been sold on paper, plus
+     * Kraum, Ludevic's Opus, which carries a foil price and no non-foil one
+     * against a non-foil copy. A total that hides them is an under-count
+     * presented as a fact.
      */
     unpricedCards: number;
     /** Every owned printing, most valuable first. */
@@ -105,29 +108,6 @@ function parseUsdPrice(prices: unknown): number {
     return isFinite(usd) ? usd : 0;
   } catch {
     return 0;
-  }
-}
-
-/**
- * Whether the catalogue holds any USD price at all for a printing.
- *
- * Separate from the valuation on purpose: the valuation answers "how much", and
- * the answer 0 is ambiguous between a worthless card and an unpriced one. This
- * answers "do we know", and 1,010 of the 34,088 rows in `cards` answer no.
- */
-function hasAnyUsdPrice(prices: unknown): boolean {
-  try {
-    const parsed = (typeof prices === 'string' ? JSON.parse(prices) : prices) as
-      | Record<string, unknown>
-      | null;
-    if (!parsed) return false;
-    return ['usd', 'usd_foil', 'usd_etched'].some(key => {
-      const raw = parsed[key];
-      if (raw === null || raw === undefined || raw === '') return false;
-      return Number.isFinite(Number(raw));
-    });
-  } catch {
-    return false;
   }
 }
 
@@ -188,7 +168,12 @@ export function useDashboardSummary() {
         // no price", so the row is asked directly rather than inferred from the
         // sum. No card in `cards` is stored at $0.00, so an owned row that
         // values to nothing is always a row we cannot price.
-        const priced = hasAnyUsdPrice(row.cards?.prices);
+        //
+        // The question is about the copies held, not about the printing. Asking
+        // the wider one counted a non-foil copy of a foil-only printing as
+        // priced, contributed $0 for it, and kept it out of the "no price yet"
+        // line. `canPriceOwnedCopies` is the rule `/collection` already used.
+        const priced = canPriceOwnedCopies(row.cards?.prices, quantity, foil);
         if (quantity + foil > 0 && !priced) collectionUnpriced += 1;
         if (row.card_id) {
           holdings.push({

@@ -225,10 +225,29 @@ function Rulings({ card, className }: { card: any; className?: string }) {
  * ------------------------------------------------------------------ */
 
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
+  /* min-w-0 and the wrapping are LOAD BEARING.
+
+     A grid child defaults to min-width:auto, so it refuses to shrink below its
+     own content. "COLLECTOR NO." and a long artist name are both wider than the
+     track this sits in at some widths, so the tile pushed past its column and the
+     page's own overflow-x-hidden clipped it ONE LEVEL IN. The owner saw labels
+     sliced mid-word as "COLLECTOR N…" and "ARTIST Victor Adam…".
+
+     That inner clip is also why it was so hard to find: nothing ever reported as
+     overflowing the VIEWPORT, because the container swallowed it before it got
+     there. Measuring document.scrollWidth said the page was fine while the page
+     was visibly cutting words in half. */
   return (
-    <div className="rounded-lg bg-muted/30 px-3 py-2">
-      <p className="text-[0.7rem] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <div className="mt-0.5 text-sm text-foreground">{children}</div>
+    <div className="min-w-0 rounded-lg bg-muted/30 px-3 py-2">
+      <p
+        className="truncate text-[0.7rem] uppercase tracking-wide text-muted-foreground"
+        title={label}
+      >
+        {label}
+      </p>
+      {/* Values wrap rather than truncate: an artist's name half-shown is worse
+          than an artist's name on two lines. */}
+      <div className="mt-0.5 min-w-0 break-words text-sm text-foreground">{children}</div>
     </div>
   );
 }

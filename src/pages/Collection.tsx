@@ -29,7 +29,7 @@ import { useDeckManagementStore, type DeckCard } from '@/stores/deckManagementSt
 import { CollectionAnalytics } from '@/features/collection/CollectionAnalytics';
 import type { CollectionStats, CollectionCard } from '@/types/collection';
 import { CollectionAPI } from '@/server/routes/collection';
-import { priceUSD } from '@/features/collection/value';
+import { canPriceOwnedCopies, priceUSD } from '@/features/collection/value';
 
 import { TCGPlayerPriceSync } from '@/components/collection/TCGPlayerPriceSync';
 import { CollectionExport } from '@/components/collection/CollectionExport';
@@ -69,21 +69,15 @@ function valueOfItem(item: CollectionCard): number {
  * the printing is priced and the stack is not. Asking the wider question let
  * her into "Most Valuable Cards" ranked at $0.00 each. Non-foil copies need
  * `usd`; foil copies take `usd_foil` and fall back to `usd`.
+ *
+ * The rule itself moved to `canPriceOwnedCopies` in features/collection so the
+ * dashboard could share it. The dashboard had the wider version and reported a
+ * different count for the same collection. The move also dropped `usd_etched`,
+ * which the version here read and the valuation never has; no owned row is
+ * etched-only today, checked, so nothing on this page changes.
  */
 function hasPrice(item: CollectionCard): boolean {
-  const prices = item.card?.prices as Record<string, string | null> | undefined;
-  if (!prices) return false;
-  const read = (key: string) => {
-    const raw = prices[key];
-    if (raw === null || raw === undefined || raw === '') return null;
-    const n = Number(raw);
-    return Number.isFinite(n) ? n : null;
-  };
-  const usd = read('usd');
-  const foilUsd = read('usd_foil') ?? read('usd_etched') ?? usd;
-  if ((item.quantity || 0) > 0 && usd !== null) return true;
-  if ((item.foil || 0) > 0 && foilUsd !== null) return true;
-  return false;
+  return canPriceOwnedCopies(item.card?.prices, item.quantity || 0, item.foil || 0);
 }
 
 function deckCategory(typeLine: string): DeckCard['category'] {
@@ -261,10 +255,10 @@ export default function Collection() {
 
   /**
    * Owned rows the catalogue has no price for, so every total on this page can
-   * say how much of the collection it is not counting. The figure is real: five
-   * of the owner's 51 rows, and because they sort first by name they are the
-   * first thing the grid shows, which is why the page reads as though nothing
-   * has a price.
+   * say how much of the collection it is not counting. The figure is real:
+   * re-measured 2026-08-19, four of the owner's 52 rows, and because they sort
+   * first by name they are the first thing the grid shows, which is why the
+   * page reads as though nothing has a price.
    */
   const unpricedCards = useMemo(
     () => cards.filter(item => (item.quantity || 0) + (item.foil || 0) > 0 && !hasPrice(item)).length,

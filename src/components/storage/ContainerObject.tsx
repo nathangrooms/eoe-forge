@@ -37,8 +37,20 @@ import type { StoragePreviewCard, StorageType } from '@/types/storage';
  * page.
  */
 
-/** Cards a form can hold. The binder page is why the API caps previews at 9. */
-const CAPACITY: Record<string, number> = {
+/**
+ * How many cards this form DRAWS, which is not how many it holds.
+ *
+ * Nine is a binder page and is the one entry that is also a real capacity; it
+ * is why the API caps previews at 9. The rest are how many card faces the
+ * drawing has room for: three in the mouth of a deck box, five fanned across a
+ * bulk box, six along a shelf. A deck box holds a hundred cards and a bulk box
+ * holds thousands.
+ *
+ * It was called a capacity and read as one: the shelf told an empty bulk box
+ * and an empty shelf "room for a deck waiting", off `containerCapacity(type)
+ * === 9`. Nothing outside the drawing should ask this function anything.
+ */
+const PREVIEW_SLOTS: Record<string, number> = {
   binder: 9,
   deckbox: 3,
   'deck-linked': 3,
@@ -47,8 +59,9 @@ const CAPACITY: Record<string, number> = {
   other: 3,
 };
 
+/** Card faces this form's drawing has room for. See {@link PREVIEW_SLOTS}. */
 export function containerCapacity(type: StorageType | string): number {
-  return CAPACITY[type] ?? 3;
+  return PREVIEW_SLOTS[type] ?? 3;
 }
 
 /**

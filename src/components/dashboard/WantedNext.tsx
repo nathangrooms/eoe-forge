@@ -17,6 +17,10 @@ import { RailTile } from './RailTile';
  * The price is the cheapest printing we hold, which is the same rule the
  * wishlist page and the deck optimiser use. Cards the catalogue has no price for
  * say so and sit at the end, because an unknown price is not a low one.
+ *
+ * The heading says how many of them there are as well. The total leaves those
+ * cards out, and a shopping figure that leaves cards out without saying so is
+ * the same defect as a collection total that does.
  */
 
 const PER_VIEW = 2;
@@ -39,13 +43,34 @@ export function WantedNext({ className, summary, loading }: WantedNextProps) {
     wanted.map(card => card.name)
   );
 
-  const total = wishlist?.totalItems ?? 0;
+  /*
+   * Cards, not rows. `totalItems` is how many wishlist ROWS there are and
+   * `totalDesired` sums the copies each one asks for, so a row wanting three
+   * copies is three cards. The heading said "cards" and printed the row count.
+   */
+  const total = wishlist?.totalDesired ?? 0;
   const value = wishlist?.valueUSD ?? 0;
+  /*
+   * Wanted cards the catalogue holds no price for. `valueUSD` leaves them out,
+   * and a wishlist total is the number people budget against, so the count has
+   * to sit beside it rather than be computed and dropped. It was computed and
+   * dropped: measured 2026-08-19, four of the owner's 94 wanted cards have no
+   * price and the tile read "94 cards, $8,102.41 to buy" as if that were all
+   * of them.
+   */
+  const unpriced = wishlist?.unpricedCards ?? 0;
+
+  const countLabel =
+    total > 0
+      ? `${total} cards, ${asUSD(value)} to buy${
+          unpriced > 0 ? ` · ${unpriced} with no price yet` : ''
+        }`
+      : undefined;
 
   return (
     <RailSection
       title="Wanted next"
-      count={total > 0 ? `${total} cards, ${asUSD(value)} to buy` : undefined}
+      count={countLabel}
       to="/wishlist"
       linkLabel="Wishlist"
       perView={PER_VIEW}

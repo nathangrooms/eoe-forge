@@ -13,8 +13,14 @@
  * the foot of the section therefore dates the window it is drawing instead of
  * calling it live, which it no longer is. The chart is the stored series,
  * unsmoothed: the first and last points, the low, the high and the percentage
- * are all computed from those rows. Nothing here is seeded, and the section
- * renders nothing rather than inventing a shape when there is no series.
+ * are all computed from those rows. Nothing here is seeded.
+ *
+ * When there is no series the section says there is no series. It used to claim
+ * that and not do it: with `priceTracking: null` in the snapshot the loader
+ * answered null, `useDeferred` could not tell that from "still loading", and
+ * the live homepage showed a pulsing skeleton chart to every visitor for ever.
+ * A permanent loading state is a promise that something is coming, which is a
+ * fabrication in animation rather than in text. Hence `useDeferredResult`.
  *
  * Listings themselves are deliberately absent: `listings` is row-level-secured
  * to its owner, so a logged-out visitor cannot be shown one truthfully.
@@ -34,7 +40,7 @@ import {
   loadPriceTracking,
   money,
   shortDate,
-  useDeferred,
+  useDeferredResult,
   useNearViewport,
   type TrackedCard,
 } from '@/components/marketing/sectionData';
@@ -183,10 +189,21 @@ function WatchRow({ entry }: { entry: TrackedCard }) {
 
 export function HomeMarketplace() {
   const [ref, near] = useNearViewport<HTMLDivElement>();
-  const data = useDeferred(near, loadPriceTracking);
+  /*
+   * `settled` is the whole point. A skeleton means "this is arriving"; null
+   * from this loader means "no card has two price snapshots yet", and those are
+   * not the same statement. Read through the plain `useDeferred`, which cannot
+   * tell them apart, this section drew a pulsing chart and four pulsing rows on
+   * the live homepage indefinitely, because the committed snapshot carries
+   * `priceTracking: null`. The file comment above claimed the section rendered
+   * nothing in that case. It did not; it faked loading.
+   */
+  const { data, settled } = useDeferredResult(near, loadPriceTracking);
 
   const hero = data?.cards[0] ?? null;
   const rest = data?.cards.slice(1) ?? [];
+  /** Settled with nothing: we tried, and there is no series to draw. */
+  const noSeries = settled && hero === null;
 
   return (
     <Section>
@@ -203,7 +220,22 @@ export function HomeMarketplace() {
       <div className="mt-14 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         {/* ---------------------------------------------------- the tracked card */}
         <div className="flex min-w-0 flex-col rounded-2xl bg-card p-6 shadow-2xl shadow-black/40 sm:p-8">
-          {hero === null ? (
+          {noSeries ? (
+            /* Nothing to draw, said plainly. Daily capture reached the whole
+               catalogue on 19 August 2026, so most cards have one recorded day
+               and a line needs two. The section keeps its heading, its buy
+               links and its way through to the marketplace, because all three
+               are true whether or not there is a chart yet. */
+            <div className="flex flex-1 flex-col justify-center py-10">
+              <p className="text-lg font-medium text-foreground">
+                No price history to chart yet
+              </p>
+              <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
+                Prices are saved once a day. A card needs two days on record before there is a line
+                worth drawing, so the first charts appear here as the days build up.
+              </p>
+            </div>
+          ) : hero === null ? (
             <div className="grid gap-8 sm:grid-cols-[200px_minmax(0,1fr)]">
               <Skeleton className="aspect-[5/7] w-[200px] rounded-xl" />
               <div className="space-y-4">
@@ -292,14 +324,21 @@ export function HomeMarketplace() {
           </p>
 
           <ul className="mt-4 space-y-2.5">
-            {data === null
-              ? Array.from({ length: 4 }).map((_, i) => (
-                  <li key={i}>
-                    <Skeleton className="h-16 w-full rounded-xl" />
-                  </li>
-                ))
-              : rest.map(entry => <WatchRow key={entry.card.id} entry={entry} />)}
+            {noSeries ? null : data === null ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <li key={i}>
+                  <Skeleton className="h-16 w-full rounded-xl" />
+                </li>
+              ))
+            ) : (
+              rest.map(entry => <WatchRow key={entry.card.id} entry={entry} />)
+            )}
           </ul>
+          {noSeries && (
+            <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+              Nothing on the watch list yet.
+            </p>
+          )}
 
           <div className="mt-auto pt-6">
             <div className="rounded-xl bg-muted/30 p-4">

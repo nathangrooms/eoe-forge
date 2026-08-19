@@ -31,7 +31,9 @@ import type { OwnedHolding } from './hooks';
  *      sets the baseline: whichever of your cards it priced are the cards every
  *      point is measured over, and an earlier day joins the line only if it
  *      priced nearly all of those same cards. A day that cannot be compared is
- *      left out rather than plotted low.
+ *      left out rather than plotted low. Every plotted day is then valued over
+ *      the cards ALL of them priced, so the line holds one set of cards from
+ *      end to end and a movement in it can only be a movement in price.
  */
 
 /** How much of the baseline an earlier day must also price to be comparable. */
@@ -51,7 +53,10 @@ export interface TrendPoint {
   /** ISO date, e.g. '2026-08-19'. */
   date: string;
   valueUSD: number;
-  /** Owned printings this day held a price for. */
+  /**
+   * Owned printings this point was valued over. The same on every point by
+   * construction: it is the set of cards every plotted day priced.
+   */
   covered: number;
 }
 
@@ -153,19 +158,44 @@ export function useCollectionTrend(holdings: OwnedHolding[]): CollectionTrend {
       const baseline = byDate.get(dates[dates.length - 1])!;
       const floor = Math.ceil(baseline.size * COVERAGE_FLOOR);
 
-      const points: TrendPoint[] = [];
-      for (const date of dates) {
+      /* Days close enough to the baseline to be worth comparing at all. */
+      const comparable = dates.filter(date => {
         const day = byDate.get(date)!;
-        let value = 0;
         let covered = 0;
-        for (const cardId of baseline.keys()) {
-          const price = day.get(cardId);
-          if (price === undefined) continue;
-          value += price;
-          covered += 1;
+        for (const cardId of baseline.keys()) if (day.has(cardId)) covered += 1;
+        return covered >= floor;
+      });
+
+      /*
+       * The cards priced on EVERY day that is going to be plotted, which is
+       * what the widget says underneath: "measured across the N cards we have a
+       * price for on every day shown".
+       *
+       * The floor above only asks a day to price NEARLY all of the baseline, so
+       * valuing each day over whatever it happened to hold let up to a tenth of
+       * the total go missing on one point and reappear on the next, and the
+       * panel would print that as a price move with a percentage on it. The
+       * intersection removes it: every point is the same cards, so a difference
+       * between two points can only be a difference in price. It also makes the
+       * sentence on screen true rather than nearly true.
+       */
+      const tracked = new Set<string>();
+      for (const cardId of baseline.keys()) {
+        if (comparable.every(date => byDate.get(date)!.has(cardId))) tracked.add(cardId);
+      }
+
+      const points: TrendPoint[] = [];
+      if (tracked.size > 0) {
+        for (const date of comparable) {
+          const day = byDate.get(date)!;
+          let value = 0;
+          for (const cardId of tracked) value += day.get(cardId)!;
+          points.push({
+            date,
+            valueUSD: Math.round(value * 100) / 100,
+            covered: tracked.size,
+          });
         }
-        if (covered < floor) continue;
-        points.push({ date, valueUSD: Math.round(value * 100) / 100, covered });
       }
 
       const changeUSD =
@@ -173,7 +203,10 @@ export function useCollectionTrend(holdings: OwnedHolding[]): CollectionTrend {
           ? Math.round((points[points.length - 1].valueUSD - points[0].valueUSD) * 100) / 100
           : null;
 
-      setTrend({ points, tracked: baseline.size, changeUSD, loading: false });
+      /* `tracked.size`, not `baseline.size`. The panel prints this as "the N
+         cards we have a price for on every day shown", and the baseline is the
+         newest day alone, which is not every day shown. */
+      setTrend({ points, tracked: tracked.size, changeUSD, loading: false });
     })().catch(err => {
       console.error('Error building collection trend:', err);
       if (!cancelled) setTrend({ ...EMPTY });

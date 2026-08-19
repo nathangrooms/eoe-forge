@@ -24,9 +24,10 @@ interface OpeningHandProps {
  * be read at once, so all seven are drawn full — never cropped, never a name in
  * a box — across the full width of the page. The numbers beside them are counted
  * from these exact cards and from the real library behind them: lands in hand,
- * mana producers, the cheapest spell, and a Monte Carlo of the deck's own
- * opening-hand distribution so "is four lands normal for this list" has an
- * answer rather than a feeling.
+ * mana producers, the cheapest spell, and the deck's own opening-hand
+ * distribution so "is four lands normal for this list" has an answer rather
+ * than a feeling. That distribution used to be sampled and is now solved; see
+ * `openingHandStats`.
  */
 export function OpeningHand({
   hand,
@@ -63,7 +64,7 @@ export function OpeningHand({
           <p className="mt-0.5 text-sm text-muted-foreground">
             {needsBottom
               ? `Choose ${toBottom} card${toBottom === 1 ? '' : 's'} to put on the bottom, then keep.`
-              : 'Keep it, or throw it back — London mulligan, so you always see seven.'}
+              : 'Keep it, or throw it back. London mulligan, so you always see seven.'}
           </p>
         </div>
 
@@ -74,7 +75,7 @@ export function OpeningHand({
           </Button>
           <Button onClick={() => onKeep(selected)} disabled={!ready}>
             <Check className="mr-2 h-4 w-4" aria-hidden="true" />
-            {needsBottom ? `Keep — bottom ${selected.length}/${toBottom}` : 'Keep this hand'}
+            {needsBottom ? `Keep, bottom ${selected.length}/${toBottom}` : 'Keep this hand'}
           </Button>
         </div>
       </div>
@@ -164,9 +165,15 @@ function Readout({ label, value }: { label: string; value: string }) {
 /**
  * How often this deck opens on each land count.
  *
- * Simulated over the deck's real library, so the bar you are standing on tells
- * you whether the hand in front of you is normal or an outlier. The trial count
- * is printed because a share without an N is a claim, not a measurement.
+ * Worked out from the deck's real library, so the bar you are standing on tells
+ * you whether the hand in front of you is normal or an outlier.
+ *
+ * This used to print a trial count, on the reasoning that a share without an N
+ * is a claim rather than a measurement. That reasoning was right and the answer
+ * was wrong: the figures are not sampled any more, so there is no N to print.
+ * They come from the same closed-form arithmetic the deck page's "Keepable
+ * sevens" uses, which is what stops one deck reading two different ways on two
+ * different pages.
  */
 function LandDistribution({ stats, handLands }: { stats: OpeningStats; handLands: number }) {
   const max = Math.max(...stats.landHistogram, 0.0001);
@@ -177,14 +184,12 @@ function LandDistribution({ stats, handLands }: { stats: OpeningStats; handLands
         <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           Opening hands from this library
         </h3>
-        <p className="text-xs tabular-nums text-muted-foreground">
-          {stats.trials.toLocaleString()} simulated draws
-        </p>
+        <p className="text-xs text-muted-foreground">Worked out from the whole list</p>
       </div>
 
-      {stats.trials === 0 ? (
+      {!stats.measured ? (
         <p className="mt-3 text-sm text-muted-foreground">
-          Not enough cards in the list to simulate an opening hand.
+          Not enough cards in the list to draw an opening hand.
         </p>
       ) : (
         <>

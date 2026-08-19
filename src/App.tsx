@@ -12,6 +12,7 @@ import { LeftNavigation } from "@/components/navigation/LeftNavigation";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { RouteFallback, AppBootFallback } from "@/components/routing/RouteFallback";
 import { RouteBoundary, clearChunkReloadGuard } from "@/components/routing/RouteBoundary";
+import { RouteEnterMotion } from "@/components/motion/RouteEnterMotion";
 
 /*
  * Every page is fetched when it is needed, not before.
@@ -203,7 +204,15 @@ function RouteHost({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   return (
     <RouteBoundary resetKey={location.pathname}>
-      <Suspense fallback={<RouteFallback />}>{children}</Suspense>
+      <Suspense fallback={<RouteFallback />}>
+        {/* Inside the boundary and keyed on the path, so the page's arrival
+            animation runs in the same commit the page itself mounts in. Outside
+            it, the pathname changes while the route's chunk is still in flight
+            and the animation would play on the loading spinner. Renders no
+            element of its own — see RouteEnterMotion. */}
+        <RouteEnterMotion key={location.pathname} />
+        {children}
+      </Suspense>
     </RouteBoundary>
   );
 }
@@ -308,7 +317,25 @@ function AppContent() {
             at y=1555 in a 900px viewport, 655px below the fold, so the Create
             button appeared not to exist. The outer wrapper still carries
             overflow-x-hidden as the page-level guard against horizontal scroll. */}
-        <main id="main-content" className="flex-1 min-h-[calc(100vh-4rem)] w-full max-w-full md:ml-[var(--nav-rail-w)] pb-1 md:pb-4 transition-[margin] duration-200">
+        {/* The `md:w-[calc(100%-var(--nav-rail-w))]` is load bearing. Do not
+            replace it with `w-full`, and do not delete it assuming `flex-1`
+            covers it.
+
+            The nav rail is `position: fixed`, so this <main> is the only
+            in-flow item in the flex row. `w-full` resolves to 100% of the
+            container, and the 16rem `ml` is then added OUTSIDE that width, so
+            main ran from 256px to 1524px in a 1268px viewport: the rightmost
+            256px of every page was cut off. The wrapper's `overflow-x-hidden`
+            hid the evidence, so `document.scrollWidth` measured a clean 1268
+            and the page looked fine to anything checking the document. It was
+            found by measuring element rects instead.
+
+            `flex: 1 1 0%` does NOT rescue this, which was measured rather
+            than assumed: with `w-full` removed entirely, main still computed to
+            the full 1268px, because the grow step here does not discount the
+            256px margin. Only an explicit width does. Mobile is unaffected
+            since both the margin and this width are `md:` only. */}
+        <main id="main-content" className="flex-1 min-h-[calc(100vh-4rem)] max-w-full md:ml-[var(--nav-rail-w)] md:w-[calc(100%-var(--nav-rail-w))] pb-1 md:pb-4 transition-[margin] duration-200">
           <ScrollToTop />
           <RouteHost>
           <Routes>

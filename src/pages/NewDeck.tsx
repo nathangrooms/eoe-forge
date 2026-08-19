@@ -18,7 +18,14 @@ import {
 import { ColorIdentity } from '@/components/ui/mana-cost';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { useCommanderBrowse } from '@/components/ai-builder/useCommanderBrowse';
-import { commanderSearchUrl } from '@/components/ai-builder/commander-query';
+import {
+  EMPTY_COMMANDER_FILTERS,
+  buildCommanderQuery,
+  commanderSearchUrl,
+  countActiveFilters,
+  type CommanderFilters,
+} from '@/components/ai-builder/commander-query';
+import { CommanderFinder } from '@/components/ai-builder/CommanderFinder';
 import { Pager } from '@/components/ui/pagination';
 
 /**
@@ -98,14 +105,28 @@ export function NewDeck() {
     return () => window.clearTimeout(timer);
   }, [query]);
 
-  const searching = committedQuery.length > 0;
+  /* The same finder the deck generator uses, not a second one styled to match.
+     Owner: "Maybe new deck uses the same header style for searching too?" Both
+     pages are answering the same question, so they should ask it the same way
+     and share the code that builds the query. */
+  const [filters, setFilters] = useState<CommanderFilters>(EMPTY_COMMANDER_FILTERS);
+  const [sortOrder, setSortOrder] = useState('edhrec');
+  const activeFilters = countActiveFilters(filters);
+
+  const searching = committedQuery.length > 0 || activeFilters > 0;
 
   const browseUrl = useMemo(() => {
     if (!wantsCommander) return null;
-    return searching
-      ? commanderSearchUrl(`${committedQuery} is:commander legal:commander`, 'edhrec')
-      : POPULAR_URL;
-  }, [wantsCommander, searching, committedQuery]);
+    if (!searching) return POPULAR_URL;
+    /* Filters and typed text are both narrowing the same list, so they are one
+       query. `buildCommanderQuery` already emits `is:commander`, which is why
+       it is not added again when filters are on. */
+    const parts = [
+      activeFilters > 0 ? buildCommanderQuery(filters) : 'is:commander legal:commander',
+      committedQuery,
+    ].filter(Boolean);
+    return commanderSearchUrl(parts.join(' '), sortOrder);
+  }, [wantsCommander, searching, committedQuery, filters, activeFilters, sortOrder]);
 
   const browse = useCommanderBrowse({
     url: browseUrl,
@@ -355,6 +376,19 @@ export function NewDeck() {
 
       {wantsCommander && (
         <section className="mt-6 space-y-4">
+          {/* One row of filters, exactly as on the deck generator: colour pips,
+              playstyle behind a control, sort and search at the right end. */}
+          <CommanderFinder
+            filters={filters}
+            onFiltersChange={setFilters}
+            sortOrder={sortOrder}
+            onSortOrderChange={setSortOrder}
+            onSearch={() => setCommittedQuery(query.trim())}
+            onClear={() => setFilters(EMPTY_COMMANDER_FILTERS)}
+            searching={browse.loading}
+            resultCount={searching ? browse.total : null}
+          />
+
           {/* Search and sizing, full width and unboxed — the grid below is the
               thing worth looking at, so nothing competes with it for width. */}
           <div className="flex flex-wrap items-center gap-2">

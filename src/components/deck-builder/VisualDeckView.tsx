@@ -32,7 +32,6 @@ import { CardImage } from '@/components/cards/CardImage';
 import { OracleText } from '@/components/cards/OracleText';
 import { useOpenCard } from '@/components/cards';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
-import { ManaCurve } from './ManaCurve';
 import {
   categorizeCard,
   CATEGORY_CONFIG,
@@ -305,7 +304,7 @@ export function VisualDeckView({
       <button
         onClick={() => toggleGroup(group.key)}
         aria-expanded={!isCollapsed}
-        className="mb-3 flex w-full items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-left transition-colors hover:bg-accent"
+        className="mb-3 flex w-full items-center gap-2 rounded-lg bg-card px-3 py-2 text-left transition-colors hover:bg-accent"
       >
         {isCollapsed ? <ChevronRight className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
         {Icon && group.category && (
@@ -412,10 +411,10 @@ export function VisualDeckView({
   );
 
   const renderTable = (group: CardGroup) => (
-    <div className="overflow-x-auto rounded-md border border-border">
+    <div className="overflow-x-auto rounded-lg bg-card">
       <table className="w-full min-w-[640px] text-sm">
         <thead>
-          <tr className="border-b border-border bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+          <tr className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
             <th className="w-16 px-3 py-2 font-medium">Qty</th>
             <th className="px-3 py-2 font-medium">Name</th>
             <th className="w-28 px-3 py-2 font-medium">Cost</th>
@@ -428,7 +427,7 @@ export function VisualDeckView({
         </thead>
         <tbody>
           {group.cards.map(card => (
-            <tr key={card.id} className="group border-b border-border last:border-0 hover:bg-accent/60">
+            <tr key={card.id} className="group hover:bg-accent/60">
               <td className="px-3 py-1.5">
                 {onUpdateQuantity ? (
                   <Input
@@ -555,22 +554,28 @@ export function VisualDeckView({
         </Card>
       )}
 
-      {/* Mana curve — permanently on the build surface, not buried in Analysis */}
-      {cards.length > 0 && (
-        <Card className="p-4">
-          <ManaCurve cards={cards} />
-        </Card>
-      )}
+      {/* THE MANA CURVE IS NOT HERE. It lives on the Analysis tab.
 
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2">
+          It used to sit permanently on the build surface, above the cards, on
+          the argument that you want it while building. In practice it pushed
+          the deck itself down the page on every visit, and this tab is for
+          reading and editing the list. Owner: "we probably dont want the mana
+          curve on the main cards page, should be saved for analysis page". */}
+
+      {/* The filter row, in the same shape the rest of the app uses: one surface,
+          no outlines. Owner: "can you fix the filter styling (doesnt match rest
+          of app) and has borders (we dont use borders)". Inputs and selects
+          carry a border by default, so each one turns it off explicitly and
+          sits on a tinted surface instead, which is how every other filter row
+          in the app separates a control from its background. */}
+      <div className="flex flex-wrap items-center gap-2 rounded-xl bg-card p-2.5 shadow-sm">
         <div className="relative min-w-[200px] flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             placeholder="Filter cards in this deck…"
-            className="pl-9"
+            className="h-9 border-0 bg-background/60 pl-9 shadow-none focus-visible:ring-1"
           />
           {searchTerm && (
             <Button
@@ -585,7 +590,7 @@ export function VisualDeckView({
         </div>
 
         <Select value={prefs.groupBy} onValueChange={v => update('groupBy', v as DeckGroupBy)}>
-          <SelectTrigger className="w-[150px]" aria-label="Group by">
+          <SelectTrigger className="h-9 w-[150px] border-0 bg-background/60" aria-label="Group by">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -599,7 +604,7 @@ export function VisualDeckView({
 
         <div className="flex items-center">
           <Select value={prefs.sortKey} onValueChange={v => update('sortKey', v as DeckSortKey)}>
-            <SelectTrigger className="w-[140px] rounded-r-none" aria-label="Sort by">
+            <SelectTrigger className="h-9 w-[140px] rounded-r-none border-0 bg-background/60" aria-label="Sort by">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

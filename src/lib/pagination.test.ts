@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   FIRST_PAGE,
+  blocksFor,
   clampPage,
   offsetFor,
   pageCountFor,
@@ -119,4 +120,57 @@ test('the current page is always in the window, even when out of range', () => {
 test('a page count below one draws nothing', () => {
   assert.deepEqual(pageWindow(1, 0), []);
   assert.deepEqual(pageWindow(1, Number.NaN), []);
+});
+
+/* ------------------------------------------------------------------ *
+ * Upstream blocks.
+ *
+ * Scryfall serves 175 rows at a time and answers a page past the end with
+ * 422, so the block list has to stop where the results do. Every total below
+ * was read off the live API on 2026-08-19.
+ * ------------------------------------------------------------------ */
+
+const SCRY = 175;
+
+test('a page inside one block asks for one block', () => {
+  assert.deepEqual(blocksFor(0, 24, 30636, SCRY), [1]);
+  assert.deepEqual(blocksFor(48, 24, 30636, SCRY), [1]);
+  assert.deepEqual(blocksFor(192, 24, 30636, SCRY), [2]);
+});
+
+test('a page straddling a boundary asks for both blocks', () => {
+  assert.deepEqual(blocksFor(96, 96, 30636, SCRY), [1, 2]);
+  assert.deepEqual(blocksFor(168, 24, 30636, SCRY), [1, 2]);
+});
+
+test('the list never runs past the last block that exists', () => {
+  // t:sliver matched 116 cards. Page 2 of 96 wants rows 96-191, which straddles
+  // into block 2 -- and Scryfall has no block 2 here. Asking for it returned
+  // 422 and put an error where the last 20 cards should have been.
+  assert.deepEqual(blocksFor(96, 96, 116, SCRY), [1]);
+  // t:wall t:creature matched 159; page 4 of 48 is rows 144-191.
+  assert.deepEqual(blocksFor(144, 48, 159, SCRY), [1]);
+  // The same shape one block further along.
+  assert.deepEqual(blocksFor(336, 48, 350, SCRY), [2]);
+});
+
+test('a page wholly past the end asks for nothing at all', () => {
+  assert.deepEqual(blocksFor(2400, 24, 116, SCRY), []);
+});
+
+test('with no total the arithmetic still answers, because it has to', () => {
+  // The first request of a query has no count yet. One block too far is
+  // possible here and is why 422 is read as an empty block rather than thrown.
+  assert.deepEqual(blocksFor(96, 96, null, SCRY), [1, 2]);
+  assert.deepEqual(blocksFor(0, 24, undefined, SCRY), [1]);
+});
+
+test('a total of zero still leaves block one to ask about', () => {
+  assert.deepEqual(blocksFor(0, 24, 0, SCRY), [1]);
+});
+
+test('nonsense sizes draw nothing rather than throwing', () => {
+  assert.deepEqual(blocksFor(0, 0, 100, SCRY), []);
+  assert.deepEqual(blocksFor(0, 24, 100, 0), []);
+  assert.deepEqual(blocksFor(Number.NaN, 24, 100, SCRY), [1]);
 });

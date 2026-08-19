@@ -80,6 +80,50 @@ export function rangeFor(page: number, pageSize: number): { from: number; to: nu
 }
 
 /**
+ * Which upstream blocks a page of `size` rows at `offset` needs.
+ *
+ * Scryfall serves a fixed block of 175 rows and offers no smaller unit, so a
+ * page of ours is one or two of theirs, sliced. `blockSize` is that number.
+ *
+ * `total` is the load-bearing argument. Without it the window is worked out
+ * from arithmetic alone, and the arithmetic happily asks for a block that was
+ * never there: a search matching 116 rows read 96 at a time has a real page 2
+ * holding 20 cards, but rows 96-191 straddle into block 2, and Scryfall answers
+ * a page past the end with **422**, not with an empty list. That is a failure
+ * on the last page of any search whose row count sits just under a multiple of
+ * 175 — measured against the live API on 2026-08-19: `t:sliver` (116),
+ * `t:ninja` (126), `t:angel r:rare` (137), `t:wall t:creature` (159).
+ *
+ * So when the total is known the list stops at the last block that exists. The
+ * caller fills the rest with no rows, which is what they hold.
+ */
+export function blocksFor(
+  offset: number,
+  size: number,
+  total: number | null | undefined,
+  blockSize: number
+): number[] {
+  if (!Number.isFinite(size) || size <= 0) return [];
+  if (!Number.isFinite(blockSize) || blockSize <= 0) return [];
+  const from = Number.isFinite(offset) ? Math.max(0, Math.floor(offset)) : 0;
+  const first = Math.floor(from / blockSize) + 1;
+  let last = Math.floor((from + size - 1) / blockSize) + 1;
+
+  const known = total != null && Number.isFinite(total) && total >= 0;
+  if (known) {
+    // A total of 0 still leaves block 1 to ask about — that is how the caller
+    // learns there is nothing, and asking costs nothing once it is cached.
+    const exists = Math.max(1, Math.ceil((total as number) / blockSize));
+    if (first > exists) return [];
+    if (last > exists) last = exists;
+  }
+
+  const out: number[] = [];
+  for (let b = first; b <= last; b++) out.push(b);
+  return out;
+}
+
+/**
  * What to print as "showing 25 to 48".
  *
  * `to` is the last row actually on screen, which on the final page is fewer

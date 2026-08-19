@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { blocksFor } from '@/lib/pagination';
 
 /**
  * One page of a Scryfall search, by page number.
@@ -100,21 +101,36 @@ export function useScryfallPage(
 
     const id = ++runId.current;
     const offset = (Math.max(1, page) - 1) * size;
-    const firstBlock = Math.floor(offset / SCRYFALL_PAGE_SIZE) + 1;
-    const lastBlock = Math.floor((offset + size - 1) / SCRYFALL_PAGE_SIZE) + 1;
 
-    const wanted: number[] = [];
-    for (let b = firstBlock; b <= lastBlock; b++) wanted.push(b);
+    /** Scryfall's count for this query, from whichever block already carried it. */
+    const reportedTotal = (): number | null => {
+      for (const block of cache.current.values()) {
+        if (block.total != null) return block.total;
+      }
+      return null;
+    };
+
+    /**
+     * Which blocks this page needs, re-decided every time a total arrives.
+     *
+     * The count is what stops the list at the last block that exists. Before it
+     * has arrived the plan is arithmetic and may reach one block too far; the
+     * moment block one answers, the plan shortens and the block that was never
+     * there is never asked for.
+     */
+    const plan = () => blocksFor(offset, size, reportedTotal(), SCRYFALL_PAGE_SIZE);
 
     /** The requested window, or null while a block it needs is still missing. */
     const assemble = (): any[] | null => {
+      const wanted = plan();
+      if (wanted.length === 0) return [];
       const joined: any[] = [];
       for (const b of wanted) {
         const block = cache.current.get(b);
         if (!block) return null;
         joined.push(...block.rows);
       }
-      const start = offset - (firstBlock - 1) * SCRYFALL_PAGE_SIZE;
+      const start = offset - (wanted[0] - 1) * SCRYFALL_PAGE_SIZE;
       return joined.slice(start, start + size);
     };
 
@@ -134,8 +150,11 @@ export function useScryfallPage(
 
     void (async () => {
       try {
-        for (const b of wanted) {
-          if (cache.current.has(b)) continue;
+        // Re-planned after every block, because the first answer carries the
+        // count and the count can shorten the list.
+        for (let guard = 0; guard < 8; guard++) {
+          const b = plan().find(n => !cache.current.has(n));
+          if (b === undefined) break;
 
           const request = new URL(url);
           request.searchParams.set('page', String(b));
@@ -143,11 +162,24 @@ export function useScryfallPage(
           const payload = await response.json().catch(() => null);
 
           if (!response.ok) {
-            // Scryfall answers a query that parsed but matched nothing with a
-            // 404, and does the same past the end of the results. Neither is an
-            // error; both mean there is nothing here.
-            if (response.status === 404) {
-              cache.current.set(b, { rows: [], total: b === firstBlock ? 0 : null });
+            /*
+             * Two statuses mean "there is nothing here", and neither is an error.
+             *
+             *   404  the query parsed and matched no cards.
+             *   422  "You have paginated beyond the end of these results."
+             *
+             * The second one is the reason this branch had to change. Measured
+             * against the live API on 2026-08-19: past the end is 422, never
+             * 404. A malformed query is 400 ("Your search contains unclosed
+             * parentheses"), so reading 422 as an empty block cannot hide a
+             * syntax error from the reader.
+             *
+             * Only block one can report a total of zero. A 404 or 422 on a later
+             * block says nothing about how many rows the query has, and writing
+             * a zero there would be inventing a count.
+             */
+            if (response.status === 404 || (response.status === 422 && b > 1)) {
+              cache.current.set(b, { rows: [], total: b === 1 ? 0 : null });
               if (b === 1) setTotal(0);
               continue;
             }

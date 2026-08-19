@@ -64,8 +64,8 @@ export function usePageParam(options: UsePageParamOptions = {}): PageParam {
 
   // Refs keep `setPage` stable. It is passed to `Pager` and into effects, and a
   // callback that changed on every render would restart debounces that key on it.
-  const latest = useRef({ key, urlSync, setSearchParams, page });
-  latest.current = { key, urlSync, setSearchParams, page };
+  const latest = useRef({ key, urlSync, setSearchParams, page, raw, localPage });
+  latest.current = { key, urlSync, setSearchParams, page, raw, localPage };
 
   const setPage = useCallback((next: number) => {
     const target = Math.max(FIRST_PAGE, Math.floor(next) || FIRST_PAGE);
@@ -106,12 +106,20 @@ export function usePageParam(options: UsePageParamOptions = {}): PageParam {
     seenReset.current = resetKey;
     if (resetKey === previous) return;
     if (previous === undefined || previous === '') return;
-    const { key: k, urlSync: sync, setSearchParams: write, page: p } = latest.current;
-    if (p === FIRST_PAGE) return;
+    const { key: k, urlSync: sync, setSearchParams: write } = latest.current;
+    /*
+     * Test what is written down, not what is on screen. `page` is already
+     * clamped, so a URL still saying `page=3` while the narrowed result set has
+     * only one page reads as page 1 here and the stale parameter would survive
+     * in the address bar, ready to reappear the moment the filter was widened
+     * again. The raw value is the thing that needs clearing.
+     */
     if (!sync) {
+      if (latest.current.localPage === FIRST_PAGE) return;
       setLocalPage(FIRST_PAGE);
       return;
     }
+    if (latest.current.raw === null) return;
     write(
       prev => {
         const params = new URLSearchParams(prev);

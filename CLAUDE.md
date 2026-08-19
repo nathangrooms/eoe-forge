@@ -764,3 +764,50 @@ database exactly, so TypeScript and SQL parity holds live.
 
 Whenever a coverage number is quoted anywhere, state the denominator and how it
 was measured. Two separate agents have now been misled by that slice.
+
+
+## Database discipline (added 19 Aug 2026, after taking the app down twice)
+
+I saturated this database twice in one session and the owner received a Supabase
+disk IO warning. Both incidents were self-inflicted. These are now rules.
+
+**MEASURED STATE, so the scale is understood:**
+
+    database total        551 MB
+    cards                 255 MB   97,140 rows, 28 INDEXES, 94 MB of index
+    cards_unique           77 MB   materialized view, 21 indexes
+    cards + cards_unique  332 MB = 60% OF THE ENTIRE DATABASE
+
+Every row written to `cards` maintains 28 indexes. A full sync of 97,140 rows is
+therefore roughly 2.7 million index updates, and a `cards_unique` refresh rebuilds
+21 more across 77 MB. That is the disk IO, and it is why a sync makes the app
+unusable rather than merely slow.
+
+**RULES**
+
+1. **Never run two database-heavy agents at once.** The first outage was four
+   concurrent workloads: a VACUUM, a count over cards_unique stuck on IO for two
+   minutes, the tagger re-running, and combo ingestion. Serialise them.
+2. **Never leave a per-minute cron job behind.** An agent created two jobs on
+   `* * * * *` that ran forever after its workflow was stopped. Cron survives the
+   agent that made it.
+3. **Never write `set statement_timeout = 0` in a scheduled job.** One did, which
+   is why the second outage could not self-clear: a query with no timeout holds
+   its connection indefinitely and nothing can kill it without a restart.
+4. **A materialized view refresh takes an ACCESS EXCLUSIVE lock** and blocks every
+   read of it. `cards_unique` was refreshing every 15 minutes; it is nightly now.
+   Make it CONCURRENT (needs a unique index) before increasing that.
+5. **Measure with EXPLAIN on a sample.** Do not run a full scan to find out how
+   slow a full scan is.
+
+**DO NOT DROP INDEXES ON POST-RESTART STATISTICS.** After the restart every index
+reported `idx_scan = 0`, which means the counters were reset, NOT that the index
+is unused. Index usage needs at least a week of real traffic before it means
+anything. The candidates worth examining then, by size: `idx_cards_oracle_text_trgm`
+(32 MB) and `cards_unique_oracle_text_trgm_idx` (10 MB), which are trigram indexes
+and the most expensive kind to maintain on write, plus `idx_cards_legalities`
+(9.5 MB) and `idx_cards_name_trgm` (7.4 MB).
+
+**The cheapest structural win available** is that `cards` and `cards_unique` carry
+near-duplicate index sets over the same data. One of them can probably lose most
+of its indexes once usage stats exist to prove which.

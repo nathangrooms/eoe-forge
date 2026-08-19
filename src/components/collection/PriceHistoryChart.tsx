@@ -208,11 +208,11 @@ export function PriceHistoryChart({ collectionCards }: PriceHistoryChartProps) {
               <p className="font-medium text-foreground">
                 {priceData.length === 0
                   ? 'Tracking starts with your first snapshot'
-                  : 'One snapshot recorded — one more and the chart appears'}
+                  : 'One snapshot recorded. One more and the chart appears'}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 Your collection is currently worth {formatPrice(currentValue)}. Capture a
-                snapshot to start a history — nothing here is estimated.
+                snapshot to start a history. Nothing here is estimated.
               </p>
             </div>
             <Button size="sm" onClick={captureSnapshot} disabled={capturing}>

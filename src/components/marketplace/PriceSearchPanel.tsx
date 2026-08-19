@@ -26,6 +26,7 @@ import { ActiveFilterChips, CardFilterPanel, useCardFilterState } from '@/compon
 import { getBestCardImage } from '@/lib/scryfall/card-utils';
 import { CardPriceDetail } from './CardPriceDetail';
 import { useMarketplaceSeed } from './useMarketplaceSeed';
+import { NO_PRICE } from '@/lib/pricing';
 
 interface PriceResult {
   marketplace: string;
@@ -740,7 +741,11 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
                     {card.rarity ?? '—'}
                   </td>
                   <td className="whitespace-nowrap px-4 py-2 text-right tabular-nums text-foreground">
-                    {priceLabel(card) ?? <span className="text-muted-foreground">—</span>}
+                    {/* A dash in the price column reads as a rendering gap. Say
+                        it, in the same words the rest of the product uses. */}
+                    {priceLabel(card) ?? (
+                      <span className="text-xs font-normal text-muted-foreground">{NO_PRICE}</span>
+                    )}
                   </td>
                   <td className="whitespace-nowrap px-4 py-2 text-right">
                     <Button

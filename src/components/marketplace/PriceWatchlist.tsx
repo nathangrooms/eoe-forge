@@ -17,6 +17,7 @@ import {
 import { showSuccess } from '@/components/ui/toast-helpers';
 import { Link } from 'react-router-dom';
 import { CardImage, cardDetailPath } from '@/components/cards';
+import { formatAmount, readAmount, NO_PRICE } from '@/lib/pricing';
 
 interface WatchlistItem {
   id: string;
@@ -25,7 +26,18 @@ interface WatchlistItem {
   name: string;
   set_code: string;
   image_uri?: string;
-  currentPrice: number;
+  /**
+   * What the card cost when it was added, or null when no shop quoted it.
+   *
+   * Null, not 0. Around a thousand printings in the catalogue carry no USD
+   * price, and this row printed `$0.00` for every one of them. Shivan Dragon
+   * in Secret Lair is the case that shows the cost: no USD price, a Cardmarket
+   * quote of 2,199.95 euro, and a watchlist that told the reader it was free.
+   *
+   * Rows saved before this change hold a literal 0, so every value is read
+   * through `readAmount`, which turns 0 back into "we do not know".
+   */
+  currentPrice: number | null;
   targetPrice?: number;
   alertEnabled: boolean;
   addedAt: string;
@@ -108,9 +120,15 @@ export function PriceWatchlist({
     }
   };
 
-  const alertCount = items.filter(item =>
-    item.targetPrice && item.currentPrice <= item.targetPrice
-  ).length;
+  /* A card we hold no price for cannot have reached a target. It used to count
+     as 0, so every unpriced card sat permanently "at target" and the alert
+     badge counted cards nobody had a price for. */
+  const atTargetNow = (item: WatchlistItem) => {
+    const price = readAmount(item.currentPrice);
+    return price != null && item.targetPrice != null && price <= item.targetPrice;
+  };
+
+  const alertCount = items.filter(atTargetNow).length;
 
   return (
     <Card>
@@ -144,7 +162,8 @@ export function PriceWatchlist({
         ) : (
           <div className="space-y-3">
             {items.map((item) => {
-              const atTarget = item.targetPrice && item.currentPrice <= item.targetPrice;
+              const atTarget = atTargetNow(item);
+              const price = readAmount(item.currentPrice);
 
               return (
                 <div
@@ -183,9 +202,13 @@ export function PriceWatchlist({
                     </p>
 
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold">
-                        ${item.currentPrice.toFixed(2)}
-                      </span>
+                      {price != null ? (
+                        <span className="text-sm font-bold tabular-nums">
+                          {formatAmount(price, 'USD')}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">{NO_PRICE}</span>
+                      )}
 
                       {item.priceChange !== undefined && (
                         <Badge

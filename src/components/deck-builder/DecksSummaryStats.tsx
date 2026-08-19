@@ -1,5 +1,4 @@
 import { Card, CardContent } from '@/components/ui/card';
-import { DollarSign, Layers, Package, Star, Target, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { DeckSummary } from '@/lib/api/deckAPI';
 import { usesPowerLevel } from '@/lib/deck/formats';
@@ -51,9 +50,8 @@ export function DecksSummaryStats({ decks, className }: DecksSummaryStatsProps) 
     value: string;
     suffix?: string;
     subtext?: string;
-    icon: typeof Layers;
   }> = [
-    { label: 'Total decks', value: totalDecks.toLocaleString(), icon: Layers },
+    { label: 'Total decks', value: totalDecks.toLocaleString() },
     {
       label: 'Avg power',
       value: avgPowerLevel === null ? '—' : avgPowerLevel.toFixed(1),
@@ -62,15 +60,13 @@ export function DecksSummaryStats({ decks, className }: DecksSummaryStatsProps) 
         avgPowerLevel === null
           ? 'No scored Commander decks'
           : `${powerDecks.length} scored Commander deck${powerDecks.length === 1 ? '' : 's'}`,
-      icon: Target,
     },
     {
       label: 'Total value',
       value: `$${Math.round(totalValue).toLocaleString()}`,
-      icon: DollarSign,
     },
-    { label: 'Favorites', value: favoriteCount.toLocaleString(), icon: Star },
-    { label: 'Total cards', value: totalCards.toLocaleString(), icon: Package },
+    { label: 'Favorites', value: favoriteCount.toLocaleString() },
+    { label: 'Total cards', value: totalCards.toLocaleString() },
     {
       label: 'Complete',
       value: builtDecks.length > 0 ? `${completionRate}%` : '—',
@@ -78,7 +74,6 @@ export function DecksSummaryStats({ decks, className }: DecksSummaryStatsProps) 
         builtDecks.length > 0
           ? `${completeDecks} of ${builtDecks.length} built deck${builtDecks.length === 1 ? '' : 's'}`
           : 'No deck has cards yet',
-      icon: TrendingUp,
     },
   ];
 
@@ -87,14 +82,16 @@ export function DecksSummaryStats({ decks, className }: DecksSummaryStatsProps) 
       {stats.map(stat => (
         <Card key={stat.label}>
           <CardContent className="p-4">
+            {/* NO ICONS. A boxed pictogram beside every number says nothing the
+                label does not, and six of them in a row is the house style of
+                every generated dashboard. Owner: "Deck manage metrics dont need
+                icons - makes it look like ai slop". The number is the thing;
+                give it the space instead. */}
             <div className="flex items-center gap-3">
-              <div className="rounded-md bg-muted p-2">
-                <stat.icon className="h-4 w-4 text-muted-foreground" />
-              </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs text-muted-foreground">{stat.label}</p>
                 <div className="flex items-baseline gap-0.5">
-                  <span className="text-lg font-bold tabular-nums">{stat.value}</span>
+                  <span className="text-2xl font-semibold tabular-nums">{stat.value}</span>
                   {stat.suffix && (
                     <span className="text-xs text-muted-foreground">{stat.suffix}</span>
                   )}

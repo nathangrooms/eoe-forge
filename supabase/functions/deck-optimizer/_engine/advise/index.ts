@@ -28,13 +28,13 @@
  * ```
  */
 
-export * from './types.ts';
+export * from '../core/types.ts';
 export * from './roles.ts';
 export * from './profile.ts';
 export * from './query.ts';
 export * from './rank.ts';
 
-import type { DeckProfile, Recommendation, RecommendOptions } from './types.ts';
+import type { DeckProfile, Recommendation, RecommendOptions } from '../core/types.ts';
 import {
   buildCandidateQuery,
   normalizeRow,

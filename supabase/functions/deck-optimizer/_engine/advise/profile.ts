@@ -9,9 +9,10 @@
  * Pure. No network, no AI.
  */
 
-import { signalTags } from '../../cards/tag-signal.ts';
-import type { DeckCard, DeckProfile, Role } from './types.ts';
-import { ROLES } from './types.ts';
+import { signalTags } from '../knowledge/tag-signal.ts';
+import type { ManaProfile } from '../playability/castability.ts';
+import type { DeckCard, DeckProfile, Role } from '../core/types.ts';
+import { ROLES } from '../core/types.ts';
 import { roleTargetsFor, servesRole } from './roles.ts';
 import { normalizeIdentity } from './query.ts';
 
@@ -21,6 +22,12 @@ export interface DeckProfileInput {
   colorIdentity: readonly string[];
   cards: readonly DeckCard[];
   roleTargets?: Partial<Record<Role, number>>;
+  /**
+   * The deck's mana base, so ranking can ask whether a candidate is castable.
+   * Omit it and castability is simply not consulted, which is the honest
+   * default: unknown is not the same as unsupported.
+   */
+  manaProfile?: ManaProfile | null;
 }
 
 /** Does this type line describe a land? */
@@ -86,6 +93,7 @@ export function deriveDeckProfile(input: DeckProfileInput): DeckProfile {
     roleCounts,
     roleTargets: roleTargetsFor(input.format, input.roleTargets),
     ownedOracleIds,
+    manaProfile: input.manaProfile ?? null,
   };
 }
 

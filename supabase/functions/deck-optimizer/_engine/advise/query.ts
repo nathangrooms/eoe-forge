@@ -33,8 +33,8 @@
  * Pure. No network, no AI.
  */
 
-import type { CandidateCard, Color, DeckProfile } from './types.ts';
-import { COLORS } from './types.ts';
+import type { CandidateCard, Color, DeckProfile } from '../core/types.ts';
+import { COLORS } from '../core/types.ts';
 
 /**
  * Formats with a partial expression index on `legalities->>'<format>'`.
@@ -78,6 +78,8 @@ export function selectColumns(format: string): string[] {
     'color_identity',
     'tags',
     'mana_cost',
+    // A popularity prior, not a verdict. See `CandidateCard.edhrecRank`.
+    'edhrec_rank',
     `prices->>'usd' as usd`,
     `legalities->>'${format}' as legal_in_format`,
   ];
@@ -233,6 +235,8 @@ export interface RawCardRow {
   usd?: string | number | null;
   /** Whole `prices` object, when not projected. */
   prices?: { usd?: string | number | null } | null;
+  /** Scryfall's EDHREC popularity rank. Null until the sync has reached it. */
+  edhrec_rank?: number | string | null;
   /** Projected `legalities->>'<format>'`. */
   legal_in_format?: string | null;
   /** Whole `legalities` map, when not projected. */
@@ -278,6 +282,7 @@ export function normalizeRow(row: RawCardRow, format?: string): CandidateCard {
     manaCost: row.mana_cost ?? null,
     usd: toNumber(row.usd ?? row.prices?.usd ?? null),
     legalities,
+    edhrecRank: toNumber(row.edhrec_rank ?? null),
   };
 }
 

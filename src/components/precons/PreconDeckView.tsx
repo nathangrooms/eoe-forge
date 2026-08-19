@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ChevronLeft, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { identityGround } from '@/lib/cards/identityGround';
 import {
   CardGrid,
   CardImage,
@@ -173,12 +174,16 @@ export function PreconDeckView({
               loading="eager"
               decoding="async"
               draggable={false}
-              /* scale-125 so the blur radius never pulls transparent edges in */
-              className="h-full w-full scale-125 object-cover object-[50%_35%] blur-2xl"
+              className="h-full w-full object-cover object-[50%_35%] opacity-40"
             />
           )}
           {/* Sits the card on a ground dark enough to read against, and fades
               the band into the panel below rather than ending on a hard line. */}
+          <div
+            aria-hidden="true"
+            className="absolute inset-0"
+            style={{ background: identityGround(precon.ci, { alpha: 0.5 }) ?? undefined }}
+          />
           <div
             aria-hidden="true"
             className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/45 to-card"

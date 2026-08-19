@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { Crown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CardImage } from '@/components/cards';
+import { identityGround } from '@/lib/cards/identityGround';
 import { ColorIdentity, ManaCost } from '@/components/ui/mana-cost';
 import {
   commanderArt,
@@ -134,19 +135,22 @@ function PreconTileBase({
                 for a wall of modern commanders, and the owner reported the
                 cropping twice.
 
-                So the sharp art is CONTAINED and never cut, and the same image
-                blurred fills whatever the contain leaves over. Nothing is lost,
-                and there is no letterboxed void: the band still reads as one
-                block of the deck's own colour. Same pattern as the precon hero,
-                recorded in CLAUDE.md as blurred art for identity. */}
-            <img
-              src={art}
-              alt=""
+                So the sharp art is CONTAINED and never cut, and a colour wash
+                fills whatever the contain leaves over. Nothing is lost, and
+                there is no letterboxed void: the band still reads as one block
+                of the deck's own colour. */}
+            {/* A colour-identity wash, NOT a blurred copy of the art.
+                Scryfall's image terms say plainly: do not blur, sharpen,
+                desaturate or colour-shift card images. Our use was decorative
+                with the sharp card over it, which may well have been fine, but
+                the downside of being wrong is losing the API the whole product
+                runs on. The colour now comes from the deck's own identity,
+                which is our derived data, and it reads better anyway: a Simic
+                precon looks blue-green whether or not its commander art does. */}
+            <div
               aria-hidden="true"
-              loading={eager ? 'eager' : 'lazy'}
-              decoding="async"
-              draggable={false}
-              className="absolute inset-0 h-full w-full scale-110 object-cover blur-xl"
+              className="absolute inset-0"
+              style={{ background: identityGround(precon.ci) ?? undefined }}
             />
             <img
               src={art}

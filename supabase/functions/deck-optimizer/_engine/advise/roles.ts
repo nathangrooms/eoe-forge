@@ -2,7 +2,7 @@
  * Roles: the handful of jobs a deck needs filled, expressed in real tags.
  *
  * Every tag named below was checked against `TAG_RULES` in
- * `@/lib/cards/tagger` — no role maps to a tag that does not exist, and
+ * `knowledge/tagger.ts` — no role maps to a tag that does not exist, and
  * `roles.test` fails if one ever does. Both canonical names and their legacy
  * aliases are listed, because a deck row may carry either; role membership is
  * a boolean, so listing an alias beside its canonical name cannot double-count
@@ -11,8 +11,8 @@
  * Pure. No network, no AI.
  */
 
-import type { Role } from './types.ts';
-import { ROLES } from './types.ts';
+import type { Role } from '../core/types.ts';
+import { ROLES } from '../core/types.ts';
 
 /**
  * Tags that mark a card as serving a role.

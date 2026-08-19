@@ -19,6 +19,8 @@
  * Pure data. No network, no AI.
  */
 
+import type { ManaProfile } from '../playability/castability.ts';
+
 /** The five colour-identity letters actually stored in `cards.color_identity`. */
 export type Color = 'W' | 'U' | 'B' | 'R' | 'G';
 
@@ -55,6 +57,23 @@ export interface CandidateCard {
   usd: number | null;
   /** Raw legalities map, e.g. `{ commander: 'legal', modern: 'not_legal' }`. */
   legalities: Record<string, string>;
+  /**
+   * Scryfall's EDHREC popularity rank. 1 is the most-played card in Commander.
+   *
+   * Be careful about what this IS. It is a popularity ORDERING across all
+   * cards, not a quality score and not deck-specific synergy. Scryfall ships it
+   * on every card object and our nightly sync stores it, which makes it the
+   * only "what do people actually play" signal in the schema; we hold no
+   * inclusion counts, no win rates and no per-commander data of our own.
+   *
+   * So it is used as a weak PRIOR and never as a verdict. A rank-1 card the
+   * deck cannot cast is still a bad card for that deck, which is exactly why
+   * castability gates and this only tilts.
+   *
+   * Null when the sync has not reached that printing yet, and null means
+   * unknown rather than unpopular.
+   */
+  edhrecRank: number | null;
 }
 
 /** A card already in the deck. Only the fields ranking actually reads. */
@@ -95,6 +114,17 @@ export interface DeckProfile {
   roleTargets: Record<Role, number>;
   /** Oracle ids already in the deck — never recommended back to the user. */
   ownedOracleIds: ReadonlySet<string>;
+  /**
+   * This deck's mana base, when the caller has it.
+   *
+   * Optional because a caller with only `{name, tags}` rows genuinely cannot
+   * supply it, and a missing mana base must mean "castability was not checked"
+   * rather than "nothing is castable". When it IS present, `rank.ts` both
+   * scores castability and refuses to suggest a card the base cannot support.
+   * That is the product decision that a card you cannot cast is worth nothing
+   * no matter how well it fits, applied to additions as well as to cuts.
+   */
+  manaProfile?: ManaProfile | null;
 }
 
 /**
@@ -105,7 +135,7 @@ export interface DeckProfile {
  * attributable to a column in `cards` or a count taken from the deck.
  */
 export interface Signal {
-  kind: 'role-gap' | 'tag-synergy' | 'curve-fit' | 'budget-fit';
+  kind: 'role-gap' | 'tag-synergy' | 'curve-fit' | 'budget-fit' | 'castability' | 'popularity';
   /** Contribution to the total score. May be negative (curve fit only). */
   score: number;
   /** Human-readable clause, built from numbers. */

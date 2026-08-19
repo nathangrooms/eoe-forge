@@ -21,7 +21,8 @@
  * Pure. No network, no AI.
  */
 
-import { sharedTagScore, sharedTags as sharedSignalTags } from '../../cards/tag-signal.ts';
+import { sharedTagScore, sharedTags as sharedSignalTags } from '../knowledge/tag-signal.ts';
+import { cardPlayability, type ManaProfile } from '../playability/castability.ts';
 import type {
   CandidateCard,
   DeckProfile,
@@ -29,8 +30,8 @@ import type {
   RecommendOptions,
   Role,
   Signal,
-} from './types.ts';
-import { ROLES } from './types.ts';
+} from '../core/types.ts';
+import { ROLES } from '../core/types.ts';
 import { isLegalIn, withinIdentity } from './query.ts';
 import { roleShortfall } from './profile.ts';
 import { servesRole } from './roles.ts';
@@ -51,13 +52,50 @@ import { servesRole } from './roles.ts';
  *   curve      1.0  A tilt, not a verdict. Measured against the deck's own
  *                   mean mana value, so it invents no ideal curve.
  *   budget     1.0  Only consulted when the user asks about budget.
+ *
+ *   castable   2.5  Added when the mana base is known. Placed ABOVE synergy and
+ *                   below role gap on a product decision, not a measurement: a
+ *                   card you cannot reliably cast is worth nothing however well
+ *                   it fits the theme, but a card that fixes a concrete
+ *                   deficiency is still the more useful suggestion. It is also
+ *                   a GATE — see `cannot-cast` in `ineligibility` — because
+ *                   ranking an uncastable card lower still leaves it on the
+ *                   list, and a suggestion the deck cannot support is not a
+ *                   weak suggestion, it is a wrong one.
+ *
+ *                   2.5 is a starting position with no empirical basis, and it
+ *                   must not be presented as one. There is no labelled data in
+ *                   this product to fit it to.
  */
 export const WEIGHTS = {
   roleGap: 3.0,
+  playability: 2.5,
   tagSynergy: 2.0,
   curveFit: 1.0,
   budgetFit: 1.0,
+  popularity: 0.8,
 } as const;
+
+/**
+ * The rank at which the popularity prior has decayed to nothing.
+ *
+ * `edhrec_rank` is a popularity ordering over the whole catalogue, so its
+ * useful signal is concentrated at the top: the gap between rank 5 and rank 50
+ * says something, the gap between 12,000 and 12,500 says nothing. A logarithmic
+ * decay to zero at this rank is the shape that matches, and it puts the weight
+ * BELOW curve fit, which is the point. It is a tilt among equals, not a reason.
+ */
+const POPULARITY_HORIZON = 25000;
+
+/**
+ * Below this a card is not offered at all.
+ *
+ * Deliberately well under the 40% at which a card in the deck already counts as
+ * a problem. Refusing to SUGGEST is a stronger action than flagging something
+ * already present, so the bar for it is set lower, and a card that merely looks
+ * awkward is ranked down rather than hidden.
+ */
+export const UNCASTABLE_GATE_PCT = 25;
 
 /**
  * Saturation constant for tag synergy.
@@ -91,7 +129,8 @@ export type Ineligibility =
   | 'already-in-deck'
   | 'never-suggest'
   | 'over-budget'
-  | 'unpriced-under-budget-cap';
+  | 'unpriced-under-budget-cap'
+  | 'cannot-cast';
 
 /**
  * Why this card may not be suggested, or null if it may.
@@ -115,7 +154,55 @@ export function ineligibility(
     if (card.usd === null) return 'unpriced-under-budget-cap';
     if (card.usd > options.maxUsd) return 'over-budget';
   }
+
+  // The same rule as prices, applied to castability: unknown is not zero. A
+  // profile with no mana base, or a card with no cost, is simply not checked.
+  const pct = castabilityPct(card, profile);
+  if (pct !== null && pct < UNCASTABLE_GATE_PCT) return 'cannot-cast';
+
   return null;
+}
+
+/* ------------------------------------------------------------------ *
+ * Castability
+ * ------------------------------------------------------------------ */
+
+/**
+ * How often this deck could pay for this card, or null if we cannot say.
+ *
+ * Memoised per profile on the mana cost alone, because that is genuinely all
+ * castability depends on: two cards costing `{1}{U}` have the same answer by
+ * definition. Without this a 30,000-row pool would solve the same hypergeometric
+ * thousands of times. The memo hangs off the profile object rather than off the
+ * module, so it cannot leak between decks and cannot survive the profile.
+ */
+const castabilityMemo = new WeakMap<DeckProfile, Map<string, number | null>>();
+
+export function castabilityPct(card: CandidateCard, profile: DeckProfile): number | null {
+  const mana: ManaProfile | null | undefined = profile.manaProfile;
+  if (!mana) return null;
+  if (!card.manaCost) return null;
+
+  let memo = castabilityMemo.get(profile);
+  if (!memo) {
+    memo = new Map();
+    castabilityMemo.set(profile, memo);
+  }
+  const hit = memo.get(card.manaCost);
+  if (hit !== undefined) return hit;
+
+  let value: number | null = null;
+  try {
+    value = cardPlayability(
+      { name: card.name, type_line: card.typeLine, mana_cost: card.manaCost, cmc: card.cmc },
+      mana
+    ).pct;
+  } catch {
+    // An unparseable cost is unknown, not unsupported.
+    value = null;
+  }
+  memo.set(card.manaCost, value);
+  return value;
 }
 
 /* ------------------------------------------------------------------ *
@@ -186,6 +273,38 @@ export function scoreCandidate(
       score: WEIGHTS.curveFit * clamped,
       detail: `${Math.abs(delta).toFixed(1)} mana value ${delta > 0 ? 'below' : 'above'} your curve`,
     });
+  }
+
+  /* --- Castability --------------------------------------------------- */
+  // Only ever reported when the deck's mana base is known. A card the engine
+  // could not measure produces no signal at all, rather than a zero that would
+  // read as "you definitely cannot cast this".
+  const castable = castabilityPct(card, profile);
+  if (castable !== null) {
+    signals.push({
+      kind: 'castability',
+      score: WEIGHTS.playability * (castable / 100),
+      detail: `you could pay for this ${Math.round(castable)}% of the time on turn ${Math.max(1, Math.round(card.cmc))}`,
+    });
+  }
+
+  /* --- Popularity ---------------------------------------------------- */
+  // The weakest signal in the model, and deliberately so. It says "other people
+  // play this", which is worth something when two cards are otherwise level and
+  // worth nothing against a card that fixes a real deficiency. Absent for a
+  // card the sync has not reached, because unknown is not unpopular.
+  if (card.edhrecRank !== null && card.edhrecRank > 0) {
+    const decay = Math.max(
+      0,
+      1 - Math.log(card.edhrecRank) / Math.log(POPULARITY_HORIZON)
+    );
+    if (decay > 0) {
+      signals.push({
+        kind: 'popularity',
+        score: WEIGHTS.popularity * decay,
+        detail: `played in a lot of decks (EDHREC rank ${card.edhrecRank.toLocaleString('en')})`,
+      });
+    }
   }
 
   /* --- Budget ------------------------------------------------------- */

@@ -10,6 +10,12 @@ import {
   type MarketingCard,
 } from '@/components/marketing/sectionData';
 import gameChangerCatalog from '@/lib/deckbuilder/score/catalog.gamechangers.json';
+import {
+  SUBSCORE_WEIGHTS,
+  SUBSCORE_ORDER,
+  SUBSCORE_LABELS,
+  SUBSCORE_DESCRIPTIONS,
+} from '@/engine/power/weights';
 import { cn } from '@/lib/utils';
 
 /**
@@ -21,7 +27,7 @@ import { cn } from '@/lib/utils';
  * the model does not just weight abstractions, it looks for *named cards*, and
  * that list is a checked-in file rather than a prompt.
  *
- * So the weights stay (they are real constants — `EDHPowerCalculator`'s
+ * So the weights stay (they are real constants, read from the engine's
  * `defaultConfig.weights` in src/lib/deckbuilder/score/edh-power-calculator.ts,
  * expressed there as 0.20 / 0.15 / 0.12 … and printed here as percentages), and
  * underneath them the section prints the catalogue the scorer reads.
@@ -35,29 +41,35 @@ import { cn } from '@/lib/utils';
  *   - Every card is resolved to a real `cards` row by name and drawn WHOLE at
  *     5:7. A name the catalogue holds but the catalogue table does not is simply
  *     not drawn — there are no placeholder slots.
- *   - The four bands are the calculator's own `thresholds` labels.
+ *   - The four bands are the engine's own band labels.
  */
 
 /* ------------------------------------------------------------------ weights */
 
 /**
- * `EDHPowerCalculator.defaultConfig.weights`, as percentages.
+ * The real weights, imported rather than transcribed.
  *
- * Deliberately not imported: pulling the calculator in would drag the feature
- * extractor, the 10,000-hand simulator and the coach into the marketing bundle
- * to read nine numbers. They are checked against the source above.
+ * This used to be a hand-copied array of nine numbers taken from
+ * `EDHPowerCalculator.defaultConfig.weights`, with a comment explaining that
+ * importing the calculator would drag the feature extractor, the 10,000-hand
+ * simulator and the coach into the marketing bundle.
+ *
+ * That calculator no longer exists. It was replaced by `src/engine/power/`, the
+ * model gained a tenth subscore, and castability became the heaviest at 0.22 —
+ * so this page was advertising weights the product had stopped using. A public
+ * page stating figures that do not match the software is precisely what
+ * CLAUDE.md section 12.7 forbids, and a transcribed constant will drift again
+ * the moment anybody retunes the model.
+ *
+ * The old objection no longer applies either: `weights.ts` is a leaf that
+ * imports one type and nothing else. No catalogues, no tagger, no simulator.
  */
-const SUBSCORES: { label: string; weight: number; blurb: string }[] = [
-  { label: 'Speed', weight: 20, blurb: 'How early the deck can actually get going' },
-  { label: 'Interaction', weight: 15, blurb: 'Answers held up, not just threats deployed' },
-  { label: 'Tutors', weight: 12, blurb: 'Graded by what each one can actually find' },
-  { label: 'Resilience', weight: 12, blurb: 'What happens after the board is wiped' },
-  { label: 'Mana', weight: 12, blurb: 'Sources, fixing and how many enter untapped' },
-  { label: 'Consistency', weight: 12, blurb: 'How often the deck draws its own plan' },
-  { label: 'Card advantage', weight: 10, blurb: 'Cards that keep drawing, not one-off cantrips' },
-  { label: 'Stax', weight: 4, blurb: 'Pressure applied to everyone else' },
-  { label: 'Synergy', weight: 3, blurb: 'How much your commander adds to the deck' },
-];
+const SUBSCORES = SUBSCORE_ORDER.map(key => ({
+  label: SUBSCORE_LABELS[key],
+  /* Stored as fractions that sum to 1; this section prints percentages. */
+  weight: Math.round(SUBSCORE_WEIGHTS[key] * 100),
+  blurb: SUBSCORE_DESCRIPTIONS[key],
+}));
 
 const BANDS = ['Casual', 'Mid', 'High', 'cEDH'];
 
@@ -235,7 +247,7 @@ export function HomePower() {
       <SectionHeading
         eyebrow="Power level"
         title="A power level you can argue with"
-        lead="Find out if your deck is too strong for your group, before you sit down. Nine things get measured and all nine are shown below, so you can see why the number came out the way it did. The same deck always gets the same score."
+        lead="Find out if your deck is too strong for your group, before you sit down. Ten things get measured and all ten are shown below, so you can see why the number came out the way it did. The same deck always gets the same score."
       />
 
       {/* ------------------------------------------------------- the weights */}

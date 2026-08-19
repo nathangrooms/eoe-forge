@@ -86,7 +86,7 @@ export function AIAnalysisPanel({
       const welcomeMessage: Message = {
         id: '1',
         type: 'assistant',
-        content: `## 🚀 DeckMatrix AI Analysis Engine Activated
+        content: `## 🚀 Deck analysis Activated
 
 **TARGET DECK**: ${deckName}  
 **FORMAT**: ${deckFormat} | **POWER**: ${
@@ -96,7 +96,7 @@ export function AIAnalysisPanel({
 }
 
 ### Ready for Deep Strategic Analysis
-I'm your dedicated DeckMatrix AI analyst. Ask me anything about your deck's strategy, card interactions, or optimization opportunities!`,
+This reads your decklist. Ask me anything about your deck's strategy, card interactions, or optimization opportunities!`,
         timestamp: new Date()
       };
       setMessages([welcomeMessage]);
@@ -291,7 +291,7 @@ I'm your dedicated DeckMatrix AI analyst. Ask me anything about your deck's stra
               <Sparkles className="h-5 w-5 text-primary-foreground" />
             </div>
             <div>
-              <h3 className="font-semibold text-lg">DeckMatrix AI</h3>
+              <h3 className="font-semibold text-lg">Deck analysis</h3>
               <p className="text-xs text-spacecraft">Analyzing: {deckName}</p>
             </div>
           </div>

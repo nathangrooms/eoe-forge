@@ -83,7 +83,7 @@ Focus on variety and strategic diversity. End with: Referenced Cards: [list comm
         {!recommendations && !loading && (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Get AI-powered recommendations for deck templates based on your playstyle and format.
+              Template suggestions based on your playstyle and format.
             </p>
             <Button 
               onClick={generateRecommendations}

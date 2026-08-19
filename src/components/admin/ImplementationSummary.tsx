@@ -37,7 +37,7 @@ export function ImplementationSummary() {
         'Deck search and filters',
         'Power level consistency analysis',
         'Enhanced match tracker with statistics',
-        'AI-powered archetype detection',
+        'Archetype detection',
         'Budget tracker with spending analysis',
         'Card replacement engine for alternatives',
         'Social features with ratings and comments',

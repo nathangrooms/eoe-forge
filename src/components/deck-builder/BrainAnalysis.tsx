@@ -231,11 +231,11 @@ export function BrainAnalysis({ deck, commander, powerScore, deckId, format }: B
       const welcomeMessage: Message = {
         id: '1',
         type: 'assistant',
-        content: `## 🧠 DeckMatrix AI Analysis Engine
+        content: `## 🧠 Deck analysis
 
 **ANALYZING**: ${commander?.name || 'Deck'} | **POWER**: ${powerScore.score.toFixed(1)}/10 (${powerScore.band})
 
-I'm your dedicated DeckMatrix AI analyst with comprehensive Magic knowledge. Select an analysis option below or ask me anything about your deck's strategy, optimization, or card choices.
+This reads your decklist with comprehensive Magic knowledge. Select an analysis option below or ask me anything about your deck's strategy, optimization, or card choices.
 
 **Response Mode**: ${detailedResponses ? '📖 Detailed' : '⚡ Concise'} (toggle in settings)`,
         timestamp: new Date()
@@ -462,7 +462,7 @@ I'm your dedicated DeckMatrix AI analyst with comprehensive Magic knowledge. Sel
                 <div className="bg-background/80 backdrop-blur-sm border border-border rounded-lg p-4">
                   <div className="flex items-center gap-2">
                     <div className="animate-spin h-4 w-4 ring-2 ring-primary ring-offset-0 border-t-transparent rounded-full" />
-                    <span className="text-sm text-muted-foreground">DeckMatrix AI is analyzing...</span>
+                    <span className="text-sm text-muted-foreground">Reading your deck...</span>
                   </div>
                 </div>
               </div>

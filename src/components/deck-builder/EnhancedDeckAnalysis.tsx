@@ -277,7 +277,7 @@ const optimizations = useMemo(() => {
                   onClick={() => setAiAnalysisFocus('curve')}
                 >
                   <Sparkles className="h-4 w-4" />
-                  AI Analysis
+                  Deck analysis
                 </Button>
               </CardTitle>
             </CardHeader>
@@ -285,7 +285,7 @@ const optimizations = useMemo(() => {
               {aiAnalysisFocus === 'curve' && (
                 <div className="mb-4 p-3 border rounded bg-muted/30">
                   {inlineLoading ? (
-                    <div className="text-sm text-muted-foreground">AI analyzing...</div>
+                    <div className="text-sm text-muted-foreground">Analysing...</div>
                   ) : inlineAI.text ? (
                     <div className="space-y-3">
                       <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
@@ -392,7 +392,7 @@ const optimizations = useMemo(() => {
                   onClick={() => setAiAnalysisFocus('lands')}
                 >
                   <Sparkles className="h-4 w-4" />
-                  AI Analysis
+                  Deck analysis
                 </Button>
               </CardTitle>
             </CardHeader>
@@ -400,7 +400,7 @@ const optimizations = useMemo(() => {
               {aiAnalysisFocus === 'lands' && (
                 <div className="mb-4 p-3 border rounded bg-muted/30">
                   {inlineLoading ? (
-                    <div className="text-sm text-muted-foreground">AI analyzing...</div>
+                    <div className="text-sm text-muted-foreground">Analysing...</div>
                   ) : inlineAI.text ? (
                     <div className="space-y-3">
                       <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
@@ -508,7 +508,7 @@ const optimizations = useMemo(() => {
                   onClick={() => setAiAnalysisFocus('synergy')}
                 >
                   <Sparkles className="h-4 w-4" />
-                  AI Analysis
+                  Deck analysis
                 </Button>
               </CardTitle>
             </CardHeader>
@@ -516,7 +516,7 @@ const optimizations = useMemo(() => {
               {aiAnalysisFocus === 'synergy' && (
                 <div className="mb-4 p-3 border rounded bg-muted/30">
                   {inlineLoading ? (
-                    <div className="text-sm text-muted-foreground">AI analyzing...</div>
+                    <div className="text-sm text-muted-foreground">Analysing...</div>
                   ) : inlineAI.text ? (
                     <div className="space-y-3">
                       <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
@@ -631,7 +631,7 @@ const optimizations = useMemo(() => {
                   onClick={() => setAiAnalysisFocus('validation')}
                 >
                   <Sparkles className="h-4 w-4" />
-                  AI Analysis
+                  Deck analysis
                 </Button>
               </CardTitle>
             </CardHeader>
@@ -639,7 +639,7 @@ const optimizations = useMemo(() => {
               {aiAnalysisFocus === 'validation' && (
                 <div className="mb-4 p-3 border rounded bg-muted/30">
                   {inlineLoading ? (
-                    <div className="text-sm text-muted-foreground">AI analyzing...</div>
+                    <div className="text-sm text-muted-foreground">Analysing...</div>
                   ) : inlineAI.text ? (
                     <div className="space-y-3">
                       <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
@@ -743,7 +743,7 @@ const optimizations = useMemo(() => {
                   onClick={() => setAiAnalysisFocus('suggestions')}
                 >
                   <Sparkles className="h-4 w-4" />
-                  AI Analysis
+                  Deck analysis
                 </Button>
               </CardTitle>
             </CardHeader>
@@ -751,7 +751,7 @@ const optimizations = useMemo(() => {
               {aiAnalysisFocus === 'suggestions' && (
                 <div className="mb-4 p-3 border rounded bg-muted/30">
                   {inlineLoading ? (
-                    <div className="text-sm text-muted-foreground">AI analyzing...</div>
+                    <div className="text-sm text-muted-foreground">Analysing...</div>
                   ) : inlineAI.text ? (
                     <div className="space-y-3">
                       <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
@@ -838,7 +838,7 @@ const optimizations = useMemo(() => {
           </Card>
         </TabsContent>
 
-        {/* AI Analysis Tab */}
+        {/* Deck analysis Tab */}
         <TabsContent value="ai" className="h-[600px]">
           {deckId && deckName ? (
             <AIAnalysisPanel
@@ -870,9 +870,9 @@ const optimizations = useMemo(() => {
             <Card>
               <CardContent className="p-8 text-center">
                 <Sparkles className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-semibold mb-2">AI Analysis Unavailable</h3>
+                <h3 className="text-lg font-semibold mb-2">Deck analysis Unavailable</h3>
                 <p className="text-sm text-muted-foreground">
-                  Save your deck first to access AI-powered analysis
+                  Save your deck first to analyse it
                 </p>
               </CardContent>
             </Card>

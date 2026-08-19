@@ -208,7 +208,7 @@ export function UserDetails({ userId }: UserDetailsProps) {
           AI &amp; Features
         </h4>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <StatCard icon={Sparkles} label="AI Decks Built" value={stats.aiBuildsCount} />
+          <StatCard icon={Sparkles} label="Decks generated" value={stats.aiBuildsCount} />
           <StatCard icon={Heart} label="Favorite Decks" value={stats.favoriteDecks} />
         </div>
       </div>

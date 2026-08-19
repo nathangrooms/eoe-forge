@@ -321,18 +321,26 @@ client-visible, and the same values are hardcoded in `src/integrations/supabase/
 what actually gets used. **No rotation is needed.** History was deliberately left un-rewritten — a
 force-push to scrub a non-secret is not worth breaking every clone.
 
-### The audit backlog was a public download — closed 2026-08-19
+### The audit backlog is a public download. Fixed in the repo, STILL LIVE.
+
+> 🔴 **This is not closed.** The code change is in `main`. Lovable has not published since, so the
+> file is still being served. Re-measured 2026-08-19, after the fix was committed and pushed:
+>
+> ```
+> GET https://deckmatrix.com/assets/auditFindings-B6Ihw0Jk.js  ->  200, 330,965 bytes
+> GET https://deckmatrix.com/assets/index-CIy591UK.js          ->  200, 3,323,814 bytes
+>     ...and that entry chunk still names auditFindings-B6Ihw0Jk.js
+> ```
+>
+> The live entry chunk is the pre-split 3.32 MB one, which is the other half of the same fact: the
+> chunking work has not shipped either. **Nothing in this section reaches a visitor until someone
+> presses publish in Lovable.** Pushing to GitHub is not deploying. Do not write "fixed" about
+> anything user-facing until it has been re-measured against `deckmatrix.com` itself.
 
 `src/data/auditFindings.json` was 278 internal findings: file paths, severities, what is wrong with
 each one and what to do about it. Only the admin Dev Console imported it, but an import is an
-import, so Vite emitted it as a chunk and Lovable served it from the site's own origin. Measured
-before the fix:
+import, so Vite emitted it as a chunk and Lovable served it from the site's own origin.
 
-```
-GET https://deckmatrix.com/assets/auditFindings-B6Ihw0Jk.js  ->  200, 330,965 bytes
-```
-
-and that file name is written into the entry chunk, so it was discoverable, not merely guessable.
 Nothing in it is exploitable on its own. It is a map of the product's weak points on a commercial
 site, which is enough.
 
@@ -340,8 +348,11 @@ The 278 rows now live in `public.dev_findings`, which `anon` holds no grant on a
 over HTTP with the anon key, read and write). Two columns were added: `source` (`tracked` for
 findings raised in the console, `audit` for these) and `source_ref` (`af-001` … `af-278`). Migration
 `audit_backlog_lives_in_dev_findings_not_the_bundle`. The Dev Console still fetches the backlog only
-when the Findings tab is opened, from the table instead of a chunk; rendered before and after, the
-page is identical to the byte.
+when the Findings tab is opened, from the table instead of a chunk. Independently checked: 278 rows,
+`af-001` to `af-278`, every one `status = 'planned'`, which is the status the old code hardcoded for
+backlog rows, so the console's counts are unchanged. `created_at` is stamped `2026-08-18`, the same
+date the retired file carried in its `generated` field, so the "Audit generated" line still reads
+the same date. A fresh `npm run build` emits no chunk containing `auditFindings` or `af-001`.
 
 > ⚠️ **The GitHub repo is public** (`nathangrooms/eoe-forge`, verified). The same file was, and its
 > source `docs/overhaul/AUDIT.md` still is, readable at `raw.githubusercontent.com` by anyone. So
@@ -590,6 +601,18 @@ These are standing instructions from the owner. Treat them as constraints, not p
    animated grids. Animation is welcome for real state change; respect `prefers-reduced-motion`.
 7. **Nothing fabricated.** No invented statistics, testimonials, ratings or competitor claims.
    If a number cannot be read from the database or computed from real data, it does not ship.
+
+### Prices: a missing price is null, never 0
+Read every amount through `readAmount` from `@/lib/pricing` and print it with `formatAmount`, which
+returns null rather than `$0.00`. The smallest real price in the database is 0.01, so a rendered
+zero is always invented. Around a thousand printings carry no USD price at all.
+
+`parseFloat(x || '0')` is how the zero gets in, and it is written in several places that then pass
+the result on as if it were a price. It cost us this, found 2026-08-19: the marketplace watchlist
+showed **Shivan Dragon (Secret Lair) at `$0.00`**, a card with no USD quote and a Cardmarket price
+of €2,199.95. The same 0 also made every unpriced card count as permanently "at target" in the
+alert badge. Fixed in `PriceWatchlist.tsx` and `Marketplace.tsx`; the pattern is worth grepping for
+before adding any new price surface.
 
 ### Card images
 Use `@/components/cards/CardImage` — never a hand-rolled `<img>`. It right-sizes the Scryfall
@@ -866,3 +889,32 @@ mechanically, as a ratchet. Its own doc comment records what it still cannot
 see: it accepts any producer, so an action the engine builds during resolution
 counts as reachable even when the player-initiated path is missing. Closing that
 gap is a judgement call, not a check.
+
+## Migrations are double-recorded under two different version numbers
+
+Applying a migration through the Supabase MCP tool stamps its own version into
+`supabase_migrations.schema_migrations`. Writing the matching file into
+`supabase/migrations/` by hand picks a different timestamp. The result is the
+same migration recorded twice under two version numbers, and every recent
+migration on this project is in that state:
+
+| in the database   | in the repo       | name                                          |
+|-------------------|-------------------|-----------------------------------------------|
+| 20260819163240    | 20260819235000    | audit_backlog_lives_in_dev_findings_not_the_bundle |
+| 20260819041822    | 20260819230000    | full_coverage_means_nothing_unparsed          |
+| 20260819034630    | 20260819210500    | card_printing_spread_view                     |
+| 20260819034533    | 20260819210000    | own_a_printing_not_a_card                     |
+
+Nothing is broken today, because Lovable deploys the app and does not run
+migrations. The hazard is `supabase db push`: it compares the repo's version
+numbers against the applied ones, sees the repo timestamps as new, and re-runs
+migrations the database already has. Whether that is harmless depends entirely
+on whether each one is idempotent, and several are not.
+
+Fixing it means renaming the local files to the version numbers the database
+actually recorded, but only after confirming the SQL in each file matches what
+was applied. Do not rename them blind. If the contents differ, the rename hides
+a real divergence instead of resolving it.
+
+Going forward: apply migrations by writing the file first and applying that
+exact file, so one version number exists rather than two.

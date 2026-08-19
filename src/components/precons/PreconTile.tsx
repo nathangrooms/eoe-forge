@@ -125,22 +125,43 @@ function PreconTileBase({
         style={{ aspectRatio: ART_ASPECT }}
       >
         {art && (
-          <img
-            src={art}
-            alt=""
-            aria-hidden="true"
-            loading={eager ? 'eager' : 'lazy'}
-            decoding="async"
-            draggable={false}
-            className={cn(
-              // The frame already carries the crop's aspect ratio, so `cover`
-              // has nothing to cut — it only guards the handful of outlier
-              // layouts whose crop is not exactly 626 × 457.
-              'h-full w-full object-cover object-center',
-              'transition-transform duration-500 ease-out group-hover:scale-[1.04]',
-              'motion-reduce:transition-none motion-reduce:group-hover:scale-100'
-            )}
-          />
+          <>
+            {/* Scryfall's art_crop is only ROUGHLY 626 x 457. Full-art,
+                showcase, borderless, saga and older frames all crop to
+                different shapes, so a fixed-ratio frame with `object-cover`
+                cuts every card that is not exactly 1.37:1. The previous comment
+                called those "a handful of outlier layouts", which is optimistic
+                for a wall of modern commanders, and the owner reported the
+                cropping twice.
+
+                So the sharp art is CONTAINED and never cut, and the same image
+                blurred fills whatever the contain leaves over. Nothing is lost,
+                and there is no letterboxed void: the band still reads as one
+                block of the deck's own colour. Same pattern as the precon hero,
+                recorded in CLAUDE.md as blurred art for identity. */}
+            <img
+              src={art}
+              alt=""
+              aria-hidden="true"
+              loading={eager ? 'eager' : 'lazy'}
+              decoding="async"
+              draggable={false}
+              className="absolute inset-0 h-full w-full scale-110 object-cover blur-xl"
+            />
+            <img
+              src={art}
+              alt=""
+              aria-hidden="true"
+              loading={eager ? 'eager' : 'lazy'}
+              decoding="async"
+              draggable={false}
+              className={cn(
+                'relative h-full w-full object-contain object-center',
+                'transition-transform duration-500 ease-out group-hover:scale-[1.04]',
+                'motion-reduce:transition-none motion-reduce:group-hover:scale-100'
+              )}
+            />
+          </>
         )}
 
         {precon.ci.length > 0 && (

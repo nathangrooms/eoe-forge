@@ -139,23 +139,44 @@ interface ImportedCard {
   collector_number: string | null;
 }
 
+const IMPORT_COLUMNS =
+  'id,name,mana_cost,cmc,type_line,colors,image_uris,faces,layout,prices,set_code,collector_number';
+
 let rowsPromise: Promise<Map<string, ImportedCard>> | null = null;
 
+/**
+ * One query per pasted name, not one `.in()` over all twelve.
+ *
+ * The `.in()` version asked for every printing of all twelve names and cut the
+ * result at `PARSED.length * 8` — 96 rows. Ten of the twelve names here are
+ * format staples with well over a hundred printings each, and PostgREST applies
+ * the limit to the whole result set in whatever order the table hands it back,
+ * so the cap was spent entirely on the first two or three names. Rendered live
+ * this section reported "2 of 12 lines matched" and drew two cards: a panel
+ * whose heading is "DeckMatrix reads this", on a section arguing that a pasted
+ * list comes back out intact, demonstrating the importer dropping ten of twelve
+ * lines. The count was honest; what it was counting was a broken query.
+ *
+ * Per name the limit cannot be starved by a neighbour, and asking for four rows
+ * is enough to skip a printing whose art is missing. Twelve small parallel
+ * requests, ~48 rows total, against 96 before.
+ */
 function loadPastedCards(): Promise<Map<string, ImportedCard>> {
   rowsPromise ??= (async () => {
-    const { data } = await supabase
-      .from('cards')
-      .select(
-        'id,name,mana_cost,cmc,type_line,colors,image_uris,faces,layout,prices,set_code,collector_number'
-      )
-      .in(
-        'name',
-        PARSED.map(line => line.name)
-      )
-      .limit(PARSED.length * 8);
+    const perName = await Promise.all(
+      PARSED.map(async line => {
+        const { data } = await supabase
+          .from('cards')
+          .select(IMPORT_COLUMNS)
+          .eq('name', line.name)
+          .limit(4);
+        return (data ?? []) as unknown as ImportedCard[];
+      })
+    );
 
     const out = new Map<string, ImportedCard>();
-    for (const row of (data ?? []) as unknown as ImportedCard[]) {
+    for (const row of perName.flat()) {
+      if (!row?.name) continue;
       const key = row.name.trim().toLowerCase();
       const existing = out.get(key);
       /* First printing WITH art wins, so the wall never draws a blank frame. */
@@ -321,8 +342,8 @@ export function HomePortability() {
       <div ref={ref} aria-hidden className="h-0" />
 
       <SectionHeading
-        title="Your data goes in — and comes back out"
-        lead="Paste a list from anywhere, and export it anywhere. No lock-in, because a collection you cannot get out of a tool is not really yours. Here is the whole round trip, run on this page."
+        title="Bring your decks in, take them out again"
+        lead="Paste in a list from anywhere, and get it back out in whatever shape you need. Nothing you put in here is stuck here. This is it working, on this page."
       />
 
       <div className="mt-14 grid gap-6 lg:grid-cols-12 lg:gap-8">
@@ -339,8 +360,8 @@ export function HomePortability() {
             Comments, an Arena <span className="font-mono text-foreground/80">Deck</span> header, a
             set code with a collector number, a leading{' '}
             <span className="font-mono text-foreground/80">2x</span> and a trailing{' '}
-            <span className="font-mono text-foreground/80">x1</span> all sit in that block — every
-            line shape the importer accepts:
+            <span className="font-mono text-foreground/80">x1</span> are all in that block, and every
+            one of them works:
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {SHAPES.map(shape => (
@@ -400,16 +421,25 @@ export function HomePortability() {
 
           {!loading && (
             <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
-              Every card above is a row out of the catalogue, matched on the name the parser pulled
-              off the line — printing, mana value, colours and price come with it, which is what
-              makes the export below real rather than a copy of what you pasted.
+              Each card above was looked up by name in the real card list, so its printing, mana cost,
+              colours and price all came with it. That is why the file below is a real deck and not
+              just a copy of what you pasted.
             </p>
           )}
         </div>
       </div>
 
-      {/* ------------------------------------------------------ and back out */}
-      <div className="mt-16">
+      {/* ------------------------------------------------------ and back out
+
+          Capped and centred rather than run to the section's full 1600px.
+
+          What this block prints is a decklist: thirteen short monospace lines.
+          Stretched edge to edge it drew a ~1600x330px card carrying about 200px
+          of text, so five sixths of the widest element on the page was empty
+          background. A decklist is a narrow document, so it is now shaped like
+          one, with the format tabs sharing its measure so the two read as a
+          single panel rather than a band and a strip. */}
+      <div className="mx-auto mt-14 max-w-3xl">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
           <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
             And writes it back out as

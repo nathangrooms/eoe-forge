@@ -45,8 +45,17 @@ const QUERIES: { q: string; note: string }[] = [
   { q: 'is:commander id=bant o:"whenever you"', note: 'Bant triggered commanders' },
 ];
 
-/** Two full rows at the widest breakpoint. */
-const SHOWN = 12;
+/**
+ * One full row at the widest breakpoint.
+ *
+ * Was 12, i.e. two rows, which cost this section ~500px to prove a point the
+ * first row has already made: the query ran, and these are what came back. The
+ * second row is the same evidence a second time.
+ *
+ * Six instead of twelve at the SAME card size. The count comes down; the cards
+ * do not (they stay large by design law).
+ */
+const SHOWN = 6;
 
 interface ScryfallCard {
   id: string;
@@ -170,8 +179,8 @@ export function HomeSearch() {
       <div ref={ref} aria-hidden className="h-0" />
 
       <SectionHeading
-        title="Real Scryfall syntax. Not a dropdown."
-        lead="If you already know how to search Scryfall, you already know how to search DeckMatrix. Every operator works — colour identity, mana value, oracle text, format legality, power and toughness. Pick one below and it runs."
+        title="Search it the way you search Scryfall"
+        lead="If you know how to search on Scryfall, you already know how to search here. The same search terms all work: colour identity, mana value, rules text, what is legal where, power and toughness. Pick one below and watch it run."
       />
 
       {/* --------------------------------------------------------- the queries */}
@@ -236,9 +245,9 @@ export function HomeSearch() {
       {current && (
         <p className="mt-8 text-center text-xs leading-relaxed text-muted-foreground">
           The first {current.cards.length} of {current.total.toLocaleString()} results for{' '}
-          <span className="font-mono text-foreground/80">{active}</span> — {note.toLowerCase()},
-          ordered by Scryfall&rsquo;s own EDHREC play rank. Run against the same search endpoint the
-          card browser uses, as this page loaded.
+          <span className="font-mono text-foreground/80">{active}</span>, {note.toLowerCase()}, in the
+          order Scryfall ranks them by how often people play them. This ran for real when the page
+          loaded, on the same search the card browser uses.
         </p>
       )}
 

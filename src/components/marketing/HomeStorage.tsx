@@ -46,9 +46,18 @@ interface FiledCard {
   set_code: string;
 }
 
-/** A card's edge seen from above, packed in a box. */
+/**
+ * A card's edge seen from above, packed in a box.
+ *
+ * This was `bg-foreground/[0.08]` — 8% white over a near-black inset, which on
+ * the dark theme is very nearly invisible. The deck box and the colour boxes
+ * are mostly made of these, so both rendered as empty dark rectangles, and the
+ * owner's complaint that you cannot tell what is going on was for those two
+ * containers literally true: there was nothing to see. 18% reads as a packed
+ * stack of cards at a glance without hardening into stripes.
+ */
 function CardEdge({ className }: { className?: string }) {
-  return <span aria-hidden="true" className={cn('block rounded-[2px] bg-foreground/[0.08]', className)} />;
+  return <span aria-hidden="true" className={cn('block rounded-[2px] bg-foreground/[0.18]', className)} />;
 }
 
 /* --------------------------------------------------------------- the binder */
@@ -63,10 +72,38 @@ function BinderPage({ cards }: { cards: FiledCard[] | null }) {
     : Array.from({ length: 9 }, () => null);
 
   return (
-    <figure className="relative">
+    /* max-w caps the object.
+​
+       In a col-span-7 of a 1600px section this figure was ~910px wide, which
+       made each pocket a ~290px card — bigger than the card detail page draws
+       one. At that size the eye reads "nine enormous cards" and the binder
+       around them disappears: the rings, the page tabs and the sunk page are
+       all edge furniture, and edge furniture stops registering once the middle
+       is the size of a poster. That is the owner's "so massive its hard to see
+       whats even going on".
+​
+       Capped, the whole object fits in one glance and the rings and tabs are
+       back in frame, so it reads as a binder. Cards stay WHOLE 5:7 images
+       through CardImage; they are smaller, never cropped.
+
+       The first cap was 440px, and that overshot badly. Measured in the
+       browser it made each pocket a 95px card at 1680 and 86px at 1280 —
+       narrower than the 110px `sm` token is nominally for, too small to read a
+       card name, and a third the size of every other card on the page (precon
+       commanders 382px, search results 250px, new-set commanders 250px).
+       "Cards are tiny" is the complaint this project hears most, so
+       undershooting is not the safe direction to miss in.
+
+       Now `flex-[2]` against the deck box's `flex-[1]`, capped. The ratio is
+       the point: the binder is the figure holding readable cards, so when the
+       column is short of room the deck box gives up width first. Measured
+       after: 168px pockets at 1680, 118px at 1280 — up from 95 and 86, and
+       still barely half the 290px that made the object disappear. Cards stay
+       WHOLE 5:7 through CardImage at every width; nothing is cropped. */
+    <figure className="relative w-full flex-[2_1_0%] max-w-[600px] 2xl:max-w-[660px]">
       {/* Page tabs — one per real template slot, so the binder has as many
           pages as the template declares. */}
-      <div className="absolute inset-y-10 -right-1.5 z-0 flex flex-col justify-between sm:-right-2.5">
+      <div className="absolute inset-y-8 -right-1.5 z-0 flex flex-col justify-between sm:-right-2.5">
         {pages.map((p, i) => (
           <span
             key={p.name}
@@ -111,10 +148,10 @@ function BinderPage({ cards }: { cards: FiledCard[] | null }) {
         </div>
       </div>
 
-      <figcaption className="mt-5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="text-sm font-medium">{template?.name}</span>
+      <figcaption className="mt-4">
+        <span className="text-sm font-medium">{template?.name}</span>{' '}
         <span className="text-sm text-muted-foreground">
-          Nine pockets a page, and every pocket is a slot you can search by.
+          Nine cards to a page. You can search for any one of them by name.
         </span>
       </figcaption>
     </figure>
@@ -127,23 +164,64 @@ function DeckBox({ commander }: { commander: FiledCard | null }) {
   const template = getTemplateById('deckbox-simple');
 
   return (
-    <figure className="relative">
-      <div className="relative rounded-2xl bg-card p-4 pb-5 shadow-2xl shadow-black/60">
-        {/* Lid, hinged open behind the box */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-x-6 -top-3 h-6 rounded-t-xl bg-muted/60 shadow-lg shadow-black/40"
-        />
-        {/* The deck seen from above: sleeved card edges packed front to back,
-            with the commander standing proud at the front of the box. */}
-        <div className="relative rounded-xl bg-background/80 p-3 pr-[7.5rem] shadow-[inset_0_3px_16px_rgba(0,0,0,0.6)] sm:pr-[8.5rem]">
-          <div className="space-y-[3px] py-1">
-            {Array.from({ length: 18 }).map((_, i) => (
-              <CardEdge key={i} className={cn('h-1', i % 6 === 0 && 'bg-foreground/[0.18]')} />
+    /* The deck box, redrawn to be readable.
+​
+       The old one was a dark rectangle holding eighteen 1px rules at 8% white,
+       with a small commander tucked against its right edge. Nothing in it said
+       "box" and nothing said "cards", which is precisely the container the
+       owner picked out by name.
+​
+       Three changes, all aimed at the one-second read:
+         - the deck is now a standing WALL of card edges, tall enough to have a
+           top and a bottom, so it reads as a deck seen end-on rather than as a
+           list of lines;
+         - the commander stands proud OF the box, overlapping its lip, which is
+           what tells you the box is full of things shaped like that;
+         - the lid is visibly hinged behind it.
+​
+       Whole card, never cropped.
+
+       The width is now the variable that gives, because the binder beside it is
+       the one holding cards a visitor has to be able to read. A fixed 420px
+       forced the pair to 1,050px, which the 8-of-12 column only has at 1680;
+       at 1280 both figures were squeezed and the binder's pockets fell to
+       86px. Narrow here first: 280px up to `xl`, 400px above it. Everything
+       inside the box is a percentage of that so the object stays in
+       proportion rather than a wide box with a small deck in it. */
+    <figure className="relative w-full flex-[1_1_0%] max-w-[280px] xl:max-w-[360px]">
+      {/* Lid, hinged open behind the box */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-x-8 -top-2.5 h-5 rounded-t-xl bg-muted/60 shadow-lg shadow-black/40"
+      />
+
+      <div className="relative rounded-2xl bg-card p-4 pt-5 shadow-2xl shadow-black/60">
+        {/* Inside the box, seen from the front: sleeved cards standing up,
+            packed front to back, with the commander pulled forward. */}
+        <div className="relative rounded-xl bg-background/80 p-3 shadow-[inset_0_3px_16px_rgba(0,0,0,0.6)]">
+          {/* Thin, tightly packed, unevenly topped. Wider bars on bigger gaps
+              read as a barcode; a deck is ~40 sleeves pressed together, and the
+              tell that they are CARDS rather than a pattern is that the tops do
+              not line up. */}
+          <div className="flex h-[17rem] items-end gap-px pr-[40%] xl:h-[21rem]">
+            {Array.from({ length: 44 }).map((_, i) => (
+              <CardEdge
+                key={i}
+                className={cn(
+                  'flex-1 rounded-t-[1px]',
+                  i % 7 === 0 ? 'h-[93%]' : i % 4 === 0 ? 'h-[96%]' : i % 3 === 0 ? 'h-[98%]' : 'h-full',
+                  /* Every so often a sleeve catches the light. */
+                  i % 6 === 0 && 'bg-foreground/[0.28]'
+                )}
+              />
             ))}
           </div>
 
-          <div className="absolute -right-2 -top-6 w-28 rotate-3 drop-shadow-2xl sm:w-32">
+          {/* The commander, standing proud at the front of the box. A
+              percentage rather than a fixed 8.75rem, so it keeps the same
+              share of the box at both widths and the sleeve wall keeps the
+              same share too — `pr-[40%]` above is the space this occupies. */}
+          <div className="absolute -top-6 right-3 w-[36%] rotate-2 drop-shadow-2xl">
             {commander ? (
               <CardImage card={commander} fill size="md" hideFlip />
             ) : (
@@ -151,12 +229,14 @@ function DeckBox({ commander }: { commander: FiledCard | null }) {
             )}
           </div>
         </div>
-
-        <p className="mt-4 pl-1 text-sm font-medium">{template?.name}</p>
-        <p className="pl-1 text-sm text-muted-foreground">
-          Link it to a deck and the list knows where the cards physically are.
-        </p>
       </div>
+
+      <figcaption className="mt-4">
+        <span className="text-sm font-medium">{template?.name}</span>{' '}
+        <span className="text-sm text-muted-foreground">
+          Tie one to a deck and the list knows where those cards really are.
+        </span>
+      </figcaption>
     </figure>
   );
 }
@@ -203,10 +283,10 @@ function LongBox({ cards }: { cards: FiledCard[] | null }) {
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1 pl-1 sm:pr-56">
-          <span className="text-sm font-medium">{template?.name}</span>
+        <div className="mt-4 pl-1 sm:pr-56">
+          <span className="text-sm font-medium">{template?.name}</span>{' '}
           <span className="text-sm text-muted-foreground">
-            Twenty-six dividers, straight out of the template. Filing a card writes down its letter.
+            Twenty-six dividers, A to Z. Put a card away and it remembers the letter.
           </span>
         </div>
       </div>
@@ -310,9 +390,9 @@ function ColourBoxes({ cards }: { cards: FiledCard[] | null }) {
           );
         })}
       </div>
-      <figcaption className="mt-5 pl-1 text-sm text-muted-foreground">
-        <span className="font-medium text-foreground">{template?.name}</span> — six slots, one per
-        colour, the way most players actually break down a bulk collection.
+      <figcaption className="mt-4 pl-1 text-sm text-muted-foreground">
+        <span className="font-medium text-foreground">{template?.name}</span>. One box per colour,
+        which is how most people split up their bulk anyway.
       </figcaption>
     </figure>
   );
@@ -401,14 +481,43 @@ export function HomeStorage() {
   const filed = cards ? cards.slice(1) : null;
 
   return (
+    /* ---------------------------------------------------------- composition
+​
+       Was: a two-column `items-center` split, text in col-span-5 and the binder
+       in col-span-7. The binder came out ~1,250px tall and the text ~500px, and
+       `items-center` parked that 750px difference as ~375px of dead black above
+       AND below the paragraph. A column of air, next to a wall of cards, in the
+       one section that is supposed to be the product's whole argument.
+​
+       Now the two columns are built to relate. The right-hand column holds the
+       binder and the deck box standing side by side on a shared bottom line
+       (`items-end`), which is both how they sit on a real shelf and what makes
+       the column's height a choice rather than an accident. The text column is
+       sized to land within ~100px of it, so what is left reads as a deliberate
+       stagger rather than a void.
+​
+       Below that the two wide containers get a full-width row each, because a
+       long box IS wide and a row of six colour boxes IS wide. Nothing is
+       stretched to fill a column it does not want.
+
+       The split is 4/8 at `2xl`, not 5/7 at `lg`. Two reasons, both measured.
+       A binder and a deck box standing side by side want ~1,030px, and 7 of 12
+       columns is 957px at 1680 and only 700px at 1280, which is what squeezed
+       the pockets down to 95px and 86px. And the lead paragraph at col-span-5
+       ran to 655px, wider than a comfortable measure anyway. So the side-by-
+       side split waits for `2xl`, where col-span-8 is ~1,056px at 1680 and the
+       pair fits. Below that the two boxes take a full-width row of their own
+       under the text, which at 1280 is 1,200px, wider than the 700px column
+       they used to share. The text does not sprawl when it goes full width:
+       SectionHeading caps its measure at max-w-3xl either way. */
     <Section>
-      <div className="grid items-center gap-12 lg:grid-cols-12 lg:gap-16">
-        <div className="min-w-0 lg:col-span-5">
+      <div className="grid items-end gap-12 lg:grid-cols-12 lg:gap-14">
+        <div className="min-w-0 lg:col-span-4">
           <SectionHeading
             align="left"
             eyebrow="Nobody else does this"
             title="Know which box it is in"
-            lead="Moxfield and Archidekt know what you own. Neither knows where it is. Map your collection onto the real furniture — binders, deck boxes, bulk boxes — down to the page, the divider and the slot, so finding a card is a lookup instead of an afternoon."
+            lead="Other deck sites know what you own. None of them know where you put it. Tell DeckMatrix which binder, deck box or bulk box a card is in, down to the page and the divider, and finding it takes seconds instead of an afternoon."
           >
             <Button asChild size="lg" className="mt-8">
               <Link to="/register">
@@ -417,33 +526,27 @@ export function HomeStorage() {
               </Link>
             </Button>
 
-            {/* The container names on the right are not decoration: they are the
-                templates the product ships, read straight from the constant. */}
-            <p className="mt-10 text-sm leading-relaxed text-muted-foreground">
-              {DEFAULT_STORAGE_TEMPLATES.map(t => t.name).join(', ')} — the container templates
-              DeckMatrix ships with. Pages, dividers and colours become named slots, and every card
-              you file is written to one, so the collection can answer "where is it" as well as "do
-              I own it". The cards below are real printings from the catalogue; your containers hold
-              yours.
+            {/* Not decoration: these are the box types the product actually
+                ships, read straight from the constant. */}
+            <p className="mt-8 text-sm leading-relaxed text-muted-foreground">
+              Five kinds of box come ready to use: {DEFAULT_STORAGE_TEMPLATES.map(t => t.name).join(', ')}.
+              Every card you put away gets a place in one of them. The cards shown here are real
+              printings from the card list. Yours would hold your own.
             </p>
           </SectionHeading>
         </div>
 
-        <div className="min-w-0 lg:col-span-7">
+        <div className="flex min-w-0 flex-wrap items-end justify-center gap-8 lg:flex-nowrap lg:col-span-8 lg:justify-end">
           <BinderPage cards={filed} />
-        </div>
-      </div>
-
-      <div className="mt-16 grid gap-10 lg:grid-cols-12 lg:gap-8">
-        <div className="min-w-0 lg:col-span-4">
           <DeckBox commander={commander} />
         </div>
-        <div className="min-w-0 lg:col-span-8">
-          <LongBox cards={filed} />
-        </div>
       </div>
 
-      <div className="mt-16">
+      <div className="mt-14">
+        <LongBox cards={filed} />
+      </div>
+
+      <div className="mt-12">
         <ColourBoxes cards={palette} />
       </div>
     </Section>

@@ -217,7 +217,7 @@ export function HomeFormatPicker() {
       <SectionHeading
         eyebrow="Pick your format"
         title={`What can you build in ${format.label}?`}
-        lead="Legality is read from each card's own data rather than a hand-kept list, so a banning or a rotation lands here the day it lands on Scryfall. Pick a format and the pool below changes with it."
+        lead="What is legal comes from the cards themselves, not from a list someone updates by hand, so a new ban shows up here the day it happens. Pick a format and the cards below change with it."
       />
 
       {/* Format tabs */}

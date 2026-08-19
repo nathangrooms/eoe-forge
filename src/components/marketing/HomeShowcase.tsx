@@ -151,7 +151,7 @@ function CatalogueRow({ card }: { card: ShowcaseCard }) {
         {card.set_code}
       </span>
       <span className="w-16 shrink-0 text-right text-sm tabular-nums">
-        {usd ? `$${Number(usd).toFixed(2)}` : '—'}
+        {usd ? `$${Number(usd).toFixed(2)}` : '–'}
       </span>
     </div>
   );
@@ -219,7 +219,7 @@ export function HomeShowcase() {
       <SectionInner>
         <SectionHeading
           title="Real cards. Real costs. Real prices."
-          lead="Everything below is live data from the card catalogue — the same rows the builder, the collection and the marketplace read."
+          lead="Every card below is real, pulled live as this page loaded. It is the same card data the deck builder, your collection and the marketplace all run on."
         />
       </SectionInner>
 
@@ -242,24 +242,31 @@ export function HomeShowcase() {
         <div className="grid gap-4 lg:grid-cols-3">
           <Panel
             className="lg:col-span-2"
-            title="Every field, straight from the row"
-            body="Name, type line, printing, mana cost and market price — the same cards as above, nothing retyped. Costs render as pips, never as raw braces."
+            title="Every detail, straight off the card"
+            body="Name, type, printing, mana cost and what it sells for. None of it is typed in by hand, and mana costs show as proper symbols."
           >
+            {/* Four rows, not six.
+
+                These two panels sit side by side. Six rows made the left one
+                ~560px tall against a ~300px chart, so the right-hand panel
+                carried 250px of empty card underneath its own content. Four
+                rows is the same evidence (real names, real printings, real
+                prices, none of it retyped) at a height the chart can meet. */}
             <div className="rounded-xl bg-muted/30 p-1.5">
               {loading
-                ? Array.from({ length: 6 }).map((_, i) => (
+                ? Array.from({ length: 4 }).map((_, i) => (
                     <div key={i} className="flex items-center gap-4 px-3 py-2">
                       <Skeleton className="h-[4.2rem] w-12 shrink-0 rounded" />
                       <Skeleton className="h-4 flex-1" />
                     </div>
                   ))
-                : list.slice(0, 6).map(c => <CatalogueRow key={c.id} card={c} />)}
+                : list.slice(0, 4).map(c => <CatalogueRow key={c.id} card={c} />)}
             </div>
           </Panel>
 
           <Panel
             title="See the curve"
-            body="Computed from the real converted mana costs of the cards above — the same calculation the builder runs on your list."
+            body="Worked out from the real mana costs of the cards above. The deck builder does the same sum on your own deck."
           >
             {loading ? (
               <Skeleton className="min-h-[10rem] w-full flex-1" />

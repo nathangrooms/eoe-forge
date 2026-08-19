@@ -87,7 +87,7 @@ export function HomeAppVisual() {
     <Section tint>
       <SectionHeading
         title="This is the builder"
-        lead="Categories fill themselves, the curve updates as you add, and the price of the list is always in front of you."
+        lead="Cards drop into the right group on their own, the curve redraws as you go, and what the deck costs is always on screen."
       />
 
       {/* ---------- full-width app mockup ---------- */}
@@ -106,7 +106,7 @@ export function HomeAppVisual() {
             Commander
           </span>
           <div className="ml-auto flex items-center gap-4 text-sm tabular-nums text-muted-foreground">
-            <span>{cards ? `${placed} cards` : '—'}</span>
+            <span>{cards ? `${placed} cards` : '–'}</span>
             <span className="text-foreground">{cards ? `$${value.toFixed(2)}` : ''}</span>
           </div>
         </div>

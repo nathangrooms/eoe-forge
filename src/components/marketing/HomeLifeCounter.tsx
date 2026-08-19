@@ -176,35 +176,47 @@ function Device({
 /* Boards                                                                     */
 /* -------------------------------------------------------------------------- */
 
-function LifeBoards() {
-  /* One aspect across the three so their captions sit on a single baseline. */
-  const pods = [
-    { layout: seatingFor(2, 'table'), label: 'Two players' },
-    { layout: seatingFor(3, 'table'), label: 'Three players' },
-    { layout: seatingFor(4, 'quads'), label: 'Four, two by two' },
-  ];
+/* One aspect across all four boards.
 
+   The three small ones used to be 9/15 portrait while the big one is 4/3
+   landscape, which was two different devices claiming to be the same app. They
+   are 4/3 now: the same phone, lying on the same table, seating two, three or
+   four people. It is also what lets them sit in the text column without
+   towering over it. */
+const PODS = [
+  { layout: seatingFor(2, 'table'), label: 'Two players' },
+  { layout: seatingFor(3, 'table'), label: 'Three players' },
+  { layout: seatingFor(4, 'quads'), label: 'Four, two by two' },
+];
+
+/** The three seating variants. Lives in the copy column, not beside it. */
+function PodRow() {
+  return (
+    <div className="mt-8 grid grid-cols-3 gap-4 sm:gap-5">
+      {PODS.map(pod => (
+        <div key={pod.label}>
+          <Device layout={pod.layout} aspect="4 / 3" compact />
+          <p className="mt-3 text-center text-[11px] leading-tight text-muted-foreground">
+            {pod.label}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** The hero board: one phone on the table, four seats. */
+function LifeBoards() {
   return (
     <div>
       {/* The table the device is lying on. */}
-      <div className="rounded-[2.25rem] bg-muted/40 p-6 shadow-2xl shadow-black/50 sm:p-10">
+      <div className="rounded-[2.25rem] bg-muted/40 p-6 shadow-2xl shadow-black/50 sm:p-9">
         <Device layout={seatingFor(4, 'table')} aspect="4 / 3" />
       </div>
 
       <p className="mt-5 text-center text-xs text-muted-foreground">
         Four players, one to an edge. Every panel is turned to face the person sitting at it.
       </p>
-
-      <div className="mt-8 grid grid-cols-3 gap-4 sm:gap-6">
-        {pods.map(pod => (
-          <div key={pod.label}>
-            <Device layout={pod.layout} aspect="9 / 15" compact />
-            <p className="mt-3 text-center text-[11px] leading-tight text-muted-foreground">
-              {pod.label}
-            </p>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
@@ -220,12 +232,16 @@ export function HomeLifeCounter() {
     <Section tint>
       <div ref={ref} aria-hidden className="h-0" />
 
-      <div className="grid items-center gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,660px)]">
+      {/* items-start, and the three seating variants moved into the copy
+          column below. Before this the right column ran 944px against 405px of
+          text, and items-center split the 539px difference into two slabs of
+          black, one above the heading and one below the button. */}
+      <div className="grid items-start gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,620px)]">
         <SectionHeading
           align="left"
           eyebrow="Life counter"
           title="The phone goes in the middle of the table"
-          lead="Every seat gets its own panel, turned to face the player sitting there — so nobody is reading their own life total upside down. Tap the top half to gain and the bottom to lose; a burst of taps commits as one entry with a running delta, which is what makes a mis-tap harmless. Commander damage, poison, energy and experience are all counted, the screen is kept awake, and the whole thing goes full screen."
+          lead="Every seat gets its own panel, turned to face whoever is sitting there, so nobody has to read their life total upside down. Tap the top to gain and the bottom to lose. Quick taps add up into one change, so a mis-tap is easy to fix. It counts commander damage, poison, energy and experience too, goes full screen, and stops the phone sleeping."
         >
           <div className="mt-8 flex flex-wrap gap-2">
             {FEATURES.map(f => (
@@ -244,6 +260,8 @@ export function HomeLifeCounter() {
               <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           </Button>
+
+          {near && <PodRow />}
         </SectionHeading>
 
         {near ? (

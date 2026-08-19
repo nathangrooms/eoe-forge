@@ -33,13 +33,20 @@ import { PRECON_INDEX, type PreconIndexEntry } from '@/data/precon-index';
 export const PRECON_COUNT = PRECON_INDEX.length;
 
 /**
- * Eight recent precons, at most two per set.
+ * Four recent precons, at most two per set.
  *
- * Newest-first alone returns four Marvel decks followed by four Strixhaven
- * decks, which looks like a bug in the picker rather than a shelf of products.
- * Capping each set at two gives four different recent sets across the row.
- * Deduplicating on the commander printing also drops the "Collector's Edition"
- * reprints, which are the same deck with the same commander.
+ * Newest-first alone returns a run of decks from one set, which looks like a
+ * bug in the picker rather than a shelf of products. Capping each set at two
+ * keeps at least two different recent sets in the row. Deduplicating on the
+ * commander printing also drops the "Collector's Edition" reprints, which are
+ * the same deck with the same commander.
+ *
+ * Was eight, drawn as two rows of four ~390px commanders, which made this the
+ * second-tallest section on the page at 1,899px. The row exists to show that
+ * precons are real products with real commanders and real lists; a second row
+ * of four more says nothing the first row did not, and the "Browse all 184"
+ * control underneath is what carries the breadth. Four, at the SAME card size,
+ * so the commanders stay large.
  */
 const FEATURED: PreconIndexEntry[] = (() => {
   const perSet = new Map<string, number>();
@@ -59,7 +66,7 @@ const FEATURED: PreconIndexEntry[] = (() => {
     perSet.set(entry.set, used + 1);
     seenCommander.add(lead.scryfallId);
     out.push(entry);
-    if (out.length === 8) break;
+    if (out.length === 4) break;
   }
   return out;
 })();
@@ -122,15 +129,15 @@ export function HomePrecons() {
           lead={
             <>
               {PRECON_COUNT.toLocaleString()} Commander precon decklists you can load, compare
-              against your collection, and upgrade card by card — every one with its real commander,
-              set and list.
+              against what you own, and upgrade card by card. Every one comes with its real commander,
+              set and full list.
             </>
           }
         />
 
         <div className="mt-16 grid grid-cols-2 gap-x-6 gap-y-10 lg:grid-cols-4">
           {loading
-            ? Array.from({ length: 8 }).map((_, i) => (
+            ? Array.from({ length: 4 }).map((_, i) => (
                 <div key={i}>
                   <CardImageSkeleton size="lg" fill />
                   <Skeleton className="mt-4 h-4 w-4/5" />

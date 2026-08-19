@@ -48,15 +48,15 @@ import { cn } from '@/lib/utils';
  * to read nine numbers. They are checked against the source above.
  */
 const SUBSCORES: { label: string; weight: number; blurb: string }[] = [
-  { label: 'Speed', weight: 20, blurb: 'How early the deck can actually do the thing' },
+  { label: 'Speed', weight: 20, blurb: 'How early the deck can actually get going' },
   { label: 'Interaction', weight: 15, blurb: 'Answers held up, not just threats deployed' },
   { label: 'Tutors', weight: 12, blurb: 'Graded by what each one can actually find' },
   { label: 'Resilience', weight: 12, blurb: 'What happens after the board is wiped' },
   { label: 'Mana', weight: 12, blurb: 'Sources, fixing and how many enter untapped' },
   { label: 'Consistency', weight: 12, blurb: 'How often the deck draws its own plan' },
-  { label: 'Card advantage', weight: 10, blurb: 'Engines, not one-shot cantrips' },
+  { label: 'Card advantage', weight: 10, blurb: 'Cards that keep drawing, not one-off cantrips' },
   { label: 'Stax', weight: 4, blurb: 'Pressure applied to everyone else' },
-  { label: 'Synergy', weight: 3, blurb: 'How much the commander is worth to the list' },
+  { label: 'Synergy', weight: 3, blurb: 'How much your commander adds to the deck' },
 ];
 
 const BANDS = ['Casual', 'Mid', 'High', 'cEDH'];
@@ -121,14 +121,21 @@ function WeightRow({ label, weight, blurb }: { label: string; weight: number; bl
 }
 
 /** A panel of whole cards, with the ones the catalogue table could not resolve dropped. */
+/*
+ * The eyebrow this used to carry was the catalogue's own key for the class —
+ * "Compact combo", "Finisher bomb", "Inevitability engine", "Massive swing".
+ * Those are internal names for internal groupings, and "engine" is on the
+ * owner's banned list by name. The plain-English `title` underneath already
+ * says the same thing better ("The card that wins it slowly"), so the eyebrow
+ * was jargon sitting on top of the translation of itself. Dropped; the count
+ * moves next to the title, where it still says how many real cards there are.
+ */
 function ClassPanel({
-  eyebrow,
   title,
   body,
   count,
   children,
 }: {
-  eyebrow: string;
   title: string;
   body: string;
   count: number;
@@ -137,14 +144,11 @@ function ClassPanel({
   return (
     <div className="flex min-w-0 flex-col rounded-2xl bg-card p-6 shadow-xl shadow-black/30">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-          {eyebrow}
-        </p>
+        <h3 className="font-medium">{title}</h3>
         <span className="text-[11px] tabular-nums text-muted-foreground/70">
-          {count} in the catalogue
+          {count} cards like this
         </span>
       </div>
-      <h3 className="mt-2 font-medium">{title}</h3>
       <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{body}</p>
       <div className="mt-5 flex-1">{children}</div>
     </div>
@@ -229,9 +233,9 @@ export function HomePower() {
       <div ref={ref} aria-hidden className="h-0" />
 
       <SectionHeading
-        eyebrow="Power model"
+        eyebrow="Power level"
         title="A power level you can argue with"
-        lead="Not a black box. Nine weighted subscores, published below, plus a seeded 10,000-hand simulation for keepable openers and turn-one colour access. Same deck, same score, every time — and the cards that move it are a file in the repository, not a hunch."
+        lead="Find out if your deck is too strong for your group, before you sit down. Nine things get measured and all nine are shown below, so you can see why the number came out the way it did. The same deck always gets the same score."
       />
 
       {/* ------------------------------------------------------- the weights */}
@@ -241,24 +245,28 @@ export function HomePower() {
         ))}
       </div>
 
-      {/* -------------------------------------------------- the game changers */}
-      <div className="mt-16">
-        <div className="max-w-3xl">
+      {/* -------------------------------------------------- the game changers
+
+          Heading centred, not left-aligned. `max-w-3xl` with no `mx-auto`
+          pinned this heading and its paragraph to the left edge of a 1600px
+          section, so two lines of text sat next to ~800px of empty background:
+          the same ragged void the storage section had, in miniature. Every
+          other sub-heading on the page is centred; this was the odd one out. */}
+      <div className="mt-12">
+        <div className="mx-auto max-w-3xl text-center">
           <h3 className="text-2xl font-semibold tracking-tight sm:text-3xl">
             And the cards it watches for
           </h3>
           <p className="mt-3 text-base leading-relaxed text-muted-foreground">
-            A list the model finds no game changer in has speed and resilience docked and up to 1.4
-            taken off its score, however tidy its curve looks. These are the four classes it
-            recognises, printed straight out of the catalogue it loads.
+            Some cards win a game on their own. A deck with none of them scores lower, however tidy
+            it looks on paper. These are the four kinds it looks for, and the real cards in each.
           </p>
         </div>
 
         <div className="mt-10 grid gap-5 lg:grid-cols-2">
           <ClassPanel
-            eyebrow="Compact combo"
             title="Two cards that end the game"
-            body="Scored as a pair, not as two good cards. The model knows which partner each half is looking for."
+            body="These count as a pair, not as two good cards on their own. Each half is useless without the other."
             count={COMPACT_COMBOS.length}
           >
             {combos.length > 0 ? (
@@ -273,16 +281,14 @@ export function HomePower() {
           </ClassPanel>
 
           <ClassPanel
-            eyebrow="Finisher bomb"
             title="The card you cast to win"
-            body={`${CONDITIONAL_FINISHERS} of them only count once the rest of the list supports them — Craterhoof wants twenty creatures under it, Aetherflux twenty-five spells.`}
+            body={`${CONDITIONAL_FINISHERS} of these only count if the rest of your deck backs them up. Craterhoof wants twenty creatures out. Aetherflux wants twenty-five spells.`}
             count={FINISHERS.length}
           >
             <CardWall cards={finishers} />
           </ClassPanel>
 
           <ClassPanel
-            eyebrow="Inevitability engine"
             title="The card that wins it slowly"
             body="Nothing happens the turn it lands. Two turns later the table is a card down and you are three up."
             count={ENGINES.length}
@@ -291,9 +297,8 @@ export function HomePower() {
           </ClassPanel>
 
           <ClassPanel
-            eyebrow="Massive swing"
             title="The card that undoes the board"
-            body="One-sided sweepers and extra turns — the cards that turn a losing table into a won one in a single cast."
+            body="Board wipes that only hit them, and extra turns. One cast and a game you were losing is a game you are winning."
             count={SWINGS.length}
           >
             <CardWall cards={swings} />
@@ -319,10 +324,8 @@ export function HomePower() {
       </div>
 
       <p className="mt-5 text-center text-xs leading-relaxed text-muted-foreground">
-        Weights and bands are {' '}
-        <span className="font-mono text-foreground/80">EDHPowerCalculator</span>&rsquo;s own defaults;
-        the cards above are its game-changer catalogue, resolved against the card table and drawn in
-        full.
+        These are the numbers and the bands the score really uses, and the cards above are the real
+        list it checks your deck against.
       </p>
 
       <div className="mt-10 text-center">

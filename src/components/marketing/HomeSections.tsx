@@ -24,7 +24,7 @@ const FEATURES = [
     icon: Boxes,
     title: 'Know where every card physically is',
     body:
-      'Map your collection to real-world storage — binders, deck boxes, bulk boxes — down to the slot. ' +
+      'Put your collection into real boxes: binders, deck boxes, bulk boxes, down to the slot. ' +
       'When a decklist needs a card, DeckMatrix tells you which box to open instead of leaving you to hunt.',
     accent: 'text-type-lands',
   },
@@ -38,9 +38,9 @@ const FEATURES = [
   },
   {
     icon: Search,
-    title: 'Search the whole catalogue',
+    title: 'Search every card there is',
     body:
-      'The full paper card pool, synced nightly from Scryfall — so new sets are searchable as soon as they are ' +
+      'Every paper card, updated from Scryfall every night, so a new set is searchable as soon as it is ' +
       'on Scryfall, not months later.',
     accent: 'text-type-instants',
   },
@@ -64,7 +64,7 @@ const FEATURES = [
     title: 'Get a read on your deck',
     body:
       'Analysis tools look at your curve, colour identity and composition, and suggest what to cut and what to ' +
-      'add — useful when a deck feels off but you cannot say why.',
+      'add. Handy when a deck feels off and you cannot say why.',
     accent: 'text-type-enchantments',
   },
 ];
@@ -112,7 +112,7 @@ export function HomeColorIdentity() {
     <Section tint size="compact">
       <SectionHeading
         title="Colour identity handled properly"
-        lead="Commander lives and dies by colour identity. DeckMatrix reads it from the card, not from the mana cost — so hybrid, phyrexian and rules-text pips are counted the way the rules count them."
+        lead="Commander lives and dies by colour identity. DeckMatrix reads it off the card itself rather than the mana cost, so hybrid, phyrexian and rules-text symbols all count the way the rules say they should."
       />
 
       <div className="mt-10 flex flex-wrap items-center justify-center gap-6">

@@ -146,19 +146,26 @@ export function HomeNewSets() {
     <Section>
       <SectionHeading
         title="New sets, the week they land"
-        lead="The catalogue syncs from Scryfall every night, so a set is searchable and buildable as soon as it is spoiled — not months later."
+        lead="Cards update from Scryfall every night. You can search a new set and start building with it as soon as it is spoiled, not months later."
       />
 
-      {/* ---- set tiles: art_crop is correct here, a tile stands for a SET ---- */}
-      <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {/* ---- set tiles: art_crop is correct here, a tile stands for a SET ----
+
+           One row of six rather than two rows of three. The tiles and the
+           commanders below them are both built from the same six sets in the
+           same order, so at six columns each set now sits directly above its
+           own legend and the pairing is visible instead of stated. It also
+           takes ~480px off the section, which was 1,697px to make one point
+           twice. */}
+      <div className="mt-12 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         {tiles === null
           ? Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="aspect-[16/9] rounded-xl" />
+              <Skeleton key={i} className="aspect-[3/2] rounded-xl" />
             ))
           : tiles.map(t => (
               <article
                 key={t.code}
-                className="group relative aspect-[16/9] overflow-hidden rounded-xl shadow-lg shadow-black/30"
+                className="group relative aspect-[3/2] overflow-hidden rounded-xl shadow-lg shadow-black/30"
               >
                 {t.art ? (
                   <img
@@ -172,35 +179,35 @@ export function HomeNewSets() {
                   <div className="absolute inset-0 bg-muted" />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
-                <div className="absolute inset-x-0 bottom-0 p-4">
-                  <div className="flex items-center gap-2">
+                <div className="absolute inset-x-0 bottom-0 p-3">
+                  <div className="flex items-center gap-1.5">
                     <span className="rounded bg-white/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-white/90">
                       {t.code}
                     </span>
-                    <span className="text-[11px] text-white/60">{t.released}</span>
+                    <span className="text-[10px] text-white/60">{t.released}</span>
                   </div>
-                  <h3 className="mt-1.5 text-lg font-medium leading-tight text-white">{t.name}</h3>
-                  <p className="text-xs text-white/70">
-                    {t.count.toLocaleString()} cards in the catalogue
-                  </p>
+                  <h3 className="mt-1 text-sm font-medium leading-tight text-white">{t.name}</h3>
+                  <p className="text-[11px] text-white/70">{t.count.toLocaleString()} cards</p>
                 </div>
               </article>
             ))}
       </div>
 
       {/* ---- commander spotlight: WHOLE cards at 5:7, one per set ---- */}
-      <div className="mt-24">
+      <div className="mt-12">
         <div className="mx-auto max-w-3xl text-center">
           <h3 className="text-2xl font-semibold tracking-tight sm:text-3xl">
             Fresh commanders, already legal to build
           </h3>
+          {/* The old line here explained that each card belongs to the set
+              above it. At six columns the card IS under its set, so the layout
+              says it and the sentence does not have to. */}
           <p className="mt-3 text-base leading-relaxed text-muted-foreground">
-            One legend from each set above, printed in full — because a commander is a whole card,
-            not a strip of its artwork.
+            A legend from each of those sets, shown as a whole card.
           </p>
         </div>
 
-        <div className="mt-12 grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="mt-10 grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-6">
           {commanders === null
             ? Array.from({ length: 6 }).map((_, i) => (
                 <div key={i}>
@@ -233,10 +240,10 @@ export function HomeNewSets() {
               ))}
         </div>
 
-        <div className="mt-14 text-center">
+        <div className="mt-12 text-center">
           <Button asChild size="lg" variant="outline">
             <Link to="/cards">
-              Browse the full catalogue
+              Browse every card
               <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           </Button>

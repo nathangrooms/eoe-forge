@@ -291,7 +291,7 @@ export function HomeBrain() {
     <Section tint>
       <SectionHeading
         title="Ask about the deck you actually built"
-        lead="The assistant is sent your decklist with the question — every card, the curve, what you already own. It is answering about this deck, not a generic one."
+        lead="Your question goes off with your actual decklist attached: every card in it, your curve, and what you already own. The answer is about your deck, not decks in general."
       />
 
       <div
@@ -352,8 +352,8 @@ export function HomeBrain() {
                 </div>
               ) : failed ? (
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  A real, published 100-card list — the same one the Precons page loads, and the
-                  same one the assistant is handed when you ask it something.
+                  A real 100-card deck. It is the same one the Precons page loads, and the same one the
+                  assistant is handed when you ask it something.
                 </p>
               ) : (
                 <Skeleton className="mt-7 h-32 w-full rounded-lg" />
@@ -366,7 +366,7 @@ export function HomeBrain() {
           {!failed && (
             <p className="mt-8 text-[11px] uppercase tracking-wider text-muted-foreground">
               {stats
-                ? `Top of the curve — the ${GRID_SIZE} heaviest of ${stats.nonland} nonland cards`
+                ? `Top of the curve: the ${GRID_SIZE} heaviest of ${stats.nonland} nonland cards`
                 : 'Top of the curve'}
             </p>
           )}
@@ -375,7 +375,7 @@ export function HomeBrain() {
             {stats
               ? stats.top.map((e, i) => (
                   <figure key={e.scryfall_id} className="relative">
-                    <CardImage card={displayCard(e)} fill title={`${e.card_name} — mana value ${e.mv}`} />
+                    <CardImage card={displayCard(e)} fill title={`${e.card_name}, mana value ${e.mv}`} />
                     {/* Bottom-left: the top of the card carries its name and cost. */}
                     <figcaption
                       className={cn(
@@ -403,7 +403,7 @@ export function HomeBrain() {
             <Layers className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span className="min-w-0">
               Deck context: {index?.name ?? 'Draconic Domination'}
-              {stats ? ` — ${stats.total} cards, ${stats.unique} unique` : ''}
+              {stats ? `, ${stats.total} cards, ${stats.unique} unique` : ''}
             </span>
           </div>
 
@@ -420,8 +420,8 @@ export function HomeBrain() {
                     <span className="tabular-nums">{stats.lands}</span> lands,{' '}
                     <span className="tabular-nums">{stats.nonland}</span> spells, average mana value{' '}
                     <span className="tabular-nums">{stats.avgMv.toFixed(2)}</span>. Those spells are{' '}
-                    <span className="tabular-nums">{stats.creatures}</span> creatures —{' '}
-                    <span className="tabular-nums">{stats.dragons}</span> of them Dragons —{' '}
+                    <span className="tabular-nums">{stats.creatures}</span> creatures,{' '}
+                    <span className="tabular-nums">{stats.dragons}</span> of them Dragons,{' '}
                     <span className="tabular-nums">{stats.artifacts}</span> artifacts,{' '}
                     <span className="tabular-nums">{stats.enchantments}</span> enchantments,{' '}
                     <span className="tabular-nums">{stats.sorceries}</span> sorceries and{' '}
@@ -432,7 +432,7 @@ export function HomeBrain() {
                     <span className="tabular-nums">{stats.instants}</span> of the{' '}
                     <span className="tabular-nums">{stats.nonland}</span> spells are instants, so
                     interaction here has to be added rather than swapped in. The room is at the top
-                    of the curve — <span className="tabular-nums">{stats.heavy}</span> of those
+                    of the curve. <span className="tabular-nums">{stats.heavy}</span> of those
                     spells cost five or more. The heaviest that are not your commander:{' '}
                     {named.map((e, i) => (
                       <span key={e.scryfall_id}>
@@ -446,8 +446,8 @@ export function HomeBrain() {
                 </div>
               ) : failed ? (
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  The assistant reads the whole list before it answers — every card, the curve, the
-                  mana sources, and which of them you already own.
+                  The assistant reads the whole deck before it answers: every card, the curve, the mana,
+                  and which of them you already own.
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -463,7 +463,7 @@ export function HomeBrain() {
 
           <p className="mt-5 text-[11px] leading-relaxed text-muted-foreground/80">
             {stats
-              ? `Every figure above is counted from the ${stats.total} cards on the left — the three it names carry a white mana-value badge in that grid. In the app the same list is attached to your question before the assistant sees it.`
+              ? `Every number above is counted from the ${stats.total} cards on the left, and the three it names carry a white badge in that grid. In the app your own deck is attached to the question before the assistant sees it.`
               : 'In the app your decklist is attached to the question before the assistant sees it.'}
           </p>
 

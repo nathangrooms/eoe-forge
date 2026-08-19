@@ -252,7 +252,7 @@ export function HomeTournaments() {
       <SectionHeading
         eyebrow="Tournaments"
         title="Run the pod, not a spreadsheet"
-        lead="Swiss or single elimination, with the maths a paper event uses: three points a win and one a draw, opponents' match-win percentage as the first tiebreaker, the DCI 33% floor applied, and pairings that will not repeat a match-up while a legal alternative exists. Results go in with one click and can be taken back."
+        lead="Swiss or knockout, scored the way a paper event scores it. Three points for a win and one for a draw, with your opponents' win rate breaking the ties. Nobody gets paired with the same person twice while somebody else is free. Results go in with one click, and you can take them back."
       />
 
       <div className="mt-14 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,620px)]">
@@ -406,9 +406,9 @@ export function HomeTournaments() {
           )}
 
           <p className="mt-4 text-[11px] leading-relaxed text-muted-foreground">
-            A worked example: four real precon decks, two rounds played. Every figure in the table
-            is returned by the app's own scoring module, and the round-three pairings by its own
-            pairing function — computed in your browser as this page loaded.
+            A worked example: four real precon decks, two rounds played. Every number in this table was
+            worked out by the same code the app itself uses, including the round-three pairings, and
+            it all ran in your browser as this page loaded.
           </p>
 
           <div className="mt-6 flex flex-wrap gap-2">

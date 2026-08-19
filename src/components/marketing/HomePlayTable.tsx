@@ -84,7 +84,7 @@ const FEED: Array<{ turn?: number; text: string; emphasis?: boolean; intent?: bo
   { turn: 7, text: 'You tap Llanowar Elves for {G}' },
   { turn: 7, text: 'You cast Eternal Witness' },
   { turn: 7, text: 'Sun Titan attacks' },
-  { turn: 7, text: 'Bot takes 6 — 34 life', emphasis: true },
+  { turn: 7, text: 'Bot takes 6, down to 34 life', emphasis: true },
   { text: 'Bot: holds Lazav back this turn', intent: true },
 ];
 
@@ -321,7 +321,7 @@ export function HomePlayTable() {
       <SectionHeading
         eyebrow="Play"
         title="Play a real game, in the browser"
-        lead="Sit one of your decks down against a bot. Permanents lie in rows the way they lie on a table, lands in their own row underneath, tapped means turned. Switch between the table, your hand at a readable size, and a combat view for declaring attackers and blockers — and the steps of the turn that hold no decision are walked for you."
+        lead="Play one of your own decks against the computer. Cards sit in rows the way they do on a real table, lands in their own row underneath, and tapped means turned sideways. Swap between the table, your hand and a combat view for picking attackers and blockers. Any part of the turn with nothing to decide is done for you."
       />
 
       <div className="mt-14 overflow-hidden rounded-2xl bg-background shadow-2xl shadow-black/40">
@@ -372,7 +372,7 @@ export function HomePlayTable() {
           <div className="rounded-2xl bg-muted/20 p-4 sm:p-5">
             <SeatLine
               name="Bot"
-              note="Lazav, Dimir Mastermind · even — trades up and blocks sensibly"
+              note="Lazav, Dimir Mastermind · plays it even, trades up and blocks sensibly"
               life={34}
               hand={4}
               library={84}

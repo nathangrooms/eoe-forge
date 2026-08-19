@@ -192,7 +192,7 @@ export function HomeMarketplace() {
       <SectionHeading
         eyebrow="Marketplace"
         title="Watch the price before you buy it"
-        lead="DeckMatrix keeps its own price history — a daily snapshot of every card it tracks, going back months — so a card is a chart rather than a number that changed while you were not looking. List out of your collection, watch a card until it reaches your figure, and open the buy links without leaving it."
+        lead="DeckMatrix saves the price of every card it tracks, once a day, going back months. So you can see whether a card is climbing or falling instead of only today's number. Put cards up for sale straight from your collection, get told when one hits the price you wanted, and buy without leaving the page."
       />
 
       <div className="mt-14 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">

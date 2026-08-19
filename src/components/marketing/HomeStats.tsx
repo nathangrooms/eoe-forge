@@ -73,7 +73,7 @@ export function HomeColors() {
                 />
               </div>
               <span className="w-20 shrink-0 text-right text-sm tabular-nums text-muted-foreground">
-                {counts ? n.toLocaleString() : '—'}
+                {counts ? n.toLocaleString() : '–'}
               </span>
               <span className="hidden w-56 shrink-0 text-xs text-muted-foreground lg:block">
                 {blurb}
@@ -120,9 +120,9 @@ export function HomeCatalogue() {
   }, []);
 
   const tiles = [
-    { label: 'Cards in the catalogue', value: stats?.total, sub: 'synced nightly from Scryfall' },
+    { label: 'Cards you can search', value: stats?.total, sub: 'updated from Scryfall every night' },
     { label: 'Legendary creatures', value: stats?.legendary, sub: 'every one of them a legal commander' },
-    { label: 'Mythic rares', value: stats?.mythic, sub: 'with full art and market prices' },
+    { label: 'Mythic rares', value: stats?.mythic, sub: 'with full art and current prices' },
   ];
 
   return (
@@ -131,7 +131,7 @@ export function HomeCatalogue() {
         {tiles.map(t => (
           <div key={t.label} className="text-center">
             <p className="text-4xl font-semibold tabular-nums tracking-tight sm:text-5xl">
-              {t.value != null ? t.value.toLocaleString() : '—'}
+              {t.value != null ? t.value.toLocaleString() : '–'}
             </p>
             <p className="mt-2 font-medium">{t.label}</p>
             <p className="mt-1 text-sm text-muted-foreground">{t.sub}</p>
@@ -209,7 +209,7 @@ export function HomeBuilderPreview() {
             Commander
           </span>
           <span className="ml-auto text-sm tabular-nums text-muted-foreground">
-            {cards ? `${grouped.reduce((n, g) => n + g.cards.length, 0)} cards · $${total.toFixed(2)}` : '—'}
+            {cards ? `${grouped.reduce((n, g) => n + g.cards.length, 0)} cards · $${total.toFixed(2)}` : '–'}
           </span>
         </div>
 

@@ -16,9 +16,9 @@ const faqs = [
   {
     question: 'What is DeckMatrix?',
     answer:
-      'A deck builder and collection manager for Magic: The Gathering. You catalogue the cards you own — ' +
-      'including where they are physically stored — and build decks against that collection, so you always ' +
-      'know what you already have and what you would still need to buy.',
+      'A deck builder and collection manager for Magic: The Gathering. You record the cards you own, ' +
+      'including which box each one is in, and build decks against that list. So you always know ' +
+      'what you already have and what you would still have to buy.',
   },
   {
     question: 'Where does the card data come from?',
@@ -29,9 +29,9 @@ const faqs = [
   {
     question: 'What does the storage feature actually do?',
     answer:
-      'You define your real containers — binders, deck boxes, bulk boxes — and assign cards to them, down to ' +
-      'the slot. When a decklist calls for a card you own, DeckMatrix can tell you which container it is in ' +
-      'rather than leaving you to search through everything.',
+      'You set up your real boxes, whether those are binders, deck boxes or bulk boxes, and put cards ' +
+      'in them down to the exact slot. When a deck asks for a card you own, DeckMatrix tells you ' +
+      'which box it is in instead of leaving you to dig through all of them.',
   },
   {
     question: 'How is collection value calculated?',

@@ -26,9 +26,20 @@ const GUTTER = 'px-4 sm:px-8 lg:px-10';
 
 export type SectionSize = 'default' | 'compact' | 'flush';
 
+/**
+ * Vertical rhythm.
+ *
+ * This was `py-24 lg:py-28` — 112px of air above AND below every section. Over
+ * the eighteen sections on the homepage that is ~4,000px of padding on its own,
+ * roughly four full screens of nothing, and it is the single largest reason the
+ * page reads as exhausting. Owner: "lots of sections super tall".
+ *
+ * 80px still separates two sections cleanly at this type size. The step down
+ * reads as "less tired", not as "cramped".
+ */
 const RHYTHM: Record<SectionSize, string> = {
-  default: 'py-24 lg:py-28',
-  compact: 'py-16 lg:py-20',
+  default: 'py-14 lg:py-20',
+  compact: 'py-10 lg:py-12',
   flush: '',
 };
 

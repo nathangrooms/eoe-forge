@@ -113,15 +113,15 @@ function FocusBrackets() {
 const STEPS = [
   {
     title: 'It waits for a clean frame',
-    body: 'Auto-capture measures every frame and only fires once the picture has held sharp and still — you are not fighting the shutter.',
+    body: 'It only takes the photo once the picture has held still and sharp, so you are never fighting the shutter.',
   },
   {
     title: 'It forgives a bad read',
-    body: `The name is scored against the catalogue by edit distance — “${MISREAD}” still resolves.`,
+    body: `A near miss still finds the right card. “${MISREAD}” works fine.`,
   },
   {
     title: 'It files the card',
-    body: 'Straight into your collection, a deck, or a storage container — quantity bumped if you already own one.',
+    body: 'Straight into your collection, a deck or a box. If you already own one, it just adds another.',
   },
 ];
 
@@ -172,13 +172,17 @@ export function HomeScanner() {
     <Section tint>
       <style>{SWEEP_CSS}</style>
 
-      <div className="grid items-center gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.02fr)] lg:gap-20">
+      {/* items-start, and the match panel moved out of the phone (see below).
+          With items-center, a 467px text column sat inside a 944px row, so 240px
+          of black was parked above the heading and another 240px below the
+          button. */}
+      <div className="grid items-start gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.02fr)] lg:gap-20">
         {/* ------------------------------------------------------------ copy */}
         <SectionHeading
           align="left"
-          eyebrow="Photo scan"
+          eyebrow="Scan a card"
           title="Point your phone at a card"
-          lead="Hold a card in the frame and it goes into your collection. No typing, no dropdown, no set picker."
+          lead="Hold a card up to the camera and it lands in your collection. No typing, no picking the set, no menus."
         >
           <ol className="mt-10 space-y-5">
             {STEPS.map((s, i) => (
@@ -193,6 +197,63 @@ export function HomeScanner() {
               </li>
             ))}
           </ol>
+
+          {/* The result of step 3, sitting under step 3.
+
+              This panel used to hang off the bottom of the phone mockup in the
+              right-hand column, which made that column 944px against 467px of
+              text and left a column of air beside it. It belongs here anyway:
+              the numbered steps end with "it files the card", and this is the
+              card being filed. Both columns now finish within ~60px of each
+              other and nothing was removed from the page. */}
+              {/* the match */}
+              <div className="rounded-2xl bg-muted/40 p-4">
+                <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-muted-foreground">
+                  <ScanLine className="h-3.5 w-3.5" />
+                  Read from frame
+                </div>
+                <p className="mt-1.5 font-mono text-sm text-muted-foreground line-through decoration-muted-foreground/60">
+                  {MISREAD}
+                </p>
+
+                <div className="mt-4 flex items-center gap-3.5">
+                  {card ? (
+                    <CardImage card={card} width={46} />
+                  ) : (
+                    <div
+                      className="w-[46px] shrink-0 rounded-[4.75%/3.4%] bg-foreground/10"
+                      style={{ aspectRatio: '488 / 680' }}
+                    />
+                  )}
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="min-w-0 truncate text-sm font-medium">{card?.name ?? TARGET}</p>
+                      <ManaCost cost={card?.mana_cost ?? '{R}'} size="xs" />
+                    </div>
+                    <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                      {card?.type_line ?? 'Instant'}
+                      {card?.set_code ? ` · ${card.set_code.toUpperCase()}` : ''} · {MATCH_PCT}% name
+                      match
+                    </p>
+                  </div>
+
+                  {usd !== null && (
+                    <span className="shrink-0 text-sm tabular-nums">${usd.toFixed(2)}</span>
+                  )}
+                </div>
+
+                {/* This line may only describe the match, which is computed on
+                    screen. It used to read "Added to your collection. You
+                    already owned one, so now you have two": a tick beside a
+                    statement about a logged-out visitor's collection, which is
+                    a thing nothing on this page can know. Whether a duplicate
+                    bumps a count is already said, conditionally, in step 3. */}
+                <p className="mt-3.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <Check className="h-3 w-3 shrink-0" />
+                  Matched. Ready to file into a collection, a deck or a box.
+                </p>
+              </div>
 
           <Button asChild size="lg" className="mt-10">
             <Link to="/scan">
@@ -273,48 +334,6 @@ export function HomeScanner() {
               </span>
             </div>
 
-            {/* the match */}
-            <div className="rounded-2xl bg-muted/40 p-4">
-              <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-muted-foreground">
-                <ScanLine className="h-3.5 w-3.5" />
-                Read from frame
-              </div>
-              <p className="mt-1.5 font-mono text-sm text-muted-foreground line-through decoration-muted-foreground/60">
-                {MISREAD}
-              </p>
-
-              <div className="mt-4 flex items-center gap-3.5">
-                {card ? (
-                  <CardImage card={card} width={46} />
-                ) : (
-                  <div
-                    className="w-[46px] shrink-0 rounded-[4.75%/3.4%] bg-foreground/10"
-                    style={{ aspectRatio: '488 / 680' }}
-                  />
-                )}
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="min-w-0 truncate text-sm font-medium">{card?.name ?? TARGET}</p>
-                    <ManaCost cost={card?.mana_cost ?? '{R}'} size="xs" />
-                  </div>
-                  <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                    {card?.type_line ?? 'Instant'}
-                    {card?.set_code ? ` · ${card.set_code.toUpperCase()}` : ''} · {MATCH_PCT}% name
-                    match
-                  </p>
-                </div>
-
-                {usd !== null && (
-                  <span className="shrink-0 text-sm tabular-nums">${usd.toFixed(2)}</span>
-                )}
-              </div>
-
-              <p className="mt-3.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                <Check className="h-3 w-3 shrink-0" />
-                Added to your collection — quantity bumped if you already own one
-              </p>
-            </div>
           </div>
         </div>
       </div>

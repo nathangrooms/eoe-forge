@@ -1,148 +1,142 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CardSearchState,
   buildScryfallURL,
   hasSearchCriteria,
 } from '@/lib/scryfall/query-builder';
+import { pageCountFor } from '@/lib/pagination';
+import { usePageParam, usePageSize } from './usePagination';
+import { useScryfallPage } from './useScryfallPage';
 
-interface UseAdvancedCardSearchResult {
+/**
+ * Scryfall card search, paged by page number.
+ *
+ * ## Why this is not "load more" any more
+ *
+ * It used to append: every extra batch was concatenated onto the last, so a
+ * reader four batches into Commander staples had 700 card tiles in the
+ * document, no way to say where they were, nothing to link, and lost the lot on
+ * a reload. Now one page is on screen at a time and the page number is in the
+ * address bar, so back, forward, refresh and paste all work.
+ *
+ * The block fetching, the cache and the count live in `useScryfallPage`, which
+ * every other card surface reads through too. What this hook adds is what a
+ * search page needs on top: the query built from filter state, the page in the
+ * URL, and the remembered rows-per-page.
+ */
+
+export interface UseAdvancedCardSearchOptions {
+  /** Put `?page=` in the address bar. Off inside panels and embedded pickers. */
+  urlSync?: boolean;
+  /** localStorage bucket for the rows-per-page preference. */
+  sizeKey?: string;
+}
+
+export interface UseAdvancedCardSearchResult {
+  /** The rows for the current page. Never more than `pageSize` of them. */
   results: any[];
   loading: boolean;
-  /** Set only while a "load more" page is in flight, so the grid doesn't flash. */
-  loadingMore: boolean;
   error: string | null;
-  hasMore: boolean;
-  totalResults: number;
+  /** Scryfall's own count for this query, or null before one has arrived. */
+  totalResults: number | null;
+  /** Null whenever the total is null. Never estimated. */
+  pageCount: number | null;
+  hasNext: boolean;
+  page: number;
+  setPage: (page: number) => void;
+  pageSize: number;
+  setPageSize: (size: number) => void;
   searchWithState: (state: CardSearchState) => void;
-  loadMore: () => void;
   clearResults: () => void;
   currentState: CardSearchState | null;
 }
 
-/**
- * Scryfall card search.
- *
- * The cache key is the FULL request URL, not just the `q` token — `order`,
- * `dir` and `unique` travel as query params, so keying on `q` alone was what
- * made the sort dropdown and direction toggle inert.
- */
-export function useAdvancedCardSearch(): UseAdvancedCardSearchResult {
-  const [results, setResults] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(false);
-  const [totalResults, setTotalResults] = useState(0);
+export function useAdvancedCardSearch(
+  options: UseAdvancedCardSearchOptions = {}
+): UseAdvancedCardSearchResult {
+  const { urlSync = false, sizeKey = 'search' } = options;
+
+  const [pageSize, setStoredPageSize] = usePageSize(sizeKey);
+  const [url, setUrl] = useState<string | null>(null);
   const [currentState, setCurrentState] = useState<CardSearchState | null>(null);
 
-  // Refs keep `run` stable: depending on `results` would rebuild the callback
-  // on every fetch and retrigger the caller's debounce effect.
-  const resultsRef = useRef<any[]>([]);
-  const nextPageRef = useRef<string | null>(null);
-  const lastUrlRef = useRef<string | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
+  /**
+   * The page count trails the fetch by one render, and has to.
+   *
+   * Clamping the page needs the count, the count comes from the response, and
+   * the response needs the page. Holding the last known count in state breaks
+   * that circle: the first render of a new query pages unclamped, the count
+   * arrives, and a page past the end snaps back on the render after. A page
+   * past the end in the meantime is a 404 from Scryfall, which reads as an
+   * empty page rather than an error.
+   */
+  const [pageCount, setPageCount] = useState<number | null>(null);
 
-  useEffect(() => () => abortRef.current?.abort(), []);
+  /* The query is what makes a page number meaningless, so the request URL is
+     the reset key. A page held while the URL is still null survives, which is
+     what lets `/cards?page=7&fq=…` open on page 7 rather than page 1. */
+  const { page, setPage } = usePageParam({
+    urlSync,
+    resetKey: url ?? '',
+    pageCount,
+  });
 
-  const run = useCallback(async (url: string, append: boolean) => {
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
+  const { rows, total, loading, error } = useScryfallPage(url, page, pageSize);
 
-    if (append) setLoadingMore(true);
-    else setLoading(true);
-    setError(null);
+  useEffect(() => {
+    setPageCount(pageCountFor(total, pageSize));
+  }, [total, pageSize]);
 
-    try {
-      const response = await fetch(url, { signal: controller.signal });
-      const payload = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        // Scryfall returns 404 with an explanatory `details` field for a query
-        // that parsed fine but matched nothing, and 400 for a syntax error.
-        if (response.status === 404) {
-          if (!append) {
-            resultsRef.current = [];
-            setResults([]);
-            setTotalResults(0);
-          }
-          setHasMore(false);
-          nextPageRef.current = null;
-          return;
-        }
-        throw new Error(payload?.details || `Search failed (${response.status})`);
-      }
-
-      const data = payload?.data ?? [];
-      const next = append ? [...resultsRef.current, ...data] : data;
-      resultsRef.current = next;
-      setResults(next);
-      setHasMore(Boolean(payload?.has_more));
-      nextPageRef.current = payload?.next_page ?? null;
-      setTotalResults(payload?.total_cards ?? data.length);
-    } catch (err: any) {
-      if (err?.name === 'AbortError') return;
-      setError(err instanceof Error ? err.message : 'Failed to search cards');
-      if (!append) {
-        resultsRef.current = [];
-        setResults([]);
-        setHasMore(false);
-        setTotalResults(0);
-      }
-    } finally {
-      if (controller === abortRef.current) {
-        setLoading(false);
-        setLoadingMore(false);
-      }
+  const searchWithState = useCallback((state: CardSearchState) => {
+    if (!state || !hasSearchCriteria(state)) {
+      setUrl(null);
+      setCurrentState(null);
+      return;
     }
+    setCurrentState(state);
+    setUrl(buildScryfallURL(state));
   }, []);
 
   const clearResults = useCallback(() => {
-    abortRef.current?.abort();
-    resultsRef.current = [];
-    nextPageRef.current = null;
-    lastUrlRef.current = null;
-    setResults([]);
-    setHasMore(false);
-    setTotalResults(0);
+    setUrl(null);
     setCurrentState(null);
-    setError(null);
-    setLoading(false);
-    setLoadingMore(false);
   }, []);
 
-  const searchWithState = useCallback(
-    (state: CardSearchState) => {
-      if (!state || !hasSearchCriteria(state)) {
-        clearResults();
-        return;
-      }
-
-      const url = buildScryfallURL(state);
-      if (url === lastUrlRef.current) return;
-
-      lastUrlRef.current = url;
-      setCurrentState(state);
-      void run(url, false);
+  /**
+   * Keep the reader in the same part of the results when the page size changes.
+   *
+   * Going from 24 a page to 96 while on page 5 should not land on the 385th
+   * card; it should still show the row being read. The first row on screen is
+   * what is preserved.
+   */
+  const setPageSize = useCallback(
+    (next: number) => {
+      const firstRow = (page - 1) * pageSize;
+      setStoredPageSize(next);
+      setPage(Math.floor(firstRow / next) + 1);
     },
-    [run, clearResults]
+    [page, pageSize, setPage, setStoredPageSize]
   );
 
-  const loadMore = useCallback(() => {
-    const next = nextPageRef.current;
-    if (!next || loading || loadingMore) return;
-    void run(next, true);
-  }, [run, loading, loadingMore]);
+  const hasNext = useMemo(() => {
+    if (pageCount != null) return page < pageCount;
+    // With no count from the source, a full page is the only evidence another
+    // one exists.
+    return rows.length === pageSize;
+  }, [pageCount, page, rows.length, pageSize]);
 
   return {
-    results,
+    results: rows,
     loading,
-    loadingMore,
     error,
-    hasMore,
-    totalResults,
+    totalResults: total,
+    pageCount,
+    hasNext,
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
     searchWithState,
-    loadMore,
     clearResults,
     currentState,
   };

@@ -5,7 +5,13 @@ import { Button } from '@/components/ui/button';
 import { CardGrid, CardGridSkeleton, CardSizeSlider, useCardSize } from '@/components/cards';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { cn } from '@/lib/utils';
-import { paidTotals, useCardLists, type CardListItem, type ShoppingEntry } from '@/lib/shopping';
+import {
+  describeUnpricedLines,
+  paidTotals,
+  useCardLists,
+  type CardListItem,
+  type ShoppingEntry,
+} from '@/lib/shopping';
 import { formatAmount } from '@/lib/pricing';
 import { PlatformTotals } from './PlatformTotals';
 import { ShoppingEntryTile } from './ShoppingEntryTile';
@@ -212,30 +218,27 @@ export default function ShoppingListPage() {
         open={exporting}
         onOpenChange={setExporting}
         lines={exportLines}
-        unpricedNote={unpricedNote(costLines.length, list.toBuy)}
+        unpricedNote={describeUnpricedLines(costLines)}
       />
     </StandardPageLayout>
   );
 }
 
 /**
- * The export carries every card, priced or not, so nothing is quietly dropped
- * from what the player is about to buy. This note says how many of them we had
- * no price for, so the totals above and the list below cannot be read as
- * disagreeing.
+ * What has been spent on cards that are bought and not yet put away.
+ *
+ * ONE TILE PER MONEY, AND IT SAYS WHICH
+ * -------------------------------------
+ * Both tiles used to be headed "Paid, waiting to arrive", so a player looking
+ * at $18.90 beside €0.50 saw two boxes with the same title and no way to tell
+ * what separated them. Caught on a screenshot rather than in review. They are
+ * split by the money they were paid in, because nothing here converts one into
+ * the other, so the heading is the money. The old heading was also not quite
+ * true: this counts cards in hand but not filed as well as cards still in the
+ * post.
  */
-function unpricedNote(_total: number, entries: ShoppingEntry[]): string | null {
-  const unpriced = entries.filter(entry => {
-    const prices = (entry.card?.prices ?? {}) as Record<string, unknown>;
-    return !prices.usd && !prices.eur;
-  }).length;
-  if (unpriced === 0) return null;
-  return unpriced === 1
-    ? 'One card here has no price in any shop we read. It is still in the list above.'
-    : `${unpriced} cards here have no price in any shop we read. They are still in the list above.`;
-}
+const MONEY_WORD: Record<'USD' | 'EUR', string> = { USD: 'dollars', EUR: 'euros' };
 
-/** What has been spent on cards that have not arrived. */
 function MoneyInThePost({ items }: { items: CardListItem[] }) {
   const { totals, copiesWithNoPrice } = paidTotals(items);
   if (totals.length === 0 && copiesWithNoPrice === 0) return null;
@@ -244,7 +247,7 @@ function MoneyInThePost({ items }: { items: CardListItem[] }) {
       {totals.map(total => (
         <div key={total.currency} className="min-w-0 rounded-xl bg-muted/30 px-4 py-3">
           <p className="text-[0.7rem] uppercase tracking-wide text-muted-foreground">
-            Paid, waiting to arrive
+            Paid in {MONEY_WORD[total.currency]}
           </p>
           <p className="mt-0.5 text-2xl font-semibold tabular-nums text-foreground">
             {formatAmount(total.amount, total.currency)}

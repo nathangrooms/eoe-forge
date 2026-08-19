@@ -250,7 +250,15 @@ export function sortCards(
           new Date(a.addedAt ?? 0).getTime() - new Date(b.addedAt ?? 0).getTime();
         break;
     }
+    /*
+     * Ties must break on something unique, or the order is not stable and a
+     * card can land on two pages of a paged list at once (or on neither).
+     * `name` is not unique here: a collection holds two rows for the same card
+     * in different conditions, and two more for two printings of it. `rowId` is
+     * the row's own identity and is the only field that always separates them.
+     */
     if (cmp === 0) cmp = a.name.localeCompare(b.name);
+    if (cmp === 0) cmp = a.rowId < b.rowId ? -1 : a.rowId > b.rowId ? 1 : 0;
     return cmp * factor;
   });
 }

@@ -18,10 +18,10 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { cardKey, copiesNeeded } from './list.ts';
+import { cardKey, cardKeyWith, copiesNeeded, oracleIdsByName } from './list.ts';
 import { assembleShoppingList, waitingFor, type AssembleInput } from './assemble.ts';
 import { formatExport, mergeLines } from './exportFormats.ts';
-import { paidTotals, platformTotals } from './totals.ts';
+import { countUnpricedLines, paidTotals, platformTotals } from './totals.ts';
 
 /* ---------------------------------------------------------------- fixtures */
 
@@ -140,6 +140,12 @@ describe('grouping one card across sources', () => {
   it('does not confuse two different cards', () => {
     assert.notEqual(cardKey({ card_name: 'Sol Ring' }), cardKey({ card_name: 'Solemn Simulacrum' }));
   });
+
+  it('lifts a name only row onto the oracle key when another source knows it', () => {
+    const known = oracleIdsByName([{ oracle_id: 'abc', card_name: 'Sol Ring' }]);
+    assert.equal(cardKeyWith(known, { card_name: 'sol ring' }), 'o:abc');
+    assert.equal(cardKeyWith(known, { card_name: 'Mana Crypt' }), 'n:mana crypt');
+  });
 });
 
 /* -------------------------------------------------------------- the merge */
@@ -165,6 +171,42 @@ describe('assembling the list', () => {
       entry.reasons.map(r => r.label),
       ['On your wishlist', 'Needed by Krenko', 'Needed by Atraxa']
     );
+  });
+
+  /*
+   * The one that was live on production. 11 of 94 wishlist rows carry a
+   * `card_id` that is not in the `cards` catalogue, so nothing joins onto them
+   * and they have no oracle id. The admin account's Sol Ring is one of them
+   * (`card_id` is the literal text `sol-ring` from an old import) and Sol Ring
+   * is also short in a deck. Keyed naively the list printed Sol Ring twice and
+   * asked the player to buy three of a card they wanted one of.
+   */
+  it('does not split one card in two when a source has no oracle id', () => {
+    const list = assembleShoppingList(
+      input({
+        wishlist: [
+          // No joined card row, exactly as a text-imported wishlist row loads.
+          { id: 'w1', card_id: 'sol-ring', card_name: 'Sol Ring', quantity: 1, card: undefined },
+        ],
+        shortfalls: [
+          { deckId: 'd1', deckName: 'Krenko', card_id: SOL_RING.id, card_name: 'Sol Ring', missing: 2, card: SOL_RING },
+        ],
+      })
+    );
+    assert.equal(list.toBuy.length, 1, 'one card, one entry');
+    assert.equal(list.toBuy[0].quantity, 2, 'the deck needs two, the wishlist does not add a third');
+  });
+
+  it('cancels a deck need against a parcel even when the deck row has no oracle id', () => {
+    const list = assembleShoppingList(
+      input({
+        items: [item({ id: 'bought', status: 'bought', quantity: 1, bought_at: '2026-08-10T00:00:00Z' })],
+        shortfalls: [
+          { deckId: 'd1', deckName: 'Krenko', card_id: 'sol-ring', card_name: 'Sol Ring', missing: 1, card: undefined },
+        ],
+      })
+    );
+    assert.equal(list.toBuy.length, 0, 'the parcel already covers it');
   });
 
   it('does not offer to buy a copy already on the way', () => {
@@ -284,6 +326,26 @@ describe('exports a shop will accept', () => {
 });
 
 /* --------------------------------------------------------------- the totals */
+
+describe('the note that travels with an export', () => {
+  it('counts a card we hold no money price for', () => {
+    assert.equal(countUnpricedLines([{ card: UNPRICED, quantity: 1, finish: 'nonfoil' }]), 1);
+  });
+
+  it('does not call a card unpriced when the finish being bought has a price', () => {
+    // Craterhoof `cmm` exists only in etched foil and only `usd_etched` has a
+    // number. Bought as etched it IS priced, and the tiles above have already
+    // charged for it, so calling it unpriced would put two answers on one page.
+    assert.equal(countUnpricedLines([{ card: ETCHED_ONLY, quantity: 1, finish: 'etched' }]), 0);
+    // Asked for as a plain copy it genuinely has no price, and says so.
+    assert.equal(countUnpricedLines([{ card: ETCHED_ONLY, quantity: 1, finish: 'nonfoil' }]), 1);
+  });
+
+  it('does not let a ticket price stand in for money', () => {
+    // Craterhoof has a tix price. Tickets are not dollars or euros.
+    assert.equal(countUnpricedLines([{ card: ETCHED_ONLY, quantity: 2, finish: 'foil' }]), 1);
+  });
+});
 
 describe('what the list costs', () => {
   it('totals each shop in its own money and never mixes them', () => {

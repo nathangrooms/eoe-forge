@@ -113,6 +113,24 @@ export function PlayerRoster({
 
   const canEdit = !!onAddPlayers;
 
+  /*
+    Sign-in order before the event starts, standings order once it is running.
+
+    Sign-in order is the right order for a sheet people are still being added
+    to. It is the wrong order for a TO mid-event, where the roster is the drop
+    sheet and the question is "who is this player and how are they doing" — that
+    list came out 1, 6, 5, 3, 2, 4, which reads as no order at all. `rank` is
+    already on the view, put there by the same standings the rest of the page
+    uses, so this is a sort and not a second opinion about who is winning.
+  */
+  const rosterOrder = useMemo(() => {
+    if (tournament.status === 'setup') return tournament.players;
+    const last = tournament.players.length + 1;
+    return [...tournament.players].sort(
+      (a, b) => (views.get(a)?.rank ?? last) - (views.get(b)?.rank ?? last)
+    );
+  }, [tournament.players, tournament.status, views]);
+
   const submitDraft = () => {
     const names = parseNames(draft).filter(n => !tournament.players.includes(n));
     if (names.length === 0) {
@@ -162,8 +180,22 @@ export function PlayerRoster({
       {tournament.players.length === 0 ? (
         <EmptyRoster decks={decks} loading={decksLoading} />
       ) : (
-        <ul className="space-y-2">
-          {tournament.players.map(player => {
+        /*
+          Tiles, laid out against the width that is actually there.
+
+          A roster entry is a 76px card, a name, a record and three small
+          buttons. Stretched across a 1,400px row that content sat in the first
+          400px and the remaining thousand was black, once per player down the
+          page — the owner's "doesn't utilise full page width", on the screen
+          where it showed worst. As tiles the same six players take two rows
+          instead of six, the commander gets half again the size, and a phone
+          still gets one per row because the floor is `min(100%, 22rem)`.
+
+          `items-start` so the tile with its deck picker open grows on its own
+          rather than stretching every tile beside it to match.
+        */
+        <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,22rem),1fr))] items-start gap-3">
+          {rosterOrder.map(player => {
             const view = viewFor(views, player);
             const registered = tournament.decks[player];
             const mismatch = formatMismatch(tournament.gameFormat, registered);
@@ -172,18 +204,17 @@ export function PlayerRoster({
             return (
               <li key={player} className="overflow-hidden rounded-xl bg-card shadow-sm">
                 <div
-                  className={cn(
-                    'flex flex-wrap items-center gap-3 p-3',
-                    view.dropped && 'opacity-50'
-                  )}
+                  className={cn('flex items-stretch gap-3 p-3', view.dropped && 'opacity-50')}
                 >
                   {/* A roster is a list of decks with people attached, so the
-                      deck has to be recognisable. 58px was not. */}
-                  <div className="w-[76px] shrink-0">
-                    <CommanderPortrait view={view} size="sm" />
+                      deck has to be recognisable. 58px was not, and 76px was
+                      still a thumbnail. `md` because the card is now drawn wide
+                      enough that the smaller Scryfall asset shows its softness. */}
+                  <div className="w-[112px] shrink-0">
+                    <CommanderPortrait view={view} size="md" />
                   </div>
 
-                  <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 flex-1 flex-col">
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
                       <span className="truncate text-sm font-semibold text-foreground">
                         {player}
@@ -243,9 +274,12 @@ export function PlayerRoster({
                         No deck registered
                       </p>
                     )}
-                  </div>
 
-                  <div className="flex shrink-0 items-center gap-1">
+                  {/* Under the player rather than beside them: at tile width
+                      there is no room for a right-hand column, and pinned to
+                      the bottom the controls line up across a row of tiles
+                      whose text runs to different lengths. */}
+                  <div className="-ml-2.5 mt-auto flex flex-wrap items-center gap-1 pt-2">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -288,6 +322,7 @@ export function PlayerRoster({
                         <X className="h-4 w-4" />
                       </Button>
                     )}
+                  </div>
                   </div>
                 </div>
 

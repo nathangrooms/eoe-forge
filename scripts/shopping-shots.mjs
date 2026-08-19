@@ -67,6 +67,7 @@ import ShoppingList from '../pages/Buylist';
 import ProxyList from '../pages/ProxyList';
 import Collection from '../pages/Collection';
 import { MarketplaceShoppingLead } from '../components/shopping';
+import { EnhancedUniversalCardSearch } from '../components/universal/EnhancedUniversalCardSearch';
 
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
@@ -84,6 +85,17 @@ const ROUTES: Record<string, { path: string; entry: string; element: JSX.Element
     element: (
       <div className="p-6">
         <MarketplaceShoppingLead />
+      </div>
+    ),
+  },
+  /* Search results, to show that the add action here is the SAME button as on
+     the list pages. The owner's first words were that it existed nowhere. */
+  search: {
+    path: '/cards',
+    entry: '/cards',
+    element: (
+      <div className="p-6">
+        <EnhancedUniversalCardSearch initialQuery="Sol Ring" showFilters={false} showListButtons />
       </div>
     ),
   },
@@ -155,7 +167,7 @@ let failures = 0;
  * taken during one of those windows is a picture of a loading skeleton being
  * passed off as a feature.
  */
-async function capture(page, name, { wait = 7000, click = null, height = 1500, fullPage = true, requireText = null, tries = 1 } = {}) {
+async function capture(page, name, { wait = 7000, click = null, height = 1500, fullPage = true, requireText = null, hover = null, tries = 1 } = {}) {
   const tab = await browser.newPage();
   await tab.setViewport({ width: 1680, height, deviceScaleFactor: 1 });
   await tab.evaluateOnNewDocument(SHIM);
@@ -180,6 +192,21 @@ async function capture(page, name, { wait = 7000, click = null, height = 1500, f
     }, click);
     if (!found) log(`  [warn] no button starting "${click}"`);
     await sleep(2500);
+  }
+
+  // Some controls are revealed on hover on a pointer device, so a photograph
+  // taken with the mouse parked at 0,0 shows a feature that is really there as
+  // missing. On a touch device they are simply on; see UniversalCardDisplay.
+  if (hover) {
+    const box = await tab.evaluate(sel => {
+      const el = document.querySelector(sel);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    }, hover);
+    if (box) await tab.mouse.move(box.x, box.y);
+    else log(`  [warn] nothing matched "${hover}" to hover`);
+    await sleep(600);
   }
 
   const text0 = await tab.evaluate(() => document.body.innerText);
@@ -211,7 +238,9 @@ async function capture(page, name, { wait = 7000, click = null, height = 1500, f
 }
 
 const only = process.argv.slice(2).filter(a => !a.startsWith('-'));
-const WANT = new Set(only.length ? only : ['shopping', 'coming', 'proxies', 'collection', 'marketplace']);
+const WANT = new Set(
+  only.length ? only : ['shopping', 'coming', 'proxies', 'collection', 'marketplace', 'search']
+);
 
 if (WANT.has('shopping'))
   await capture('shopping', 'shopping-to-buy', { wait: 9000, requireText: 'copies in total' });
@@ -223,6 +252,15 @@ if (WANT.has('collection'))
   await capture('collection', 'collection-arriving', { wait: 18000, requireText: 'on the way' });
 if (WANT.has('marketplace'))
   await capture('marketplace', 'marketplace-lead', { wait: 18000, requireText: 'TCGPLAYER' });
+
+if (WANT.has('search'))
+  await capture('search', 'search-results', {
+    wait: 16000,
+    height: 1200,
+    fullPage: false,
+    hover: '[data-card-tile], .group',
+    requireText: 'cards matched',
+  });
 
 log(failures === 0 ? '\nPASS: no fabricated zero reached any page.' : `\nFAILED on ${failures} page(s).`);
 await browser.close();

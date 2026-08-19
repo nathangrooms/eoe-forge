@@ -39,6 +39,8 @@ export interface AdditionSuggestion {
 interface AdditionsSectionProps {
   suggestions: AdditionSuggestion[];
   missingCards: number;
+  /** The deck these were suggested for, kept as the reason on the shopping list. */
+  deckId?: string | null;
   onAddCard: (cardName: string) => void;
   onAddMultiple: (cardNames: string[]) => void;
   isAdding: boolean;
@@ -63,6 +65,7 @@ const CATEGORY_ORDER = [
 export function AdditionsSection({
   suggestions,
   missingCards,
+  deckId,
   onAddCard,
   onAddMultiple,
   isAdding,
@@ -166,6 +169,8 @@ export function AdditionsSection({
                     reason={card.reason}
                     selected={selectedCards.has(card.name)}
                     onToggle={() => toggleCard(card.name)}
+                    offerLists
+                    deckId={deckId}
                     tags={
                       <>
                         <TilePill>{PRIORITY_LABEL[card.priority]}</TilePill>

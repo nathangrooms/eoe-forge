@@ -1,97 +1,99 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
+import { pageCountFor } from '@/lib/pagination';
+import { usePageParam, usePageSize } from '@/hooks/usePagination';
+import { useScryfallPage } from '@/hooks/useScryfallPage';
 
 /**
- * One paged Scryfall commander search.
+ * A wall of commanders, one page at a time.
  *
- * The page runs three of these at once — the EDHREC-ordered default wall, the
- * name search, and whatever the finder panel asked for — and swaps which one
- * the grid is showing. Keeping them separate means switching back to the
- * default grid does not re-fetch it, and a slow finder response cannot land on
- * top of a name search the player has since typed (the run counter drops any
- * response that is no longer the current one).
+ * It used to hold two independent searches that each appended forever: a
+ * default EDHREC-ordered wall and a name search, swapped by whether the box had
+ * anything in it, each growing by a window of 24 and then by a Scryfall page of
+ * 175. Four presses of "load more" put 700 pieces of card art in the document
+ * with nothing on screen to say where you were.
  *
- * Scryfall answers a valid query with zero matches as a 404, so that is an
- * empty result, not an error.
+ * It is controlled now. The caller says which query and which page, and gets
+ * that page back. Switching between the wall and a name search is a change of
+ * URL, so there is nothing to keep in step and nothing to re-fetch when the
+ * box is cleared: `useScryfallPage` still holds the blocks it fetched for the
+ * wall.
+ *
+ * The page lives in the address bar, so a commander picked from page 6 can be
+ * got back to with the Back button.
  */
+
+export interface CommanderBrowseOptions {
+  /**
+   * The Scryfall search URL to show, or null for nothing at all (the picker is
+   * closed, or the format has no commanders).
+   */
+  url: string | null;
+  /** localStorage bucket for the rows-per-page preference. */
+  sizeKey: string;
+  /** Put `?page=` in the address bar. */
+  urlSync?: boolean;
+  /** Query-string key, for a screen that carries another pager. */
+  pageKey?: string;
+}
 
 export interface CommanderBrowseState {
   cards: any[];
+  /** Scryfall's own count, or null before one has arrived. Never estimated. */
   total: number | null;
-  nextPage: string | null;
+  /** Null whenever the total is null. */
+  pageCount: number | null;
+  page: number;
+  setPage: (page: number) => void;
+  pageSize: number;
+  setPageSize: (size: number) => void;
   loading: boolean;
-  loadingMore: boolean;
   error: string | null;
 }
 
-const EMPTY: CommanderBrowseState = {
-  cards: [],
-  total: null,
-  nextPage: null,
-  loading: false,
-  loadingMore: false,
-  error: null,
-};
+export function useCommanderBrowse(options: CommanderBrowseOptions): CommanderBrowseState {
+  const { url, sizeKey, urlSync = true, pageKey = 'page' } = options;
 
-export function useCommanderBrowse() {
-  const [state, setState] = useState<CommanderBrowseState>(EMPTY);
-  const runId = useRef(0);
+  const [pageSize, setStoredPageSize] = usePageSize(sizeKey);
 
-  const fetchPage = useCallback(async (url: string, append: boolean) => {
-    const id = ++runId.current;
-    setState(prev => ({
-      ...prev,
-      error: null,
-      loading: !append,
-      loadingMore: append,
-      ...(append ? {} : { cards: [], total: null, nextPage: null }),
-    }));
+  /* The page count trails the fetch by one render: clamping needs the count,
+     the count comes from the response, and the response needs the page. The ref
+     breaks that circle without a render-phase state write. A page past the end
+     reads as an empty page until the count lands and snaps it back. */
+  const knownPageCount = useRef<number | null>(null);
 
-    try {
-      const response = await fetch(url);
+  const { page, setPage } = usePageParam({
+    key: pageKey,
+    urlSync,
+    resetKey: url ?? '',
+    pageCount: knownPageCount.current,
+  });
 
-      if (response.status === 404) {
-        if (id !== runId.current) return;
-        setState({ ...EMPTY, total: 0 });
-        return;
-      }
-      if (!response.ok) throw new Error(`Scryfall returned ${response.status}`);
+  const { rows, total, loading, error } = useScryfallPage(url, page, pageSize);
 
-      const data = await response.json();
-      if (id !== runId.current) return;
+  const pageCount = useMemo(() => pageCountFor(total, pageSize), [total, pageSize]);
+  knownPageCount.current = pageCount;
 
-      const cards = data.data || [];
-      setState(prev => ({
-        cards: append ? [...prev.cards, ...cards] : cards,
-        total: data.total_cards ?? cards.length,
-        nextPage: data.has_more ? data.next_page : null,
-        loading: false,
-        loadingMore: false,
-        error: null,
-      }));
-    } catch (error: any) {
-      if (id !== runId.current) return;
-      setState(prev => ({
-        ...prev,
-        loading: false,
-        loadingMore: false,
-        error: error?.message || 'Could not reach Scryfall. Try again.',
-      }));
-    }
-  }, []);
+  /** Changing the page size keeps the card you were looking at on screen. */
+  const setPageSize = useCallback(
+    (next: number) => {
+      const firstRow = (page - 1) * pageSize;
+      setStoredPageSize(next);
+      setPage(Math.floor(firstRow / next) + 1);
+    },
+    [page, pageSize, setPage, setStoredPageSize]
+  );
 
-  const run = useCallback((url: string) => fetchPage(url, false), [fetchPage]);
-
-  const loadMore = useCallback(() => {
-    if (!state.nextPage || state.loadingMore) return;
-    return fetchPage(state.nextPage, true);
-  }, [fetchPage, state.nextPage, state.loadingMore]);
-
-  const reset = useCallback(() => {
-    runId.current++;
-    setState(EMPTY);
-  }, []);
-
-  return { ...state, run, loadMore, reset };
+  return {
+    cards: rows,
+    total,
+    pageCount,
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    loading,
+    error,
+  };
 }
 
 export default useCommanderBrowse;

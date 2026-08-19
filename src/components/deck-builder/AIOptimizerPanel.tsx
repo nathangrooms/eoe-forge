@@ -1018,6 +1018,7 @@ export function AIOptimizerPanel({
                 <AdditionsSection
                   suggestions={additionSuggestions}
                   missingCards={missingCards}
+                  deckId={deckId}
                   onAddCard={handleAddCard}
                   onAddMultiple={handleAddMultipleCards}
                   isAdding={isApplying}
@@ -1116,6 +1117,7 @@ export function AIOptimizerPanel({
                 onAddLand={handleAddCard}
                 onRemoveLand={handleRemoveCard}
                 isApplying={isApplying}
+                deckId={deckId}
               />
             </TabsContent>
           </Tabs>

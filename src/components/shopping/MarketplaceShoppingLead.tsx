@@ -3,7 +3,13 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, Send, ShoppingCart, Store, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { useCardLists, loadListingsFor, type ListingMatch, type ShoppingEntry } from '@/lib/shopping';
+import {
+  describeUnpricedLines,
+  loadListingsFor,
+  useCardLists,
+  type ListingMatch,
+  type ShoppingEntry,
+} from '@/lib/shopping';
 import { PlatformTotals } from './PlatformTotals';
 import { ShoppingEntryRow } from './ShoppingEntryTile';
 import { MarkBoughtPanel } from './MarkBoughtPanel';
@@ -156,7 +162,12 @@ export function MarketplaceShoppingLead({ className }: { className?: string }) {
       )}
 
       <MarkBoughtPanel entry={buying} onOpenChange={open => !open && setBuying(null)} />
-      <ListExportPanel open={exporting} onOpenChange={setExporting} lines={exportLines} />
+      <ListExportPanel
+        open={exporting}
+        onOpenChange={setExporting}
+        lines={exportLines}
+        unpricedNote={describeUnpricedLines(costLines)}
+      />
     </section>
   );
 }

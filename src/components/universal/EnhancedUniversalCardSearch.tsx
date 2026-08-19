@@ -21,6 +21,7 @@ import {
   useCardFilterState,
 } from '@/components/filters/CardFilterPanel';
 import { cardDetailPath, CardGridSkeleton, CardSizeSlider, useCardSize } from '@/components/cards';
+import { Pager } from '@/components/ui/pagination';
 import { useAdvancedCardSearch } from '@/hooks/useAdvancedCardSearch';
 import { cn } from '@/lib/utils';
 import {
@@ -166,13 +167,16 @@ const VIEW_STORAGE_KEY = 'dm.cardSearch.view';
 const BROWSE_STORAGE_KEY = 'dm.cardSearch.browse';
 
 /**
- * 190px puts six cards across the 1136px content band, and sits in `CardImage`'s
- * `md` band — which is the point. `lg` adds a blur-up placeholder request per
- * card, and this grid now arrives pre-filled with a full Scryfall page, so that
- * would be ~350 requests on first paint instead of ~175 for no visible gain.
- * The size slider still reaches `lg`/`xl` for anyone who wants bigger cards.
+ * 230px sits in `CardImage`'s `lg` band, which is five cards across the 1136px
+ * content band and a card you can actually read.
+ *
+ * It used to be 190, deliberately, because the grid arrived holding a whole
+ * Scryfall page of 175 cards and the `lg` band adds a blur-up placeholder
+ * request per card: ~350 requests on first paint. A page is 24 cards now, so
+ * that argument is gone, and the standing complaint that cards render too small
+ * is what is left. The size slider still covers 90px to 320px either way.
  */
-const DEFAULT_CARD_WIDTH = 190;
+const DEFAULT_CARD_WIDTH = 230;
 
 /** Borderless field skin. `Input`/`SelectTrigger` ship with `border border-input`. */
 const FIELD = 'border-0 bg-muted/50 focus:ring-1 focus:ring-ring focus:ring-offset-0 focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0';
@@ -302,19 +306,23 @@ export function EnhancedUniversalCardSearch({
   });
 
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const sentinelRef = useRef<HTMLDivElement>(null);
+  /** Scrolled to on a page turn, so a new page starts at its first card. */
+  const resultsTopRef = useRef<HTMLDivElement>(null);
 
   const {
     results,
     loading,
-    loadingMore,
     error,
-    hasMore,
     totalResults,
+    pageCount,
+    hasNext,
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
     searchWithState,
-    loadMore,
     clearResults,
-  } = useAdvancedCardSearch();
+  } = useAdvancedCardSearch({ urlSync, sizeKey });
 
   /* ------------------------- Search box drafting ------------------------ */
   // The box holds its own draft and commits on a debounce. Writing straight
@@ -431,19 +439,24 @@ export function EnhancedUniversalCardSearch({
     }
   }, []);
 
-  // Infinite scroll.
-  useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el || !hasMore) return;
-    const observer = new IntersectionObserver(
-      entries => {
-        if (entries[0]?.isIntersecting) loadMore();
-      },
-      { rootMargin: '600px' }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [hasMore, loadMore, results.length]);
+  /**
+   * Turning the page puts you at the top of the new page.
+   *
+   * Without this a page turn from halfway down leaves the reader looking at the
+   * middle of a set of cards they have not seen the start of. It is the one
+   * thing infinite scroll got right for free and paging has to do on purpose.
+   * Page 1 is left alone: a fresh search should not yank the window about.
+   */
+  const goToPage = useCallback(
+    (next: number) => {
+      setPage(next);
+      const top = resultsTopRef.current;
+      if (!top) return;
+      const y = top.getBoundingClientRect().top + window.scrollY - 16;
+      window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+    },
+    [setPage]
+  );
 
   /* ------------------------------ Handlers ------------------------------ */
   const handleSortKey = useCallback(
@@ -695,11 +708,16 @@ export function EnhancedUniversalCardSearch({
         {(results.length > 0 || loading) && (
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-muted-foreground" aria-live="polite">
+              {/* The count lives in the pager below, which is the one place
+                  that knows whether a total was actually reported. This line
+                  says what the grid is showing, not how much of it. */}
               {loading
                 ? 'Searching…'
                 : !hasCriteria && browseView
-                  ? `${browseView.caption}. Showing ${results.length.toLocaleString()} of ${totalResults.toLocaleString()}`
-                  : `Showing ${results.length.toLocaleString()} of ${totalResults.toLocaleString()} cards`}
+                  ? browseView.caption
+                  : totalResults === null
+                    ? 'Search results'
+                    : `${totalResults.toLocaleString()} ${totalResults === 1 ? 'card' : 'cards'} matched`}
             </p>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -787,7 +805,11 @@ export function EnhancedUniversalCardSearch({
           these results; clicking a card now goes to `/cards/:id` instead, so
           the grid keeps the whole page. */}
       <div className="space-y-4">
-        {loading && results.length === 0 && <CardGridSkeleton width={cardWidth} count={18} />}
+        <div ref={resultsTopRef} className="h-px" aria-hidden />
+
+        {loading && results.length === 0 && (
+          <CardGridSkeleton width={cardWidth} count={Math.min(pageSize, 12)} />
+        )}
 
         {error && (
           <div className="rounded-xl bg-card p-6 shadow-lg shadow-black/20">
@@ -803,6 +825,21 @@ export function EnhancedUniversalCardSearch({
 
         {results.length > 0 && (
           <>
+            {/* Above and below. A pager only at the bottom means scrolling
+                back past a whole page to change anything about it. */}
+            <Pager
+              page={page}
+              pageCount={pageCount}
+              hasNext={hasNext}
+              onPageChange={goToPage}
+              total={totalResults}
+              shown={results.length}
+              pageSize={pageSize}
+              onPageSizeChange={setPageSize}
+              busy={loading}
+              label="Search result pages"
+            />
+
             <UniversalCardDisplay
               cards={results}
               viewMode={viewMode}
@@ -820,26 +857,40 @@ export function EnhancedUniversalCardSearch({
               showListButtons={showListButtons}
             />
 
-            <div ref={sentinelRef} className="h-px" aria-hidden />
-
-            {hasMore && (
-              <div className="flex justify-center">
-                <Button variant="secondary" onClick={loadMore} disabled={loadingMore}>
-                  {loadingMore ? 'Loading…' : 'Load more cards'}
-                </Button>
-              </div>
-            )}
-
-            {!hasMore && (
-              <p className="text-center text-xs text-muted-foreground">
-                End of results. {totalResults.toLocaleString()}{' '}
-                {totalResults === 1 ? 'card' : 'cards'} matched.
-              </p>
-            )}
+            <Pager
+              page={page}
+              pageCount={pageCount}
+              hasNext={hasNext}
+              onPageChange={goToPage}
+              total={totalResults}
+              shown={results.length}
+              pageSize={pageSize}
+              onPageSizeChange={setPageSize}
+              busy={loading}
+              label="Search result pages"
+            />
           </>
         )}
 
-        {!loading && !error && results.length === 0 && hasCriteria && (
+        {/* A page past the end of the results. Reachable from an old link or a
+            filter that narrowed while somebody was deep in the list. */}
+        {!loading && !error && results.length === 0 && page > 1 && (
+          <div className="rounded-xl bg-card p-8 text-center shadow-lg shadow-black/20">
+            <h3 className="mb-1 text-base font-medium text-foreground">
+              Nothing on page {page.toLocaleString()}
+            </h3>
+            <p className="mb-4 text-sm text-muted-foreground">
+              This search does not go that far.
+            </p>
+            <Button variant="secondary" onClick={() => goToPage(1)}>
+              Back to page 1
+            </Button>
+          </div>
+        )}
+
+        {/* `page === 1` keeps this from stacking under the message above: an
+            empty page 7 is not the same thing as a query that matched nothing. */}
+        {!loading && !error && results.length === 0 && hasCriteria && page === 1 && (
           <div className="rounded-xl bg-card p-8 text-center shadow-lg shadow-black/20">
             <Search className="mx-auto mb-4 h-10 w-10 text-muted-foreground" aria-hidden />
             <h3 className="mb-1 text-base font-medium text-foreground">No cards matched</h3>
@@ -855,7 +906,7 @@ export function EnhancedUniversalCardSearch({
 
         {/* The blank slate survives only where there is nothing else to show:
             an embedded picker with no browse views configured. */}
-        {!loading && !error && results.length === 0 && !hasCriteria && !browseView && (
+        {!loading && !error && results.length === 0 && !hasCriteria && !browseView && page === 1 && (
           <div className="rounded-xl bg-card p-8 text-center shadow-lg shadow-black/20">
             <Search className="mx-auto mb-4 h-10 w-10 text-muted-foreground" aria-hidden />
             <h3 className="mb-1 text-base font-medium text-foreground">Search every Magic card</h3>

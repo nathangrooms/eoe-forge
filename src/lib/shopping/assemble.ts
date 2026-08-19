@@ -34,7 +34,13 @@
  * open three other screens to reconstruct it.
  */
 
-import { cardKey, copiesNeeded, type CardListItem, type Finish } from './list.ts';
+import {
+  cardKeyWith,
+  copiesNeeded,
+  oracleIdsByName,
+  type CardListItem,
+  type Finish,
+} from './list.ts';
 
 /* ------------------------------------------------------------------ inputs */
 
@@ -121,12 +127,34 @@ export function assembleShoppingList(input: AssembleInput): AssembledList {
   const filed = input.items.filter(i => i.status === 'filed');
   const wanted = input.items.filter(i => i.status === 'want');
 
+  /* Every name we can attach an oracle id to, swept from all three sources
+     BEFORE anything is bucketed. A wishlist row whose card_id is not in the
+     catalogue has no oracle id of its own, and without this it would key on its
+     name and become a second entry for a card the deck sources already keyed on
+     its oracle id. See `oracleIdsByName` for the production case that found
+     this. */
+  const keyOf = (() => {
+    const known = oracleIdsByName([
+      ...input.items,
+      ...input.wishlist.map(row => ({
+        oracle_id: row.card?.oracle_id ?? null,
+        card_name: row.card_name,
+      })),
+      ...input.shortfalls.map(row => ({
+        oracle_id: row.card?.oracle_id ?? null,
+        card_name: row.card_name,
+      })),
+    ]);
+    return (row: { oracle_id?: string | null; card_name?: string | null }) =>
+      cardKeyWith(known, row);
+  })();
+
   /* Copies in the post, keyed the same way as everything else so a card
      ordered as one printing still cancels a deck's need for another. */
   const onTheWay = new Map<string, number>();
   for (const item of [...arriving, ...arrived]) {
-    const key = cardKey(item);
-    onTheWay.set(key, (onTheWay.get(key) ?? 0) + item.quantity);
+    const itemKey = keyOf(item);
+    onTheWay.set(itemKey, (onTheWay.get(itemKey) ?? 0) + item.quantity);
   }
 
   interface Bucket {
@@ -171,7 +199,7 @@ export function assembleShoppingList(input: AssembleInput): AssembledList {
   };
 
   for (const item of wanted) {
-    const bucket = bucketFor(cardKey(item), {
+    const bucket = bucketFor(keyOf(item), {
       cardId: item.card_id,
       cardName: item.card_name,
       card: item.card,
@@ -188,7 +216,7 @@ export function assembleShoppingList(input: AssembleInput): AssembledList {
   }
 
   for (const row of input.wishlist) {
-    const bucket = bucketFor(cardKey({ oracle_id: row.card?.oracle_id, card_name: row.card_name }), {
+    const bucket = bucketFor(keyOf({ oracle_id: row.card?.oracle_id, card_name: row.card_name }), {
       cardId: row.card_id,
       cardName: row.card_name,
       card: row.card,
@@ -198,7 +226,7 @@ export function assembleShoppingList(input: AssembleInput): AssembledList {
 
   for (const row of input.shortfalls) {
     if (row.missing <= 0) continue;
-    const bucket = bucketFor(cardKey({ oracle_id: row.card?.oracle_id, card_name: row.card_name }), {
+    const bucket = bucketFor(keyOf({ oracle_id: row.card?.oracle_id, card_name: row.card_name }), {
       cardId: row.card_id,
       cardName: row.card_name,
       card: row.card,

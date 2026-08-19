@@ -95,6 +95,52 @@ export function cardKey(input: {
   return `n:${String(name).trim().toLowerCase()}`;
 }
 
+export interface KeyedLike {
+  oracle_id?: string | null;
+  oracleId?: string | null;
+  card_name?: string | null;
+  name?: string | null;
+}
+
+/**
+ * The name to oracle id lookup that stops one card becoming two entries.
+ *
+ * `cardKey` above falls back to the name when a row carries no oracle id, and
+ * that fallback is the whole problem: the SAME card can arrive from one source
+ * with an oracle id and from another without, and the two then land in
+ * different buckets. Measured on production 19 Aug 2026: 11 of 94 wishlist rows
+ * (12%) carry a `card_id` that is not in the `cards` catalogue, so nothing can
+ * be joined onto them and they have no oracle id to offer. One of them is the
+ * admin account's Sol Ring, whose `card_id` is the literal text `sol-ring` from
+ * an old import, and Sol Ring is also short in a deck. Without this map the
+ * shopping list printed Sol Ring TWICE, once under `n:sol ring` and once under
+ * `o:6ad8011d…`, and charged for three copies of a card the player wanted one
+ * of.
+ *
+ * So before anything is bucketed, every source is swept for rows that DO know
+ * their oracle id, and a name-only row is upgraded onto that same key. First
+ * one seen wins, which is stable because the sweep order is fixed.
+ */
+export function oracleIdsByName(rows: Iterable<KeyedLike>): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const row of rows) {
+    const oracle = row?.oracle_id ?? row?.oracleId ?? null;
+    if (typeof oracle !== 'string' || oracle.length === 0) continue;
+    const name = String(row?.card_name ?? row?.name ?? '').trim().toLowerCase();
+    if (!name || out.has(name)) continue;
+    out.set(name, oracle);
+  }
+  return out;
+}
+
+/** `cardKey`, with a name-only row lifted onto the oracle key when we know it. */
+export function cardKeyWith(oracleByName: Map<string, string>, input: KeyedLike): string {
+  const key = cardKey(input);
+  if (key.startsWith('o:')) return key;
+  const oracle = oracleByName.get(key.slice(2));
+  return oracle ? `o:${oracle}` : key;
+}
+
 export const FINISH_LABEL: Record<Finish, string> = {
   nonfoil: 'Normal',
   foil: 'Foil',

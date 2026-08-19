@@ -103,6 +103,45 @@ export function platformTotals(lines: CostLine[]): PlatformTotal[] {
 }
 
 /**
+ * The note that travels with an export.
+ *
+ * The export carries every card, priced or not, so nothing is quietly dropped
+ * from what the player is about to buy. This says how many of them we hold no
+ * money price for, so the totals above and the list below cannot be read as
+ * disagreeing.
+ *
+ * It asks the SAME question the totals ask: is there a dollar or a euro price
+ * for the finish being bought. The first version read `prices.usd` and
+ * `prices.eur` directly, which called Craterhoof Behemoth `cmm` unpriced even
+ * when it was on the list as the etched copy it was actually printed as, and
+ * `usd_etched` had a real price the tiles above had already charged for. One
+ * screen, two answers, which is exactly what `PriceTag`'s `exact` flag exists
+ * to stop.
+ */
+export function countUnpricedLines(lines: CostLine[]): number {
+  let unpriced = 0;
+  for (const line of lines) {
+    const copies = Math.max(0, Math.floor(Number(line.quantity) || 0));
+    if (copies === 0) continue;
+    const reading = readPrices(line.card);
+    const priced = reading.all.some(
+      source => source.finish === line.finish && source.currency !== 'TIX' && source.amount != null
+    );
+    if (!priced) unpriced += 1;
+  }
+  return unpriced;
+}
+
+/** That count in words, or null when every card could be priced somewhere. */
+export function describeUnpricedLines(lines: CostLine[]): string | null {
+  const unpriced = countUnpricedLines(lines);
+  if (unpriced === 0) return null;
+  return unpriced === 1
+    ? 'One card here has no price in any shop we read. It is still in the list above.'
+    : `${unpriced} cards here have no price in any shop we read. They are still in the list above.`;
+}
+
+/**
  * The sentence that has to sit under a partial total. Null when nothing is
  * missing, so a caller can render it unconditionally.
  */

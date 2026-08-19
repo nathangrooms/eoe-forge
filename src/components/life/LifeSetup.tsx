@@ -358,7 +358,12 @@ export function LifeSetup({ initialConfig, onCancel, onStart, onExit }: LifeSetu
             <h2 className="px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Players
             </h2>
-            <div className="grid grid-cols-3 gap-2">
+            {/* One column per size, so the row reads as a scale from two to six
+                rather than wrapping the last two onto a line of their own. */}
+            <div
+              className="grid gap-2"
+              style={{ gridTemplateColumns: `repeat(${PLAYER_COUNTS.length}, minmax(0, 1fr))` }}
+            >
               {PLAYER_COUNTS.map(count => (
                 <button
                   key={count}

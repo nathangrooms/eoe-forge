@@ -50,7 +50,9 @@ export {
 } from './exportFormats.ts';
 
 export {
+  countUnpricedLines,
   describePlatformGap,
+  describeUnpricedLines,
   paidTotals,
   platformTotals,
   type CostLine,

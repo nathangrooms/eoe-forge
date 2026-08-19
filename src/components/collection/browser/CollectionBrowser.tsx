@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CardGrid, CardSizeSlider, useCardSize } from '@/components/cards';
+import { Pager } from '@/components/ui/pagination';
+import { usePagedItems, usePageSize } from '@/hooks/usePagination';
 import {
   ActiveFilterChips,
   CardFilterSheet,
@@ -150,7 +152,8 @@ export function CollectionBrowser({
   const [view, setView] = useState<BrowserViewMode>(initial.view);
   const [sortKey, setSortKey] = useState<SortKey>(initial.sortKey);
   const [sortDir, setSortDir] = useState<SortDirection>(initial.sortDir);
-  const [cardWidth, setCardWidth] = useCardSize(storageKey ?? 'collection', 176);
+  const [cardWidth, setCardWidth] = useCardSize(storageKey ?? 'collection', 200);
+  const [pageSize, setPageSize] = usePageSize(storageKey ?? 'collection');
 
   useEffect(() => {
     if (!storageKey || typeof window === 'undefined') return;
@@ -199,6 +202,43 @@ export function CollectionBrowser({
     }
     return { copies, value, unpriced };
   }, [visible]);
+
+  /**
+   * Page the rows, after sorting and never before.
+   *
+   * The whole filtered set stays in hand because this screen reports figures
+   * over all of it — copies, value, and how many copies could not be priced.
+   * What paging cuts is the drawing: a 1,200-row collection used to put 1,200
+   * card tiles and 20,029 elements into the document at once, and every
+   * keystroke in the search box re-rendered all of them.
+   *
+   * `visible` is already sorted by `sortCards`, which breaks ties on the row id
+   * so the order cannot shuffle between renders and put a card on two pages.
+   */
+  const resetKey = useMemo(
+    () => JSON.stringify([filters.state, ownership, sortKey, sortDir]),
+    [filters.state, ownership, sortKey, sortDir]
+  );
+
+  const paged = usePagedItems(visible, {
+    pageSize,
+    resetKey,
+    urlSync,
+    key: 'page',
+  });
+
+  /** Turning the page starts you at the top of it, not halfway down. */
+  const listTop = useRef<HTMLDivElement>(null);
+  const goToPage = useCallback(
+    (next: number) => {
+      paged.setPage(next);
+      const top = listTop.current;
+      if (!top) return;
+      const y = top.getBoundingClientRect().top + window.scrollY - 16;
+      window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+    },
+    [paged]
+  );
 
   const ownedCount = ownershipFilterCount(ownership);
   const filterCount = filters.activeCount + ownedCount;
@@ -354,9 +394,11 @@ export function CollectionBrowser({
                         : onSelectVisible(visible.map(c => c.rowId))
                     }
                   >
+                    {/* Every row the filter matched, not just this page. On a
+                        paged list "shown" would read as the 24 on screen. */}
                     {allVisibleSelected
                       ? 'Deselect all'
-                      : `Select all ${visible.length} shown`}
+                      : `Select all ${visible.length.toLocaleString()} matching`}
                   </Button>
                 )}
               </>
@@ -450,6 +492,23 @@ export function CollectionBrowser({
         </p>
       )}
 
+      <div ref={listTop} className="h-px" aria-hidden />
+
+      {!loading && paged.pageCount > 1 && (
+        <Pager
+          page={paged.page}
+          pageCount={paged.pageCount}
+          onPageChange={goToPage}
+          total={paged.total}
+          shown={paged.pageItems.length}
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          noun="entry"
+          nounPlural="entries"
+          label="Collection pages"
+        />
+      )}
+
       {/* Results */}
       {loading ? (
         <CardGrid width={cardWidth}>
@@ -479,7 +538,7 @@ export function CollectionBrowser({
         </div>
       ) : view === 'table' ? (
         <CollectionTable
-          cards={visible}
+          cards={paged.pageItems}
           sortKey={sortKey}
           sortDir={sortDir}
           onSort={handleSortColumn}
@@ -492,7 +551,7 @@ export function CollectionBrowser({
         />
       ) : view === 'list' ? (
         <div className="space-y-2">
-          {visible.map(card => (
+          {paged.pageItems.map(card => (
             <CollectionCardRow
               key={card.rowId}
               card={card}
@@ -508,7 +567,7 @@ export function CollectionBrowser({
         </div>
       ) : (
         <CardGrid width={cardWidth}>
-          {visible.map(card => (
+          {paged.pageItems.map(card => (
             <CollectionCardTile
               key={card.rowId}
               card={card}
@@ -523,6 +582,21 @@ export function CollectionBrowser({
             />
           ))}
         </CardGrid>
+      )}
+
+      {!loading && paged.pageCount > 1 && (
+        <Pager
+          page={paged.page}
+          pageCount={paged.pageCount}
+          onPageChange={goToPage}
+          total={paged.total}
+          shown={paged.pageItems.length}
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          noun="entry"
+          nounPlural="entries"
+          label="Collection pages"
+        />
       )}
     </div>
   );

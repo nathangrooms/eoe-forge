@@ -89,7 +89,18 @@ export const LIFE_FORMATS: Array<{ format: Format; label: string; note: string }
   { format: 'standard', label: '60-card', note: '20 life' },
 ];
 
-export const PLAYER_COUNTS = [2, 3, 4] as const;
+/**
+ * Pod sizes on offer.
+ *
+ * Five and six were missing, and nothing but this line was stopping them. The
+ * geometry has always gone to six (`MAX_SEATS`, and `seatingFor` falls through
+ * to two facing rows for any count it has no hand-tuned layout for), the
+ * default names list has six entries, and every mat and seat lookup indexes
+ * modulo its own length. A five-player pod is an ordinary Commander night and
+ * a six-player one is what happens when two more people turn up, so a counter
+ * that stops at four sends the fifth player back to a phone app.
+ */
+export const PLAYER_COUNTS = [2, 3, 4, 5, 6] as const;
 export type PlayerCount = (typeof PLAYER_COUNTS)[number];
 
 export const MIN_STARTING_LIFE = 1;

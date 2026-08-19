@@ -615,7 +615,17 @@ export function UniversalCardDisplay({
                          while the art stays uncovered. */
                       onCardOpen
                         ? 'opacity-100'
-                        : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
+                        : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100',
+                      /* The same argument, carried one step further. On a
+                         device with no pointer there is no hover, so a control
+                         that only appears on hover does not exist there at
+                         all. That is survivable for the eye, because tapping
+                         the card already opens it, but not for adding a card to
+                         a list: that has no other route from search results,
+                         and the owner's complaint about this feature was that
+                         it existed nowhere. So on touch the actions are simply
+                         on. Desktop is untouched. */
+                      !onCardOpen && '[@media(hover:none)]:opacity-100'
                     )}
                   >
                     <RowActions

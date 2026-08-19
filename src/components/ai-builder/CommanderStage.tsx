@@ -13,6 +13,7 @@ import {
 import { ColorIdentity } from '@/components/ui/mana-cost';
 import { Loader2, Search, TrendingUp, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Pager } from '@/components/ui/pagination';
 import { CommanderFinder } from './CommanderFinder';
 import { countActiveFilters, describeFilters, type CommanderFilters } from './commander-query';
 
@@ -36,11 +37,14 @@ export type CommanderSource = 'popular' | 'search' | 'finder';
 export interface CommanderStageProps {
   cards: any[];
   loading: boolean;
-  loadingMore?: boolean;
   /** Total matches Scryfall reported, when it reported one. */
   total?: number | null;
-  hasMore?: boolean;
-  onLoadMore?: () => void;
+  page: number;
+  /** Null when no total came back. The pager then shows no page count. */
+  pageCount: number | null;
+  onPageChange: (page: number) => void;
+  pageSize: number;
+  onPageSizeChange: (size: number) => void;
   source: CommanderSource;
   searchValue: string;
   onSearchChange: (value: string) => void;
@@ -83,10 +87,12 @@ const WINDOW_SIZE = 12;
 export function CommanderStage({
   cards,
   loading,
-  loadingMore = false,
   total = null,
-  hasMore = false,
-  onLoadMore,
+  page,
+  pageCount,
+  onPageChange,
+  pageSize,
+  onPageSizeChange,
   source,
   searchValue,
   onSearchChange,
@@ -115,29 +121,14 @@ export function CommanderStage({
    */
   const imageQuality = cardSizeForWidth(cardWidth) === 'xl' ? undefined : ('normal' as const);
 
-  /* ------------------------------------------------------------ windowing */
-
-  const [windowSize, setWindowSize] = useState(WINDOW_SIZE);
-
-  /*
-   * A fresh result set starts the window over. Keyed on `loading` rather than
-   * on the array itself: `loadMore` appends, producing a new array on every
-   * page, and resetting there would make the list unable to grow past one
-   * window. Only a new *run* raises `loading`.
-   */
-  useEffect(() => {
-    setWindowSize(WINDOW_SIZE);
-  }, [source, searchValue, loading]);
-
-  const shown = useMemo(() => cards.slice(0, windowSize), [cards, windowSize]);
-  const moreToReveal = windowSize < cards.length;
-  /** Something left to show, whether it is already in memory or still at Scryfall. */
-  const canExtend = moreToReveal || hasMore;
-
-  const extendRef = useRef<() => void>(() => {});
-  extendRef.current = () => {
-    if (moreToReveal) setWindowSize(current => current + WINDOW_SIZE);
-    else if (hasMore && !loadingMore) onLoadMore?.();
+  /** A page turn starts at the top of the wall. */
+  const wallTop = useRef<HTMLDivElement | null>(null);
+  const goToPage = (next: number) => {
+    onPageChange(next);
+    const top = wallTop.current;
+    if (!top) return;
+    const y = top.getBoundingClientRect().top + window.scrollY - 16;
+    window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
   };
 
   /**
@@ -229,13 +220,8 @@ export function CommanderStage({
               {filterSummary}
             </Badge>
           )}
-          {total !== null && total > 0 && (
-            // "12 of 3,411" alone reads as "only 12 matched". The grid is
-            // windowed, so it has to say which of the two numbers is which.
-            <span className="text-xs tabular-nums text-muted-foreground">
-              Showing {shown.length} of {total.toLocaleString()}
-            </span>
-          )}
+          {/* The count and the range live in the pager below, which is the one
+              place that knows whether Scryfall reported a total at all. */}
           {source === 'finder' && activeFilters > 0 && (
             <Button variant="ghost" size="sm" onClick={onClearFinder} className="h-7">
               Clear filters
@@ -245,8 +231,10 @@ export function CommanderStage({
 
         {error && <p className="rounded-lg bg-muted/50 p-4 text-sm text-destructive">{error}</p>}
 
+        <div ref={wallTop} className="h-px" aria-hidden />
+
         {loading ? (
-          <CardGridSkeleton width={cardWidth} count={WINDOW_SIZE} />
+          <CardGridSkeleton width={cardWidth} count={Math.min(pageSize, 12)} />
         ) : cards.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-20 text-center">
             <Search className="h-6 w-6 text-muted-foreground/50" />
@@ -258,7 +246,7 @@ export function CommanderStage({
           </div>
         ) : (
           <CardGrid width={cardWidth}>
-            {shown.map((card: any, i: number) => (
+            {cards.map((card: any, i: number) => (
               <button
                 key={card.id ?? card.name}
                 type="button"
@@ -298,29 +286,20 @@ export function CommanderStage({
           </CardGrid>
         )}
 
-        {!loading && cards.length > 0 && canExtend && (
-          /* An explicit control, not an infinite scroll. The whole point of the
-             change was to stop this screen filling itself with commanders
-             nobody asked to see. */
-          <div className="flex justify-center pt-2">
-            <Button
-              variant="secondary"
-              onClick={() => extendRef.current()}
-              disabled={loadingMore}
-            >
-              {loadingMore ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Loading…
-                </>
-              ) : moreToReveal ? (
-                `Show ${Math.min(WINDOW_SIZE, cards.length - windowSize)} more`
-              ) : (
-                'Load more commanders'
-              )}
-            </Button>
-          </div>
+        {!loading && cards.length > 0 && (
+          <Pager
+            page={page}
+            pageCount={pageCount}
+            onPageChange={goToPage}
+            total={total}
+            shown={cards.length}
+            pageSize={pageSize}
+            onPageSizeChange={onPageSizeChange}
+            noun="commander"
+            label="Commander pages"
+          />
         )}
+
       </div>
     </div>
   );

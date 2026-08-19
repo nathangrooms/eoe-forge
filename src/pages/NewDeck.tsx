@@ -19,6 +19,7 @@ import { ColorIdentity } from '@/components/ui/mana-cost';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { useCommanderBrowse } from '@/components/ai-builder/useCommanderBrowse';
 import { commanderSearchUrl } from '@/components/ai-builder/commander-query';
+import { Pager } from '@/components/ui/pagination';
 
 /**
  * The "New Deck" flow, as a real page at `/decks/new`.
@@ -59,15 +60,8 @@ const FALLBACK_NAME = 'Untitled deck';
 /** The default wall: every legal commander, most played first. */
 const POPULAR_URL = commanderSearchUrl('is:commander legal:commander', 'edhrec');
 
-/**
- * Commanders drawn per window.
- *
- * Scryfall answers with 175 a page. Mounting all of them costs several
- * megabytes of art for a screen that shows a dozen, so the wall grows a window
- * at a time and only asks Scryfall for the next page once the reader has caught
- * up with everything already fetched.
- */
-const WINDOW_SIZE = 24;
+/** How long the typing pause is before a name search is sent to Scryfall. */
+const SEARCH_DEBOUNCE_MS = 350;
 
 export function NewDeck() {
   const navigate = useNavigate();
@@ -89,72 +83,47 @@ export function NewDeck() {
   /* ---------------------------------------------------------------- *
    * The commander wall
    *
-   * Two independent searches — the EDHREC-ordered default and whatever has
-   * been typed — so clearing the search box drops straight back to the wall
-   * without re-fetching it, and a slow early keystroke cannot land on top of
-   * the results for what the user has actually typed.
+   * One query at a time: the EDHREC-ordered wall until something is typed, the
+   * name search after that. Two hooks used to run side by side so that clearing
+   * the box did not re-fetch the wall; the page cache in `useScryfallPage` does
+   * that job now, and it does it for every page the reader has already seen
+   * rather than only the first.
    * ---------------------------------------------------------------- */
 
-  const popular = useCommanderBrowse();
-  const nameSearch = useCommanderBrowse();
-
-  const { run: runPopular } = popular;
-  useEffect(() => {
-    if (!wantsCommander) return;
-    runPopular(POPULAR_URL);
-  }, [runPopular, wantsCommander]);
-
-  const { run: runNameSearch, reset: resetNameSearch } = nameSearch;
+  /** The typed query, after the pause. Debounced so a keystroke is not a fetch. */
+  const [committedQuery, setCommittedQuery] = useState('');
   useEffect(() => {
     const trimmed = query.trim();
-    if (!trimmed) {
-      resetNameSearch();
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      runNameSearch(commanderSearchUrl(`${trimmed} is:commander legal:commander`, 'edhrec'));
-    }, 350);
+    const timer = window.setTimeout(() => setCommittedQuery(trimmed), SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
-  }, [query, runNameSearch, resetNameSearch]);
+  }, [query]);
 
-  const searching = query.trim().length > 0;
-  const browse = searching ? nameSearch : popular;
+  const searching = committedQuery.length > 0;
 
-  const [windowSize, setWindowSize] = useState(WINDOW_SIZE);
-  const sentinel = useRef<HTMLDivElement | null>(null);
+  const browseUrl = useMemo(() => {
+    if (!wantsCommander) return null;
+    return searching
+      ? commanderSearchUrl(`${committedQuery} is:commander legal:commander`, 'edhrec')
+      : POPULAR_URL;
+  }, [wantsCommander, searching, committedQuery]);
 
-  // A fresh result set starts the window over. Keyed on `loading` rather than
-  // the array: `loadMore` appends, so resetting on the array would stop the
-  // list ever growing past one window.
-  useEffect(() => {
-    setWindowSize(WINDOW_SIZE);
-  }, [searching, browse.loading]);
+  const browse = useCommanderBrowse({
+    url: browseUrl,
+    sizeKey: 'new-deck-commanders',
+  });
 
-  const shown = useMemo(
-    () => browse.cards.slice(0, windowSize),
-    [browse.cards, windowSize]
+  /** A page turn starts at the top of the wall, not halfway down the last page. */
+  const wallTop = useRef<HTMLDivElement | null>(null);
+  const goToPage = useCallback(
+    (next: number) => {
+      browse.setPage(next);
+      const top = wallTop.current;
+      if (!top) return;
+      const y = top.getBoundingClientRect().top + window.scrollY - 16;
+      window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+    },
+    [browse]
   );
-  const moreToReveal = windowSize < browse.cards.length;
-  const canExtend = moreToReveal || Boolean(browse.nextPage);
-
-  const extendRef = useRef<() => void>(() => {});
-  extendRef.current = () => {
-    if (moreToReveal) setWindowSize(n => n + WINDOW_SIZE);
-    else if (browse.nextPage && !browse.loadingMore) browse.loadMore();
-  };
-
-  useEffect(() => {
-    const node = sentinel.current;
-    if (!node || !canExtend) return;
-    const observer = new IntersectionObserver(
-      entries => {
-        if (entries.some(entry => entry.isIntersecting)) extendRef.current();
-      },
-      { rootMargin: '400px' }
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [canExtend, windowSize, browse.cards.length]);
 
   /**
    * `large` is a 672px scan — four times what a 2× display can resolve at the
@@ -421,6 +390,8 @@ export function NewDeck() {
             />
           </div>
 
+          <div ref={wallTop} className="h-px" aria-hidden />
+
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
             <h2 className="flex items-center gap-2 text-sm font-semibold">
               {!searching && <TrendingUp className="h-4 w-4 text-muted-foreground" />}
@@ -429,11 +400,8 @@ export function NewDeck() {
             {!searching && (
               <span className="text-xs text-muted-foreground">in EDHREC play order</span>
             )}
-            {browse.total !== null && browse.total > 0 && (
-              <span className="text-xs tabular-nums text-muted-foreground">
-                Showing {shown.length} of {browse.total.toLocaleString()}
-              </span>
-            )}
+            {/* The count and the range live in the pager, which is the one
+                place that knows whether Scryfall reported a total at all. */}
           </div>
 
           {browse.error && (
@@ -453,7 +421,7 @@ export function NewDeck() {
             </div>
           ) : (
             <CardGrid width={cardWidth}>
-              {shown.map((card: any, i: number) => {
+              {browse.cards.map((card: any, i: number) => {
                 const chosen = commander?.id === card.id;
                 return (
                   <button
@@ -498,28 +466,20 @@ export function NewDeck() {
             </CardGrid>
           )}
 
-          {!browse.loading && browse.cards.length > 0 && canExtend && (
-            // Doubles as the observer target and a real control, so the list
-            // still grows where the observer is throttled or never fires.
-            <div ref={sentinel} className="flex justify-center pt-2">
-              <Button
-                variant="secondary"
-                onClick={() => extendRef.current()}
-                disabled={browse.loadingMore}
-              >
-                {browse.loadingMore ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" />
-                    Loading…
-                  </>
-                ) : moreToReveal ? (
-                  `Show ${Math.min(WINDOW_SIZE, browse.cards.length - windowSize)} more`
-                ) : (
-                  'Load more commanders'
-                )}
-              </Button>
-            </div>
+          {!browse.loading && browse.cards.length > 0 && (
+            <Pager
+              page={browse.page}
+              pageCount={browse.pageCount}
+              onPageChange={goToPage}
+              total={browse.total}
+              shown={browse.cards.length}
+              pageSize={browse.pageSize}
+              onPageSizeChange={browse.setPageSize}
+              noun="commander"
+              label="Commander pages"
+            />
           )}
+
         </section>
       )}
 

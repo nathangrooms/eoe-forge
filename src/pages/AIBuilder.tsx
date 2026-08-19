@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertCircle, Check, ChevronRight } from 'lucide-react';
@@ -99,47 +99,49 @@ export default function AIBuilder() {
   const [sortOrder, setSortOrder] = useState('edhrec');
   const [finderActive, setFinderActive] = useState(false);
 
-  const popular = useCommanderBrowse();
-  const nameSearch = useCommanderBrowse();
-  const finder = useCommanderBrowse();
-
-  const { run: runPopular } = popular;
+  /* One query at a time, chosen by what the reader last did. Three separate
+     browse hooks used to run side by side so that clearing a box did not
+     re-fetch the wall; the page cache in `useScryfallPage` covers that now, and
+     covers every page already seen rather than only the first. */
+  const [committedSearch, setCommittedSearch] = useState('');
   useEffect(() => {
-    runPopular(POPULAR_URL);
-  }, [runPopular]);
-
-  // Debounced name search. Clearing the field falls back to the default wall.
-  const { run: runNameSearch, reset: resetNameSearch } = nameSearch;
-  useEffect(() => {
-    const query = commanderSearch.trim();
-    if (!query) {
-      resetNameSearch();
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      runNameSearch(commanderSearchUrl(`${query} is:commander legal:commander`, 'edhrec'));
-    }, 400);
+    const timer = window.setTimeout(() => setCommittedSearch(commanderSearch.trim()), 400);
     return () => window.clearTimeout(timer);
-  }, [commanderSearch, runNameSearch, resetNameSearch]);
+  }, [commanderSearch]);
 
-  const source: CommanderSource = commanderSearch.trim()
+  /** The finder's query, frozen when Search was pressed rather than live. */
+  const [finderUrl, setFinderUrl] = useState<string | null>(null);
+
+  const source: CommanderSource = committedSearch
     ? 'search'
     : finderActive
       ? 'finder'
       : 'popular';
 
-  const browse = source === 'search' ? nameSearch : source === 'finder' ? finder : popular;
+  const browseUrl = useMemo(() => {
+    if (source === 'search') {
+      return commanderSearchUrl(`${committedSearch} is:commander legal:commander`, 'edhrec');
+    }
+    if (source === 'finder') return finderUrl;
+    return POPULAR_URL;
+  }, [source, committedSearch, finderUrl]);
+
+  const browse = useCommanderBrowse({
+    url: browseUrl,
+    sizeKey: 'ai-builder-commanders',
+  });
 
   const runFinderSearch = () => {
     setCommanderSearch('');
+    setCommittedSearch('');
     setFinderActive(true);
-    finder.run(commanderSearchUrl(buildCommanderQuery(filters), sortOrder));
+    setFinderUrl(commanderSearchUrl(buildCommanderQuery(filters), sortOrder));
   };
 
   const clearFinder = () => {
     setFilters(EMPTY_COMMANDER_FILTERS);
     setFinderActive(false);
-    finder.reset();
+    setFinderUrl(null);
   };
 
   /* ---------------------------------------------------------------- *
@@ -996,10 +998,12 @@ export default function AIBuilder() {
             <CommanderStage
               cards={browse.cards}
               loading={browse.loading}
-              loadingMore={browse.loadingMore}
               total={browse.total}
-              hasMore={Boolean(browse.nextPage)}
-              onLoadMore={browse.loadMore}
+              page={browse.page}
+              pageCount={browse.pageCount}
+              onPageChange={browse.setPage}
+              pageSize={browse.pageSize}
+              onPageSizeChange={browse.setPageSize}
               error={browse.error}
               source={source}
               searchValue={commanderSearch}
@@ -1010,8 +1014,8 @@ export default function AIBuilder() {
               onSortOrderChange={setSortOrder}
               onRunFinder={runFinderSearch}
               onClearFinder={clearFinder}
-              finderSearching={finder.loading}
-              finderResultCount={finderActive ? finder.total : null}
+              finderSearching={source === 'finder' && browse.loading}
+              finderResultCount={source === 'finder' ? browse.total : null}
               onSelect={selectCommander}
               analyzing={analyzingCommander}
               analyzingCard={pendingCommander ?? commander}

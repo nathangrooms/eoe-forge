@@ -171,6 +171,13 @@
   const wishlist = [
     { id: 'w-1', user_id: USER_ID, card_id: CARD.rhystic[0], card_name: 'Rhystic Study', quantity: 1, priority: 'high', created_at: iso(40), note: null, target_price_usd: null, alert_enabled: false },
     { id: 'w-2', user_id: USER_ID, card_id: CARD.tithe[0], card_name: 'Smothering Tithe', quantity: 1, priority: 'medium', created_at: iso(35), note: null, target_price_usd: null, alert_enabled: false },
+    /* A text-imported wishlist row: `card_id` is the literal word, not a
+       Scryfall id, so nothing joins onto it and it has NO oracle id. 11 of the
+       94 wishlist rows on production look like this, and the admin account's
+       Sol Ring is one of them. A deck below is short of the same card and DOES
+       carry an oracle id, so this pair is what proves the two sources land on
+       one entry rather than printing Sol Ring twice. */
+    { id: 'w-3', user_id: USER_ID, card_id: 'sol-ring', card_name: 'Sol Ring', quantity: 1, priority: 'medium', created_at: iso(30), note: null, target_price_usd: null, alert_enabled: false },
   ];
 
   const user_decks = [
@@ -187,6 +194,9 @@
     { id: 'dc-3', deck_id: DECK_B, card_id: CARD.tower[0], card_name: 'Command Tower', quantity: 1, is_commander: false, is_sideboard: false, created_at: iso(80) },
     { id: 'dc-4', deck_id: DECK_B, card_id: CARD.rift[0], card_name: 'Cyclonic Rift', quantity: 1, is_commander: false, is_sideboard: false, created_at: iso(80) },
     { id: 'dc-5', deck_id: DECK_B, card_id: CARD.hoof[0], card_name: 'Craterhoof Behemoth', quantity: 1, is_commander: false, is_sideboard: false, created_at: iso(80) },
+    /* Three wanted, two owned, so one short. Pairs with the oracle-less
+       wishlist row above. */
+    { id: 'dc-6', deck_id: DECK_B, card_id: CARD.solring[0], card_name: 'Sol Ring', quantity: 3, is_commander: false, is_sideboard: false, created_at: iso(80) },
   ];
 
   const user_collections = [

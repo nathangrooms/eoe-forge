@@ -103,13 +103,27 @@ export function EventHeader({
             alt=""
             draggable={false}
             decoding="async"
-            className="h-full w-full scale-125 object-cover opacity-60 blur-2xl"
+            className="h-full w-full scale-125 object-cover opacity-90 blur-2xl"
           />
-          {/* A flat scrim first, so contrast never depends on which part of the
-              art happened to land behind a given letter, then a fade so the
-              band does not end on a line. */}
-          <div className="absolute inset-0 bg-card/80" />
-          <div className="absolute inset-0 bg-gradient-to-r from-card via-transparent to-card/70" />
+          {/*
+            One scrim, not three.
+
+            This was `opacity-60` artwork under `bg-card/80` under a gradient
+            that was full `card` at one edge and `card/70` at the other.
+            Multiplied out, that left single-digit percentages of the art
+            visible: the approved pattern was implemented and then cancelled,
+            and the header still rendered as the flat charcoal slab the pattern
+            exists to prevent. The whole point of it, in the owner's words, is
+            that it "adds beautiful colour".
+
+            So one flat scrim at the strength contrast actually needs, then one
+            vertical fade so the band resolves into the counted facts below
+            instead of stopping on a line. Nothing horizontal: the title sits at
+            one end and the controls at the other, so a left-to-right fade was
+            dimming precisely the middle, which is where the colour was.
+          */}
+          <div className="absolute inset-0 bg-card/55" />
+          <div className="absolute inset-0 bg-gradient-to-b from-card/40 via-transparent to-card" />
         </div>
       )}
 

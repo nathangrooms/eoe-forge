@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -39,6 +39,8 @@ import {
 import { formatPrice, toNumber } from '@/components/collection/browser/types';
 import { pickPrintingsByName } from '@/lib/wishlist/printing';
 import { CardGridSkeleton, CardSizeSlider, useCardSize } from '@/components/cards';
+import { Pager } from '@/components/ui/pagination';
+import { usePagedItems, usePageSize } from '@/hooks/usePagination';
 import { ActiveFilterChips, CardFilterSheet, useCardFilterState } from '@/components/filters';
 import { matchesCardFilter, toLocalCard } from '@/lib/cards/local-filter';
 import { cn } from '@/lib/utils';
@@ -127,7 +129,8 @@ export default function Wishlist() {
    * *entry*, not of the card, and no Scryfall query can express it.
    */
   const filters = useCardFilterState();
-  const [cardWidth, setCardWidth] = useCardSize('wishlist');
+  const [cardWidth, setCardWidth] = useCardSize('wishlist', 200);
+  const [pageSize, setPageSize] = usePageSize('wishlist');
 
   const loadWishlist = useCallback(async () => {
     if (!user) return;
@@ -370,7 +373,22 @@ export default function Wishlist() {
       })
       .map(({ item }) => item);
 
+    /*
+     * Every branch below can tie: two entries added in the same second, two
+     * cards at the same price, two entries at the same priority. An order that
+     * is not total is not stable, and an unstable order on a paged list shows
+     * one card on two pages and hides another entirely. The wishlist row id
+     * settles it, because it is the only field guaranteed to differ.
+     */
+    const tieBreak = (a: WishlistItem, b: WishlistItem) =>
+      a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+
     items = [...items].sort((a, b) => {
+      const ordered = compareBySort(a, b);
+      return ordered === 0 ? tieBreak(a, b) : ordered;
+    });
+
+    function compareBySort(a: WishlistItem, b: WishlistItem): number {
       switch (sortBy) {
         case 'date-desc':
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
@@ -389,10 +407,11 @@ export default function Wishlist() {
         default:
           return 0;
       }
-    });
+    }
 
     return items;
   }, [projected, priorityFilter, sortBy, filters.state]);
+
 
   const addToWishlist = useCallback(
     async (card: { id: string; name: string }) => {
@@ -642,6 +661,31 @@ export default function Wishlist() {
   const hasActiveFilter = activeFilterCount > 0;
 
   /**
+   * Page the list after sorting, never before.
+   *
+   * The whole filtered list stays in hand because the buy panel above the grid
+   * totals it: what the wishlist would cost, and how much of it a deck needs.
+   * Those are figures about the whole list, so the rows have to be there. What
+   * paging cuts is the drawing.
+   */
+  const pagedWishlist = usePagedItems(filteredItems, {
+    pageSize,
+    resetKey: JSON.stringify([filters.state, priorityFilter, sortBy]),
+  });
+
+  const wishlistTop = useRef<HTMLDivElement>(null);
+  const goToWishlistPage = useCallback(
+    (next: number) => {
+      pagedWishlist.setPage(next);
+      const top = wishlistTop.current;
+      if (!top) return;
+      const y = top.getBoundingClientRect().top + window.scrollY - 16;
+      window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+    },
+    [pagedWishlist]
+  );
+
+  /**
    * Keyed on `filters.patch` — which `useCardFilterState` keeps stable — rather
    * than on the controller object, which is rebuilt every render. WishlistSearchBox
    * debounces inside an effect keyed on this callback, so a new identity per render
@@ -838,6 +882,21 @@ export default function Wishlist() {
                 busy={moving}
               />
             )}
+            <div ref={wishlistTop} className="h-px" aria-hidden />
+
+            {!loading && pagedWishlist.pageCount > 1 && (
+              <Pager
+                page={pagedWishlist.page}
+                pageCount={pagedWishlist.pageCount}
+                onPageChange={goToWishlistPage}
+                total={pagedWishlist.total}
+                shown={pagedWishlist.pageItems.length}
+                pageSize={pageSize}
+                onPageSizeChange={setPageSize}
+                label="Wishlist pages"
+              />
+            )}
+
             {loading ? (
               <CardGridSkeleton width={cardWidth} count={12} />
             ) : filteredItems.length === 0 ? (
@@ -848,7 +907,7 @@ export default function Wishlist() {
               />
             ) : viewMode === 'list' ? (
               <WishlistListView
-                items={filteredItems}
+                items={pagedWishlist.pageItems}
                 onCardClick={handleCardClick}
                 onBuy={item => openBuyLink(item as WishlistItem)}
                 onAddToCollection={item =>
@@ -861,7 +920,7 @@ export default function Wishlist() {
               />
             ) : (
               <WishlistCardGrid
-                items={filteredItems}
+                items={pagedWishlist.pageItems}
                 width={cardWidth}
                 onCardClick={handleCardClick}
                 onBuy={item => openBuyLink(item as WishlistItem)}
@@ -872,6 +931,19 @@ export default function Wishlist() {
                 onUpdatePriority={updatePriority}
                 onUpdateTargetPrice={updateTargetPrice}
                 onToggleAlert={toggleAlert}
+              />
+            )}
+
+            {!loading && pagedWishlist.pageCount > 1 && (
+              <Pager
+                page={pagedWishlist.page}
+                pageCount={pagedWishlist.pageCount}
+                onPageChange={goToWishlistPage}
+                total={pagedWishlist.total}
+                shown={pagedWishlist.pageItems.length}
+                pageSize={pageSize}
+                onPageSizeChange={setPageSize}
+                label="Wishlist pages"
               />
             )}
           </TabsContent>

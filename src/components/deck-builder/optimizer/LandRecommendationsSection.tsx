@@ -50,6 +50,8 @@ interface LandRecommendationsSectionProps {
   onAddLand: (name: string) => void;
   onRemoveLand: (name: string) => void;
   isApplying: boolean;
+  /** The deck these were suggested for, kept as the reason on the shopping list. */
+  deckId?: string | null;
 }
 
 export function LandRecommendationsSection({
@@ -60,6 +62,7 @@ export function LandRecommendationsSection({
   onAddLand,
   onRemoveLand,
   isApplying,
+  deckId,
 }: LandRecommendationsSectionProps) {
   const hasCounts = currentLandCount !== null && idealLandCount !== null;
   const landDiff = hasCounts ? currentLandCount - idealLandCount : null;
@@ -141,6 +144,10 @@ export function LandRecommendationsSection({
           count={toAdd.length}
           items={toAdd}
           isApplying={isApplying}
+          /* Only on the lands being ADDED. A land the optimiser wants you to
+             cut is already in the deck, so offering to buy it is nonsense. */
+          offerLists
+          deckId={deckId}
           action={land => (
             <Button
               className="w-full"
@@ -206,12 +213,16 @@ function LandGroup({
   items,
   isApplying,
   action,
+  offerLists,
+  deckId,
 }: {
   title: string;
   count: number;
   items: LandRecommendation[];
   isApplying: boolean;
   action: (land: LandRecommendation) => React.ReactNode;
+  offerLists?: boolean;
+  deckId?: string | null;
 }) {
   return (
     <section className="space-y-4">
@@ -238,6 +249,8 @@ function LandGroup({
                 reason={land.reason}
                 tags={land.category ? <TilePill>{land.category}</TilePill> : undefined}
                 action={action(land)}
+                offerLists={offerLists}
+                deckId={deckId}
               />
             </motion.div>
           ))}

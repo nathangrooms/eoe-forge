@@ -102,6 +102,16 @@ generator-harness.html
 src/dev/__generatorHarness.tsx
 src/dev/__generatedDeck.json
 
-# real-app screenshot harness, written by scripts/capture-app-screens.mjs
-screens-harness.html
-src/dev/__screensHarness.tsx
+# real-app screenshot harness, written by scripts/app-shots.mjs.
+# The images it writes into public/screens/ are NOT ignored: they are the
+# deliverable, and the homepage loads them.
+app-shots-harness.html
+src/dev/__appShotsHarness.tsx
+
+# paging benchmark harness, written by scripts/paging-bench.mjs
+paging-harness.html
+src/dev/__pagingHarness.tsx
+
+# puppeteer harness scaffolding, written and deleted per run
+*-harness.html
+src/dev/__*.tsx

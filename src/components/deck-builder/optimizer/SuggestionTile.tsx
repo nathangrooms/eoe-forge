@@ -24,6 +24,7 @@ import type { ReactNode } from 'react';
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CardImage, useOpenCard } from '@/components/cards';
+import { AddToListButton } from '@/components/shopping/AddToListButton';
 
 export interface SuggestionTileProps {
   name: string;
@@ -42,6 +43,19 @@ export interface SuggestionTileProps {
   action: ReactNode;
   /** Removals grey the art so a cut reads as a cut. */
   dimmed?: boolean;
+  /**
+   * Offer the shopping and proxy lists beside the action.
+   *
+   * Set on cards the optimiser wants you to ADD, never on cuts. "Add now" puts
+   * the card in the deck, and a card in a deck you do not own reaches the
+   * shopping list on its own as a deck shortfall. This is for the other, more
+   * common answer: yes, but I have not got one. Put it on the list and decide
+   * about the deck when it turns up. Without it, a player has to commit a card
+   * they do not own to a deck just to remember to buy it.
+   */
+  offerLists?: boolean;
+  /** The deck the suggestion was made for, kept as the reason on the list. */
+  deckId?: string | null;
 }
 
 export function SuggestionTile({
@@ -55,6 +69,8 @@ export function SuggestionTile({
   onToggle,
   action,
   dimmed,
+  offerLists,
+  deckId,
 }: SuggestionTileProps) {
   const selectable = Boolean(onToggle);
   const openCard = useOpenCard();
@@ -126,7 +142,33 @@ export function SuggestionTile({
         onClick={e => e.stopPropagation()}
         onKeyDown={e => e.stopPropagation()}
       >
-        {action}
+        {offerLists ? (
+          <div className="flex items-center gap-1.5">
+            <div className="min-w-0 flex-1">{action}</div>
+            {/* The same button as the card page, search results and the deck
+                table. One component, so the action never drifts by surface. */}
+            <AddToListButton
+              card={card ?? { name }}
+              kind="shopping"
+              source="suggestion"
+              deckId={deckId ?? null}
+              display="icon"
+              variant="secondary"
+              className="h-11 w-11"
+            />
+            <AddToListButton
+              card={card ?? { name }}
+              kind="proxy"
+              source="suggestion"
+              deckId={deckId ?? null}
+              display="icon"
+              variant="secondary"
+              className="h-11 w-11"
+            />
+          </div>
+        ) : (
+          action
+        )}
       </div>
     </div>
   );

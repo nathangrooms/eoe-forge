@@ -23,8 +23,9 @@ import {
   type ProxyQuality,
 } from '@/components/deck-builder/proxy-print';
 import { ProxySheet } from '@/components/deck-builder/ProxySheet';
-import { FINISH_LABEL, useCardLists } from '@/lib/shopping';
+import { useCardLists } from '@/lib/shopping';
 import { EmptyPanel } from './ShoppingListPage';
+import { ListCardBadges } from './ListCardBadges';
 
 /**
  * `/proxies` — a proxy list of your own, printed with real card art.
@@ -240,14 +241,7 @@ export default function ProxyListPage() {
                     className="rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <CardImage card={item.card ?? { name: item.card_name }} width={cardWidth} fill interactive>
-                      <span className="absolute left-2 top-2 rounded-full bg-background/90 px-2 py-0.5 text-xs font-semibold tabular-nums text-foreground shadow-sm">
-                        {item.quantity}
-                      </span>
-                      {item.finish !== 'nonfoil' && (
-                        <span className="absolute right-2 top-2 rounded-full bg-background/90 px-2 py-0.5 text-[0.65rem] uppercase tracking-wide text-foreground shadow-sm">
-                          {FINISH_LABEL[item.finish]}
-                        </span>
-                      )}
+                      <ListCardBadges quantity={item.quantity} finish={item.finish} />
                     </CardImage>
                   </Link>
                   <Link to={href} className="truncate text-sm font-medium text-foreground hover:underline">

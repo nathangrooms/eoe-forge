@@ -201,7 +201,7 @@ export function FavoriteDecksPreview() {
     return (
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
         <Heart className="h-4 w-4 shrink-0" aria-hidden="true" />
-        <span>No favourite decks yet — star a deck and its commander sits here.</span>
+        <span>No favourite decks yet. Star a deck and its commander sits here.</span>
         <Button
           variant="link"
           size="sm"

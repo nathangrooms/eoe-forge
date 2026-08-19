@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { CardImage, cardDetailPath } from '@/components/cards';
 import { PriceTag } from '@/components/pricing';
 import { cn } from '@/lib/utils';
-import { FINISH_LABEL, useCardLists, type ReasonKind, type ShoppingEntry } from '@/lib/shopping';
+import { useCardLists, type ReasonKind, type ShoppingEntry } from '@/lib/shopping';
+import { ListCardBadges } from './ListCardBadges';
 
 /**
  * One card on the shopping list.
@@ -61,14 +62,7 @@ export function ShoppingEntryTile({ entry, width, onBuy }: ShoppingEntryTileProp
         className="rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <CardImage card={entry.card ?? { name: entry.cardName }} width={width} fill interactive>
-          <span className="absolute left-2 top-2 rounded-full bg-background/90 px-2 py-0.5 text-xs font-semibold tabular-nums text-foreground shadow-sm">
-            {entry.quantity}
-          </span>
-          {entry.finish !== 'nonfoil' && (
-            <span className="absolute right-2 top-2 rounded-full bg-background/90 px-2 py-0.5 text-[0.65rem] uppercase tracking-wide text-foreground shadow-sm">
-              {FINISH_LABEL[entry.finish]}
-            </span>
-          )}
+          <ListCardBadges quantity={entry.quantity} finish={entry.finish} />
         </CardImage>
       </Link>
 

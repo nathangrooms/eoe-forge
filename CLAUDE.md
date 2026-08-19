@@ -378,3 +378,47 @@ Approved to build without further sign-off provided the spike shows a high clean
 mapping rate. Report numbers as it goes. See XMAGE-EXTRACTION-SPIKE.md.
 XMage is MIT so this is legal with attribution. Forge remains GPL-3.0 and
 strictly off-limits.
+
+
+## Approved pattern: blurred art as identity ground
+
+The owner, on the precon hero: "you added blurred artwork behind - adds beautiful
+colour actually, identify if other areas can use it based on what is being shown".
+
+It works because of one property, and that property is the rule:
+
+**The art must come FROM the thing on screen.** A precon's own commander behind
+that precon. A deck's commander behind that deck. A card's own art behind its
+page. That is identity, and it is why it reads as beautiful rather than busy. The
+same treatment with unrelated art is wallpaper, and wallpaper is noise.
+
+It also solves a real problem this app has. The palette is deliberately
+monochrome charcoal, which is right for the interface but leaves large surfaces
+flat and grey. Magic's own colour lives in the artwork. Blurring it puts that
+colour back without introducing a coloured interface, and without any of the
+purple navy the owner rejected.
+
+**When to use it**
+- The surface is dominated by ONE subject with art: a deck, a card, a precon, a
+  commander, a storage container with a clear most valuable card.
+- The surface would otherwise be a flat charcoal field.
+- The art would be CROPPED if shown sharp, so blurring it removes the crop
+  complaint entirely. There is no detail left to cut off.
+
+**When NOT to use it**
+- Lists and grids of many things. Every row wanting its own ground is chaos.
+- Behind dense text or numbers, where it costs legibility for decoration.
+- Anywhere the art is not of the subject. Never a generic Magic image chosen for
+  mood.
+- More than one per screen. It stops being identity when it repeats.
+
+**How**
+Blur heavily and scale past the edges so the blur radius never pulls transparent
+edges inward. Put a token scrim over it so contrast never depends on which part
+of the art landed behind a given letter. The sharp subject sits on top and is the
+only thing asking to be looked at. See PreconDeckView for the reference.
+
+**Candidate surfaces**, to apply deliberately rather than everywhere at once:
+deck detail (commander), card detail (the card itself), collection favourite
+decks, storage containers, tournament events, homepage recent decks. The life
+counter already wants colour identity backgrounds for a related reason.

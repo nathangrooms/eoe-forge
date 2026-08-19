@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { uniqueCards, cardPrintings } from '@/lib/cards/cardQuery';
 import { cn } from '@/lib/utils';
 import { CardImage, CardImageSkeleton } from './CardImage';
+import { CardRail } from './CardRail';
 import { CardCost } from './CardCost';
 import { getUsdPrice, formatUsd } from '@/lib/scryfall/card-utils';
 import { sharedTagScore, sharedTags, signalTags } from '@/lib/cards/tag-signal';
@@ -163,7 +165,11 @@ function dedupeByOracle(rows: any[], seen: Set<string>): any[] {
  * Tiles
  * ------------------------------------------------------------------ */
 
-const TILE_WIDTH = 128;
+/* 128 was too small to read. The owner: "make the cards much bigger in size so
+   they can be read". 208 is the largest that still fits a useful number of cards
+   across a laptop viewport, and it is where a card's art and type line stop
+   being a thumbnail. */
+const TILE_WIDTH = 208;
 
 function RelatedTile({ entry }: { entry: RelatedEntry }) {
   const { card, note } = entry;
@@ -172,7 +178,7 @@ function RelatedTile({ entry }: { entry: RelatedEntry }) {
   return (
     <Link
       to={cardHref(card)}
-      className="group block w-[128px] shrink-0 snap-start rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="group block w-[208px] shrink-0 snap-start rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <CardImage card={card} width={TILE_WIDTH} hideFlip interactive />
       <p className="mt-1.5 truncate text-xs font-medium text-foreground" title={card.name}>
@@ -193,11 +199,11 @@ function RelatedTile({ entry }: { entry: RelatedEntry }) {
 
 function TileRow({ entries }: { entries: RelatedEntry[] }) {
   return (
-    <div className="flex snap-x gap-3 overflow-x-auto pb-2 [scrollbar-color:hsl(var(--muted-foreground)/0.3)_transparent] [scrollbar-width:thin]">
+    <CardRail>
       {entries.map(entry => (
         <RelatedTile key={entry.card.id} entry={entry} />
       ))}
-    </div>
+    </CardRail>
   );
 }
 
@@ -269,8 +275,10 @@ export function CardWorksWellWith({ card, dbCard, className }: CardRelatedProps)
       /* --- 1. Real decks. The only group that is evidence, not similarity. --- */
       try {
         if (oracleId) {
-          const { data: prints } = await supabase
-            .from('cards')
+          // Printings, deliberately: a deck holds a specific printing, so
+          // finding decks that contain this card means matching ANY of its
+          // printings, not just the one representing it.
+          const { data: prints } = await cardPrintings()
             .select('id')
             .eq('oracle_id', oracleId)
             .limit(60);
@@ -345,8 +353,10 @@ export function CardWorksWellWith({ card, dbCard, className }: CardRelatedProps)
       try {
         const subtype = subtypesOf(typeLine).find(s => !GENERIC_SUBTYPES.has(s));
         if (subtype && subtype.length > 2) {
-          let q = supabase
-            .from('cards')
+          // A related-cards row is a card, not a printing. The limit is applied
+          // by the database, so searching printings would spend all forty slots
+          // on a few heavily reprinted cards.
+          let q = uniqueCards()
             .select(CARD_COLUMNS)
             .ilike('type_line', `%${subtype}%`)
             .limit(40);
@@ -381,8 +391,7 @@ export function CardWorksWellWith({ card, dbCard, className }: CardRelatedProps)
       /* --- 3. Shares a keyword (GIN overlap on keywords). --- */
       try {
         if (keywords.length > 0) {
-          let q = supabase
-            .from('cards')
+          let q = uniqueCards()
             .select(CARD_COLUMNS)
             .overlaps('keywords', keywords)
             .limit(40);
@@ -436,8 +445,7 @@ export function CardWorksWellWith({ card, dbCard, className }: CardRelatedProps)
           const batches = await Promise.all(
             probes.map(tag =>
               retrying(async () => {
-                let q = supabase
-                  .from('cards')
+                let q = uniqueCards()
                   .select(CARD_COLUMNS)
                   .contains('tags', [tag])
                   .limit(PER_TAG_LIMIT);
@@ -590,8 +598,7 @@ export function CardSimilar({ card, dbCard, className }: CardRelatedProps) {
     (async () => {
       /** `exact` matches the colour identity outright; otherwise anything inside it. */
       const fetchBatch = async (exact: boolean) => {
-        let q = supabase
-          .from('cards')
+        let q = uniqueCards()
           .select(TILE_COLUMNS)
           // Trigram index on type_line — the only way to filter type without a seq scan.
           .ilike('type_line', `%${primary}%`)

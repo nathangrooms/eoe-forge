@@ -644,7 +644,17 @@ export default function CardDetailPage() {
                     )}
                   </div>
 
-                  <div className="mt-2.5 flex flex-wrap gap-1.5">
+                  {/* The height is RESERVED, not derived.
+
+                      Promo, full art and frame effects differ between printings,
+                      so switching art variant could take this row from zero pills
+                      to one and shove everything below it down the page. Changing
+                      the picture should change the picture, not relayout the
+                      article you were reading.
+
+                      One row is always held open, so the rules text underneath
+                      keeps its position across every printing of the card. */}
+                  <div className="mt-2.5 flex min-h-[1.75rem] flex-wrap items-start gap-1.5">
                     {canBeCommander(card) && (
                       <span className="rounded-full bg-muted/60 px-2.5 py-1 text-xs text-foreground">
                         Can be your commander

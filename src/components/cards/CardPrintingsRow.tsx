@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { CardRail } from './CardRail';
 import { CardImage, CardImageSkeleton } from './CardImage';
 import { formatUsd, rarityCode, rarityClass } from '@/lib/scryfall/card-utils';
 import { Layers } from 'lucide-react';
@@ -35,7 +36,11 @@ export interface CardPrintingsRowProps {
  * printings, so that one pixel doubles the bytes of the heaviest row on the
  * page for no visible gain at this size.
  */
-const PRINTING_WIDTH = 128;
+/* Was 128, the same thumbnail size as the related rails. Art variants are the
+   one place on this page where the ART is the entire point: the reason to look
+   at six printings of a card is to choose between the illustrations. At 128 they
+   were unreadable, which defeated the section. */
+const PRINTING_WIDTH = 208;
 
 export function CardPrintingsRow({
   oracleId,
@@ -154,17 +159,14 @@ export function CardPrintingsRow({
         </p>
       ) : (
         <>
-          <div
-            ref={scroller}
-            className="flex snap-x gap-3 overflow-x-auto pb-2 [scrollbar-color:hsl(var(--muted-foreground)/0.3)_transparent] [scrollbar-width:thin]"
-          >
+          <CardRail scrollRef={scroller} label="Other printings of this card">
             {ordered.map(printing => {
               const active = printing.id === activeId;
               return (
                 <div
                   key={printing.id}
                   data-printing={printing.id}
-                  className="w-[128px] shrink-0 snap-start"
+                  className="w-[208px] shrink-0 snap-start"
                 >
                   <CardImage
                     card={printing}
@@ -211,7 +213,7 @@ export function CardPrintingsRow({
                 </div>
               );
             })}
-          </div>
+          </CardRail>
 
           {nextPage && (
             <Button

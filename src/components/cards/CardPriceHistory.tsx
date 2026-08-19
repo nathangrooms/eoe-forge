@@ -11,21 +11,32 @@ import {
 } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import { carryForward, type PriceObservation } from '@/lib/prices/history';
 import { cn } from '@/lib/utils';
 import { TrendingDown, TrendingUp } from 'lucide-react';
+import { CardPrices } from '@/components/pricing';
 
 /**
  * Price, and only price that exists.
  *
  * Two real sources, both read live:
  *  - the printing's current `prices` blob (USD, USD foil, etched, EUR, EUR foil, tix),
- *  - `card_price_history`, the daily snapshot table the `daily-price-capture`
- *    cron writes into.
+ *  - `card_price_history`, the daily snapshot table the nightly price capture
+ *    writes into. That is now pg_cron job 1 calling
+ *    `public.capture_daily_prices('relevant', 5)` directly in SQL, not the
+ *    `daily-price-capture` edge function, which used to die mid-loop every
+ *    night after ~400 cards.
  *
- * The snapshot table currently covers 685 of 33,037 cards, so most cards have
- * no history at all. That is stated plainly rather than padded with a synthetic
- * curve — design law item 7, and a fabricated price chart is the kind of thing
- * a player would make a buying decision on.
+ * Coverage is deliberately partial and this component must not pretend
+ * otherwise. Measured 19 Aug 2026: history exists for 3,528 of the 34,088
+ * catalogue rows — every card any user owns, wishlists, decks or lists, plus
+ * everything priced at $5 or more. The bulk-common tail is excluded on
+ * purpose; the storage arithmetic is in
+ * supabase/migrations/20260819000648_repoint_daily_price_capture_to_set_based_rpc.sql.
+ * So a cheap card nobody holds still has no history at all, and that is stated
+ * plainly rather than padded with a synthetic curve — design law item 7, and a
+ * fabricated price chart is the kind of thing a player would make a buying
+ * decision on.
  */
 
 interface Point {
@@ -33,6 +44,10 @@ interface Point {
   label: string;
   usd: number | null;
   eur: number | null;
+  /** True when we read this price on this date. False when it is carried. */
+  observed: boolean;
+  /** The date the carried value was actually read on. */
+  observedOn: string;
 }
 
 type Basis = 'printing' | 'oracle' | null;
@@ -51,37 +66,19 @@ const num = (v: unknown): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
-const money = (v: number | null, symbol: string) =>
-  v == null ? '—' : `${symbol}${v.toFixed(2)}`;
-
-function PriceCell({
-  label,
-  value,
-  symbol,
-  strong,
-  tint,
-}: {
-  label: string;
-  value: number | null;
-  symbol: string;
-  strong?: boolean;
-  /** One step lighter than whatever surface the panel is sitting on. */
-  tint: string;
-}) {
-  return (
-    <div className={cn('rounded-lg px-3 py-2', tint)}>
-      <p className="text-[0.7rem] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p
-        className={cn(
-          'tabular-nums',
-          strong ? 'text-xl font-semibold text-foreground' : 'text-sm text-foreground'
-        )}
-      >
-        {money(value, symbol)}
-      </p>
-    </div>
-  );
-}
+/**
+ * The "prices now" grid this file used to draw itself is gone.
+ *
+ * It labelled the columns USD, EUR, USD foil and EUR foil, which is the money
+ * rather than the shop, so the card page still did not answer the owner's
+ * question: "if I go marketplace, then click a card, I don't see prices per
+ * platform, only tcgplayer?". It also printed an em-dash for a price we do not
+ * have, which breaks the copy rule, and printed the ticket price as a bare
+ * number that reads as dollars.
+ *
+ * `CardPrices` names the shops, says "No price yet" in words, and keeps
+ * tickets labelled as Magic Online currency. One price display, not two.
+ */
 
 export interface CardPriceHistoryProps {
   /** The printing currently on screen — its `prices` blob is the "now" row. */
@@ -114,10 +111,23 @@ export function CardPriceHistory({
     setLoading(true);
 
     (async () => {
+      /**
+       * Stored rows are sparse ON PURPOSE: a price is only written on the days
+       * it moved, which is what makes tracking every printing affordable.
+       *
+       * So a missing day means UNCHANGED. Drawing the stored rows straight
+       * would put a hole in the line and a reader would see a crash that never
+       * happened. carryForward() fills each gap with the last price we actually
+       * read, and marks it as carried so the chart can say so. Nothing is
+       * averaged across time and nothing is interpolated.
+       *
+       * Averaging across PRINTINGS on the same day is different and is kept:
+       * several printings of one card can report on the same date, and one
+       * expensive foil promo must not become the card's price line.
+       */
       const collect = (rows: any[] | null): Point[] => {
         if (!rows?.length) return [];
-        // Several printings can report on the same day; average them so a single
-        // expensive foil promo does not become the card's price line.
+
         const byDate = new Map<string, { usd: number[]; eur: number[] }>();
         for (const row of rows) {
           const bucket = byDate.get(row.snapshot_date) ?? { usd: [], eur: [] };
@@ -130,15 +140,30 @@ export function CardPriceHistory({
         const avg = (xs: number[]) =>
           xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
 
-        return Array.from(byDate.entries())
+        const observations: PriceObservation[] = Array.from(byDate.entries())
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([date, b]) => ({
-            date,
-            label: format(parseISO(date), 'd MMM'),
-            usd: avg(b.usd),
-            eur: avg(b.eur),
+            d: date,
+            // Hundredths, the way the database stores them.
+            usd: avg(b.usd) == null ? null : Math.round(avg(b.usd)! * 100),
+            eur: avg(b.eur) == null ? null : Math.round(avg(b.eur)! * 100),
           }))
-          .filter(p => p.usd != null || p.eur != null);
+          .filter(o => o.usd != null || o.eur != null);
+
+        return carryForward(observations, {
+          to: new Date().toISOString().slice(0, 10),
+          // The sweep writes a row every 30 days even when nothing moved, so a
+          // gap longer than that means we stopped looking rather than the price
+          // holding still. The line ends instead of running flat through it.
+          maxCarryDays: 45,
+        }).map(p => ({
+          date: p.d,
+          label: format(parseISO(p.d), 'd MMM'),
+          usd: p.usd == null ? null : p.usd / 100,
+          eur: p.eur == null ? null : p.eur / 100,
+          observed: p.observed,
+          observedOn: p.observedOn,
+        }));
       };
 
       try {
@@ -213,34 +238,24 @@ export function CardPriceHistory({
     return { pct: ((last - first) / first) * 100, from: first, to: last };
   }, [visible]);
 
-  const prices = (card?.prices ?? {}) as Record<string, string | null>;
   const hasEur = visible.some(p => p.eur != null);
+  /* Days we read a price against days the price simply did not move. Shown so a
+     flat line never reads as a fresh daily measurement it was not. */
+  const readDays = visible.filter(p => p.observed).length;
+  const carriedDays = visible.length - readDays;
+  /** One step lighter than whatever surface this panel is sitting on. */
   const tint = surface === 'inset' ? 'bg-muted/50' : 'bg-muted/30';
 
   return (
     <section
       className={cn(
-        'min-w-0 rounded-xl p-4',
+        'min-w-0 max-w-full overflow-hidden rounded-xl p-4',
         surface === 'inset' ? 'bg-muted/20' : 'bg-card shadow-lg shadow-black/20',
         className
       )}
     >
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-        Price
-      </h2>
-
-      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-        <PriceCell label="USD" value={num(prices.usd)} symbol="$" strong tint={tint} />
-        <PriceCell label="EUR" value={num(prices.eur)} symbol="€" strong tint={tint} />
-        <PriceCell label="USD foil" value={num(prices.usd_foil)} symbol="$" tint={tint} />
-        <PriceCell label="EUR foil" value={num(prices.eur_foil)} symbol="€" tint={tint} />
-        {num(prices.usd_etched) != null && (
-          <PriceCell label="USD etched" value={num(prices.usd_etched)} symbol="$" tint={tint} />
-        )}
-        {num(prices.tix) != null && (
-          <PriceCell label="MTGO tix" value={num(prices.tix)} symbol="" tint={tint} />
-        )}
-      </div>
+      {/* Every shop we hold a price from, in its own money, with buy links. */}
+      <CardPrices card={card as never} surface="bare" className="p-0" />
 
       <div className="mt-4">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -286,24 +301,34 @@ export function CardPriceHistory({
         </div>
 
         {loading ? (
-          <div className="h-[180px] animate-pulse rounded-lg bg-muted/40 motion-reduce:animate-none" />
+          <div className="h-[180px] w-full min-w-0 animate-pulse rounded-lg bg-muted/40 motion-reduce:animate-none" />
         ) : visible.length < 2 ? (
-          <div className={cn('rounded-lg px-4 py-6', tint)}>
-            <p className="text-sm text-foreground">
-              {points.length === 0
-                ? 'No price snapshots have been recorded for this card yet.'
-                : points.length === 1
-                  ? 'Only one snapshot has been recorded so far, and a line needs two.'
-                  : 'No snapshots fall in this range.'}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              DeckMatrix captures prices once a day into <code>card_price_history</code>. The chart
-              appears as soon as this card has two days of data.
-            </p>
-          </div>
+          /* ONE LINE, not a panel.
+
+             This rendered a padded box with two paragraphs in it, and since
+             almost no card has two days of prices yet it was reserving a tall
+             empty region on every card page. The owner: "card detail is a bit
+             too long, on normal desktop you cant see art variants". A message
+             saying there is nothing to show should not occupy more space than
+             the thing it is standing in for. */
+          <p className="text-xs text-muted-foreground">
+            {points.length === 0
+              ? 'No price history yet. A chart appears once this card has two days of prices.'
+              : points.length === 1
+                ? 'One snapshot so far. A line needs two.'
+                : 'No snapshots in this range.'}
+          </p>
         ) : (
           <>
-            <div className="h-[180px] w-full">
+            {/* min-w-0 and overflow-hidden are LOAD BEARING here.
+
+              recharts' ResponsiveContainer measures its parent and writes an
+              explicit pixel width onto itself. A grid or flex child defaults to
+              min-width:auto, so once the chart has measured wide it can never
+              shrink back, and the whole column ratchets outward. That is the
+              classic recharts overflow, and it is why the card page hung past
+              its container. */}
+            <div className="h-[180px] w-full min-w-0 overflow-hidden">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={visible} margin={{ top: 4, right: 4, bottom: 0, left: -12 }}>
                   <defs>
@@ -334,10 +359,16 @@ export function CardPriceHistory({
                   />
                   <Tooltip
                     cursor={{ stroke: 'hsl(var(--muted-foreground))', strokeOpacity: 0.3 }}
-                    formatter={(value: number, key: string) => [
-                      key === 'eur' ? `€${value.toFixed(2)}` : `$${value.toFixed(2)}`,
-                      key === 'eur' ? 'EUR' : 'USD',
-                    ]}
+                    formatter={(value: number, key: string, item: any) => {
+                      const money =
+                        key === 'eur' ? `€${value.toFixed(2)}` : `$${value.toFixed(2)}`;
+                      const label = key === 'eur' ? 'EUR' : 'USD';
+                      // Say so when the value is held over from an earlier day,
+                      // rather than letting a flat line imply a fresh reading.
+                      return item?.payload?.observed
+                        ? [money, label]
+                        : [`${money} (unchanged since ${item?.payload?.observedOn ?? 'earlier'})`, label];
+                    }}
                     contentStyle={{
                       backgroundColor: 'hsl(var(--popover))',
                       border: 'none',
@@ -353,7 +384,23 @@ export function CardPriceHistory({
                     stroke="hsl(var(--foreground))"
                     strokeWidth={2}
                     fill="url(#dm-price-fill)"
-                    dot={false}
+                    /* A dot marks a day we actually read a price. The line
+                       between dots is the last read price held steady, which is
+                       what a missing row means. It is not a guess and it is not
+                       a fall to zero, and the reader can see which is which. */
+                    dot={(props: any) =>
+                      props?.payload?.observed ? (
+                        <circle
+                          key={props.payload.date}
+                          cx={props.cx}
+                          cy={props.cy}
+                          r={2}
+                          fill="hsl(var(--foreground))"
+                        />
+                      ) : (
+                        <g key={props?.payload?.date} />
+                      )
+                    }
                     activeDot={{ r: 3, fill: 'hsl(var(--foreground))' }}
                     connectNulls
                     name="usd"
@@ -375,11 +422,19 @@ export function CardPriceHistory({
             </div>
 
             <p className="mt-2 text-xs text-muted-foreground">
-              {visible.length} daily snapshot{visible.length === 1 ? '' : 's'} ·{' '}
+              {readDays} day{readDays === 1 ? '' : 's'} we checked a price
+              {carriedDays > 0
+                ? `, ${carriedDays} day${carriedDays === 1 ? '' : 's'} the price did not change`
+                : ''}{' '}
+              ·{' '}
               {basis === 'printing'
                 ? 'this printing'
-                : `averaged across ${printingCount} printing${printingCount === 1 ? '' : 's'} in our database`}
+                : `averaged across ${printingCount} printing${printingCount === 1 ? '' : 's'} we hold`}
               {hasEur ? ' · solid USD, dashed EUR' : ''}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Prices are recorded only on the days they move. A flat stretch means the price stayed
+              where it was, not that we stopped looking.
             </p>
           </>
         )}

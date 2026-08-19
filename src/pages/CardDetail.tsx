@@ -688,7 +688,12 @@ export default function CardDetailPage() {
 
                 {/* Rules text and the printed facts sit side by side once there is
                     room for both — a single column left half the hero empty. */}
-                <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,19rem)]">
+                {/* Both tracks are minmax(0,...) and both children carry min-w-0.
+                    A grid child defaults to min-width:auto, which means it
+                    refuses to shrink below its content and pushes the track
+                    wider than the container. That is how this page came to hang
+                    past its own right edge. */}
+                <div className="grid min-w-0 max-w-full gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,19rem)]">
                   <div className="min-w-0 space-y-4">
                 {/* ---- Rules text ---- */}
                 <div className="rounded-xl bg-muted/30 p-4">

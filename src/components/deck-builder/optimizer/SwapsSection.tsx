@@ -15,8 +15,20 @@
  *   - The inner `ScrollArea` is gone. It capped the list at 500px inside a
  *     full-height page, so big art would have been trapped in a letterbox.
  *     The page scrolls; the list is just a list.
+ *
+ * ONE SWAP IMPLEMENTATION, TWO TABS
+ * ---------------------------------
+ * Lands were given the same swap control the spells tab has, and how that was
+ * done matters: this file is still the only swap implementation in the
+ * optimiser. The lands tab renders THIS component with different words rather
+ * than a second version of it, because a second version starts identical and
+ * drifts apart on the first change to either. Everything that differs between
+ * a land trade and a spell trade is a string — the heading, the noun, the
+ * lead-in — so those are props. A land swap and a card swap are the same
+ * object: two cards, a reason each, and one button.
  */
 
+import type { ReactNode } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, ArrowDown, Check, Loader2, Package, RefreshCw } from 'lucide-react';
@@ -37,6 +49,14 @@ export interface SwapSuggestion {
     price: number | null;
     reason: string;
     playability?: number | null;
+    /**
+     * Measured facts about this card, in one line, from the engine.
+     *
+     * Lands use it for what the card taps for and whether it enters tapped —
+     * the same line the land tiles carry, phrased by the same helper. Absent
+     * means nothing was measured and renders as nothing, never as a zero.
+     */
+    facts?: string | null;
   };
   newCard: {
     name: string;
@@ -56,6 +76,16 @@ export interface SwapSuggestion {
      * Null when the response did not carry one.
      */
     cardId?: string | null;
+    /** Measured facts, one line. See `currentCard.facts`. */
+    facts?: string | null;
+    /**
+     * Copies in the user's collection, counted from `user_collections`.
+     *
+     * Separate from `inCollection`, which can also be true because the client
+     * merely listed the name. A count is only put on screen when it was
+     * counted.
+     */
+    ownedQuantity?: number | null;
   };
   priority: 'high' | 'medium' | 'low';
   category?: string;
@@ -87,6 +117,31 @@ interface SwapsSectionProps {
   isApplying: boolean;
   isLoadingMore?: boolean;
   useCollection?: boolean;
+  /** Heading on the command bar. Defaults to the card-swap wording. */
+  title?: string;
+  /**
+   * The noun on the buttons and counts, singular. "swap" for cards, "land
+   * swap" for lands. Pluralised by adding an s, which is all either needs.
+   */
+  noun?: string;
+  /**
+   * A sentence under the command bar, for anything true of the whole list.
+   *
+   * The lands tab uses it to say that a trade keeps the land count where it
+   * is, which is the one thing a player needs to know before applying six of
+   * them while the deck is short of lands.
+   */
+  lead?: ReactNode;
+  /**
+   * Rendered after the list. This is where a confirmation goes.
+   *
+   * It has to come after, because a confirmation that covers the swaps hides
+   * the thing it is asking you to check. `ConfirmBar` is what scrolls itself
+   * into view so that being below the fold does not read as nothing happening.
+   */
+  footer?: ReactNode;
+  /** Whether the command bar sticks to the top. Off inside another list. */
+  sticky?: boolean;
 }
 
 const PRIORITY_LABEL = {
@@ -115,6 +170,11 @@ export function SwapsSection({
   isApplying,
   isLoadingMore,
   useCollection,
+  title = 'Card replacements',
+  noun = 'swap',
+  lead,
+  footer,
+  sticky = true,
 }: SwapsSectionProps) {
   const selected = suggestions.filter(s => s.selected);
   const selectedCount = selected.length;
@@ -135,11 +195,20 @@ export function SwapsSection({
     <div className="space-y-6">
       {/* Command bar. Sticks to the top so Apply stays reachable however far
           down the list you have scrolled — the old version put it in a header
-          card that scrolled away above a 500px inner scroller. */}
-      <Card className="sticky top-2 z-20 bg-card/95 shadow-lg backdrop-blur">
+          card that scrolled away above a 500px inner scroller.
+
+          Not sticky on the lands tab, where this list sits inside a longer
+          page: two cards both claiming `top-2` is one of them landing on the
+          other. */}
+      <Card
+        className={cn(
+          'bg-card/95 shadow-lg backdrop-blur',
+          sticky && 'sticky top-2 z-20'
+        )}
+      >
         <CardContent className="flex flex-wrap items-center gap-x-6 gap-y-4 p-5">
           <div className="min-w-0 flex-1">
-            <h3 className="text-xl font-bold">Card replacements</h3>
+            <h3 className="text-xl font-bold">{title}</h3>
             <p className="mt-1 text-sm text-muted-foreground">
               {suggestions.length} suggested
               {selectedCount > 0 && <> · {selectedCount} selected</>}
@@ -181,10 +250,14 @@ export function SwapsSection({
               ) : (
                 <Check className="mr-2 h-4 w-4" />
               )}
-              Apply {selectedCount > 0 ? selectedCount : ''} swap
+              Apply {selectedCount > 0 ? selectedCount : ''} {noun}
               {selectedCount === 1 ? '' : 's'}
             </Button>
           </div>
+
+          {lead && (
+            <p className="w-full text-sm leading-relaxed text-muted-foreground">{lead}</p>
+          )}
         </CardContent>
       </Card>
 
@@ -256,7 +329,7 @@ export function SwapsSection({
                             disabled={isApplying}
                           >
                             <Check className="mr-2 h-4 w-4" />
-                            Apply this swap
+                            Apply this {noun}
                           </Button>
                         </div>
                       </div>
@@ -271,6 +344,7 @@ export function SwapsSection({
                           card={swap.currentCard.card}
                           price={swap.currentCard.price}
                           playability={swap.currentCard.playability}
+                          facts={swap.currentCard.facts}
                         />
 
                         <div className="space-y-4 lg:pt-8">
@@ -337,6 +411,8 @@ export function SwapsSection({
                           card={swap.newCard.card}
                           price={swap.newCard.price}
                           owned={swap.newCard.inCollection}
+                          ownedQuantity={swap.newCard.ownedQuantity}
+                          facts={swap.newCard.facts}
                         />
                       </div>
                     </motion.article>
@@ -347,6 +423,8 @@ export function SwapsSection({
           </section>
         );
       })}
+
+      {footer}
     </div>
   );
 }
@@ -359,13 +437,36 @@ interface SwapSideProps {
   price: number | null;
   playability?: number | null;
   owned?: boolean;
+  /** Counted copies, when the count came from the collection itself. */
+  ownedQuantity?: number | null;
+  /** One line of measured facts, under the name. */
+  facts?: string | null;
 }
 
 /**
  * One side of a swap: the card at a size you can actually read, with its name
  * and the couple of facts that belong on the card rather than in the reason.
  */
-function SwapSide({ label, tone, name, card, price, playability, owned }: SwapSideProps) {
+function SwapSide({
+  label,
+  tone,
+  name,
+  card,
+  price,
+  playability,
+  owned,
+  ownedQuantity,
+  facts,
+}: SwapSideProps) {
+  const counted = typeof ownedQuantity === 'number' && ownedQuantity > 0;
+  /*
+   * The price stays on screen even when the card is owned, which is the
+   * opposite of what the land TILES do, and the difference is deliberate. A
+   * tile is a thing to go and buy, so "you own it" replaces the price. A swap
+   * is a comparison of two cards, the command bar above sums exactly these two
+   * numbers, and hiding one of them would leave a total nothing on the row
+   * adds up to. The pill says you do not have to buy it.
+   */
   const priceLabel = formatPrice(price);
   // Card click navigates to `/cards/:id`, same as the deck grid one component
   // across on this very page. The optimiser is the surface where "what does
@@ -384,10 +485,10 @@ function SwapSide({ label, tone, name, card, price, playability, owned }: SwapSi
         >
           {label}
         </span>
-        {owned && (
+        {(owned || counted) && (
           <span className="flex items-center gap-1 rounded-md bg-muted px-2.5 py-1 text-xs font-medium">
             <Package className="h-3 w-3" />
-            Owned
+            {counted && ownedQuantity! > 1 ? `You own ${ownedQuantity}` : 'Owned'}
           </span>
         )}
         {/* Labelled, not bare. A pill reading "41%" beside a card is a number
@@ -420,6 +521,8 @@ function SwapSide({ label, tone, name, card, price, playability, owned }: SwapSi
         {priceLabel && (
           <p className="mt-0.5 text-sm text-muted-foreground tabular-nums">{priceLabel}</p>
         )}
+        {/* Measured, from the engine, and absent when nothing was measured. */}
+        {facts && <p className="mt-1 text-xs font-medium text-muted-foreground">{facts}</p>}
       </div>
     </div>
   );

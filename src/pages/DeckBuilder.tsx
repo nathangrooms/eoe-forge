@@ -1165,19 +1165,74 @@ const DeckBuilder = () => {
                   edhAnalysis={edhAnalysisData}
                   onSaveDeck={saveOptimiserChanges}
                   saveState={optimiserSaveState}
+                  /* THIS LOOP LOST 14 CARDS OUT OF A REAL DECK.
+
+                     Measured during review: applying a pass was correct and the
+                     deck matched its receipt card for card, then undoing it
+                     ended at 96 cards from 100 with fourteen missing. Two
+                     causes, both here.
+
+                     A replacement with an empty `add` is the removal sentinel:
+                     take this card out, put nothing back. It was still asked
+                     for, so `getCardByName('')` fired fifteen times and each
+                     came back HTTP 400. Those failures then cost the request
+                     budget for the real lookups.
+
+                     And there was no pacing. Thirty requests went out in a
+                     burst, Scryfall rate limited, and its 429 carries no
+                     access-control header, so the browser reported CORS and the
+                     card was simply never added. The removal had already
+                     happened. Scryfall asks for 50 to 100ms between requests
+                     and the whole loop respected none of it.
+
+                     So: skip the sentinel, pace the rest, and never remove a
+                     card until its replacement is actually in hand. A failed
+                     lookup now leaves the deck alone rather than half-applying
+                     the swap, and says so. */
                   onApplyReplacements={async (replacements) => {
-                    for (const { remove, add } of replacements) {
-                      const cardToRemove = deck.cards.find(c => c.name === remove);
-                      if (cardToRemove) {
-                        deck.removeCard(cardToRemove.id);
-                      }
-                      try {
-                        const newCard = await scryfallAPI.getCardByName(add);
+                    const failed: string[] = [];
+
+                    for (const [index, { remove, add }] of replacements.entries()) {
+                      const wanted = (add ?? '').trim();
+
+                      if (wanted) {
+                        // Scryfall asks for 50 to 100ms between requests. A
+                        // fifteen card pass is one second, and a rate limited
+                        // reply here reads as CORS rather than as an error.
+                        if (index > 0) await new Promise(r => setTimeout(r, 120));
+
+                        let newCard: unknown = null;
+                        try {
+                          newCard = await scryfallAPI.getCardByName(wanted);
+                        } catch (error) {
+                          console.error(`Failed to add ${wanted}:`, error);
+                        }
+
+                        // The replacement has to exist before the original goes.
+                        if (!newCard) {
+                          failed.push(wanted);
+                          continue;
+                        }
+
+                        const cardToRemove = deck.cards.find(c => c.name === remove);
+                        if (cardToRemove) deck.removeCard(cardToRemove.id);
                         handleAddCardToDeck(newCard);
-                      } catch (error) {
-                        console.error(`Failed to add ${add}:`, error);
+                        continue;
                       }
+
+                      // No `add`: this is a removal, and asking Scryfall for the
+                      // empty string is what produced fifteen 400s.
+                      const cardToRemove = deck.cards.find(c => c.name === remove);
+                      if (cardToRemove) deck.removeCard(cardToRemove.id);
                     }
+
+                    if (failed.length > 0) {
+                      showError(
+                        `${failed.length} card${failed.length === 1 ? '' : 's'} could not be looked up`,
+                        `${failed.slice(0, 3).join(', ')}${failed.length > 3 ? ' and others' : ''} stayed as they were.`
+                      );
+                    }
+
                     void saveOptimiserChanges();
                   }}
                   onAddCard={async (cardName) => {

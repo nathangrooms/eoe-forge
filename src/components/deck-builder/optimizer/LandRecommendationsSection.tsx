@@ -10,6 +10,20 @@
  * colour from `buildManaProfile`, computed from the decklist — beside the land
  * count the edge function returned. The count alone never explained why a
  * three-colour deck with 37 lands still stumbles.
+ *
+ * LANDS CAN NOW BE SWAPPED, NOT ONLY ADDED AND REMOVED
+ * ----------------------------------------------------
+ * The owner's ask was that lands get the same swap control the cards tab has.
+ * They do, and it is the same control: `<SwapsSection>` renders the trades,
+ * with its own words. There is no second swap implementation to keep in step
+ * with the first, and the multi-apply confirmation is `<ConfirmBar>`, which
+ * scrolls itself into view for the reason recorded in that file.
+ *
+ * Add and swap are different answers to different questions and both are here.
+ * When the deck is short of lands there is an empty slot, so ADD is the
+ * answer. When the count is where it should be there is no slot, so the only
+ * way to play a better land is to trade one, and the swap group says so in a
+ * line rather than leaving a player to notice their deck went to 101 cards.
  */
 
 import { Card, CardContent } from '@/components/ui/card';
@@ -19,8 +33,32 @@ import { CardGrid } from '@/components/cards';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SuggestionTile, TilePill } from './SuggestionTile';
+import { SwapsSection, type SwapSuggestion } from './SwapsSection';
+import { landFactsLine, type LandGrounds } from './landFacts';
 import { colourSourceReadout } from '@/lib/deck/playabilityView';
 import type { ManaProfile } from '@/lib/deck/playability';
+import type { ReactNode } from 'react';
+
+/**
+ * Re-exported so existing importers keep working. It lives in `landFacts.ts`
+ * now, beside the one function that turns it into a sentence, because the land
+ * swap rows print the same sentence and there must be only one of it.
+ */
+export type { LandGrounds };
+
+/**
+ * The basics this deck still needs, counted rather than recommended.
+ *
+ * The owner's objection was that this tab suggested Plains, and it is right: a
+ * basic land is not advice, it is what goes in the slots nothing better wants.
+ * So the shortfall is one line with a count, and the tiles are kept for lands
+ * that actually do something.
+ */
+export interface BasicFiller {
+  shortfall: number;
+  byColour: Array<{ colour: string; name: string; quantity: number }>;
+  note: string;
+}
 
 export interface LandRecommendation {
   type: 'add' | 'remove';
@@ -28,7 +66,7 @@ export interface LandRecommendation {
   /** Full card object for `<CardImage>`. `null` if Scryfall lookup failed. */
   card: any | null;
   /**
-   * `null` when Scryfall has no USD price, never coerced to 0. Lands were the
+   * `null` when there is no USD price, never coerced to 0. Lands were the
    * one tab that showed no money at all, which made "add this land" a
    * recommendation you could not cost. A fetch land and a basic are the same
    * suggestion until you can see one is $18 and the other is free.
@@ -37,6 +75,15 @@ export interface LandRecommendation {
   reason: string;
   priority: 'high' | 'medium' | 'low';
   category?: string;
+  /**
+   * Copies in the user's collection, counted from `user_collections`.
+   *
+   * A counted figure only. The panel drops the edge function's floor-of-1 for
+   * a name the client merely listed, because "you already own this, it is
+   * free" is a claim that has to be true.
+   */
+  ownedQuantity?: number;
+  grounds?: LandGrounds | null;
 }
 
 interface LandRecommendationsSectionProps {
@@ -54,6 +101,29 @@ interface LandRecommendationsSectionProps {
   recommendations: LandRecommendation[];
   /** Measured from the real decklist. `null` before an analysis has run. */
   manaProfile: ManaProfile | null;
+  /** `null` when the deck is not short of lands, and then nothing renders. */
+  basicFiller?: BasicFiller | null;
+  /**
+   * Land-for-land trades, measured by the edge function.
+   *
+   * The same type the cards tab uses, because they are rendered by the same
+   * component. Empty means no pair could be justified, which is a real answer.
+   */
+  swaps: SwapSuggestion[];
+  onToggleSwap: (index: number) => void;
+  onApplySingleSwap: (index: number) => void;
+  onApplySelectedSwaps: () => void;
+  /** The confirmation, when one is open. Rendered after the swap list. */
+  swapConfirm?: ReactNode;
+  /**
+   * How many of the deck's empty slots are lands, counted server-side.
+   *
+   * `null` when the deck is not short of cards. It is the reason this tab is
+   * worth doing before the ideas tab, and saying it here is half of making
+   * that order visible rather than silent.
+   */
+  landSlots?: number | null;
+  emptySlots?: number | null;
   onAddLand: (name: string) => void;
   onRemoveLand: (name: string) => void;
   isApplying: boolean;
@@ -66,6 +136,14 @@ export function LandRecommendationsSection({
   idealLandCount,
   recommendations,
   manaProfile,
+  basicFiller,
+  swaps,
+  onToggleSwap,
+  onApplySingleSwap,
+  onApplySelectedSwaps,
+  swapConfirm,
+  landSlots,
+  emptySlots,
   onAddLand,
   onRemoveLand,
   isApplying,
@@ -79,6 +157,11 @@ export function LandRecommendationsSection({
 
   const toAdd = recommendations.filter(r => r.type === 'add');
   const toRemove = recommendations.filter(r => r.type === 'remove');
+
+  // Why this tab is worth doing first. Counted server-side, printed here, and
+  // never recomputed locally: a second calculation is how two numbers on one
+  // screen start disagreeing.
+  const landsFirst = typeof landSlots === 'number' && landSlots > 0;
 
   // The deck page's own readout, reused. It already drops colours the deck does
   // not play, so a mono-red deck never prints "White 0".
@@ -142,6 +225,17 @@ export function LandRecommendationsSection({
               </div>
             )}
           </div>
+
+          {/* Why this tab came before the ideas tab. Said where the ordering
+              is, rather than left as a rearrangement nobody explained. */}
+          {landsFirst && (
+            <p className="mt-5 text-sm leading-relaxed">
+              <span className="font-semibold">Lands first.</span>{' '}
+              {landSlots} of the {emptySlots} empty slots in this deck are lands. Fill the
+              mana base before the spells: a spell you cannot cast is worth less than the
+              land that casts it.
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -173,6 +267,34 @@ export function LandRecommendationsSection({
         />
       )}
 
+      {basicFiller && basicFiller.shortfall > 0 && <BasicFillerLine filler={basicFiller} />}
+
+      {/* The same component the cards tab uses, with the words a land wants.
+          Not sticky: its command bar sits inside this list rather than at the
+          top of the tab, and two things competing for `top-2` is one of them
+          landing on the other. */}
+      {swaps.length > 0 && (
+        <SwapsSection
+          suggestions={swaps}
+          onToggle={onToggleSwap}
+          onApplySingle={onApplySingleSwap}
+          onApplySelected={onApplySelectedSwaps}
+          isApplying={isApplying}
+          title="Land swaps"
+          noun="land swap"
+          sticky={false}
+          lead={
+            <>
+              Each of these trades one land for another, so the deck stays the same size
+              and the land count does not move.
+              {needsMore &&
+                ' This deck is still short of lands, so these are on top of the lands to add above, not instead of them.'}
+            </>
+          }
+          footer={swapConfirm}
+        />
+      )}
+
       {toRemove.length > 0 && (
         <LandGroup
           title="Remove"
@@ -198,13 +320,13 @@ export function LandRecommendationsSection({
         />
       )}
 
-      {recommendations.length === 0 && (
+      {recommendations.length === 0 && swaps.length === 0 && !basicFiller && (
         <Card className="shadow-lg">
           <CardContent className="p-10 text-center">
             <Check className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
             <p className="text-base font-medium">
               {isOptimal
-                ? 'No land changes suggested — the count is where it should be.'
+                ? 'No land changes suggested, the count is where it should be.'
                 : 'No specific land changes were returned for this deck.'}
             </p>
           </CardContent>
@@ -253,9 +375,10 @@ function LandGroup({
                    renders its own skeleton for a card with no art, which beats
                    dropping the recommendation on the floor. */
                 card={land.card ?? { name: land.name }}
-                price={land.price}
+                price={land.ownedQuantity ? null : land.price}
                 reason={land.reason}
-                tags={land.category ? <TilePill>{land.category}</TilePill> : undefined}
+                tags={<LandPills land={land} />}
+                footnote={<LandFacts land={land} />}
                 action={action(land)}
                 offerLists={offerLists}
                 deckId={deckId}
@@ -265,5 +388,68 @@ function LandGroup({
         </AnimatePresence>
       </CardGrid>
     </section>
+  );
+}
+
+/**
+ * The pills above the art: what this land is for, and whether it is free.
+ *
+ * Ownership comes first because it changes the decision. Every other line on
+ * this tab is a thing to go and buy; "you already own one" is the one that is
+ * not, and burying it under a category would waste it.
+ */
+function LandPills({ land }: { land: LandRecommendation }) {
+  const owned = land.ownedQuantity ?? 0;
+  return (
+    <>
+      {owned > 0 && (
+        <TilePill>
+          <Check className="mr-1 inline h-3 w-3" />
+          {owned > 1 ? `You own ${owned}` : 'You own this'}
+        </TilePill>
+      )}
+      {land.category && <TilePill>{land.category}</TilePill>}
+    </>
+  );
+}
+
+/** The measured facts under the reason, from the engine rather than the model. */
+function LandFacts({ land }: { land: LandRecommendation }) {
+  const line = landFactsLine(land.grounds);
+  if (!line) return null;
+  return <p className="text-xs font-medium text-muted-foreground">{line}</p>;
+}
+
+/**
+ * The basics, as one line.
+ *
+ * This is the whole answer to "why is it suggesting Plains". It was suggesting
+ * Plains because it was asked for one recommendation per empty land slot, and a
+ * deck nine lands short has nine slots. Nine slots is a sentence, not nine
+ * cards, and the split comes from what the deck's own spells cost rather than
+ * from a model's guess.
+ */
+function BasicFillerLine({ filler }: { filler: BasicFiller }) {
+  return (
+    <Card className="shadow-lg">
+      <CardContent className="flex flex-wrap items-center gap-x-6 gap-y-3 p-5 sm:p-6">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Filler
+          </p>
+          <p className="mt-1.5 text-base leading-relaxed">{filler.note}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {filler.byColour.map(b => (
+            <span
+              key={b.name}
+              className="rounded-lg bg-muted px-3 py-1.5 text-sm font-medium tabular-nums"
+            >
+              {b.quantity} {b.name}
+            </span>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

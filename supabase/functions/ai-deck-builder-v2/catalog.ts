@@ -469,6 +469,41 @@ export class Catalog {
   }
 
   /**
+   * The caller's WHOLE collection, in one read.
+   *
+   * `ownedQuantities` asks about a list of names, which is right once the
+   * shortlist exists but wrong before it does: the land ranker wants to know
+   * whether the user already owns each of the thousand-odd lands in identity,
+   * and asking by name would be a dozen chunked round trips to decide one
+   * signal. This project has had two outages caused by per-row agent queries,
+   * so the rule is batch, and a user's collection is small enough to be one
+   * batch — the whole `user_collections` table held 51 rows on 2026-08-19,
+   * across all thirteen accounts, and RLS narrows this to one account's share.
+   *
+   * Runs under the caller's own JWT, so row-level security (`auth.uid() =
+   * user_id`) decides what comes back. An anonymous caller gets an empty map
+   * rather than an error, and nothing is marked as owned.
+   */
+  async ownedCollection(): Promise<Map<string, number>> {
+    const owned = new Map<string, number>();
+    try {
+      const rows = await this.fetchAll<{ id: string; card_name: string; quantity: number | null }>(
+        'user_collections?select=id,card_name,quantity'
+      );
+      for (const r of rows) {
+        const key = normalizeName(r.card_name);
+        if (!key) continue;
+        owned.set(key, (owned.get(key) ?? 0) + (Number(r.quantity) || 0));
+      }
+    } catch (e) {
+      // A collection we cannot read is a collection we report as empty. It
+      // must never take the whole analysis down with it.
+      console.warn('collection read failed, treating as empty:', String(e).slice(0, 200));
+    }
+    return owned;
+  }
+
+  /**
    * How many copies of each named card the calling user owns.
    *
    * Runs under the caller's own JWT, so row-level security (`auth.uid() =

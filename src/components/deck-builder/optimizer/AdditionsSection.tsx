@@ -39,6 +39,20 @@ export interface AdditionSuggestion {
 interface AdditionsSectionProps {
   suggestions: AdditionSuggestion[];
   missingCards: number;
+  /**
+   * How many of the empty slots are spells, counted by the edge function.
+   *
+   * `null` when nothing counted the split, and then this behaves exactly as it
+   * did: every empty slot is a spell slot. When the deck is short of lands as
+   * well, it is not. Twelve cards short and nine lands short leaves three
+   * spell slots, and "Select best 12" on that deck is an instruction to
+   * overfill it and starve the mana base on the way.
+   */
+  spellSlots?: number | null;
+  /** How many are lands. Used only to say where the other slots went. */
+  landSlots?: number | null;
+  /** Send the reader to the tab that owns those land slots. */
+  onOpenLands?: () => void;
   /** The deck these were suggested for, kept as the reason on the shopping list. */
   deckId?: string | null;
   onAddCard: (cardName: string) => void;
@@ -65,6 +79,9 @@ const CATEGORY_ORDER = [
 export function AdditionsSection({
   suggestions,
   missingCards,
+  spellSlots,
+  landSlots,
+  onOpenLands,
   deckId,
   onAddCard,
   onAddMultiple,
@@ -106,7 +123,11 @@ export function AdditionsSection({
     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
   });
 
-  const bestCount = Math.min(missingCards, suggestions.length);
+  // The slots this tab can actually fill. Falls back to every empty slot when
+  // nothing counted the split, which is what this always did.
+  const slots = typeof spellSlots === 'number' ? spellSlots : missingCards;
+  const landsTakeSome = typeof landSlots === 'number' && landSlots > 0;
+  const bestCount = Math.min(slots, suggestions.length);
 
   return (
     <div className="space-y-6">
@@ -115,7 +136,7 @@ export function AdditionsSection({
           <div className="min-w-0 flex-1">
             <h3 className="text-xl font-bold">Complete your deck</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              {missingCards} card{missingCards === 1 ? '' : 's'} needed ·{' '}
+              {slots} spell slot{slots === 1 ? '' : 's'} ·{' '}
               {suggestions.length} suggestion{suggestions.length === 1 ? '' : 's'}
               {selectedCards.size > 0 && <> · {selectedCards.size} selected</>}
             </p>
@@ -142,6 +163,26 @@ export function AdditionsSection({
               {selectedCards.size === 1 ? '' : 's'}
             </Button>
           </div>
+
+          {/* Where the other slots went. Without this the header simply says a
+              smaller number than the deck is short by, and a smaller number
+              with no explanation reads as a bug. */}
+          {landsTakeSome && (
+            <p className="w-full text-sm leading-relaxed text-muted-foreground">
+              {missingCards} slots are empty and {landSlots} of them are lands, so{' '}
+              {slots} {slots === 1 ? 'is' : 'are'} left for spells.{' '}
+              {onOpenLands && (
+                <button
+                  type="button"
+                  onClick={onOpenLands}
+                  className="font-semibold text-foreground underline underline-offset-2"
+                >
+                  Fill the mana base first
+                </button>
+              )}
+              {onOpenLands && '.'}
+            </p>
+          )}
         </CardContent>
       </Card>
 

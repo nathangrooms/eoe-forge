@@ -58,11 +58,41 @@ import { OptimizerOverview, type HardToCastCard } from './optimizer/OptimizerOve
 import { AdditionsSection, AdditionSuggestion } from './optimizer/AdditionsSection';
 import { RemovalsSection, RemovalSuggestion } from './optimizer/RemovalsSection';
 import { SwapsSection, SwapSuggestion } from './optimizer/SwapsSection';
+import { ConfirmBar } from './optimizer/ConfirmBar';
 import {
   LandRecommendationsSection,
   LandRecommendation,
+  type BasicFiller,
 } from './optimizer/LandRecommendationsSection';
+import { landFactsLine } from './optimizer/landFacts';
 import { castabilityOnDeck, measureManaImpact } from './optimizer/manaImpact';
+import { AutoOptimiseSection, type AutoReceipt } from './optimizer/AutoOptimiseSection';
+import {
+  diffDecks,
+  displayNames,
+  missedByPlan,
+  planAutoOptimise,
+  tallyDeck,
+  type AutoPriority,
+} from '@/lib/deckbuilder/optimizer-autopilot';
+
+/**
+ * How many of the deck's empty slots are lands, counted by the edge function.
+ *
+ * `null` when the deck is not short of cards. The panel never derives this: it
+ * would need the land target, and the one place that number is decided is the
+ * function that also decides the shortfall, the basics split and the land
+ * candidates. Two derivations of one split is how a screen ends up telling a
+ * player two different things about the same deck.
+ */
+interface FillPlan {
+  emptySlots: number;
+  landShortfall: number;
+  landSlots: number;
+  spellSlots: number;
+  /** The sentence, composed server-side so nothing here restates it. */
+  note: string;
+}
 
 interface AnalysisResult {
   issues: Array<{ card: string; reason: string; severity: 'high' | 'medium' | 'low'; category?: string }>;
@@ -138,6 +168,16 @@ interface AIOptimizerPanelProps {
   onSaveDeck?: () => void;
   /** What that save is currently doing. */
   saveState?: 'idle' | 'saving' | 'saved' | 'error';
+  /*
+   * All three may return a promise, and the auto pass awaits it.
+   *
+   * They were typed `=> void` while both callers were already async, so the
+   * panel could fire a write and had no way to know when it had landed. That
+   * was survivable while every apply was one button press by a person; it is
+   * not survivable for a pass that runs five steps back to back and then reads
+   * the decklist to report what changed. Widening the type is backwards
+   * compatible: a handler returning nothing still satisfies it.
+   */
   onApplyReplacements: (
     replacements: Array<{
       remove: string;
@@ -145,9 +185,9 @@ interface AIOptimizerPanelProps {
       addCardId?: string | null;
       addCard?: any;
     }>
-  ) => void;
-  onAddCard?: (cardName: string) => void;
-  onRemoveCard?: (cardName: string) => void;
+  ) => void | Promise<void>;
+  onAddCard?: (cardName: string) => void | Promise<void>;
+  onRemoveCard?: (cardName: string) => void | Promise<void>;
 }
 
 /** Scryfall prices are strings and are frequently absent. Absent is not zero. */
@@ -162,6 +202,14 @@ function usdPrice(prices: any): number | null {
 function optionalNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
+
+/**
+ * A swap's identity: the pair of cards it moves.
+ *
+ * Used to drop applied rows from a list. The same key the swap rows are
+ * rendered under, so a row that leaves the list is the row that was applied.
+ */
+const swapKey = (s: SwapSuggestion) => `${s.currentCard.name}→${s.newCard.name}`;
 
 /** Normalise either a deck row or a Scryfall card into the engine's input. */
 function toPlayabilityInput(card: any, isCommander = false): PlayabilityCardInput | null {
@@ -200,6 +248,14 @@ export function AIOptimizerPanel({
   const [removalSuggestions, setRemovalSuggestions] = useState<RemovalSuggestion[]>([]);
   const [swapSuggestions, setSwapSuggestions] = useState<SwapSuggestion[]>([]);
   const [landRecommendations, setLandRecommendations] = useState<LandRecommendation[]>([]);
+  /**
+   * Land-for-land trades. Same type as the card swaps, on purpose.
+   *
+   * The edge function returns them in the same row shape as `replacements`, so
+   * they are built by the same function here and rendered by the same
+   * component in the lands tab. One swap implementation, two tabs.
+   */
+  const [landSwapSuggestions, setLandSwapSuggestions] = useState<SwapSuggestion[]>([]);
   /*
    * Both `null` until the edge function reports them, and both stay `null` if
    * it does not. They used to initialise to 0 and 37, which meant a response
@@ -210,21 +266,36 @@ export function AIOptimizerPanel({
    */
   const [landCount, setLandCount] = useState<number | null>(null);
   const [idealLandCount, setIdealLandCount] = useState<number | null>(null);
+  /**
+   * The basics still needed, counted by the edge function.
+   *
+   * `null` means the deck is not short, and renders as nothing. It is never
+   * computed here: the split comes from the deck's own coloured pip demand and
+   * its own source counts, both measured server-side, and a second calculation
+   * in the client is how two numbers on one screen start disagreeing.
+   */
+  const [basicFiller, setBasicFiller] = useState<BasicFiller | null>(null);
+  /**
+   * How the empty slots split between lands and spells, counted server-side.
+   *
+   * `null` when the deck is not short of cards, and then nothing about fill
+   * order renders. This is what makes "lands come first" a stated, checkable
+   * count rather than a rearrangement the user is left to notice.
+   */
+  const [fillPlan, setFillPlan] = useState<FillPlan | null>(null);
   const [error, setError] = useState<string>('');
   const [isApplying, setIsApplying] = useState(false);
   const [isLoadingMoreSwaps, setIsLoadingMoreSwaps] = useState(false);
-  const [showConfirmSwaps, setShowConfirmSwaps] = useState(false);
-  /**
-   * Where the confirmation is, so it can be brought to the reader.
+  /*
+   * Two confirmations, one per swap list, and neither is an overlay.
    *
-   * "Apply N swaps" renders the confirmation AFTER the whole list of swaps, and
-   * with nine of them that is a screen and a half below the button you just
-   * pressed. Owner: "if I try 'apply 9 swaps' nothing happens." It was working
-   * the entire time and asking a question nobody could see. The confirmation
-   * stays in the flow, because an overlay would hide the swaps you are being
-   * asked to check, but it now comes to you.
+   * The scroll that brings a confirmation to the reader lives inside
+   * `<ConfirmBar>` rather than here. It used to be an effect in this file on
+   * `showConfirmSwaps`, which worked, and would have had to be remembered a
+   * second time the moment lands got their own multi-apply. See that file.
    */
-  const confirmRef = useRef<HTMLDivElement | null>(null);
+  const [showConfirmSwaps, setShowConfirmSwaps] = useState(false);
+  const [showConfirmLandSwaps, setShowConfirmLandSwaps] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   /** Which steps the reader has actually opened, so the tabs can show progress. */
   const [visitedTabs, setVisitedTabs] = useState<Set<string>>(() => new Set(['overview']));
@@ -233,6 +304,59 @@ export function AIOptimizerPanel({
     setVisitedTabs(prev => (prev.has(value) ? prev : new Set(prev).add(value)));
   }, []);
   const [useCollection, setUseCollection] = useState(false);
+
+  /*
+   * The auto pass: one control that applies the whole set.
+   *
+   * `autoPhase` is the heading of the step running right now, or null. The
+   * receipt is what the DECKLIST did, measured after the fact; see
+   * `AutoOptimiseSection` for why that is not the same object as the plan.
+   */
+  const [autoPhase, setAutoPhase] = useState<string | null>(null);
+  const [autoReceipt, setAutoReceipt] = useState<AutoReceipt | null>(null);
+
+  /**
+   * The decklist as it stands after the last commit, for the before-and-after.
+   *
+   * A ref rather than the `deckCards` prop because the pass reads it from
+   * inside an async handler, and the prop there is whatever it was when that
+   * handler was created. Written in an effect so it holds a committed list
+   * rather than one React is still working on.
+   */
+  const deckCardsRef = useRef(deckCards);
+  useEffect(() => {
+    deckCardsRef.current = deckCards;
+  });
+
+  /** The tally the diff runs on, commander included so it counts whole decks. */
+  const tallyNow = useCallback(
+    () => tallyDeck(commander ? [...deckCardsRef.current, commander] : deckCardsRef.current),
+    [commander]
+  );
+
+  /** The decklist before the pass ran, kept so undo can be measured too. */
+  const autoBeforeRef = useRef<ReturnType<typeof tallyDeck> | null>(null);
+  /**
+   * The real capitalisation of every name the pass could touch, captured BEFORE
+   * it ran.
+   *
+   * `receiptNames()` reads the deck and the suggestion lists as they stand now,
+   * and by the time undo runs both have moved: the cards the pass cut are out
+   * of the deck, and a finished pass clears the suggestion lists. Nothing on
+   * screen then holds the real spelling of a card the pass removed, so
+   * `diffDecks` falls back to its own lower-cased key. Measured on a real deck
+   * on 2026-08-20, the undo receipt listed fourteen cards as "aang, airbending
+   * master", "counterspell", "zoetic cavern".
+   */
+  const autoNamesRef = useRef<Map<string, string> | null>(null);
+  /** The suggestion lists before the pass ran, so undo can put them back. */
+  const autoListsRef = useRef<{
+    additions: AdditionSuggestion[];
+    removals: RemovalSuggestion[];
+    swaps: SwapSuggestion[];
+    lands: LandRecommendation[];
+    landSwaps: SwapSuggestion[];
+  } | null>(null);
 
   const isCommander = format?.toLowerCase() === 'commander' || format?.toLowerCase() === 'edh';
   const requiredCards = isCommander ? 100 : 60;
@@ -280,7 +404,8 @@ export function AIOptimizerPanel({
     additionSuggestions.length > 0 ||
     removalSuggestions.length > 0 ||
     swapSuggestions.length > 0 ||
-    landRecommendations.length > 0;
+    landRecommendations.length > 0 ||
+    landSwapSuggestions.length > 0;
 
   /** Deck-wide castability. Only solved once there is an analysis to sit beside. */
   const deckPlayabilityResult = useMemo<DeckPlayability | null>(() => {
@@ -455,20 +580,46 @@ export function AIOptimizerPanel({
 
       setLoadingStep(3);
 
-      const [additions, removals, swaps, lands] = await Promise.all([
+      const [additions, removals, swaps, lands, landSwaps] = await Promise.all([
         buildAdditions(parsed.additions || [], collectionCards),
         buildRemovals(parsed.removals || []),
         buildSwaps(parsed.replacements || [], collectionCards),
         buildLands(parsed.landRecommendations || []),
+        // Same builder as the card swaps. The rows arrive in the same shape.
+        buildSwaps(parsed.landReplacements || [], collectionCards),
       ]);
 
       setAdditionSuggestions(additions);
       setRemovalSuggestions(removals);
       setSwapSuggestions(swaps);
       setLandRecommendations(lands);
+      setLandSwapSuggestions(landSwaps);
+      setShowConfirmSwaps(false);
+      setShowConfirmLandSwaps(false);
+      // A receipt belongs to the pass that produced it. A fresh analysis is a
+      // fresh set of suggestions against a deck that has already moved, so the
+      // old undo would be putting back cards from a run nobody is looking at.
+      setAutoReceipt(null);
+      setAutoPhase(null);
+      autoBeforeRef.current = null;
+      autoListsRef.current = null;
 
       if (parsed.landCount !== undefined) setLandCount(parsed.landCount);
       if (parsed.idealLandCount !== undefined) setIdealLandCount(parsed.idealLandCount);
+      // Absent or null both mean "this deck is not short of lands", which
+      // renders as nothing rather than as a filler line saying zero.
+      setBasicFiller(
+        parsed.basicFiller && Number(parsed.basicFiller.shortfall) > 0
+          ? (parsed.basicFiller as BasicFiller)
+          : null
+      );
+      // Absent means the deck is not short of cards, and then nothing about
+      // fill order renders at all. Never derived here: see `FillPlan`.
+      setFillPlan(
+        parsed.fillPlan && Number(parsed.fillPlan.emptySlots) > 0
+          ? (parsed.fillPlan as FillPlan)
+          : null
+      );
 
       setActiveTab('overview');
       toast.success('Analysis complete');
@@ -582,6 +733,16 @@ export function AIOptimizerPanel({
     return results;
   };
 
+  /**
+   * Swaps, from a replacement row.
+   *
+   * Used for BOTH `replacements` and `landReplacements`, because the edge
+   * function returns them in the same shape and a land trade is a card trade.
+   * The two extra fields a land row carries — `addGrounds` and `removeGrounds`
+   * — are read here and turn into the same one-line measured fact the land
+   * tiles print. A spell row has neither, and then nothing is printed, which is
+   * what an unmeasured fact must look like.
+   */
   const buildSwaps = async (
     replacements: any[],
     collectionCards: string[]
@@ -617,6 +778,12 @@ export function AIOptimizerPanel({
         console.error('Mana impact failed for swap', rep.remove, rep.add, e);
       }
 
+      // Counted from `user_collections`, never the floor of 1 stamped on a name
+      // the client merely listed. Same rule the land tiles follow: "you already
+      // own this, it is free" is a claim that has to be true.
+      const addOwnedQuantity =
+        rep.addOwnedQuantitySource === 'collection' ? Number(rep.addOwnedQuantity) || 0 : 0;
+
       results.push({
         currentCard: {
           name: rep.remove,
@@ -624,6 +791,7 @@ export function AIOptimizerPanel({
           price: usdPrice((outCard as any).prices),
           reason: rep.removeReason || '',
           playability: deckCardPlayability(rep.remove),
+          facts: landFactsLine(rep.removeGrounds),
         },
         newCard: {
           name: rep.add,
@@ -631,12 +799,14 @@ export function AIOptimizerPanel({
           price: usdPrice(inCard.prices),
           reason: rep.addBenefit || '',
           type: rep.addType || inCard.type_line,
-          inCollection: collectionCards.some(
-            c => c.toLowerCase() === String(rep.add).toLowerCase()
-          ),
+          inCollection:
+            addOwnedQuantity > 0 ||
+            collectionCards.some(c => c.toLowerCase() === String(rep.add).toLowerCase()),
+          ownedQuantity: addOwnedQuantity,
           synergy: rep.synergy || undefined,
           // The id from OUR table, not Scryfall's. See `SwapSuggestion.newCard.cardId`.
           cardId: typeof rep.addCardId === 'string' ? rep.addCardId : null,
+          facts: landFactsLine(rep.addGrounds),
         },
         priority: rep.priority || 'medium',
         category: rep.category || undefined,
@@ -663,6 +833,20 @@ export function AIOptimizerPanel({
     return results;
   };
 
+  /**
+   * Land recommendations, using what the edge function already measured.
+   *
+   * It returns `priceUsd`, `owned`, `ownedQuantity` and `grounds` on every land
+   * row — checked against a live response, not assumed — and this function used
+   * to read none of them. It re-derived the price from Scryfall, sometimes with
+   * a second request for the same card, and threw ownership away entirely. So a
+   * land the user already had in a box looked exactly like one they would have
+   * to go and buy, on the one tab where cost is the whole question.
+   *
+   * Scryfall is still called for the ART, because `<CardImage>` wants the card
+   * object to pick a resolution and to flip a double-faced land, and the pool
+   * query deliberately does not carry `image_uris`.
+   */
   const buildLands = async (lands: any[]): Promise<LandRecommendation[]> => {
     const results: LandRecommendation[] = [];
 
@@ -670,14 +854,11 @@ export function AIOptimizerPanel({
       const local = findDeckCard(land.name);
       const card = local?.image_uris ? local : await fetchCard(land.name);
 
-      // A card taken from the decklist carries art but not necessarily prices,
-      // so fall back to Scryfall rather than showing a land with no cost. Only
-      // when the local copy actually lacks one, which keeps this to at most a
-      // handful of extra requests across the twelve.
-      let price = usdPrice((card as any)?.prices);
-      if (price === null && local) {
-        price = usdPrice((await fetchCard(land.name))?.prices);
-      }
+      // The function's price is the cheapest printing in our own catalogue,
+      // which is the figure the rest of the app costs a deck with. Scryfall is
+      // the fallback for a name it could not resolve, never the first answer.
+      const price =
+        typeof land.priceUsd === 'number' ? land.priceUsd : usdPrice((card as any)?.prices);
 
       results.push({
         type: land.type === 'add' ? 'add' : 'remove',
@@ -687,6 +868,12 @@ export function AIOptimizerPanel({
         reason: land.reason || '',
         priority: land.priority || 'medium',
         category: land.category || undefined,
+        // `ownedQuantitySource` is what separates a counted figure from the
+        // floor of 1 stamped on a name the client merely listed. A land is only
+        // called owned here when the count came from the collection itself.
+        ownedQuantity:
+          land.ownedQuantitySource === 'collection' ? Number(land.ownedQuantity) || 0 : 0,
+        grounds: land.grounds ?? null,
       });
     }
     return results;
@@ -766,46 +953,376 @@ export function AIOptimizerPanel({
     addCard: swap.newCard.card ?? null,
   });
 
-  const applySingleSwap = async (index: number) => {
-    const swap = swapSuggestions[index];
-    if (!swap) return;
+  /**
+   * Applying swaps, once, for both lists.
+   *
+   * Cards and lands go through the SAME function rather than two copies of it.
+   * A land trade is `onApplyReplacements` with two land names in it; nothing
+   * about the write differs, so nothing about the code should. The list to
+   * remove the applied rows from is the only parameter that changes.
+   *
+   * Rows are dropped by the pair of names rather than by index: the caller may
+   * pass a selection rather than a position, and an index into a list that has
+   * already had a row removed is the classic way to delete the wrong one.
+   */
+  const applySwaps = async (
+    picked: SwapSuggestion[],
+    setList: React.Dispatch<React.SetStateAction<SwapSuggestion[]>>
+  ) => {
+    if (picked.length === 0) {
+      toast.error('No swaps selected');
+      return;
+    }
+    const keys = new Set(picked.map(swapKey));
     setIsApplying(true);
     try {
-      await onApplyReplacements([toReplacement(swap)]);
-      toast.success(`Replaced ${swap.currentCard.name} with ${swap.newCard.name}`);
-      setSwapSuggestions(prev => prev.filter((_, i) => i !== index));
+      await onApplyReplacements(picked.map(toReplacement));
+      toast.success(
+        picked.length === 1
+          ? `Replaced ${picked[0].currentCard.name} with ${picked[0].newCard.name}`
+          : `Applied ${picked.length} replacements`
+      );
+      setList(prev => prev.filter(s => !keys.has(swapKey(s))));
     } catch (e) {
-      console.error('Error applying swap:', e);
-      toast.error('Failed to apply swap');
+      console.error('Error applying swaps:', e);
+      toast.error(picked.length === 1 ? 'Failed to apply swap' : 'Failed to apply swaps');
     } finally {
       setIsApplying(false);
     }
   };
 
-  useEffect(() => {
-    if (!showConfirmSwaps) return;
-    confirmRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }, [showConfirmSwaps]);
+  const applySingleSwap = (index: number) => {
+    const swap = swapSuggestions[index];
+    if (swap) void applySwaps([swap], setSwapSuggestions);
+  };
 
   const applySelectedSwaps = async () => {
-    const selected = swapSuggestions.filter(s => s.selected);
-    if (selected.length === 0) {
-      toast.error('No swaps selected');
-      return;
+    await applySwaps(
+      swapSuggestions.filter(s => s.selected),
+      setSwapSuggestions
+    );
+    setShowConfirmSwaps(false);
+  };
+
+  const toggleLandSwap = (index: number) => {
+    setLandSwapSuggestions(prev =>
+      prev.map((s, i) => (i === index ? { ...s, selected: !s.selected } : s))
+    );
+  };
+
+  const applySingleLandSwap = (index: number) => {
+    const swap = landSwapSuggestions[index];
+    if (swap) void applySwaps([swap], setLandSwapSuggestions);
+  };
+
+  const applySelectedLandSwaps = async () => {
+    await applySwaps(
+      landSwapSuggestions.filter(s => s.selected),
+      setLandSwapSuggestions
+    );
+    setShowConfirmLandSwaps(false);
+  };
+
+  /* ------------------------------------------------------------------ *
+   * The auto pass
+   * ------------------------------------------------------------------ */
+
+  /**
+   * Whether this screen can carry out a whole pass.
+   *
+   * `onAddCard` is the evidence, and it is evidence rather than the mechanism:
+   * the pass itself goes through `onApplyReplacements`, for the batching reason
+   * written on `toBatchRow`. A caller that offers no way to add a single card
+   * is a caller whose deck cannot take a card that is not already in it, and
+   * the Deck Generator's result screen is exactly that. Its list is held in
+   * memory and its apply handler replaces a row it can find by name, so a row
+   * with nothing to replace is skipped. "Apply the whole set, spells and mana
+   * base together" is not something it can do, and a button that quietly does a
+   * third of what it says is worse than no button. That screen keeps the manual
+   * tabs, which is what they are for.
+   */
+  const canRunAuto = Boolean(onAddCard);
+
+  const priorityOf = (value: unknown): AutoPriority =>
+    value === 'high' || value === 'low' ? value : 'medium';
+
+  /**
+   * The whole pass, counted.
+   *
+   * Every number the button puts on screen comes from here, so the sentence a
+   * player agrees to and the work that runs are the same object. The counting
+   * itself is in `@/lib/deckbuilder/optimizer-autopilot`, tested, and knows
+   * nothing about React.
+   *
+   * Deliberately built from the FULL lists rather than from what is ticked.
+   * The ask was "no need to manually select", and running two selection models
+   * at once is how a preview and a result end up disagreeing. Nothing is
+   * hidden by that: the preview names every card before anything moves.
+   */
+  const autoPlan = useMemo(
+    () =>
+      planAutoOptimise({
+        landSwaps: landSwapSuggestions.map(s => ({
+          out: s.currentCard.name,
+          in: s.newCard.name,
+          priority: priorityOf(s.priority),
+        })),
+        cardSwaps: swapSuggestions.map(s => ({
+          out: s.currentCard.name,
+          in: s.newCard.name,
+          priority: priorityOf(s.priority),
+        })),
+        cuts: [
+          ...removalSuggestions.map(r => ({
+            name: r.name,
+            priority: priorityOf(r.priority),
+            isLand: false,
+          })),
+          ...landRecommendations
+            .filter(l => l.type === 'remove')
+            .map(l => ({ name: l.name, priority: priorityOf(l.priority), isLand: true })),
+        ],
+        landAdds: landRecommendations
+          .filter(l => l.type === 'add')
+          .map(l => ({ name: l.name, priority: priorityOf(l.priority) })),
+        spellAdds: additionSuggestions.map(a => ({
+          name: a.name,
+          priority: priorityOf(a.priority),
+        })),
+        sizeBefore: totalCardsWithCommander,
+        requiredSize: requiredCards,
+        landSlots: fillPlan?.landSlots ?? null,
+        spellSlots: fillPlan?.spellSlots ?? null,
+        hasBasicFiller: basicFiller !== null,
+      }),
+    [
+      landSwapSuggestions,
+      swapSuggestions,
+      removalSuggestions,
+      landRecommendations,
+      additionSuggestions,
+      totalCardsWithCommander,
+      requiredCards,
+      fillPlan,
+      basicFiller,
+    ]
+  );
+
+  /**
+   * Wait for the decklist to stop moving, then read it.
+   *
+   * The pass awaits every handler it calls, so the writes are done. What is not
+   * done is React committing them, and `deckCardsRef` is only true after a
+   * commit. Polling until the list is the same twice in a row is a measurement
+   * of that rather than a guess at how long it takes, which matters because the
+   * whole receipt is built on the reading that comes next.
+   */
+  const settleDeck = useCallback(async () => {
+    let previous = '';
+    let stable = 0;
+    for (let i = 0; i < 15; i++) {
+      await new Promise(resolve => setTimeout(resolve, 40));
+      const now = JSON.stringify([...tallyNow().entries()].sort());
+      if (now === previous) {
+        stable += 1;
+        if (stable >= 2) return;
+      } else {
+        stable = 0;
+        previous = now;
+      }
     }
+  }, [tallyNow]);
+
+  /**
+   * Every name the receipt might have to print, with its real capitalisation.
+   *
+   * The diff keys on lower case because the store, Scryfall and the edge
+   * function do not agree on capitalisation, and a receipt that reads "Sol Ring
+   * out, sol ring in" is worse than none.
+   */
+  const receiptNames = () =>
+    displayNames(
+      deckCardsRef.current,
+      commander ? [commander] : [],
+      additionSuggestions,
+      removalSuggestions,
+      landRecommendations,
+      swapSuggestions.flatMap(s => [{ name: s.currentCard.name }, { name: s.newCard.name }]),
+      landSwapSuggestions.flatMap(s => [{ name: s.currentCard.name }, { name: s.newCard.name }])
+    );
+
+  /**
+   * ONE CALL FOR THE WHOLE PASS, AND WHY IT HAS TO BE.
+   *
+   * `onApplyReplacements` is the only handler that takes a list. `onAddCard`
+   * and `onRemoveCard` take one card, and the deck page schedules its debounced
+   * save inside each of them, so a pass that added twelve cards through
+   * `onAddCard` would schedule twelve saves. The 400ms debounce does not save
+   * you: every add waits on a Scryfall lookup first, which is longer than that,
+   * so the timer fires between cards and each one really is written. That is
+   * the one thing a bulk apply must not do.
+   *
+   * So the pass builds a single list, in the order the plan settled on, and
+   * hands it over once. The deck page loops it and saves at the end: one write.
+   *
+   * TWO SENTINELS, ONE OF THEM ALREADY IN USE.
+   *   `add: ''`    take a card out and put nothing in. Already how
+   *                `handleRemoveCard` removes a card on a caller with no
+   *                `onRemoveCard`, so this is not a new convention.
+   *   `remove: ''` put a card in and take nothing out. The mirror of it. Both
+   *                callers already behave correctly: the deck page guards its
+   *                removal with `if (cardToRemove)`, and the Deck Generator
+   *                skips any row whose outgoing card it cannot find, which is
+   *                also why that screen is not offered this button at all.
+   */
+  const toBatchRow = (out: string | null, into: string | null) => ({
+    remove: out ?? '',
+    add: into ?? '',
+    addCardId: null,
+    addCard: null,
+  });
+
+  /** Drop the suggestion rows whose cards actually moved. */
+  const pruneByDiff = (gained: Set<string>, lost: Set<string>) => {
+    setSwapSuggestions(prev => prev.filter(s => !gained.has(s.newCard.name.toLowerCase())));
+    setLandSwapSuggestions(prev => prev.filter(s => !gained.has(s.newCard.name.toLowerCase())));
+    setAdditionSuggestions(prev => prev.filter(a => !gained.has(a.name.toLowerCase())));
+    setRemovalSuggestions(prev => prev.filter(r => !lost.has(r.name.toLowerCase())));
+    setLandRecommendations(prev =>
+      prev.filter(l =>
+        l.type === 'add' ? !gained.has(l.name.toLowerCase()) : !lost.has(l.name.toLowerCase())
+      )
+    );
+  };
+
+  /**
+   * The plan flattened into the one list that gets handed over.
+   *
+   * The order is the plan's order and nothing here reorders it: lands traded,
+   * cards traded, cuts, lands in, cards in. The deck page walks the list in
+   * sequence, so the order in this array is the order the deck changes.
+   */
+  const autoBatch = () =>
+    autoPlan.phases.flatMap(phase =>
+      phase.items.map(item => {
+        if (phase.kind === 'landSwaps') return toReplacement(landSwapSuggestions[item.index]);
+        if (phase.kind === 'cardSwaps') return toReplacement(swapSuggestions[item.index]);
+        return toBatchRow(item.out, item.in);
+      })
+    );
+
+  /**
+   * Run the whole pass.
+   *
+   * One handover, then one reading of the deck, then the receipt. The explicit
+   * `onSaveDeck` at the end is not a second save: the deck page's save is
+   * debounced on a ref, so it reschedules the one already pending and turns the
+   * save state on screen instead of leaving the reader to trust a timer.
+   */
+  const runAutoOptimise = async () => {
+    if (autoPlan.moves === 0 || isApplying) return;
+
+    const before = tallyNow();
+    autoBeforeRef.current = before;
+    autoListsRef.current = {
+      additions: additionSuggestions,
+      removals: removalSuggestions,
+      swaps: swapSuggestions,
+      lands: landRecommendations,
+      landSwaps: landSwapSuggestions,
+    };
+    const names = receiptNames();
+    autoNamesRef.current = names;
 
     setIsApplying(true);
+    setAutoPhase(
+      `Working through ${autoPlan.moves} change${autoPlan.moves === 1 ? '' : 's'}, in the order above.`
+    );
+
     try {
-      await onApplyReplacements(selected.map(toReplacement));
-      toast.success(`Applied ${selected.length} replacement${selected.length > 1 ? 's' : ''}`);
-      setSwapSuggestions(prev => prev.filter(s => !s.selected));
+      await onApplyReplacements(autoBatch());
     } catch (e) {
-      console.error('Error applying swaps:', e);
-      toast.error('Failed to apply swaps');
-    } finally {
-      setIsApplying(false);
-      setShowConfirmSwaps(false);
+      console.error('Auto optimise failed part way through', e);
+      toast.error('Something went wrong part way through. The list below is what did change.');
     }
+
+    setAutoPhase('Reading the deck back.');
+    await settleDeck();
+
+    const diff = diffDecks(before, tallyNow(), names);
+    setAutoReceipt({ plan: autoPlan, diff, missed: missedByPlan(autoPlan, diff), residual: null });
+    pruneByDiff(
+      new Set(diff.gained.map(c => c.name.toLowerCase())),
+      new Set(diff.lost.map(c => c.name.toLowerCase()))
+    );
+
+    setAutoPhase(null);
+    setIsApplying(false);
+    onSaveDeck?.();
+  };
+
+  /**
+   * Put it all back.
+   *
+   * A real undo, not a description of one: it runs off the MEASURED diff, so it
+   * reverses what the deck actually did rather than what the pass asked for.
+   * Removals go first, because putting a card back needs a slot and taking one
+   * out is what frees it.
+   *
+   * What comes back is the card by NAME. A player who had a particular printing
+   * of a card gets the default printing of it back, and the receipt says so
+   * rather than leaving it to be discovered.
+   */
+  const undoAutoOptimise = async () => {
+    const receipt = autoReceipt;
+    const before = autoBeforeRef.current;
+    if (!receipt || receipt.residual !== null || before === null || isApplying) return;
+
+    // The pre-pass spellings first, then whatever is on screen now. A card the
+    // pass removed exists in neither the deck nor the suggestion lists by this
+    // point, and without the captured map its name prints in lower case.
+    const names = new Map([...(autoNamesRef.current ?? []), ...receiptNames()]);
+    setIsApplying(true);
+    setAutoPhase('Putting the deck back.');
+
+    try {
+      // One list again, and in this order for a reason: taking a card out
+      // frees the slot the card going back in needs. A copy at a time, so a
+      // card that arrived twice leaves twice.
+      const rows: Array<{ remove: string; add: string }> = [];
+      for (const change of receipt.diff.gained) {
+        for (let i = 0; i < change.delta; i++) rows.push({ remove: change.name, add: '' });
+      }
+      for (const change of receipt.diff.lost) {
+        for (let i = 0; i < -change.delta; i++) rows.push({ remove: '', add: change.name });
+      }
+      await onApplyReplacements(rows);
+    } catch (e) {
+      console.error('Undo failed part way through', e);
+      toast.error('The undo did not finish. What is still different is listed below.');
+    }
+
+    setAutoPhase('Reading the deck back.');
+    await settleDeck();
+
+    // Measured against the list as it was BEFORE the pass, so "put back" is a
+    // reading of the deck rather than a claim about the buttons that were
+    // pressed. Anything still different is what gets reported.
+    const residual = diffDecks(before, tallyNow(), names);
+    setAutoReceipt({ ...receipt, residual });
+
+    const lists = autoListsRef.current;
+    if (lists) {
+      setAdditionSuggestions(lists.additions);
+      setRemovalSuggestions(lists.removals);
+      setSwapSuggestions(lists.swaps);
+      setLandRecommendations(lists.lands);
+      setLandSwapSuggestions(lists.landSwaps);
+    }
+
+    setAutoPhase(null);
+    setIsApplying(false);
+    onSaveDeck?.();
   };
 
   const findMoreSwaps = async () => {
@@ -858,6 +1375,21 @@ export function AIOptimizerPanel({
       : 'Deck complete';
 
   const selectedSwapCount = swapSuggestions.filter(s => s.selected).length;
+  const selectedLandSwapCount = landSwapSuggestions.filter(s => s.selected).length;
+
+  /**
+   * Lands before spells, when the deck is short of both.
+   *
+   * The owner's rule: "lands page should probably overwrite need for new cards
+   * if missing." A spell you cannot cast is worth less than the land that
+   * casts it, so when there are twelve empty slots and nine of them are lands,
+   * the mana base is the work and the ideas tab is what is left over.
+   *
+   * The condition is the server's count, not a local guess, and the reordering
+   * is never silent: `fillPlan.note` prints under the strip that moved.
+   */
+  const landsFirst = fillPlan !== null && fillPlan.landSlots > 0;
+  const steps = landsFirst ? LANDS_FIRST_STEPS : STEPS;
 
   return (
     <div className="w-full space-y-6">
@@ -1005,7 +1537,31 @@ export function AIOptimizerPanel({
         <OptimizerProgress currentStep={loadingStep} loadingCollection={loadingCollection} />
       )}
 
-      {!hasResults && !loading && !error && (
+      {/* THE ONE BUTTON.
+
+          Above the tabs, because it is the default route through them rather
+          than a sixth destination inside them, and because a control that
+          rewrites the deck should not be something you have to go and find.
+
+          Rendered outside the tabs block on purpose: applying everything can
+          empty every suggestion list, which takes the tabs away, and the
+          receipt is the one thing that must survive that. It also stays put
+          after the suggestions are gone, so the record of what changed does not
+          vanish with the thing that changed it. */}
+      {canRunAuto && !loading && (hasResults || autoReceipt) && (
+        <AutoOptimiseSection
+          plan={autoPlan}
+          runningPhase={autoPhase}
+          receipt={autoReceipt}
+          onRun={runAutoOptimise}
+          onUndo={undoAutoOptimise}
+          onDismiss={() => setAutoReceipt(null)}
+          busy={isApplying}
+          saving={saveState === 'saving'}
+        />
+      )}
+
+      {!hasResults && !loading && !error && !autoReceipt && (
         <Card className="shadow-lg">
           <CardContent className="p-10 text-center">
             <h3 className="text-xl font-bold">Ready to optimise</h3>
@@ -1038,7 +1594,7 @@ export function AIOptimizerPanel({
                 available now. */}
             <div className="-mx-1 overflow-x-auto px-1 pb-1">
               <TabsList className="inline-flex h-auto w-auto min-w-full gap-1 p-1">
-                {STEPS.map((step, i) => {
+                {steps.map((step, i) => {
                   const count =
                     step.value === 'additions'
                       ? additionSuggestions.length
@@ -1047,7 +1603,7 @@ export function AIOptimizerPanel({
                       : step.value === 'swaps'
                       ? swapSuggestions.length
                       : step.value === 'lands'
-                      ? landRecommendations.length
+                      ? landRecommendations.length + landSwapSuggestions.length
                       : 0;
                   const Icon = step.icon;
                   const seen = visitedTabs.has(step.value);
@@ -1073,10 +1629,22 @@ export function AIOptimizerPanel({
             </div>
 
             <p className="mt-2 text-sm text-muted-foreground">
-              {visitedTabs.size >= STEPS.length
+              {visitedTabs.size >= steps.length
                 ? 'You have been through all five. Anything you applied is already in the deck.'
-                : `Work through all five. ${STEPS.length - visitedTabs.size} still to look at.`}
+                : `Work through all five. ${steps.length - visitedTabs.size} still to look at.`}
             </p>
+
+            {/* The reordering, said out loud.
+                Moving Lands up the strip without explaining it is a change the
+                reader has to guess at, and the whole reason it moved is a
+                counted fact about their deck. The sentence is the edge
+                function's, composed beside the numbers it quotes, so the tab
+                strip and the lands tab cannot phrase the same split two ways. */}
+            {landsFirst && (
+              <p className="mt-2 rounded-xl bg-muted p-4 text-sm leading-relaxed">
+                {fillPlan!.note}
+              </p>
+            )}
 
             <TabsContent value="overview" className="mt-6">
               {analysis ? (
@@ -1106,6 +1674,13 @@ export function AIOptimizerPanel({
                 <AdditionsSection
                   suggestions={additionSuggestions}
                   missingCards={missingCards}
+                  /* The slots that are actually spells. A deck twelve cards
+                     short and nine lands short has three, and "Select best 12"
+                     on a tab that can only take three is an instruction to
+                     overfill the deck. Null when nothing counted the split. */
+                  spellSlots={fillPlan?.spellSlots ?? null}
+                  landSlots={fillPlan?.landSlots ?? null}
+                  onOpenLands={() => openTab('lands')}
                   deckId={deckId}
                   onAddCard={handleAddCard}
                   onAddMultiple={handleAddMultipleCards}
@@ -1146,53 +1721,39 @@ export function AIOptimizerPanel({
                   }
                 />
               ) : (
-                <>
-                  <SwapsSection
-                    suggestions={swapSuggestions}
-                    onToggle={toggleSwapSuggestion}
-                    onApplySingle={applySingleSwap}
-                    onApplySelected={() => setShowConfirmSwaps(true)}
-                    onFindMoreSwaps={findMoreSwaps}
-                    isApplying={isApplying}
-                    isLoadingMore={isLoadingMoreSwaps}
-                    useCollection={useCollection}
-                  />
-
-                  {/**
-                   * Confirmation in the panel's own flow, not over it.
-                   *
-                   * An AlertDialog here hid the very thing you need to check
-                   * before saying yes — the ticked swaps sitting above it.
-                   */}
-                  {showConfirmSwaps && (
-                    <div ref={confirmRef} className="mt-6 rounded-2xl bg-muted p-5 shadow-lg ring-1 ring-foreground/15">
-                      <p className="text-base">
-                        Apply {selectedSwapCount} swap{selectedSwapCount === 1 ? '' : 's'} to the
-                        deck? The cards above are replaced.
-                      </p>
-                      <div className="mt-4 flex flex-wrap gap-3">
-                        <Button size="lg" onClick={applySelectedSwaps} disabled={isApplying}>
-                          {isApplying ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Applying…
-                            </>
-                          ) : (
-                            'Confirm swaps'
-                          )}
-                        </Button>
-                        <Button
-                          size="lg"
-                          variant="ghost"
-                          onClick={() => setShowConfirmSwaps(false)}
-                          disabled={isApplying}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </>
+                /**
+                 * Confirmation in the panel's own flow, not over it.
+                 *
+                 * An AlertDialog here hid the very thing you need to check
+                 * before saying yes — the ticked swaps sitting above it. It
+                 * renders after the list and brings itself to the reader; the
+                 * scroll is inside `ConfirmBar` so the land list below cannot
+                 * end up with a confirmation that reads as inert.
+                 */
+                <SwapsSection
+                  suggestions={swapSuggestions}
+                  onToggle={toggleSwapSuggestion}
+                  onApplySingle={applySingleSwap}
+                  onApplySelected={() => setShowConfirmSwaps(true)}
+                  onFindMoreSwaps={findMoreSwaps}
+                  isApplying={isApplying}
+                  isLoadingMore={isLoadingMoreSwaps}
+                  useCollection={useCollection}
+                  footer={
+                    showConfirmSwaps ? (
+                      <ConfirmBar
+                        question={`Apply ${selectedSwapCount} swap${
+                          selectedSwapCount === 1 ? '' : 's'
+                        } to the deck? The cards above are replaced.`}
+                        confirmLabel="Confirm swaps"
+                        busyLabel="Applying…"
+                        onConfirm={applySelectedSwaps}
+                        onCancel={() => setShowConfirmSwaps(false)}
+                        busy={isApplying}
+                      />
+                    ) : null
+                  }
+                />
               )}
             </TabsContent>
 
@@ -1202,6 +1763,27 @@ export function AIOptimizerPanel({
                 idealLandCount={idealLandCount}
                 recommendations={landRecommendations}
                 manaProfile={engine?.profile ?? null}
+                basicFiller={basicFiller}
+                swaps={landSwapSuggestions}
+                onToggleSwap={toggleLandSwap}
+                onApplySingleSwap={applySingleLandSwap}
+                onApplySelectedSwaps={() => setShowConfirmLandSwaps(true)}
+                swapConfirm={
+                  showConfirmLandSwaps ? (
+                    <ConfirmBar
+                      question={`Apply ${selectedLandSwapCount} land swap${
+                        selectedLandSwapCount === 1 ? '' : 's'
+                      } to the deck? The lands above are replaced, and the land count stays where it is.`}
+                      confirmLabel="Confirm land swaps"
+                      busyLabel="Applying…"
+                      onConfirm={applySelectedLandSwaps}
+                      onCancel={() => setShowConfirmLandSwaps(false)}
+                      busy={isApplying}
+                    />
+                  ) : null
+                }
+                landSlots={fillPlan?.landSlots ?? null}
+                emptySlots={fillPlan?.emptySlots ?? null}
                 onAddLand={handleAddCard}
                 onRemoveLand={handleRemoveCard}
                 isApplying={isApplying}
@@ -1230,6 +1812,26 @@ const STEPS = [
   { value: 'removals', label: 'Cut', icon: Trash2 },
   { value: 'swaps', label: 'Swaps', icon: ArrowRight },
   { value: 'lands', label: 'Lands', icon: Mountain },
+] as const;
+
+/**
+ * The same five, reordered for a deck that is short of lands.
+ *
+ * "Mana last" is the right order for a deck whose mana base is fine and the
+ * wrong one for a deck that cannot cast what it already plays. When the edge
+ * function counts land slots among the empty ones, Lands becomes step two and
+ * the strip says why: a spell you cannot cast is worth less than the land that
+ * casts it.
+ *
+ * Written out rather than sorted, because there are five of them and a list
+ * you can read is worth more than a rule you have to run.
+ */
+const LANDS_FIRST_STEPS = [
+  { value: 'overview', label: 'Overview', icon: Target },
+  { value: 'lands', label: 'Lands', icon: Mountain },
+  { value: 'additions', label: 'Ideas', icon: Plus },
+  { value: 'removals', label: 'Cut', icon: Trash2 },
+  { value: 'swaps', label: 'Swaps', icon: ArrowRight },
 ] as const;
 
 /** The step number, ticked once the reader has actually opened that tab. */

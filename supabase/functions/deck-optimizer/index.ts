@@ -36,6 +36,50 @@
  * Step 4 is not made redundant by step 3. Grounding changes how often the model
  * is wrong; validation is what makes being wrong harmless.
  *
+ * LANDS ARE RANKED SEPARATELY, AND THIS IS WHY
+ * --------------------------------------------
+ * Step 2 used to rank lands with the same scorer as spells and hand the top
+ * forty to the model. That scorer has four signals, and three of them are the
+ * same number for every land in existence: they all carry the `land` role tag,
+ * they are all mana value 0, and none has a mana cost so none has a castability
+ * figure. Only tag synergy moved — and producing two colours is not a tag.
+ *
+ * Measured on the live catalogue on 2026-08-20, for the real four-colour Atraxa
+ * deck `e0909132-5a48-4416-924c-dd2374d3d34d` (883 ranked lands in identity):
+ *
+ *                        before   after
+ *   Command Tower          #438      #1
+ *   Exotic Orchard         #478      #2
+ *   City of Brass          #487      #7
+ *   Mana Confluence        #660     #30
+ *   Path of Ancestry       #700     #36
+ *   The Gold Saucer          #4    #198
+ *   Fountainport             #1    #159
+ *
+ * The best land in Commander was 438th of 883 in a four-colour deck, and the
+ * forty the model saw contained no mana fixing at all. The owner's report was
+ * "Lands was suggesting just basic lands too, nothing special about them" —
+ * correct, and the basics were the visible half of it. `lands.ts` holds the
+ * replacement and the reasoning behind every weight in it.
+ *
+ * Basics are no longer offered as candidates and the prompt forbids naming
+ * one. What a deck still needs is COUNTED, in `basicFiller`, from its own
+ * coloured pip demand — one line instead of four card tiles.
+ *
+ * LAND SWAPS, AND WHY LANDS GO FIRST
+ * ----------------------------------
+ * `landReplacements` pairs the weakest land in the deck with the best land it
+ * could play instead. It does not go near the model: every term in the
+ * comparison is measured, both sides are scored by the same function, and a
+ * pair is only offered when it can be said in plain words what improves. See
+ * `pairLandSwaps`.
+ *
+ * `fillPlan` counts how many of a short deck's empty slots are lands. A deck
+ * twelve cards short and nine lands short has three spell slots, not twelve,
+ * and that split is now stated once, here, rather than left for the reader to
+ * work out from two numbers on two different tabs. The prompt is told the same
+ * split so the model's prose cannot contradict the tab strip.
+ *
  * RESPONSE SHAPE
  * --------------
  * Strictly additive. Every field the previous version returned is still
@@ -79,6 +123,21 @@ import {
   type Recommendation,
   type Role,
 } from './_engine/advise/index.ts';
+import { pipDemand } from './_engine/build/generate.ts';
+import type { ManaColour, ManaProfile } from './_engine/playability/castability.ts';
+import {
+  basicColourOf,
+  basicFiller,
+  pairLandSwaps,
+  playableAsLand,
+  rankLands,
+  type BasicFiller,
+  type DeckLand,
+  type LandCandidate,
+  type LandGrounds,
+  type LandSwap,
+  type RankedLand,
+} from './lands.ts';
 
 /**
  * One line of the user's deck, resolved against the catalogue.
@@ -104,8 +163,26 @@ const ENGINE_VERSION = 'deck-optimizer/5-grounded';
 
 /** How many ranked non-land candidates the model gets to choose from. */
 const CANDIDATE_LIMIT = 120;
-/** How many ranked land candidates, on top of the basics. */
+/** How many ranked land candidates the model gets to choose from. */
 const LAND_CANDIDATE_LIMIT = 40;
+/**
+ * The most lands the model is ever asked to name.
+ *
+ * A deck can be twenty-nine lands short, and asking for twenty-nine land
+ * recommendations is what produced "Forest x3, Island x3, Plains x3, Swamp x3"
+ * on a real deck. Past about eight there is nothing left to say that is not
+ * "and then basics", and that is now said once, as a count, by `basicFiller`.
+ */
+const LAND_ADD_ASK_LIMIT = 8;
+/**
+ * How many land-for-land trades to offer.
+ *
+ * These are not asked of the model at all: every term in the comparison is
+ * measured, so `pairLandSwaps` builds them. Six because a swap is two cards to
+ * read and a mana base to think about, and a list longer than that stops being
+ * read at all.
+ */
+const LAND_SWAP_LIMIT = 6;
 /** Extra candidates surfaced per role the deck is short of. */
 const PER_ROLE_LIMIT = 12;
 /** How many cut targets to offer the model. */
@@ -335,10 +412,35 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
     .reduce((s, e) => s + e.quantity, 0);
   const idealLandCount = commanderish ? 37 : 24;
 
+  /* --- 4b. Which empty slots are lands ------------------------------ */
+  // Counted here, once, and reported. Everything downstream that has an
+  // opinion about the order to work in reads THIS rather than deriving its own
+  // split, so the number in the prompt, the number on the tab strip and the
+  // number on the additions header cannot disagree.
+  const plan = buildFillPlan({ missingCards, landCount, idealLandCount });
+
   /* --- 5. Retrieve, then rank. Never the reverse. ------------------- */
   const query = buildCandidateQuery(profile);
   const poolStarted = Date.now();
-  const poolRows = await catalog.poolFor(query);
+  // Two reads, in parallel, because they answer different questions.
+  //
+  // `poolFor` deliberately omits `oracle_text` — it returns up to 25,000 rows
+  // and the spell ranker never reads it. `landPoolFor` is the same query with
+  // a `type_line ilike '%Land%'` filter and the text put back, and the text is
+  // the only thing that says what a land taps for: Command Tower and Reliquary
+  // Tower have the same empty colour identity and the same `land` tag, and
+  // only the rules text separates a five-colour source from a colourless one.
+  //
+  // That method already existed and nothing called it. Ranking lands without
+  // it is what put Command Tower 438th — see `lands.ts`.
+  //
+  // Affordable: measured 2026-08-20, `cards_unique` holds 1,194 commander-legal
+  // lands in total, before any colour-identity filter narrows it further.
+  const [poolRows, landRows, collectionOwned] = await Promise.all([
+    catalog.poolFor(query),
+    catalog.landPoolFor(query),
+    catalog.ownedCollection(),
+  ]);
   const poolMs = Date.now() - poolStarted;
 
   const poolIndex = new CardIndex(poolRows, legalityKey);
@@ -361,7 +463,6 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
   const usable = ranked.filter(r => !excluded.has(normalizeName(r.card.name)));
 
   const nonLand = usable.filter(r => !isLandCard(r.card));
-  const landish = usable.filter(r => isLandCard(r.card));
 
   const gaps = gapRoles(profile);
   const offered = new Map<string, Recommendation>();
@@ -380,7 +481,6 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
   const candidates = [...offered.values()].sort(
     (a, b) => b.score - a.score || a.card.name.localeCompare(b.card.name)
   );
-  const landCandidates = landish.slice(0, LAND_CANDIDATE_LIMIT);
   const basics = await catalog.basicLands(legalityKey, colorIdentity);
 
   /* --- 7. The shared brain: one evaluation, score and cuts alike ---- */
@@ -418,6 +518,97 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
     );
   }
 
+  /* --- 7b. Rank the lands as lands ---------------------------------- */
+  // After the evaluation, not before, because the strongest land signal is
+  // "which colour is this deck short of sources for" and that comes from the
+  // mana base the evaluation already measured. Computing it here reuses that
+  // one measurement instead of building a second profile that could disagree
+  // with the score on the same screen.
+  const manaProfile: ManaProfile | null = evaluation?.playability.profile ?? null;
+
+  const landPool: LandCandidate[] = landRows.map(row => ({
+    ...normalizeRow(row, legalityKey),
+    oracleText: row.oracle_text ?? null,
+  }));
+
+  const landRankStarted = Date.now();
+  const landCandidates = rankLands({
+    pool: landPool.filter(l => !excluded.has(normalizeName(l.name))),
+    profile,
+    manaProfile,
+    identity: colorIdentity,
+    owned: collectionOwned,
+    normalizeName,
+    limit: LAND_CANDIDATE_LIMIT,
+  });
+  const landGrounds = new Map<string, LandGrounds>(
+    landCandidates.map(l => [normalizeName(l.card.name), l.grounds])
+  );
+
+  /*
+   * The deck's OWN lands, with their rules text, for the swap pairing.
+   *
+   * Taken out of `landPool` rather than out of `deckEntries`, because the deck
+   * rows were resolved against `poolFor`, which deliberately does not select
+   * `oracle_text` — and the text is the only thing that says what a land taps
+   * for. `landPoolFor` is the same query with the text put back and no "not in
+   * the deck" filter on it, so every land the deck plays that is legal and in
+   * identity is already in hand. One that is not (an off-identity land, or one
+   * the catalogue does not know) is left out rather than guessed at: a land
+   * whose text cannot be read cannot be compared with one whose text can.
+   */
+  const landByKey = new Map(landPool.map(l => [normalizeName(l.name), l]));
+  const deckLandNames = new Map<string, string>();
+  const deckLands: DeckLand[] = [];
+  for (const entry of deckEntries) {
+    if (entry.isCommander || !entry.card || !isLandCard(entry.card)) continue;
+    const key = normalizeName(entry.name);
+    const withText = landByKey.get(key);
+    if (!withText || deckLandNames.has(key)) continue;
+    // The deck's own spelling, kept because a cut is applied by name and the
+    // catalogue's spelling need not match the deck's exactly.
+    deckLandNames.set(key, entry.name);
+    // The copy count travels with it. A swap names one card, so a land the
+    // deck runs several of is never offered as the card to cut.
+    deckLands.push({ land: withText, quantity: entry.quantity });
+  }
+  console.log(
+    `lands: ${landPool.length} in identity, ${landCandidates.length} offered in ` +
+      `${Date.now() - landRankStarted}ms; top: ` +
+      landCandidates
+        .slice(0, 5)
+        .map(l => `${l.card.name} ${l.score.toFixed(2)}`)
+        .join(', ')
+  );
+
+  /** Basic land names available to this identity, by colour. */
+  const basicNames = new Map<ManaColour | 'C', string>();
+  for (const row of basics) {
+    const colour = basicColourOf(row.type_line ?? '');
+    if (colour && !basicNames.has(colour)) basicNames.set(colour, row.name);
+  }
+
+  /**
+   * Coloured pips the deck's own spells demand.
+   *
+   * `pipDemand` is the deck generator's function, called rather than copied so
+   * "what does this deck cost" has one answer. It reads `card.manaCost` and
+   * `quantity` and nothing else; the other four fields of `GeneratedEntry` are
+   * filled to satisfy the type and are never read.
+   */
+  const pips = pipDemand(
+    deckEntries
+      .filter(e => e.card && !isLandCard(e.card))
+      .map(e => ({
+        card: e.card!,
+        quantity: e.quantity,
+        reason: '',
+        score: 0,
+        bucket: 'flex' as const,
+        preferred: false,
+      }))
+  );
+
   /* --- 8. Ask the model to choose from the pool --------------------- */
   const prompt = buildGroundedPrompt({
     deckContext,
@@ -430,9 +621,9 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
     excessCards,
     landCount,
     idealLandCount,
+    fillPlan: plan,
     candidates,
     landCandidates,
-    basics: basics.map(b => normalizeRow(b, legalityKey)),
     swapTargets,
     deckEntries,
     gaps,
@@ -461,6 +652,7 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
         log,
         missingCards,
         excessCards,
+        landGrounds,
       })
     : engineOnlySections({
         candidates,
@@ -470,11 +662,91 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
         excessCards,
       });
 
+  /* --- 9a. Land for land, measured -------------------------------- */
+  // Built here, after validation, for one reason: a land the response has
+  // already told the user to ADD must not turn up again as the incoming half
+  // of a trade, and a land it has told them to CUT must not turn up as the
+  // outgoing half. Both of those lists only exist once the model's answer has
+  // been resolved, so the pairing waits for them.
+  //
+  // Nothing in here came from the model. `pairLandSwaps` compares two lands on
+  // the same measured signals and refuses any pair that cannot be explained in
+  // plain words, so this section holds whether the model answered or not.
+  const landSwaps = pairLandSwaps({
+    deckLands,
+    candidates: landCandidates,
+    profile,
+    manaProfile,
+    identity: colorIdentity,
+    owned: collectionOwned,
+    normalizeName,
+    /*
+     * A basic may be traded away unless an empty slot is already earmarked
+     * for a land.
+     *
+     * `plan.landSlots` is exactly that count. When it is above zero there is
+     * somewhere to put a better land without cutting anything, and trading a
+     * Forest for Command Tower would spend a swap to finish one land shorter
+     * than it started. When it is zero — a full deck, or one whose empty slots
+     * are all spell slots — a trade is the only way to play a better land, and
+     * trading a basic for a dual is the best land upgrade there is.
+     */
+    allowBasicCuts: !plan || plan.landSlots === 0,
+    // Everything the response already asks the user to add. Offering the same
+    // land as both "add this" and "trade for this" is two answers to one
+    // question, and applying both would put two copies of a singleton card in
+    // a Commander deck.
+    skipIn: new Set([
+      ...sections.landRecommendations
+        .filter(l => l.type === 'add')
+        .map(l => normalizeName(String(l.name))),
+      ...sections.additions.map(a => normalizeName(String(a.name))),
+      ...sections.replacements.map(r => normalizeName(String(r.add))),
+    ]),
+    // Everything the response already asks the user to cut. A card offered as
+    // a cut twice in one response is a card that gets removed twice if they
+    // take both, and for a land they run one copy of, the second removal has
+    // nothing to remove.
+    skipOut: new Set([
+      ...sections.landRecommendations
+        .filter(l => l.type === 'remove')
+        .map(l => normalizeName(String(l.name))),
+      ...sections.removals.map(r => normalizeName(String(r.name))),
+      ...sections.replacements.map(r => normalizeName(String(r.remove))),
+    ]),
+    limit: LAND_SWAP_LIMIT,
+  });
+  sections.landReplacements = landSwaps.map(swap => toLandReplacement(swap, deckLandNames, sections));
+  console.log(
+    `land swaps: ${landSwaps.length} of ${deckLands.length} deck lands, ` +
+      `basic cuts ${!plan || plan.landSlots === 0 ? 'allowed' : 'withheld'}; ` +
+      landSwaps.map(s => `${s.out.card.name}->${s.in.card.name} +${s.gain.toFixed(2)}`).join(', ')
+  );
+
   const enriched = await attachRealData({
     catalog,
     sections,
     legalityKey,
     collectionCards: input.collectionCards,
+    collectionOwned,
+  });
+
+  /* --- 9b. The basics, counted rather than recommended --------------- */
+  // Measured here from the deck's own pip demand and its own source counts, so
+  // it holds whether or not the model answered, and it is the same figure
+  // however many lands the model happened to name.
+  const filler = basicFiller({
+    landCount,
+    idealLandCount,
+    recommendedLands: enriched.landRecommendations.filter(l => l.type === 'add').length,
+    // The slots the deck HAS, not the distance to its land target. `plan` is
+    // null for a deck that is not short of cards, and that deck has no slot to
+    // fill: it needs a trade, which the land swaps answer. See `basicFiller`.
+    emptyLandSlots: plan ? plan.landSlots : 0,
+    identity: colorIdentity,
+    pips,
+    manaProfile,
+    basicNames,
   });
 
   const summary = log.summary();
@@ -492,6 +764,8 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
       log,
       landCount,
       idealLandCount,
+      basicFiller: filler,
+      fillPlan: plan,
       swapTargets,
       evaluation,
       colorIdentity,
@@ -518,6 +792,24 @@ interface Sections {
   replacements: Record<string, unknown>[];
   landRecommendations: Record<string, unknown>[];
   /**
+   * Land-for-land trades, in the SAME row shape as `replacements`.
+   *
+   * Same shape on purpose. The client builds a swap from a replacement row and
+   * renders it with one component; giving lands a different shape would mean a
+   * second builder and a second renderer, and those are what drift. Filled in
+   * by the handler after validation, never by the model.
+   */
+  landReplacements: Record<string, unknown>[];
+  /**
+   * Basic lands the model named despite being told not to.
+   *
+   * Kept out of `landRecommendations` and never shipped as advice. Held rather
+   * than discarded so the count is available: how often the model still
+   * reaches for a Plains is a measurement of whether the prompt change worked,
+   * and the response reports it under `grounding.basicsNamedByModel`.
+   */
+  basicAsks: Record<string, unknown>[];
+  /**
    * `issues[].card` is a card name, rendered verbatim by the UI, so it is a
    * claim about the user's deck and is validated like any other name rather
    * than passed through from the model.
@@ -538,6 +830,15 @@ interface ValidateArgs {
   log: ValidationLog;
   missingCards: number;
   excessCards: number;
+  /**
+   * What the land ranker measured, by normalised name.
+   *
+   * So a land the MODEL chose ships the same measured facts — colours made,
+   * enters tapped, copies owned — as one the engine chose. Without it the two
+   * paths describe the same card differently, and the tab can only show what
+   * the model said about it.
+   */
+  landGrounds: ReadonlyMap<string, LandGrounds>;
 }
 
 async function validateSections(a: ValidateArgs): Promise<Sections> {
@@ -769,10 +1070,19 @@ async function validateSections(a: ValidateArgs): Promise<Sections> {
   // Basic lands are the one place a repeated name is meaningful ("add three
   // Plains"), so repeats collapse into a quantity instead of becoming three
   // identical rows, which is what the previous response did.
+  //
+  // What has changed is where a basic ENDS UP. The prompt no longer offers
+  // basics and tells the model not to name one, but a prompt is a request, so
+  // a basic that arrives anyway is still resolved and still quantity-collapsed
+  // — into `basicAsks`, which the response does not ship as a recommendation.
+  // The basics the user is told about come from `basicFiller`, measured from
+  // the deck's own pip demand. A tile saying "add Plains" is not advice, and
+  // it was four of the twelve rows on a real land-short deck.
   const landAdds = new Map<string, Record<string, unknown>>();
   const seenLandAdd = new Set<string>();
   const seenLandCut = new Set<string>();
   const landRecommendations: Record<string, unknown>[] = [];
+  const basicAsks: Record<string, unknown>[] = [];
   for (const x of arr(raw.landRecommendations)) {
     const name = str(x.name);
     if (str(x.type) === 'remove') {
@@ -784,7 +1094,7 @@ async function validateSections(a: ValidateArgs): Promise<Sections> {
         name: cut.deckName,
         reason: str(x.reason),
         priority: priority(x.priority),
-        category: str(x.category) || 'Basic',
+        category: str(x.category) || 'Land',
         quantity: 1,
         _card: cut.card,
       });
@@ -824,21 +1134,38 @@ async function validateSections(a: ValidateArgs): Promise<Sections> {
     // response reports was inflated by suggestions that were never wrong.
     const card = resolveAdd(name, 'landRecommendations.add', seenLandAdd, isBasicLand);
     if (!card) continue;
-    if (!isLandCard(card)) {
+    if (!isLandCard(card) || !playableAsLand(card.typeLine)) {
+      // `playableAsLand` as well as `isLandCard`, because a two-faced type
+      // line carries both faces and "Artifact — Equipment // Land" contains
+      // the word. See its header: Dowsing Dagger // Lost Vale was recommended
+      // as a land to a deck counted ten lands short.
       log.drop('landRecommendations.add', name, 'not-a-land', `type_line = ${card.typeLine}`);
       continue;
     }
+    const basic = isBasicLand(card);
+    const grounds = a.landGrounds.get(normalizeName(card.name)) ?? null;
     const row: Record<string, unknown> = {
       type: 'add',
       name: card.name,
       reason: str(x.reason),
       priority: priority(x.priority),
-      category: str(x.category) || 'Basic',
+      category:
+        str(x.category) ||
+        (basic ? 'Filler' : grounds && grounds.produces.length > 1 ? 'Mana fixing' : 'Land'),
       quantity: 1,
+      // Measured, beside the model's sentence. Null when this land was not in
+      // the ranked forty, which is possible: the model may only choose from
+      // that list, but the list is sliced from a larger ranking and a future
+      // edit could widen what resolves. Null means unmeasured, never zero.
+      grounds,
       _card: card,
     };
     landAdds.set(normalizeName(name), row);
-    landRecommendations.push(row);
+    // Basics are counted, not recommended. `basicAsks` keeps them inside the
+    // quantity-collapse above so a repeated Plains is still one row rather
+    // than three, and keeps them out of the tab, where they were the whole of
+    // the owner's objection.
+    (basic ? basicAsks : landRecommendations).push(row);
   }
 
   /* --- issues --- */
@@ -881,6 +1208,9 @@ async function validateSections(a: ValidateArgs): Promise<Sections> {
     removals: a.excessCards > 0 ? removals.slice(0, Math.max(a.excessCards + 3, 10)) : [],
     replacements: replacements.slice(0, 15),
     landRecommendations: landRecommendations.slice(0, 12),
+    // Filled by the handler from `pairLandSwaps`, once this list is known.
+    landReplacements: [],
+    basicAsks,
     issues,
     touched,
   };
@@ -896,7 +1226,7 @@ async function validateSections(a: ValidateArgs): Promise<Sections> {
  */
 function engineOnlySections(args: {
   candidates: Recommendation[];
-  landCandidates: Recommendation[];
+  landCandidates: RankedLand[];
   swapTargets: SwapTarget[];
   missingCards: number;
   excessCards: number;
@@ -957,23 +1287,133 @@ function engineOnlySections(args: {
         })
       : [];
 
-  const landRecommendations = landCandidates.slice(0, 8).map(r => {
-    touched.add(r.card.name);
+  // The engine's own land picks, with the engine's own reasons — already
+  // ranked on what the land makes rather than on what it is tagged, so this
+  // path now produces the same kind of answer the model path does.
+  const landRecommendations = landCandidates.slice(0, LAND_ADD_ASK_LIMIT).map(l => {
+    touched.add(l.card.name);
     return {
       type: 'add',
-      name: r.card.name,
-      reason: r.reason,
-      priority: 'medium',
-      category: 'Utility',
+      name: l.card.name,
+      reason: l.reason,
+      priority: l.grounds.produces.length > 1 ? 'high' : 'medium',
+      category: l.grounds.produces.length > 1 ? 'Mana fixing' : 'Utility',
       quantity: 1,
-      _card: r.card,
+      grounds: l.grounds,
+      _card: l.card,
     };
   });
 
   // No issues: the engine ranks and explains cards, but it has no opinion to
   // offer about a specific card being a problem, and an empty list is the
   // honest way to say so.
-  return { additions, removals, replacements, landRecommendations, issues: [], touched };
+  return {
+    additions,
+    removals,
+    replacements,
+    landRecommendations,
+    // Same as the model path: the handler fills these from `pairLandSwaps`, so
+    // a run with no model still returns land trades.
+    landReplacements: [],
+    basicAsks: [],
+    issues: [],
+    touched,
+  };
+}
+
+/**
+ * One measured land trade, in the row shape `replacements` uses.
+ *
+ * `remove` is the DECK's own spelling, for the same reason every other cut in
+ * this file is: the swap is applied by name against the user's list, and the
+ * catalogue's spelling of a card need not match theirs exactly.
+ *
+ * `removeReason`, `addBenefit` and `synergy` are all assembled from signals
+ * that fired. `addBenefit` is the ranker's own sentence for the incoming land,
+ * so the words under a land in a trade are the same words that would appear
+ * under it in the add list.
+ *
+ * `edhImpact` is null and stays null. It is the model's power-delta estimate,
+ * and no model saw this pair; a number here would be one this function made up.
+ */
+function toLandReplacement(
+  swap: LandSwap,
+  deckNames: ReadonlyMap<string, string>,
+  sections: Sections
+): Record<string, unknown> {
+  const removeName = deckNames.get(normalizeName(swap.out.card.name)) ?? swap.out.card.name;
+  sections.touched.add(removeName);
+  sections.touched.add(swap.out.card.name);
+  sections.touched.add(swap.in.card.name);
+  return {
+    remove: removeName,
+    removeReason: swap.outReason,
+    add: swap.in.card.name,
+    addBenefit: swap.in.reason,
+    addType: swap.in.card.typeLine,
+    synergy: swap.gainNote,
+    category: swap.in.grounds.produces.length > 1 ? 'Mana fixing' : 'Land upgrade',
+    priority: swap.priority,
+    edhImpact: null,
+    /** The measured facts for each side, the same shape the land tiles read. */
+    addGrounds: swap.in.grounds,
+    removeGrounds: swap.out.grounds,
+    /** Fit gained, so a reader can check the ordering rather than trust it. */
+    fitGain: Number(swap.gain.toFixed(2)),
+    _addCard: swap.in.card,
+    _removeCard: swap.out.card,
+  };
+}
+
+/**
+ * How many of the empty slots are lands.
+ *
+ * The owner's rule, and it is the right one: "a spell you cannot cast is worth
+ * less than the land that casts it." A deck that is twelve cards short and
+ * nine lands short does not have twelve spell slots to fill, it has three. So
+ * the split is counted here and reported, rather than left for a reader to
+ * work out from two numbers on different tabs.
+ *
+ * Null when the deck is not short of cards. There is no fill order to state
+ * when there is nothing to fill, and a plan of zeroes would render as one.
+ */
+interface FillPlan {
+  /** Cards needed to reach the format's deck size. */
+  emptySlots: number;
+  /** How far under the land target the deck is, before any slots are shared. */
+  landShortfall: number;
+  /** Empty slots that should become lands. Never more than there are slots. */
+  landSlots: number;
+  /** What is left for spells. */
+  spellSlots: number;
+  /** One sentence, for the user. Composed here so nothing restates it. */
+  note: string;
+}
+
+function buildFillPlan(args: {
+  missingCards: number;
+  landCount: number;
+  idealLandCount: number;
+}): FillPlan | null {
+  const { missingCards, landCount, idealLandCount } = args;
+  if (missingCards <= 0) return null;
+
+  const landShortfall = Math.max(0, idealLandCount - landCount);
+  const landSlots = Math.min(missingCards, landShortfall);
+  const spellSlots = missingCards - landSlots;
+  const cards = `${missingCards} card${missingCards === 1 ? '' : 's'}`;
+
+  const note =
+    landSlots === 0
+      ? `This deck is ${cards} short and its land count is where it should be, so all ` +
+        `${missingCards} empty slot${missingCards === 1 ? '' : 's'} can go to spells.`
+      : `This deck is ${cards} short and ${landShortfall} land${
+          landShortfall === 1 ? '' : 's'
+        } short, so the mana base comes first: ${landSlots} of the ${missingCards} empty ` +
+        `slots are lands, which leaves ${spellSlots} for spells. A spell you cannot cast ` +
+        `is worth less than the land that casts it.`;
+
+  return { emptySlots: missingCards, landShortfall, landSlots, spellSlots, note };
 }
 
 function categoryFor(r: Recommendation): string {
@@ -1009,6 +1449,14 @@ async function attachRealData(args: {
   sections: Sections;
   legalityKey: string;
   collectionCards: string[];
+  /**
+   * The caller's collection, already read once for the land ranker.
+   *
+   * Passed in rather than fetched again. It used to be read here by name, in
+   * chunks of eighty, which was a second trip to `user_collections` for data
+   * the pipeline was already holding.
+   */
+  collectionOwned: ReadonlyMap<string, number>;
 }): Promise<Sections> {
   const { catalog, sections, legalityKey } = args;
   const names = [...sections.touched];
@@ -1039,7 +1487,7 @@ async function attachRealData(args: {
   // put a fabricated count next to a measured one in the same field, where no
   // reader could tell them apart. `ownedQuantity` keeps its type and meaning;
   // `ownedQuantitySource` is new, and is what makes the 1 honest.
-  const owned = await catalog.ownedQuantities(names);
+  const owned = new Map(args.collectionOwned);
   const countedNames = new Set(owned.keys());
   const claimedNames = new Set<string>();
   for (const n of args.collectionCards) {
@@ -1097,7 +1545,9 @@ async function attachRealData(args: {
     Object.assign(l, facts(String(l.name), (l._card as CandidateCard | null) ?? null));
     delete l._card;
   }
-  for (const r of sections.replacements) {
+  // Spell swaps and land swaps carry the same fields because they are the same
+  // row, and one loop over both is what keeps them that way.
+  for (const r of [...sections.replacements, ...sections.landReplacements]) {
     const add = facts(String(r.add), (r._addCard as CandidateCard | null) ?? null);
     const cut = facts(String(r.remove), (r._removeCard as CandidateCard | null) ?? null);
     Object.assign(r, {
@@ -1144,10 +1594,18 @@ async function attachRealData(args: {
  *                           Same decklist in, same number out, and
  *                           src/engine/one-brain.test.ts fails if they differ.
  *   analysis.categoriesSource  'model' | 'measured'
+ *   analysis.basicFiller    how many basics the deck still needs and of which
+ *                           colours, or null when it needs none
+ *   analysis.landReplacements  land-for-land trades, in the same row shape as
+ *                           replacements[], plus addGrounds, removeGrounds and
+ *                           fitGain. Measured, never from the model.
+ *   analysis.fillPlan       how many of the empty slots are lands and how many
+ *                           are spells, with the sentence that says why lands
+ *                           come first. Null when the deck is not short.
  *   per addition/removal/land: cardId, oracleId, imageUrl, setCode, rarity,
  *                              priceUsd, owned, ownedQuantity,
  *                              ownedQuantitySource, verified,
- *                              and quantity on landRecommendations
+ *                              and quantity + grounds on landRecommendations
  *   per replacement:        addCardId, addOracleId, addImageUrl, addPriceUsd,
  *                           addOwned, addOwnedQuantity,
  *                           addOwnedQuantitySource, removeCardId,
@@ -1168,6 +1626,8 @@ function buildResponse(args: {
   log: ValidationLog;
   landCount: number;
   idealLandCount: number;
+  basicFiller: BasicFiller | null;
+  fillPlan: FillPlan | null;
   swapTargets: SwapTarget[];
   evaluation: DeckEvaluation | null;
   colorIdentity: Color[];
@@ -1221,8 +1681,35 @@ function buildResponse(args: {
     removals: enriched.removals,
     replacements: enriched.replacements,
     landRecommendations: enriched.landRecommendations,
+    /**
+     * Land-for-land trades, measured. Same row shape as `replacements`.
+     *
+     * Not from the model. Every term is measured, so this list is the same on
+     * a run where the gateway answered and one where it did not. An empty
+     * array means no pair could be justified in plain words, which is a real
+     * answer rather than a missing one.
+     */
+    landReplacements: enriched.landReplacements,
     landCount: args.landCount,
     idealLandCount: args.idealLandCount,
+    /**
+     * Which of the empty slots are lands, and why that order.
+     *
+     * `null` when the deck is not short of cards. The note is composed once,
+     * server-side, so the tab strip, the additions header and the lands tab
+     * cannot each phrase the same split differently.
+     */
+    fillPlan: args.fillPlan,
+
+    /**
+     * The basics this deck still needs, as a count.
+     *
+     * `null` when it needs none, and null must render as nothing rather than
+     * as a zero. This is the field that replaces basic-land tiles: the split
+     * is measured from the deck's own coloured pip demand and its own source
+     * counts, so it is a fact about this deck, and it is one line.
+     */
+    basicFiller: args.basicFiller,
 
     /* --- added --- */
     validation: log.summary(),
@@ -1236,6 +1723,16 @@ function buildResponse(args: {
       candidatesOffered: args.candidatesOffered,
       legalityIndexUsed: args.usesIndex,
       unresolvedDeckNames: args.unresolved,
+      /**
+       * How many basic lands the model named after being told not to.
+       *
+       * None of them shipped as recommendations. The number is here so the
+       * prompt change can be checked instead of assumed.
+       */
+      basicsNamedByModel: enriched.basicAsks.reduce(
+        (n, b) => n + (Number(b.quantity) || 1),
+        0
+      ),
       elapsedMs: args.elapsedMs,
     },
     engine: {
@@ -1353,6 +1850,23 @@ function candidateLine(r: Recommendation): string {
   return `- ${r.card.name} | ${r.card.typeLine} | mv ${r.card.cmc} | ${price} | ${tags} | ${r.reason}`;
 }
 
+/**
+ * A land, described by what a land is for.
+ *
+ * The spell line leads with mana value and tags, which say nothing about a
+ * land: every land is mana value 0 and half of them carry only `land`. This
+ * one leads with the colours it makes, whether it enters tapped and whether
+ * the user already owns it, so the model is choosing between described things
+ * rather than between names.
+ */
+function landLine(l: RankedLand): string {
+  const price = l.card.usd === null ? 'n/a' : `$${l.card.usd.toFixed(2)}`;
+  const makes = l.grounds.produces.length ? l.grounds.produces.join('') : 'colourless';
+  const speed = l.grounds.entersTapped ? 'enters tapped' : 'untapped';
+  const own = l.grounds.ownedQuantity > 0 ? ` | OWNED x${l.grounds.ownedQuantity}` : '';
+  return `- ${l.card.name} | makes ${makes} | ${speed} | ${price}${own} | ${l.reason}`;
+}
+
 function buildGroundedPrompt(p: {
   deckContext: Record<string, unknown>;
   profile: DeckProfile;
@@ -1364,9 +1878,9 @@ function buildGroundedPrompt(p: {
   excessCards: number;
   landCount: number;
   idealLandCount: number;
+  fillPlan: FillPlan | null;
   candidates: Recommendation[];
-  landCandidates: Recommendation[];
-  basics: CandidateCard[];
+  landCandidates: RankedLand[];
   swapTargets: SwapTarget[];
   deckEntries: DeckEntry[];
   gaps: Role[];
@@ -1386,15 +1900,23 @@ function buildGroundedPrompt(p: {
     idealLandCount,
     candidates,
     landCandidates,
-    basics,
     swapTargets,
     deckEntries,
     gaps,
   } = p;
 
+  const plan = p.fillPlan;
+
+  // The fill order, stated to the model in the same terms the user is shown
+  // it. A deck twelve cards short and nine lands short has three spell slots,
+  // not twelve, and a summary that talks as though it had twelve contradicts
+  // the tab strip the user is reading it on.
   const status =
     missingCards > 0
-      ? `INCOMPLETE — needs ${missingCards} more cards. Priority: ADDITIONS.`
+      ? plan && plan.landSlots > 0
+        ? `INCOMPLETE — needs ${missingCards} more cards, and ${plan.landSlots} of those ` +
+          `slots are lands. Priority: LANDS first, then ${plan.spellSlots} spells.`
+        : `INCOMPLETE — needs ${missingCards} more cards. Priority: ADDITIONS.`
       : excessCards > 0
         ? `OVERLOADED — ${excessCards} too many cards. Priority: REMOVALS.`
         : `COMPLETE. Priority: SWAPS.`;
@@ -1417,9 +1939,14 @@ function buildGroundedPrompt(p: {
       `is a problem with a card this deck already plays; for anything broader use the ` +
       `summary, strengths, strategy or mana base notes, which name no cards.`
   );
+  out.push(`Do not suggest adding a card the DECK list already contains.`);
   out.push(
-    `Do not suggest adding a card the DECK list already contains — except basic lands, ` +
-      `of which a deck may play any number.`
+    `Do NOT name a basic land anywhere. Plains is not a recommendation. It is what ` +
+      `goes in the slots nothing better wants. This response counts the basics the ` +
+      `deck still needs by itself, from the coloured mana its own spells demand, and ` +
+      `reports them as a single line. Spend every land slot you are given on a land ` +
+      `that DOES something: fixes a colour this deck is short of, or has an ability ` +
+      `worth a land drop.`
   );
   out.push(``);
   out.push(`## Deck`);
@@ -1429,6 +1956,7 @@ function buildGroundedPrompt(p: {
   out.push(`Colour identity: ${colorIdentity.join('') || 'colourless'}`);
   out.push(`Cards: ${totalWithCommander}/${requiredCards} — ${status}`);
   out.push(`Lands: ${landCount} (format target ${idealLandCount})`);
+  if (plan) out.push(`Fill order: ${plan.note}`);
   out.push(`Mean mana value of non-lands: ${profile.meanCmc.toFixed(2)}`);
   out.push(
     `Roles held/target: ` +
@@ -1476,11 +2004,13 @@ function buildGroundedPrompt(p: {
   out.push(``);
 
   out.push(`## LAND CANDIDATES — landRecommendations of type "add" must come from here`);
-  out.push(landCandidates.map(candidateLine).join('\n'));
-  if (basics.length) {
-    out.push(basics.map(b => `- ${b.name} | ${b.typeLine} | mv 0 | basic land`).join('\n'));
-    out.push(`To recommend several copies of a basic land, list it once per copy.`);
-  }
+  out.push(`Format: name | colours it makes | speed | price | why the engine ranked it`);
+  out.push(
+    `Ranked by what a land is worth to THIS deck: the colours of yours it makes, ` +
+      `whether it makes one you are short of sources for, whether it enters tapped, ` +
+      `and whether the user already owns it. No basics appear here.`
+  );
+  out.push(landCandidates.map(landLine).join('\n'));
   out.push(``);
 
   if (p.useCollection && p.collectionCards.length) {
@@ -1506,6 +2036,16 @@ function buildGroundedPrompt(p: {
         `across Essential / Ramp / Card Draw / Removal / Creatures / Lands and weighted ` +
         `towards the roles the deck is short of.`
     );
+    if (plan && plan.landSlots > 0) {
+      // Said here as well as in the deck block, because this is the section the
+      // model acts on. Additions are ideas for the slots the mana base leaves.
+      out.push(
+        `Only ${plan.spellSlots} of the ${plan.emptySlots} empty slots are spell slots. ` +
+          `The other ${plan.landSlots} are lands and are handled by the land section. ` +
+          `Rank your additions accordingly: the first ${plan.spellSlots} are the ones ` +
+          `that will actually go in.`
+      );
+    }
   } else if (excessCards > 0) {
     out.push(`Identify at least ${excessCards + 2} cards from the DECK list to cut.`);
   } else {
@@ -1515,11 +2055,20 @@ function buildGroundedPrompt(p: {
     );
   }
   if (Math.abs(landCount - idealLandCount) > 2) {
-    out.push(
-      landCount < idealLandCount
-        ? `Recommend ${idealLandCount - landCount} lands to add, from LAND CANDIDATES.`
-        : `Recommend ${landCount - idealLandCount} lands from the DECK list to remove.`
-    );
+    if (landCount < idealLandCount) {
+      // Capped, and the cap is the point. A deck twenty-nine lands short does
+      // not want twenty-nine recommendations; it wants the handful of lands
+      // worth choosing deliberately, and a count for the rest. Asking for one
+      // suggestion per empty slot is what filled this section with basics.
+      const ask = Math.min(idealLandCount - landCount, LAND_ADD_ASK_LIMIT);
+      out.push(
+        `The deck is ${idealLandCount - landCount} lands short. Recommend the ${ask} ` +
+          `best lands from LAND CANDIDATES, the ones worth choosing on purpose. The ` +
+          `remaining slots are counted as basics by this function and are not your job.`
+      );
+    } else {
+      out.push(`Recommend ${landCount - idealLandCount} lands from the DECK list to remove.`);
+    }
   }
   out.push(
     `Also give category scores 0-100 (synergy, consistency, power, interaction, manabase), ` +
@@ -1689,8 +2238,10 @@ async function callModel(
               `1. Copy card names verbatim from the CANDIDATE POOL / LAND CANDIDATES (to add) ` +
               `or from the DECK list (to cut). A name from neither list is discarded before ` +
               `the user sees it.\n` +
-              `2. Never suggest adding a card the DECK list already contains, except ` +
-              `basic lands — a deck may play any number of those.\n` +
+              `2. Never suggest adding a card the DECK list already contains.\n` +
+              `2b. Never name a basic land. Basics are filler and this function counts ` +
+              `the ones the deck needs by itself. Every land slot you are given goes to ` +
+              `a land that fixes colours or does something worth a land drop.\n` +
               `2a. An issue names a card from the DECK list. Observations about the deck ` +
               `as a whole go in the summary, strengths, strategy or mana base notes.\n` +
               `3. Justify each pick from the measured numbers supplied: role gaps, mana curve, ` +

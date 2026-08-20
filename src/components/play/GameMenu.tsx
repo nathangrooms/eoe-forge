@@ -167,8 +167,15 @@ export function GameMenu({
 
         <Section title="Playmat">
           {/* The surface, chosen rather than assigned. Every mat on the board
-              follows this, and it is remembered between games. */}
+              follows this, and it is remembered between games.
+
+              No link out to the playmat library from here, deliberately. This
+              menu renders inside a running game, and following a route change
+              unmounts the board and loses it. */}
           <MatStylePicker colors={viewerColors} />
+          <p className="px-0.5 text-[10px] leading-tight text-muted-foreground">
+            Your own pictures live on the playmat page, before a game starts.
+          </p>
         </Section>
 
         <Section title="Table">

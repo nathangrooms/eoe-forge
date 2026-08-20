@@ -62,6 +62,20 @@
  *   5. **Centre glow and edge vignette.** A table is lit from above the middle.
  *      This is what makes the mat sit *under* the cards rather than behind them.
  *   6. **A bound edge**, as an inset ring, the way a printed mat is stitched.
+ *
+ * ---------------------------------------------------------------------------
+ * THE ONE BITMAP THAT IS ALLOWED: THE PLAYER'S OWN
+ * ---------------------------------------------------------------------------
+ * Everything above is about CARD ART, and both reasons are specific to it: a
+ * 626 px crop cannot fill a 1912 px mat, and Scryfall's guidelines forbid the
+ * treatment a readable mat has to apply. Neither reason touches a picture the
+ * player owns. So `/play/mats` lets somebody upload one, it is downscaled to
+ * 1920 on its longest edge before it is stored, and it lands here as the
+ * `image` layer — under the tint and the texture, so the weave still reads
+ * across it and the vignette still sits the cards down onto it.
+ *
+ * It paints the reader's OWN seat, for the same reason the colour does. Four
+ * seats wearing one person's photograph is one table, not four players.
  */
 
 import { memo, type CSSProperties, type ReactNode } from 'react';
@@ -126,6 +140,27 @@ export interface PlaymatProps {
    * commander, whatever you picked for yourself.
    */
   ownSeat?: boolean;
+  /**
+   * An uploaded mat to paint, overriding the reader's own.
+   *
+   * `undefined` means follow the reader's choice, which applies to their own
+   * seat only. `null` means deliberately none, which is what the surface
+   * previews in the picker want: they are showing you Cloth and Felt, not your
+   * photograph with Cloth and Felt written under it.
+   */
+  image?: string | null;
+}
+
+/**
+ * A picture is safe to put in `url()` only once it holds none of the characters
+ * that could end the function early. Signed storage links never do. Anything
+ * that does is not painted at all, because a mat is not worth an injected
+ * declaration.
+ */
+function urlLayer(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (/["'()\\\s]/.test(url)) return null;
+  return `url("${url}")`;
 }
 
 export const Playmat = memo(function Playmat({
@@ -137,6 +172,7 @@ export const Playmat = memo(function Playmat({
   style,
   tintOverride,
   ownSeat = false,
+  image,
 }: PlaymatProps) {
   const prefs = usePlaymatPrefs();
   const mat = matStyleOf(style ?? prefs.style);
@@ -146,30 +182,63 @@ export const Playmat = memo(function Playmat({
      its commander's colours so the table stays readable. A picker passing
      `tintOverride` is always drawing the reader's own surface. */
   const chosenTint = tintOverride ?? (ownSeat ? prefs.tint : 'deck');
+
+  /* An uploaded mat follows the same rule as the tint, and for the same
+     reason: it is YOUR mat, at YOUR seat. Painting it behind all four would
+     make one table out of four players and lose the thing seats are told apart
+     by. When online play maps a seat to the person sitting in it, that seat
+     passes its own owner's mat in through `image`. */
+  const uploaded = image !== undefined ? image : ownSeat ? prefs.matUrl : null;
+  const picture = urlLayer(uploaded);
+
   const painted = tintColors(chosenTint, colors);
+  /* A photograph is already the seat's identity, and dyeing it red is not what
+     anybody means by choosing a picture. So the colour wash is dropped while
+     an uploaded mat is live; the texture and the table light stay, because
+     those are what sit the cards down onto it. */
   const tint =
-    settings.tint > 0 ? identityGround(painted, { alpha: settings.tint, angle: 155 }) : null;
+    settings.tint > 0 && !picture
+      ? identityGround(painted, { alpha: settings.tint, angle: 155 })
+      : null;
 
   /* One element, one `background-image`, painted front to back in CSS order.
      The browser composites this as a single layer, so a four-seat board is four
      gradient stacks rather than sixteen absolutely-positioned divs. */
+  const layers = [
+    /* Light on the middle of the table, and the fall-off at its edges. */
+    `radial-gradient(120% 100% at 50% 38%, hsl(0 0% 100% / ${settings.glow}) 0%, transparent 46%)`,
+    `radial-gradient(125% 110% at 50% 45%, transparent 38%, hsl(0 0% 2% / ${settings.vignette}) 100%)`,
+    ...mat.texture(settings.weave),
+    ...mat.mottle,
+    /* The tint sits under the texture, so the weave reads on top of it — the
+       way a dye sits in cloth rather than on it. */
+    ...(tint ? [tint] : []),
+    /* Real artwork goes under the tint and the texture so the weave still
+       reads across it. Either a style carrying its own (unset on every
+       built-in one; see the licensing note in `matStyles.ts`) or the reader's
+       own upload. */
+    ...(mat.image ? [mat.image] : []),
+    ...(picture ? [picture] : []),
+  ];
+
   const surface: CSSProperties = {
     backgroundColor: `hsl(${settings.base})`,
-    backgroundImage: [
-      /* Light on the middle of the table, and the fall-off at its edges. */
-      `radial-gradient(120% 100% at 50% 38%, hsl(0 0% 100% / ${settings.glow}) 0%, transparent 46%)`,
-      `radial-gradient(125% 110% at 50% 45%, transparent 38%, hsl(0 0% 2% / ${settings.vignette}) 100%)`,
-      ...mat.texture(settings.weave),
-      ...mat.mottle,
-      /* The tint sits under the texture, so the weave reads on top of it — the
-         way a dye sits in cloth rather than on it. */
-      ...(tint ? [tint] : []),
-      /* Real artwork, when a style carries any, goes under the tint and the
-         texture so the weave still reads across it. Unset on every built-in
-         style; see the licensing note in `matStyles.ts`. */
-      ...(mat.image ? [mat.image] : []),
-    ].join(','),
+    backgroundImage: layers.join(','),
   };
+
+  /* Sizing is only emitted when there is a real picture to size. A gradient
+     has no intrinsic dimensions, so `auto` and `cover` mean the same thing for
+     every other layer, and leaving the property off entirely keeps the
+     gradient-only case byte-for-byte what it was.
+
+     `cover` is what makes any shape of picture work: a mat box is anywhere
+     from 948x369 to 1912x369, no photograph is that shape, and the choice is
+     between cropping it and squashing it. */
+  if (picture) {
+    surface.backgroundSize = layers.map(layer => (layer === picture ? 'cover' : 'auto')).join(',');
+    surface.backgroundPosition = layers.map(layer => (layer === picture ? 'center' : '0 0')).join(',');
+    surface.backgroundRepeat = layers.map(layer => (layer === picture ? 'no-repeat' : 'repeat')).join(',');
+  }
 
   return (
     <div className={cn('relative overflow-hidden', rounded, className)} style={surface}>

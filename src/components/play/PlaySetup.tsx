@@ -345,10 +345,11 @@ export function PlaySetup({
             <MatStylePicker
               className="mt-2"
               colors={decks.find(deck => deck.id === value.deckId)?.colors}
+              showManageLink
             />
             <p className="mt-1.5 text-[11px] text-muted-foreground">
-              Drawn rather than photographed, so it stays sharp on any screen. Remembered for next
-              time.
+              Drawn rather than photographed, so it stays sharp on any screen. Saved to your account,
+              so it is the same on every device.
             </p>
           </div>
         </div>

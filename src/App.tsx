@@ -70,6 +70,7 @@ const load = {
   shoppingList: () => import("./pages/Buylist"),
   proxyList: () => import("./pages/ProxyList"),
   play: () => import("./pages/Play"),
+  playmats: () => import("./pages/Playmats"),
   lifeCounter: () => import("./pages/LifeCounter"),
   simulate: () => import("./pages/Simulate"),
   tournament: () => import("./pages/Tournament"),
@@ -116,6 +117,7 @@ const Wishlist = lazy(load.wishlist);
 const ShoppingList = lazy(load.shoppingList);
 const ProxyList = lazy(load.proxyList);
 const Play = lazy(load.play);
+const Playmats = lazy(load.playmats);
 const LifeCounter = lazy(load.lifeCounter);
 const Simulate = lazy(load.simulate);
 const Tournament = lazy(load.tournament);
@@ -389,6 +391,7 @@ function AppContent() {
             <Route path="/shopping" element={<ProtectedRoute><ShoppingList /></ProtectedRoute>} />
             <Route path="/proxies" element={<ProtectedRoute><ProxyList /></ProtectedRoute>} />
             <Route path="/play" element={<ProtectedRoute><Play /></ProtectedRoute>} />
+            <Route path="/play/mats" element={<ProtectedRoute><Playmats /></ProtectedRoute>} />
             {/* Setup renders here, in the frame. The running board covers it. */}
             <Route path="/life" element={<ProtectedRoute><LifeCounter /></ProtectedRoute>} />
             <Route path="/simulate" element={<ProtectedRoute><Simulate /></ProtectedRoute>} />

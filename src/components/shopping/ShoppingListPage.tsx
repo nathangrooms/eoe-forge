@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { Loader2, PackageCheck, Printer, RefreshCw, Send, ShoppingCart, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CardGrid, CardGridSkeleton, CardSizeSlider, useCardSize } from '@/components/cards';
+import { usePagedItems } from '@/hooks/usePagination';
+import { Pager } from '@/components/ui/pagination';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { Changed } from '@/components/motion';
 import { useFlipOnChange, useLeavingList } from '@/lib/motion';
@@ -106,7 +108,22 @@ export default function ShoppingListPage() {
    */
   const gridRef = useRef<HTMLDivElement>(null);
   const buyRows = useLeavingList(list.toBuy, entry => entry.key);
-  useFlipOnChange(gridRef, buyRows.map(row => row.key).join(' '));
+  /* PAGED, because drawing every row at once is what costs.
+
+     Both lists fetch every row on purpose: the shopping page sums three
+     currencies across the whole list and the proxy page counts sheets, and
+     those figures have to be real. That read is one indexed query over the
+     reader's own rows and is the cheap part. The expensive part follows it, a
+     card tile each, every one pulling its own art, which on a 243 card list is
+     243 images on first paint. Owner: "doesnt have pagnation ... this could
+     throttle database".
+
+     `usePagedItems` is written for exactly this shape and says so in its own
+     doc: page in the browser only when the screen needs a figure computed over
+     every row, and page at the database otherwise. */
+  const paged = usePagedItems(buyRows, { pageSize: 60 });
+
+  useFlipOnChange(gridRef, paged.pageItems.map(row => row.key).join(' '));
 
   const copies = list.toBuy.reduce((sum, entry) => sum + entry.quantity, 0);
   const inTransit = [...list.arriving, ...list.arrived].reduce((sum, item) => sum + item.quantity, 0);
@@ -213,8 +230,20 @@ export default function ShoppingListPage() {
                   {copies === 1 ? 'copy' : 'copies'} in total.
                   {inTransit > 0 && ` ${inTransit} more already on the way.`}
                 </p>
+                {paged.pageCount > 1 && (
+                  <Pager
+                    page={paged.page}
+                    pageCount={paged.pageCount}
+                    onPageChange={paged.setPage}
+                    total={paged.total}
+                    shown={paged.pageItems.length}
+                    pageSize={paged.pageSize}
+                    label="Shopping list pages"
+                    className="mb-3"
+                  />
+                )}
                 <CardGrid ref={gridRef} width={cardWidth}>
-                  {buyRows.map(row => (
+                  {paged.pageItems.map(row => (
                     <ShoppingEntryTile
                       key={row.key}
                       motionKey={row.key}

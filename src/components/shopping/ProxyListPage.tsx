@@ -18,6 +18,8 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { CardGrid, CardImage, CardSizeSlider, cardDetailPath, useCardSize } from '@/components/cards';
+import { usePagedItems } from '@/hooks/usePagination';
+import { Pager } from '@/components/ui/pagination';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { cn } from '@/lib/utils';
@@ -183,6 +185,21 @@ export default function ProxyListPage() {
   const plan = useMemo(() => sheetPlan(slots.length), [slots.length]);
   const pages = plan.sheets;
   const extraFaces = slots.filter(slot => slot.faceLabel === 'Back').length;
+  /* PAGED, because drawing every row at once is what costs.
+
+     Both lists fetch every row on purpose: the shopping page sums three
+     currencies across the whole list and the proxy page counts sheets, and
+     those figures have to be real. That read is one indexed query over the
+     reader's own rows and is the cheap part. The expensive part follows it, a
+     card tile each, every one pulling its own art, which on a 243 card list is
+     243 images on first paint. Owner: "doesnt have pagnation ... this could
+     throttle database".
+
+     `usePagedItems` is written for exactly this shape and says so in its own
+     doc: page in the browser only when the screen needs a figure computed over
+     every row, and page at the database otherwise. */
+  const pagedProxies = usePagedItems(proxies, { pageSize: 60 });
+
   const missingArt = slots.filter(slot => !slot.imageUrl).length;
 
   const imageUrls = useMemo(
@@ -481,8 +498,20 @@ export default function ProxyListPage() {
 
           <ArtSaveLine art={art} />
 
+          {pagedProxies.pageCount > 1 && (
+            <Pager
+              page={pagedProxies.page}
+              pageCount={pagedProxies.pageCount}
+              onPageChange={pagedProxies.setPage}
+              total={pagedProxies.total}
+              shown={pagedProxies.pageItems.length}
+              pageSize={pagedProxies.pageSize}
+              label="Proxy list pages"
+              className="mb-3"
+            />
+          )}
           <CardGrid width={cardWidth}>
-            {proxies.map(item => {
+            {pagedProxies.pageItems.map(item => {
               const printing = printingFor(item);
               const href = cardDetailPath({
                 id: printing?.id ?? item.card_id,

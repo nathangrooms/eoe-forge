@@ -93,6 +93,7 @@ import { BoardRail, railWidthFor } from '@/components/play/BoardRail';
 import { Playmat } from '@/components/play/Playmat';
 import { CenterPreview } from '@/components/play/CenterPreview';
 import { ManualDuties } from '@/components/play/ManualDuties';
+import { CommanderChoiceBar } from '@/components/play/CommanderChoiceBar';
 import { MulliganBar } from '@/components/play/MulliganBar';
 import { StackStrip } from '@/components/play/StackStrip';
 import { ZoneTravelLayer } from '@/components/play/ZoneTravelLayer';
@@ -116,6 +117,7 @@ import {
   botMulliganActions,
   cardsToBottom,
   castTiming,
+  commanderZoneOffers,
   declareAttack,
   manualDutiesFor,
   mulliganActions,
@@ -129,6 +131,7 @@ import {
   type BuiltTable,
   type CardInstance,
   type GameAction,
+  type InstanceId,
   type PlayDeck,
   type ResponseOption,
   type PlayerId,
@@ -221,6 +224,17 @@ export default function Play() {
    * silently reintroduce the exact bug the strip exists to fix.
    */
   const [dutiesDismissed, setDutiesDismissed] = useState<string | null>(null);
+
+  /**
+   * CR 903.9a offers this seat has answered by leaving the commander where it
+   * is, keyed by card and by `zoneChangeCounter`.
+   *
+   * The counter is what makes "leave it" a decision rather than a permanent
+   * silence: a commander that dies, is left in the graveyard, is reanimated and
+   * then dies AGAIN is a new object under CR 400.7, so the question is asked
+   * again. A bare instance id would have swallowed the second death.
+   */
+  const [zoneChoiceLeft, setZoneChoiceLeft] = useState<readonly string[]>([]);
 
   /* The right-hand rail. At most one of these is showing, in this order:
      the card preview, a zone's contents, the game menu. */
@@ -427,6 +441,29 @@ export default function Play() {
   const dutiesShowing = duties.length > 0 && dutiesDismissed !== dutyKey;
 
   /**
+   * CR 903.9a — this seat's commanders sitting in a graveyard or exile.
+   *
+   * Empty on almost every frame of almost every game, and the one frame it is
+   * not empty is the one that used to lose a player their commander for good.
+   * The engine answers this for nobody: `commanderZoneOffers` returns the offer
+   * and the sentence, and the choice is made here or by the bot's own policy.
+   */
+  const commanderOffers = useMemo(
+    () => (state ? commanderZoneOffers(state, HUMAN_SEAT) : []),
+    [state]
+  );
+
+  /** One offer, one object. See `zoneChoiceLeft`. */
+  const zoneChoiceKey = (offer: { instanceId: string }): string => {
+    const card = state?.cards[offer.instanceId];
+    return `${offer.instanceId}:${card?.zoneChangeCounter ?? 0}`;
+  };
+  const commanderChoices = commanderOffers.filter(
+    offer => !zoneChoiceLeft.includes(zoneChoiceKey(offer))
+  );
+  const commanderChoiceShowing = commanderChoices.length > 0;
+
+  /**
    * The decision this seat owes the table, or null while the game can flow.
    *
    * `decisionFor` reports a manual duty as a decision, which is what stops the
@@ -463,7 +500,7 @@ export default function Play() {
   /* ---------------------------------------------------------------------- */
 
   const handleCast = useCallback(
-    (card: CardInstance) => {
+    (card: CardInstance, hostId?: InstanceId) => {
       if (!state || opening !== null) return;
       /*
        * Onto the STACK, not straight onto the battlefield.
@@ -488,6 +525,11 @@ export default function Play() {
       const plan = planCastFromHand(state, HUMAN_SEAT, card.instanceId, {
         ignoreMana: freeCast,
         viaStack: true,
+        // CR 601.2c - an Aura names what it enchants as part of being cast. The
+        // preview asks and hands the answer back here; without one the plan
+        // refuses and says so, rather than putting an Aura onto the battlefield
+        // attached to nothing for CR 704.5m to bin.
+        ...(hostId ? { hostId } : {}),
       });
       if (!plan.ok) {
         toast.error(plan.reason);
@@ -1079,7 +1121,7 @@ export default function Play() {
           They are mutually exclusive in practice: the mulligan is answered
           before the first untap, and a duty cannot arrive until an upkeep.
         */}
-        {(opening !== null || dutiesShowing || stack.length > 0) && (
+        {(opening !== null || dutiesShowing || commanderChoiceShowing || stack.length > 0) && (
           <div
             className="pointer-events-none absolute inset-x-0 z-[45] flex justify-center px-2"
             style={{ top: HUD_INSET + 8 }}
@@ -1104,6 +1146,18 @@ export default function Play() {
                 yourPriority={yourPriority}
                 onRespond={handleRespond}
                 onPass={handlePassPriority}
+              />
+            ) : commanderChoiceShowing ? (
+              /* Above the duty strip, and it earns that: a duty comes round
+                 again next upkeep, while a commander left in a graveyard is
+                 gone until somebody remembers it is there. */
+              <CommanderChoiceBar
+                offers={commanderChoices}
+                onTake={actions => dispatch(actions)}
+                onOpen={instanceId => setInspectId(instanceId)}
+                onDismiss={() =>
+                  setZoneChoiceLeft(commanderChoices.map(offer => zoneChoiceKey(offer)))
+                }
               />
             ) : (
               <ManualDuties

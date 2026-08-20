@@ -330,6 +330,13 @@ export function renderEffect(effect: Effect): string {
       ]);
     case 'gain-control':
       return join([renderPlayer(effect.who), 'gains control of', renderSelector(effect.what), renderDuration(effect.duration)]);
+    // "Attach this permanent to target creature you control" — the oracle
+    // wording of equip (CR 702.6a), and of an Aura entering attached to what it
+    // was cast at.
+    case 'attach':
+      return effect.to.sel === 'none'
+        ? `unattach ${renderSelector(effect.what)}`
+        : `attach ${renderSelector(effect.what)} to ${renderSelector(effect.to)}`;
     case 'add-mana':
       return join([
         renderPlayer(effect.who), 'adds', effect.mana,

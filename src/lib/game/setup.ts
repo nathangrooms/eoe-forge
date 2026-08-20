@@ -27,6 +27,20 @@ export interface PlayCard {
   typeLine?: string;
   power?: string;
   toughness?: string;
+  /**
+   * Printed starting loyalty, exactly as it is printed. Planeswalkers only.
+   *
+   * It has to travel with the deck because `CardInstance.loyalty` is the ONLY
+   * input to CR 306.5b: `moveCard` seeds the loyalty counter from it, and
+   * `sba.ts` gates CR 704.5i on it. This field did not exist, so no real game
+   * ever set it, so every planeswalker entered the battlefield on 0 loyalty and
+   * every minus ability was permanently unaffordable. Measured over 120 harness
+   * games after loyalty abilities became reachable: 77 plus activations and 0
+   * minus activations, because a minus was always refused for want of counters.
+   * The two gaps hid each other, because CR 704.5i is gated on the same absent
+   * field and so declined to bin the 0-loyalty planeswalker it should have.
+   */
+  loyalty?: string;
   colorIdentity?: ManaColor[];
   imageUrl?: string;
   keywords?: string[];
@@ -148,6 +162,7 @@ export function buildTable(options: BuildTableOptions): BuiltTable {
           typeLine: commander.typeLine,
           power: commander.power,
           toughness: commander.toughness,
+          loyalty: commander.loyalty,
           colorIdentity: commander.colorIdentity,
           imageUrl: commander.imageUrl,
           keywords: commander.keywords,
@@ -171,6 +186,7 @@ export function buildTable(options: BuildTableOptions): BuiltTable {
           typeLine: card.typeLine,
           power: card.power,
           toughness: card.toughness,
+          loyalty: card.loyalty,
           colorIdentity: card.colorIdentity,
           imageUrl: card.imageUrl,
           keywords: card.keywords,

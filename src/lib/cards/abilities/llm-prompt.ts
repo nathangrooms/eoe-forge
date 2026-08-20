@@ -141,6 +141,7 @@ type Effect =
   | { do:'player-counter'; who:PlayerSelector; counter:string; count:ValueExpr }
   | { do:'set-monarch'; who:PlayerSelector }
   | { do:'lose-game'|'win-game'; who:PlayerSelector }
+  | { do:'attach'; what:Selector; to:Selector }   // equip / an Aura entering attached
   | { do:'counter'; what:Selector }
   | { do:'unless-pays'; who:PlayerSelector; cost:Cost[]; effects:Effect[] }
   | { do:'if'; condition:Condition; then:Effect[]; else?:Effect[] }

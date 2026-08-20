@@ -443,3 +443,100 @@ test('the commander is held to the same timing as anything else', () => {
     ['cast']
   );
 });
+
+/* -------------------------------------------------------------------------- */
+/* CR 903.9a — the choice offered on a dead commander                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A table where p1's commander is a real registered commander: a `CommanderRef`
+ * on the player AND a `CardInstance` the ref points at. The two are separate
+ * records of the same fact (`types.ts` says why), and `commanderZoneOffers`
+ * refuses to answer for a card that only has one of them.
+ */
+function withCommander(zone: Zone): GameState {
+  const base = createGame({
+    id: 'g',
+    mode: 'full',
+    format: 'commander',
+    players: [
+      { id: 'p1', name: 'You', commanders: [{ id: 'p1-cmd1', name: 'Vrondiss', instanceId: 'cmd' }] },
+      { id: 'p2', name: 'Surrak' },
+    ],
+    seed: 1,
+    now: 0,
+  });
+  return addCard(
+    base,
+    {
+      instanceId: 'cmd',
+      cardId: 'cmd',
+      ownerId: 'p1',
+      name: 'Vrondiss, Rage of Ancients',
+      typeLine: 'Legendary Creature — Dragon Barbarian',
+      manaCost: '{3}{R}{G}',
+      isCommander: true,
+      oracleText: '',
+    },
+    zone
+  );
+}
+
+test('a commander in your graveyard offers the command zone, and says the price', () => {
+  const state = inMyMain(withCommander('graveyard'));
+  const { actions } = actionsForCard(state, 'p1', state.cards.cmd);
+
+  const offer = actions.find(action => action.id === 'to-command-zone');
+  assert.ok(offer, `no CR 903.9a control: ${ids(actions).join(', ')}`);
+  assert.equal(offer.kind, 'move');
+  assert.equal(offer.zone, 'command');
+  assert.equal(offer.tone, 'primary', 'a commander is the card this decision is about');
+  assert.match(offer.hint, /instead of leaving it in your graveyard/i);
+  assert.match(offer.hint, /5 mana/, `the next cast is priced: ${offer.hint}`);
+});
+
+test('exile offers it too, and the command zone and the battlefield do not', () => {
+  const exiled = inMyMain(withCommander('exile'));
+  assert.ok(ids(actionsForCard(exiled, 'p1', exiled.cards.cmd).actions).includes('to-command-zone'));
+
+  for (const zone of ['command', 'battlefield', 'hand', 'library'] as const) {
+    const state = inMyMain(withCommander(zone));
+    assert.ok(
+      !ids(actionsForCard(state, 'p1', state.cards.cmd).actions).includes('to-command-zone'),
+      `offered from the ${zone}, which CR 903.9a does not cover`
+    );
+  }
+});
+
+test('you are never offered somebody else commander, and a watched board offers nothing', () => {
+  const state = inMyMain(withCommander('graveyard'));
+  assert.ok(!ids(actionsForCard(state, 'p2', state.cards.cmd).actions).includes('to-command-zone'));
+  assert.ok(
+    !ids(actionsForCard(state, 'p1', state.cards.cmd, { readOnly: true }).actions).includes(
+      'to-command-zone'
+    )
+  );
+});
+
+test('"To command zone" is never a generic zone move on an ordinary card', () => {
+  const state = put(table(), 'bear', { name: 'Grizzly Bears', typeLine: 'Creature — Bear' }, 'graveyard');
+  const { moves, actions } = actionsForCard(state, 'p1', state.cards.bear);
+  assert.ok(
+    !moves.some(move => move.zone === 'command'),
+    'only a commander belongs in a command zone; a general move there builds an illegal board'
+  );
+  assert.ok(!ids(actions).includes('to-command-zone'));
+});
+
+test('the cast label prices the tax in mana, on the button', () => {
+  let state = inMyMain(withCommander('command'));
+  const plain = actionsForCard(state, 'p1', state.cards.cmd, { freeCast: true }).actions;
+  assert.equal(plain.find(a => a.id === 'cast')?.label, 'Cast commander');
+
+  // One cast from the command zone already taken.
+  state = applyAction(state, { type: 'CAST_COMMANDER', commanderId: 'p1-cmd1', instanceId: 'cmd' });
+  const taxed = actionsForCard(state, 'p1', state.cards.cmd, { freeCast: true }).actions;
+  const cast = taxed.find(a => a.id === 'cast');
+  assert.equal(cast?.label, 'Cast commander, 2 more mana');
+  assert.match(cast.hint, /2 of the cost is commander tax/);
+});

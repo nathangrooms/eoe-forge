@@ -81,6 +81,11 @@ export type AlreadyGoodDo =
   | 'untap'
   | 'add-counters'
   | 'remove-counters'
+  /* CR 301.5c / 303.4f. `to-actions.ts` builds the `ATTACH` directly: an
+     attachment moving is a plain state change with no continuous effect of its
+     own, because what the Equipment GRANTS is a separate static ability whose
+     `{sel:'attached'}` selector the layer engine already reads. */
+  | 'attach'
   | 'player-counter'
   | 'set-monarch'
   | 'lose-game'

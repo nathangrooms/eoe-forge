@@ -28,6 +28,13 @@
  *                    registered, so no code path can forget to wire one up
  *   - `effects.ts`   the triggers we detect, and an honest marker for the rest
  *   - `manual.ts`    the two-tap controls for everything the engine will not do
+ *   - `activate.ts`  CR 602 — what a permanent's abilities cost, whether they
+ *                    can be used right now, and the batch that uses one
+ *   - `attach.ts`    CR 301.5 / 303.4 — which permanent an Equipment or Aura
+ *                    may go on, and what the one it is on is currently getting
+ *   - `commander.ts` CR 903 — the command zone: what a commander costs from it
+ *                    and why, the CR 903.9a choice a player makes when their
+ *                    commander dies, and the per-commander damage tallies
  *   - `moves.ts`     composite moves (cast, land drop, advance) shared by UI and bot
  *   - `setup.ts`     decklists in, shuffled and dealt `GameState` out
  *   - `bot.ts`       a plausible opponent that decides only in `GameAction`s
@@ -80,6 +87,15 @@ export * from './triggers.ts';
 export * from './effects.ts';
 export * from './manual.ts';
 export * from './respond.ts';
+// CR 602 — activating an ability on a permanent you control: costs, timing,
+// targets, and the announcement onto the stack.
+export * from './activate.ts';
+// CR 301.5 / 303.4 — equipping, enchanting, and reading what an attachment is
+// giving its host off the layer engine's own applied-effect trace.
+export * from './attach.ts';
+// CR 903 — the command zone. Imported before `moves.ts` because the cast path
+// builds its `CAST_COMMANDER` announcement from here.
+export * from './commander.ts';
 export * from './moves.ts';
 export * from './setup.ts';
 export * from './bot.ts';

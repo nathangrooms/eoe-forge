@@ -73,8 +73,20 @@ const ENGINE = join('src', 'lib', 'game');
  */
 const KNOWN_UNREACHABLE = new Set([
   'ADD_REPLACEMENT',
-  'ATTACH',
-  'CAST_COMMANDER',
+  /* `ATTACH` came off this list when `attach.ts` landed. It is the name this
+     file's own header was written about: proven by tests, reduced correctly,
+     unattached correctly by `sba.ts` under CR 704.5n, and never once built.
+     Now `moves.ts` builds one when an Aura is cast at a permanent, `stack.ts`
+     builds one when an Aura spell resolves, and `to-actions.ts` builds one when
+     a compiled `{do:'attach'}` runs, which is what "Equip {2}" compiles to. */
+  /* `CAST_COMMANDER` came off this list when `commander.ts` landed. It had a
+     validation entry, a reducer case and a log line, and the tax it exists to
+     count was being counted somewhere else entirely — a side effect inside the
+     `PLAY` and `CAST_SPELL` cases, keyed off the card happening to be in the
+     command zone. So the action was dead and the feature was invisible: a
+     commander cast could not be found in an action log at all. `moves.ts` now
+     builds one as part of the cast batch, which is the single path a preview
+     click and a bot batch both take. */
   'END_COMBAT',
   'PASS_TURN',
   'PHASE_CHANGE',
@@ -286,11 +298,26 @@ const ENGINE_OWNED = new Set([
  */
 const KNOWN_UNOFFERED = new Set([
   'ADD_REPLACEMENT',
-  'ATTACH',
-  'CAST_COMMANDER',
+  /* `ATTACH` came off this list at the same time. The control is two controls:
+     `AbilityPanel` draws the equip ability like any other activated ability,
+     because the compiler now expands the printed keyword into the ability CR
+     702.6a says it is, and `CenterPreview` draws the row of permanents an Aura
+     may be cast at. The harness had measured Equipment attaching 136 chances 0
+     times over 80 games. */
   'END_COMBAT',
   'PASS_TURN',
-  'PUT_ABILITY_ON_STACK',
+  /* `PUT_ABILITY_ON_STACK` came off this list when `activate.ts` landed and
+     `AbilityPanel.tsx` drew the control that builds one. It was the largest
+     name on it: every card in the catalogue reading "{T}: do something"
+     depended on it, and the harness had measured a permanent with an activated
+     ability reaching the battlefield 472 times over 80 games and an activated
+     ability being used zero times. */
+  /* `CAST_COMMANDER` came off this list at the same time. The control is the
+     preview's own Cast button, which has always been there and always built a
+     bare `PLAY`; it reads "Cast commander, 2 more mana" when there is tax, and
+     `CommanderPanel` beside it prints the printed cost, the tax and the reason
+     the tax exists. This is an app built around Commander and the harness had
+     measured commander tax being charged 0 times in 80 games. */
   'REMOVE_REPLACEMENT',
   'RESET',
   'SET_INITIATIVE',

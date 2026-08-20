@@ -336,6 +336,9 @@ function toPlayCard(card: PoolCard, identity: readonly PoolColor[]): PlayCard {
     typeLine: card.typeLine,
     power: card.power,
     toughness: card.toughness,
+    // CR 306.5b — without it a planeswalker enters on 0 loyalty and every
+    // minus ability is unaffordable forever. See `PoolCard.loyalty`.
+    loyalty: card.loyalty,
     // The rewrite `mana.ts` depends on. See the header of `pool.ts`.
     colorIdentity: playIdentityOf(card, identity) as ManaColor[],
     keywords: card.keywords,

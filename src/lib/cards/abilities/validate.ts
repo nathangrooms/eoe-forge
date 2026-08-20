@@ -464,6 +464,7 @@ const effectImpl = union<Effect>('do', {
     grant: opt(isArrayOf(isNonEmptyString)), duration: req(duration),
   }, 'do'),
   'gain-control': object({ what: req(selector), who: req(playerSelector), duration: req(duration) }, 'do'),
+  attach: object({ what: req(selector), to: req(selector) }, 'do'),
   'add-mana': object({
     who: req(playerSelector), mana: req(manaString), count: opt(valueExpr), restriction: opt(manaSpendRestriction),
   }, 'do'),
@@ -736,7 +737,7 @@ export const ACCEPTED_TAGS: Readonly<Record<string, readonly string[]>> = Object
   do: [
     'gain-life', 'lose-life', 'set-life', 'damage', 'poison', 'draw', 'mill', 'discard', 'move-zone',
     'destroy', 'sacrifice', 'exile', 'return-from', 'search-library', 'shuffle', 'create-token', 'tap',
-    'untap', 'add-counters', 'remove-counters', 'pump', 'gain-control', 'add-mana', 'player-counter',
+    'untap', 'add-counters', 'remove-counters', 'pump', 'gain-control', 'attach', 'add-mana', 'player-counter',
     'set-monarch', 'lose-game', 'win-game', 'counter', 'unless-pays', 'if', 'for-each', 'repeat',
     'choose-mode', 'may',
     // ReplacementResult shares the `do` key.

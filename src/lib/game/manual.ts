@@ -495,8 +495,12 @@ export interface ManualDuty {
  * reads the clause. Measured by playing on 2026-08-19, the upkeep strip said
  * *"you may put a charge counter on ~"* — a parser's working notation, on the
  * table, in the one sentence whose whole job is to tell a player what to do.
+ *
+ * Exported because `activate.ts` prints the same compiled clauses next to the
+ * button that activates them, and a second copy of this would be a second place
+ * for a tilde to leak onto the table.
  */
-function readableClause(clause: string, card: CardInstance): string {
+export function readableClause(clause: string, card: CardInstance): string {
   return clause.replace(/~/g, card.name);
 }
 

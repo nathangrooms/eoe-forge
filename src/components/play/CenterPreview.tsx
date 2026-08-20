@@ -65,12 +65,19 @@ import { GameCardView } from './GameCardView';
 import { CARD_RATIO } from './boardMetrics';
 import { actionsForCard, cardNotes, type CardAction } from './cardActions';
 import { ManualPanel } from './ManualPanel';
+import { AbilityPanel } from './AbilityPanel';
+import { AttachmentPanel } from './AttachmentPanel';
+import { CommanderPanel } from './CommanderPanel';
 import { ManaCost } from '@/components/ui/mana-cost';
 import {
+  activationsFor,
+  auraNeedsHost,
+  enchantClauseOf,
   statLineIn,
   type CardInstance,
   type GameAction,
   type GameState,
+  type InstanceId,
   type PlayerId,
   type Zone,
 } from '@/lib/game';
@@ -116,7 +123,12 @@ export interface CenterPreviewProps {
    * replaced by the reason rather than removed without one.
    */
   holdReason?: string;
-  onCast?: (card: CardInstance) => void;
+  /**
+   * Cast this card. `hostId` is the permanent an Aura is being cast at, which
+   * CR 601.2c makes part of casting it rather than something that happens
+   * afterwards, so it rides on the cast rather than on a second control.
+   */
+  onCast?: (card: CardInstance, hostId?: InstanceId) => void;
   onPlayLand?: (card: CardInstance) => void;
   onTapToggle?: (card: CardInstance) => void;
   onAttack?: (card: CardInstance, defenderPlayerId: PlayerId) => void;
@@ -259,7 +271,58 @@ export function CenterPreview({
      then give the user a way of manually controlling how it's played." */
   const automation = automationFor(card);
   const handled = automation.engineKeywords;
-  const yours = [...automation.advisoryKeywords, ...automation.manualNotes];
+
+  /*
+   * AN ABILITY THE ENGINE NOW RUNS MUST NOT STILL BE MARKED "YOU RESOLVE".
+   *
+   * `automationFor` is the older reporting path and it has never known about
+   * activated abilities, so it lists every one of them as a clause the player
+   * has to resolve by hand. That was true until `activate.ts` landed, and the
+   * moment the Abilities block below drew a working control it became a lie in
+   * the opposite direction: measured on a real table, Sinew Dancer's
+   * "{3}{W}, {T}: Tap target creature" appeared as an amber "you resolve" chip
+   * on the same screen as the button that resolves it.
+   *
+   * An ability the engine cannot use is still listed, because that one really
+   * is the player's job. `activationsFor` is memoised on the compiler, so
+   * asking it twice on one card costs nothing.
+   */
+  const runsItself = new Set(
+    activationsFor(state, viewerPlayerId, card, { ignoreMana: freeCast })
+      .filter(option => option.ok || option.pending.length > 0)
+      .map(option => option.text.trim())
+  );
+  /*
+   * AND THE SAME FOR "ENCHANT", which was the second half of the same lie.
+   *
+   * `automationFor` reports every keyword it does not recognise as one the
+   * player has to resolve, and "enchant" has never been in the engine's list.
+   * That was true right up until this panel started drawing the row of
+   * permanents an Aura may be cast at: measured on a real table, Ethereal Armor
+   * showed *"enchant — the engine does not enforce this keyword"* directly under
+   * the control that enforces it, beside a list of the only creatures it would
+   * let the Aura go on.
+   *
+   * Gated on `auraNeedsHost` rather than on the word, so an Aura the engine
+   * cannot read a subject off still says so. It is the same test the Enchant
+   * block itself is drawn on, which is what stops the two from disagreeing.
+   */
+  const enchantClause = auraNeedsHost(card) ? enchantClauseOf(card) : null;
+  const enforcedByEngine = (note: string): boolean => {
+    const trimmed = note.trim();
+    if (runsItself.has(trimmed)) return true;
+    if (!enchantClause) return false;
+    // Three spellings of the same claim reach this list: the bare keyword from
+    // `advisoryKeywords`, the card's own "Enchant creature" line, and the
+    // "does not enforce" note built from the keyword.
+    if (trimmed.toLowerCase() === 'enchant') return true;
+    if (/^enchant[^a-z]/i.test(trimmed) && /does not enforce/i.test(trimmed)) return true;
+    return trimmed === enchantClause;
+  };
+
+  const yours = [...automation.advisoryKeywords, ...automation.manualNotes].filter(
+    note => !enforcedByEngine(note)
+  );
 
   /* CARD LEFT, EVERYTHING ELSE RIGHT, and the sizing follows from that.
      Stacked, the card ate the height and the text below it overflowed, so the
@@ -290,6 +353,10 @@ export function CenterPreview({
       case 'play-land':
         return onPlayLand?.(card);
       case 'cast':
+        // An Aura is cast AT something (CR 601.2c), and the host row below is
+        // where that is chosen. Pressing the plain button would cast it at
+        // nothing, and CR 704.5m would put it straight into the graveyard.
+        if (auraNeedsHost(card)) return;
         return onCast?.(card);
       case 'tap':
       case 'untap':
@@ -446,6 +513,51 @@ export function CenterPreview({
                 )}
               </div>
             )}
+
+            {/* THE PERMANENT'S OWN ABILITIES. An ability is a play, so it sits
+                with the plays rather than in a panel of its own. Only for a
+                card you control and only while this board takes decisions, for
+                the same reasons the by-hand controls below carry. */}
+            {!readOnly && !holdReason && onDispatch && card.controllerId === viewerPlayerId && (
+              <AbilityPanel
+                state={state}
+                viewerPlayerId={viewerPlayerId}
+                card={card}
+                freeCast={freeCast}
+                onDispatch={onDispatch}
+                className="shrink-0"
+              />
+            )}
+
+            {/* THE COMMAND ZONE. What this costs from it and why it went up,
+                the CR 903.9a choice when it is in a graveyard or exile, and how
+                close it is to twenty-one on somebody. Above the attachments
+                because a commander's price is the first thing a player is
+                deciding about, and it is the block the Cast button's own label
+                is a summary of. */}
+            <CommanderPanel
+              state={state}
+              viewerPlayerId={viewerPlayerId}
+              card={card}
+              onDispatch={
+                !readOnly && !holdReason && card.ownerId === viewerPlayerId ? onDispatch : undefined
+              }
+              className="shrink-0"
+            />
+
+            {/* WHAT IS ON THIS, AND WHAT IT IS GIVING.
+                Under the abilities on purpose: equip is one of those abilities
+                now, so the button that moves the sword and the readout of what
+                the sword is doing sit together. Read-only boards get the
+                readout and not the cast, which is the same split every other
+                block here takes. */}
+            <AttachmentPanel
+              state={state}
+              viewerPlayerId={viewerPlayerId}
+              card={card}
+              onCastAt={!readOnly && !holdReason ? onCast : undefined}
+              className="shrink-0"
+            />
 
             {/* WHAT THE GAME IS DOING FOR YOU, AND WHAT IT IS NOT.
                 Two lists, never merged, because the whole value is the

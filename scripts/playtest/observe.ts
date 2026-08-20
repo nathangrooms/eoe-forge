@@ -419,6 +419,17 @@ export const CATALOG: readonly CatalogEntry[] = [
       'A commander that dies and stays in the graveyard is gone for good, which is not how the ' +
       'format works.',
   },
+  {
+    id: 'commander-tax-paid',
+    label: 'Commander tax was charged on a cast',
+    category: 'commander',
+    whyZeroMatters:
+      'CR 903.8 is the cost of losing a commander and the reason a Commander game does not just ' +
+      'loop the same threat forever. It read zero over 80 games while the tax code was correct ' +
+      'and tested, because nothing could put a dead commander back and so nothing was ever cast ' +
+      'from the command zone twice. A number here that never moves means the row above it is a ' +
+      'display case too.',
+  },
 
   /* --- the honesty rows: what the app told the player --- */
   {
@@ -511,6 +522,28 @@ export function detectEvents(frame: Frame): EventHit[] {
   };
 
   if (frame.refused) return hits;
+
+  /*
+   * CR 903.8 — commander tax, read off the ANNOUNCEMENT rather than off the
+   * zone change.
+   *
+   * `commander-cast` below watches the card leave the command zone, which is
+   * applied by `PLAY` or by `CAST_SPELL` and by then the count has already gone
+   * up. The tax being PAID is a fact about the state before `CAST_COMMANDER`
+   * reduces, so it is read here and nowhere else.
+   */
+  if (action.type === 'CAST_COMMANDER') {
+    const ref = before.players
+      .flatMap(player => player.commanders)
+      .find(commander => commander.id === action.commanderId);
+    const paid = (ref?.castCount ?? 0) * before.rules.commanderTaxPerCast;
+    if (paid > 0) {
+      push(
+        'commander-tax-paid',
+        `${ref?.name ?? 'A commander'} cost ${paid} more, for ${ref?.castCount} previous cast(s)`
+      );
+    }
+  }
 
   /* ---- cards that appeared, moved or changed ---- */
 
@@ -1042,6 +1075,27 @@ export function checkInvariants(frame: Frame): InvariantHit[] {
 
   for (const card of Object.values(state.cards)) {
     if (card.zone !== 'battlefield') continue;
+    /*
+     * CR 800.4a — a card that left the game with its owner keeps its old `zone`
+     * field and is excluded by `removedFromGame`, which is how the rest of this
+     * file and the whole of `sba.ts` read it (`battlefieldPermanents` skips
+     * these; so does the `card-in-no-zone` check thirty lines up). This block
+     * was the one place that did not, and every rule in it was therefore being
+     * asked about cards that are not in the game.
+     *
+     * It reported nothing while Auras could not attach, because an Aura that
+     * never attaches is unattached in every state and the first violation is
+     * the one that gets reported. The moment Auras started attaching it produced
+     * 21 `aura-attached-to-nothing` findings across 15 of 80 games, every one of
+     * them an Aura whose controller had already lost: the Aura went out of the
+     * game with its owner, `removePlayerCards` cleared `attachedTo` correctly,
+     * and this loop read the stale `zone` and called it a rules violation. The
+     * engine was right; the observer was looking at a card that no longer
+     * existed. Verified by tracing seed 5004 action 427 through the real
+     * reducer: `Sundial, Dawn Tyrant`, the host, reads
+     * `removedFromGame: true`.
+     */
+    if (card.removedFromGame) continue;
     const line = (card.typeLine ?? '').toLowerCase();
 
     if (line.includes('creature')) {
@@ -1059,7 +1113,30 @@ export function checkInvariants(frame: Frame): InvariantHit[] {
 
     if (line.includes('planeswalker')) {
       const loyalty = card.counters?.loyalty ?? 0;
-      if (loyalty <= 0 && card.loyalty) {
+      /*
+       * Judged only on a printed loyalty this engine can READ, which is the
+       * same gate `sba.ts` puts on CR 704.5i and for the same stated reason:
+       * the engine never destroys a permanent on a number it does not have.
+       *
+       * The test used to be `card.loyalty` truthy, which is a different
+       * question, and it could never fire because no deck source set the field
+       * at all — every planeswalker in every game reached the battlefield with
+       * `loyalty` undefined. The moment the field was populated, this line
+       * produced 266 violations across one game, all of them the same card:
+       * `Nissa, Steward of Elements`, printed `{X}{G}{U}` with a printed
+       * loyalty of literally "X". CR 306.5b gives it X counters and nothing in
+       * this engine announces an X for a spell, so `withStartingLoyalty` seeds
+       * nothing and `sba.ts` declines to judge it. Both are deliberate. The
+       * observer was the only one of the three reading the field as a boolean.
+       *
+       * Measured across the 30,611-card harness pool: 301 planeswalkers, 287
+       * with an integer loyalty, 14 with none at all (every one the front face
+       * of a double-faced card), and exactly 1 with "X".
+       */
+      const printed = card.loyalty === undefined ? null : /^[+-]?\d+$/.test(card.loyalty.trim())
+        ? Number.parseInt(card.loyalty.trim(), 10)
+        : null;
+      if (loyalty <= 0 && printed !== null && printed > 0) {
         fail(
           'planeswalker-zero-loyalty',
           `${card.name} is on the battlefield with ${loyalty} loyalty. CR 704.5i puts it into ` +

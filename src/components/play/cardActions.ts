@@ -36,6 +36,7 @@
 import {
   canBlock,
   castTiming,
+  commanderZoneOfferFor,
   eligibleAttackers,
   eligibleBlockers,
   isLand,
@@ -130,7 +131,14 @@ export interface CardActionOptions {
   holdReason?: string;
 }
 
-/** Zones a card of yours can be sent to by hand, other than the one it is in. */
+/**
+ * Zones a card of yours can be sent to by hand, other than the one it is in.
+ *
+ * `command` is not here and must not be added to the list: only a commander
+ * belongs in a command zone, and a general "To command zone" on every card
+ * would be a control that builds an illegal board. It is offered separately,
+ * below, on the one card the rules allow it for.
+ */
 const MOVE_TARGETS: ReadonlyArray<{ zone: Zone; label: string }> = [
   { zone: 'hand', label: 'To hand' },
   { zone: 'battlefield', label: 'To battlefield' },
@@ -214,9 +222,11 @@ export function actionsForCard(
      */
     const timing = castTiming(state, viewerPlayerId, card);
     const commander = card.zone === 'command';
+    /* The tax is mana, so it is said in mana. "plus 4 tax" reads as a fee in
+       some other currency, and a player pricing their turn is counting lands. */
     const label = commander
       ? plan.tax > 0
-        ? `Cast commander, plus ${plan.tax} tax`
+        ? `Cast commander, ${plan.tax} more mana`
         : 'Cast commander'
       : 'Cast';
     /* The timing refusal wins when both fail. "Needs 2 mana" is the wrong
@@ -229,11 +239,38 @@ export function actionsForCard(
         id: 'cast',
         kind: 'cast',
         label,
-        hint: `Cast ${card.name}`,
+        hint: commander && plan.tax > 0
+          ? `Cast ${card.name} from the command zone. ${plan.tax} of the cost is commander tax.`
+          : `Cast ${card.name}`,
         tone: 'primary',
       });
     } else {
       blocked.push({ id: 'cast', reason: plan.reason });
+    }
+  }
+
+  /*
+   * CR 903.9a — a commander sitting in a graveyard or exile may be put into the
+   * command zone instead, and the word is MAY.
+   *
+   * Offered here as well as in the panel that explains it, because this list is
+   * what the preview draws for a card and a player who has clicked their dead
+   * commander is asking exactly this question. `commanderZoneOffers` owns the
+   * legality; nothing is re-derived.
+   */
+  if (mine && !options.readOnly) {
+    const offer = commanderZoneOfferFor(state, viewerPlayerId, card);
+    if (offer) {
+      actions.push({
+        id: 'to-command-zone',
+        kind: 'move',
+        zone: 'command',
+        label: 'To the command zone',
+        hint:
+          `Put ${card.name} into your command zone instead of leaving it in your ${offer.from}. ` +
+          `Casting it again costs ${offer.nextCastMana} mana, ${offer.nextCastTax} of that tax.`,
+        tone: 'primary',
+      });
     }
   }
 

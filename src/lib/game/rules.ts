@@ -588,6 +588,8 @@ function moveCard(
     controllerId?: PlayerId;
     /** CR 614.1c — counters the permanent *enters with*, set by replacement effects. */
     counters?: Record<string, number>;
+    /** CR 303.4f — an Aura enters the battlefield already attached to its host. */
+    attachedTo?: InstanceId;
   } = {}
 ): GameState {
   const card = state.cards[instanceId];
@@ -637,7 +639,9 @@ function moveCard(
       : to === 'battlefield'
         ? card.counters
         : {},
-    attachedTo: to === 'battlefield' ? card.attachedTo : undefined,
+    // An Aura entering attached says where; anything else keeps what it had on
+    // the battlefield and loses it everywhere else.
+    attachedTo: to === 'battlefield' ? options.attachedTo ?? card.attachedTo : undefined,
     summoningSick: enteringBattlefield ? true : to === 'battlefield' ? card.summoningSick : false,
     faceDown: to === 'battlefield' || to === 'exile' ? card.faceDown : false,
     powerOverride: leavingBattlefield ? undefined : card.powerOverride,
@@ -806,6 +810,18 @@ function beginTurnFor(state: GameState, playerId: PlayerId): GameState {
   let next = untapPermanents(state, playerId);
   next = clearSummoningSickness(next, playerId);
   next = patchPlayer(next, playerId, p => ({ ...p, landsPlayedThisTurn: 0 }));
+  /*
+   * "Only once each turn" and CR 606.3's one loyalty ability per planeswalker
+   * are counted per TURN, not per player, so the whole record clears here
+   * rather than under the active seat. Dropped rather than emptied: an absent
+   * key and a zero mean the same thing to `abilityUsesThisTurn`, and a state
+   * that carries no key is the one that compares equal to a freshly created
+   * game after a replay.
+   */
+  if (next.abilityUses && Object.keys(next.abilityUses).length > 0) {
+    const { abilityUses: _cleared, ...rest } = next;
+    next = rest as GameState;
+  }
   return next;
 }
 
@@ -1318,8 +1334,20 @@ function describeAction(state: GameState, action: GameAction): string {
       return `${playerName(state, action.playerId)} drew ${action.count ?? 1} card${(action.count ?? 1) === 1 ? '' : 's'}.`;
     case 'PLAY':
       return `${playerName(state, state.cards[action.instanceId]?.controllerId ?? state.activePlayerId)} played ${cardName(state, action.instanceId)}.`;
-    case 'MOVE_ZONE':
+    case 'MOVE_ZONE': {
+      const moving = state.cards[action.instanceId];
+      /* CR 903.9a is a decision, and "moved to command" is not a sentence that
+         records one. The log has to say what was chosen and where it came from,
+         because the alternative — leaving it in the graveyard — was equally
+         legal and a reader has no other way to tell the two apart. */
+      if (action.to === 'command' && moving?.isCommander && moving.zone !== 'command') {
+        return (
+          `${cardName(state, action.instanceId)} went to the command zone from the ` +
+          `${moving.zone} instead of staying there (CR 903.9a).`
+        );
+      }
       return `${cardName(state, action.instanceId)} moved to ${action.to}.`;
+    }
     case 'TAP':
       return `${cardName(state, action.instanceId)} tapped.`;
     case 'UNTAP':
@@ -1330,7 +1358,16 @@ function describeAction(state: GameState, action: GameAction): string {
       return `${playerName(state, action.playerId)} shuffled.`;
     case 'CAST_COMMANDER': {
       const commander = findCommander(state, action.commanderId);
-      return `${commander?.name ?? 'A commander'} cast from the command zone.`;
+      const name = commander?.name ?? 'A commander';
+      // Read BEFORE the reduce, so this is the tax being paid for THIS cast
+      // rather than the one the next cast will pay. `describeAction` is called
+      // on the pre-reduce state for exactly this kind of reason.
+      const tax = commanderTax(state, action.commanderId);
+      if (tax <= 0) return `${name} cast from the command zone.`;
+      return (
+        `${name} cast from the command zone, ${tax} more mana for ` +
+        `${commander?.castCount === 1 ? 'the previous cast' : `${commander?.castCount ?? 0} previous casts`}.`
+      );
     }
     case 'ATTACK':
       return `${playerName(state, state.activePlayerId)} attacked with ${action.attackers.length} creature${action.attackers.length === 1 ? '' : 's'}.`;
@@ -1483,12 +1520,20 @@ function reduce(state: GameState, action: GameAction): GameState {
         tapped: action.tapped,
         controllerId: action.controllerId ?? card.controllerId,
         counters: action.counters,
+        // Only when the host is really on the battlefield. An Aura pointed at
+        // something that has gone would enter attached to a ghost, and CR
+        // 704.5m would bin it a moment later for a reason nobody could read.
+        ...(action.attachedTo && state.cards[action.attachedTo]
+          ? { attachedTo: action.attachedTo }
+          : {}),
       });
-      // Casting from the command zone counts the tax at announcement, so a
-      // spell that went via the stack has already been counted.
-      if (card.zone === 'command' && card.isCommander) {
-        next = incrementCommanderCast(next, action.instanceId);
-      }
+      /* The commander tax used to be counted right here, off `card.zone ===
+         'command'`. It is counted by `CAST_COMMANDER` now, which `moves.ts`
+         builds as part of the cast batch. The difference is not tidiness: this
+         version charged tax for any `PLAY` of a card that happened to be in the
+         command zone, so a free "put your commander onto the battlefield"
+         effect made the next real cast two mana dearer, and the count could not
+         be read off the action log at all. */
       if (to === 'battlefield' && (card.typeLine ?? '').toLowerCase().includes('land')) {
         next = patchPlayer(next, action.controllerId ?? card.controllerId, p => ({
           ...p,
@@ -1529,11 +1574,25 @@ function reduce(state: GameState, action: GameAction): GameState {
       };
     }
 
-    case 'CAST_COMMANDER':
-      return patchCommander(state, action.commanderId, commander => ({
-        ...commander,
-        castCount: commander.castCount + 1,
+    /*
+     * CR 903.8 — the cast is counted here and nowhere else.
+     *
+     * `CommanderRef.castCount` drives the tax and `CardInstance.castCount` is
+     * the same fact on the card, so both move together or a surface reading one
+     * of them lies. `incrementCommanderCast` owns that pairing; this case is
+     * the only caller left.
+     */
+    case 'CAST_COMMANDER': {
+      const commander = findCommander(state, action.commanderId);
+      if (!commander) return state;
+      const instanceId = action.instanceId ?? commander.instanceId;
+      if (instanceId && state.cards[instanceId]) return incrementCommanderCast(state, instanceId);
+      // Life-counter mode has refs and no cards, and the tax still has to count.
+      return patchCommander(state, action.commanderId, ref => ({
+        ...ref,
+        castCount: ref.castCount + 1,
       }));
+    }
 
     case 'ATTACK': {
       let next = state;
@@ -1607,20 +1666,31 @@ function reduce(state: GameState, action: GameAction): GameState {
       // CR 601.2a — the card physically moves to the stack. Its controller is
       // the caster, not its owner, so a spell cast off someone else's library
       // resolves under the right person.
-      let next = moveCard(built.state, action.instanceId, 'stack', {
+      // Commander tax is counted by `CAST_COMMANDER`, which `moves.ts` puts
+      // into the batch immediately before this. See the note on `PLAY`.
+      return moveCard(built.state, action.instanceId, 'stack', {
         controllerId: built.object.controllerId,
       });
-      // Commander tax is counted at announcement (CR 903.8), which is also the
-      // only moment the card is still in the command zone.
-      if (card.zone === 'command' && card.isCommander) {
-        next = incrementCommanderCast(next, action.instanceId);
-      }
-      return next;
     }
 
     case 'PUT_ABILITY_ON_STACK': {
       const built = putAbilityOnStack(state, action);
-      return built ? built.state : state;
+      if (!built) return state;
+      /*
+       * CR 602.2a — the ability is on the stack, so it HAS been activated, and
+       * that is true whether or not it goes on to resolve. Counting it here
+       * rather than in the caller means a bot batch, a human click and a
+       * replayed log all reach the same count, which is the only way a
+       * "once each turn" limit can survive a replay.
+       */
+      if (action.kind !== 'activated' || !action.abilityId || !action.sourceInstanceId) {
+        return built.state;
+      }
+      const key = `${action.sourceInstanceId}:${action.abilityId}`;
+      return {
+        ...built.state,
+        abilityUses: { ...(built.state.abilityUses ?? {}), [key]: (built.state.abilityUses?.[key] ?? 0) + 1 },
+      };
     }
 
     case 'PASS_PRIORITY':
@@ -1802,6 +1872,9 @@ function incrementCommanderCast(state: GameState, instanceId: InstanceId): GameS
  * game should build a fresh state with `createGame` instead.
  */
 export function resetGame(state: GameState): GameState {
+  // An ability activated in the game being thrown away is not activated in the
+  // new one. Dropped rather than emptied, for the reason `beginTurnFor` gives.
+  const { abilityUses: _spent, ...carried } = state;
   const players = state.players.map(player => ({
     ...player,
     life: state.rules.startingLife,
@@ -1817,7 +1890,7 @@ export function resetGame(state: GameState): GameState {
   }));
 
   return clearStack({
-    ...state,
+    ...(carried as GameState),
     status: 'playing',
     players,
     turn: 1,

@@ -12,7 +12,8 @@
  * the batch to `applyActions`, and a networked table broadcasts the same batch.
  */
 
-import { commanderTax, getCard, getPlayer } from './rules.ts';
+import { getCard, getPlayer } from './rules.ts';
+import { announceCommanderCast, taxForCard } from './commander.ts';
 import {
   castingCostOf,
   isLand,
@@ -22,7 +23,16 @@ import {
   type PaymentPlan,
 } from './mana.ts';
 import { eligibleAttackers, resolveCombat, tapsToAttack, type CombatOutcome } from './combat.ts';
-import type { CardInstance, GameAction, GameState, InstanceId, PlayerId, Zone } from './types.ts';
+import { auraNeedsHost, hostPrompt, illegalHostReason, legalHostsFor } from './attach.ts';
+import type {
+  CardInstance,
+  GameAction,
+  GameState,
+  InstanceId,
+  PlayerId,
+  StackTarget,
+  Zone,
+} from './types.ts';
 
 /* -------------------------------------------------------------------------- */
 /* Casting                                                                    */
@@ -38,6 +48,17 @@ export interface CastPlan {
   /** Extra generic mana from commander tax, if any. */
   tax: number;
   reason: string;
+  /**
+   * An Aura being cast needs a permanent named before it can be announced (CR
+   * 601.2c). While one is outstanding this holds the permanents it could
+   * legally be cast at; the caller draws them and calls back with `hostId`.
+   *
+   * Empty on every other card, and empty once an Aura has one, so a caller
+   * that ignores it is exactly as correct as it was before this existed.
+   */
+  hostChoices: InstanceId[];
+  /** The card's own "Enchant ..." line, to head that choice. Empty otherwise. */
+  hostPrompt: string;
 }
 
 /**
@@ -49,15 +70,6 @@ export interface CastPlan {
 function costWithTax(card: CardInstance, tax: number): string {
   const base = castingCostOf(card);
   return tax > 0 ? `{${tax}}${base}` : base;
-}
-
-function taxForCard(state: GameState, card: CardInstance): number {
-  if (!card.isCommander || card.zone !== 'command') return 0;
-  for (const player of state.players) {
-    const ref = player.commanders.find(c => c.instanceId === card.instanceId);
-    if (ref) return commanderTax(state, ref.id);
-  }
-  return 0;
 }
 
 export interface CastOptions {
@@ -90,6 +102,17 @@ export interface CastOptions {
    * rather than resolving into a graveyard having done nothing.
    */
   counterStackId?: string;
+  /**
+   * The permanent an Aura is being cast at. CR 303.4a makes the Aura spell
+   * require a target, and CR 303.4f puts it onto the battlefield attached to
+   * whatever it was cast at.
+   *
+   * Refused rather than guessed when it is missing. An Aura that resolves
+   * attached to nothing goes straight to its owner's graveyard under CR
+   * 704.5m, so a cast that picked a host on the player's behalf and a cast
+   * that picked none are both worse than a cast that asks.
+   */
+  hostId?: InstanceId;
 }
 
 /**
@@ -115,6 +138,8 @@ export function planCastFromHand(
     destination: 'battlefield',
     tax: 0,
     reason,
+    hostChoices: [],
+    hostPrompt: '',
   });
 
   if (!card) return fail('That card is not in this game.');
@@ -129,6 +154,37 @@ export function planCastFromHand(
   const destination: Zone = resolvesToGraveyard(card) ? 'graveyard' : 'battlefield';
   const tax = taxForCard(state, card);
 
+  /*
+   * CR 601.2c - an Aura spell's target is chosen as it is CAST, and the refusal
+   * has to come back carrying the candidates so a surface can ask. Asked before
+   * the mana check on purpose: "choose what this enchants" is a question that
+   * CONTINUES, while "you cannot pay for this" ENDS it, which is the same
+   * ordering argument `activate.ts` makes about costs and targets, for the same
+   * reason. Nothing is spent by planning, so the order changes which sentence
+   * comes back and never what the batch does.
+   */
+  const needsHost = auraNeedsHost(card);
+
+  if (needsHost) {
+    if (options.hostId) {
+      const illegal = illegalHostReason(state, card, options.hostId);
+      if (illegal) return { ...fail(illegal), tax, destination };
+    } else {
+      const hosts = legalHostsFor(state, playerId, card);
+      if (hosts.length === 0) {
+        // CR 601.2c again: no legal target means it cannot be cast at all.
+        return { ...fail(`There is nothing ${card.name} could enchant right now.`), tax, destination };
+      }
+      return {
+        ...fail(`Choose what ${card.name} enchants.`),
+        tax,
+        destination,
+        hostChoices: hosts,
+        hostPrompt: hostPrompt(card),
+      };
+    }
+  }
+
   const payment = options.ignoreMana
     ? { ok: true, tapIds: [], required: 0, available: 0, reason: '' }
     : planPayment(costWithTax(card, tax), manaSourcesFor(state, playerId));
@@ -138,6 +194,34 @@ export function planCastFromHand(
   }
 
   const actions: GameAction[] = payment.tapIds.map(id => ({ type: 'TAP', instanceId: id, at }));
+
+  /*
+   * CR 903.8 - a commander leaving the command zone is announced, and this is
+   * the ONE place any surface builds that. Every cast in this app comes through
+   * here: the preview's Cast button, the bot's batch and every test, so a
+   * commander cast counts itself exactly once whether it goes onto the stack or
+   * straight onto the battlefield.
+   *
+   * Before the play rather than after it, because after the play the card is no
+   * longer in the command zone and the sentence "cast from the command zone"
+   * would be describing somewhere it has already left. The count is the same
+   * either way; the log is not.
+   */
+  actions.push(...announceCommanderCast(state, card, at));
+
+  /* CR 400.7 - the zone the host was in when it was chosen, so a flicker in
+     response makes the spell fizzle rather than landing on a new object. */
+  const host = needsHost && options.hostId ? getCard(state, options.hostId) : undefined;
+  const hostTarget: StackTarget[] = host
+    ? [
+        {
+          kind: 'card',
+          instanceId: host.instanceId,
+          zone: host.zone,
+          zoneChangeCounter: host.zoneChangeCounter ?? 0,
+        },
+      ]
+    : [];
 
   if (options.viaStack) {
     actions.push({
@@ -151,20 +235,37 @@ export function planCastFromHand(
             effects: [{ op: 'counter-spell' as const }],
           }
         : {}),
+      ...(hostTarget.length > 0 ? { targets: hostTarget } : {}),
       at,
     });
   } else {
+    /*
+     * CR 303.4f - the Aura ENTERS attached, in the same action, and this is the
+     * one place the distinction is load-bearing rather than pedantic.
+     *
+     * It was written as a `PLAY` followed by an `ATTACH` first, and running it
+     * showed why that cannot work: state-based actions are checked after every
+     * single action, and CR 704.5m puts an Aura attached to nothing into its
+     * owner's graveyard. Rancor cast at a 2/2 reached the battlefield and was
+     * binned before the `ATTACH` could be applied. The rule and the reducer
+     * agree; the two-step version disagreed with both.
+     *
+     * This is the branch a surface that runs no priority round takes. The stack
+     * path does the same thing on resolution, in `stack.ts`, which is where a
+     * spell somebody could respond to has to do it.
+     */
     actions.push({
       type: 'PLAY',
       instanceId,
       to: destination,
       tapped: options.tapped,
       controllerId: playerId,
+      ...(host ? { attachedTo: host.instanceId } : {}),
       at,
     });
   }
 
-  return { ok: true, actions, payment, destination, tax, reason: '' };
+  return { ok: true, actions, payment, destination, tax, reason: '', hostChoices: [], hostPrompt: '' };
 }
 
 /* -------------------------------------------------------------------------- */

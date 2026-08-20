@@ -493,6 +493,23 @@ export interface StackObject {
   cardInstanceId?: InstanceId;
   /** The permanent whose ability this is. */
   sourceInstanceId?: InstanceId;
+  /**
+   * Which of the source card's COMPILED abilities this is — `AbilityBase.id`,
+   * 'a0', 'a1'. Present for an ability the oracle-text compiler understood.
+   *
+   * The id rather than the ability itself, and that choice is the design.
+   * `compileCardAbilities` is pure and memoised, so re-reading the ability at
+   * resolution produces byte-identical data on every client from a two
+   * character string, instead of a nested effect tree riding in every action
+   * log. `triggers.ts` names this as the right fix in as many words: *"the
+   * right fix is for `PUT_ABILITY_ON_STACK` to carry the compiled ability and
+   * let resolution call `to-actions.ts`"*.
+   *
+   * When it is set, resolution runs the compiled ability through
+   * `to-actions.ts` and then whatever is in `effects`, so a caller can bolt a
+   * `note` onto a compiled ability without inventing a second effect vocabulary.
+   */
+  abilityId?: string;
   /** Chosen on announcement. Empty means "no targets", and an object with no targets never fizzles. */
   targets: StackTarget[];
   effects: StackEffect[];
@@ -824,6 +841,24 @@ export interface GameState {
    */
   pendingTriggers?: PendingTrigger[];
 
+  /**
+   * How many times each activated ability has been activated this turn, keyed
+   * `${instanceId}:${abilityId}`. Reset when a turn begins.
+   *
+   * Two rules need it and neither can be enforced without it. CR 606.3 lets a
+   * player activate only ONE loyalty ability of a given planeswalker per turn,
+   * and `ActivatedAbility.limit` carries "activate only once each turn" off the
+   * card's own text. `trigger-bridge.ts` refuses to own any triggered ability
+   * carrying a `limit` for exactly this reason — *"state carries no usage
+   * count"*. This is that count.
+   *
+   * Counted in the reducer rather than by the caller, so a bot, a human click
+   * and a replayed log all increment it the same way. Optional so a state
+   * persisted before it existed still loads; read it through
+   * `abilityUsesThisTurn()` in `activate.ts`, never directly.
+   */
+  abilityUses?: Record<string, number>;
+
   monarchId?: PlayerId | null;
   initiativeId?: PlayerId | null;
 
@@ -999,6 +1034,19 @@ export type GameAction = ActionMeta &
          * them and an ETB trigger sees the right number.
          */
         counters?: Record<string, number>;
+        /**
+         * CR 303.4f - an Aura spell resolving puts the Aura onto the
+         * battlefield ATTACHED to what it was cast at. It enters attached; it
+         * does not enter and then attach.
+         *
+         * That distinction is not pedantry, it is the whole reason this field
+         * exists rather than a second `ATTACH` action after the `PLAY`. State-
+         * based actions run after every single action, and CR 704.5m puts an
+         * Aura attached to nothing into its owner's graveyard, so an Aura that
+         * entered unattached was binned before the next action could ever be
+         * applied. Measured: Rancor cast at a 2/2 landed in the graveyard.
+         */
+        attachedTo?: InstanceId;
       }
     | {
         type: 'MOVE_ZONE';
@@ -1016,7 +1064,17 @@ export type GameAction = ActionMeta &
     | { type: 'UNTAP'; instanceId: InstanceId }
     | { type: 'UNTAP_ALL'; playerId: PlayerId }
     | { type: 'SHUFFLE'; playerId: PlayerId; seed?: number }
-    | { type: 'CAST_COMMANDER'; commanderId: CommanderId }
+    /**
+     * CR 903.8 — a commander is being cast from the command zone.
+     *
+     * The announcement, built by `moves.ts` as part of the cast batch, and the
+     * ONLY thing that counts a cast for commander tax. The reducer used to bump
+     * the count as a side effect of `PLAY` and `CAST_SPELL` whenever the card
+     * happened to be sitting in the command zone, which meant the count could
+     * not be read off the log at all, and a free "put this onto the battlefield"
+     * effect would have charged tax for a cast that never happened.
+     */
+    | { type: 'CAST_COMMANDER'; commanderId: CommanderId; instanceId?: InstanceId }
 
     /* --- combat --- */
     | {
@@ -1079,6 +1137,12 @@ export type GameAction = ActionMeta &
         sourceInstanceId?: InstanceId;
         targets?: StackTarget[];
         effects?: StackEffect[];
+        /**
+         * The compiled ability's own id on the source card — 'a0', 'a1'. See
+         * `StackObject.abilityId`. Costs are paid by the actions that come
+         * before this one in the batch; this action is the announcement.
+         */
+        abilityId?: string;
         stackId?: StackObjectId;
       }
     /** CR 117.3d. Defaults to whoever currently holds priority. */

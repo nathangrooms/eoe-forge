@@ -168,8 +168,31 @@ function runEffect(effect: Effect, ctx: AbilityContext, scope: RunScope): void {
       if (amount <= 0) break;
       const source = cardOf(state, ctx.sourceId);
 
-      if (isPlayerSelector(effect.to)) {
-        for (const targetPlayerId of livingIds(state, resolvePlayers(effect.to, ctx))) {
+      /*
+       * "ANY TARGET" IS ONE REQUIREMENT WITH TWO KINDS OF ANSWER, and this is
+       * the only effect in the vocabulary that has to cope with both.
+       *
+       * The compiler turns "deals 1 damage to any target" into
+       * `to: {sel:'target', ref:0}` — a CARD selector — while the matching
+       * `TargetSpec` is `what:'any'`, so the player is entitled to point it at a
+       * seat. `resolveSelector` correctly names no card for a player target,
+       * which meant the whole effect evaluated to nothing: a Prodigal Pyromancer
+       * aimed at a player tapped, resolved and dealt no damage. Nothing caught
+       * it before because nothing had ever announced a target for an ability.
+       *
+       * So a card selector pointing at a chosen PLAYER is read as that player.
+       * Only here, and only for `{sel:'target'}`: every other effect in the DSL
+       * names cards or players explicitly and would be changed, not fixed, by a
+       * general rule.
+       */
+      const targetedPlayers: PlayerId[] = isPlayerSelector(effect.to)
+        ? resolvePlayers(effect.to, ctx)
+        : effect.to.sel === 'target' && ctx.targets[effect.to.ref]?.kind === 'player'
+          ? [ctx.targets[effect.to.ref].playerId as PlayerId]
+          : [];
+
+      if (targetedPlayers.length > 0 || isPlayerSelector(effect.to)) {
+        for (const targetPlayerId of livingIds(state, targetedPlayers)) {
           scope.out.push({
             type: 'DAMAGE',
             targetPlayerId,
@@ -412,6 +435,39 @@ function runEffect(effect: Effect, ctx: AbilityContext, scope: RunScope): void {
       break;
     }
 
+    /*
+     * CR 301.5c / 303.4f — the attachment moves onto the host.
+     *
+     * One `ATTACH` per attachment named by `what`, and `what` is the source
+     * itself in every spelling the compiler emits today ("Attach this permanent
+     * to target creature you control"). `to` names at most one host: an
+     * attachment can only ever be on one permanent, so a selector that resolves
+     * to several is a target that was never announced, and the first is the one
+     * the announcement locked in.
+     *
+     * Nothing is checked here about whether the host is a LEGAL one. That is
+     * `sba.ts`'s job under 704.5m/n, which already knows Equipment and Auras
+     * thoroughly and runs immediately after this action is applied, and a second
+     * legality check written here is a second one to disagree with it.
+     */
+    case 'attach': {
+      const attachments = resolveSelector(effect.what, ctx);
+      if (attachments.length === 0) break;
+      const [host] = effect.to.sel === 'none' ? [] : resolveSelector(effect.to, ctx);
+      if (effect.to.sel !== 'none' && !host) {
+        // The target is gone. CR 608.2b has already blanked it, so say so
+        // rather than silently leaving an Equipment on whatever it was on.
+        const names = attachments.map(id => cardOf(state, id)?.name ?? id);
+        scope.deferred.push(`${names.join(', ')} had nothing left to attach to`);
+        break;
+      }
+      for (const instanceId of attachments) {
+        if (cardOf(state, instanceId)?.attachedTo === host) continue;
+        scope.out.push({ type: 'ATTACH', instanceId, toInstanceId: host ?? null, ...m });
+      }
+      break;
+    }
+
     /* --- mana and table --- */
 
     case 'add-mana': {
@@ -592,7 +648,17 @@ function runEffect(effect: Effect, ctx: AbilityContext, scope: RunScope): void {
 export function resolveAbilityActions(
   effects: readonly Effect[],
   ctx: AbilityContext,
-  options: RunOptions & { sourceInstanceId?: InstanceId }
+  options: RunOptions & {
+    sourceInstanceId?: InstanceId;
+    /**
+     * How the ability reached the stack, for the one line that says it did
+     * nothing. 'triggered' by default because triggers were the first caller.
+     * An activated ability reporting itself as "triggered" is a small lie about
+     * a real event, and not telling small lies about what happened is this
+     * file's entire subject.
+     */
+    verb?: 'triggered' | 'activated';
+  }
 ): GameAction[] {
   const run = runEffects(effects, ctx, options);
   const out = [...run.actions];
@@ -614,7 +680,7 @@ export function resolveAbilityActions(
     out.push({
       type: 'NOTE',
       instanceId: options.sourceInstanceId,
-      message: `${label}: triggered, but there was nothing for it to do.`,
+      message: `${label}: ${options.verb ?? 'triggered'}, but there was nothing for it to do.`,
       at,
     });
   }

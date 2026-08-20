@@ -275,14 +275,20 @@ function classify(para: Paragraph, shape: CardShape, idAt: number): Classified |
   /* 1. Keyword lines. */
   const keywords = parseKeywordLine(norm);
   if (keywords) {
-    return {
-      rule: 'keyword-line',
-      abilities: keywords.map((k, n) => {
-        const a: Ability = { kind: 'keyword', id: id(n), text: raw, confidence: 'exact', keyword: k.keyword };
-        if (k.parameter) (a as { parameter?: string }).parameter = k.parameter;
-        return a;
-      }),
-    };
+    const abilities: Ability[] = [];
+    for (const k of keywords) {
+      const attachment = attachmentAbilities(k, raw, () => id(abilities.length));
+      if (attachment) {
+        abilities.push(...attachment);
+        continue;
+      }
+      const a: Ability = {
+        kind: 'keyword', id: id(abilities.length), text: raw, confidence: 'exact', keyword: k.keyword,
+      };
+      if (k.parameter) (a as { parameter?: string }).parameter = k.parameter;
+      abilities.push(a);
+    }
+    return { rule: abilities.some(a => a.kind === 'activated') ? 'keyword-attach' : 'keyword-line', abilities };
   }
 
   /* 2. Loyalty abilities. */
@@ -401,6 +407,111 @@ function classify(para: Paragraph, shape: CardShape, idAt: number): Classified |
   }
 
   return null;
+}
+
+/* ------------------------------------------------------------------ *
+ * Equip, Reconfigure and Fortify — keyword labels that ARE abilities
+ * ------------------------------------------------------------------ */
+
+/**
+ * What each of these three keywords attaches to, in the comprehensive rules'
+ * own words. `subtype` is the type word the host has to be.
+ *
+ * They are one shape because the rules make them one shape:
+ *
+ *   CR 702.6a    "Equip [cost]" means "[cost]: Attach this permanent to target
+ *                creature you control. Activate only as a sorcery."
+ *   CR 702.66a   "Fortify [cost]" means the same with target land you control.
+ *   CR 702.151a  "Reconfigure [cost]" means that PLUS "[cost]: Unattach this
+ *                permanent. Activate only as a sorcery."
+ *
+ * ## Why this is here rather than left as a keyword badge
+ *
+ * `parseKeywordLine` read "Equip {2}" correctly and produced
+ * `{kind:'keyword', keyword:'equip', parameter:'{2}'}` — a LABEL. A label has
+ * no costs, no target and no effects, so nothing downstream could offer it,
+ * charge for it or run it, and 674 printed equip abilities across the pool were
+ * a badge a player could look at and never press. That is the same shape as
+ * every other reachability failure on this project: the engine could see it and
+ * no path constructed it.
+ *
+ * Expanding the keyword into the activated ability it is printed shorthand FOR
+ * means equip needs no special case anywhere else. `activate.ts` plans it,
+ * `AbilityPanel` draws it, `stack.ts` resolves it and `bot.ts` can use it, all
+ * because it is an ordinary activated ability with an ordinary cost, ordinary
+ * sorcery timing and an ordinary target.
+ *
+ * Only a plain mana parameter is expanded. "Equip legendary creature {3}" (5
+ * cards), "Equip—Pay 3 life." (2) and the rest of the long tail measured over
+ * the 38,626-row bulk file do not reach `parseKeywordWithParameter` at all —
+ * their line falls through to `unparsed`, which is where it already was, and
+ * this changes nothing for them rather than guessing at a restriction it cannot
+ * enforce.
+ */
+const ATTACH_KEYWORDS: Record<string, { subtype: string; unattach: boolean }> = {
+  equip: { subtype: 'creature', unattach: false },
+  fortify: { subtype: 'land', unattach: false },
+  reconfigure: { subtype: 'creature', unattach: true },
+};
+
+/**
+ * One of those keywords, expanded into the activated ability it stands for, or
+ * null when this is an ordinary keyword to be left as a label.
+ *
+ * `nextId` is a thunk because reconfigure produces TWO abilities and the second
+ * one's id depends on the first having been counted.
+ */
+function attachmentAbilities(
+  hit: { keyword: string; parameter?: string },
+  raw: string,
+  nextId: () => string
+): Ability[] | null {
+  const shape = ATTACH_KEYWORDS[hit.keyword];
+  if (!shape || !hit.parameter) return null;
+
+  const costs = parseCosts(hit.parameter);
+  if (!costs) return null;
+
+  const target: TargetSpec = {
+    ref: 0,
+    what: 'card',
+    filter: { is: 'type', value: shape.subtype },
+    zone: 'battlefield',
+    controller: { who: 'you' },
+    min: 1,
+    max: 1,
+    prompt: `Choose a ${shape.subtype} you control`,
+  };
+
+  const attach: Ability = {
+    kind: 'activated',
+    id: nextId(),
+    text: raw,
+    confidence: 'exact',
+    costs,
+    timing: 'sorcery',
+    effects: [{ do: 'attach', what: { sel: 'self' }, to: { sel: 'target', ref: 0 } }],
+    targets: [target],
+  };
+
+  if (!shape.unattach) return [attach];
+
+  return [
+    attach,
+    {
+      kind: 'activated',
+      id: nextId(),
+      // Reconfigure's second half has no printed line of its own, so the text
+      // is the rules' own wording of what this half does rather than a repeat
+      // of the keyword. A player reading two identical clauses beside two
+      // different buttons would have no way to tell them apart.
+      text: `${raw} (unattach)`,
+      confidence: 'exact',
+      costs,
+      timing: 'sorcery',
+      effects: [{ do: 'attach', what: { sel: 'self' }, to: { sel: 'none' } }],
+    },
+  ];
 }
 
 /** Did the paragraph at least LOOK like an ability? Drives `ambiguous` vs `unrecognised`. */

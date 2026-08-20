@@ -318,6 +318,22 @@ export type Effect =
   | { do: 'add-counters' | 'remove-counters'; what: Selector; counter: string; count: ValueExpr }
   | { do: 'pump'; what: Selector; power: ValueExpr; toughness: ValueExpr; grant?: string[]; duration: Duration }
   | { do: 'gain-control'; what: Selector; who: PlayerSelector; duration: Duration }
+  /*
+   * CR 301.5c / 303.4f — attach an Equipment, Aura or Fortification to a
+   * permanent, or move it from whatever it was on.
+   *
+   * This is the member the whole equipment and Aura pool was waiting on, and
+   * its absence is why `ATTACH` had a reducer case, a validation entry and
+   * tests and had never once been constructed. "Equip {2}" is a printed
+   * activated ability whose effect is this and nothing else (CR 702.6a), and
+   * without a way to spell that effect the compiler could only emit the bare
+   * keyword label, which no code path can run.
+   *
+   * `to` resolving to nothing means nothing happens, the same as every other
+   * effect whose selector names nobody. Detaching is `to: {sel:'none'}`, which
+   * is how "Unattach ~" would be spelled; nothing emits that yet.
+   */
+  | { do: 'attach'; what: Selector; to: Selector }
   /* mana & table.
    *
    * E8 — conditional mana. `restriction` is CR 106.6: mana that may only be

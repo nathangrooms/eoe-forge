@@ -72,6 +72,18 @@ import type {
 import { getCard, getPlayer, isAlive, livingPlayers, nextLivingPlayer } from './rules.ts';
 import { canBeTargetedBy } from './keywords.ts';
 import { resolvesToGraveyard } from './mana.ts';
+import { auraNeedsHost } from './attach.ts';
+/*
+ * The ability bridge, for a stack object carrying `abilityId`.
+ *
+ * Only these three modules, never `./abilities/index.ts`: that barrel also
+ * re-exports `statics.ts`, which imports `layers.ts`, and the import graph
+ * stays shallower without it. None of the three reaches back into `stack.ts`
+ * or `rules.ts`, so there is no cycle to reason about.
+ */
+import { abilitiesFor } from './abilities/card-abilities.ts';
+import { makeContext } from './abilities/context.ts';
+import { resolveAbilityActions } from './abilities/to-actions.ts';
 
 /* -------------------------------------------------------------------------- */
 /* Selectors                                                                  */
@@ -400,6 +412,82 @@ function actionsForEffect(
 }
 
 /**
+ * A stack object carrying `abilityId`, resolved through the compiled ability.
+ *
+ * Three things it does NOT do, each of them a decision:
+ *
+ *   - it does not re-check the ability's cost. Costs were paid at activation
+ *     (CR 601.2h / 602.2b) and a cost that has become unpayable since is not a
+ *     reason to refund one;
+ *   - it does not re-check timing. An ability announced legally resolves even
+ *     if the step has moved on, which is the whole reason instants exist;
+ *   - it does not silently vanish when the ability cannot be found. A source
+ *     that left the game between activation and resolution still resolves its
+ *     ability (CR 608.2 uses last known information), and the card object
+ *     stays in `state.cards` after a zone change, so the usual case is covered.
+ *     The remaining case says so in a `NOTE`.
+ *
+ * `idPrefix` is derived from the stack id and the state version, both of which
+ * every client reproduces identically when replaying the log, so a token this
+ * ability mints gets the same id everywhere.
+ */
+function compiledAbilityActions(
+  state: GameState,
+  object: StackObject,
+  at: number
+): GameAction[] {
+  if (!object.abilityId) return [];
+
+  const sourceId = object.sourceInstanceId ?? object.cardInstanceId;
+  const source = sourceId ? getCard(state, sourceId) : undefined;
+  if (!source) {
+    return [
+      {
+        type: 'NOTE',
+        message: `${object.name} resolves, but its source has left the game. Resolve it by hand.`,
+        at,
+      },
+    ];
+  }
+
+  const ability = abilitiesFor(source).abilities.find(entry => entry.id === object.abilityId);
+  if (!ability || !('effects' in ability)) {
+    return [
+      {
+        type: 'NOTE',
+        instanceId: source.instanceId,
+        message: `${object.name} resolves, but the engine can no longer read that ability off ${source.name}. Resolve it by hand.`,
+        at,
+      },
+    ];
+  }
+
+  const ctx = makeContext(state, source.instanceId, object.controllerId, {
+    /*
+     * POSITIONS ARE THE CONTRACT, so an illegal target is blanked in place and
+     * never filtered out. `{sel:'target', ref: n}` is a plain index into this
+     * array; compacting it with `legalTargetsOf` would slide target 1 into
+     * slot 0 and point the first half of the ability at the second half's
+     * victim — a partial fizzle turned into a wrong resolution, which is worse
+     * than either. A blank entry resolves to nobody in `context.ts`, which is
+     * exactly CR 608.2b for the part of the ability that named it.
+     */
+    targets: object.targets.map(target =>
+      targetIsLegal(state, object, target) ? target : ({ kind: 'card' } as StackTarget)
+    ),
+    triggerSourceId: source.instanceId,
+  });
+
+  return resolveAbilityActions(ability.effects, ctx, {
+    at,
+    cause: object.name,
+    idPrefix: `${object.stackId}:${state.version}`,
+    sourceInstanceId: source.instanceId,
+    verb: object.kind === 'activated' ? 'activated' : 'triggered',
+  });
+}
+
+/**
  * Everything a resolving object does, as actions, in order.
  *
  * `state` must be the state *after* the object has been popped off the stack —
@@ -435,6 +523,27 @@ export function resolutionActionsFor(
   const out: GameAction[] = [];
   const destination: Zone = object.resolvesTo ?? (card ? defaultResolutionZone(card) : 'graveyard');
 
+  /*
+   * CR 303.4f — an Aura spell resolving is the Aura entering ATTACHED to what
+   * it was cast at, in one step.
+   *
+   * Read here rather than left to a following `ATTACH` because state-based
+   * actions run after every action and CR 704.5m bins an Aura attached to
+   * nothing, so the two-step version put every Aura in the graveyard on arrival.
+   *
+   * `willFizzle` above has already ended the resolution if the host is gone, so
+   * reaching this line means the target was rechecked and is still legal.
+   *
+   * The equip half of this subject is the opposite shape and goes the opposite
+   * way: it is a printed activated ability (CR 702.6a), it moves a permanent
+   * that is already in play, and it reaches `ATTACH` through `to-actions.ts`
+   * like every other compiled effect.
+   */
+  const auraHost =
+    card && destination === 'battlefield' && auraNeedsHost(card)
+      ? object.targets.find(target => target.kind === 'card' && !!target.instanceId)?.instanceId
+      : undefined;
+
   // CR 608.3 — a permanent spell resolving *is* the permanent entering. Do that
   // first so the object's own effects, and any ETB trigger, see it in play.
   if (card && destination === 'battlefield') {
@@ -443,10 +552,18 @@ export function resolutionActionsFor(
       instanceId: card.instanceId,
       to: 'battlefield',
       controllerId: object.controllerId,
+      ...(auraHost ? { attachedTo: auraHost } : {}),
       at,
       cause: object.name,
     });
   }
+
+  // A compiled ability resolves through `to-actions.ts`, the ONE switch over
+  // the DSL's effect union. Before this existed, an activated ability could be
+  // announced onto the stack and resolved into nothing at all, because the
+  // stack's own `StackEffect` vocabulary has eleven members and the compiler
+  // emits into one with thirty.
+  out.push(...compiledAbilityActions(state, object, at));
 
   object.effects.forEach((effect, ordinal) => {
     out.push(...actionsForEffect(state, object, effect, at, ordinal));
@@ -571,6 +688,7 @@ export function putAbilityOnStack(
     name: action.name,
     controllerId: action.controllerId,
     ...(action.sourceInstanceId ? { sourceInstanceId: action.sourceInstanceId } : {}),
+    ...(action.abilityId ? { abilityId: action.abilityId } : {}),
     targets: action.targets ?? [],
     effects: action.effects ?? [],
     turn: state.turn,
@@ -784,6 +902,8 @@ export function abilityAction(
     sourceInstanceId?: InstanceId;
     targets?: StackTarget[];
     effects?: StackEffect[];
+    /** The compiled ability's id on the source card. See `StackObject.abilityId`. */
+    abilityId?: string;
     stackId?: StackObjectId;
     at?: number;
   } = {}
@@ -796,6 +916,7 @@ export function abilityAction(
     sourceInstanceId: options.sourceInstanceId,
     targets: options.targets,
     effects: options.effects,
+    abilityId: options.abilityId,
     stackId: options.stackId,
     at: options.at ?? 0,
   };

@@ -19,14 +19,17 @@
 
 import { memo, type CSSProperties, type MouseEvent } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { RotateCcw, RotateCw, Hourglass, Zap, Swords, Shield, ShieldPlus, Hand } from 'lucide-react';
+import { RotateCcw, RotateCw, Hourglass, Zap, Swords, Shield, ShieldPlus, Hand, Link2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ManaCost } from '@/components/ui/mana-cost';
 import { CardImage } from '@/components/cards/CardImage';
 import { CardBack, CARD_RADIUS } from './CardBack';
 import { CARD_RATIO } from './Battlefield';
 import {
+  attachmentsOn,
   automationFor,
+  carriesSummary,
+  hostOf,
   statLine,
   statLineIn,
   isLand,
@@ -343,6 +346,36 @@ export const GameCardView = memo(function GameCardView({
    */
   const stats = gameState ? statLineIn(gameState, card) : statLine(card);
 
+  /*
+   * WHICH CREATURE IS CARRYING THE SWORD.
+   *
+   * The one question a board full of Equipment and Auras makes a player ask,
+   * and until `attach.ts` landed nothing on this table could ever have answered
+   * it, because nothing had ever built an `ATTACH`. Two marks, both from the
+   * engine rather than from the card:
+   *
+   *   on the HOST        a link mark and a count, whose tooltip names each
+   *                      attachment and what it is currently granting
+   *   on the ATTACHMENT  the same mark, naming what it is on
+   *
+   * `carriesSummary` reads the layer engine's applied-effect trace, so the
+   * tooltip cannot claim a bonus the board is not applying. An attachment whose
+   * text the compiler has not modelled contributes its name and no numbers,
+   * which is the true thing to say about it.
+   *
+   * Both are `absolute` marks over the card's own footprint, like the sickness
+   * and by-hand marks above. Nothing here changes the card's box, so a sword
+   * arriving cannot move a single permanent on the mat.
+   */
+  const readAttachments = !!gameState && onBattlefield && !hidden;
+  const attachments = readAttachments ? attachmentsOn(gameState, card.instanceId) : [];
+  const attachmentCount = attachments.length;
+  // Asked only when there is something to say. `grantsOn` walks the layer
+  // engine's applied-effect trace, and a board of forty permanents should not
+  // pay for that on every card that is carrying nothing.
+  const carrying = attachmentCount > 0 ? carriesSummary(gameState, card.instanceId) : '';
+  const attachedHost = readAttachments ? hostOf(gameState, card) : undefined;
+
   const lift = role === 'attacker' ? -10 : role === 'blocker' ? -5 : selected ? -6 : 0;
 
   /*
@@ -623,6 +656,38 @@ export const GameCardView = memo(function GameCardView({
             <Hourglass style={{ width: chip * 0.42, height: chip * 0.42 }} strokeWidth={2.5} />
           ) : (
             <Zap style={{ width: chip * 0.44, height: chip * 0.44 }} strokeWidth={2.5} />
+          )}
+        </span>
+      )}
+
+      {/* The attachment mark. Bottom-left, the one corner nothing else uses, so
+          it never fights the sickness mark, the by-hand mark or the tap chip.
+          A count when this permanent is CARRYING things; a bare link when this
+          permanent IS one. */}
+      {(attachmentCount > 0 || attachedHost) && (
+        <span
+          className="pointer-events-none absolute z-10 flex items-center justify-center gap-px rounded-full bg-foreground px-1 text-background shadow-md shadow-black/60"
+          style={{
+            height: Math.round(chip * 0.68),
+            left: -Math.round(chip * 0.16),
+            bottom: -Math.round(chip * 0.16),
+          }}
+          title={
+            attachmentCount > 0
+              ? `${card.name} is carrying ${carrying}`
+              : `${card.name} is attached to ${attachedHost?.name}`
+          }
+          aria-label={
+            attachmentCount > 0
+              ? `Carrying ${attachmentCount} ${attachmentCount === 1 ? 'attachment' : 'attachments'}`
+              : `Attached to ${attachedHost?.name}`
+          }
+        >
+          <Link2 style={{ width: chip * 0.34, height: chip * 0.34 }} strokeWidth={2.75} />
+          {attachmentCount > 0 && (
+            <span style={{ fontSize: Math.max(8, Math.round(chip * 0.3)) }} className="font-semibold leading-none">
+              {attachmentCount}
+            </span>
           )}
         </span>
       )}

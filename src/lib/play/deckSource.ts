@@ -73,6 +73,7 @@ interface CardRow {
   oracle_text?: string | null;
   power?: string | null;
   toughness?: string | null;
+  loyalty?: string | null;
   color_identity?: string[] | null;
   keywords?: string[] | null;
   image_uris?: unknown;
@@ -83,7 +84,7 @@ interface CardRow {
 }
 
 const CARD_COLUMNS =
-  'id, name, mana_cost, cmc, type_line, oracle_text, power, toughness, color_identity, keywords, image_uris, faces, is_legendary';
+  'id, name, mana_cost, cmc, type_line, oracle_text, power, toughness, loyalty, color_identity, keywords, image_uris, faces, is_legendary';
 
 /**
  * The seeded pools' column list.
@@ -113,7 +114,7 @@ const CARD_COLUMNS =
  * cast to `CardRow` on the way out of `selectCardRows` regardless.
  */
 const SEED_CARD_COLUMNS: string =
-  'id, name, mana_cost, cmc, type_line, oracle_text, power, toughness, color_identity, keywords, is_legendary, image_url:image_uris->>normal';
+  'id, name, mana_cost, cmc, type_line, oracle_text, power, toughness, loyalty, color_identity, keywords, is_legendary, image_url:image_uris->>normal';
 
 function readImage(value: unknown): string | undefined {
   if (!value || typeof value !== 'object') return undefined;
@@ -267,6 +268,8 @@ export function toPlayCard(row: CardRow, deckColors: readonly ManaColor[] = []):
     typeLine: row.type_line ?? undefined,
     power: row.power ?? undefined,
     toughness: row.toughness ?? undefined,
+    // CR 306.5b. Without it a planeswalker enters on nothing. See `PlayCard`.
+    loyalty: row.loyalty ?? undefined,
     colorIdentity: playIdentityOf(row, deckColors),
     imageUrl: imageFor(row),
     keywords: (row.keywords ?? []).map(keyword => keyword.toLowerCase()),

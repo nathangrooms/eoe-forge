@@ -47,7 +47,7 @@ export const POOL_DIR = path.join(HARNESS_ROOT, 'scratch', 'playtest');
 export const POOL_FILE = path.join(POOL_DIR, 'pool.json');
 
 /** Bump when the shape or the filters change, so a stale pool is rebuilt rather than trusted. */
-export const POOL_VERSION = 3;
+export const POOL_VERSION = 4;
 
 export type PoolColor = 'W' | 'U' | 'B' | 'R' | 'G';
 
@@ -62,6 +62,14 @@ export interface PoolCard {
   oracleText: string;
   power?: string;
   toughness?: string;
+  /**
+   * Printed starting loyalty. CR 306.5b seeds the loyalty counter from it and
+   * CR 704.5i is gated on it, so a pool without it deals every planeswalker
+   * onto the battlefield with nothing on it. Added at POOL_VERSION 4 after 120
+   * games measured 77 plus activations and 0 minus activations, all of the
+   * minuses refused for want of counters that were never put there.
+   */
+  loyalty?: string;
   /** As printed. Lands are corrected at deck-build time, see `landProduces`. */
   colorIdentity: PoolColor[];
   keywords: string[];
@@ -150,6 +158,14 @@ function powerFor(row: Row): string | undefined {
   if (top) return top;
   const front = faces(row)[0];
   const value = front ? str(front.power) : '';
+  return value || undefined;
+}
+
+function loyaltyFor(row: Row): string | undefined {
+  const top = str(row.loyalty);
+  if (top) return top;
+  const front = faces(row)[0];
+  const value = front ? str(front.loyalty) : '';
   return value || undefined;
 }
 
@@ -262,6 +278,7 @@ function toPoolCard(row: Row): PoolCard {
     oracleText,
     power: powerFor(row),
     toughness: toughnessFor(row),
+    loyalty: loyaltyFor(row),
     colorIdentity: identityOf(row),
     keywords,
     isLand: lower.includes('land'),

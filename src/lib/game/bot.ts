@@ -38,9 +38,18 @@ import {
 } from './characteristics.ts';
 import { isLand, isPermanent, manaSourcesFor } from './mana.ts';
 import { advanceActions, planCastFromHand, planLandDrop, declareAttack } from './moves.ts';
+import { auraNeedsHost, legalHostsFor } from './attach.ts';
+// CR 903.9a. The bot answers the same offer a human seat is shown, built by the
+// same function, so a bot deck and a player's deck lose a commander the same way.
+import { commanderZoneOffers } from './commander.ts';
+import { staticAbilitiesOf } from './abilities/card-abilities.ts';
 import { hasPriority, stackOf } from './stack.ts';
 import { responseOptions, spellToAnswer } from './respond.ts';
-import type { CardInstance, GameAction, GameState, PlayerId } from './types.ts';
+// The bot activates abilities through the identical planner a human click goes
+// through. It gets no private route onto the stack, which is the property that
+// makes a bot seat and a human seat the same thing to everything downstream.
+import { activatablePermanents, planActivationWith, type PendingChoice } from './activate.ts';
+import type { CardInstance, GameAction, GameState, InstanceId, PlayerId, StackTarget } from './types.ts';
 
 /** One visible decision. The surface applies the whole batch, then re-renders. */
 export interface BotMove {
@@ -160,8 +169,248 @@ function chooseSpell(
     .sort((a, b) => castScore(state, b) - castScore(state, a));
 
   for (const card of ranked) {
-    const plan = planCastFromHand(state, playerId, card.instanceId, { at, viaStack });
+    /*
+     * An Aura is the one permanent that cannot be cast without naming
+     * something, and the bot has to name it or it holds every Aura in its deck
+     * forever. `planCastFromHand` refuses and hands back the legal hosts, so
+     * the bot answers and asks again, which is the identical loop a person goes
+     * round by pressing a name on the mat.
+     *
+     * WHICH side of the table it goes on is read off the card rather than
+     * guessed, and it had to be: the first run put every Aura on the bot's own
+     * biggest creature, and 3 of 71 Aura plays across 80 games were a Debilitating
+     * Injury or a Twisted Experiment killing the creature the bot had just chosen
+     * to protect. Rules-correct, and nonsense to watch. `auraPunishes` asks the
+     * compiled static whether this Aura makes its host smaller; if it does it is
+     * removal and goes across the table, and if it does not it is a bonus and
+     * stays home.
+     */
+    const wantsHost = auraNeedsHost(card);
+    const hosts = wantsHost ? legalHostsFor(state, playerId, card) : [];
+    const hostId = wantsHost
+      ? auraPunishes(card)
+        ? bestHostOf(state, hosts, id => state.cards[id]?.controllerId !== playerId)
+        : bestOwnHost(state, playerId, hosts)
+      : undefined;
+    if (wantsHost && !hostId) continue;
+
+    const plan = planCastFromHand(state, playerId, card.instanceId, {
+      at,
+      viaStack,
+      ...(hostId ? { hostId } : {}),
+    });
     if (plan.ok) return { card, actions: plan.actions };
+  }
+  return null;
+}
+
+/**
+ * The bot's own permanent to point something beneficial at: the biggest, so a
+ * pump or a sword lands where it does the most.
+ *
+ * `combatPowerIn` rather than the printed power, so a creature that is already
+ * carrying an anthem or a sword is correctly seen as the biggest. Ties break on
+ * the instance id, because two bots replaying the same log have to make the
+ * same choice and "whichever came back first" is only stable by accident.
+ */
+function bestOwnHost(
+  state: GameState,
+  playerId: PlayerId,
+  candidates: readonly InstanceId[]
+): InstanceId | undefined {
+  return bestHostOf(state, candidates, id => state.cards[id]?.controllerId === playerId);
+}
+
+/** The biggest candidate passing a test, or undefined when none does. */
+function bestHostOf(
+  state: GameState,
+  candidates: readonly InstanceId[],
+  keep: (id: InstanceId) => boolean
+): InstanceId | undefined {
+  const kept = candidates.filter(keep);
+  if (kept.length === 0) return undefined;
+  return kept
+    .slice()
+    .sort((a, b) => combatPowerIn(state, b) - combatPowerIn(state, a) || (a < b ? -1 : a > b ? 1 : 0))[0];
+}
+
+/**
+ * Does this Aura make the thing it enchants WORSE?
+ *
+ * Read off the compiled static ability, so it is the card's own text answering
+ * rather than a name list somebody has to maintain: a modification in layer 7c
+ * that subtracts power or toughness from `{sel:'attached'}` is a Pacifism-shaped
+ * card and belongs on an opponent's creature.
+ *
+ * Deliberately narrow. It says nothing about an Aura whose drawback is a
+ * restriction the compiler has not modelled, and such an Aura is treated as a
+ * bonus and put on the bot's own board, which is the mistake this catches only
+ * some of. Narrow and right beats wide and guessing, and a false negative here
+ * costs the bot one creature rather than making it play an opponent's card for
+ * them.
+ */
+function auraPunishes(card: CardInstance): boolean {
+  return staticAbilitiesOf(card).some(ability => {
+    if (ability.affects.sel !== 'attached') return false;
+    return ability.modifications.some(modification => {
+      if (modification.layer !== 'pt-modify' && modification.layer !== 'pt-set') return false;
+      const power = modification.power;
+      const toughness = modification.toughness;
+      return (
+        (typeof power === 'number' && power < 0) || (typeof toughness === 'number' && toughness < 0)
+      );
+    });
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Activated abilities                                                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * How many abilities the bot will activate in one of its turns.
+ *
+ * Not a rules limit and not pretending to be one. A permanent with an ability
+ * costing only mana can legally be activated until the mana runs out, and a
+ * bot that empties its board into one Rod of Ruin every turn is not a plausible
+ * opponent, which is this file's stated aim. Three is a turn where the ability
+ * mattered and not a turn that is only the ability.
+ */
+const MAX_ACTIVATIONS_PER_TURN = 3;
+
+/** Activations this seat has already made this turn, read from the state's own count. */
+function activationsThisTurn(state: GameState, playerId: PlayerId): number {
+  const uses = state.abilityUses;
+  if (!uses) return 0;
+  let total = 0;
+  for (const [key, count] of Object.entries(uses)) {
+    const instanceId = key.slice(0, key.lastIndexOf(':'));
+    if (state.cards[instanceId]?.controllerId === playerId) total += count;
+  }
+  return total;
+}
+
+/**
+ * Would paying for this cost the bot something it would rather keep?
+ *
+ * Sacrificing and discarding are refused outright rather than weighed. Judging
+ * whether this creature is worth that effect needs a plan for the board, and
+ * `bot.ts` deliberately has none; a bot that fed its team to a sacrifice outlet
+ * every turn would look far more broken than one that never used the outlet,
+ * and only one of those two mistakes is quiet.
+ *
+ * Sacrificing the SOURCE is allowed, because that is the card spending itself
+ * and there is nothing to weigh.
+ */
+function willingToPay(state: GameState, playerId: PlayerId, option: AbilityCandidate): boolean {
+  const player = getPlayer(state, playerId);
+  if (!player) return false;
+
+  for (const cost of option.costs) {
+    if (cost.pay === 'sacrifice') {
+      // `{sel:'self'}` is "sacrifice this"; anything wider names other cards.
+      if (cost.what.sel !== 'self') return false;
+    }
+    if (cost.pay === 'discard' || cost.pay === 'exile' || cost.pay === 'return-to-hand') return false;
+    if (cost.pay === 'tap-others') return false;
+    // Paying life is fine while there is life to spare. The exact amount is the
+    // planner's problem; this is only about whether the bot wants to be in that
+    // business at all at this life total.
+    if (cost.pay === 'life' && player.life <= 15) return false;
+  }
+  return true;
+}
+
+/** What `activatablePermanents` hands back, narrowed to what this file reads. */
+type AbilityCandidate = ReturnType<typeof activatablePermanents>[number]['options'][number];
+
+/**
+ * The bot's answer to a decision the engine refused to take.
+ *
+ * Targets go at an opponent where an opponent is on offer: their seat first,
+ * then a permanent they control. Pointing an ability at its own controller's
+ * board when it could have gone the other way is occasionally right and usually
+ * a misplay, and the bot has no way to tell the two apart.
+ *
+ * ## When every candidate is the bot's own permanent
+ *
+ * Then the CARD has already decided whose board this is about, and declining is
+ * not caution, it is the bot refusing to use an ability that was only ever
+ * going to point at its own team. That is what left equip unused: "Attach this
+ * permanent to target creature you control" (CR 702.6a) offers nothing but the
+ * bot's own creatures, so the old rule declined every equip ability on the
+ * board and the sword sat there. The owner reported the same shape from the
+ * other side, watching a bot with a board full of permanents that could act
+ * trigger none of them.
+ *
+ * It is still a policy and it is still not free: a "destroy target creature you
+ * control" would be answered rather than declined. Such abilities exist and are
+ * rare, and the failure is loud and on the bot's own board, which is the right
+ * direction for a mistake this file cannot avoid making one way or the other.
+ *
+ * A cost choice is declined outright, for the reason `willingToPay` gives.
+ */
+function botChoice(
+  state: GameState,
+  playerId: PlayerId,
+  source: CardInstance,
+  choice: PendingChoice
+): StackTarget | InstanceId[] | null {
+  if (choice.kind === 'cost') return null;
+
+  const opponentSeat = choice.playerIds.find(id => id !== playerId);
+  if (opponentSeat) return { kind: 'player', playerId: opponentSeat };
+
+  const theirs = choice.instanceIds.find(id => state.cards[id]?.controllerId !== playerId);
+
+  /*
+   * Anything already carrying this attachment is taken out of the running
+   * first. Equipping a sword to the creature it is already on is legal, costs
+   * the mana again and moves nothing, so a bot that kept choosing the biggest
+   * creature would pay for the same equip every turn for the rest of the game.
+   */
+  const usable = choice.instanceIds.filter(id => state.cards[source.instanceId]?.attachedTo !== id);
+  const chosen = theirs ?? bestOwnHost(state, playerId, usable) ?? bestOwnHost(state, playerId, choice.instanceIds);
+  if (!chosen) return null;
+
+  const card = state.cards[chosen];
+  return {
+    kind: 'card',
+    instanceId: chosen,
+    zone: card?.zone,
+    zoneChangeCounter: card?.zoneChangeCounter ?? 0,
+  };
+}
+
+/**
+ * One ability worth using, planned and ready to dispatch, or null.
+ *
+ * Board order, then the card's own ability order. No scoring: ranking effects
+ * against each other needs a model of what the board is for, and inventing one
+ * here would be the "plausible rather than strong" line crossed in the
+ * direction that produces confident nonsense.
+ */
+function chooseActivation(
+  state: GameState,
+  playerId: PlayerId,
+  at: number
+): { card: CardInstance; option: AbilityCandidate; actions: GameAction[] } | null {
+  if (activationsThisTurn(state, playerId) >= MAX_ACTIVATIONS_PER_TURN) return null;
+
+  for (const entry of activatablePermanents(state, playerId, { at })) {
+    for (const option of entry.options) {
+      if (!willingToPay(state, playerId, option)) continue;
+
+      const plan = planActivationWith(
+        state,
+        playerId,
+        entry.card.instanceId,
+        option.abilityId,
+        choice => botChoice(state, playerId, entry.card, choice),
+        { at }
+      );
+      if (plan.ok) return { card: entry.card, option, actions: plan.actions };
+    }
   }
   return null;
 }
@@ -267,6 +516,39 @@ function shouldAttackWith(
 }
 
 /* -------------------------------------------------------------------------- */
+/* CR 903.9a — where a dead commander goes                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Take the commander back, one at a time.
+ *
+ * The rule is a *may*, and `commanderZoneOffers` refuses to answer it for
+ * anybody. So this file answers it, which is the right place: a policy is what
+ * a bot is, and this policy is written down rather than buried in the engine
+ * where a human seat would inherit it silently.
+ *
+ * The policy is "always", and the reason is that the alternative needs
+ * knowledge this bot does not have. Leaving a commander in a graveyard is
+ * correct only for a deck built to bring it back from there, and nothing here
+ * reads a decklist's intent. The cost of guessing wrong in the other direction
+ * is one commander that is castable instead of one that is not, which is the
+ * cheaper mistake by a wide margin.
+ *
+ * One offer per move so the surface redraws between them, the same as every
+ * other decision this file makes.
+ */
+function chooseCommanderZone(state: GameState, playerId: PlayerId, at: number): BotMove | null {
+  const [offer] = commanderZoneOffers(state, playerId);
+  if (!offer) return null;
+  return {
+    actions: offer.actions.map(action => ({ ...action, at })),
+    note:
+      `Puts ${offer.name} into the command zone from the ${offer.from}. ` +
+      `Recasting it costs ${offer.nextCastMana}.`,
+  };
+}
+
+/* -------------------------------------------------------------------------- */
 /* The active turn                                                            */
 /* -------------------------------------------------------------------------- */
 
@@ -288,6 +570,19 @@ function activeMove(state: GameState, playerId: PlayerId, options: BotOptions): 
       const player = getPlayer(state, playerId);
       if (!player) return null;
 
+      /*
+       * CR 903.9a, first, before anything else this turn.
+       *
+       * First because it costs nothing and because a commander back in the
+       * command zone is a card `chooseSpell` can see three lines below — so the
+       * bot can lose its commander and recast it in the same turn, which is
+       * what makes commander tax something that happens in a game rather than
+       * something the reducer merely supports. Measured before: 24 commanders
+       * died over 80 games, none came back, and tax was charged 0 times.
+       */
+      const recovery = chooseCommanderZone(state, playerId, at);
+      if (recovery) return recovery;
+
       if (state.step === 'precombat_main' && player.landsPlayedThisTurn === 0) {
         const land = chooseLand(state, playerId);
         if (land) {
@@ -302,6 +597,21 @@ function activeMove(state: GameState, playerId: PlayerId, options: BotOptions): 
         return {
           actions: spell.actions,
           note: `Casts ${spell.card.name} (${mana} untapped before).`,
+        };
+      }
+
+      /*
+       * Abilities AFTER the curve, deliberately. Mana spent on an ability is
+       * mana not spent developing the board, and a bot that fired a Rod of Ruin
+       * before playing its four-drop would be making the mistake every new
+       * player makes. It also means the mana this ability taps is mana nothing
+       * else wanted this turn.
+       */
+      const activation = chooseActivation(state, playerId, at);
+      if (activation) {
+        return {
+          actions: activation.actions,
+          note: `Uses ${activation.card.name}: ${activation.option.text}`,
         };
       }
 

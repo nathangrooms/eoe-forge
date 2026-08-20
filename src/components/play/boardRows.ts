@@ -26,7 +26,10 @@
  * belongs in the mana row, and an artifact creature belongs with the creatures.
  */
 
-import { isCreature, isLand, type CardInstance } from '@/lib/game';
+// Relative rather than the `@/` alias, for the reason `cardActions.ts` gives:
+// `node --test` has no bundler to resolve an alias with, and this module has a
+// suite of its own now that being attached moves a permanent between rows.
+import { isCreature, isLand, type CardInstance } from '../../lib/game/index.ts';
 
 export type BoardRowId = 'lands' | 'support' | 'creatures';
 
@@ -65,8 +68,45 @@ export function rowForCard(card: CardInstance): BoardRowId {
 
 export type BoardRowMap = Record<BoardRowId, CardInstance[]>;
 
+/**
+ * An Equipment or Aura goes where the thing it is attached to went, and lands
+ * immediately after it.
+ *
+ * In paper the sword sits tucked under the creature it equips, and that
+ * physical arrangement IS the answer to "which creature is carrying it". Left
+ * in the noncreature block on the right-hand side, an equipped sword is on the
+ * far side of the mat from the creature it is pumping, and a player has to
+ * remember which is which. Adjacency costs nothing and says it without a word.
+ *
+ * Nothing about the geometry changes: `SeatMat` sizes its rows from the box it
+ * was given and never from how many permanents are in them, so a sword moving
+ * from the block into the creature row cannot resize or shift anything. It
+ * takes the place in the order it would have had, so the arrangement is stable
+ * across renders.
+ *
+ * An attachment whose host is not in this list — an Aura on an opponent's
+ * creature — stays where its own type line puts it, because there is nothing on
+ * this mat to sit beside.
+ */
 export function splitIntoRows(cards: readonly CardInstance[]): BoardRowMap {
   const rows: BoardRowMap = { lands: [], support: [], creatures: [] };
-  for (const card of cards) rows[rowForCard(card)].push(card);
+  const here = new Set(cards.map(card => card.instanceId));
+
+  const attachedToHost = new Map<string, CardInstance[]>();
+  for (const card of cards) {
+    if (!card.attachedTo || !here.has(card.attachedTo)) continue;
+    const list = attachedToHost.get(card.attachedTo);
+    if (list) list.push(card);
+    else attachedToHost.set(card.attachedTo, [card]);
+  }
+
+  for (const card of cards) {
+    // Drawn beside its host below, not in its own row.
+    if (card.attachedTo && here.has(card.attachedTo)) continue;
+    const row = rows[rowForCard(card)];
+    row.push(card);
+    for (const attachment of attachedToHost.get(card.instanceId) ?? []) row.push(attachment);
+  }
+
   return rows;
 }

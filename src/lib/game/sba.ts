@@ -204,11 +204,11 @@ function isLegendary(card: CardInstance): boolean {
   return typeLineOf(card).includes('legendary');
 }
 
-function isAura(card: CardInstance): boolean {
+export function isAura(card: CardInstance): boolean {
   return typeLineOf(card).includes('aura');
 }
 
-function isEquipment(card: CardInstance): boolean {
+export function isEquipment(card: CardInstance): boolean {
   return typeLineOf(card).includes('equipment');
 }
 

@@ -95,6 +95,8 @@ import { useMeasuredSize } from './useMeasure';
 import type { LifeDelta } from './useTableMotion';
 import {
   availableMana,
+  commanderDamageRows,
+  commanderRefOf,
   commanderTax,
   isUnderAttack,
   lossReasonLabel,
@@ -305,17 +307,38 @@ export function SeatMat({
 
   const commander = player.commanders[0];
   const untapped = availableMana(state, player.id);
-  const tax = commander ? commanderTax(state, commander.id) : 0;
 
-  const allCommanders = state.players.flatMap(p => p.commanders);
-  const commanderDamage: CommanderDamagePip[] = Object.keys(player.commanderDamage)
-    .map(id => ({
-      id,
-      name: allCommanders.find(c => c.id === id)?.name ?? 'Commander',
-      amount: player.commanderDamage[id],
-      lethal: state.rules.commanderDamageLethal,
-    }))
-    .filter(entry => entry.amount > 0);
+  /*
+   * The tax on what is ACTUALLY in the command zone, not on `commanders[0]`.
+   *
+   * A partner pair is two commanders with two independent counts, and reading
+   * the first one meant a seat that had recast its partner three times showed a
+   * tax of zero on the tile above the card it was going to charge six for.
+   * `commanderCost` owns the arithmetic; this only picks which one to show, and
+   * shows the worst so the number on the tile is never smaller than the number
+   * the player will be asked for.
+   */
+  const commandTax = (player.zones.command ?? []).reduce((worst, instanceId) => {
+    const ref = commanderRefOf(state, state.cards[instanceId]);
+    return ref ? Math.max(worst, commanderTax(state, ref.id)) : worst;
+  }, 0);
+
+  /*
+   * Commander damage, asked of the engine rather than assembled here.
+   *
+   * `commanderDamageRows` already sorts worst first, filters to the commanders
+   * that can actually kill this seat, and never sums two tallies. This used to
+   * walk `player.commanderDamage` directly, which meant the mat carried a
+   * second opinion about a loss condition.
+   */
+  const damageRows = commanderDamageRows(state, player.id);
+  const commanderDamage: CommanderDamagePip[] = damageRows.map(row => ({
+    id: row.commanderId,
+    name: row.name,
+    amount: row.amount,
+    lethal: row.lethal,
+  }));
+  const worstCommanderDamage = damageRows[0];
 
   /* ---------------------------------------------------------------------- */
   /* Measurement — geometry is a function of the BOX, never of the board     */
@@ -534,8 +557,12 @@ export function SeatMat({
       </ZoneTile>
 
       <ZoneTile
-        label={tax > 0 ? `Cmd +${tax}` : 'Cmd'}
-        title={tax > 0 ? `Command zone, ${tax} commander tax` : 'Command zone'}
+        label="Cmd"
+        title={
+          commandTax > 0
+            ? `Command zone, ${commandTax} more mana in commander tax`
+            : 'Command zone'
+        }
         count={player.zones.command.length}
         height={tileHeight}
         width={sideWidth - 4}
@@ -551,6 +578,23 @@ export function SeatMat({
           <GameCardView card={commandTop} width={tileCardWidth} ignoreTapped />
         ) : (
           <EmptyWell width={tileCardWidth} />
+        )}
+        {/*
+          THE TAX, ON THE TILE.
+
+          It used to be a 7px zone label at 30% opacity and a hover title, which
+          on a four-seat table is a number nobody reads and on a touch screen is
+          a number nobody can reach. It is the price of the most important card
+          in the deck, so it is drawn at the weight the card count is drawn at,
+          in the opposite corner so the two never collide.
+        */}
+        {commandTax > 0 && (
+          <span
+            className="pointer-events-none absolute right-1 top-0.5 rounded-full bg-background/80 px-1 text-[9px] font-semibold leading-4 tabular-nums text-foreground shadow-sm shadow-black/50 backdrop-blur-sm"
+            title={`${commandTax} more mana in commander tax`}
+          >
+            +{commandTax}
+          </span>
         )}
       </ZoneTile>
     </aside>
@@ -723,6 +767,39 @@ export function SeatMat({
             ) : swing.attacking ? (
               <span className="truncate text-[10px] font-semibold text-foreground/90">
                 {outgoingSentence(swing)}
+              </span>
+            ) : worstCommanderDamage ? (
+              /*
+                THE NUMBER THAT ENDS THE GAME, IN WORDS.
+
+                Twenty-one from one commander is a loss condition players build
+                whole decks around, and until this line existed the only place
+                it appeared was a 14px pip on the rim of the life badge carrying
+                a bare number and a hover title. Measured in a browser: a seat on
+                4 commander damage drew a grey "4" indistinguishable from the
+                poison pip beside it, and on a touch screen the title that
+                explained it could not be reached at all.
+
+                It takes the same line the commander name uses rather than a new
+                one, so the band's height is untouched and nothing on the mat
+                moves. The name is the less urgent fact and gives way; it is
+                still on the card in the command zone, and in the hover title
+                here.
+              */
+              <span
+                className={cn(
+                  'truncate text-[10px] font-semibold',
+                  worstCommanderDamage.fatal ? 'text-destructive' : 'text-foreground/90'
+                )}
+                title={
+                  `${worstCommanderDamage.amount} commander damage from ` +
+                  `${worstCommanderDamage.name}. ${worstCommanderDamage.lethal} from a single ` +
+                  `commander is lethal, and tallies are never added together.` +
+                  (commander ? ` This seat plays ${commander.name}.` : '')
+                }
+              >
+                {worstCommanderDamage.amount} of {worstCommanderDamage.lethal} from{' '}
+                {worstCommanderDamage.name}
               </span>
             ) : commander ? (
               <>

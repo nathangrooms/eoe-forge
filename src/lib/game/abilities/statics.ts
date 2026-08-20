@@ -29,11 +29,18 @@
  */
 
 import type { GameState, InstanceId, PlayerId } from '../types.ts';
-import type { Modification, Restriction, Selector, StaticAbility } from '../../cards/abilities/dsl.ts';
+import type {
+  Modification,
+  Restriction,
+  Selector,
+  StaticAbility,
+  ValueExpr,
+} from '../../cards/abilities/dsl.ts';
 import { watchQueriesIn } from '../../cards/abilities/dsl.ts';
 import type {
   CardType,
   ContinuousEffect,
+  DynamicValue,
   EffectPart,
   LayerColor,
   LayeredCharacteristics,
@@ -111,6 +118,100 @@ export interface StaticScan {
 /* Modification → EffectPart                                                  */
 /* -------------------------------------------------------------------------- */
 
+/* --- life totals stay dynamic --------------------------------------------- */
+
+/**
+ * Does this quantity read a life total anywhere inside it?
+ *
+ * Only life gets the special treatment below, so the check is narrow on
+ * purpose. Every other `ValueExpr` keeps the plain-number path it has always
+ * had, and adding a second one for values that do not need it would be the
+ * "second place a number can be wrong" this file's own comment warns about.
+ */
+function readsLife(expr: ValueExpr): boolean {
+  if (typeof expr === 'number') return false;
+  switch (expr.v) {
+    case 'life':
+      return true;
+    case 'add':
+    case 'mul':
+    case 'min':
+    case 'max':
+      return expr.of.some(readsLife);
+    case 'sub':
+    case 'div':
+      return readsLife(expr.a) || readsLife(expr.b);
+    case 'if':
+      return readsLife(expr.then) || readsLife(expr.else);
+    default:
+      return false;
+  }
+}
+
+/**
+ * A `ValueExpr` that reads a life total, as a layer-native `DynamicValue`.
+ *
+ * WHY THIS IS NOT JUST `evalValue`
+ * --------------------------------
+ * `evalValue` answers "your life total" using `ctx.you`, which is the
+ * controller recorded on the card. Layer 2 has not run at scan time, so a
+ * Death's Shadow that somebody else has gained control of would be sized by the
+ * life total of the player who no longer controls it. Handing `layers.ts` a
+ * `{kind:'lifeTotal', of:'you'}` moves the question inside the pipeline, where
+ * `effectController` is the post-layer-2 answer.
+ *
+ * Returns `null` for any shape that cannot be carried across — `mul`, `div`,
+ * `min`, `max` and `if` have no `DynamicValue` counterpart. The caller then
+ * falls back to `evalValue`, which is the number this file has always produced.
+ * That fallback is a smaller approximation (it is only wrong when control has
+ * changed), not a silent zero.
+ */
+function toDynamicValue(expr: ValueExpr, ctx: AbilityContext): DynamicValue | null {
+  if (typeof expr === 'number') return expr;
+
+  switch (expr.v) {
+    case 'life': {
+      if (expr.of.who === 'you') return { kind: 'lifeTotal', of: 'you' };
+      // Anything else names concrete seats. One seat is a life total; several
+      // is a sum over players, which is what "the life totals of your
+      // opponents" means and what `evalValue` already computes.
+      const players = resolvePlayers(expr.of, ctx);
+      if (players.length === 0) return null;
+      const parts: DynamicValue[] = players.map(id => ({ kind: 'lifeTotal', of: id }));
+      return parts.length === 1 ? parts[0] : { kind: 'sum', of: parts };
+    }
+
+    case 'add': {
+      const parts = expr.of.map(part => toDynamicValue(part, ctx));
+      if (parts.some(part => part === null)) return null;
+      return { kind: 'sum', of: parts as DynamicValue[] };
+    }
+
+    case 'sub': {
+      const a = toDynamicValue(expr.a, ctx);
+      const b = toDynamicValue(expr.b, ctx);
+      if (a === null || b === null) return null;
+      return { kind: 'sum', of: [a, { kind: 'negate', of: b }] };
+    }
+
+    default:
+      return null;
+  }
+}
+
+/**
+ * The value a P/T modification should carry: dynamic when it reads a life
+ * total and can be expressed, a plain number otherwise.
+ */
+function ptValue(expr: ValueExpr | undefined, ctx: AbilityContext): DynamicValue {
+  if (expr === undefined) return 0;
+  if (readsLife(expr)) {
+    const dynamic = toDynamicValue(expr, ctx);
+    if (dynamic !== null) return dynamic;
+  }
+  return evalValue(expr, ctx);
+}
+
 const CARD_TYPE_SET = new Set<string>(CARD_TYPES as readonly string[]);
 const COLOR_SET = new Set(['W', 'U', 'B', 'R', 'G']);
 
@@ -135,10 +236,12 @@ function asColors(values: readonly string[] | undefined): LayerColor[] | undefin
  * characteristic change at all (restrictions and cost modifiers).
  *
  * Values are evaluated against the state at scan time and handed over as plain
- * numbers. `layers.ts` has its own `DynamicValue` for values that must be
- * recomputed per affected object; nothing the compiler currently emits needs
- * that, and reaching for it speculatively would add a second place where a
- * number can be wrong.
+ * numbers, with ONE exception: a power/toughness value that reads a life total
+ * is carried across as a `DynamicValue` instead. See `toDynamicValue` above for
+ * why that one has to be resolved inside the pipeline rather than before it.
+ * Everything else keeps the plain-number path, because a value that does not
+ * depend on layer ordering gains nothing from being recomputed and loses the
+ * single place where it is worked out.
  */
 export function toEffectPart(modification: Modification, ctx: AbilityContext): EffectPart | null {
   switch (modification.layer) {
@@ -180,8 +283,8 @@ export function toEffectPart(modification: Modification, ctx: AbilityContext): E
         sublayer: '7b' as SubLayer,
         modification: {
           kind: 'set-pt',
-          power: evalValue(modification.power, ctx),
-          toughness: evalValue(modification.toughness, ctx),
+          power: ptValue(modification.power, ctx),
+          toughness: ptValue(modification.toughness, ctx),
         },
       };
 
@@ -190,8 +293,8 @@ export function toEffectPart(modification: Modification, ctx: AbilityContext): E
         sublayer: '7c' as SubLayer,
         modification: {
           kind: 'modify-pt',
-          power: evalValue(modification.power, ctx),
-          toughness: evalValue(modification.toughness, ctx),
+          power: ptValue(modification.power, ctx),
+          toughness: ptValue(modification.toughness, ctx),
         },
       };
 

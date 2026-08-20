@@ -504,6 +504,44 @@ function parseStaticBody(paragraph: string, ctx: BuildCtx): StaticShape | null {
     }
   }
 
+  /* Layer 7c — "~ gets -X/-X, where X is your life total."
+   *
+   * THIS IS THE DRAWBACK CASE, and it is the reason the rule exists.
+   *
+   * Death's Shadow is printed 13/13 for one mana. Its whole cost is the line
+   * above: at 20 life it is a -7/-7 that dies the instant it arrives. With the
+   * line unparsed the compiler produced no abilities at all, nothing modified
+   * its P/T, and the engine rendered the printed 13/13 — a one-mana 13/13,
+   * which is not a card that has ever existed. A benefit that goes missing
+   * costs a player a card. A DRAWBACK that goes missing hands them a card
+   * nobody balanced.
+   *
+   * The shape generalises past that one card. "gets ±X/±X, where X is <thing>"
+   * is a single sentence pattern with a quantity on the end, so it routes the
+   * quantity straight through `parseValueExpr` and reaches every phrase that
+   * function can already read. `parseValueExpr` refusing a phrase it cannot
+   * read is what keeps the rest unparsed rather than guessed.
+   *
+   * The two signs are read independently: "-X/-0" and "+X/+0" are both real
+   * templating, and forcing them to match would silently mis-size the card.
+   * `sub` from zero is the negation, chosen over `{v:'mul', of:[-1, …]}`
+   * because `statics.ts` can carry `sub` across into a layer-native
+   * `DynamicValue` and cannot carry `mul`. */
+  const whereX = p.match(/^(.+?) gets? ([+-])x\/([+-])x,? where x is (.+)$/);
+  if (whereX) {
+    const affects = staticSubject(whereX[1], ctx);
+    const value = parseValueExpr(whereX[4]);
+    if (affects && value !== null) {
+      const signed = (sign: string): ValueExpr => (sign === '-' ? { v: 'sub', a: 0, b: value } : value);
+      return {
+        affects,
+        modifications: [
+          { layer: 'pt-modify', power: signed(whereX[2]), toughness: signed(whereX[3]) },
+        ],
+      };
+    }
+  }
+
   /* Layer 7c — an anthem whose size is counted. "~ gets +1/+0 for each artifact
      you control." Same `pt-modify` the flat anthem produces, with a computed
      magnitude instead of a literal one. */

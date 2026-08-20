@@ -137,3 +137,12 @@ src/dev/__proxyReachHarness.tsx
 # proxy sheet millimetre harness, written by scripts/proxy-sheet-measure.mjs
 proxy-sheet-harness.html
 src/dev/__proxySheetHarness.tsx
+
+# proxy art screenshot harness, written by scripts/proxy-art-shots.mjs
+proxy-art-harness.html
+src/dev/__proxyArtHarness.tsx
+
+# proxy list export screenshot harness, written by scripts/proxy-export-shots.mjs
+proxy-export-harness.html
+src/dev/__proxyExportHarness.tsx
+supabase/.temp/

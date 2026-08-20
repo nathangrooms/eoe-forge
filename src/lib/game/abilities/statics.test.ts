@@ -44,6 +44,7 @@ import {
 } from './statics.ts';
 import { evalValue, makeContext, matchesFilter, resolveSelector } from './context.ts';
 import { compileCardAbilities } from '../../cards/abilities/compiler.ts';
+import { stateBasedActions } from '../sba.ts';
 
 /* ------------------------------------------------------------------ *
  * Fixtures
@@ -584,4 +585,82 @@ test('an ordinary computed reduction is NOT flagged and IS applied', () => {
   // Three artifacts on the battlefield, the source included.
   assert.equal(scan.costMods[0].delta, -3);
   assert.equal(costAdjustmentFor(state, 'cheap', 'p1'), -3);
+});
+
+/* ------------------------------------------------------------------ *
+ * A drawback the engine ignores plays STRONGER than printed
+ * ------------------------------------------------------------------ */
+
+/**
+ * The whole path, end to end, because "the engine supports it" and "a card
+ * behaves correctly in a game" are different claims and only the second one was
+ * asked for.
+ *
+ * Oracle text → `compileCardAbilities` → `scanStatics` → `computeLayers` →
+ * `stateBasedActions`. Every link is the real one. A unit test on
+ * `computeLayers` proves the layer maths; it cannot prove a player ever reaches
+ * it, and for months this card did not.
+ */
+function withLife(state: GameState, life: number): GameState {
+  return { ...state, players: state.players.map(p => ({ ...p, life })) };
+}
+
+function shadowBoard(life: number): GameState {
+  return withLife(
+    game([
+      {
+        id: 'shadow',
+        name: "Death's Shadow",
+        typeLine: 'Creature — Avatar',
+        oracleText: 'This creature gets -X/-X, where X is your life total.',
+        power: '13',
+        toughness: '13',
+      },
+    ]),
+    life
+  );
+}
+
+test("Death's Shadow compiles its drawback rather than dropping it", () => {
+  const state = shadowBoard(20);
+  const record = abilitiesFor(state.cards.shadow);
+
+  assert.equal(record.coverage, 'full', 'the card used to compile to nothing at all');
+  assert.equal(record.abilities.length, 1);
+  assert.equal(record.abilities[0].kind, 'static');
+});
+
+test("Death's Shadow is a -7/-7 at 20 life and the rules bin it", () => {
+  const state = shadowBoard(20);
+
+  assert.equal(powerOnBoard(state, 'shadow'), -7);
+  assert.equal(layeredState(state).objects.shadow?.toughness, -7);
+  assert.equal(layeredState(state).unsupported.length, 0);
+
+  const findings = stateBasedActions(state);
+  const dead = findings.find(f => f.instanceId === 'shadow');
+  assert.ok(dead, 'a creature with toughness 0 or less is put into its graveyard (CR 704.5f)');
+  assert.equal(dead?.kind, 'creature-zero-toughness');
+});
+
+test("Death's Shadow at 3 life is the 10/10 the card is actually played for", () => {
+  const state = shadowBoard(3);
+
+  assert.equal(powerOnBoard(state, 'shadow'), 10);
+  assert.equal(stateBasedActions(state).some(f => f.instanceId === 'shadow'), false);
+});
+
+test('a life total is read on every scan, so paying life resizes the creature', () => {
+  // The property that makes this a continuous effect rather than a number
+  // written into the card: nothing is stored, so nothing has to be unstored.
+  const twenty = shadowBoard(20);
+  const six = withLife(twenty, 6);
+
+  assert.equal(powerOnBoard(twenty, 'shadow'), -7);
+  assert.equal(powerOnBoard(six, 'shadow'), 7);
+  assert.equal(
+    twenty.cards.shadow.powerOverride,
+    undefined,
+    'nothing was written into the CardInstance'
+  );
 });

@@ -26,6 +26,9 @@ import { runGame, replayGame, type EndKind, type RunGameOptions } from './runner
 import { buildDeck } from './deck.ts';
 import { diffState, fingerprint, movedOnly } from './fingerprint.ts';
 import { makeRng } from './rng.ts';
+import { inertDrawbacks, judgeResolution } from './silent.ts';
+import { addCard, createGame } from '../../src/lib/game/rules.ts';
+import type { CardInstance } from '../../src/lib/game/types.ts';
 
 const pool = await loadPool();
 const results: Array<{ name: string; ok: boolean; detail: string }> = [];
@@ -344,6 +347,147 @@ await check('two labels off one seed are independent streams', async () => {
   const again = makeRng(9, 'one');
   assert.deepEqual([again.next(), again.next(), again.next()], first, 'a stream did not repeat');
   return 'independent and repeatable';
+});
+
+/* -------------------------------------------------------------------------- */
+/* 6. Severity — a silent drawback is not a silent benefit                    */
+/* -------------------------------------------------------------------------- */
+
+console.log('');
+console.log('Severity — the two kinds of silence are told apart:');
+
+/**
+ * One card, one quiet resolution, judged.
+ *
+ * The board is deliberately bare so nothing can excuse anything: no target to
+ * be missing, no basic land to satisfy an "unless", no other permanent at all.
+ * What comes back is the classifier's opinion of the card and nothing else.
+ */
+function judgeOne(spec: {
+  name: string;
+  typeLine: string;
+  oracleText: string;
+  power?: string;
+  toughness?: string;
+}) {
+  let state = createGame({
+    mode: 'full',
+    format: 'commander',
+    players: [{ name: 'P1' }, { name: 'P2' }],
+    seed: 7,
+  });
+  state = { ...state, status: 'playing' };
+  state = addCard(
+    state,
+    {
+      instanceId: 'subject',
+      cardId: 'subject',
+      name: spec.name,
+      ownerId: 'p1',
+      typeLine: spec.typeLine,
+      oracleText: spec.oracleText,
+      power: spec.power,
+      toughness: spec.toughness,
+    },
+    'battlefield'
+  );
+  const card = state.cards.subject as CardInstance;
+  return judgeResolution({
+    card,
+    playedTo: 'battlefield',
+    landedIn: 'battlefield',
+    before: state,
+    after: state,
+    // A resolution that moved nothing: the case every check below is about.
+    diff: { added: [], removed: [], zoneMoves: [], changes: [] },
+    logAdded: [],
+  });
+}
+
+await check('a card whose DRAWBACK nothing applies is ranked high', async () => {
+  const verdict = judgeOne({
+    name: 'Serra Avenger',
+    typeLine: 'Creature — Angel',
+    oracleText:
+      "You can't cast Serra Avenger during your first, second, or third turns of the game.\nFlying, vigilance",
+    power: '3',
+    toughness: '3',
+  });
+  assert.equal(verdict.severity, 'high', `severity was ${verdict.severity}`);
+  assert.equal(verdict.verdict, 'silent-drawback');
+  return `${verdict.verdict}, ${verdict.drawbacks[0]?.label}`;
+});
+
+await check('a card whose BENEFIT nothing applies is not ranked high', async () => {
+  const verdict = judgeOne({
+    name: 'Test Only — quiet benefit',
+    typeLine: 'Creature — Human',
+    oracleText: 'When this creature enters, you gain 3 life.',
+    power: '2',
+    toughness: '2',
+  });
+  assert.equal(verdict.drawbacks.length, 0, 'a benefit is not a drawback');
+  assert.notEqual(verdict.severity, 'high', 'a wasted card is not the same finding');
+  return `${verdict.verdict}, severity ${verdict.severity}`;
+});
+
+await check('a restriction on SOMEBODY ELSE is not the card paying a price', async () => {
+  // Goblin Shortcutter. Six of the same words as Mogg Flunkies and the
+  // opposite meaning: dropping this makes the card weaker, not stronger.
+  const verdict = judgeOne({
+    name: 'Goblin Shortcutter',
+    typeLine: 'Creature — Goblin Scout',
+    oracleText: "When this creature enters, target creature can't block this turn.",
+    power: '2',
+    toughness: '1',
+  });
+  assert.equal(verdict.drawbacks.length, 0, `flagged: ${JSON.stringify(verdict.drawbacks)}`);
+  return `severity ${verdict.severity}`;
+});
+
+await check('a drawback the compiler DOES read is not reported', async () => {
+  // "This land enters tapped." compiles to a self-replacement and
+  // `intrinsic.ts` applies it. Implementing a drawback has to take it off the
+  // list, or the list never shrinks and stops meaning anything.
+  const plain = { name: 'Rootbound Crag', typeLine: 'Land', oracleText: 'This land enters tapped.\n{T}: Add {R} or {G}.' };
+  const conditional = {
+    name: 'Sunpetal Grove',
+    typeLine: 'Land',
+    oracleText: 'This land enters tapped unless you control a Forest or a Plains.\n{T}: Add {G} or {W}.',
+  };
+  let state = createGame({ mode: 'full', format: 'commander', players: [{ name: 'P1' }], seed: 7 });
+  state = { ...state, status: 'playing' };
+  for (const [id, spec] of [['plain', plain], ['conditional', conditional]] as const) {
+    state = addCard(
+      state,
+      { instanceId: id, cardId: id, name: spec.name, ownerId: 'p1', typeLine: spec.typeLine, oracleText: spec.oracleText },
+      'battlefield'
+    );
+  }
+  assert.equal(inertDrawbacks(state.cards.plain as CardInstance).length, 0, 'plain enters-tapped was reported');
+  const conditionalFindings = inertDrawbacks(state.cards.conditional as CardInstance);
+  assert.equal(conditionalFindings.length, 1, 'the "unless" form was NOT reported');
+  return `plain 0, "unless" form 1 (${conditionalFindings[0].label})`;
+});
+
+await check("Death's Shadow no longer carries an unapplied drawback", async () => {
+  // The card the whole change is about. Its line used to compile to nothing,
+  // which made it a one-mana 13/13; it now compiles to a real layer effect, so
+  // it is a working card and correctly absent from the drawback list.
+  const verdict = judgeOne({
+    name: "Death's Shadow",
+    typeLine: 'Creature — Avatar',
+    oracleText: 'This creature gets -X/-X, where X is your life total.',
+    power: '13',
+    toughness: '13',
+  });
+  assert.equal(
+    verdict.drawbacks.length,
+    0,
+    `still reported as unapplied: ${JSON.stringify(verdict.drawbacks)}`
+  );
+  assert.notEqual(verdict.severity, 'high');
+  return `${verdict.verdict}, severity ${verdict.severity}`;
 });
 
 /* -------------------------------------------------------------------------- */

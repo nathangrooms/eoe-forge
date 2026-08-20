@@ -39,6 +39,7 @@ import type { GameTransport, TransportEnvelope } from '../transport.ts';
 import { envelopeActions } from '../transport.ts';
 import { OpenAuthority, type Authority, type Verdict } from './authority.ts';
 import { digestState } from './digest.ts';
+import { installIdentities, projectForViewer, revealsFor } from './identity.ts';
 import { OrderedLog } from './ordering.ts';
 import {
   NET_LIMITS,
@@ -81,6 +82,34 @@ export interface GameSessionOptions {
   schedule?: (fn: () => void, ms: number) => unknown;
   /** 0 disables coalescing and sends every dispatch immediately. */
   batchWindowMs?: number;
+
+  /**
+   * Put the whole `LogEntry` on the wire instead of a bare action envelope.
+   *
+   * The envelope path predates hidden information. It carries actions and asks
+   * the receiver to rebuild the order key from the sender's seat and version,
+   * and it has nowhere to put the card identities a batch reveals. An online
+   * table needs both, so it sends the entry itself through `broadcastMeta` —
+   * the key that was actually used, and the reveals that have to be installed
+   * before the actions run, in one indivisible message.
+   *
+   * Off by default so the existing local-transport path is untouched.
+   */
+  wireEntries?: boolean;
+
+  /**
+   * Send a batch somewhere durable and ordered, instead of broadcasting it.
+   *
+   * When this is set the session does not broadcast at all: it hands the entry
+   * over and the store is responsible for both recording it and fanning it out.
+   * That is how an online table works — one Postgres function assigns the
+   * sequence number and broadcasts inside the same transaction, so the order
+   * the database recorded and the order the other clients heard cannot
+   * disagree. A rejection here is a real rejection: the move did not happen.
+   */
+  submit?: (entry: LogEntry) => Promise<void>;
+  /** Told when `submit` throws, so the surface can say the move did not land. */
+  onSubmitFailed?: (entry: LogEntry, error: unknown) => void;
 
   onChange?: (state: GameState, knowledge: Knowledge) => void;
   onRejected?: (entry: LogEntry, verdict: Verdict) => void;
@@ -161,6 +190,18 @@ export class GameSession {
     return this.knowledge;
   }
 
+  /**
+   * The state to DRAW and to DECIDE from: the shared state with this client's
+   * own knowledge painted on.
+   *
+   * Never fold this, never hash it, never send it. It differs on every client
+   * by construction, which is precisely the property `state()` exists not to
+   * have. See `identity.ts`.
+   */
+  view(): GameState {
+    return projectForViewer(this.head, this.knowledge);
+  }
+
   entries(): readonly LogEntry[] {
     return this.log.all();
   }
@@ -216,9 +257,18 @@ export class GameSession {
       this.log.at(this.log.length - 1)?.batchId === this.pending.batchId &&
       this.pending.actions.length + stamped.length <= NET_LIMITS.maxActionsPerBatch;
 
+    // What these actions are about to show the table. Computed against the
+    // state they will actually meet, before anything is applied, because that
+    // is the only moment the card is still hidden and therefore the only moment
+    // the question "does this reveal it" has an answer.
+    const reveals = this.revealsForLocal(stamped);
+
     if (canExtend && this.pending) {
       this.pending.actions.push(...stamped);
-      this.applyEntry({ ...this.pending, actions: stamped });
+      if (Object.keys(reveals).length > 0) {
+        this.pending.reveals = { ...this.pending.reveals, ...reveals };
+      }
+      this.applyEntry({ ...this.pending, actions: stamped, reveals });
       this.emitChange();
       return;
     }
@@ -233,6 +283,7 @@ export class GameSession {
       key: { baseVersion: this.head.version, seat: this.seat, batchId: '' },
       at,
       actions: stamped,
+      ...(Object.keys(reveals).length > 0 ? { reveals } : {}),
     };
     entry.key.batchId = entry.batchId;
 
@@ -265,6 +316,21 @@ export class GameSession {
     this.messagesSent += 1;
     this.actionsSent += entry.actions.length;
     this.bytesSent += payload.length;
+
+    // A durable, ordering store takes precedence over broadcasting: it does
+    // both jobs, and doing them separately is how a sequence number and a
+    // broadcast end up disagreeing about the order of a turn.
+    if (this.options.submit) {
+      void this.options.submit(entry).catch(error => {
+        this.options.onSubmitFailed?.(entry, error);
+      });
+      return;
+    }
+
+    if (this.options.wireEntries && this.transport.broadcastMeta) {
+      void this.transport.broadcastMeta('entry', entry);
+      return;
+    }
 
     if (this.transport.broadcastBatch) {
       void this.transport.broadcastBatch(entry.actions, entry.key.baseVersion, entry.at);
@@ -377,6 +443,19 @@ export class GameSession {
   private receiveMeta(kind: string, body: unknown): void {
     if (kind === 'reveal') this.ingestReveal(body as Reveal);
     else if (kind === 'checkpoint') this.ingestCheckpoint(body as Checkpoint);
+    else if (kind === 'entry') this.ingest(body as LogEntry);
+  }
+
+  /**
+   * The identities this client's own actions are about to make public.
+   *
+   * Only ever this client's own cards, and only ever ones the batch takes out
+   * of a hidden zone into a visible one. `revealsFor` states each condition and
+   * why dropping any of them leaks something.
+   */
+  private revealsForLocal(actions: readonly GameAction[]): Record<string, never> | Knowledge {
+    if (Object.keys(this.knowledge).length === 0) return {};
+    return revealsFor(this.head, this.knowledge, actions, applyAction);
   }
 
   private applyRun(actions: readonly GameAction[]): void {
@@ -398,6 +477,11 @@ export class GameSession {
    */
   private applyEntry(entry: LogEntry): void {
     const before = this.head;
+    // Reveal, then act. The identities a batch makes public are installed
+    // before its actions run, because the reducer cannot check the cost of a
+    // card it has not been told the name of. The order is fixed and identical
+    // on every client, so the states stay identical too. See `identity.ts`.
+    if (entry.reveals) this.head = installIdentities(this.head, entry.reveals);
     this.applyRun(entry.actions);
     this.settle(before, this.head, entry);
   }
@@ -439,9 +523,13 @@ export class GameSession {
    * mis-call a legality check during the narrow window a rewind covers. Those
    * are caught anyway when the refold re-runs the reducer, which rejects the
    * action for real.
+   *
+   * The entry's own reveals are installed first. Without that, every cast from
+   * a hidden zone would be judged against a card with no name and no cost, and
+   * the authority would reject every real move in the game as illegal.
    */
-  private stateForChecking(_entry: LogEntry): GameState {
-    return this.head;
+  private stateForChecking(entry: LogEntry): GameState {
+    return entry.reveals ? installIdentities(this.head, entry.reveals) : this.head;
   }
 
   /**

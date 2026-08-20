@@ -179,6 +179,28 @@ All colors MUST be HSL.
     --warp: 265 45% 52%;
     --void: 320 40% 45%;
     --planet: 142 40% 38%;
+
+    /* ---- Chart ramp: six ordered steps, one hue, light to dark ----
+     *
+     * For a chart whose categories carry a real ORDER — rarity, tiers, bands —
+     * where the reader should be able to see that order in the shading.
+     * Nominal categories (sets, card types) take `--foreground` for every bar
+     * instead: shading a bar darker because it is bigger spends the only free
+     * channel restating the length the bar already shows.
+     *
+     * Neutral, because this is the monochrome system and every hue in it
+     * carries MTG meaning. Each mode's six steps were checked against that
+     * mode's card surface with the data-viz validator's ordinal gate:
+     * lightness monotone, every adjacent gap at least 0.06 OKLab L, and the
+     * step nearest the surface still clearing 2:1 contrast. Measured 2026-08-20:
+     * light end 2.17:1 here, 2.52:1 in dark. Move a step and re-run it. The
+     * gaps are what makes the order readable, not taste. */
+    --chart-step-1: 0 0% 69%;
+    --chart-step-2: 0 0% 58%;
+    --chart-step-3: 0 0% 47%;
+    --chart-step-4: 0 0% 36%;
+    --chart-step-5: 0 0% 24%;
+    --chart-step-6: 0 0% 12%;
   }
 
   /* ------------------------------------------------------------------ *
@@ -263,6 +285,17 @@ All colors MUST be HSL.
     --warp: 265 50% 66%;
     --void: 320 40% 58%;
     --planet: 142 40% 52%;
+
+    /* The ramp inverted, and carrying the same 220/6% cast the dark surfaces
+       have, so a step never reads as a slightly different grey from the card it
+       sits on. Not the light values flipped: they were re-stepped and
+       re-validated against the dark card surface. */
+    --chart-step-1: 220 6% 34%;
+    --chart-step-2: 220 6% 46%;
+    --chart-step-3: 220 6% 58%;
+    --chart-step-4: 220 6% 70%;
+    --chart-step-5: 220 6% 81%;
+    --chart-step-6: 220 6% 92%;
   }
 }
 

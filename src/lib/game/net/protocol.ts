@@ -111,6 +111,20 @@ export interface LogEntry {
   /** Epoch ms from the sender. Display and lag metrics only — never ordering. */
   at: number;
   actions: GameAction[];
+  /**
+   * Card identities this batch makes public, installed BEFORE its actions run.
+   *
+   * This is the one place a hidden card becomes a real card, and it is placed
+   * here rather than sent alongside because the two have to arrive together:
+   * a client that applied the actions without the identities would try to cast
+   * a card with no mana cost, and a client that applied them in a different
+   * order from its neighbour would fold to a different state. Reveal, then act,
+   * in one indivisible entry, identically everywhere. See `identity.ts`.
+   *
+   * Nothing hidden is ever in here. `revealsFor` puts a card in only when the
+   * batch takes it out of a hidden zone into one the whole table can see.
+   */
+  reveals?: Record<InstanceId, CardIdentity>;
   /** Assigned by the durable log. Present on replay, absent on the live hot path. */
   seq?: LogSeq;
 }
@@ -161,6 +175,8 @@ export interface CardIdentity {
   imageUrl?: string;
   keywords?: string[];
   oracleText?: string;
+  /** Stable across printings. What the ability compiler files a card under. */
+  oracleId?: string;
 }
 
 /**

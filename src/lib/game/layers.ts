@@ -321,6 +321,31 @@ export interface LayerMatchFilter {
  *
  * `of: 'affected'` means the object being modified right now, which is how
  * Opalescence's "each equal to its mana value" is expressed.
+ *
+ * ## `lifeTotal`, and why it is a member here rather than a plain number
+ *
+ * Every other quantity in this list is read off an object on the battlefield. A
+ * life total is not, and that is why it was missing: nothing in this file had
+ * ever needed to look at a *player*. The absence is what let Death's Shadow
+ * ("This creature gets -X/-X, where X is your life total") stand as a printed
+ * 13/13 for one mana instead of a creature that dies on arrival at 20 life. The
+ * drawback could not be expressed, so nothing applied it.
+ *
+ * The alternative was to evaluate the life total where the ability is scanned
+ * and hand a plain number down, which is what `statics.ts` does for every other
+ * computed value. That is wrong for this one, for a specific reason: "your"
+ * means the controller of the effect, and control changes in **layer 2**, which
+ * has not run when the scan happens. A stolen Death's Shadow would be sized by
+ * its previous controller's life total. `effectController` is the post-layer-2
+ * answer and is only reachable from inside this pipeline, so the value has to
+ * be resolved here.
+ *
+ * `of: 'you'` is the controller of the effect (CR 109.5). An explicit
+ * `PlayerId` covers a life total the effect named when it was built, such as
+ * "target opponent". Spellings that aggregate over players — "the highest life
+ * total among players", "an opponent with the most life" — are deliberately
+ * absent. They are a different question, and a member that silently picked one
+ * player would be the confident wrong answer this file exists to refuse.
  */
 export type DynamicValue =
   | number
@@ -330,6 +355,7 @@ export type DynamicValue =
   | { kind: 'toughness'; of: 'affected' | 'source' | ObjectId }
   | { kind: 'counters'; counter: string; on: 'affected' | 'source' | ObjectId }
   | { kind: 'count'; of: LayerSelector }
+  | { kind: 'lifeTotal'; of: 'you' | PlayerId }
   | { kind: 'sum'; of: DynamicValue[] }
   | { kind: 'negate'; of: DynamicValue };
 
@@ -529,6 +555,20 @@ export interface LayerResult {
 export interface LayerInput {
   objects: BaseObject[];
   effects: ContinuousEffect[];
+  /**
+   * Every player's life total, for `{kind:'lifeTotal'}`.
+   *
+   * Optional, because a caller that has no effect reading a life total should
+   * not have to build a table. It is NOT optional in the sense of defaulting to
+   * something: an effect that asks for a life total and finds no table gets an
+   * `unsupported` note, not a quiet 0. A quiet 0 is the whole bug — it turns
+   * "gets -X/-X where X is your life total" into "gets -0/-0", which is a card
+   * with its drawback deleted.
+   *
+   * `computeStateLayers` fills it from `state.players` so the engine's own path
+   * never reaches that note.
+   */
+  life?: Readonly<Record<PlayerId, number>>;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -586,6 +626,8 @@ interface Ctx {
   objects: Record<ObjectId, Working>;
   order: ObjectId[];
   effect: ContinuousEffect;
+  /** `undefined` when the caller supplied none. See `LayerInput.life`. */
+  life?: Readonly<Record<PlayerId, number>>;
 }
 
 /** The player an effect's "you" refers to, after control-changing effects. */
@@ -714,10 +756,19 @@ function referenced(
   return ctx.objects[of];
 }
 
+/**
+ * `report` is how a value says it could not be computed.
+ *
+ * Only `lifeTotal` uses it today, and it is a parameter rather than a thrown
+ * error because one uncomputable value in a five-part effect should still let
+ * the other four apply, with the gap named in `LayerResult.unsupported` where
+ * the debug trace and the harness both already read it.
+ */
 function resolveValue(
   value: DynamicValue | undefined,
   affected: Working | undefined,
-  ctx: Ctx
+  ctx: Ctx,
+  report?: (detail: string) => void
 ): number {
   if (value === undefined) return 0;
   if (typeof value === 'number') return value;
@@ -731,6 +782,22 @@ function resolveValue(
       return referenced(value.of, affected, ctx)?.power ?? 0;
     case 'toughness':
       return referenced(value.of, affected, ctx)?.toughness ?? 0;
+    case 'lifeTotal': {
+      const player = value.of === 'you' ? effectController(ctx) : value.of;
+      if (player === undefined) {
+        report?.('lifeTotal of "you" but the effect has no controller and no source');
+        return 0;
+      }
+      const life = ctx.life?.[player];
+      if (life === undefined) {
+        // Not a missing player so much as a caller that built a `LayerInput`
+        // without a life table. Saying so is the difference between "this
+        // creature is 13/13" and "this creature is 13/13 and we know why".
+        report?.(`lifeTotal of ${player} requested but no life total was supplied`);
+        return 0;
+      }
+      return life;
+    }
     case 'counters': {
       const target = referenced(value.on, affected, ctx);
       return target?.counters?.[value.counter] ?? 0;
@@ -739,11 +806,11 @@ function resolveValue(
       return resolveTargets(value.of, ctx).length;
     case 'sum':
       return value.of.reduce<number>(
-        (total, part) => total + resolveValue(part, affected, ctx),
+        (total, part) => total + resolveValue(part, affected, ctx, report),
         0
       );
     case 'negate':
-      return -resolveValue(value.of, affected, ctx);
+      return -resolveValue(value.of, affected, ctx, report);
   }
 }
 
@@ -961,11 +1028,16 @@ function applyModification(
 
     case 'set-pt': {
       if (modification.power !== undefined) {
-        object.power = modification.power === null ? null : resolveValue(modification.power, object, ctx);
+        object.power =
+          modification.power === null
+            ? null
+            : resolveValue(modification.power, object, ctx, unsupported);
       }
       if (modification.toughness !== undefined) {
         object.toughness =
-          modification.toughness === null ? null : resolveValue(modification.toughness, object, ctx);
+          modification.toughness === null
+            ? null
+            : resolveValue(modification.toughness, object, ctx, unsupported);
       }
       return;
     }
@@ -973,10 +1045,10 @@ function applyModification(
     case 'modify-pt': {
       // A modification cannot give power/toughness to something that has none.
       if (modification.power !== undefined && object.power !== null) {
-        object.power += resolveValue(modification.power, object, ctx);
+        object.power += resolveValue(modification.power, object, ctx, unsupported);
       }
       if (modification.toughness !== undefined && object.toughness !== null) {
-        object.toughness += resolveValue(modification.toughness, object, ctx);
+        object.toughness += resolveValue(modification.toughness, object, ctx, unsupported);
       }
       return;
     }
@@ -1064,7 +1136,7 @@ export function computeLayers(input: LayerInput): LayerResult {
     if (group.length === 0) continue;
 
     for (const effect of orderEffectGroup(group)) {
-      const ctx: Ctx = { objects, order, effect };
+      const ctx: Ctx = { objects, order, effect, life: input.life };
       const targets = lockedTargets.get(effect.id) ?? resolveTargets(effect.affects, ctx);
       const parts = effect.parts.filter(part => part.sublayer === sublayer);
 
@@ -1468,5 +1540,23 @@ export function computeStateLayers(
   state: GameState,
   effects: readonly ContinuousEffect[] = []
 ): LayerResult {
-  return computeLayers({ objects: baseObjectsFromState(state), effects: [...effects] });
+  return computeLayers({
+    objects: baseObjectsFromState(state),
+    effects: [...effects],
+    life: lifeTotalsFromState(state),
+  });
+}
+
+/**
+ * Every seat's life total, keyed by player id, for `{kind:'lifeTotal'}`.
+ *
+ * Built here rather than read out of `state` inside `resolveValue` because
+ * `computeLayers` takes a `LayerInput` and not a `GameState`, and that is the
+ * property that makes it testable without a game. Exported so a test can build
+ * the same table by hand.
+ */
+export function lifeTotalsFromState(state: GameState): Record<PlayerId, number> {
+  const out: Record<PlayerId, number> = {};
+  for (const player of state.players) out[player.id] = player.life;
+  return out;
 }

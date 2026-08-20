@@ -60,6 +60,8 @@ import {
   keywordSupport,
 } from '../../src/lib/game/keywords.ts';
 import { resolvesToGraveyard } from '../../src/lib/game/mana.ts';
+import { abilitiesFor } from '../../src/lib/game/abilities/card-abilities.ts';
+import { effectsOf, hasManualEffect } from '../../src/lib/cards/abilities/dsl.ts';
 import type { StateDiff } from './fingerprint.ts';
 
 /* -------------------------------------------------------------------------- */
@@ -671,6 +673,226 @@ function zeroToughnessOnArrival(card: CardInstance): boolean {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Drawbacks — the silence that is not harmless                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * NOT ALL SILENCE IS THE SAME, AND TREATING IT AS THE SAME IS THE BUG
+ * -------------------------------------------------------------------
+ * Everything above this block asks one question: did the card do what it
+ * promised? A card that promised a benefit and delivered nothing is a wasted
+ * card. The player loses a draw, notices, shrugs, plays on. It is a defect and
+ * it is survivable.
+ *
+ * A card that promised a PENALTY and delivered nothing is a different animal
+ * entirely, because the printed numbers on it were chosen with the penalty in
+ * place. Death's Shadow is printed 13/13 and costs one black mana. Its whole
+ * price is the line "This creature gets -X/-X, where X is your life total" —
+ * at a starting 20 life that is a -7/-7 which dies the instant it arrives. Drop
+ * the line and you have not got a slightly worse Death's Shadow. You have a
+ * one-mana 13/13, which is not a card, and the owner watched it win a game on
+ * turn three.
+ *
+ * So the two failures are not neighbours on a list. One costs a player a card;
+ * the other hands them a card nobody balanced, in a game the other seat cannot
+ * win. This block is what separates them.
+ *
+ * ONLY THE STRONGER DIRECTION COUNTS
+ * ----------------------------------
+ * Text that goes missing can make a card weaker too — a `*`/`*` body that never
+ * gets defined arrives as a 0/0 and dies. That is already reported, as
+ * `dead-on-arrival`, and it is loud rather than quiet: the card visibly is not
+ * there. Every pattern below is one where the missing text makes the permanent
+ * play STRONGER than it is printed, because that is the failure a player cannot
+ * see and the opponent cannot answer.
+ *
+ * A PATTERN IS NOT A FINDING
+ * --------------------------
+ * Matching the text is the cheap half and on its own it would be a libel: the
+ * engine really does implement some of these. A drawback is only reported when
+ * the compiler ALSO refused the clause carrying it, or compiled it to a
+ * "resolve by hand" marker. Both of those are the engine's own admission, read
+ * from `abilitiesFor`, not a guess made here.
+ */
+export type DrawbackEvidence =
+  /** The compiler could not read the clause at all. Nothing can apply it. */
+  | 'unparsed'
+  /** It compiled, to a marker that says a human has to do it. */
+  | 'manual';
+
+export interface DrawbackFinding {
+  /** Short bucket name, so a report can group these rather than list them. */
+  label: string;
+  /** The line of oracle text that carries it. */
+  clause: string;
+  evidence: DrawbackEvidence;
+}
+
+/**
+ * Drawback shapes, each one written so a MISSING implementation makes the
+ * permanent stronger than printed.
+ *
+ * Deliberately narrower than `scratch/drawback-scan.mjs`, which counted any of
+ * nine patterns anywhere in the text and reported 2,608 permanents. That number
+ * is the right size for a survey and the wrong size for a worklist: it counts
+ * "power and toughness are each equal to" (missing that makes a card weaker,
+ * not stronger) and it counts a restriction printed on an OPPONENT's creatures
+ * as though it were the card's own cost.
+ */
+const DRAWBACK_PATTERNS: ReadonlyArray<{
+  label: string;
+  re: RegExp;
+  /**
+   * Must the clause's subject be this card?
+   *
+   * The difference between a drawback and a removal spell. "This creature
+   * can't block" is a price Mogg Flunkies pays; "target creature can't block
+   * this turn" is Goblin Shortcutter doing that TO somebody, and if the engine
+   * drops it the card is weaker, not stronger. Same six words either way, so
+   * the subject is the only thing that separates them.
+   *
+   * `false` is for clauses whose subject is "you" — the controller — which is
+   * already the card's own side by construction.
+   */
+  self: boolean;
+}> = [
+  { label: 'gets -X/-X or -N/-N', re: /\bgets? -(?:x|\d+)\/-(?:x|\d+)/i, self: true },
+  { label: 'enters tapped', re: /\benters (?:the battlefield )?tapped\b/i, self: true },
+  { label: 'enters with -1/-1 counters', re: /\benters\b[^.]{0,60}\bwith\b[^.]{0,30}-1\/-1 counter/i, self: true },
+  { label: 'does not untap', re: /\bdoesn'?t untap during\b/i, self: true },
+  { label: 'delayed sacrifice', re: /\bsacrifice (?:it|this|~)\b[^.]{0,60}\b(?:at the beginning|unless|if)\b/i, self: true },
+  { label: 'must attack', re: /\battacks? each combat if able\b/i, self: true },
+  { label: 'cannot block', re: /\bcan'?t block\b/i, self: true },
+  { label: 'cannot attack', re: /\bcan'?t attack\b/i, self: true },
+  { label: 'upkeep cost', re: /^at the beginning of (?:your|each) upkeep, (?:you lose|sacrifice|pay|this)/i, self: false },
+  { label: 'cumulative upkeep', re: /\bcumulative upkeep\b/i, self: false },
+  { label: 'echo', re: /^echo\b/i, self: false },
+  { label: 'hurts its controller', re: /\bdeals \d+ damage to you\b|\byou lose \d+ life\b/i, self: false },
+  { label: 'restricts what you may cast', re: /\byou can'?t (?:cast|play)\b/i, self: false },
+  { label: 'skips a step', re: /\bskip your\b/i, self: false },
+];
+
+/**
+ * Things a clause does FOR the player who controls the card.
+ *
+ * A clause that carries both a cost and a benefit does not net out to
+ * "stronger when ignored", and guessing which half is bigger is not something
+ * this file is in a position to do. Frightcrawler's threshold line is "gets
+ * +2/+2 and can't block" — drop it and the creature is smaller, not freer.
+ * Dreadhorde Invasion's upkeep is "you lose 1 life AND amass Zombies 1" and
+ * losing both is a worse deal for its controller, not a better one.
+ *
+ * So a mixed clause is dropped. That understates the count, which is the
+ * direction to be wrong in: a report nobody trusts is worth nothing, and every
+ * row on this list is an accusation that a card is unfairly strong.
+ */
+const BENEFIT_IN_THE_SAME_CLAUSE =
+  /\bgets? \+\d|\bdraws?\b|\bcreates?\b|\bamass\b|\byou gain \w+ life\b|\bput a \+1\/\+1 counter\b|\bsearch your library\b|\b(?:scr(?:y|ies)|surveils?|explores?|connives?|endures?|incubates?|proliferates?|adapts?)\b|\bonto the battlefield\b|\breturn\b[^.]*\bto (?:your hand|the battlefield)\b|\bgains? control\b/i;
+
+/**
+ * The drawbacks on this card that nothing in the engine can apply.
+ *
+ * A clause is matched to the compiler's verdict by TEXT, because that is the
+ * only key both sides share: `unparsed` carries the clause as it was written,
+ * every compiled `Ability` carries the clause it came from in `text`, and the
+ * oracle text is split on the same newlines the compiler splits on.
+ *
+ * Three ways a matched clause produces NO finding, and all three are the
+ * engine's own answer rather than a judgement made here:
+ *
+ *   - the compiler turned it into a real ability. The engine owns it. This is
+ *     why implementing "enters tapped" took every plain dual off the list
+ *     without anyone editing the patterns above;
+ *   - the clause also does something good for its controller, so ignoring it
+ *     is not a straight upgrade;
+ *   - it names somebody else's permanent, so ignoring it costs its controller
+ *     an effect rather than handing them one.
+ */
+export function inertDrawbacks(card: CardInstance): DrawbackFinding[] {
+  const text = card.oracleText ?? '';
+  if (!text.trim()) return [];
+
+  const record = abilitiesFor(card);
+  const refused = record.unparsed.map(u => u.text.trim()).filter(Boolean);
+  // The escapes are doubled because this is a template literal before it is a
+  // regex. A single backslash-b inside a JS string is a backspace character,
+  // and the pattern then matches nothing at all, silently, which is how every
+  // self-subject drawback quietly disappeared from the report once.
+  const isSelf = new RegExp(`^(?:if\\s+)?${selfPattern(card.name)}\\b`, 'i');
+
+  const out: DrawbackFinding[] = [];
+  for (const raw of text.split('\n')) {
+    const line = raw.replace(/\([^)]*\)/g, '').trim();
+    if (!line) continue;
+    if (BENEFIT_IN_THE_SAME_CLAUSE.test(line)) continue;
+
+    for (const { label, re, self } of DRAWBACK_PATTERNS) {
+      if (!re.test(line)) continue;
+      if (self && !isSelf.test(line)) break;
+
+      const overlaps = (other: string): boolean => other.includes(line) || line.includes(other);
+      if (refused.some(overlaps)) {
+        out.push({ label, clause: line, evidence: 'unparsed' });
+        break;
+      }
+
+      // It compiled. Did it compile to a marker that says a human has to do it?
+      // Asked per clause, against the ability that came from THIS line, rather
+      // than "is anything on the card manual" — Feldon can't block, and one of
+      // his other abilities is manual, and the coarse question said the
+      // restriction was unimplemented when the compiler had read it fine.
+      const own = record.abilities.find(ability => overlaps(ability.text ?? ''));
+      if (own && hasManualEffect(effectsOf(own))) {
+        out.push({ label, clause: line, evidence: 'manual' });
+      }
+      break;
+    }
+  }
+  return out;
+}
+
+/**
+ * The drawbacks still standing once the BOARD has had its say.
+ *
+ * `inertDrawbacks` reads text and the compiler. Neither can see the game, and
+ * two things that only the game knows will otherwise turn this list into a
+ * libel:
+ *
+ *   1. **The escape clause was met.** "This land enters tapped unless you
+ *      control a Forest or a Plains", played with a Forest already out, is a
+ *      land that is CORRECT to arrive untapped. Four of twenty hand-checked
+ *      verdicts were this exact shape once before, which is why
+ *      `unlessEscapes` exists; it is reused here rather than reinvented.
+ *   2. **It actually happened.** The strongest evidence available is the state
+ *      difference the harness already measured. If the permanent's own tapped
+ *      flag moved, "enters tapped" applied, whatever the compiler managed to
+ *      read, and there is nothing to report.
+ *
+ * Both gates only ever REMOVE a finding. Neither can invent one, so being
+ * wrong about either understates the problem rather than accusing a working
+ * card, which is the direction this file already leans everywhere else.
+ */
+export function drawbacksAfterBoard(
+  drawbacks: readonly DrawbackFinding[],
+  before: GameState,
+  controller: PlayerId,
+  footprint: Footprint
+): DrawbackFinding[] {
+  const tappedItself = footprint.effects.some(effect => effect === 'its own tapped changed');
+
+  return drawbacks.filter(finding => {
+    if (finding.label === 'enters tapped' && tappedItself) return false;
+    if (/\bunless\b/i.test(finding.clause)) {
+      // `true` means the escape applied, so the card was right to do nothing.
+      // `'unknown'` keeps the finding: an unreadable condition is not proof the
+      // drawback was paid.
+      if (unlessEscapes(finding.clause, before, controller) === true) return false;
+    }
+    return true;
+  });
+}
+
+/* -------------------------------------------------------------------------- */
 /* The verdict                                                                */
 /* -------------------------------------------------------------------------- */
 
@@ -691,6 +913,16 @@ export type Verdict =
   | 'correctly-quiet'
   /** Correct silence for a reason that depended on the board. No target, false condition. */
   | 'correctly-quiet-conditional'
+  /**
+   * The card carries a DRAWBACK that nothing in the engine can apply, so it
+   * plays stronger than it is printed.
+   *
+   * Ranked above every other silence on purpose. A benefit that goes missing
+   * costs the player a card. A penalty that goes missing hands them a card
+   * whose printed body was priced around the penalty, and the other seat has no
+   * answer to a card that was never supposed to exist.
+   */
+  | 'silent-drawback'
   /** Text was due, nothing happened, and the engine never said so. */
   | 'silent-untold'
   /** Text was due, nothing happened, and a "resolve by hand" marker is on the permanent. */
@@ -700,8 +932,38 @@ export type Verdict =
   /** Oracle text was never loaded, so the card cannot work and nothing knows why. */
   | 'text-not-loaded';
 
+/**
+ * How much this row matters, kept separate from `verdict` because they answer
+ * different questions.
+ *
+ * `verdict` says WHAT happened. `severity` says how much it costs, and the
+ * whole point of having both is that a removal spell which correctly fizzled
+ * and a one-mana 13/13 are not two entries on one list. Before this existed
+ * they were.
+ *
+ *   `high`   — the card plays stronger than it is printed. Somebody is winning
+ *              games with a card that has had its price deleted.
+ *   `normal` — the card promised something and did not deliver it. A wasted
+ *              card, and a real defect.
+ *   `none`   — working, or correctly quiet. Not a finding.
+ */
+export type Severity = 'high' | 'normal' | 'none';
+
 export interface CardVerdict {
   verdict: Verdict;
+  /** How much this costs. See `Severity`; `high` means it plays too strong. */
+  severity: Severity;
+  /** Drawbacks on this card that nothing in the engine can apply. */
+  drawbacks: DrawbackFinding[];
+  /**
+   * Printed power/toughness, or `undefined` for a card with no P/T box.
+   *
+   * Carried because a drawback finding is unreadable without it: "Death's
+   * Shadow carries a drawback nothing applies" is a shrug, and "Death's Shadow
+   * is a 13/13 for one mana and carries a drawback nothing applies" is the
+   * whole report.
+   */
+  printedBody?: string;
   /** One sentence a reader can act on. */
   why: string;
   /** 'certain' survives every exclusion. 'likely' had an unevaluable condition in it. */
@@ -781,13 +1043,44 @@ export interface JudgeInput {
 }
 
 /**
+ * How bad is this row?
+ *
+ * A drawback nothing can apply is `high` whatever else the card did, because
+ * the cost is not "this resolution was quiet" — it is that the permanent now
+ * sitting on the battlefield is stronger than the one printed on the card, and
+ * it stays that way for the rest of the game.
+ */
+function severityOf(verdict: Omit<CardVerdict, 'severity'>): Severity {
+  if (verdict.drawbacks.length > 0) return 'high';
+  switch (verdict.verdict) {
+    case 'acted':
+    case 'correctly-quiet':
+    case 'correctly-quiet-conditional':
+      return 'none';
+    default:
+      return 'normal';
+  }
+}
+
+/**
+ * One resolution, judged, with its severity attached.
+ *
+ * Severity is worked out here rather than inside each branch so there is one
+ * place that decides it, and so a branch added later cannot forget to set it.
+ */
+export function judgeResolution(input: JudgeInput): CardVerdict {
+  const verdict = judgeWhatHappened(input);
+  return { ...verdict, severity: severityOf(verdict) };
+}
+
+/**
  * One resolution, judged.
  *
  * The order of the checks is the order of the argument: cheapest and most
  * certain exclusions first, so the expensive board reads only run on cards that
  * are still candidates.
  */
-export function judgeResolution(input: JudgeInput): CardVerdict {
+function judgeWhatHappened(input: JudgeInput): Omit<CardVerdict, 'severity'> {
   const { card, before, after, diff, logAdded } = input;
   const landed = input.landedIn ?? after.cards[card.instanceId]?.zone;
   const sentTo = input.playedTo ?? (resolvesToGraveyard(card) ? 'graveyard' : 'battlefield');
@@ -797,11 +1090,23 @@ export function judgeResolution(input: JudgeInput): CardVerdict {
   const automation = automationFor(card);
   const footprint = footprintOf(diff, card.instanceId, logAdded);
 
+  const drawbacks = drawbacksAfterBoard(
+    inertDrawbacks(card),
+    before,
+    controller,
+    footprint
+  );
+
   const base = {
     cardName: card.name,
     engineLevel: automation.level,
     moment,
     footprint: footprint.effects.slice(0, 8),
+    drawbacks,
+    printedBody:
+      card.power !== undefined && card.toughness !== undefined
+        ? `${card.power}/${card.toughness}`
+        : undefined,
   };
 
   /* --- 0. did it even stay on the battlefield? --- */
@@ -834,6 +1139,48 @@ export function judgeResolution(input: JudgeInput): CardVerdict {
             : 'left play immediately',
       };
     }
+  }
+
+  /* --- 0b. is it playing stronger than it is printed? ---
+   *
+   * BEFORE the "did anything happen" check, and that ordering is the argument
+   * this whole block makes.
+   *
+   * A drawback is not a promise the card makes at one moment, it is the price
+   * printed on the card, and a price nothing collects is wrong for the rest of
+   * the game. Two consequences, both deliberate:
+   *
+   *   - a card that DID something else still lands here. Doing one thing right
+   *     does not pay for a penalty nobody applied.
+   *   - a CONTINUOUS drawback lands here at all, which it could not before.
+   *     "~ gets -X/-X, where X is your life total" is read as a static clause,
+   *     static clauses are not due at any moment, and `layers.ts` computing
+   *     statics on read means a working one leaves no trace. So the checks
+   *     below correctly refuse to call a quiet static a defect — and that is
+   *     exactly how Death's Shadow was filed as `correctly-quiet` while
+   *     attacking for 13 on turn three. The compiler saying it could not read
+   *     the clause is the evidence those checks had no way to ask for.
+   */
+  if (drawbacks.length > 0) {
+    const first = drawbacks[0];
+    const printed =
+      card.power !== undefined && card.toughness !== undefined
+        ? ` It is printed ${card.power}/${card.toughness}, and that body was priced with the penalty in place.`
+        : '';
+    return {
+      ...base,
+      verdict: 'silent-drawback',
+      confidence: first.evidence === 'unparsed' ? 'certain' : 'likely',
+      why:
+        `${card.name} carries a drawback nothing in the engine applies: "${first.clause.slice(0, 120)}". ` +
+        (first.evidence === 'unparsed'
+          ? `The compiler could not read that line, so no ability exists to apply it.`
+          : `It compiled to a "resolve by hand" marker, so it only applies if a player does it themselves.`) +
+        printed +
+        ` A card that loses its drawback does not get slightly worse. It gets a price deleted.`,
+      dueText: drawbacks.map(d => d.clause),
+      mechanic: `drawback: ${first.label}`,
+    };
   }
 
   if (!footprint.quiet) {

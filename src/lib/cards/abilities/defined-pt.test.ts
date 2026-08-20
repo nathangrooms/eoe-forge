@@ -333,3 +333,111 @@ describe('the number of counters on the source', () => {
     assert.equal(parseValueExpr('the number of +1/+1 counters on lands you control'), null);
   });
 });
+
+/* ------------------------------------------------------------------ *
+ * "gets ±X/±X, where X is <quantity>"
+ * ------------------------------------------------------------------ */
+
+/**
+ * The drawback family, and the reason it was worth a rule of its own.
+ *
+ * Both cards below are printed 13/13. Both cost the whole of their body back
+ * on the line the compiler could not read, and an unreadable line is not a
+ * weaker card, it is a card with no drawback at all. Death's Shadow for one
+ * black mana as an unconditional 13/13 is not a card that has ever been legal
+ * in any format.
+ *
+ * The quantity goes through `parseValueExpr` rather than a rule per phrase, so
+ * this one pattern reaches every quantity that function can already read, and
+ * refuses the rest instead of guessing.
+ */
+function ptModifyOf(ability: StaticAbility): Modification & { layer: 'pt-modify' } {
+  const mod = ability.modifications.find(m => m.layer === 'pt-modify');
+  assert.ok(mod, `expected a pt-modify, got ${JSON.stringify(ability.modifications)}`);
+  return mod as Modification & { layer: 'pt-modify' };
+}
+
+describe('"gets -X/-X, where X is your life total"', () => {
+  const shadow: Card = {
+    name: "Death's Shadow",
+    type_line: 'Creature — Avatar',
+    power: '13',
+    toughness: '13',
+    mana_cost: '{B}',
+    oracle_text: 'This creature gets -X/-X, where X is your life total.',
+  };
+
+  it("Death's Shadow compiles, and both halves are the negated life total", () => {
+    const mod = ptModifyOf(onlyStatic(shadow));
+    const negatedLife = { v: 'sub', a: 0, b: { v: 'life', of: { who: 'you' } } };
+    assert.deepEqual(mod.power, negatedLife);
+    assert.deepEqual(mod.toughness, negatedLife);
+  });
+
+  it('nothing on the card is left unparsed, so coverage is full', () => {
+    const compiled = compileCardAbilities(shadow);
+    assert.deepEqual(compiled.unparsed, []);
+    assert.equal(compiled.coverage, 'full');
+  });
+
+  it('The Last Ride is the same sentence on a Vehicle', () => {
+    const lastRide: Card = {
+      name: 'The Last Ride',
+      type_line: 'Legendary Artifact — Vehicle',
+      power: '13',
+      toughness: '13',
+      oracle_text:
+        'The Last Ride gets -X/-X, where X is your life total.\n{2}{B}, Pay 2 life: Draw a card.\nCrew 2',
+    };
+    const mod = ptModifyOf(onlyStatic(lastRide));
+    assert.deepEqual(mod.power, { v: 'sub', a: 0, b: { v: 'life', of: { who: 'you' } } });
+  });
+
+  it('the two signs are read independently, not assumed to match', () => {
+    const oneSided: Card = {
+      name: 'Test Only — one-sided sign',
+      type_line: 'Creature — Avatar',
+      power: '13',
+      toughness: '13',
+      oracle_text: 'This creature gets -X/+X, where X is your life total.',
+    };
+    const mod = ptModifyOf(onlyStatic(oneSided));
+    assert.deepEqual(mod.power, { v: 'sub', a: 0, b: { v: 'life', of: { who: 'you' } } });
+    assert.deepEqual(mod.toughness, { v: 'life', of: { who: 'you' } });
+  });
+
+  it('an Aura carries the same sentence about the creature it enchants', () => {
+    // Kagemaro's Clutch, printed exactly like this.
+    const clutch: Card = {
+      name: "Kagemaro's Clutch",
+      type_line: 'Enchantment — Aura',
+      oracle_text:
+        'Enchant creature\nEnchanted creature gets -X/-X, where X is the number of cards in your hand.',
+    };
+    const statics = compileCardAbilities(clutch).abilities.filter(
+      (a): a is StaticAbility => a.kind === 'static' && a.affects.sel === 'attached'
+    );
+    assert.equal(statics.length, 1, 'the subject is the enchanted creature, not the Aura');
+    assert.deepEqual(ptModifyOf(statics[0]).power, {
+      v: 'sub',
+      a: 0,
+      b: {
+        v: 'count',
+        of: { sel: 'all', where: { is: 'any' }, zone: 'hand', controller: { who: 'you' } },
+      },
+    });
+  });
+
+  it('a quantity parseValueExpr cannot read is still refused, not guessed', () => {
+    // Elspeth, Undaunted Hero. Devotion is not a quantity this compiler reads,
+    // and a +0/+0 would be a card that silently does nothing.
+    const devotion: Card = {
+      name: 'Test Only — devotion',
+      type_line: 'Creature — Avatar',
+      power: '1',
+      toughness: '1',
+      oracle_text: 'This creature gets +X/+X, where X is your devotion to white.',
+    };
+    assert.equal(refused(devotion, 'devotion to white'), true);
+  });
+});

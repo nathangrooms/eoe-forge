@@ -38,6 +38,7 @@
 
 export * from './protocol.ts';
 export * from './ordering.ts';
+export * from './identity.ts';
 export * from './realtime.ts';
 export * from './digest.ts';
 export * from './authority.ts';

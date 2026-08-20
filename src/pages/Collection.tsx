@@ -25,59 +25,38 @@ import { CollectionArriving } from '@/components/shopping';
 import { StorageTab } from '@/components/storage/StorageTab';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { useDeckManagementStore, type DeckCard } from '@/stores/deckManagementStore';
-import { CollectionAnalytics } from '@/features/collection/CollectionAnalytics';
-import type { CollectionStats, CollectionCard } from '@/types/collection';
+import type { CollectionCard } from '@/types/collection';
 import { CollectionAPI } from '@/server/routes/collection';
-import { canPriceOwnedCopies, priceUSD } from '@/features/collection/value';
+import { collectionSummary } from '@/components/collection/analytics/spread';
 
-import { TCGPlayerPriceSync } from '@/components/collection/TCGPlayerPriceSync';
-import { CollectionExport } from '@/components/collection/CollectionExport';
-import { CollectionBackupRestore } from '@/components/collection/CollectionBackupRestore';
-import { InsuranceReport } from '@/components/collection/InsuranceReport';
-import { PriceHistoryChart } from '@/components/collection/PriceHistoryChart';
-import { CollectionDeckRecommendations } from '@/components/collection/CollectionDeckRecommendations';
-import { CollectionValueTrends } from '@/components/collection/CollectionValueTrends';
-import { EnhancedPriceAlerts } from '@/components/collection/EnhancedPriceAlerts';
+/**
+ * The whole Analytics tab is one component now.
+ *
+ * It used to be ten imports assembled inline here, four of which derived their
+ * own total value from the same rows and disagreed with each other. The
+ * composition, the arithmetic and the charts live together in
+ * `components/collection/analytics/`, and this page hands it the rows it already
+ * loaded.
+ */
+import { CollectionAnalyticsView } from '@/components/collection/analytics/CollectionAnalyticsView';
 import { CollectionQuickStats } from '@/components/collection/CollectionQuickStats';
 import { CollectionEmptyState } from '@/components/collection/CollectionEmptyState';
 import { CollectionLoadingSkeleton } from '@/components/collection/CollectionLoadingSkeleton';
-import { AnalyticsHeader } from '@/components/collection/AnalyticsHeader';
 import { AddCardsHeader } from '@/components/collection/AddCardsHeader';
 import { useAuth } from '@/components/AuthProvider';
 
 const TABS = ['collection', 'analytics', 'add-cards', 'storage'] as const;
 
 /**
- * One valuation rule for the whole page: non-foil copies at `usd`, foil copies
- * at `usd_foil` (falling back to `usd`). The stale denormalised `price_usd`
- * column is never read for display — four different totals used to disagree
- * across the Collection tab, the analytics header and the insurance report.
- */
-function valueOfItem(item: CollectionCard): number {
-  if (!item.card) return 0;
-  const nonFoil = priceUSD(item.card, false);
-  const foil = priceUSD(item.card, true) || nonFoil;
-  return (item.quantity || 0) * nonFoil + (item.foil || 0) * foil;
-}
-
-/**
- * Whether the copies the user actually owns can be priced.
+ * The page's figures come from `collectionSummary` now.
  *
- * Not "does this printing have any price": `Nissa, Genesis Mage` has a foil
- * price of $1.42 and no non-foil price, and the owner holds two non-foils, so
- * the printing is priced and the stack is not. Asking the wider question let
- * her into "Most Valuable Cards" ranked at $0.00 each. Non-foil copies need
- * `usd`; foil copies take `usd_foil` and fall back to `usd`.
- *
- * The rule itself moved to `canPriceOwnedCopies` in features/collection so the
- * dashboard could share it. The dashboard had the wider version and reported a
- * different count for the same collection. The move also dropped `usd_etched`,
- * which the version here read and the valuation never has; no owned row is
- * etched-only today, checked, so nothing on this page changes.
+ * A local `valueOfItem` and a local `hasPrice` used to live here, restating
+ * `ownedValueUSD` and `canPriceOwnedCopies` in this file's own words. They were
+ * the same arithmetic, which is exactly why it is worth deleting them: two
+ * copies of a rule stay identical right up until one of them is edited. The
+ * page header, the tab badge and the whole Analytics tab now read one summary
+ * built by one pass over the rows.
  */
-function hasPrice(item: CollectionCard): boolean {
-  return canPriceOwnedCopies(item.card?.prices, item.quantity || 0, item.foil || 0);
-}
 
 function deckCategory(typeLine: string): DeckCard['category'] {
   if (typeLine.includes('Land')) return 'lands';
@@ -175,94 +154,38 @@ export default function Collection() {
 
   const cards = useMemo(() => snapshot?.items ?? [], [snapshot]);
 
-  // NOTE: every hook must stay above the early `error` return below — the
-  // previous version declared a useMemo after it, so React rendered fewer hooks
-  // on the render where `error` flipped and the friendly retry screen crashed.
-  const collectionStats = useMemo(() => {
-    const stats: Omit<CollectionStats, 'topValueCards'> & { topValueCards: TopValueCard[] } = {
-      totalCards: 0,
+  /**
+   * The page header's figures, from the same one pass the Analytics tab uses.
+   *
+   * This used to be a fifty line loop that also built colour, type, rarity and
+   * set distributions plus a top ten, all of which existed to feed components
+   * that have been replaced. Nothing read them any more, and a distribution
+   * nobody draws is still recomputed on every collection change.
+   *
+   * `uniqueCards` stays `cards.length` deliberately: the tab badge counts rows
+   * in the collection, and a row with no copies left is a row somebody can still
+   * see and edit in the grid.
+   *
+   * NOTE: every hook must stay above the early `error` return below. A previous
+   * version declared a useMemo after it, so React rendered fewer hooks on the
+   * render where `error` flipped and the friendly retry screen crashed.
+   */
+  const summary = useMemo(() => collectionSummary(cards), [cards]);
+
+  const collectionStats = useMemo(
+    () => ({
+      totalCards: summary.copies,
       uniqueCards: cards.length,
-      totalValue: 0,
-      avgCmc: 0,
-      colorDistribution: {},
-      typeDistribution: {},
-      rarityDistribution: {},
-      setDistribution: {},
-      topValueCards: [],
-      recentlyAdded: [],
-    };
-
-    let totalCmc = 0;
-    let cardsWithCmc = 0;
-
-    for (const item of cards) {
-      const copies = (item.quantity || 0) + (item.foil || 0);
-      stats.totalCards += copies;
-      stats.totalValue += valueOfItem(item);
-
-      if (item.card?.cmc) {
-        totalCmc += item.card.cmc * copies;
-        cardsWithCmc += copies;
-      }
-
-      const colors = item.card?.colors ?? [];
-      if (colors.length > 0) {
-        for (const color of colors) {
-          stats.colorDistribution[color] = (stats.colorDistribution[color] || 0) + copies;
-        }
-      } else {
-        stats.colorDistribution.C = (stats.colorDistribution.C || 0) + copies;
-      }
-
-      if (item.card?.type_line) {
-        const mainType = item.card.type_line.split(' — ')[0].split(' ')[0].toLowerCase();
-        stats.typeDistribution[mainType] = (stats.typeDistribution[mainType] || 0) + copies;
-      }
-
-      if (item.card?.rarity) {
-        stats.rarityDistribution[item.card.rarity] =
-          (stats.rarityDistribution[item.card.rarity] || 0) + copies;
-      }
-
-      stats.setDistribution[item.set_code] = (stats.setDistribution[item.set_code] || 0) + copies;
-    }
-
-    stats.avgCmc = cardsWithCmc > 0 ? totalCmc / cardsWithCmc : 0;
-
-    /* A card we cannot price has no place in a ranking of the most valuable
-       ones. Listing it at $0.00 at the bottom of the list is not a neutral
-       omission, it is a statement that the card is worthless, and it pushed a
-       genuinely valuable card out of the top ten to say it. */
-    stats.topValueCards = cards
-      .filter(hasPrice)
-      .map(item => ({ ...item, calculatedValue: valueOfItem(item) }))
-      .sort((a, b) => b.calculatedValue - a.calculatedValue)
-      .slice(0, 10);
-
-    stats.recentlyAdded = [...cards]
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 6);
-
-    return stats;
-  }, [cards]);
+      totalValue: summary.value,
+    }),
+    [summary, cards.length]
+  );
 
   const recentlyAddedCount = useMemo(() => {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     return cards.filter(item => new Date(item.created_at) > sevenDaysAgo).length;
   }, [cards]);
-
-  /**
-   * Owned rows the catalogue has no price for, so every total on this page can
-   * say how much of the collection it is not counting. The figure is real:
-   * re-measured 2026-08-19, four of the owner's 52 rows, and because they sort
-   * first by name they are the first thing the grid shows, which is why the
-   * page reads as though nothing has a price.
-   */
-  const unpricedCards = useMemo(
-    () => cards.filter(item => (item.quantity || 0) + (item.foil || 0) > 0 && !hasPrice(item)).length,
-    [cards]
-  );
 
   const handleExportBackup = () => {
     if (!snapshot) {
@@ -395,7 +318,7 @@ export default function Collection() {
                   : 0
               }
               recentlyAddedCount={recentlyAddedCount}
-              unpricedCards={unpricedCards}
+              unpricedCards={summary.unpriced}
               loading={loading}
             />
           </div>
@@ -430,10 +353,10 @@ export default function Collection() {
         <Tabs value={currentTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="inline-flex h-12 w-max gap-1 bg-transparent p-0 sm:w-auto">
             {[
-              { value: 'collection', label: 'Cards', icon: Layers, badge: collectionStats.uniqueCards },
-              { value: 'analytics', label: 'Analytics', icon: BarChart3, badge: 0 },
-              { value: 'add-cards', label: 'Add cards', icon: Search, badge: 0 },
-              { value: 'storage', label: 'Storage', icon: Package, badge: 0 },
+              { value: 'collection', label: 'Cards', icon: Layers, counted: true },
+              { value: 'analytics', label: 'Analytics', icon: BarChart3, counted: false },
+              { value: 'add-cards', label: 'Add cards', icon: Search, counted: false },
+              { value: 'storage', label: 'Storage', icon: Package, counted: false },
             ].map(tab => (
               <TabsTrigger
                 key={tab.value}
@@ -442,11 +365,23 @@ export default function Collection() {
               >
                 <tab.icon className="mr-1.5 h-4 w-4 sm:mr-2" aria-hidden="true" />
                 {tab.label}
-                {tab.badge ? (
-                  <Badge variant="secondary" className="ml-1.5 hidden text-xs sm:inline-flex">
-                    {tab.badge}
+                {/* The badge holds its place from the first paint and turns
+                    visible when the count arrives. It used to be absent until
+                    then, so the moment the collection loaded the Cards tab grew
+                    by 50px and shoved the other three tabs sideways. `min-w`
+                    covers counts up to five digits, which is past any real
+                    collection; a wider one would nudge them once more. */}
+                {tab.counted && (
+                  <Badge
+                    variant="secondary"
+                    aria-hidden={collectionStats.uniqueCards === 0}
+                    className={`ml-1.5 hidden min-w-[3.25rem] justify-center text-xs sm:inline-flex ${
+                      collectionStats.uniqueCards === 0 ? 'invisible' : ''
+                    }`}
+                  >
+                    {collectionStats.uniqueCards || 0}
                   </Badge>
-                ) : null}
+                )}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -508,47 +443,10 @@ export default function Collection() {
             value="analytics"
             className="m-0 px-3 py-4 sm:px-4 sm:py-6 md:px-6"
           >
-            <div className="space-y-6">
-              <AnalyticsHeader
-                totalCards={collectionStats.totalCards}
-                totalValue={collectionStats.totalValue}
-                uniqueCards={collectionStats.uniqueCards}
-                topRarityCount={collectionStats.rarityDistribution?.mythic || 0}
-              />
-
-              <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-                <PriceHistoryChart collectionCards={cards} />
-                <CollectionValueTrends collectionCards={cards} />
-              </div>
-
-              <CollectionDeckRecommendations collectionCards={cards} />
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                <TCGPlayerPriceSync />
-                {user && <CollectionExport userId={user.id} />}
-                {user && <CollectionBackupRestore userId={user.id} />}
-              </div>
-
-              <EnhancedPriceAlerts />
-
-              <InsuranceReport
-                collectionValue={collectionStats.totalValue}
-                cardCount={collectionStats.totalCards}
-                topCards={collectionStats.topValueCards.map(item => ({
-                  name: item.card_name,
-                  setCode: item.set_code,
-                  quantity: item.quantity,
-                  foil: item.foil,
-                  condition: item.condition,
-                  // The computed value, not the stale `price_usd` column the
-                  // report used to print beside a value-ordered list.
-                  value: item.calculatedValue,
-                }))}
-                unpricedCards={unpricedCards}
-              />
-
-              <CollectionAnalytics stats={collectionStats} loading={loading} />
-            </div>
+            {/* One component, one valuation, one set of charts. Everything it
+                shows comes from the rows already loaded above, so opening this
+                tab issues no query against the collection at all. */}
+            <CollectionAnalyticsView cards={cards} loading={loading} />
           </TabsContent>
 
           {/* Add cards */}

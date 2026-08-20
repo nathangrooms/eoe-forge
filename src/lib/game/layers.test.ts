@@ -1132,3 +1132,145 @@ test('a characteristic-defining ability fills in an unreadable printed P/T', () 
   // 7a sets 4/5, then the counter applies in 7d.
   assert.equal(pt(result, 'goyf'), '5/6');
 });
+
+/* ------------------------------------------------------------------ *
+ * A life total is a number the layer system can now read
+ * ------------------------------------------------------------------ */
+
+/**
+ * Death's Shadow — "This creature gets -X/-X, where X is your life total."
+ *
+ * A one-mana 13/13 whose entire cost is this line. The engine had no way to
+ * express a life total, so the line compiled to nothing, nothing modified the
+ * P/T, and the card was a genuine one-mana 13/13. That is the shape of the
+ * whole class: a drawback nobody applied is not a missing feature, it is a
+ * different and much stronger card.
+ */
+function deathsShadow(timestamp: number): ContinuousEffect {
+  return {
+    id: 'shadow-static',
+    timestamp,
+    sourceId: 'shadow',
+    note: "Death's Shadow",
+    affects: { kind: 'self' },
+    provides: ['modify-pt'],
+    parts: [
+      {
+        sublayer: '7c',
+        modification: {
+          kind: 'modify-pt',
+          power: { kind: 'negate', of: { kind: 'lifeTotal', of: 'you' } },
+          toughness: { kind: 'negate', of: { kind: 'lifeTotal', of: 'you' } },
+        },
+      },
+    ],
+  };
+}
+
+test("a life total sizes Death's Shadow, and at 20 life it is a -7/-7", () => {
+  const result = computeLayers({
+    objects: [creature('shadow', 13, 13, { controller: 'p1' })],
+    effects: [deathsShadow(1)],
+    life: { p1: 20, p2: 20 },
+  });
+
+  assert.equal(pt(result, 'shadow'), '-7/-7');
+  assert.equal(result.unsupported.length, 0);
+});
+
+test('the same card at 1 life is the 12/12 the card is actually played for', () => {
+  const result = computeLayers({
+    objects: [creature('shadow', 13, 13)],
+    effects: [deathsShadow(1)],
+    life: { p1: 1, p2: 20 },
+  });
+
+  assert.equal(pt(result, 'shadow'), '12/12');
+});
+
+/**
+ * The reason this is a `DynamicValue` and not a number worked out before the
+ * pipeline ran. "Your" is the controller of the effect, control changes in
+ * layer 2, and layer 7 is where the value is read — so a stolen Death's Shadow
+ * is sized by the life total of the player who now controls it.
+ */
+test('"your life total" follows control, because control changes in layer 2', () => {
+  const objects = [creature('shadow', 13, 13, { controller: 'p1' })];
+  const steal = controlEffect({
+    id: 'steal',
+    timestamp: 1,
+    affects: { kind: 'ids', ids: ['shadow'] },
+    controller: 'p2',
+  });
+
+  const before = computeLayers({ objects, effects: [deathsShadow(2)], life: { p1: 20, p2: 4 } });
+  assert.equal(pt(before, 'shadow'), '-7/-7');
+
+  const after = computeLayers({
+    objects,
+    effects: [steal, deathsShadow(2)],
+    life: { p1: 20, p2: 4 },
+  });
+  // p2 controls it now, p2 is at 4, so 13 - 4.
+  assert.equal(after.objects.shadow.controller, 'p2');
+  assert.equal(pt(after, 'shadow'), '9/9');
+});
+
+test('a missing life table is reported, never treated as a life total of zero', () => {
+  const result = computeLayers({
+    objects: [creature('shadow', 13, 13)],
+    effects: [deathsShadow(1)],
+    // no `life`
+  });
+
+  // The number is still 13/13, which is the wrong card — and that is exactly
+  // why the note has to exist. A caller reading `unsupported` can say so;
+  // nothing about a silent 13/13 is distinguishable from a working card.
+  assert.equal(pt(result, 'shadow'), '13/13');
+  assert.equal(result.unsupported.length, 2);
+  assert.match(result.unsupported[0].detail, /no life total was supplied/);
+  assert.equal(result.unsupported[0].sublayer, '7c');
+});
+
+test('a named seat reads that seat\'s life, not the controller\'s', () => {
+  const result = computeLayers({
+    objects: [creature('champion', 0, 0)],
+    effects: [
+      setBasePTEffect({
+        id: 'champion-cda',
+        timestamp: 1,
+        sublayer: '7a',
+        affects: { kind: 'self' },
+        sourceId: 'champion',
+        power: { kind: 'lifeTotal', of: 'p2' },
+        toughness: { kind: 'lifeTotal', of: 'p2' },
+      }),
+    ],
+    life: { p1: 20, p2: 7 },
+  });
+
+  assert.equal(pt(result, 'champion'), '7/7');
+});
+
+test('life totals compose with sum and negate like every other dynamic value', () => {
+  const result = computeLayers({
+    objects: [creature('horror', 0, 0)],
+    effects: [
+      setBasePTEffect({
+        id: 'horror-cda',
+        timestamp: 1,
+        sublayer: '7a',
+        affects: { kind: 'self' },
+        sourceId: 'horror',
+        power: {
+          kind: 'sum',
+          of: [{ kind: 'lifeTotal', of: 'you' }, { kind: 'negate', of: { kind: 'lifeTotal', of: 'p2' } }],
+        },
+        toughness: 1,
+      }),
+    ],
+    life: { p1: 18, p2: 5 },
+  });
+
+  assert.equal(pt(result, 'horror'), '13/1');
+});

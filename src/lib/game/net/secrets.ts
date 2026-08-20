@@ -71,15 +71,44 @@
  * table when someone's phone sleeps mid-protocol. For a 100-card singleton
  * format with four players and tutors that shuffle repeatedly, that is a bad
  * trade. Rejected deliberately, not overlooked.
+ *
+ * ---------------------------------------------------------------------------
+ * Amendment, 20 Aug 2026: online tables have no trusted dealer at all
+ * ---------------------------------------------------------------------------
+ * The paragraph above assumes one dealer per table, running server-side. That
+ * is still the right shape for ranked play. It is NOT what online tables ship
+ * with, because the only place a dealer could run today is a browser, and a
+ * dealer in one player's browser is one player holding four players' libraries.
+ *
+ * So an online table has one dealer per seat, built by `dealOwnSeat`. Each
+ * holds its own deck and its own committed seed and nothing else, exactly like
+ * four people each shuffling their own deck at a kitchen table. Nobody's hidden
+ * cards exist on anybody else's machine, so there is nothing there to leak,
+ * and no hidden card is ever put on the wire at all.
+ *
+ * What that gives up, stated plainly: a seat can look at its own library. The
+ * commitment is what makes that catchable rather than free — the shuffle is
+ * fixed before the first draw and the seed proves it afterwards — but the
+ * disclosure step is not built yet, so today it is catchable in principle and
+ * not in practice. For friends testing a game in development that is the right
+ * trade. For ranked play it is not, and the server-side dealer above is the
+ * thing that replaces it.
  */
 
 import { addCard, createGame, shuffleWithRng, type NewGamePlayerConfig } from '../rules.ts';
 import type { GameState, InstanceId, PlayerId, RngState, Zone } from '../types.ts';
 import { digestString } from './digest.ts';
+import { HIDDEN_ZONES } from './identity.ts';
 import type { CardIdentity, LogEntry, ParticipantId, Reveal } from './protocol.ts';
 
-/** Zones whose contents this design refuses to put on the wire. */
-const HIDDEN: ReadonlySet<Zone> = new Set<Zone>(['library', 'hand']);
+/**
+ * Zones whose contents this design refuses to put on the wire.
+ *
+ * Declared in `identity.ts` and imported rather than written out twice. A zone
+ * that was secret to one of these two files and public to the other is the kind
+ * of disagreement that leaks a hand and reads as nothing in review.
+ */
+const HIDDEN = HIDDEN_ZONES;
 
 /* -------------------------------------------------------------------------- */
 /* The seam                                                                   */
@@ -127,6 +156,46 @@ export interface LocalSecretDealerOptions {
   identities: Record<InstanceId, CardIdentity>;
   /** Seat -> the connection allowed to learn that seat's private cards. */
   participantBySeat: Record<PlayerId, ParticipantId>;
+  /**
+   * The seats this dealer is responsible for. Absent means all of them.
+   *
+   * ---------------------------------------------------------------------------
+   * Why one dealer per seat is better than one dealer per table
+   * ---------------------------------------------------------------------------
+   * A single dealer has to know every deck, and whatever knows every deck can
+   * see every hand. In this codebase that dealer would run in a browser, which
+   * means one player's machine holding four players' libraries. Naming that
+   * "trusted" does not make it true.
+   *
+   * So online tables give every seat its own dealer, holding its own deck and
+   * its own shuffle seed, exactly as a person at a table shuffles their own
+   * deck and nobody else's. Nothing about another seat's hidden cards is ever
+   * on that machine to leak. What a seat can still do is look at its own
+   * library, which is why `commitment()` is published before the first draw:
+   * the shuffle is fixed in advance and the seed proves it afterwards.
+   *
+   * The restriction has to cover shuffles as well as reveals. Without it, one
+   * seat's dealer would re-permute another seat's library on a `SHUFFLE` it
+   * holds no identities for, writing `undefined` over the slots and advancing
+   * its own RNG for a shuffle that was never its business.
+   */
+  seats?: readonly PlayerId[];
+  /**
+   * RNG to continue from, when the opening shuffle has already been dealt.
+   *
+   * A per-seat deal shuffles the deck before the first frame, so the dealer's
+   * next shuffle must carry on from where that left off rather than repeating
+   * it. Absent, the RNG starts at `seed`.
+   */
+  rng?: RngState;
+  /**
+   * What the commitment is scoped to. Defaults to the table id.
+   *
+   * With one dealer per seat, two seats that happened to pick the same seed
+   * would publish the same commitment, which is a tell about a secret. Scoping
+   * it to the seat as well removes that.
+   */
+  commitmentScope?: string;
 }
 
 /**
@@ -147,17 +216,27 @@ export class LocalSecretDealer implements SecretDealer {
   private readonly publicly = new Set<InstanceId>();
   /** Instance -> participants that have been told, so we do not resend. */
   private readonly told = new Map<InstanceId, Set<ParticipantId>>();
+  /** Seats this dealer answers for. Null means every seat at the table. */
+  private readonly seats: ReadonlySet<PlayerId> | null;
+  private readonly commitmentScope: string;
 
   constructor(options: LocalSecretDealerOptions) {
     this.tableId = options.tableId;
     this.seed = options.seed;
     this.identities = { ...options.identities };
     this.participantBySeat = { ...options.participantBySeat };
-    this.rng = { seed: options.seed };
+    this.rng = options.rng ?? { seed: options.seed };
+    this.seats = options.seats ? new Set(options.seats) : null;
+    this.commitmentScope = options.commitmentScope ?? options.tableId;
+  }
+
+  /** True when this dealer holds the deal for that seat. */
+  private deals(playerId: PlayerId): boolean {
+    return this.seats === null || this.seats.has(playerId);
   }
 
   commitment(): string {
-    return digestString(`${this.tableId}:${this.seed}`);
+    return digestString(`${this.commitmentScope}:${this.seed}`);
   }
 
   disclose(): { seed: number; identities: Record<InstanceId, CardIdentity> } {
@@ -171,6 +250,7 @@ export class LocalSecretDealer implements SecretDealer {
     //    library, and everything anyone knew about those slots becomes false.
     for (const action of entry.actions) {
       if (action.type !== 'SHUFFLE') continue;
+      if (!this.deals(action.playerId)) continue;
       const forgotten = this.reshuffleLibrary(after, action.playerId);
       if (forgotten.length > 0) {
         reveals.push({ tableId: this.tableId, to: '*', cards: {}, forget: forgotten, public: true });
@@ -188,6 +268,8 @@ export class LocalSecretDealer implements SecretDealer {
         // library -> hand is hidden-to-hidden but still a private reveal.
         if (!(before.cards[instanceId]?.zone === 'library' && nowZone === 'hand')) continue;
       }
+
+      if (!this.deals(after.cards[instanceId].ownerId)) continue;
 
       const identity = this.identities[instanceId];
       if (!identity) continue;
@@ -445,4 +527,180 @@ export function viewCard(
   instanceId: InstanceId
 ): CardIdentity | null {
   return knowledge[instanceId] ?? null;
+}
+
+/* -------------------------------------------------------------------------- */
+/* One table, four dealers                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A seat as everybody at the table can see it.
+ *
+ * Every field here is something a person sitting opposite would know: who is
+ * in the seat, what their commander is, and how many cards are in their
+ * library. What those cards ARE is not in this shape and never travels.
+ */
+export interface SharedSeat {
+  /** The seat id inside `GameState`. Derived from the seat number, never chosen. */
+  playerId: PlayerId;
+  playerName: string;
+  /** How many anonymous slots to put in that library. */
+  librarySize: number;
+  /** Face up from the first frame, as they are on a real table. */
+  commanders: CardIdentity[];
+}
+
+export interface SharedTableOptions {
+  tableId: string;
+  /** In seat order. Every client must build this list the same way. */
+  seats: readonly SharedSeat[];
+  format?: GameState['format'];
+  /**
+   * Permutes anonymous slots only, so publishing it reveals nothing. It is the
+   * table's seed, not anybody's deal.
+   */
+  publicSeed?: number;
+  now?: number;
+}
+
+/**
+ * The state every client at an online table holds, built from public
+ * information alone.
+ *
+ * This is the half of `dealTable` that can be computed without knowing a single
+ * card. Four clients running it over the same seat list produce the same object
+ * byte for byte, which is what lets the convergence check in `digest.ts` hash
+ * everything rather than some redacted projection.
+ *
+ * Instance ids are positional — `p2-c0` is that seat's first commander, `p2-c1`
+ * its first library slot — so they can be derived rather than agreed. That
+ * matters more than it looks: it is what lets a seat rebuild its own private
+ * mapping after a reload, from its deck and its seed and nothing else.
+ */
+export function buildSharedTable(options: SharedTableOptions): GameState {
+  const now = options.now ?? 0;
+  const format = options.format ?? 'commander';
+
+  const playerConfigs: NewGamePlayerConfig[] = options.seats.map(seat => ({
+    id: seat.playerId,
+    name: seat.playerName,
+    commanders: seat.commanders.map((commander, ci) => ({
+      id: `${seat.playerId}-cmd${ci + 1}`,
+      name: commander.name,
+      instanceId: `${seat.playerId}-c${ci}`,
+      imageUrl: commander.imageUrl,
+    })),
+  }));
+
+  let state = createGame({
+    id: options.tableId,
+    mode: 'full',
+    format,
+    players: playerConfigs,
+    seed: options.publicSeed ?? 1,
+    now,
+  });
+
+  for (const seat of options.seats) {
+    let cursor = 0;
+    for (const commander of seat.commanders) {
+      state = addCard(
+        state,
+        {
+          ...commander,
+          colorIdentity: commander.colorIdentity as CardIdentity['colorIdentity'] as never,
+          instanceId: `${seat.playerId}-c${cursor}`,
+          ownerId: seat.playerId,
+          isCommander: true,
+        } as never,
+        'command' as Zone
+      );
+      cursor += 1;
+    }
+
+    for (let i = 0; i < seat.librarySize; i += 1) {
+      state = addCard(
+        state,
+        {
+          instanceId: `${seat.playerId}-c${cursor}`,
+          // An empty `cardId` is the marker for "this slot has no identity yet".
+          // `installIdentities` refuses to overwrite a non-empty one, so this is
+          // also what stops a second reveal changing a card already on the table.
+          cardId: '',
+          name: 'Card',
+          ownerId: seat.playerId,
+          faceDown: true,
+        },
+        'library' as Zone
+      );
+      cursor += 1;
+    }
+  }
+
+  return state;
+}
+
+export interface OwnSeatDeal {
+  /** Slot -> card, for this seat only. Never leaves this machine. */
+  identities: Record<InstanceId, CardIdentity>;
+  /** Restricted to this seat: it deals nobody else's cards and shuffles nobody else's library. */
+  dealer: SecretDealer;
+  /** Published before the first draw so the shuffle can be audited afterwards. */
+  commitment: string;
+}
+
+export interface OwnSeatDealOptions {
+  tableId: string;
+  playerId: PlayerId;
+  participantId: ParticipantId;
+  /** This seat's secret. Generated here, stored where only this user can read it. */
+  secretSeed: number;
+  /** The 99. Order as given is irrelevant; it is shuffled by the secret seed. */
+  deck: readonly CardIdentity[];
+  commanders: readonly CardIdentity[];
+}
+
+/**
+ * Shuffle your own deck and keep the answer.
+ *
+ * This is the whole of a seat's private state at an online table, and the
+ * reason no client ever holds another seat's hidden cards: there is no dealer
+ * anywhere that knows more than one deck.
+ *
+ * The opening shuffle happens here rather than as a `SHUFFLE` action, because
+ * the slots in the shared state are anonymous and permuting anonymous slots
+ * achieves nothing. The permutation that matters is this one, over identities,
+ * driven by a seed that was committed to before the game started.
+ *
+ * Deterministic in `(deck, secretSeed)`, which is what makes a rejoin possible:
+ * the same two inputs rebuild the same mapping, and folding the log rebuilds
+ * everything the game did to it.
+ */
+export function dealOwnSeat(options: OwnSeatDealOptions): OwnSeatDeal {
+  const shuffled = shuffleWithRng(options.deck, { seed: options.secretSeed });
+
+  const identities: Record<InstanceId, CardIdentity> = {};
+  let cursor = 0;
+  for (const commander of options.commanders) {
+    identities[`${options.playerId}-c${cursor}`] = commander;
+    cursor += 1;
+  }
+  for (const card of shuffled.items) {
+    identities[`${options.playerId}-c${cursor}`] = card;
+    cursor += 1;
+  }
+
+  const dealer = new LocalSecretDealer({
+    tableId: options.tableId,
+    seed: options.secretSeed,
+    // Carry on from the opening shuffle rather than repeating it: a tutor that
+    // shuffled back to the same order would be a very strange card.
+    rng: shuffled.rng,
+    identities,
+    participantBySeat: { [options.playerId]: options.participantId },
+    seats: [options.playerId],
+    commitmentScope: `${options.tableId}:${options.playerId}`,
+  });
+
+  return { identities, dealer, commitment: dealer.commitment() };
 }

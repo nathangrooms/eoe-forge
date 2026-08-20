@@ -64,6 +64,7 @@ import {
   hasActivatedAbility,
   judgeResolution,
   type CardVerdict,
+  type Severity,
   type Verdict,
 } from './silent.ts';
 
@@ -118,6 +119,12 @@ export interface CardSighting {
   verdicts: Record<string, number>;
   /** The worst verdict seen, which is what the row is filed under. */
   worst: Verdict;
+  /** The worst severity seen. `high` means the card plays stronger than printed. */
+  severity: Severity;
+  /** Drawback buckets on this card that nothing in the engine applies. */
+  drawbacks: string[];
+  /** Printed power/toughness, for the "stronger than printed" table. */
+  printedBody?: string;
   why: string;
   mechanic: string;
   engineLevel: string;
@@ -343,6 +350,8 @@ export interface RunAnalysis {
   mana: ManaCheck[];
   cards: CardSighting[];
   verdictTotals: Record<string, number>;
+  /** Resolutions by severity, so a report can lead with what costs the most. */
+  severityTotals: Record<string, number>;
   /** Split by what was being judged: a permanent arriving, or a spell resolving. */
   momentTotals: Record<string, Record<string, number>>;
   mechanicTotals: Record<string, { silent: number; cards: number }>;
@@ -355,7 +364,17 @@ export interface RunAnalysis {
   distinctCardsResolved: number;
 }
 
+/**
+ * Which verdict a card is filed under when it produced several.
+ *
+ * `silent-drawback` sits above everything, including `dead-on-arrival`. A card
+ * that died on arrival is visibly broken and costs its controller a card; a
+ * card playing without its drawback is invisibly broken and costs the OTHER
+ * seat the game. Ranking them the other way round is what buried a one-mana
+ * 13/13 under a list of creatures that did not draw a card.
+ */
 const VERDICT_RANK: Record<Verdict, number> = {
+  'silent-drawback': 8,
   'dead-on-arrival': 7,
   'text-not-loaded': 6,
   'silent-untold': 5,
@@ -392,6 +411,7 @@ export function foldAnalyses(runId: string, games: readonly GameAnalysis[]): Run
     mana: [],
     cards: [],
     verdictTotals: {},
+    severityTotals: {},
     momentTotals: {},
     mechanicTotals: {},
     actionsBuilt: {},
@@ -438,6 +458,7 @@ export function foldAnalyses(runId: string, games: readonly GameAnalysis[]): Run
 
     for (const verdict of game.verdicts) {
       run.verdictTotals[verdict.verdict] = (run.verdictTotals[verdict.verdict] ?? 0) + 1;
+      run.severityTotals[verdict.severity] = (run.severityTotals[verdict.severity] ?? 0) + 1;
       const moment = (run.momentTotals[verdict.moment] ??= {});
       moment[verdict.verdict] = (moment[verdict.verdict] ?? 0) + 1;
 
@@ -449,6 +470,9 @@ export function foldAnalyses(runId: string, games: readonly GameAnalysis[]): Run
           silent: 0,
           verdicts: {},
           worst: verdict.verdict,
+          severity: verdict.severity,
+          drawbacks: [...new Set(verdict.drawbacks.map(d => d.label))],
+          printedBody: verdict.printedBody,
           why: verdict.why,
           mechanic: verdict.mechanic,
           engineLevel: verdict.engineLevel,
@@ -467,6 +491,9 @@ export function foldAnalyses(runId: string, games: readonly GameAnalysis[]): Run
       if (VERDICT_RANK[verdict.verdict] >= 3) sighting.silent += 1;
       if (VERDICT_RANK[verdict.verdict] > VERDICT_RANK[sighting.worst]) {
         sighting.worst = verdict.verdict;
+        sighting.severity = verdict.severity;
+        sighting.drawbacks = [...new Set(verdict.drawbacks.map(d => d.label))];
+        sighting.printedBody = verdict.printedBody;
         sighting.why = verdict.why;
         sighting.mechanic = verdict.mechanic;
         sighting.engineLevel = verdict.engineLevel;
@@ -484,9 +511,19 @@ export function foldAnalyses(runId: string, games: readonly GameAnalysis[]): Run
   run.distinctCardsResolved = cards.size;
   run.activatedAbilityCards = activated.size;
 
+  // High severity leads, then how often a player meets it. Sorting on
+  // frequency alone is what put a one-mana 13/13 below a creature that failed
+  // to scry: a card seen twice that cannot be answered outranks a card seen
+  // eight times that wasted its controller's turn.
+  const severityRank: Record<string, number> = { high: 2, normal: 1, none: 0 };
   run.cards = [...cards.values()]
     .filter(card => card.silent > 0)
-    .sort((a, b) => b.silent - a.silent || a.name.localeCompare(b.name));
+    .sort(
+      (a, b) =>
+        (severityRank[b.severity] ?? 0) - (severityRank[a.severity] ?? 0) ||
+        b.silent - a.silent ||
+        a.name.localeCompare(b.name)
+    );
 
   for (const card of run.cards) {
     const bucket = run.mechanicTotals[card.mechanic] ?? { silent: 0, cards: 0 };
@@ -597,8 +634,42 @@ export function writeReport(run: RunAnalysis, games: readonly GameAnalysis[]): s
     (run.verdictTotals['correctly-quiet-conditional'] ?? 0);
   const deadOnArrival = run.verdictTotals['dead-on-arrival'] ?? 0;
   const notLoaded = run.verdictTotals['text-not-loaded'] ?? 0;
-  const resolutions = untold + marked + noted + acted + quiet + deadOnArrival + notLoaded;
-  const didNothing = untold + marked + noted + deadOnArrival + notLoaded;
+  const drawback = run.verdictTotals['silent-drawback'] ?? 0;
+  const resolutions =
+    untold + marked + noted + acted + quiet + deadOnArrival + notLoaded + drawback;
+  const didNothing = untold + marked + noted + deadOnArrival + notLoaded + drawback;
+
+  /* Cards playing stronger than they are printed, first, because they are the
+     only rows on this page that cost the OTHER seat the game. */
+  const overpowered = run.cards.filter(card => card.severity === 'high');
+  if (overpowered.length > 0) {
+    w(`### Cards playing STRONGER than they are printed`);
+    w();
+    w(
+      `${drawback.toLocaleString()} resolutions across ` +
+        `${overpowered.length} distinct card${overpowered.length === 1 ? '' : 's'} carried a ` +
+        `drawback that nothing in the engine can apply. These are not cards that did nothing. ` +
+        `They are cards whose printed body was priced around a penalty that never arrived, so ` +
+        `the card on the table is stronger than the card that was printed, and the other seat ` +
+        `has no answer to it.`
+    );
+    w();
+    w(`| card | printed | resolutions | drawback nothing applies | evidence |`);
+    w(`|---|---|---|---|---|`);
+    for (const card of overpowered.slice(0, 25)) {
+      w(
+        `| ${card.name} | ${card.printedBody ?? ''} | ${card.silent} | ` +
+          `${card.drawbacks.join(', ')} | ${card.confidence === 'certain' ? 'compiler refused the clause' : 'resolve-by-hand marker'} |`
+      );
+    }
+    w();
+    for (const card of overpowered.slice(0, 5)) {
+      w(`**${card.name}** — ${card.why}`);
+      w();
+      for (const text of card.dueText.slice(0, 3)) w(`> ${text}`);
+      w();
+    }
+  }
 
   w(`### And the cards themselves`);
   w();
@@ -664,6 +735,12 @@ export function writeReport(run: RunAnalysis, games: readonly GameAnalysis[]): s
       `player watching the log rather than the card sees nothing at all.`
   );
   w(`- \`silent-untold\` — did nothing and said nothing. This is the bug.`);
+  w(
+    `- \`silent-drawback\` — the card carries a PENALTY nothing in the engine applies, so it ` +
+      `plays stronger than it is printed. This is the worst row on the page, and it is not the ` +
+      `same kind of thing as the ones above it: those cost their controller a card, this one ` +
+      `costs the other seat the game.`
+  );
   w(`- \`text-not-loaded\` — the app never had the card's rules text at all.`);
   w(`- \`dead-on-arrival\` — a permanent was played and was not on the battlefield afterwards.`);
   w();
@@ -699,12 +776,12 @@ export function writeReport(run: RunAnalysis, games: readonly GameAnalysis[]): s
     w();
     w(`${run.cards.length} distinct cards resolved silently at least once. The top ${top.length}:`);
     w();
-    w(`| # | card | silent | of | verdict | mechanic | engine's own claim | confidence |`);
-    w(`|---|---|---|---|---|---|---|---|`);
+    w(`| # | card | severity | silent | of | verdict | mechanic | engine's own claim | confidence |`);
+    w(`|---|---|---|---|---|---|---|---|---|`);
     top.forEach((card, i) => {
       w(
-        `| ${i + 1} | ${card.name} | ${card.silent} | ${card.resolutions} | ${card.worst} | ` +
-          `${card.mechanic} | ${card.engineLevel} | ${card.confidence} |`
+        `| ${i + 1} | ${card.name} | ${card.severity} | ${card.silent} | ${card.resolutions} | ` +
+          `${card.worst} | ${card.mechanic} | ${card.engineLevel} | ${card.confidence} |`
       );
     });
     w();

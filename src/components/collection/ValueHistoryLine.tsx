@@ -10,7 +10,7 @@ import {
 import { formatPrice } from '@/components/collection/browser/types';
 
 /**
- * The drawn value line, split out from `PriceHistoryChart` so the charting
+ * The drawn value line, split out from `analytics/ValueOverTime` so the charting
  * library is not part of the collection page's first load.
  *
  * Same reason and same shape as `CardPriceChart` on the card page: recharts is
@@ -21,12 +21,11 @@ import { formatPrice } from '@/components/collection/browser/types';
  * pages App.tsx warms up on idle, so every signed-in visit was fetching
  * recharts in the background whatever page they were actually on.
  *
- * The panel already reserves a 300px box and shows a 300px skeleton while the
- * history query runs. The same skeleton stands in while this arrives, so
- * nothing moves when it lands.
+ * The host reserves the plot box before the data exists, and shows the same
+ * skeleton in that box while this arrives, so nothing moves when it lands.
  *
  * The props are the finished series. All the reading and the change arithmetic
- * stay in `PriceHistoryChart`: this file draws, and nothing else.
+ * stay in `ValueOverTime`: this file draws, and nothing else.
  */
 
 export interface ValueHistoryPoint {

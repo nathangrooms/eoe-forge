@@ -15,9 +15,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
-import { CardGrid, CardImage, PrintingPicker } from '@/components/cards';
+import { CardGrid, CardImage } from '@/components/cards';
 import { cn } from '@/lib/utils';
 import {
   MAX_LINES,
@@ -30,6 +29,7 @@ import {
   type ResolvedEntry,
 } from '@/lib/decklist';
 import { useCardLists, type ListKind } from '@/lib/shopping';
+import { ChangeArtPanel } from './ChangeArtPanel';
 
 /**
  * Pasting a list of cards.
@@ -345,34 +345,23 @@ export function PasteCardList({ kind = 'proxy', onAdded, className }: PasteCardL
         </div>
       )}
 
-      <Sheet open={picking !== null} onOpenChange={open => !open && setPicking(null)}>
-        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-3xl">
-          <SheetTitle className="sr-only">Choose which version to print</SheetTitle>
-          {picking && (
-            <div className="space-y-4">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">{picking.card?.name}</h2>
-                <p className="text-sm text-muted-foreground">
-                  Pick the version you want on the sheet. This is the art that gets printed.
-                </p>
-              </div>
-              <PrintingPicker
-                bare
-                oracleId={picking.card?.oracle_id}
-                current={picking.card}
-                selectedId={picking.card?.id}
-                initial={0}
-                heading="Every version we hold"
-                note={null}
-                onSelect={printing => {
-                  patch(picking.key, { card: printing });
-                  setPicking(null);
-                }}
-              />
-            </div>
-          )}
-        </SheetContent>
-      </Sheet>
+      {/*
+        The same panel the proxy list uses, told not to talk about saving.
+        Nothing on this screen is saved yet: the whole point of the review step
+        is that the list is committed in one statement at the end. So it closes
+        on the pick and says nothing about writing, and the proxy list's copy of
+        it stays open and says a great deal.
+      */}
+      <ChangeArtPanel
+        open={picking !== null}
+        onOpenChange={open => !open && setPicking(null)}
+        cardName={picking?.card?.name ?? ''}
+        oracleId={picking?.card?.oracle_id ?? null}
+        current={picking?.card}
+        note="Pick the version you want on the sheet. This is the art that gets printed."
+        closeOnPick
+        onPick={printing => picking && patch(picking.key, { card: printing })}
+      />
     </section>
   );
 }

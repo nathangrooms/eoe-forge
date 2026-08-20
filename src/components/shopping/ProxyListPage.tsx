@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  AlertCircle,
+  Check,
   ClipboardPaste,
   Heart,
+  Images,
   Loader2,
   Minus,
   Plus,
   Printer,
+  Share2,
   ShoppingCart,
   Trash2,
 } from 'lucide-react';
@@ -35,17 +39,22 @@ import {
   type ProxyQuality,
 } from '@/components/deck-builder/proxy-print';
 import { ProxySheet } from '@/components/deck-builder/ProxySheet';
+import { type WriteCard } from '@/lib/decklist';
 import {
   countProxyCopies,
   proxyCandidatesFromShopping,
   proxyCandidatesFromWishlist,
   showListItemCount,
   useCardLists,
+  type CardListItem,
   type ProxyCandidate,
 } from '@/lib/shopping';
+import { ChangeArtPanel } from './ChangeArtPanel';
 import { ListCardBadges } from './ListCardBadges';
+import { ProxyExportPanel } from './ProxyExportPanel';
 import { ListToProxiesPanel } from './ListToProxiesPanel';
 import { PasteCardList } from './PasteCardList';
+import { useProxyArt, type ProxyArt, type RowArtState } from './useProxyArt';
 
 /**
  * `/proxies` — a proxy list of your own, printed with real card art.
@@ -84,6 +93,9 @@ export default function ProxyListPage() {
 
   const [cardWidth, setCardWidth] = useCardSize('proxies', 170);
   const [pasting, setPasting] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  /** The row whose art is being changed, by list row id. */
+  const [changingArt, setChangingArt] = useState<string | null>(null);
   const [bringing, setBringing] = useState<null | 'shopping' | 'wishlist'>(null);
   const [confirmingClear, setConfirmingClear] = useState(false);
   const [clearing, setClearing] = useState(false);
@@ -100,19 +112,69 @@ export default function ProxyListPage() {
   }, [load]);
 
   /**
+   * Which printing each row prints, and how many others it could have picked.
+   *
+   * Counting the alternatives is one request for the whole list. Picking one
+   * writes itself, after a short pause, and says so on the card and at the top
+   * of the list. See `useProxyArt`.
+   */
+  const art = useProxyArt(proxies);
+
+  /** The printing a row prints right now: this session's pick, or the saved one. */
+  const printingFor = useCallback(
+    (item: CardListItem) => art.chosen[item.id] ?? item.card,
+    [art.chosen]
+  );
+
+  /**
    * The list rows carry their `cards` row already, joined when the list was
    * read, and that row holds `image_uris` and `faces`. So unlike a deck card,
    * which the deck store strips down to four image sizes and no faces, a proxy
    * list entry can answer both questions the sheet asks without a second fetch.
+   *
+   * A printing picked in this session takes the joined row's place, so the
+   * sheet below shows the new art the instant it is chosen rather than after
+   * the write lands. The name stays the row's own: a face matched row is filed
+   * under the half the player typed.
    */
   const printable = useMemo(
     () =>
       proxies.map(item => ({
-        ...(item.card ?? { name: item.card_name }),
+        ...(printingFor(item) ?? { name: item.card_name }),
         name: item.card_name,
         quantity: item.quantity,
       })),
-    [proxies]
+    [proxies, printingFor]
+  );
+
+  /**
+   * The same list, written down instead of drawn.
+   *
+   * It reads the SAME `printingFor` the sheet reads, so an export taken a
+   * second after picking new art names the art that is on screen rather than
+   * the one that was there before. The set code and collector number are the
+   * whole reason this exists: a proxy list is a list of pictures, and a column
+   * of bare names is a different list.
+   *
+   * The name is the catalogue's, not the row's. They differ only when a row was
+   * matched on one half of a double faced card, and the catalogue name is the
+   * one a lookup somewhere else will find. A row the catalogue has nothing for
+   * keeps the name it was saved under, which is all we have.
+   */
+  const exportCards = useMemo<WriteCard[]>(
+    () =>
+      proxies.map(item => {
+        const printing = printingFor(item);
+        return {
+          name: printing?.name ?? item.card_name,
+          quantity: Math.max(1, item.quantity),
+          setCode: printing?.set_code ?? null,
+          setName: printing?.set_name ?? null,
+          collectorNumber: printing?.collector_number ?? null,
+          finish: item.finish,
+        };
+      }),
+    [proxies, printingFor]
   );
 
   const slots = useMemo(() => buildProxySlots(printable, quality), [printable, quality]);
@@ -161,6 +223,13 @@ export default function ProxyListPage() {
 
   const bringingList: ProxyCandidate[] =
     bringing === 'shopping' ? fromShopping : bringing === 'wishlist' ? fromWishlist : [];
+
+  /* Looked up fresh rather than held in state, so the panel is reading the same
+     row the grid behind it is. A row that gets removed while its art panel is
+     open closes the panel instead of describing a card that has gone. */
+  const changing = changingArt ? proxies.find(item => item.id === changingArt) ?? null : null;
+  const changingOracle = changing ? changing.oracle_id ?? changing.card?.oracle_id ?? null : null;
+  const changingVersions = changingOracle ? art.counts.get(changingOracle) ?? 0 : 0;
 
   const clearAll = useCallback(async () => {
     setClearing(true);
@@ -231,6 +300,15 @@ export default function ProxyListPage() {
             >
               <ClipboardPaste className="h-4 w-4" />
               {pasting ? 'Hide the paste box' : 'Paste a list'}
+            </Button>
+          )}
+          {/* The way back out. A list you can paste in and never get out of is
+              a list held hostage, and the versions chosen here are worth more
+              than the names: they are the only record of which art prints. */}
+          {proxies.length > 0 && (
+            <Button variant="secondary" size="sm" className="gap-2" onClick={() => setExporting(true)}>
+              <Share2 className="h-4 w-4" />
+              Export
             </Button>
           )}
           {/* The last thing read before paper is spent says how much paper.
@@ -401,9 +479,18 @@ export default function ProxyListPage() {
             </div>
           </div>
 
+          <ArtSaveLine art={art} />
+
           <CardGrid width={cardWidth}>
             {proxies.map(item => {
-              const href = cardDetailPath({ id: item.card_id, name: item.card_name }) ?? '#';
+              const printing = printingFor(item);
+              const href = cardDetailPath({
+                id: printing?.id ?? item.card_id,
+                name: item.card_name,
+              }) ?? '#';
+              const oracleId = item.oracle_id ?? item.card?.oracle_id ?? null;
+              const versions = oracleId ? art.counts.get(oracleId) ?? 0 : 0;
+              const rowState = art.rowState[item.id];
               return (
                 <div key={item.id} className="flex min-w-0 flex-col gap-2">
                   <Link
@@ -411,13 +498,44 @@ export default function ProxyListPage() {
                     aria-label={`Open ${item.card_name}`}
                     className="rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <CardImage card={item.card ?? { name: item.card_name }} width={cardWidth} fill interactive>
+                    <CardImage card={printing ?? { name: item.card_name }} width={cardWidth} fill interactive>
                       <ListCardBadges quantity={item.quantity} finish={item.finish} />
                     </CardImage>
                   </Link>
                   <Link to={href} className="truncate text-sm font-medium text-foreground hover:underline">
                     {item.card_name}
                   </Link>
+
+                  {/* Which version is on the list, said in the words printed on
+                      the card. Within one set the showcase, borderless and
+                      extended art copies share a name and differ only by
+                      number, so the number is not decoration.
+
+                      The saving state shares this line rather than taking one
+                      of its own. A line that appears when a card is saved makes
+                      that card taller than the five beside it and knocks its
+                      buttons out of the row, so the one card you just touched
+                      is the one that looks broken. */}
+                  <div className="flex min-h-[1rem] items-center gap-2 text-xs text-muted-foreground">
+                    <span className="truncate">{describeVersion(printing, versions)}</span>
+                    {rowState && <RowSaveLine state={rowState} />}
+                  </div>
+
+                  {/* The owner: "proxies need a button click that allows you to
+                      change to alternative art work". Every row gets it, even
+                      the ones we cannot count, because a count we failed to
+                      read is not evidence there is only one version. */}
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="w-full gap-1.5"
+                    onClick={() => setChangingArt(item.id)}
+                    aria-label={`Change the art on ${item.card_name}`}
+                  >
+                    <Images className="h-3.5 w-3.5" aria-hidden />
+                    Change art
+                  </Button>
+
                   <div className="flex items-center gap-1.5">
                     <Button
                       size="icon"
@@ -492,7 +610,151 @@ export default function ProxyListPage() {
             : 'Everything you still need to buy. Print it and play the deck before you spend anything.'
         }
       />
+
+      <ProxyExportPanel
+        open={exporting}
+        onOpenChange={setExporting}
+        cards={exportCards}
+      />
+
+      {/*
+        The panel STAYS OPEN after a pick, unlike the one on the paste screen.
+        Nothing is being reviewed here: the row is already saved, so the pick
+        writes itself, and the reader needs to see that happen. Closing on the
+        click would leave the only evidence being that the picture changed,
+        which is exactly the doubt the deck optimiser's silent timer created.
+      */}
+      <ChangeArtPanel
+        open={changing !== null}
+        onOpenChange={open => !open && setChangingArt(null)}
+        cardName={changing?.card_name ?? ''}
+        oracleId={changing ? changing.oracle_id ?? changing.card?.oracle_id ?? null : null}
+        current={changing ? printingFor(changing) : undefined}
+        note={changingNote(changingVersions)}
+        saveState={changing ? art.rowState[changing.id] ?? null : null}
+        problem={art.problem}
+        onPick={printing => changing && art.choose(changing, printing)}
+      />
     </StandardPageLayout>
+  );
+}
+
+/**
+ * How many printings the shelf can actually put on screen.
+ *
+ * `fetchPrintings` asks for 400 and no more. That is invisible on almost every
+ * card and glaring on a basic land: measured against the live catalogue on
+ * 20 Aug 2026, Forest has 792 printings, Swamp 791, Plains 768, Island 741, and
+ * basic land art is the single most likely thing somebody wants to change on a
+ * proxy sheet. Counting 792 on the card and then quietly showing 400 would be
+ * the app lying about what it has, so it says which 400 instead.
+ *
+ * If that limit ever moves, this number moves with it.
+ */
+const SHELF_LIMIT = 400;
+
+/** What the art panel says above the shelf, given how much of it it can show. */
+function changingNote(versions: number): string {
+  const base =
+    'Pick the version you want on the sheet. This is the art that gets printed, and it saves to your list on its own.';
+  if (versions <= SHELF_LIMIT) return base;
+  return `${base} This card has ${versions} versions and the newest ${SHELF_LIMIT} are shown.`;
+}
+
+/**
+ * Which version of the card is on the list, and how many others exist.
+ *
+ * The count is what turns the button into an offer. "Change art" alone does not
+ * say whether there is anything to change to; "34 versions" does. A card we
+ * could not count says nothing rather than guessing at one, because a failed
+ * lookup is not evidence that a card was printed once.
+ */
+function describeVersion(printing: any, versions: number): string {
+  const set = String(printing?.set_code ?? printing?.set ?? '').toUpperCase();
+  const number = printing?.collector_number ? ` #${printing.collector_number}` : '';
+  const where = set ? `${set}${number}` : '';
+  const many =
+    versions > 1 ? `${versions} versions` : versions === 1 ? 'the only version' : '';
+  if (where && many) return `${where}, ${many}`;
+  return where || many;
+}
+
+/**
+ * What just happened to one card's art, on the card itself.
+ *
+ * Said and left there for the rest of the session. A tick that fades after two
+ * seconds is a tick nobody saw, which is the same problem as not showing one.
+ */
+function RowSaveLine({ state }: { state: RowArtState }) {
+  if (state === 'error') {
+    return (
+      <span className="ml-auto flex shrink-0 items-center gap-1 text-foreground">
+        <AlertCircle className="h-3 w-3 shrink-0" aria-hidden />
+        Art not saved
+      </span>
+    );
+  }
+  if (state === 'saved') {
+    return (
+      <span className="ml-auto flex shrink-0 items-center gap-1">
+        <Check className="h-3 w-3 shrink-0" aria-hidden />
+        Art saved
+      </span>
+    );
+  }
+  return (
+    <span className="ml-auto flex shrink-0 items-center gap-1">
+      <Loader2 className="h-3 w-3 shrink-0 animate-spin" aria-hidden />
+      Saving
+    </span>
+  );
+}
+
+/**
+ * The rule stated out loud, above the cards it governs.
+ *
+ * There is no save button because there is nothing to save: the choice is
+ * written for you. That is only an improvement if it is said, which is the
+ * whole lesson of commit 43afae4. So the line is there before anything is
+ * picked, not only after.
+ */
+function ArtSaveLine({ art }: { art: ProxyArt }) {
+  if (art.state === 'error') {
+    return (
+      <div className="flex flex-wrap items-center gap-3">
+        <p className="flex items-center gap-1.5 text-sm text-foreground">
+          <AlertCircle className="h-4 w-4 shrink-0" aria-hidden />
+          {art.problem ?? 'That did not save. Check your connection and try again.'}
+        </p>
+        <Button size="sm" variant="secondary" onClick={art.saveNow}>
+          Try again
+        </Button>
+      </div>
+    );
+  }
+
+  if (art.state === 'saving') {
+    return (
+      <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+        Saving your art {art.waiting > 1 ? 'choices' : 'choice'}.
+      </p>
+    );
+  }
+
+  if (art.state === 'saved') {
+    return (
+      <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+        <Check className="h-4 w-4 shrink-0" aria-hidden />
+        Art saved. It is what prints, and it is still here next time.
+      </p>
+    );
+  }
+
+  return (
+    <p className="text-sm text-muted-foreground">
+      Any card can print a different version. Pick one and it saves on its own.
+    </p>
   );
 }
 

@@ -46,5 +46,26 @@ export { PasteCardList, type PasteCardListProps } from './PasteCardList';
  */
 export { ListToProxiesPanel, type ListToProxiesPanelProps } from './ListToProxiesPanel';
 
+/**
+ * Changing which printing of a card gets printed. The shelf inside it is the
+ * same `PrintingPicker` the card page uses; this is the slide-over around it,
+ * and the only difference between its two callers is whether picking one
+ * writes itself. `useProxyArt` is the half that writes.
+ */
+export { ChangeArtPanel, type ChangeArtPanelProps } from './ChangeArtPanel';
+
+/**
+ * The proxy list, written out and taken somewhere else. It knows no formats of
+ * its own: `writeDeckList` in `@/lib/decklist` writes them, beside the parser
+ * that reads the same shapes back in.
+ */
+export { ProxyExportPanel, type ProxyExportPanelProps } from './ProxyExportPanel';
+export {
+  useProxyArt,
+  type ArtSaveState,
+  type ProxyArt,
+  type RowArtState,
+} from './useProxyArt';
+
 export { default as ShoppingListPage, EmptyPanel } from './ShoppingListPage';
 export { default as ProxyListPage } from './ProxyListPage';

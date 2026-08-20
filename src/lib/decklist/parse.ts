@@ -69,8 +69,12 @@ export interface ParsedCardLine {
    * The other honest reading of a line ending in a bare number.
    *
    * `Lightning Bolt 4` means four Lightning Bolts. `Pain 101` is a card, and so
-   * are `Black Waltz No. 3`, `Avalanche of Sector 7` and four more in the
-   * catalogue today. Nothing about the text tells them apart, so the parser
+   * are `Black Waltz No. 3`, `Avalanche of Sector 7` and five more. Eight names
+   * in the catalogue end in a space and digits, counted 20 Aug 2026 with
+   * `select count(distinct name) from cards where name ~ '\s\d+$'`. That count
+   * only grows as sets are added, so it is a floor and not a fact about today;
+   * this file said "four more" and it was already wrong when it was written.
+   * Nothing about the text tells them apart, so the parser
    * refuses to guess: it keeps the whole line as the name and hands the other
    * reading along beside it. The lookup settles it, at no extra cost, because
    * both readings ride in the same single batch.

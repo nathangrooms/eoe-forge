@@ -28,6 +28,7 @@
  */
 import puppeteer from 'puppeteer';
 import fs from 'node:fs';
+import { disableHotReload } from './puppeteer-no-hmr.mjs';
 
 const OUT = process.env.OUT || '.shots/proxy-sheet';
 const BASE = process.env.BASE || 'http://127.0.0.1:8080';
@@ -214,6 +215,16 @@ const page = await browser.newPage();
 await page.setViewport({ width: 1600, height: 1000, deviceScaleFactor: 1 });
 page.on('pageerror', e => { failures++; log('  [pageerror]', e.message); });
 page.on('console', m => { if (m.type() === 'error') log('  [console]', m.text()); });
+
+/*
+ * Without this the run is a coin toss. Other workflows edit this repo while it
+ * is measuring, every save reloads the page, and the reload lands wherever the
+ * script had got to: the element screenshot throws on a detached node, or
+ * worse, the reload happens between two checks and the run passes having
+ * measured a page that no longer exists. Observed twice on 2026-08-20, one
+ * crash and one clean pass, with no change to any file this script reads.
+ */
+await disableHotReload(page, log);
 
 await page.goto(`${BASE}/${HARNESS_HTML}`, { waitUntil: 'networkidle0', timeout: 90000 });
 await page.waitForFunction('window.__ready === true', { timeout: 60000 });

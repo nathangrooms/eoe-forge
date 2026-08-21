@@ -918,3 +918,35 @@ a real divergence instead of resolving it.
 
 Going forward: apply migrations by writing the file first and applying that
 exact file, so one version number exists rather than two.
+
+## One table, one set of logic
+
+Owner, 21 Aug 2026: "all modes of play, including playtest all share same UI and
+logic - if one is updated, they all update ... this includes online mode."
+
+Goldfish, versus bots, playtest and online are **four sources of actions feeding
+one game**. They are not four games. The mat, the hand, the card preview, the
+combat surface, the log, the playmat picker and the ability panel are one
+implementation each, used by all four. A fix to any of them lands everywhere
+without being ported.
+
+The engine already has the property that makes this affordable. `bot.ts` has no
+private board and no private rules: it reads a `GameState`, calls the same
+`moves.ts` helpers a human click calls, and hands back a batch for
+`applyActions`. A bot seat and a human seat are indistinguishable downstream.
+Online is that shape once more, a seat whose actions arrive over a transport
+rather than from a click.
+
+**So the only differences between modes are where actions come from and what a
+seat is allowed to SEE.** Put the difference in the transport and the
+projection. Never in the surface.
+
+If you are writing an `OnlineBattlefield`, an `OnlineHand` or a second card
+preview, stop: that is the law being broken. If a mode genuinely needs something
+the others do not, add it as a prop or a slot on the shared component and say so
+out loud, because a silent divergence is how four games grow out of one.
+
+The reason this matters more than tidiness: play mode has already been through a
+period where capabilities existed and no player could reach them. Four copies of
+the surface would guarantee that a fix reaches one mode and not the other three,
+and nobody would notice which.

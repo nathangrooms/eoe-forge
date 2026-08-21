@@ -21,18 +21,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    // Track the previous user ID to detect user switches
-    let previousUserId: string | null = null;
+    /* Track the previous user id to detect a change of identity.
+     *
+     * `undefined` means "no auth event seen yet" and is NOT the same as `null`,
+     * which means "signed out". Starting this at `null` is what let one user's
+     * data render for the next one. */
+    let previousUserId: string | null | undefined = undefined;
 
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         const currentUserId = session?.user?.id ?? null;
         
-        // Clear user-specific data when user changes (login/logout/switch)
+        /* ONE USER'S DATA WAS RENDERING FOR THE NEXT ONE.
+         *
+         * Owner, after making a new account: "their shopping list was filled
+         * with anothers, collection page showed 1 card on the way for another
+         * user, proxy list was also filled".
+         *
+         * The database was never the problem. RLS on card_list_items,
+         * user_collections and wishlist is `auth.uid() = user_id` and was
+         * verified correct. This was entirely client side: the zustand stores
+         * hold the previous user's rows in MEMORY, and clearing localStorage
+         * does not touch them. Only the reload below resets them.
+         *
+         * The reload never fired on the normal path. `isUserSwitch` demanded
+         * both ids be non-null, so signing out went A -> null (no reload) and
+         * signing in went null -> B (no reload). It only ever triggered on a
+         * direct A -> B swap, which almost nobody does.
+         *
+         * Now ANY change of identity reloads, including to and from signed out.
+         * The only case that does not is the first auth event of a page load,
+         * where there is nothing stale to clear. */
         if (previousUserId !== currentUserId) {
-          // Check if switching between two different users (not initial load or logout)
-          const isUserSwitch = previousUserId !== null && currentUserId !== null;
+          const isInitialLoad = previousUserId === undefined;
           
           // Clear all user-specific localStorage
           localStorage.removeItem('mtg-deck-storage');
@@ -46,9 +68,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           previousUserId = currentUserId;
           
-          // Force page reload to reset zustand stores when switching between users
-          if (isUserSwitch) {
+          // Reset every in-memory store. Clearing localStorage above is not
+          // enough on its own: the live stores are what the pages read.
+          if (!isInitialLoad) {
             window.location.reload();
+            return;
           }
         }
         

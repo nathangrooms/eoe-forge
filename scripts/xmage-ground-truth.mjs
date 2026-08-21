@@ -966,6 +966,26 @@ async function main() {
     poolJoin,
     ranking: ranked,
     cardToClasses: Object.fromEntries([...cardMap].map(([n, r]) => [n, r.prims])),
+    /*
+     * PER-CARD FLAGS, added 21 Aug 2026. `cardToClasses` keeps its old shape so
+     * nothing that reads it breaks; this sits beside it.
+     *
+     * Why it exists: the aggregate says 72.79% of cards are pure composition,
+     * and the aggregate is the wrong shape for the question anyone actually
+     * asks. "For THIS card, is the class list the whole card?" decides whether
+     * instantiating our equivalents reproduces it or quietly builds three
+     * quarters of it. `r.pure` was already computed here and thrown away at the
+     * point of writing, so a card-level answer cost one line and its absence
+     * cost every consumer an assumption.
+     *
+     * pure   no hand-written Java: no own effect type, no anonymous subclass,
+     *        no lambda. The class list is the card.
+     * modal  the card offers modes.
+     * choice the card's OWN Java asks the player something.
+     */
+    cardMeta: Object.fromEntries(
+      [...cardMap].map(([n, r]) => [n, { pure: !!r.pure, modal: !!r.modal, choice: !!r.ownChoice }])
+    ),
   };
   writeFileSync(OUT_JSON, JSON.stringify(out));
   log(`WROTE   ${OUT_JSON}`);

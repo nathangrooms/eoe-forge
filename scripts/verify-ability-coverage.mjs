@@ -43,7 +43,13 @@ import { probeBehaviour } from '../src/lib/game/abilities/behaviour-probe.ts';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = join(ROOT, 'scratch', 'scryfall', 'oracle-cards.jsonl');
-const OUT = join(ROOT, 'scratch', 'verify-ability-coverage.json');
+const OUT = join(
+  ROOT,
+  'scratch',
+  process.env.DM_ACTIVATED_LIVE === '1'
+    ? 'verify-ability-coverage-activated-live.json'
+    : 'verify-ability-coverage.json'
+);
 
 const bump = (m, k, n = 1) => m.set(k, (m.get(k) ?? 0) + n);
 const pct = (n, d) => (d === 0 ? '0.00' : ((n / d) * 100).toFixed(2));
@@ -122,6 +128,23 @@ const poolOracleIds = new Set(pool.map(c => c.oracle_id));
  * ------------------------------------------------------------------ */
 
 const RESTRICTIONS_COMBAT_READS = new Set(['cant-attack', 'cant-block']);
+
+/*
+ * MEASUREMENT SWITCH, added 21 Aug 2026. Default OFF, so every figure this
+ * script printed before today it still prints today.
+ *
+ * The `activated` verdict below went stale on commit 56e982b. `activate.ts`
+ * calls `activatedAbilitiesOfCard` in four places, `AbilityPanel.tsx` draws the
+ * result, and `stack.ts:566` runs the ability through `compiledAbilityActions`
+ * on resolution. The harness measured 2,262 activations across 120 games. So
+ * "has no caller" is no longer true, and the cards graded dead by it are being
+ * undercounted.
+ *
+ * Set DM_ACTIVATED_LIVE=1 to grade activated abilities against the wiring that
+ * exists. It is a switch rather than an edit so the old figure stays
+ * reproducible and the gap between the two is itself a measurement.
+ */
+const ACTIVATED_LIVE = process.env.DM_ACTIVATED_LIVE === '1';
 
 /*
  * FOUND BY THIS REVIEW — the layer-6 grant of a keyword nothing enforces.
@@ -268,8 +291,19 @@ function abilityVerdict(ability, ownsTriggers, scryfallKeywords, STRICT_GRANTS) 
       return { s: 'run', why: 'keywords.ts reads card.keywords' };
     }
 
+    /*
+     * See ACTIVATED_LIVE above. With the switch on, a target or an in-effect
+     * decision makes this a DECISION rather than a run, because
+     * `planActivation` refuses to guess and asks the player. That is PROMPTED,
+     * not AUTOMATED, and the two must not be merged.
+     */
     case 'activated':
-      return { s: 'dead', why: 'activated: activatedAbilitiesOf has no caller' };
+      if (!ACTIVATED_LIVE) return { s: 'dead', why: 'activated: activatedAbilitiesOf has no caller' };
+      if ((ability.targets ?? []).length > 0) {
+        return { s: 'decision', why: 'activated: AbilityPanel asks for the target' };
+      }
+      if (decision) return { s: 'decision', why: `activated contains ${decision}` };
+      return { s: 'run', why: 'activate.ts planActivation -> stack.ts compiledAbilityActions' };
     case 'spell':
       return { s: 'dead', why: 'spell: nothing runs a compiled spell on resolution' };
     case 'mana':
@@ -306,6 +340,15 @@ const keywordNotInScryfallSamples = [];
 
 const automatedBy = new Map();
 const automatedSamples = [];
+/*
+ * Every AUTOMATED name, not the 400-row sample, written to its own file when
+ * DM_NAME_LIST=1. Added 21 Aug 2026 so the automated set can be INTERSECTED
+ * with another measurement — "which cards our engine already composes" — rather
+ * than compared at the level of two percentages that share no rows. Off by
+ * default; the sample and every printed figure are untouched.
+ */
+const allAutomatedNames = [];
+const allPromptableNames = [];
 const toProbe = [];
 
 const DECISION_TEXT = /\byou may\b|\bchoose\b|\bup to\b|\bmay pay\b|\bof your choice\b|\bdivided as you choose\b/i;
@@ -435,7 +478,10 @@ for (const card of pool) {
     toProbe.push({ name: card.name, verdict: mine, abilities: result.abilities, oracle: card.oracle_text ?? '' });
   }
 
+  if (mine === 'PROMPTABLE') allPromptableNames.push(card.name);
+
   if (mine === 'AUTOMATED') {
+    allAutomatedNames.push(card.name);
     const kinds = new Set(result.abilities.map(a => a.kind));
     bump(automatedBy, kinds.size === 1 && kinds.has('keyword') ? 'keyword lines only' : [...kinds].sort().join('+'));
     if (automatedSamples.length < 400) {
@@ -469,6 +515,7 @@ for (const card of pool) {
  * ------------------------------------------------------------------ */
 
 const probeOut = new Map();
+const downgradedNames = new Set();
 let downgraded = 0;
 const probeDeferred = new Map();
 const probeThrew = [];
@@ -484,6 +531,7 @@ for (const e of toProbe) {
   if (v.outcome === 'threw') { downgraded++; if (probeThrew.length < 20) probeThrew.push(`${e.name} :: ${v.error ?? ''}`); }
   else if (v.outcome === 'deferred') { downgraded++; for (const d of v.deferred) bump(probeDeferred, d.slice(0, 90)); }
   else if (v.outcome === 'silent') { probeSilent++; if (probeSilentNames.length < 30) probeSilentNames.push(e.name); }
+  if (v.outcome === 'threw' || v.outcome === 'deferred') downgradedNames.add(e.name);
 }
 
 /* ------------------------------------------------------------------ *
@@ -522,7 +570,19 @@ for (const s of accountingSamples) say(`  ${s}`);
 say('');
 say('--- THE THREE METRICS, my rule (an unplaceable paragraph fails the card) ---');
 say(`AUTOMATED   ${String(automated).padStart(6)}  ${pct(automated, N)}%   (${preAutomated} before the probe, ${downgraded} downgraded)`);
-say(`PROMPTED    ${String(0).padStart(6)}  0.00%   (no per-card choice UI exists; see the grep below)`);
+/*
+ * This line used to read a hardcoded 0 with the note "no per-card choice UI
+ * exists". The 0 is still right for triggers and spells, and the note stopped
+ * being right on commit 56e982b: `AbilityPanel.tsx` asks for an activated
+ * ability's target in place. So the note now says which of the two it means,
+ * and the PROMPTABLE line below carries the count.
+ */
+say(
+  `PROMPTED    ${String(0).padStart(6)}  0.00%   ` +
+    (ACTIVATED_LIVE
+      ? '(triggers and spells only; the activated set is PROMPTABLE below, asked by AbilityPanel.tsx)'
+      : '(no per-card choice UI is counted here; see the grep below)')
+);
 say(`SILENT      ${String(silent).padStart(6)}  ${pct(silent, N)}%`);
 say(`NO-TEXT     ${String(noText).padStart(6)}  ${pct(noText, N)}%`);
 say(`PROMPTABLE  ${String(promptable).padStart(6)}  ${pct(promptable, N)}%   (memo, never inside PROMPTED)`);
@@ -592,3 +652,37 @@ writeFileSync(OUT, JSON.stringify({
 }, null, 2));
 
 console.log(`\nwrote ${OUT}`);
+
+/*
+ * The full name lists, for intersecting this measurement with another one.
+ * Off unless DM_NAME_LIST=1, and it changes no figure above.
+ *
+ * `automated` here is the FINAL set: the pre-probe list minus the names the
+ * behaviour probe downgraded, so it reconciles with the AUTOMATED line rather
+ * than sitting a few rows above it.
+ */
+if (process.env.DM_NAME_LIST === '1') {
+  const NAMES = join(
+    ROOT,
+    'scratch',
+    process.env.DM_ACTIVATED_LIVE === '1'
+      ? 'verify-names-activated-live.json'
+      : 'verify-names.json'
+  );
+  const finalAutomated = allAutomatedNames.filter(n => !downgradedNames.has(n));
+  writeFileSync(
+    NAMES,
+    JSON.stringify(
+      {
+        generatedAt: new Date().toISOString(),
+        activatedLive: process.env.DM_ACTIVATED_LIVE === '1',
+        pool: N,
+        automated: finalAutomated,
+        promptable: allPromptableNames,
+      },
+      null,
+      1
+    )
+  );
+  console.log(`wrote ${NAMES}  (automated ${finalAutomated.length}, promptable ${allPromptableNames.length})`);
+}

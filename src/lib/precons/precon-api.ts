@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, SUPABASE_URL } from '@/integrations/supabase/client';
 import {
   PRECON_INDEX,
   preconIndexEntry,
@@ -21,9 +21,20 @@ import {
  * to know there are two sources.
  */
 
-const FUNCTIONS_BASE = `${
-  (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? ''
-}/functions/v1`;
+/*
+ * THE PROJECT URL COMES FROM THE CLIENT, NOT FROM import.meta.env.
+ *
+ * This read `import.meta.env.VITE_SUPABASE_URL` and fell back to an empty
+ * string. That variable is not set in the deployed build, so the base became
+ * the RELATIVE path "/functions/v1", the browser resolved it against
+ * deckmatrix.com, the single-page app answered every path with index.html, and
+ * `response.json()` died on "Unexpected token '<'". The page reported "Could
+ * not load the precon catalogue" while the edge function was perfectly healthy.
+ *
+ * Nothing else in the app noticed because the Supabase client hardcodes the
+ * same URL. This file was the only reader of that variable.
+ */
+const FUNCTIONS_BASE = `${SUPABASE_URL}/functions/v1`;
 
 export interface PreconListItem {
   id: string;

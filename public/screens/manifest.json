@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-19T12:15:09.460Z",
+  "generatedAt": "2026-08-21T15:25:39.701Z",
   "script": "scripts/app-shots.mjs",
   "docs": "docs/overhaul/APP-SCREENSHOTS.md",
   "note": "Screenshots of the real running app. Every page, card, card image, price and type line is the shipped component tree rendering real catalogue rows. The deck is a Wizards precon decklist. Ownership and the tournament events are fixture, because no anonymous request may be shown a real person’s collection and because events live in the organiser’s own browser.",
@@ -44,11 +44,6 @@
       "key": "deck",
       "caption": "A Commander deck: its commander, its curve, its playability and what it is worth.",
       "sources": [
-        {
-          "width": 1600,
-          "height": 1000,
-          "src": "/screens/deck-1600.webp"
-        },
         {
           "width": 1920,
           "height": 1200,

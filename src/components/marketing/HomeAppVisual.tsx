@@ -40,10 +40,17 @@ export function HomeAppVisual() {
       />
 
       <div className="mt-8 sm:mt-14">
+        {/* The deck page, not the builder's edit surface.
+
+            The builder shot was photographing a working surface: a filter row,
+            a tab bar and a card grid. The deck page leads with what the product
+            actually worked out, the power score, the value, the colour identity
+            and the type breakdown, and it is the calmer picture. Owner: "Maybe
+            need to just use the deck detail page instead." */}
         <AppScreenshot
-          scene="deck-builder"
-          alt="The DeckMatrix deck builder holding a hundred-card Commander deck: the commander card, a mana curve broken down by card type, and the creature list underneath"
-          caption="A real Commander precon, opened in the builder. The curve, the count and the price are worked out from the hundred cards in the list."
+          scene="deck"
+          alt="A hundred-card Commander deck in DeckMatrix: its commander, its EDH power score, what it is worth, its colour identity and a breakdown of every card type in the list"
+          caption="A real Commander precon. The power score, the value and the type breakdown are all worked out from the hundred cards in the list."
         />
       </div>
 

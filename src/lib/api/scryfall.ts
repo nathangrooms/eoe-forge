@@ -78,10 +78,23 @@ class ScryfallAPI {
     });
   }
 
+  /**
+   * Scryfall returns its results under `data`, and both callers of this read
+   * `cards`.
+   *
+   * So every collection import failed on every line, including "1 Black Lotus",
+   * with "no match on Scryfall" while the search itself was answering
+   * total_cards: 1. The card was found and then dropped one property name
+   * later. Same mistake in collectionAPI.ts.
+   *
+   * `cards` is added rather than `data` renamed, so anything reading the raw
+   * Scryfall shape keeps working.
+   */
   async searchCards(query: string, page = 1): Promise<any> {
     const encodedQuery = encodeURIComponent(query);
     const url = `${this.baseUrl}/cards/search?q=${encodedQuery}&page=${page}&order=name&unique=cards`;
-    return this.makeRequest(url);
+    const raw = (await this.makeRequest(url)) as { data?: unknown[] } | null;
+    return { ...(raw ?? {}), cards: raw?.data ?? [] };
   }
 
   async getCard(id: string): Promise<any> {

@@ -79,19 +79,28 @@ export function ArtStudio() {
   const [made, setMade] = useState<Made[]>([]);
   const [name, setName] = useState('');
   const [prompt, setPrompt] = useState('');
+  /* The covers are drawn wide because every surface that shows one is wider
+     than it is tall. The first batch came back square and had its sides cut
+     off, so the shape is asked for rather than cropped afterwards. Square is
+     kept for icons, which is the other thing this panel is for. */
+  const [aspect, setAspect] = useState('16:9');
 
   /** One call. The function does the work; this only carries the session. */
   const generate = async (entry: { name: string; prompt: string }) => {
     setBusy(entry.name);
     try {
       const { data, error } = await supabase.functions.invoke('generate-art', {
-        body: { prompt: entry.prompt, name: entry.name },
+        body: { prompt: entry.prompt, name: entry.name, aspect },
       });
-      /* Show what the gateway actually said. A model name that turns out to be
-         wrong should say so in its own words rather than becoming "failed". */
+      /* Show what the model actually said. A model name that turns out to be
+         wrong should say so in its own words rather than becoming "failed".
+         `tried` carries BOTH routes' refusals, because the function falls back
+         from Google to the gateway and one reason alone explains nothing. */
+      const tried = (data as any)?.tried;
       const problem =
         error?.message ??
         (data as any)?.error ??
+        (Array.isArray(tried) && tried.length > 0 ? tried.join(' | ') : null) ??
         ((data as any)?.gateway ? String((data as any).gateway) : null);
       setMade(prev => [
         { name: entry.name, url: (data as any)?.url, error: problem ?? undefined },
@@ -113,6 +122,20 @@ export function ArtStudio() {
             Four covers for the play page, generated once and stored. Running one again replaces
             it, so a prompt can be tuned without collecting spares.
           </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted-foreground">Shape</span>
+            {(['16:9', '4:3', '1:1'] as const).map(option => (
+              <Button
+                key={option}
+                variant={aspect === option ? 'default' : 'ghost'}
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => setAspect(option)}
+              >
+                {option}
+              </Button>
+            ))}
+          </div>
           <div className="mt-3 flex flex-wrap gap-2">
             {PRESETS.map(preset => (
               <Button
@@ -176,7 +199,7 @@ export function ArtStudio() {
                       <img
                         src={item.url}
                         alt={item.name}
-                        className="mt-2 aspect-video w-full rounded-md object-cover"
+                        className="mt-2 w-full rounded-md"
                       />
                       <p className="mt-1 break-all text-[0.7rem] text-muted-foreground">
                         {item.url}

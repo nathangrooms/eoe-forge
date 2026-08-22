@@ -82,78 +82,78 @@ export const NAV_SEARCH: NavItem = {
   description: 'Search every printing with Scryfall syntax',
 };
 
-/** The items that sit above the groups, in order. */
-export const NAV_ROOT_ITEMS: NavItem[] = [NAV_HOME, NAV_SEARCH];
+/**
+ * Asking a question is not one of the things you own, build or play with
+ * either, so Tutor joins Home and Card Search above the groups. All three are
+ * ways INTO the product rather than places inside it.
+ */
+export const NAV_TUTOR: NavItem = {
+  title: 'Tutor',
+  href: '/tutor',
+  icon: BookOpenCheck,
+  description: 'Ask about your deck, a card or the rules',
+};
 
+/** The items that sit above the groups, in order. */
+export const NAV_ROOT_ITEMS: NavItem[] = [NAV_HOME, NAV_SEARCH, NAV_TUTOR];
+
+/*
+ * TWO GROUPS, AND THE TEST FOR EACH IS ONE QUESTION.
+ *
+ * Owner: "Left menu needs a full restructure to make more sense ... idea is to
+ * make left menu clean", then "or that might be a bad order im not sure".
+ *
+ * It had six headings for eleven entries, which is a heading for every two
+ * things. The old ones named what an object WAS, so Collection and Decks were
+ * separate because a card is not a deck, and "Discover" existed because three
+ * items had nothing else in common.
+ *
+ * The question now is what you are DOING:
+ *
+ *   Library  things that are yours, or that you make for yourself
+ *   Play     things you do at a table
+ *
+ * Everything that is a way IN rather than a place inside sits above the groups
+ * with no heading at all: Home, Card Search, Tutor.
+ *
+ * And several entries left entirely, because a nav is not an index. New Deck,
+ * Precons and Deck Generator are all reachable from the decks page, which is
+ * where you already are when you want them. Wishlist and Shopping List are
+ * counters in the top bar. Scan is a button there too. Playtest folds into Play
+ * a Game when the modes merge, and comes out of here then rather than now,
+ * because removing it before it has a home would strand it.
+ */
 export const NAV_GROUPS: NavGroup[] = [
   {
-    id: 'collection',
-    label: 'Collection',
+    id: 'library',
+    label: 'Library',
     items: [
       {
         title: 'My Collection',
         href: '/collection',
         icon: Library,
-        description: 'Everything you own, by set and by card',
+        description: 'Every card you own, and where it is',
       },
-      /* Scanning lives in the top bar now, not here. Owner: "remove scan
-         cards from the left menu, add it to top menu". It is the one action you
-         reach for with cards in your hand and no page in mind, so it belongs
-         with search rather than inside a list of places. /scan is unchanged. */
-      /* Wishlist is a heart in the top bar now, beside the cart. Owner:
-         "Wishlist can come out of the left nav and be made a heart icon with
-         number just like shopping basket perhaps?" It is the same kind of
-         thing: a standing list you add to from anywhere. /wishlist unchanged. */
-      /* Shopping List lives in the top bar, as the cart. Owner: "Shopping list
-         doesnt need to be in left menu, as it's in top nav." One standing
-         place, not two. /shopping is unchanged. */
       {
-        // The owner asked for proxies to stop being buried in the deck page:
-        // "Maybe Proxies should be its own feature in left nav". The deck
-        // builder's own generator stays exactly where it is, as they asked.
+        title: 'My Decks',
+        href: '/decks',
+        icon: Layers,
+        // `/deck-builder` is a child of Decks in every way except its path.
+        matches: ['/deck', '/deck-builder', '/decks/new', '/smart-builder', '/precons'],
+        description: 'Every deck you have built',
+      },
+      {
         title: 'Proxies',
         href: '/proxies',
         icon: Printer,
         description: 'Cards to print out and play with',
       },
       {
-        /* Marketplace sits with the collection rather than under Discover.
-           Owner: "Card search and marketplace should move into my collection
-           part of left menu". It is how you find a card to OWN, the same errand
-           as the entries above it. Card Search went further, up beside Home. */
         title: 'Marketplace',
         href: '/marketplace',
         icon: Store,
         description: 'Prices and listings',
       },
-    ],
-  },
-  {
-    id: 'decks',
-    label: 'Decks',
-    items: [
-      {
-        title: 'My Decks',
-        href: '/decks',
-        icon: Layers,
-        // `/deck-builder` is a child of Decks in every way except its path, and
-        // nothing else claims it now that "New Deck" owns `/decks/new`.
-        matches: ['/deck', '/deck-builder'],
-        description: 'Every deck you have built',
-      },
-      /* No "New Deck" entry. Owner: "No need for new deck left menu, it works
-         from my deck page." The decks page carries the button, the top bar
-         carries one too, and /decks/new is still a real route so every existing
-         link keeps working. */
-      {
-        title: 'Deck Generator',
-        href: '/smart-builder',
-        icon: Sparkles,
-        description: 'Generate a starting list from a prompt',
-      },
-      /* Precons is reached from the decks page, which now carries a button
-         for it beside Deck Generator. Owner: "Precons doesnt need to be in the
-         left nav anymore". /precons unchanged. */
     ],
   },
   {
@@ -164,37 +164,25 @@ export const NAV_GROUPS: NavGroup[] = [
         title: 'Play a Game',
         href: '/play',
         icon: Gamepad2,
-        description: 'Goldfish or take on bots at a real table',
-      },
-      {
-        title: 'Life Counter',
-        href: '/life',
-        icon: HeartPulse,
-        description: 'Full-screen life totals for the table',
+        description: 'Against bots, or on your own',
       },
       {
         title: 'Playtest',
         href: '/simulate',
         icon: Swords,
-        description: 'Goldfish an opening hand against your list',
+        description: 'Watch your decks play each other',
+      },
+      {
+        title: 'Life Counter',
+        href: '/life',
+        icon: Heart,
+        description: 'Track life at a real table',
       },
       {
         title: 'Tournaments',
         href: '/tournament',
         icon: Trophy,
-        description: 'Events and results',
-      },
-    ],
-  },
-  {
-    id: 'discover',
-    label: 'Discover',
-    items: [
-      {
-        title: 'Tutor',
-        href: '/tutor',
-        icon: BookOpenCheck,
-        description: 'Ask about your deck, a card or the rules',
+        description: 'Run a pod and keep the standings',
       },
     ],
   },
@@ -207,7 +195,7 @@ export const NAV_GROUPS: NavGroup[] = [
         title: 'Admin',
         href: '/admin',
         icon: Shield,
-        description: 'Card sync, users and system health',
+        description: 'Users, flags and the dev console',
       },
     ],
   },

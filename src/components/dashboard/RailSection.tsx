@@ -63,6 +63,8 @@ const TILE_WIDTH: Record<number, string> = {
   3: 'w-[62%] sm:w-[42%] lg:w-[calc((100%-2rem)/3)]',
   4: 'w-[62%] sm:w-[42%] lg:w-[calc((100%-3rem)/4)]',
   5: 'w-[62%] sm:w-[42%] lg:w-[calc((100%-4rem)/5)]',
+  6: 'w-[62%] sm:w-[42%] lg:w-[calc((100%-5rem)/6)]',
+  7: 'w-[62%] sm:w-[42%] lg:w-[calc((100%-6rem)/7)]',
 };
 
 export function railTileWidth(perView: number): string {

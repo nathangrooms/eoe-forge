@@ -18,10 +18,14 @@ import { RailTile } from './RailTile';
  * beside a grey square, which is a receipt rather than a memory.
  */
 
-const PER_VIEW = 2;
+/* Six across, not two. These two rails moved from a narrow column into a full
+   width row of their own, and their per-view count did not move with them, so
+   the owner got "2 massive ones" where a dozen fit. The rail still scrolls, so
+   this is how many are VISIBLE rather than how many exist. */
+const PER_VIEW = 6;
 
 /** Enough to page through without making the feed a second collection browser. */
-const FEED_LENGTH = 12;
+const FEED_LENGTH = 18;
 
 export function RecentActivity({ className }: { className?: string }) {
   const { entries, loading, error } = useActivityFeed(FEED_LENGTH);

@@ -23,10 +23,14 @@ import { RailTile } from './RailTile';
  * the same defect as a collection total that does.
  */
 
-const PER_VIEW = 2;
+/* Six across, not two. These two rails moved from a narrow column into a full
+   width row of their own, and their per-view count did not move with them, so
+   the owner got "2 massive ones" where a dozen fit. The rail still scrolls, so
+   this is how many are VISIBLE rather than how many exist. */
+const PER_VIEW = 6;
 
 /** Enough to page through. The wishlist page is one click away for the rest. */
-const SHOWN = 12;
+const SHOWN = 18;
 
 interface WantedNextProps {
   className?: string;

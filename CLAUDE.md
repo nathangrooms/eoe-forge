@@ -757,11 +757,45 @@ Approved. The goal is maximum coverage, sequenced cheapest-first.
 Representable is a ceiling. Automated is the floor. Progress means closing the
 gap, and only the second number is what a player experiences.
 
+## SETTLED 22 Aug 2026: PORT XMAGE. Do not re-open this.
+
+Owner: *"I think we need to port it - we need our own engine, if we can extract
+xmage into our own engine that is ideal"*, and immediately after: *"We have had
+this same conversation 10+ times"*.
+
+They are right, and the reason is the paragraph that used to be here. It said
+the extractor was a PLANNING INSTRUMENT AND NOT A SOURCE OF AUTOMATION, so every
+session read it, concluded porting had been rejected, and asked again. The
+answer is PORT. Nobody needs to weigh it up again.
+
+**THE ENGINE IS THE WHOLE APP.** Owner: *"WE ARE BUILDING OUR OWN AUTOMATED
+ENGINE WHICH WILL HELP WITH PLAY MODE, DECK BUILDING, RECOMMENDATIONS,
+OPTIMISATION ETC - it is the king of the entire app."* The deliverable is
+structured semantics for every card, not cards that resolve on a battlefield.
+One record has to answer four questions: what it does on resolution (play), what
+it does for a list (deck building), find me cards that do this
+(recommendations), and what beats what (optimisation). A representation that
+only feeds the reducer has solved a quarter of the problem.
+
+**What was wrong with the old extraction, and it is our bug not XMage's.** It
+was IMPORT-BASED: it recorded which classes a card mentions and threw the
+constructor arguments away. That is why 50 cards collapsed to one meaningless
+`[DestroyAllEffect]` signature and why the conclusion was "the map cannot say
+what to destroy". The arguments are in the source and always were:
+
+    WrathOfGod:  new DestroyAllEffect(StaticFilters.FILTER_PERMANENT_CREATURES, true)
+    Armageddon:  new DestroyAllEffect(StaticFilters.FILTER_LANDS)
+
+Parse the arguments and the map stops being a fingerprint and becomes a recipe.
+That single change is the difference between a planning instrument and a port.
+
+**Division of sources.** Scryfall is printed truth: names, costs, type lines,
+oracle text, legality, prices. XMage is BEHAVIOUR. There is no third source.
+
 **The sequence:**
-1. Build the XMage extractor as a PLANNING INSTRUMENT, not a source of
-   automation. Its output is a ranked, dependency-ordered list of which engine
-   primitives to write, verified against all 32,168 real cards, with the count of
-   cards each one unlocks.
+1. Re-extract from XMage KEEPING THE ARGUMENTS, so each card yields an effect
+   and its parameters rather than a bare class name. Verified against all 32,168
+   real cards, ranked by how many cards each primitive unlocks.
 2. Build the four cheap DSL extensions (computed values, watchers, cost
    modification, conditional mana). Together +1,526 cards representable, without
    touching the stack, layers or priority.

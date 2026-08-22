@@ -153,9 +153,17 @@ const Dashboard = () => {
 
             {/* Same five-column split as the first row, so the page has one
                 rhythm rather than a new layout per section. */}
-            <Reveal index={2} className="grid gap-4 lg:grid-cols-5">
-              <RecentActivity className={DECKS_SPAN} />
-              <WantedNext className={ACTIVITY_SPAN} summary={summary} loading={summaryLoading} />
+            {/* Two rows, not two columns. Owner: "Recent activity and wishlist -
+                should be 2 separate rows." They answer different questions and
+                neither is a sidebar to the other: one is what you did, the other
+                is what you still want. Sharing a row made the narrower of them
+                read as a footnote to the wider one. */}
+            <Reveal index={2}>
+              <RecentActivity />
+            </Reveal>
+
+            <Reveal index={3}>
+              <WantedNext summary={summary} loading={summaryLoading} />
             </Reveal>
           </>
         )}

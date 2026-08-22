@@ -100,12 +100,10 @@ export const NAV_GROUPS: NavGroup[] = [
          cards from the left menu, add it to top menu". It is the one action you
          reach for with cards in your hand and no page in mind, so it belongs
          with search rather than inside a list of places. /scan is unchanged. */
-      {
-        title: 'Wishlist',
-        href: '/wishlist',
-        icon: Heart,
-        description: 'Cards you are still hunting for',
-      },
+      /* Wishlist is a heart in the top bar now, beside the cart. Owner:
+         "Wishlist can come out of the left nav and be made a heart icon with
+         number just like shopping basket perhaps?" It is the same kind of
+         thing: a standing list you add to from anywhere. /wishlist unchanged. */
       /* Shopping List lives in the top bar, as the cart. Owner: "Shopping list
          doesnt need to be in left menu, as it's in top nav." One standing
          place, not two. /shopping is unchanged. */
@@ -153,12 +151,9 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: Sparkles,
         description: 'Generate a starting list from a prompt',
       },
-      {
-        title: 'Precons',
-        href: '/precons',
-        icon: Boxes,
-        description: 'Browse official precon decklists',
-      },
+      /* Precons is reached from the decks page, which now carries a button
+         for it beside Deck Generator. Owner: "Precons doesnt need to be in the
+         left nav anymore". /precons unchanged. */
     ],
   },
   {

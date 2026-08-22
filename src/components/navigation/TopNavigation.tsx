@@ -16,6 +16,7 @@ import { HistoryNav } from './HistoryNav';
  * the proxy print geometry, the proxy sheet, the card-size slider and the Radix
  * select and slider they pull with them. All of it for one cart badge. */
 import { CartNavButton } from '@/components/shopping/CartNavButton';
+import { WishlistNavButton } from '@/components/shopping/WishlistNavButton';
 
 /**
  * The header is placed by `App.tsx` in a `fixed` wrapper that offsets content by
@@ -140,6 +141,8 @@ export function TopNavigation() {
               fill it with. Then you, at the far edge, which is where an account
               menu belongs in every product anyone has used. */}
           <HistoryNav className="mr-0.5" />
+
+          <WishlistNavButton />
 
           <CartNavButton />
 

@@ -120,52 +120,52 @@ function PreconTileBase({
       )}
       aria-label={`${precon.name}${leads[0] ? ` — ${leads[0].name}` : ''}, ${precon.set}`}
     >
-      {/* The commander's artwork, whole. */}
+      {/* THE WHOLE CARD, and that is the entire point of this block.
+
+          It used to be Scryfall's `art_crop`, which is the illustration with
+          the frame, the name, the type line and the text box cut away. It was
+          contained rather than squashed, so nothing was distorted, but a crop
+          is still a crop and the owner reported it three times: "Precons page
+          still doesnt show the full card in main image and cuts to rectangle".
+
+          So the card is now shown whole, through the canonical `CardImage`,
+          sitting on the deck's own colour identity. The small inset that used
+          to hang over the foot of this band is gone: it was the full card, so
+          keeping both would show the same card twice at two sizes.
+
+          The wash is `identityGround`, our own derived data, NOT a blurred copy
+          of the art. Scryfall's terms say plainly: do not blur, sharpen,
+          desaturate or colour-shift card images. */}
       <div
-        className="relative w-full shrink-0 overflow-hidden bg-muted"
+        className="relative flex w-full shrink-0 items-center justify-center overflow-hidden bg-muted p-3"
         style={{ aspectRatio: ART_ASPECT }}
       >
-        {art && (
-          <>
-            {/* Scryfall's art_crop is only ROUGHLY 626 x 457. Full-art,
-                showcase, borderless, saga and older frames all crop to
-                different shapes, so a fixed-ratio frame with `object-cover`
-                cuts every card that is not exactly 1.37:1. The previous comment
-                called those "a handful of outlier layouts", which is optimistic
-                for a wall of modern commanders, and the owner reported the
-                cropping twice.
+        <div
+          aria-hidden="true"
+          className="absolute inset-0"
+          style={{ background: identityGround(precon.ci) ?? undefined }}
+        />
 
-                So the sharp art is CONTAINED and never cut, and a colour wash
-                fills whatever the contain leaves over. Nothing is lost, and
-                there is no letterboxed void: the band still reads as one block
-                of the deck's own colour. */}
-            {/* A colour-identity wash, NOT a blurred copy of the art.
-                Scryfall's image terms say plainly: do not blur, sharpen,
-                desaturate or colour-shift card images. Our use was decorative
-                with the sharp card over it, which may well have been fine, but
-                the downside of being wrong is losing the API the whole product
-                runs on. The colour now comes from the deck's own identity,
-                which is our derived data, and it reads better anyway: a Simic
-                precon looks blue-green whether or not its commander art does. */}
-            <div
-              aria-hidden="true"
-              className="absolute inset-0"
-              style={{ background: identityGround(precon.ci) ?? undefined }}
-            />
-            <img
-              src={art}
-              alt=""
-              aria-hidden="true"
-              loading={eager ? 'eager' : 'lazy'}
-              decoding="async"
-              draggable={false}
-              className={cn(
-                'relative h-full w-full object-contain object-center',
-                'transition-transform duration-500 ease-out group-hover:scale-[1.04]',
-                'motion-reduce:transition-none motion-reduce:group-hover:scale-100'
-              )}
-            />
-          </>
+        {cardObjects.length > 0 ? (
+          <div className="relative flex h-full items-center justify-center gap-2">
+            {cardObjects.map((card, i) => (
+              <CardImage
+                key={leads[i]?.scryfallId ?? i}
+                card={card}
+                size="lg"
+                /* Height-led so the card fills the band and the band never cuts
+                   it. Partners sit side by side rather than fanning, because
+                   two whole cards is the promise this block now makes. */
+                className={cn(
+                  'h-full w-auto shrink-0 drop-shadow-[0_10px_24px_rgba(0,0,0,0.55)]',
+                  'transition-transform duration-500 ease-out group-hover:scale-[1.03]',
+                  'motion-reduce:transition-none motion-reduce:group-hover:scale-100'
+                )}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="relative h-full w-full" />
         )}
 
         {precon.ci.length > 0 && (
@@ -184,49 +184,9 @@ function PreconTileBase({
       {/* Commander card, hung over the foot of the art. */}
       <div className={cn('flex flex-1 flex-col', compact ? 'px-3 pb-3 pt-2.5' : 'px-4 pb-4 pt-3')}>
         <div className={cn('flex', compact ? 'gap-2.5' : 'gap-4')}>
-          <div className={cn('relative z-10 flex shrink-0', cardColumn, OVERLAP)}>
-            {cardObjects.length > 0 ? (
-              cardObjects.map((card, i) => (
-                <div
-                  key={leads[i]?.scryfallId ?? i}
-                  // Partners fan rather than shrinking to two half-width
-                  // cards: 70% + 70% − 40% fills the column exactly, and
-                  // leaves 40% of the back card showing — enough to read its
-                  // name and art, which a heavier overlap does not.
-                  className={cn(
-                    'shrink-0',
-                    leads.length > 1 ? 'w-[70%]' : 'w-full',
-                    i > 0 && '-ml-[40%]'
-                  )}
-                >
-                  <CardImage
-                    card={card}
-                    size="md"
-                    // The inset lands between 84px and 200px wide. `md` would
-                    // fetch the 672px `large` scan for it — four times the
-                    // pixels the column can show, on a page that mounts two
-                    // images per tile. `normal` (488px) still over-samples the
-                    // widest case and skips the blur-up under-layer, so a page
-                    // of tiles stays one request per image.
-                    quality="normal"
-                    fill
-                    hideFlip
-                    eager={eager}
-                    interactive={false}
-                    imageClassName="shadow-2xl shadow-black/60"
-                  />
-                </div>
-              ))
-            ) : (
-              <CardImage
-                card={{ name: precon.name }}
-                size="md"
-                fill
-                hideFlip
-                interactive={false}
-              />
-            )}
-          </div>
+          {/* No inset card here any more. The band above is the whole card
+              now, so this column showed the same commander twice at two
+              sizes. */}
 
           <div className="min-w-0 flex-1 pt-1">
             <h3

@@ -82,17 +82,30 @@ const MATCH_PCT = Math.round(similarity(MISREAD, TARGET) * 100);
  * The sweep. A 2 px bar travelling the height of the framed card.
  *
  * Scoped here rather than in `tailwind.config.ts` because it exists for exactly
- * one element. `top` is animated as a percentage so the bar tracks the card's
- * height at any breakpoint.
+ * one element.
+ *
+ * IT ANIMATED `top`, WHICH IS THE ONE THING THIS PROJECT'S DESIGN LAW FORBIDS:
+ * animate transform and opacity only. `top` is not a composited property, so
+ * every frame of a 3.2 second loop that never ends cost a layout and a paint on
+ * the main thread, on a marketing page, on a phone. It was also the only entry
+ * the layout-shift observer still recorded anywhere on the homepage.
+ *
+ * `translateY` in per cent is a percentage of the ELEMENT, not of its parent,
+ * so a 2 px bar could only ever move 2 px. The fix is to make the element the
+ * full height of the card and paint the bar along its own bottom edge with a
+ * gradient. Then 100% of the element IS the height of the card, the travel runs
+ * from `-100%` (bar level with the top edge) to `0%` (bar level with the
+ * bottom), and it is a transform. The part of the element above the card is
+ * transparent, so nothing shows outside the frame.
  */
 const SWEEP_CSS = `
 @keyframes dmScanSweep {
-  0%   { top: 0%;   opacity: 0 }
+  0%   { transform: translateY(-100%); opacity: 0 }
   12%  { opacity: 0.8 }
   88%  { opacity: 0.8 }
-  100% { top: 100%; opacity: 0 }
+  100% { transform: translateY(0%);    opacity: 0 }
 }
-.dm-scan-sweep { animation: dmScanSweep 3.2s ease-in-out infinite }
+.dm-scan-sweep { animation: dmScanSweep 3.2s ease-in-out infinite; will-change: transform }
 `;
 
 /** Four corner brackets, drawn as eight filled bars — no hairlines. */
@@ -115,7 +128,7 @@ function FocusBrackets() {
 const STEPS = [
   {
     title: 'It waits for a clean frame',
-    body: 'It only takes the photo once the picture has held still and sharp, so you are never fighting the shutter.',
+    body: 'It only takes the photo once the picture has held still and sharp.',
   },
   {
     title: 'It forgives a bad read',
@@ -160,7 +173,12 @@ export function HomeScanner() {
           align="left"
           eyebrow="Scan a card"
           title="Point your phone at a card"
-          lead="Hold a card up to the camera and it lands in your collection. No typing, no picking the set, no menus."
+          /* The old lead said the title again ("Hold a card up to the camera and
+             it lands in your collection") and then a triple of things you do not
+             have to do. This says the one thing the title does not: how it knows
+             which card it is looking at, which is what the three steps go on to
+             detail. */
+          lead="It reads the name off the card and files it in your collection."
         >
           <ol className="mt-8 space-y-4 sm:mt-10 sm:space-y-5">
             {STEPS.map((s, i) => (
@@ -221,15 +239,14 @@ export function HomeScanner() {
                   )}
                 </div>
 
-                {/* This line may only describe the match, which is computed on
-                    screen. It used to read "Added to your collection. You
-                    already owned one, so now you have two": a tick beside a
-                    statement about a logged-out visitor's collection, which is
-                    a thing nothing on this page can know. Whether a duplicate
-                    bumps a count is already said, conditionally, in step 3. */}
+                {/* The line that used to close this panel — "Matched. Ready to
+                    file into a collection, a deck or a box." — named the same
+                    three destinations as step 3, two hundred pixels above it.
+                    The tick stays, because what it marks is the match, and the
+                    match is the thing computed on screen. */}
                 <p className="mt-3.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
                   <Check className="h-3 w-3 shrink-0" />
-                  Matched. Ready to file into a collection, a deck or a box.
+                  Matched
                 </p>
               </div>
 
@@ -292,16 +309,24 @@ export function HomeScanner() {
                     />
                   )}
                   <FocusBrackets />
+                  {/* Full height, with the 2px bar painted along its own bottom
+                      edge by a gradient, so the travel is a percentage of THIS
+                      element rather than of the card. See SWEEP_CSS. */}
                   <span
                     aria-hidden
-                    className="dm-scan-sweep pointer-events-none absolute inset-x-0 h-[2px] bg-white/70 motion-reduce:hidden"
+                    className="dm-scan-sweep pointer-events-none absolute inset-x-0 top-0 h-full motion-reduce:hidden"
+                    style={{
+                      backgroundImage:
+                        'linear-gradient(to bottom, transparent calc(100% - 2px), hsl(0 0% 100% / 0.7) calc(100% - 2px))',
+                    }}
                   />
                 </div>
               </div>
 
-              <p className="absolute inset-x-0 bottom-5 text-center text-[11px] text-white/50">
-                Captures on its own once the frame is sharp
-              </p>
+              {/* The line that sat here, "Captures on its own once the frame is
+                  sharp", was step 1 written out a second time, and the
+                  "Auto-capture" chip at the top of this same viewfinder says it
+                  a third. */}
             </div>
 
             {/* Capture controls, a drawn shutter, so hidden from the a11y tree.

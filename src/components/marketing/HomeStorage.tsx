@@ -173,9 +173,7 @@ function BinderPage({ cards }: { cards: FiledCard[] | null }) {
 
       <figcaption className="mt-4">
         <span className="text-sm font-medium">{template?.name}</span>{' '}
-        <span className="text-sm text-muted-foreground">
-          Nine cards to a page. You can search for any one of them by name.
-        </span>
+        <span className="text-sm text-muted-foreground">Nine cards to a page.</span>
       </figcaption>
     </figure>
   );
@@ -413,9 +411,10 @@ function ColourBoxes({ cards }: { cards: FiledCard[] | null }) {
           );
         })}
       </div>
+      {/* "which is how most people split up their bulk anyway" went with the
+          rest of the boasting: it is a claim about players nobody measured. */}
       <figcaption className="mt-4 pl-1 text-sm text-muted-foreground">
-        <span className="font-medium text-foreground">{template?.name}</span>. One box per colour,
-        which is how most people split up their bulk anyway.
+        <span className="font-medium text-foreground">{template?.name}</span>. One box per colour.
       </figcaption>
     </figure>
   );
@@ -486,27 +485,28 @@ export function HomeStorage() {
        under the text, which at 1280 is 1,200px, wider than the 700px column
        they used to share. The text does not sprawl when it goes full width:
        SectionHeading caps its measure at max-w-3xl either way. */
-    <Section>
+    /* `id="features"` lives here.
+​
+       The public nav has always linked to `#features` and the only section
+       carrying that id was `HomeFeatures`, which the page does not render, so
+       pressing Features in the header did nothing. This is the section that
+       link should land on: it is the first thing below the hero and it is the
+       one argument on the page a competitor cannot copy. */
+    <Section id="features">
       <div className="grid items-start gap-8 sm:gap-12 lg:grid-cols-12 lg:gap-14">
         <div className="min-w-0 lg:col-span-4">
           <SectionHeading
             align="left"
-            eyebrow="Nobody else does this"
+            /* Was "Nobody else does this", over a lead that made the same
+               competitor claim twice more. The heading under it wins the
+               argument without anyone having to be told they lost it. */
+            eyebrow="Storage"
             title="Know which box it is in"
-            lead={
-              <>
-                Other deck sites know what you own. None of them know where you put it. Tell
-                DeckMatrix which binder, deck box or bulk box a card is in, down to the page and the
-                divider.{' '}
-                <span className="hidden sm:inline">
-                  Then finding it takes seconds instead of an afternoon.
-                </span>
-              </>
-            }
+            lead="Tell DeckMatrix which binder, deck box or bulk box a card is in, down to the page and the divider."
           >
             <Button asChild size="lg" className="mt-7 sm:mt-8">
               <Link to="/register">
-                Map your collection
+                Add your boxes
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
@@ -515,8 +515,6 @@ export function HomeStorage() {
                 ships, read straight from the constant. */}
             <p className="mt-7 text-sm leading-relaxed text-muted-foreground sm:mt-8">
               Five kinds of box come ready to use: {DEFAULT_STORAGE_TEMPLATES.map(t => t.name).join(', ')}.
-              Every card you put away gets a place in one of them. The cards shown here are real
-              printings from the card list. Yours would hold your own.
             </p>
           </SectionHeading>
         </div>

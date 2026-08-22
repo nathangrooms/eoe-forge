@@ -1,8 +1,27 @@
 {
-  "generatedAt": "2026-08-21T15:25:39.701Z",
+  "generatedAt": "2026-08-22T04:49:25.763Z",
   "script": "scripts/app-shots.mjs",
   "docs": "docs/overhaul/APP-SCREENSHOTS.md",
   "note": "Screenshots of the real running app. Every page, card, card image, price and type line is the shipped component tree rendering real catalogue rows. The deck is a Wizards precon decklist. Ownership and the tournament events are fixture, because no anonymous request may be shown a real person’s collection and because events live in the organiser’s own browser.",
+  "withheld": {
+    "warning": "generatedAt is the time of the last RUN, not the age of every file in it. Two scenes are on disk and are deliberately NOT shown on the homepage. Do not put either back without reading why.",
+    "scenes": [
+      {
+        "key": "play-table",
+        "capturedAt": "2026-08-19",
+        "why": "Three faults, any one of them enough. (1) It breaks Scryfall's image terms: src/components/play/Playmat.tsx was applying saturate(0.26) brightness(0.4) contrast(1.06) to card art, and that was removed on 20 Aug, a day AFTER this capture, so the file shows desaturated colour-shifted art. (2) Its tab strip reads Table | Hand | View, which contradicted the three tiles the homepage printed underneath it. (3) Two of the top seat's lands rendered as empty black rectangles.",
+        "recapture": "/play no longer opens on the seat picker. It now opens on a three step flow (choose a mode: Online, Versus bots, Goldfish, Playtest; then a deck; then the table), so the scene's ready text 'player game' is never on screen and its act() never finds 'Start 4-player game'. Eight attempts drew nothing. Fix is in scripts/app-shots.mjs: press ENTER on Versus bots and pick a deck before the existing playTable driver runs.",
+        "wasShownOn": "the homepage, in HomePlayTable. Removed 22 Aug 2026."
+      },
+      {
+        "key": "life-counter",
+        "capturedAt": "2026-08-22",
+        "why": "Current, and still not publishable. /life paints Scryfall's art_crop under every seat through matArtStyle in src/components/life/mats.ts, which applies saturate(0.68) brightness(0.58) contrast(1.1) (values at lines 253, 261 and 276, applied at 364) and then washes a colour over it. Scryfall's image guidelines forbid desaturating or colour-shifting card images, and src/components/play/Playmat.tsx has already been corrected for the identical thing. Re-taking this on 22 Aug refreshed the breach onto the homepage rather than fixing it.",
+        "recapture": "Nothing is wrong with the capture itself. Drop artFilter from mats.ts, re-run, and the picture goes straight back.",
+        "wasShownOn": "the homepage, in HomeLifeCounter. Removed 22 Aug 2026; the section draws the same four seats from seatingFor instead."
+      }
+    ]
+  },
   "deck": {
     "name": "Eldrazi Incursion",
     "cards": 100
@@ -44,6 +63,11 @@
       "key": "deck",
       "caption": "A Commander deck: its commander, its curve, its playability and what it is worth.",
       "sources": [
+        {
+          "width": 1600,
+          "height": 1000,
+          "src": "/screens/deck-1600.webp"
+        },
         {
           "width": 1920,
           "height": 1200,

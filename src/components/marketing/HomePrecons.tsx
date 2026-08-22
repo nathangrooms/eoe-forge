@@ -125,13 +125,16 @@ export function HomePrecons() {
       )}
 
       <SectionInner>
+        {/* "Every one comes with its real commander, set and full list" went:
+            the four tiles below print the commander, the set and the card count,
+            and "real" was doing the same defending it does in five other
+            sections. Three verbs and one derived count is the whole lead. */}
         <SectionHeading
           title="Start from a precon, then make it yours"
           lead={
             <>
               {PRECON_COUNT.toLocaleString()} Commander precon decklists you can load, compare
-              against what you own, and upgrade card by card. Every one comes with its real commander,
-              set and full list.
+              against what you own, and upgrade card by card.
             </>
           }
         />

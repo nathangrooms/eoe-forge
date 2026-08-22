@@ -34,9 +34,20 @@ import { AppScreenshot } from '@/components/marketing/AppScreenshot';
 export function HomeAppVisual() {
   return (
     <Section tint>
+      {/* THE HEADING SAID "This is the builder" OVER A PHOTOGRAPH OF THE DECK
+          PAGE, and had done since the scene was changed on the owner's own
+          instruction ("Maybe need to just use the deck detail page instead").
+          The lead under it described editing behaviour — cards dropping into
+          groups, a curve redrawing as you type — none of which is visible in a
+          picture of a finished deck. Both now describe what is on screen.
+​
+          The last sentence is a feature the homepage had never mentioned once:
+          `/p/:slug` publishes a deck to a link anybody can open, which is one of
+          the top reasons people use Moxfield at all. See src/lib/api/shareAPI.ts
+          and src/pages/PublicDeck.tsx. */}
       <SectionHeading
-        title="This is the builder"
-        lead="Cards drop into the right group on their own, the curve redraws as you go, and what the deck costs is always on screen."
+        title="Build a deck, then see what you built"
+        lead="An EDH power score, what the list costs, its colour identity and every card type counted. Publish it and anyone can open it from a link."
       />
 
       <div className="mt-8 sm:mt-14">
@@ -50,7 +61,12 @@ export function HomeAppVisual() {
         <AppScreenshot
           scene="deck"
           alt="A hundred-card Commander deck in DeckMatrix: its commander, its EDH power score, what it is worth, its colour identity and a breakdown of every card type in the list"
-          caption="A real Commander precon. The power score, the value and the type breakdown are all worked out from the hundred cards in the list."
+          /* Named, not described. "A real Commander precon" is a claim; Eldrazi
+             Incursion is evidence, and the name is in
+             public/screens/manifest.json where the shot was taken. The sentence
+             that followed it insisted the numbers were worked out from the list,
+             which is what a deck page is. */
+          caption="Eldrazi Incursion, a Commander precon, loaded whole."
         />
       </div>
 

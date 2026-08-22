@@ -93,9 +93,13 @@ export function HomeNewSets() {
 
   return (
     <Section>
+      {/* "as soon as it is spoiled" over-promised: spoiler season is not
+          Scryfall publication, and Scryfall publication is what actually gates
+          us. "not months later" was a swipe at competitors. The nightly sync is
+          the real, checkable promise, so the lead makes exactly that one. */}
       <SectionHeading
         title="New sets, the week they land"
-        lead="Cards update from Scryfall every night. You can search a new set and start building with it as soon as it is spoiled, not months later."
+        lead="Cards update from Scryfall every night, so a new set is searchable here the night it lands."
       />
 
       {/* ---- set tiles: art_crop is correct here, a tile stands for a SET ----
@@ -154,24 +158,18 @@ export function HomeNewSets() {
            the section makes, which is that a set is here the week it lands: they
            carry the set's own art, its code, its release month and its real card
            count. The spotlight is the same claim shown a second way, and shown a
-           second way it costs a sub-heading, a paragraph and two rows of whole
-           commander cards with captions, about 700px at 390px. Opened, the cards
-           are exactly the size they are on a desktop. */}
+           second way it costs two rows of whole commander cards with captions,
+           about 700px at 390px. Opened, the cards are exactly the size they are
+           on a desktop.
+
+           The sub-heading and its line went with the copy pass. "Fresh
+           commanders, already legal to build" sat over cards whose legality
+           nobody was doubting, and "A legend from each of those sets, shown as a
+           whole card" was the page narrating its own rendering policy to a
+           stranger. The control's own label already says what is behind it. */}
       <MobileReveal label="See a new commander from each of them">
       <div className="mt-10 sm:mt-12">
-        <div className="mx-auto max-w-3xl text-center">
-          <h3 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            Fresh commanders, already legal to build
-          </h3>
-          {/* The old line here explained that each card belongs to the set
-              above it. At six columns the card IS under its set, so the layout
-              says it and the sentence does not have to. */}
-          <p className="mt-3 text-base leading-relaxed text-muted-foreground">
-            A legend from each of those sets, shown as a whole card.
-          </p>
-        </div>
-
-        <div className="mt-8 grid grid-cols-2 gap-x-5 gap-y-8 sm:mt-10 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-6">
           {commanders === null
             ? Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className={cn(i >= ON_PHONE && 'hidden sm:block')}>

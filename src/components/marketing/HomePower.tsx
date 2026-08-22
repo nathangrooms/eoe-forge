@@ -99,6 +99,26 @@ const HEAVIEST_WEIGHT = Math.max(...SUBSCORES.map(s => s.weight));
  */
 const WEIGHTS_ON_PHONE = 3;
 
+/**
+ * The engine's own band labels.
+ *
+ * LEFT ALONE, BUT THE REASON THAT USED TO BE WRITTEN HERE WAS WRONG AND IS
+ * WORTH CORRECTING RATHER THAN DELETING.
+ *
+ * It said that renaming these would "put a word on the marketing page that the
+ * scorer does not use". The scorer does use it. `src/engine/power/weights.ts` —
+ * the file this section already imports for the weights — exports `BracketId`
+ * and `bracketIdForScore`, and the deck page prints the result: the screenshot
+ * six sections above this one reads "BRACKET 3 · Upgraded · Mid power" in the
+ * corner of a real deck.
+ *
+ * So the honest position is that the app shows BOTH, the band and the bracket,
+ * and this page shows one of the two. Which of them a stranger should meet
+ * first is a product decision for the owner rather than a correction, and the
+ * band is the half that pairs with the 1-to-10 score the rest of this section
+ * is about. But nobody should read the old comment and conclude the brackets do
+ * not exist, because they ship.
+ */
 const BANDS = ['Casual', 'Mid', 'High', 'cEDH'];
 
 /* ------------------------------------------------------- the game changers */
@@ -163,22 +183,37 @@ function WeightRow({ label, weight, blurb }: { label: string; weight: number; bl
 /** A panel of whole cards, with the ones the catalogue table could not resolve dropped. */
 /*
  * The eyebrow this used to carry was the catalogue's own key for the class —
- * "Compact combo", "Finisher bomb", "Inevitability engine", "Massive swing".
- * Those are internal names for internal groupings, and "engine" is on the
- * owner's banned list by name. The plain-English `title` underneath already
- * says the same thing better ("The card that wins it slowly"), so the eyebrow
- * was jargon sitting on top of the translation of itself. Dropped; the count
- * moves next to the title, where it still says how many real cards there are.
+ * "Compact combo", "Finisher bomb", "Inevitability engine", "Massive swing" —
+ * which are internal names for internal groupings. Dropped; the count moves
+ * next to the title.
+ *
+ * THE TITLES WERE THEN WRONG FOR A SECOND REASON, AND THIS IS THE ONE WORTH
+ * REMEMBERING. They read "Two cards that end the game", "The card you cast to
+ * win", "The card that wins it slowly" and "The card that undoes the board" —
+ * four riddles, written that way because "engine" is on the banned-word list in
+ * CLAUDE.md and the ban was applied to Magic's vocabulary as well as to
+ * engineering's.
+ *
+ * It is not the same list. The ban is on marketing and engineering words: "the
+ * engine", "the pipeline", "the surface", "portability". A VALUE ENGINE is what
+ * this audience has called these cards for twenty years, and so are TWO-CARD
+ * COMBO, FINISHER and BOARD WIPE. Paraphrasing them told the reader we had
+ * never sat at a table. The titles are the words now.
  */
 function ClassPanel({
   title,
   body,
   count,
+  /* Three of the four panels count cards. The combo panel counts PAIRS, and
+     printing "8 cards like this" over eight two-card combos was simply the
+     wrong noun for the number beside it. */
+  countLabel = 'cards like this',
   children,
 }: {
   title: string;
   body: string;
   count: number;
+  countLabel?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -186,7 +221,7 @@ function ClassPanel({
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h3 className="font-medium">{title}</h3>
         <span className="text-[11px] tabular-nums text-muted-foreground/70">
-          {count} cards like this
+          {count} {countLabel}
         </span>
       </div>
       <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{body}</p>
@@ -285,8 +320,7 @@ export function HomePower() {
         lead={
           <>
             Find out if your deck is too strong for your group, before you sit down. Ten things get
-            measured and you can see every one of them, so you can see why the number came out the
-            way it did.{' '}
+            measured, and the weight on each is printed below.{' '}
             <span className="hidden sm:inline">The same deck always gets the same score.</span>
           </>
         }
@@ -334,16 +368,23 @@ export function HomePower() {
             And the cards it watches for
           </h3>
           <p className="mt-3 text-base leading-relaxed text-muted-foreground">
-            Some cards win a game on their own. A deck with none of them scores lower, however tidy
-            it looks on paper. These are the four kinds it looks for, and the real cards in each.
+            Some cards win a game on their own. A deck with none of them scores lower.
           </p>
         </div>
 
         <div className="mt-8 grid gap-5 sm:mt-10 lg:grid-cols-2">
+          {/* "EACH HALF IS USELESS WITHOUT THE OTHER" WAS DISPROVED BY THE
+              PANEL'S OWN PICTURE. Dockside Extortionist is drawn in it, and
+              Dockside is one of the strongest cards in the format on its own.
+              So are Kiki-Jiki, Underworld Breach and Food Chain. What is
+              actually true, and what the scorer actually does, is that the pair
+              is worth more than the two cards added up, because together they
+              end the game. */}
           <ClassPanel
-            title="Two cards that end the game"
-            body="These count as a pair, not as two good cards on their own. Each half is useless without the other."
+            title="Two-card combos"
+            body="Scored as a pair, not as two good cards. Holding both is a win, not an advantage."
             count={COMPACT_COMBOS.length}
+            countLabel="pairs it looks for"
           >
             {combos.length > 0 ? (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -361,25 +402,41 @@ export function HomePower() {
             )}
           </ClassPanel>
 
+          {/* The two thresholds are the catalogue's own: `min_creatures: 20`
+              and `min_inst_sorc: 25`. Both count the DECK, not the board, and
+              "twenty creatures out" said the board. */}
           <ClassPanel
-            title="The card you cast to win"
-            body={`${CONDITIONAL_FINISHERS} of these only count if the rest of your deck backs them up. Craterhoof wants twenty creatures out. Aetherflux wants twenty-five spells.`}
+            title="Finishers"
+            body={`${CONDITIONAL_FINISHERS} of these only count if the deck backs them up. Craterhoof needs twenty creatures in the list, Aetherflux twenty-five instants and sorceries.`}
             count={FINISHERS.length}
           >
             <CardWall cards={finishers} />
           </ClassPanel>
 
           <ClassPanel
-            title="The card that wins it slowly"
+            title="Value engines"
             body="Nothing happens the turn it lands. Two turns later the table is a card down and you are three up."
             count={ENGINES.length}
           >
             <CardWall cards={engines} />
           </ClassPanel>
 
+          {/* "BOARD WIPES AND EXTRA TURNS" DESCRIBED A LIST THAT IS NOT THAT.
+​
+              `massive_swing` holds eleven cards and exactly one of them is a
+              wipe, and it is a bounce spell: Cyclonic Rift. The rest are five
+              extra turns (Time Warp, Nexus of Fate, Temporal Manipulation,
+              Capture of Jingzhou, Time Stretch), three extra combats
+              (Aggravated Assault, Savage Beating, Waves of Aggression),
+              Insurrection and Expropriate. So the heading promised Wrath of God
+              and Farewell and drew six turn spells, and "the wipe only hits
+              them" was a sentence about one card out of eleven.
+​
+              The title is what the list is. A Commander player reads "extra
+              turn" and "extra combat" without help. */}
           <ClassPanel
-            title="The card that undoes the board"
-            body="Board wipes that only hit them, and extra turns. One cast and a game you were losing is a game you are winning."
+            title="Extra turns and extra combats"
+            body="One more turn, or one more attack with the board you already have. Cyclonic Rift is on the same list, the wipe that only hits them."
             count={SWINGS.length}
           >
             <CardWall cards={swings} />
@@ -406,15 +463,11 @@ export function HomePower() {
         ))}
       </div>
 
-      <p className="mt-5 text-center text-xs leading-relaxed text-muted-foreground">
-        These are the numbers and the bands the score really uses
-        {/* True only once the cards are on screen, and on a phone they are
-            behind the control above until somebody opens it. */}
-        <span className="hidden sm:inline">
-          , and the cards above are the real list it checks your deck against
-        </span>
-        .
-      </p>
+      {/* The line under the bands went. It said "These are the numbers and the
+          bands the score really uses, and the cards above are the real list it
+          checks your deck against" — the page insisting on its own honesty
+          under a figure whose every number is imported from the scorer. Why
+          that is true is at the top of this file, where it is useful. */}
 
       <div className="mt-8 text-center sm:mt-10">
         <Button asChild size="lg" variant="outline">

@@ -198,13 +198,23 @@ test('a pending trigger survives serialisation with its compiled ability', () =>
 
 test('a card the engine does not fully understand stays with the old detector', () => {
   resetAbilityCache();
-  // "Whenever ANOTHER creature enters" is a battlefield-wide event this engine
-  // never derives. Claiming the card would silence its triggers entirely.
+  // "Whenever you gain life" is an event `deriveTriggerEvents` genuinely never
+  // emits. Claiming the card would silence its trigger entirely.
+  //
+  // This case used to be Soul Warden, on the grounds that "another creature
+  // enters" was an event the engine did not derive. It never was a different
+  // event. It is the same enters event watched by a different permanent, and
+  // the engine derives it now. A refusal has to name something actually
+  // missing, or the test only records an old limit.
   const state = game([
-    { id: 'warden', name: 'Soul Warden', oracleText: 'Whenever another creature enters, you gain 1 life.' },
+    {
+      id: 'pridemate',
+      name: "Ajani's Pridemate",
+      oracleText: 'Whenever you gain life, put a +1/+1 counter on this creature.',
+    },
   ]);
 
-  const card = state.cards.warden;
+  const card = state.cards.pridemate;
   assert.equal(abilityEngineOwns(card), false);
   assert.deepEqual(ownedTriggersOf(card), [], 'and it offers no triggers to run');
 
@@ -353,10 +363,14 @@ test('every declined trigger says why, in words', () => {
   // `unrunnableReason` returning prose rather than `false` is what makes
   // ownership diagnosable instead of an opaque no.
   const state = game([
-    { id: 'warden', name: 'Soul Warden', oracleText: 'Whenever another creature enters, you gain 1 life.' },
+    {
+      id: 'pridemate',
+      name: "Ajani's Pridemate",
+      oracleText: 'Whenever you gain life, put a +1/+1 counter on this creature.',
+    },
   ]);
 
-  const [ability] = triggeredAbilitiesOf(state.cards.warden);
+  const [ability] = triggeredAbilitiesOf(state.cards.pridemate);
   const reason = unrunnableReason(ability);
   assert.ok(typeof reason === 'string' && reason.length > 0, 'a reason, not just false');
   assert.match(reason, /no event/i);
@@ -367,24 +381,28 @@ test('ownership is all-or-nothing: one unrunnable trigger disqualifies the card'
   // The partial-ownership bug in one test. A card whose triggers the engine
   // only half-understands must stay entirely with the old detector, or the
   // half it did not model stops firing.
+  //
+  // Circuit Mender, verbatim. It replaced an invented two-clause card, because
+  // an invented card proves the predicate works on a sentence nobody printed.
   const state = game([
     {
-      id: 'split',
-      name: 'Split Brain',
+      id: 'mender',
+      name: 'Circuit Mender',
+      typeLine: 'Artifact Creature — Insect',
       oracleText:
-        'When this creature enters, you gain 2 life.\nWhenever another creature enters, you gain 1 life.',
+        'When this creature enters, you gain 2 life.\nWhen this creature leaves the battlefield, draw a card.',
     },
   ]);
 
-  const card = state.cards.split;
+  const card = state.cards.mender;
   const abilities = triggeredAbilitiesOf(card);
   // Asserted, never skipped: if the compiler stopped modelling both clauses
   // this test would quietly stop testing anything.
   assert.equal(abilities.length, 2, 'the compiler models both clauses');
 
   const runnable = abilities.filter(a => unrunnableReason(a) === null);
-  assert.ok(runnable.length > 0, 'the self ETB is runnable on its own');
-  assert.ok(runnable.length < abilities.length, 'the other-creature clause is not');
+  assert.ok(runnable.length > 0, 'the enters clause is runnable on its own');
+  assert.ok(runnable.length < abilities.length, 'the leaves-the-battlefield clause is not');
   assert.equal(abilityEngineOwns(card), false, 'so the engine claims neither');
 });
 

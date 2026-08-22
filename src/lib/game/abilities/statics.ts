@@ -47,7 +47,7 @@ import type {
   LayerResult,
   SubLayer,
 } from '../layers.ts';
-import { CARD_TYPES, computeStateLayers } from '../layers.ts';
+import { CARD_TYPES, computeStateLayers, liveTimedEffects } from '../layers.ts';
 import type { AbilityContext, CharacteristicView } from './context.ts';
 import { evalCondition, evalValue, makeContext, matchesFilter, resolvePlayers, resolveSelector } from './context.ts';
 import { staticAbilitiesOf } from './card-abilities.ts';
@@ -477,9 +477,27 @@ function restrictionSubjects(rule: Restriction, ctx: AbilityContext): InstanceId
   }
 }
 
-/** Just the continuous effects, for handing straight to `computeStateLayers`. */
+/**
+ * Every continuous effect in force, from both halves, for handing straight to
+ * `computeStateLayers`.
+ *
+ * The two halves are genuinely different and merging them here is the whole
+ * point of this function existing:
+ *
+ *   DERIVED. A static ability's effects, rebuilt from the battlefield on every
+ *   call. Nothing stores an anthem, so nothing has to remember to unstore it
+ *   when the anthem dies.
+ *
+ *   STORED. What a spell or ability that has already RESOLVED left behind —
+ *   Giant Growth's +3/+3, Act of Treason's control change. There is no source
+ *   on the board to re-read, so these live on `state.timedEffects` and carry an
+ *   expiry, and `liveTimedEffects` drops the ones whose expiry has passed.
+ *
+ * Statics come first, which affects nothing: `computeLayers` orders by CR 613
+ * timestamp and dependency, not by list position.
+ */
 export function continuousEffectsFor(state: GameState): ContinuousEffect[] {
-  return scanStatics(state).effects;
+  return [...scanStatics(state).effects, ...liveTimedEffects(state)];
 }
 
 /* -------------------------------------------------------------------------- */

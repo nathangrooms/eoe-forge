@@ -436,7 +436,7 @@ function compiledAbilityActions(
   object: StackObject,
   at: number
 ): GameAction[] {
-  if (!object.abilityId) return [];
+  if (!object.abilityId) return compiledSpellActions(state, object, at);
 
   const sourceId = object.sourceInstanceId ?? object.cardInstanceId;
   const source = sourceId ? getCard(state, sourceId) : undefined;
@@ -462,29 +462,127 @@ function compiledAbilityActions(
     ];
   }
 
-  const ctx = makeContext(state, source.instanceId, object.controllerId, {
-    /*
-     * POSITIONS ARE THE CONTRACT, so an illegal target is blanked in place and
-     * never filtered out. `{sel:'target', ref: n}` is a plain index into this
-     * array; compacting it with `legalTargetsOf` would slide target 1 into
-     * slot 0 and point the first half of the ability at the second half's
-     * victim — a partial fizzle turned into a wrong resolution, which is worse
-     * than either. A blank entry resolves to nobody in `context.ts`, which is
-     * exactly CR 608.2b for the part of the ability that named it.
-     */
-    targets: object.targets.map(target =>
-      targetIsLegal(state, object, target) ? target : ({ kind: 'card' } as StackTarget)
-    ),
-    triggerSourceId: source.instanceId,
-  });
-
-  return resolveAbilityActions(ability.effects, ctx, {
+  return resolveAbilityActions(ability.effects, contextForResolution(state, object, source.instanceId), {
     at,
     cause: object.name,
     idPrefix: `${object.stackId}:${state.version}`,
     sourceInstanceId: source.instanceId,
     verb: object.kind === 'activated' ? 'activated' : 'triggered',
+    // Chosen when this was ANNOUNCED, not now. Working a mode out at resolution
+    // would let a board that changed in response pick a different one, and two
+    // clients replaying the same log could land on different modes.
+    ...(object.modes ? { modes: object.modes } : {}),
   });
+}
+
+/**
+ * The context a resolving object's effects are evaluated in.
+ *
+ * POSITIONS ARE THE CONTRACT, so an illegal target is blanked in place and
+ * never filtered out. `{sel:'target', ref: n}` is a plain index into this array;
+ * compacting it with `legalTargetsOf` would slide target 1 into slot 0 and point
+ * the first half of the ability at the second half's victim — a partial fizzle
+ * turned into a wrong resolution, which is worse than either. A blank entry
+ * resolves to nobody in `context.ts`, which is exactly CR 608.2b for the part of
+ * the ability that named it.
+ */
+function contextForResolution(state: GameState, object: StackObject, sourceId: InstanceId) {
+  return makeContext(state, sourceId, object.controllerId, {
+    targets: object.targets.map(target =>
+      targetIsLegal(state, object, target) ? target : ({ kind: 'card' } as StackTarget)
+    ),
+    triggerSourceId: sourceId,
+  });
+}
+
+/**
+ * AN INSTANT OR SORCERY RESOLVING RUNS ITS OWN COMPILED TEXT.
+ *
+ * This is the half of resolution that was missing, and it was missing quietly.
+ * `compiledAbilityActions` returned an empty list for anything without an
+ * `abilityId`, and a spell cast from hand has none — the `abilityId` field
+ * exists for an activated or triggered ability, which is a different object on
+ * the stack. So Lightning Bolt reached the top of the stack, resolved, moved
+ * itself to the graveyard, and dealt no damage. Divination drew nothing. Wrath
+ * of God destroyed nothing.
+ *
+ * Nothing was broken. `compileCardAbilities` produced a `kind:'spell'` ability
+ * with the right effects, `runEffects` would have executed them, and 1,842
+ * tests were green throughout. Nobody called the one with the other. That is the
+ * project's own law from CLAUDE.md, "green tests do not mean a player can reach
+ * it", playing out on the largest single group of cards in the game.
+ *
+ * ## Why this can be done without checking the card type
+ *
+ * Measured over the cached Scryfall bulk file, one row per oracle id: 3,648 of
+ * 7,358 instants and sorceries compile to at least one `kind:'spell'` ability,
+ * and **0 of 29,136 permanents do**. The compiler only ever emits this kind for
+ * an instant or a sorcery, so running every one of them here cannot double up
+ * with a permanent's static or triggered abilities. The count is reproducible;
+ * the script is `scripts/measure-spell-ability-shape.mjs`, and it exits non-zero
+ * if a permanent ever grows one.
+ *
+ * The permanent case is genuinely different and is already handled elsewhere: a
+ * creature spell resolving IS the creature entering, which `resolutionActionsFor`
+ * does with a `PLAY`, and whatever it then does comes from its triggered and
+ * static abilities on the battlefield.
+ */
+function compiledSpellActions(
+  state: GameState,
+  object: StackObject,
+  at: number
+): GameAction[] {
+  if (object.kind !== 'spell' || !object.cardInstanceId) return [];
+  const card = getCard(state, object.cardInstanceId);
+  if (!card) return [];
+
+  const spells = abilitiesFor(card).abilities.filter(ability => ability.kind === 'spell');
+  if (spells.length === 0) return [];
+
+  const ctx = contextForResolution(state, object, card.instanceId);
+  const out: GameAction[] = [];
+
+  spells.forEach((ability, ordinal) => {
+    /*
+     * CR 601.2c — a spell that requires a target is cast AT something, chosen on
+     * announcement. Nothing announces one for a spell yet: `CastOptions.targets`
+     * exists and no surface fills it, because picking a target for a spell needs
+     * a picker and a legality check that only exist for activated abilities so
+     * far (`activate.ts`, `AbilityPanel`).
+     *
+     * Left alone, `{sel:'target'}` resolves to nobody and the card produces the
+     * generic "nothing for it to do" line, which reads as though the spell was
+     * pointless rather than unaimed. Two different problems should not print the
+     * same sentence, so this one names itself.
+     */
+    const wanted = 'targets' in ability ? (ability.targets ?? []) : [];
+    if (wanted.length > 0 && object.targets.length === 0) {
+      out.push({
+        type: 'NOTE',
+        instanceId: card.instanceId,
+        message: `${object.name} resolves, but no target was chosen when it was cast, so there is nothing for it to affect. Aim it by hand.`,
+        at,
+      });
+      return;
+    }
+
+    out.push(
+      ...resolveAbilityActions(ability.effects, ctx, {
+        at,
+        cause: object.name,
+        // Distinct from the ability path's prefix by the `s` and the ordinal, so
+        // a token minted by a spell can never collide with one minted by an
+        // ability that happened to resolve at the same state version.
+        idPrefix: `${object.stackId}:${state.version}:s${ordinal}`,
+        sourceInstanceId: card.instanceId,
+        verb: 'resolved',
+        // As on the ability path: chosen when the spell was cast, not now.
+        ...(object.modes ? { modes: object.modes } : {}),
+      })
+    );
+  });
+
+  return out;
 }
 
 /**
@@ -663,6 +761,7 @@ export function castSpell(
     controllerId,
     cardInstanceId: card.instanceId,
     targets: action.targets ?? [],
+    ...(action.modes ? { modes: action.modes } : {}),
     effects: action.effects ?? [],
     resolvesTo: action.resolvesTo ?? defaultResolutionZone(card),
     ...(action.splitSecond ? { splitSecond: true } : {}),
@@ -689,6 +788,7 @@ export function putAbilityOnStack(
     controllerId: action.controllerId,
     ...(action.sourceInstanceId ? { sourceInstanceId: action.sourceInstanceId } : {}),
     ...(action.abilityId ? { abilityId: action.abilityId } : {}),
+    ...(action.modes ? { modes: action.modes } : {}),
     targets: action.targets ?? [],
     effects: action.effects ?? [],
     turn: state.turn,
@@ -865,6 +965,8 @@ export function passUntilResolved(state: GameState, at = 0): GameAction[] {
 
 export interface CastOnStackOptions {
   targets?: StackTarget[];
+  /** CR 601.2b - modes chosen on announcement. See `StackObject.modes`. */
+  modes?: Record<string, readonly number[]>;
   effects?: StackEffect[];
   resolvesTo?: Zone;
   splitSecond?: boolean;
@@ -888,6 +990,7 @@ export function castSpellAction(
     resolvesTo: options.resolvesTo,
     splitSecond: options.splitSecond,
     cantBeCountered: options.cantBeCountered,
+    modes: options.modes,
     stackId: options.stackId,
     at: options.at ?? 0,
   };
@@ -904,6 +1007,8 @@ export function abilityAction(
     effects?: StackEffect[];
     /** The compiled ability's id on the source card. See `StackObject.abilityId`. */
     abilityId?: string;
+    /** CR 602.2b - modes chosen on announcement. See `StackObject.modes`. */
+    modes?: Record<string, readonly number[]>;
     stackId?: StackObjectId;
     at?: number;
   } = {}
@@ -917,6 +1022,7 @@ export function abilityAction(
     targets: options.targets,
     effects: options.effects,
     abilityId: options.abilityId,
+    modes: options.modes,
     stackId: options.stackId,
     at: options.at ?? 0,
   };

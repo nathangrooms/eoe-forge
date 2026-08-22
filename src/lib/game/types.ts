@@ -25,11 +25,16 @@
  */
 
 /*
- * The only import in this file, and deliberately `import type`: it erases at
- * compile time, so this module still pulls in no runtime code and a `GameState`
- * remains plain JSON. `TriggeredAbility` is itself a pure data shape.
+ * The only two imports in this file, and deliberately `import type`: they erase
+ * at compile time, so this module still pulls in no runtime code and a
+ * `GameState` remains plain JSON. Both are pure data shapes.
+ *
+ * `ContinuousEffect` comes from `layers.ts`, which imports this file back. That
+ * cycle is safe precisely because the import is type-only and disappears; a
+ * value import either way round would be a real one.
  */
 import type { TriggeredAbility } from '../cards/abilities/dsl.ts';
+import type { ContinuousEffect } from './layers.ts';
 
 export type PlayerId = string;
 export type InstanceId = string;
@@ -512,6 +517,16 @@ export interface StackObject {
   abilityId?: string;
   /** Chosen on announcement. Empty means "no targets", and an object with no targets never fizzles. */
   targets: StackTarget[];
+  /**
+   * CR 601.2b / 602.2b — the modes chosen on announcement, keyed by the
+   * `ModeChoice.ref` the compiler's effect tree gave them.
+   *
+   * On the object rather than recomputed at resolution, for the same reason
+   * `targets` is: the choice was made when the object was announced, and a
+   * client replaying the log must resolve the modes that were picked and not
+   * the ones a later board would suggest.
+   */
+  modes?: Record<string, readonly number[]>;
   effects: StackEffect[];
   /** Where the card goes once it resolves: battlefield for permanents, graveyard for instants and sorceries. */
   resolvesTo?: Zone;
@@ -680,6 +695,28 @@ export interface DetectedTrigger {
   intervening?: InterveningCondition;
 }
 
+/**
+ * One mana floating in a player's pool. CR 106.4.
+ *
+ * One unit per mana rather than a count per colour, because the two facts a
+ * pool has to keep are per-mana: which colour it is, and whether the card that
+ * made it put a string on it. Geosurge's "Spend this mana only to cast artifact
+ * or creature spells" belongs to three of its seven mana in the general case,
+ * and a `Record<ManaColor, number>` has nowhere to write that down.
+ *
+ * `restriction` is the card's own sentence, verbatim, never a parsed code. The
+ * engine does not read it — `manaSourcesFor` refuses to spend a restricted unit
+ * on anything at all, which under-delivers and never mis-pays. See the note
+ * there for why that is the direction to be wrong in.
+ */
+export interface ManaUnit {
+  color: ManaColor;
+  /** The card's own words, when the mana may only be spent on some things. */
+  restriction?: string;
+  /** The permanent or spell that made it, for the log and for a tooltip. */
+  sourceName?: string;
+}
+
 /** What actually happened in the game, as triggered abilities see it. */
 export type TriggerEventKind =
   | 'enters'
@@ -829,6 +866,24 @@ export interface GameState {
   /** CR 614 — registered replacement effects. See `replacement.ts`. */
   replacements?: ReplacementEffect[];
   /**
+   * CR 611 — continuous effects created by a spell or ability that has already
+   * resolved. Giant Growth's +3/+3, Act of Treason's control change.
+   *
+   * These are the effects nothing can re-derive from the board. A static
+   * ability's effects are NOT here: `statics.ts` rebuilds those from the
+   * battlefield on every read, so an anthem leaving play is the anthem ending,
+   * with nothing to remember to unwrite. A resolved spell has no such source to
+   * read back, which is why it needs a list and why that list carries an
+   * expiry.
+   *
+   * Written only by `ADD_CONTINUOUS`, so a resolved pump is an ordinary logged
+   * action and two clients replaying the log land on the same board. Read it
+   * through `continuousEffectsFor()` in `abilities/statics.ts`, which merges it
+   * with the statics scan and drops anything whose expiry has passed. Optional
+   * so a state persisted before it existed still loads.
+   */
+  timedEffects?: ContinuousEffect[];
+  /**
    * CR 603.3 — abilities that have triggered and are waiting for the next time
    * a player would receive priority, **bottom of the stack first**.
    *
@@ -858,6 +913,31 @@ export interface GameState {
    * `abilityUsesThisTurn()` in `activate.ts`, never directly.
    */
   abilityUses?: Record<string, number>;
+
+  /**
+   * CR 106.4 — mana floating in each player's pool, in the order it arrived.
+   *
+   * The engine went without one for a long time and the choice was argued in
+   * writing: `mana.ts` derives what a player COULD produce by scanning untapped
+   * permanents, which answers "can you afford this" without any pool at all.
+   * That is still how a land pays for a spell, and this list does not replace
+   * it or duplicate it. `manaSourcesFor` offers pool units and permanents to
+   * the SAME matcher, so there is one payment algorithm, not two.
+   *
+   * What this exists for is the mana with nowhere else to go. "Add {B}{B}{B}"
+   * on a resolving Dark Ritual, "When this creature enters, add {R}{G}" on
+   * Burning-Tree Emissary, and any mana ability used on its own rather than in
+   * the middle of paying for something. Before this list all three resolved
+   * into a log line and the mana was binned, and `activate.ts` refused to offer
+   * a mana ability at all, for the honest reason that there was nowhere to put
+   * what it made.
+   *
+   * Written only by `ADD_MANA` and `SPEND_MANA`, emptied by the reducer at the
+   * end of every step and phase (CR 500.4). Optional so a state persisted
+   * before it existed still loads; read it through `manaPoolOf()` in `mana.ts`,
+   * never directly.
+   */
+  manaPool?: Record<PlayerId, ManaUnit[]>;
 
   monarchId?: PlayerId | null;
   initiativeId?: PlayerId | null;
@@ -1125,6 +1205,8 @@ export type GameAction = ActionMeta &
         resolvesTo?: Zone;
         splitSecond?: boolean;
         cantBeCountered?: boolean;
+        /** CR 601.2b — modes chosen on announcement. See `StackObject.modes`. */
+        modes?: Record<string, readonly number[]>;
         /** Override the derived id. Only for tests and replays. */
         stackId?: StackObjectId;
       }
@@ -1143,6 +1225,8 @@ export type GameAction = ActionMeta &
          * before this one in the batch; this action is the announcement.
          */
         abilityId?: string;
+        /** CR 602.2b — modes chosen on announcement. See `StackObject.modes`. */
+        modes?: Record<string, readonly number[]>;
         stackId?: StackObjectId;
       }
     /** CR 117.3d. Defaults to whoever currently holds priority. */
@@ -1155,6 +1239,77 @@ export type GameAction = ActionMeta &
     /* --- replacement effects (see replacement.ts) --- */
     | { type: 'ADD_REPLACEMENT'; effect: ReplacementEffect }
     | { type: 'REMOVE_REPLACEMENT'; replacementId: ReplacementId }
+
+    /* --- continuous effects from a resolved spell or ability (CR 611) --- */
+    /**
+     * Giant Growth resolving. Built by `to-actions.ts` when a compiled
+     * `{do:'pump'}` or `{do:'gain-control'}` runs, and stored on
+     * `GameState.timedEffects`.
+     *
+     * It is an action rather than a return value on the side because the action
+     * log is the only authority here: a client that replays the log has to land
+     * on the same board, and a +3/+3 that travelled outside the log would exist
+     * on one screen and not the other. `ADD_REPLACEMENT` is the same shape for
+     * the same reason.
+     *
+     * There is no matching REMOVE. An effect ends by its own `expiry`, which
+     * `statics.ts` evaluates on every read, so nothing has to remember to send
+     * the end of a turn.
+     */
+    | { type: 'ADD_CONTINUOUS'; effect: ContinuousEffect }
+
+    /* --- mana (CR 106) --- */
+    /**
+     * Mana arriving in a pool. Dark Ritual resolving, Llanowar Elves tapped on
+     * its own, Burning-Tree Emissary entering.
+     *
+     * `mana` is the card's own cost string — "{B}{B}{B}", "{R}{G}" — and the
+     * reducer parses it with `parseManaSymbols`, the same parser everything
+     * else in this engine uses to read a mana cost. Carrying the string rather
+     * than an already-split list keeps the log readable and keeps one parser.
+     *
+     * A symbol the parser does not recognise adds NO mana and says so in the
+     * log. Guessing a colour for a symbol nobody has taught it would put mana
+     * in a pool that the card never made.
+     */
+    | {
+        type: 'ADD_MANA';
+        playerId: PlayerId;
+        /** Scryfall-style symbols, e.g. "{B}{B}{B}". */
+        mana: string;
+        /** The card's own sentence when the mana is restricted. Verbatim. */
+        restriction?: string;
+        /** For the log line and the pool tooltip. */
+        sourceName?: string;
+      }
+    /**
+     * Mana leaving a pool to pay for something.
+     *
+     * The colours are listed explicitly rather than derived, because the
+     * reducer must remove exactly what the payment plan decided to spend and
+     * the plan is the only thing that knows. Removal takes the FIRST unit of
+     * each colour, which is deterministic, so two clients replaying the log
+     * empty the same units.
+     *
+     * A colour that is not in the pool is skipped and the rest are still spent.
+     * That cannot happen from a plan built by `planPayment`, and silently
+     * failing the whole action if it ever did would take the mana off nobody
+     * and leave the spell paid for.
+     */
+    | { type: 'SPEND_MANA'; playerId: PlayerId; colors: ManaColor[] }
+    /*
+     * THERE IS NO 'EMPTY_MANA_POOL'. One was written here and taken back out
+     * the same hour, because `reachability.test.ts` refused it: the reducer
+     * empties pools inside `enterStep` and `passTurn`, so nothing anywhere
+     * would ever have built the action.
+     *
+     * Keeping it would have been the exact shape this project has been burned
+     * by before — `ATTACH` proven correct by tests and never constructed by any
+     * code path, `PHASE_CHANGE` with validation, two reducer cases and a log
+     * filter, all serving an action nothing produced. CR 500.4 is not a player
+     * decision and does not need a player-facing action; it is a consequence of
+     * the step ending, which is where it happens.
+     */
 
     /* --- turn structure --- */
     | { type: 'PHASE_CHANGE'; step: Step }

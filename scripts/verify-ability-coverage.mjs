@@ -30,7 +30,7 @@
  * Local file only. No Supabase, no network at run time, no model.
  */
 
-import { createReadStream, writeFileSync, existsSync } from 'node:fs';
+import { createReadStream, writeFileSync, existsSync, readdirSync, readFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -39,15 +39,19 @@ import { compileWithTrace, assertClausesAccounted } from '../src/lib/cards/abili
 import { hasManualEffect, effectsOf } from '../src/lib/cards/abilities/dsl.ts';
 import { unrunnableReason } from '../src/lib/game/abilities/trigger-bridge.ts';
 import { keywordSupport } from '../src/lib/game/keywords.ts';
-import { probeBehaviour } from '../src/lib/game/abilities/behaviour-probe.ts';
+import { probeBehaviour, probeEffects } from '../src/lib/game/abilities/behaviour-probe.ts';
+import { addCard, applyActions, createGame } from '../src/lib/game/rules.ts';
+import { castSpellAction } from '../src/lib/game/stack.ts';
+import { activationsFor, planActivation } from '../src/lib/game/activate.ts';
+import { powerIn } from '../src/lib/game/characteristics.ts';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = join(ROOT, 'scratch', 'scryfall', 'oracle-cards.jsonl');
 const OUT = join(
   ROOT,
   'scratch',
-  process.env.DM_ACTIVATED_LIVE === '1'
-    ? 'verify-ability-coverage-activated-live.json'
+  process.env.DM_ACTIVATED_DEAD === '1'
+    ? 'verify-ability-coverage-activated-dead.json'
     : 'verify-ability-coverage.json'
 );
 
@@ -130,21 +134,27 @@ const poolOracleIds = new Set(pool.map(c => c.oracle_id));
 const RESTRICTIONS_COMBAT_READS = new Set(['cant-attack', 'cant-block']);
 
 /*
- * MEASUREMENT SWITCH, added 21 Aug 2026. Default OFF, so every figure this
- * script printed before today it still prints today.
+ * THIS IS NOW MEASURED, NOT SWITCHED. Changed 22 Aug 2026.
  *
- * The `activated` verdict below went stale on commit 56e982b. `activate.ts`
- * calls `activatedAbilitiesOfCard` in four places, `AbilityPanel.tsx` draws the
- * result, and `stack.ts:566` runs the ability through `compiledAbilityActions`
- * on resolution. The harness measured 2,262 activations across 120 games. So
- * "has no caller" is no longer true, and the cards graded dead by it are being
- * undercounted.
+ * It was `process.env.DM_ACTIVATED_LIVE === '1'`, default off, added the day
+ * before with the note that "has no caller" had gone stale on commit 56e982b
+ * and that a switch kept the old figure reproducible. That was a reasonable
+ * thing to do for one day. It is the same defect as the hardcoded verb list
+ * three lines further down: a claim about what other code does, with an expiry
+ * date on it and nothing to tell you when it passed. Here it had already
+ * passed, and the switch left the script grading 3,690 ability hits dead on a
+ * statement its own comment said was false.
  *
- * Set DM_ACTIVATED_LIVE=1 to grade activated abilities against the wiring that
- * exists. It is a switch rather than an edit so the old figure stays
- * reproducible and the gap between the two is itself a measurement.
+ * `measureActivatedRuns` below settles it the way `SPELL_RUNS_ON_RESOLUTION`
+ * settles the spell question: by activating a real ability on a real board
+ * through the real reducer and looking at what changed. Nobody's opinion is
+ * involved, and the answer moves when the engine moves.
+ *
+ * DM_ACTIVATED_DEAD=1 forces the old verdict back on, for reproducing a figure
+ * printed before today. It cannot make a false claim true, so it is the
+ * direction that is safe to leave available.
  */
-const ACTIVATED_LIVE = process.env.DM_ACTIVATED_LIVE === '1';
+const FORCE_ACTIVATED_DEAD = process.env.DM_ACTIVATED_DEAD === '1';
 
 /*
  * FOUND BY THIS REVIEW — the layer-6 grant of a keyword nothing enforces.
@@ -212,7 +222,383 @@ function decisionIn(effects) {
  * is graded here from the effect tree rather than from what one board happened
  * to match.
  */
-const NEVER_RESOLVED = new Set(['pump', 'gain-control', 'search-library', 'return-from', 'add-mana', 'counter']);
+/*
+ * THIS LIST IS NOW MEASURED, NOT WRITTEN DOWN. Changed 22 Aug 2026.
+ *
+ * It used to be a literal, `['pump', 'gain-control', 'search-library',
+ * 'return-from', 'add-mana', 'counter']`, and it was correct on the day it was
+ * typed. A literal describing what other code does is a claim with an expiry
+ * date on it, and nothing tells you when it passed: when `to-actions.ts` started
+ * calling the primitives in `abilities/primitives/`, every one of these verbs
+ * except two began producing real actions and this script kept grading their
+ * cards dead. It would have gone the other way just as quietly.
+ *
+ * So each verb is now put through the REAL `runEffects`, on the real probe
+ * board, with a representative effect chosen so the selector matches something.
+ * A verb that produces at least one action is resolved. A verb that produces
+ * only a deferral is not. Nobody's opinion is involved and the answer moves when
+ * the engine moves.
+ *
+ * Two known limits of the method, both of which UNDERSTATE coverage, which is
+ * the direction to be wrong in:
+ *
+ *   - `counter` needs a spell on the stack and an announced stack target. The
+ *     probe board has neither, so `counter` will read unresolved here even
+ *     though `counterTargetSpell` fires correctly when a target was announced.
+ *   - a verb is graded on one representative effect. A verb that resolves for
+ *     the shape below and defers for some other shape reads as resolved.
+ */
+const VERB_PROBES = {
+  pump: [{ do: 'pump', what: { sel: 'self' }, power: 1, toughness: 1, duration: 'end-of-turn' }],
+  'gain-control': [
+    { do: 'gain-control', what: { sel: 'all', where: { is: 'type', value: 'creature' }, zone: 'battlefield' }, who: { who: 'you' }, duration: 'end-of-turn' },
+  ],
+  'search-library': [
+    { do: 'search-library', who: { who: 'you' }, what: { sel: 'all', where: { is: 'type', value: 'creature' } }, count: 1, to: 'hand', thenShuffle: true },
+  ],
+  'return-from': [
+    { do: 'return-from', zone: 'graveyard', who: { who: 'you' }, what: { sel: 'all', where: { is: 'type', value: 'creature' } }, count: 1, to: 'hand' },
+  ],
+  'add-mana': [{ do: 'add-mana', who: { who: 'you' }, mana: '{G}' }],
+  counter: [{ do: 'counter', what: { sel: 'target', ref: 0 } }],
+  damage: [{ do: 'damage', to: { sel: 'all', where: { is: 'type', value: 'creature' }, zone: 'battlefield' }, amount: 1 }],
+};
+
+/*
+ * DOES A SPELL RUN ITS OWN TEXT WHEN IT RESOLVES?
+ *
+ * Measured by playing one, not by reading `stack.ts`. Two players, a real card
+ * with real oracle text, cast through `castSpellAction` and resolved through the
+ * reducer. If the hand grew, the spell ran.
+ *
+ * Divination rather than something targeted, deliberately: this question is
+ * about whether the resolution path calls the compiled ability at all, and a
+ * targeted card would fold the separate targeting question into the answer.
+ */
+function measureSpellRunsOnResolution() {
+  try {
+    let state = createGame({
+      mode: 'full',
+      format: 'commander',
+      seed: 3,
+      players: [{ id: 'p1', name: 'One' }, { id: 'p2', name: 'Two' }],
+    });
+    state = { ...state, status: 'playing' };
+    for (let i = 0; i < 6; i++) {
+      state = addCard(state, {
+        instanceId: `lib${i}`, cardId: 'filler', name: `Filler ${i}`,
+        ownerId: 'p1', typeLine: 'Creature — Human', oracleText: '',
+      }, 'library');
+    }
+    state = addCard(state, {
+      instanceId: 'div', cardId: 'div', name: 'Divination',
+      ownerId: 'p1', typeLine: 'Sorcery', oracleText: 'Draw two cards.',
+    }, 'hand');
+
+    const before = state.players[0].zones.hand.length;
+    state = applyActions(state, [
+      castSpellAction('p1', 'div', { resolvesTo: 'graveyard' }),
+      { type: 'RESOLVE_STACK' },
+    ]);
+    // Two drawn, one cast: the hand is one bigger if and only if it ran.
+    return state.players[0].zones.hand.length === before + 1;
+  } catch {
+    return false;
+  }
+}
+
+/*
+ * DOES ACTIVATING AN ABILITY DO ANYTHING?
+ *
+ * The verdict this replaces was the sentence "activatedAbilitiesOf has no
+ * caller", and taken literally it is still true — that exported narrower is
+ * dead. `activate.ts` has its own private copy of the same one-line filter,
+ * `activatedAbilitiesOfCard`, and that one has four callers. Grepping for the
+ * exported name and concluding the feature is missing is exactly the kind of
+ * answer this file exists to stop trusting, so the question is asked of the
+ * board instead.
+ *
+ * Shivan Dragon, real oracle text: "{R}: This creature gets +1/+0 until end of
+ * turn." Chosen because it is the whole chain in one card — `planActivation`
+ * reads the ability, pays a real mana cost off a real Mountain,
+ * `PUT_ABILITY_ON_STACK` announces it, `RESOLVE_STACK` hands it to
+ * `compiledAbilityActions`, `to-actions.ts` turns the pump into an
+ * `ADD_CONTINUOUS`, and `layers.ts` has to apply it before the power reads 6.
+ * Any break anywhere in that chain leaves the power at 5 and the answer false.
+ *
+ * Returns the sentence as well as the verdict, because a bare boolean deciding
+ * 3,690 ability hits should have to say what it saw.
+ */
+function measureActivatedRuns() {
+  try {
+    let state = createGame({
+      mode: 'full',
+      format: 'commander',
+      seed: 5,
+      players: [{ id: 'p1', name: 'One' }, { id: 'p2', name: 'Two' }],
+    });
+    state = { ...state, status: 'playing', step: 'precombat_main' };
+
+    state = addCard(state, {
+      instanceId: 'mtn', cardId: 'mtn', name: 'Mountain',
+      ownerId: 'p1', typeLine: 'Basic Land — Mountain', oracleText: '',
+      colorIdentity: ['R'],
+    }, 'battlefield');
+    state = addCard(state, {
+      instanceId: 'shivan', cardId: 'shivan', name: 'Shivan Dragon',
+      ownerId: 'p1', typeLine: 'Creature — Dragon',
+      oracleText: 'Flying\n{R}: This creature gets +1/+0 until end of turn.',
+      power: '5', toughness: '5', summoningSick: false,
+    }, 'battlefield');
+
+    const options = activationsFor(state, 'p1', state.cards.shivan, { at: 0 });
+    const usable = options.find(option => option.ok);
+    if (!usable) {
+      const why = options[0]?.reason || 'activationsFor returned nothing at all';
+      return { ok: false, detail: `no activation was offered: ${why}` };
+    }
+
+    const before = powerIn(state, 'shivan');
+    state = applyActions(state, [...usable.actions, { type: 'RESOLVE_STACK' }]);
+    const after = powerIn(state, 'shivan');
+
+    return after === (before ?? 0) + 1
+      ? { ok: true, detail: `Shivan Dragon's own ability took it from ${before} power to ${after}` }
+      : { ok: false, detail: `activated and resolved, power stayed at ${after}` };
+  } catch (err) {
+    return { ok: false, detail: `threw: ${err.message}` };
+  }
+}
+
+/*
+ * IS A DECISION ACTUALLY ASKED, AND IS THE ANSWER HONOURED?
+ *
+ * The `PROMPTED` line below used to be a hardcoded `0` with a note explaining
+ * that no per-card choice UI was counted. That was the last written-down
+ * verdict in this file, and it is the same defect as the two above it: a claim
+ * about other code with an expiry date on it and nothing to say when it passed.
+ *
+ * PROMPTED is a real thing and it is narrower than PROMPTABLE. PROMPTABLE means
+ * "this card's remaining blocker is a decision". PROMPTED means the engine
+ * offers that decision WITH ITS LEGAL OPTIONS and does what it is told. A note
+ * reading "choose one of: Add {R} / Add {G}" is not a prompt; nothing can answer
+ * it. A refusal carrying both modes and an index for each is.
+ *
+ * So the two probes below play it out. Each takes a real card, asks
+ * `planActivation` for a plan, checks the refusal came back carrying the
+ * options, answers it, and checks the plan then works. Anything less than the
+ * full round trip reads false.
+ *
+ * A `may`, a `unless-pays` and every trigger decision are deliberately NOT
+ * probed, because nothing offers them: they stay in PROMPTABLE, which is what
+ * that bucket is for.
+ */
+function probeBoard() {
+  let state = createGame({
+    mode: 'full',
+    format: 'commander',
+    seed: 7,
+    players: [{ id: 'p1', name: 'One' }, { id: 'p2', name: 'Two' }],
+  });
+  return { ...state, status: 'playing', step: 'precombat_main' };
+}
+
+function measureModeIsAsked() {
+  try {
+    const state = addCard(probeBoard(), {
+      instanceId: 'birds', cardId: 'birds', name: 'Birds of Paradise',
+      ownerId: 'p1', typeLine: 'Creature — Bird',
+      oracleText: 'Flying\n{T}: Add one mana of any color.',
+      power: '0', toughness: '1', summoningSick: false,
+    }, 'battlefield');
+
+    const option = activationsFor(state, 'p1', state.cards.birds).find(o => /any color/i.test(o.text));
+    if (!option) return { ok: false, detail: 'the ability was not even listed' };
+    if (option.ok) return { ok: false, detail: 'it picked a colour without asking, which is worse than not asking' };
+
+    const choice = (option.pending ?? []).find(p => p.kind === 'mode');
+    if (!choice) return { ok: false, detail: 'refused without offering the modes, so nothing can answer it' };
+    if ((choice.modes ?? []).length !== 5) {
+      return { ok: false, detail: `offered ${(choice.modes ?? []).length} colours, not 5` };
+    }
+
+    // Answer it and see whether the answer is honoured.
+    const answered = planActivation(state, 'p1', 'birds', option.abilityId, {
+      choices: { modes: { [choice.modeRef]: [2] } },
+    });
+    if (!answered.ok) return { ok: false, detail: `asked, but the answer was refused: ${answered.reason}` };
+
+    const after = applyActions(state, answered.actions);
+    /*
+     * Read straight off state rather than through . This script has
+     * to be runnable against a checkout that has no mana pool at all, so that a
+     * before-and-after can use ONE instrument. Importing a function that does
+     * not exist in the older tree turns the comparison into two scripts, which
+     * is the thing a before-and-after is supposed to avoid.
+     */
+    const pool = (after.manaPool?.p1 ?? []).map(u => u.color);
+    return pool.join('') === 'B'
+      ? { ok: true, detail: 'Birds of Paradise offered five colours and the one chosen is what landed' }
+      : { ok: false, detail: `answered "Add {B}" and the pool holds ${pool.join('') || 'nothing'}` };
+  } catch (err) {
+    return { ok: false, detail: `threw: ${err.message}` };
+  }
+}
+
+function measureActivatedTargetIsAsked() {
+  try {
+    let state = addCard(probeBoard(), {
+      instanceId: 'pyro', cardId: 'pyro', name: 'Prodigal Pyromancer',
+      ownerId: 'p1', typeLine: 'Creature — Human Wizard',
+      oracleText: '{T}: Prodigal Pyromancer deals 1 damage to any target.',
+      power: '1', toughness: '1', summoningSick: false,
+    }, 'battlefield');
+    state = addCard(state, {
+      instanceId: 'bear', cardId: 'bear', name: 'Grizzly Bears',
+      ownerId: 'p2', typeLine: 'Creature — Bear', oracleText: '',
+      power: '2', toughness: '2', summoningSick: false,
+    }, 'battlefield');
+
+    const option = activationsFor(state, 'p1', state.cards.pyro)[0];
+    if (!option) return { ok: false, detail: 'the ability was not even listed' };
+    if (option.ok) return { ok: false, detail: 'it aimed itself without asking' };
+
+    const choice = (option.pending ?? []).find(p => p.kind === 'target');
+    if (!choice) return { ok: false, detail: 'refused without offering any candidates' };
+    if (choice.instanceIds.length === 0 && choice.playerIds.length === 0) {
+      return { ok: false, detail: 'asked, but with nothing to choose from' };
+    }
+
+    const answered = planActivation(state, 'p1', 'pyro', option.abilityId, {
+      choices: { targets: [{ kind: 'card', instanceId: 'bear', zone: 'battlefield', zoneChangeCounter: 0 }] },
+    });
+    if (!answered.ok) return { ok: false, detail: `asked, but the answer was refused: ${answered.reason}` };
+
+    const after = applyActions(state, [...answered.actions, { type: 'RESOLVE_STACK' }]);
+    const damage = after.cards.bear?.damage ?? 0;
+    return damage === 1
+      ? { ok: true, detail: 'Prodigal Pyromancer offered its candidates and hit the one chosen' }
+      : { ok: false, detail: `aimed at the Bears and dealt ${damage} damage to them` };
+  } catch (err) {
+    return { ok: false, detail: `threw: ${err.message}` };
+  }
+}
+
+/*
+ * DOES ANY SURFACE ANNOUNCE A TARGET FOR A SPELL?
+ *
+ * A grep, run here rather than written in a comment, because every other
+ * consumer claim at the top of this file is a grep somebody did once and this
+ * one decides thousands of cards. It looks for a non-test caller passing
+ * `targets` into `planCastFromHand` or `castSpellAction`.
+ *
+ * `stack.test.ts` does exactly that, hundreds of times, which is why tests are
+ * excluded: a test constructing an action by hand is the precise thing that
+ * proves nothing about whether a player can reach it.
+ */
+function measureSpellTargetsAnnounced() {
+  const roots = [join(ROOT, 'src', 'components'), join(ROOT, 'src', 'lib', 'game'), join(ROOT, 'src', 'pages')];
+  const files = [];
+  const walk = dir => {
+    let entries = [];
+    try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const entry of entries) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (/\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name)) files.push(full);
+    }
+  };
+  for (const root of roots) walk(root);
+
+  for (const file of files) {
+    const text = readFileSync(file, 'utf8');
+    for (const call of text.matchAll(/(planCastFromHand|castSpellAction)\s*\(([\s\S]{0,600}?)\)\s*[;,)]/g)) {
+      if (/\btargets\s*:/.test(call[2])) return true;
+    }
+  }
+  return false;
+}
+
+/*
+ * DOES ANY SHIPPED SURFACE DRAW A MODE CHOICE?
+ *
+ * FOUND BY AN ADVERSARIAL REVIEW, 22 Aug 2026, and it is this file's own
+ * standard applied consistently rather than a new one.
+ *
+ * `measureSpellTargetsAnnounced` above already refuses to count a targeted
+ * spell until a NON-TEST caller fills `CastOptions.targets`, on the project's
+ * reachability law: the engine supporting it and a player reaching it are
+ * different claims. `MODE_PROBE` was held to the weaker standard. It asks
+ * `planActivation` directly, which is the engine, and every modal card was
+ * then graded PROMPTED on the strength of it.
+ *
+ * Measured: a `kind:'mode'` PendingChoice carries its options ONLY in
+ * `choice.modes`, with `instanceIds` and `playerIds` both empty.
+ * `AbilityPanel.tsx` draws chips from `choice.playerIds` (line 214) and
+ * `choice.instanceIds` (line 221) and reads `choice.modes` nowhere, so Birds of
+ * Paradise draws its prompt with no button under it. Worse, the `!option.ok &&
+ * !choice` fallback that would print a reason is skipped, because a choice does
+ * exist. And `answer()` (line 135) has two branches, `target` and everything
+ * else, so a mode answer would be written into `choices.costs` rather than
+ * `choices.modes` and ignored.
+ *
+ * So the grep below asks for a shipped consumer, the same way the spell one
+ * does. It looks for a file outside the tests that reads `PendingChoice.modes`
+ * or `modeRef`, or that passes `choices: { modes: ... }`.
+ */
+function measureModeAnsweredBySurface() {
+  const roots = [join(ROOT, 'src', 'components'), join(ROOT, 'src', 'pages'), join(ROOT, 'src', 'hooks')];
+  const files = [];
+  const walk = dir => {
+    let entries = [];
+    try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const entry of entries) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (/\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name)) files.push(full);
+    }
+  };
+  for (const root of roots) walk(root);
+
+  for (const file of files) {
+    const text = readFileSync(file, 'utf8');
+    // A surface that draws the options, or one that hands an answer back.
+    if (/\bmodeRef\b/.test(text)) return true;
+    if (/\bchoice\s*\.\s*modes\b/.test(text)) return true;
+    if (/\bpending\w*\s*\.\s*modes\b/.test(text)) return true;
+    if (/\bchoices\s*:/.test(text) && /\bmodes\s*:\s*\{/.test(text)) return true;
+  }
+  return false;
+}
+
+const SPELL_RUNS_ON_RESOLUTION = measureSpellRunsOnResolution();
+const SPELL_TARGETS_ANNOUNCED = measureSpellTargetsAnnounced();
+const ACTIVATED_PROBE = measureActivatedRuns();
+const ACTIVATED_LIVE = !FORCE_ACTIVATED_DEAD && ACTIVATED_PROBE.ok;
+const MODE_PROBE = measureModeIsAsked();
+const MODE_DRAWN_BY_A_SURFACE = measureModeAnsweredBySurface();
+/* The engine offering a mode is necessary and not sufficient. A player has to
+   be able to see the options and press one. Both, or it is not a prompt. */
+const MODE_ASKED = MODE_PROBE.ok && MODE_DRAWN_BY_A_SURFACE;
+const TARGET_PROBE = measureActivatedTargetIsAsked();
+
+/** Which decisions this run found the engine willing to ask. Printed, never guessed. */
+const PROMPT_BASIS = (() => {
+  const asked = [];
+  if (TARGET_PROBE.ok) asked.push('an activated ability\'s target');
+  if (MODE_ASKED) asked.push('a modal choice');
+  return asked.length === 0
+    ? 'nothing offers a decision with its options, so nothing can be answered'
+    : `every decision on the card is one of: ${asked.join(', ')}`;
+})();
+
+const NEVER_RESOLVED = new Set();
+const VERB_PROBE_RESULT = {};
+for (const [verb, effects] of Object.entries(VERB_PROBES)) {
+  const probed = probeEffects(effects);
+  VERB_PROBE_RESULT[verb] = probed;
+  if (probed.actions === 0) NEVER_RESOLVED.add(verb);
+}
 
 function neverResolvedVerb(effects) {
   for (const e of effects ?? []) {
@@ -297,15 +683,62 @@ function abilityVerdict(ability, ownsTriggers, scryfallKeywords, STRICT_GRANTS) 
      * `planActivation` refuses to guess and asks the player. That is PROMPTED,
      * not AUTOMATED, and the two must not be merged.
      */
+    /*
+     * `asked` is what separates PROMPTED from PROMPTABLE, and it is measured
+     * rather than assumed. A decision is `asked` only when a probe at the top of
+     * this run watched the engine offer that decision with its legal options and
+     * then do what it was told. See `measureModeIsAsked` and
+     * `measureActivatedTargetIsAsked`.
+     *
+     * A `may` and an `unless-pays` are never `asked`: nothing anywhere
+     * enumerates a yes and a no for them or consumes an answer. They stay in
+     * PROMPTABLE, which is the bucket for a decision nobody offers yet.
+     */
     case 'activated':
       if (!ACTIVATED_LIVE) return { s: 'dead', why: 'activated: activatedAbilitiesOf has no caller' };
       if ((ability.targets ?? []).length > 0) {
-        return { s: 'decision', why: 'activated: AbilityPanel asks for the target' };
+        return { s: 'decision', why: 'activated: the target is asked for', asked: TARGET_PROBE.ok };
       }
-      if (decision) return { s: 'decision', why: `activated contains ${decision}` };
+      if (decision) {
+        return {
+          s: 'decision',
+          why: `activated contains ${decision}`,
+          asked: decision === 'choose-mode' && MODE_ASKED,
+        };
+      }
       return { s: 'run', why: 'activate.ts planActivation -> stack.ts compiledAbilityActions' };
-    case 'spell':
-      return { s: 'dead', why: 'spell: nothing runs a compiled spell on resolution' };
+    /*
+     * A COMPILED SPELL, GRADED IN TWO HALVES. Changed 22 Aug 2026.
+     *
+     * This used to be one line: dead, "nothing runs a compiled spell on
+     * resolution". That was true and is not any more. `compiledAbilityActions`
+     * returned an empty list for any stack object without an `abilityId`, and a
+     * spell cast from hand has none, so every instant and sorcery in the game
+     * resolved into its own graveyard having done nothing.
+     *
+     * `SPELL_RUNS_ON_RESOLUTION` below is not a claim, it is the result of
+     * casting a real card through the real reducer at the top of this run.
+     *
+     * The halves are graded differently on purpose, and this is the project's
+     * own law about reachability rather than a technicality. A spell that names
+     * no target runs when a player casts it, today. A spell that DOES name one
+     * needs a target announced, and no surface fills `CastOptions.targets` for a
+     * spell — `SPELL_TARGETS_ANNOUNCED` greps the tree for a caller rather than
+     * trusting this comment. Until one exists, a targeted instant is engine-ready
+     * and player-unreachable, and only the second of those is what a person
+     * experiences.
+     */
+    case 'spell': {
+      if (!SPELL_RUNS_ON_RESOLUTION) {
+        return { s: 'dead', why: 'spell: nothing runs a compiled spell on resolution' };
+      }
+      if ((ability.targets ?? []).length > 0 && !SPELL_TARGETS_ANNOUNCED) {
+        return { s: 'dead', why: 'spell: runs on resolution, but no surface announces a target for a spell' };
+      }
+      const decisionInSpell = decisionIn(effectsOf(ability));
+      if (decisionInSpell) return { s: 'decision', why: `spell contains ${decisionInSpell}` };
+      return { s: 'run', why: 'stack.ts compiledSpellActions -> to-actions.ts' };
+    }
     case 'mana':
       return { s: 'dead', why: 'mana: mana.ts counts untapped sources instead' };
     default:
@@ -419,6 +852,15 @@ for (const card of pool) {
   const anyManual = perAbility.some(v => v.s === 'manual');
   const anyDead = perAbility.some(v => v.s === 'dead');
   const anyDecision = perAbility.some(v => v.s === 'decision');
+  /*
+   * PROMPTED, and it is a strict subset of PROMPTABLE. Every decision on the
+   * card has to be one the engine measurably OFFERS with its legal options and
+   * then honours. One decision nobody offers is enough to keep the whole card
+   * out, for the same reason one dead ability keeps a card out of AUTOMATED: a
+   * card is only as reachable as its least reachable clause.
+   */
+  const everyDecisionAsked =
+    anyDecision && perAbility.filter(v => v.s === 'decision').every(v => v.asked === true);
 
   // THEIR verdict rule, on THEIR lenient grading, so the two runs can be
   // compared line for line.
@@ -434,6 +876,7 @@ for (const card of pool) {
   // MINE, on my grading, plus: an unplaced or unaccounted paragraph fails.
   let mine;
   if (result.unparsed.length || anyManual || anyDead) mine = 'SILENT';
+  else if (everyDecisionAsked) mine = 'PROMPTED';
   else if (anyDecision) mine = 'PROMPTABLE';
   else if (result.abilities.length === 0) mine = 'SILENT';
   else mine = 'AUTOMATED';
@@ -474,11 +917,12 @@ for (const card of pool) {
   bump(verdicts, mine);
   bump(verdicts, `THEIRS:${theirs}`);
 
-  if (mine === 'AUTOMATED' || mine === 'PROMPTABLE') {
+  if (mine === 'AUTOMATED' || mine === 'PROMPTABLE' || mine === 'PROMPTED') {
     toProbe.push({ name: card.name, verdict: mine, abilities: result.abilities, oracle: card.oracle_text ?? '' });
   }
 
-  if (mine === 'PROMPTABLE') allPromptableNames.push(card.name);
+  // PROMPTED is carved out of PROMPTABLE, so the name list still holds both.
+  if (mine === 'PROMPTABLE' || mine === 'PROMPTED') allPromptableNames.push(card.name);
 
   if (mine === 'AUTOMATED') {
     allAutomatedNames.push(card.name);
@@ -541,6 +985,7 @@ for (const e of toProbe) {
 const N = pool.length;
 const preAutomated = verdicts.get('AUTOMATED') ?? 0;
 const promptable = verdicts.get('PROMPTABLE') ?? 0;
+const prompted = verdicts.get('PROMPTED') ?? 0;
 const noText = verdicts.get('NO-TEXT') ?? 0;
 const preSilent = verdicts.get('SILENT') ?? 0;
 
@@ -568,25 +1013,50 @@ say('--- ACCOUNTING ---');
 say(`assertClausesAccounted failures         ${accountingFailures}`);
 for (const s of accountingSamples) say(`  ${s}`);
 say('');
+say('--- WHAT THIS RUN MEASURED ABOUT THE ENGINE, rather than assumed ---');
+say('(each of these decides thousands of card verdicts, so each is run, not written down)');
+for (const [verb, probed] of Object.entries(VERB_PROBE_RESULT)) {
+  const verdict = probed.threw
+    ? `THREW: ${probed.threw}`
+    : probed.actions > 0
+      ? `resolves (${probed.actions} action${probed.actions === 1 ? '' : 's'} on the probe board)`
+      : `NAMED ONLY (${probed.deferred.length} deferral${probed.deferred.length === 1 ? '' : 's'}, no action)`;
+  say(`  ${verb.padEnd(16)} ${verdict}`);
+}
+say(`  ${'spell resolution'.padEnd(16)} ${SPELL_RUNS_ON_RESOLUTION ? 'a cast Divination drew its two cards' : 'a cast Divination drew nothing'}`);
+say(`  ${'spell targets'.padEnd(16)} ${SPELL_TARGETS_ANNOUNCED ? 'some non-test caller announces targets for a spell' : 'NO non-test caller announces a target for a spell'}`);
+say(`  ${'activated'.padEnd(16)} ${ACTIVATED_PROBE.detail}`);
+if (FORCE_ACTIVATED_DEAD) {
+  say(`  ${''.padEnd(16)} DM_ACTIVATED_DEAD=1 is set, so the activated verdict is forced back to dead`);
+}
+say(`  ${'mode asked'.padEnd(16)} ${MODE_PROBE.detail}`);
+say(`  ${'mode drawn'.padEnd(16)} ${MODE_DRAWN_BY_A_SURFACE ? 'a shipped surface draws the options and hands an answer back' : 'NO shipped surface draws a mode choice, so nothing can answer it'}`);
+say(`  ${'target asked'.padEnd(16)} ${TARGET_PROBE.detail}`);
+say('');
 say('--- THE THREE METRICS, my rule (an unplaceable paragraph fails the card) ---');
 say(`AUTOMATED   ${String(automated).padStart(6)}  ${pct(automated, N)}%   (${preAutomated} before the probe, ${downgraded} downgraded)`);
 /*
- * This line used to read a hardcoded 0 with the note "no per-card choice UI
- * exists". The 0 is still right for triggers and spells, and the note stopped
- * being right on commit 56e982b: `AbilityPanel.tsx` asks for an activated
- * ability's target in place. So the note now says which of the two it means,
- * and the PROMPTABLE line below carries the count.
+ * PROMPTED IS NOW COUNTED, NOT ASSERTED. Changed 22 Aug 2026.
+ *
+ * It was a hardcoded `0` with a note that no per-card choice UI existed. That
+ * was the last written-down verdict in this file and it went the way the other
+ * two did: a claim about other code, with an expiry date, and nothing to say
+ * when it passed.
+ *
+ * A card is PROMPTED when every decision it still carries is one the engine
+ * OFFERS with its legal options and then honours. That is measured at the top
+ * of this run by playing two real cards, not read off a comment. PROMPTABLE
+ * below is the wider bucket it is carved out of: a decision that is real but
+ * that nothing anywhere offers yet, which is most of them.
  */
-say(
-  `PROMPTED    ${String(0).padStart(6)}  0.00%   ` +
-    (ACTIVATED_LIVE
-      ? '(triggers and spells only; the activated set is PROMPTABLE below, asked by AbilityPanel.tsx)'
-      : '(no per-card choice UI is counted here; see the grep below)')
-);
+say(`PROMPTED    ${String(prompted).padStart(6)}  ${pct(prompted, N)}%   (${PROMPT_BASIS})`);
 say(`SILENT      ${String(silent).padStart(6)}  ${pct(silent, N)}%`);
 say(`NO-TEXT     ${String(noText).padStart(6)}  ${pct(noText, N)}%`);
-say(`PROMPTABLE  ${String(promptable).padStart(6)}  ${pct(promptable, N)}%   (memo, never inside PROMPTED)`);
-say(`reconciles: ${automated} + ${promptable} + ${silent} + ${noText} = ${automated + promptable + silent + noText} of ${N}`);
+say(`PROMPTABLE  ${String(promptable).padStart(6)}  ${pct(promptable, N)}%   (a real decision, and nothing offers it yet)`);
+say(
+  `reconciles: ${automated} + ${prompted} + ${promptable} + ${silent} + ${noText} = ` +
+    `${automated + prompted + promptable + silent + noText} of ${N}`
+);
 say('');
 say('--- THE SAME RUN, scored by THEIR rule ---');
 const theirAuto = verdicts.get('THEIRS:AUTOMATED') ?? 0;
@@ -631,7 +1101,7 @@ say(`If every probe-silent card were also downgraded, AUTOMATED would be ${autom
 
 writeFileSync(OUT, JSON.stringify({
   pool: { rows: all.length, distinctOracleIds: oracleIds.size, duplicateOracleId, pool: N, poolOracleIds: poolOracleIds.size, drop: Object.fromEntries(drop) },
-  metrics: { automated, prompted: 0, silent, noText, promptable, preProbeAutomated: preAutomated, downgraded, probeSilent },
+  metrics: { automated, prompted, silent, noText, promptable, preProbeAutomated: preAutomated, downgraded, probeSilent },
   theirs: { automated: theirAuto, promptable: theirPromptable, silent: theirSilent },
   defects: {
     consumedButNoAbility, consumedButNoAbilitySamples,

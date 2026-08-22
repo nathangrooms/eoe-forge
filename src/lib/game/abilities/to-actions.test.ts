@@ -132,7 +132,15 @@ test('damage to a player carries the source, so the log can say where it came fr
   });
 });
 
-test('lethal damage to a permanent moves it to the graveyard', () => {
+/*
+ * These two used to assert the opposite, and the old assertions were the defect
+ * written down: lethal damage was turned into a `MOVE_ZONE` here and non-lethal
+ * damage produced no action at all. Both are CR 119.3 failures. Damage is
+ * MARKED; whether the mark kills anything is CR 704.5g, checked by `sba.ts`
+ * after every action. Marking inline meant two Shocks at a 4/4 killed nothing,
+ * because neither was lethal on its own and nothing accumulated.
+ */
+test('lethal damage to a permanent is MARKED, and sba.ts decides what that kills', () => {
   const state = game([
     { id: 's', name: 'Source' },
     { id: 'v', name: 'Victim', power: '1', toughness: '2' },
@@ -148,13 +156,19 @@ test('lethal damage to a permanent moves it to the graveyard', () => {
   );
 
   assert.deepEqual(actions, [
-    { type: 'MOVE_ZONE', instanceId: 'v', to: 'graveyard', at: 0, cause: 'Test Source' },
+    {
+      type: 'DAMAGE_CARD',
+      instanceId: 'v',
+      amount: 2,
+      sourceInstanceId: 's',
+      sourcePlayerId: 'p1',
+      at: 0,
+      cause: 'Test Source',
+    },
   ]);
 });
 
-test('non-lethal damage to a permanent is DEFERRED, not silently dropped', () => {
-  // The reducer has no "mark damage on a permanent" action. Saying so out loud
-  // is the contract; doing nothing quietly is the bug.
+test('non-lethal damage to a permanent accumulates instead of being deferred', () => {
   const state = game([
     { id: 's', name: 'Source' },
     { id: 'v', name: 'Victim', toughness: '5' },
@@ -165,9 +179,10 @@ test('non-lethal damage to a permanent is DEFERRED, not silently dropped', () =>
 
   const result = runEffects([{ do: 'damage', to: { sel: 'target', ref: 0 }, amount: 2 }], ctx, OPTIONS);
 
-  assert.deepEqual(result.actions, []);
-  assert.equal(result.deferred.length, 1);
-  assert.match(result.deferred[0], /Victim/);
+  assert.deepEqual(result.deferred, []);
+  assert.equal(result.actions.length, 1);
+  assert.equal(result.actions[0].type, 'DAMAGE_CARD');
+  assert.equal((result.actions[0] as { amount: number }).amount, 2);
 });
 
 test('an indestructible creature is not destroyed, and the log says why', () => {
@@ -353,17 +368,47 @@ test('a {do:"manual"} clause reaches the player verbatim', () => {
   ]);
 });
 
-test('a pump is named rather than faked with a permanent stat change', () => {
-  // "Until end of turn" that never wears off is worse than one that visibly
-  // needs a human. Wrong-and-quiet loses to absent-and-loud.
+test('a pump builds a continuous effect that carries its own expiry', () => {
+  /*
+   * This used to assert that a pump was NAMED and never performed, because
+   * `GameState` had no list to hold a duration-limited continuous effect and a
+   * permanent stat change that never wore off would have been worse than
+   * nothing. The list exists now (`GameState.timedEffects`), so the assertion
+   * flips: an `ADD_CONTINUOUS` action, with an expiry the layer pass reads.
+   */
   const state = game([{ id: 's', name: 'Source' }]);
   const result = run(
     [{ do: 'pump', what: { sel: 'self' }, power: 2, toughness: 2, duration: 'end-of-turn' }],
     state
   );
 
+  assert.deepEqual(result.deferred, []);
+  assert.equal(result.actions.length, 1);
+  const action = result.actions[0] as { type: string; effect: { expiry: { kind: string }; note?: string } };
+  assert.equal(action.type, 'ADD_CONTINUOUS');
+  assert.equal(action.effect.expiry.kind, 'end-of-turn');
+  assert.match(action.effect.note ?? '', /\+2\/\+2/);
+});
+
+test('a pump that finds nothing to pump still says so', () => {
+  // CR 608.2 do-as-much-as-you-can. A spell that resolved and found no legal
+  // recipient is a real event, and the log has to show it.
+  const state = game([{ id: 's', name: 'Source' }]);
+  const result = run(
+    [
+      {
+        do: 'pump',
+        what: { sel: 'all', where: { is: 'name', value: 'Nothing Named This' } },
+        power: 2,
+        toughness: 2,
+        duration: 'end-of-turn',
+      },
+    ],
+    state
+  );
+
   assert.deepEqual(result.actions, []);
-  assert.match(result.deferred[0], /\+2\/\+2/);
+  assert.equal(result.deferred.length, 1);
 });
 
 /* ------------------------------------------------------------------ *
@@ -655,17 +700,23 @@ test('E4: a bound trigger player is named, and only that one player', () => {
   assert.equal(deferred[0].includes('P3'), false, 'one opponent, not the table');
 });
 
-test('E8: the note carries the spend restriction and the computed count', () => {
-  // A note reading "adds {G}" when the card added five, or omitting "only to
-  // cast creature spells", is a note a player acts on wrongly — which is the
-  // same failure as saying nothing, one step later.
+test('E8: the ACTION carries the spend restriction and the computed count', () => {
+  /*
+   * This test used to assert a note, and the note had to say "{G}{G}{G}" and
+   * quote the restriction because acting on a wrong note is the same failure as
+   * saying nothing, one step later. Both facts still have to survive; they
+   * survive into an action now instead of a sentence, because there is a mana
+   * pool to put them in.
+   *
+   * Battle Hymn is the real card: "Add {R} for each creature you control."
+   */
   const state = game([
     { id: 's', name: 'Source' },
     { id: 'c1', name: 'Creature One' },
     { id: 'c2', name: 'Creature Two' },
   ]);
 
-  const { deferred } = run(
+  const { actions, deferred } = run(
     [
       {
         do: 'add-mana',
@@ -678,16 +729,20 @@ test('E8: the note carries the spend restriction and the computed count', () => 
     state
   );
 
-  assert.equal(deferred.length, 1);
-  assert.ok(deferred[0].includes('{G}{G}{G}'), `three creatures on board; got ${deferred[0]}`);
-  assert.ok(deferred[0].includes('only to cast a creature spell'), deferred[0]);
+  assert.deepEqual(deferred, []);
+  assert.equal(actions.length, 1);
+  const added = actions[0] as { type: string; mana: string; restriction?: string };
+  assert.equal(added.type, 'ADD_MANA');
+  assert.equal(added.mana, '{G}{G}{G}', 'three creatures on the board, three red');
+  assert.equal(added.restriction, 'spend this mana only to cast a creature spell');
 });
 
-test('E8: zero copies of mana produces no note at all', () => {
+test('E8: zero copies of mana adds nothing and says nothing', () => {
   const state = game([{ id: 's', name: 'Source', typeLine: 'Artifact' }]);
-  const { deferred } = run(
+  const { actions, deferred } = run(
     [{ do: 'add-mana', who: { who: 'you' }, mana: '{G}', count: { v: 'count', of: { sel: 'all', where: { is: 'type', value: 'creature' }, controller: { who: 'you' }, zone: 'battlefield' } } }],
     state
   );
   assert.deepEqual(deferred, []);
+  assert.deepEqual(actions, [], 'no creatures, so no mana, not one');
 });

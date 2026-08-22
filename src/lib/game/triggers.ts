@@ -95,6 +95,7 @@ import {
   dslTriggerActions,
   gameEventKindFor,
   ownedTriggersOf,
+  triggerSubjectMatches,
 } from './abilities/trigger-bridge.ts';
 
 /* -------------------------------------------------------------------------- */
@@ -404,8 +405,13 @@ export function deriveTriggerEvents(
 /* -------------------------------------------------------------------------- */
 
 /**
- * The permanents whose abilities could see this event, in a deterministic
- * order.
+ * The object the event happened to, and its controller's battlefield.
+ *
+ * This is the OLD detector's list and it is deliberately narrow. Every pattern
+ * `effects.ts` recognises is self-referential ("when this creature enters"), so
+ * showing it any object other than the one the event happened to would fire
+ * every enters-the-battlefield trigger in play for one creature entering. The
+ * wider list is `watchersFor` below, and only the ability engine reads it.
  *
  * A self-event looks only at the object it happened to — which may already have
  * left the battlefield, because a "dies" trigger's source is in a graveyard by
@@ -426,6 +432,49 @@ function sourcesFor(state: GameState, event: TriggerEvent): CardInstance[] {
     if (!card || card.removedFromGame) continue;
     if (card.controllerId !== controller.id) continue;
     out.push(card);
+  }
+  return out;
+}
+
+/**
+ * Every permanent that could be WATCHING this event, in a deterministic order.
+ *
+ * "Whenever another creature you control enters" is on a permanent the event
+ * did not happen to, so a list built from the event's own object can never find
+ * it. This walks the whole board, and the ability's own subject
+ * (`triggerSubjectMatches`) decides which of those permanents actually cares.
+ *
+ * Order matters and is fixed: the event's own object first, so every trigger id
+ * an existing game already produces keeps the value it had, then each seat in
+ * turn order and each battlefield in arrival order. Never object key order,
+ * never a clock. Two clients folding the same log build the same list.
+ *
+ * Widening this list is safe ONLY because the caller keeps the old detector on
+ * `sourcesFor`. See the ownership fork in `triggersForEvents`.
+ *
+ * It takes no event, which is the point: every permanent in play is a candidate
+ * for every event, and narrowing that here would be a second subject test
+ * sitting a long way from the first one and free to disagree with it. The event
+ * is asked about exactly once, by `triggerSubjectMatches`.
+ */
+function watchersFor(state: GameState, own: readonly CardInstance[]): CardInstance[] {
+  const seen = new Set<string>();
+  const out: CardInstance[] = [];
+
+  const push = (card: CardInstance | undefined): void => {
+    if (!card || seen.has(card.instanceId)) return;
+    seen.add(card.instanceId);
+    out.push(card);
+  };
+
+  for (const card of own) push(card);
+  for (const player of state.players) {
+    for (const id of player.zones.battlefield) {
+      const card = state.cards[id];
+      if (!card || card.removedFromGame) continue;
+      if (card.controllerId !== player.id) continue;
+      push(card);
+    }
   }
   return out;
 }
@@ -455,7 +504,10 @@ export function triggersForEvents(
   const out: PendingTrigger[] = [];
 
   events.forEach((event, eventIndex) => {
-    for (const card of sourcesFor(state, event)) {
+    const own = sourcesFor(state, event);
+    const ownIds = new Set(own.map(card => card.instanceId));
+
+    for (const card of watchersFor(state, own)) {
       const controllerId = controllerOf(card);
 
       // ── The ownership fork ────────────────────────────────────────────────
@@ -467,8 +519,14 @@ export function triggersForEvents(
       if (abilityEngineOwns(card)) {
         ownedTriggersOf(card).forEach((ability, abilityIndex) => {
           if (gameEventKindFor(ability.event) !== event.kind) return;
+          // WHICH object it happened to. The event kind alone would fire every
+          // "whenever a creature you control enters" on the board for an
+          // opponent's land.
+          if (!triggerSubjectMatches(state, ability, { instanceId: card.instanceId, controllerId }, event)) {
+            return;
+          }
           // CR 603.4, first check — the compiled condition, evaluated for real.
-          if (!dslConditionHolds(state, ability, { instanceId: card.instanceId, controllerId })) {
+          if (!dslConditionHolds(state, ability, { instanceId: card.instanceId, controllerId }, event)) {
             return;
           }
 
@@ -484,6 +542,12 @@ export function triggersForEvents(
         });
         continue;
       }
+
+      // The old detector reads oracle text with a regex and has no notion of a
+      // subject, so it may only ever be shown the object the event happened to.
+      // Without this line, widening the walk above would make every card in
+      // play with a detected enters trigger fire for somebody else's creature.
+      if (!ownIds.has(card.instanceId)) continue;
 
       abilitiesOf(card).forEach((ability, abilityIndex) => {
         if (TIMING_EVENT[ability.timing] !== event.kind) return;
@@ -718,7 +782,7 @@ export function resolveTriggerActions(
     if (!dslConditionHolds(state, trigger.dsl, {
       instanceId: trigger.sourceInstanceId,
       controllerId: trigger.controllerId,
-    })) {
+    }, trigger.event)) {
       return [
         {
           type: 'NOTE',
@@ -736,6 +800,10 @@ export function resolveTriggerActions(
       {
         at,
         cause,
+        // The event the trigger fired on, carried through so resolution binds
+        // the same subject detection matched. `PendingTrigger.event` is plain
+        // JSON, so a client replaying the log binds it identically.
+        event: trigger.event,
         // Derived from the trigger's own deterministic id and the state
         // version, so any token this ability mints gets the same id on every
         // client replaying the log.

@@ -26,8 +26,10 @@ import {
   activationsFor,
   planActivation,
   planActivationWith,
+  type PendingChoice,
 } from './activate.ts';
 import { stackHeight, stackTop, targetCard, targetPlayer } from './stack.ts';
+import { manaPoolOf } from './mana.ts';
 import type { CardInstance, GameState, InstanceId, PlayerId, StackTarget, Zone } from './types.ts';
 
 /* ------------------------------------------------------------------ *
@@ -152,12 +154,17 @@ function resolveTop(state: GameState): GameState {
  * candidate. That is a policy, not a rule, which is exactly why it lives here
  * and not in `activate.ts`.
  */
-const takeFirst = (choice: { kind: 'target' | 'cost'; instanceIds: InstanceId[]; playerIds: PlayerId[]; min: number }) =>
-  choice.kind === 'cost'
-    ? choice.instanceIds.slice(0, choice.min)
-    : choice.instanceIds.length > 0
-      ? ({ kind: 'card' as const, instanceId: choice.instanceIds[0] })
-      : ({ kind: 'player' as const, playerId: choice.playerIds[0] });
+const takeFirst = (choice: PendingChoice) =>
+  choice.kind === 'mode'
+    ? // The first `min` modes off the card, in printed order. Deliberately a
+      // dull policy: these tests are about whether the question got asked and
+      // the answer honoured, never about which mode is the good one.
+      (choice.modes ?? []).slice(0, Math.max(1, choice.min)).map(mode => mode.index)
+    : choice.kind === 'cost'
+      ? choice.instanceIds.slice(0, choice.min)
+      : choice.instanceIds.length > 0
+        ? ({ kind: 'card' as const, instanceId: choice.instanceIds[0] })
+        : ({ kind: 'player' as const, playerId: choice.playerIds[0] });
 
 /** The single ability on a card, planned with the test answering its questions. */
 function only(state: GameState, playerId: PlayerId, id: InstanceId) {
@@ -657,8 +664,19 @@ test('"activate only once each turn" is enforced, and clears when the turn does'
  * Refusals are always explained
  * ------------------------------------------------------------------ */
 
-test('a mana ability says where it actually runs instead of tapping for nothing', () => {
-  const state = game([
+test('Llanowar Elves taps for {G} and the {G} is in the pool afterwards', () => {
+  /*
+   * THIS TEST USED TO ASSERT THE OPPOSITE, and the old name said so: "a mana
+   * ability says where it actually runs instead of tapping for nothing". It
+   * checked `ok === false` and a refusal reading "when you pay for something",
+   * which was the honest answer when `GameState` carried no mana pool. There
+   * was nowhere for the {G} to go, so offering the control would have tapped
+   * the creature and binned the mana.
+   *
+   * `GameState.manaPool` exists now, so the assertion is the other way round
+   * and the board is what is checked, not the sentence.
+   */
+  let state = game([
     {
       id: 'rock',
       name: 'Llanowar Elves',
@@ -668,10 +686,36 @@ test('a mana ability says where it actually runs instead of tapping for nothing'
   ]);
 
   const options = activationsFor(state, 'p1', cardOf(state, 'rock'));
-  assert.equal(options.length > 0, true, 'the ability is listed rather than hidden');
-  assert.equal(options[0].isManaAbility, true);
-  assert.equal(options[0].ok, false);
-  assert.match(options[0].reason, /when you pay for something/i);
+  assert.equal(options.length, 1, 'the ability is listed rather than hidden');
+  assert.equal(options[0].isManaAbility, true, 'CR 605.1a');
+  assert.equal(options[0].ok, true, options[0].reason);
+
+  state = applyActions(state, options[0].actions);
+
+  assert.equal(cardOf(state, 'rock')?.tapped, true, 'the {T} was paid');
+  assert.deepEqual(
+    manaPoolOf(state, 'p1').map(unit => unit.color),
+    ['G'],
+    'and the mana it made is there'
+  );
+  // CR 605.3a. Nothing was announced, so nothing has to resolve.
+  assert.equal(stackHeight(state), 0, 'a mana ability does not use the stack');
+});
+
+test('floating mana empties when the step ends, CR 500.4', () => {
+  let state = game([
+    { id: 'rock', name: 'Llanowar Elves', typeLine: 'Creature — Elf Druid', oracleText: '{T}: Add {G}.' },
+  ]);
+  const option = activationsFor(state, 'p1', cardOf(state, 'rock'))[0];
+  state = applyActions(state, option.actions);
+  assert.equal(manaPoolOf(state, 'p1').length, 1);
+
+  state = applyAction(state, { type: 'ADVANCE_STEP' });
+  assert.deepEqual(
+    manaPoolOf(state, 'p1'),
+    [],
+    'mana that survives the step it was made in is mana nobody can account for'
+  );
 });
 
 test('somebody else’s permanent offers you nothing, and says so', () => {
@@ -801,15 +845,25 @@ test('a "{G}, {T}" ability cannot pay its {T} with the same tap that paid the ma
   assert.equal(cardOf(after, 'p1-forest0')?.tapped, true);
 });
 
-test('a mana ability with a rider is still a mana ability and never reaches the stack', () => {
+test('a mana ability with a rider charges the rider AND delivers the mana', () => {
   /*
-   * Barbarian Ring, verbatim. The compiler's `isManaAbility` requires EVERY
-   * effect to add mana, so a land that charges for its mana was not flagged and
-   * was offered as a pressable control. There is no mana pool, so pressing it
-   * tapped the land, dealt its controller a point of damage and produced
-   * nothing. Seen 142 times in 120 games, over 33 distinct cards.
+   * Barbarian Ring, verbatim, and this test has now been through both halves of
+   * the same bug.
+   *
+   * The compiler's `isManaAbility` requires EVERY effect to add mana, so a land
+   * that charges for its mana was not flagged and was offered as a pressable
+   * control. With no mana pool, pressing it tapped the land, dealt its
+   * controller a point of damage and produced nothing. Seen 142 times in 120
+   * games over 33 distinct cards. The fix at the time was to refuse it, and
+   * this test asserted the refusal.
+   *
+   * Refusing was never the goal, it was the honest answer while the mana had
+   * nowhere to go. The player-visible complaint was "a land tapped, a point of
+   * life gone, and no mana", and what fixes that is the mana, so the {R} is
+   * what is checked. The damage is checked too: the rider was never the part
+   * that was wrong.
    */
-  const state = game([
+  let state = game([
     {
       id: 'ring',
       name: 'Barbarian Ring',
@@ -819,13 +873,19 @@ test('a mana ability with a rider is still a mana ability and never reaches the 
     },
   ]);
 
+  const before = state.players[0].life;
   const options = activationsFor(state, 'p1', cardOf(state, 'ring'));
   const mana = options.find(o => /Add \{R\}/.test(o.text));
   assert.ok(mana, 'the ability compiles');
   assert.equal(mana.isManaAbility, true, 'CR 605.1a: it could add mana, so it is a mana ability');
-  assert.equal(mana.ok, false, 'a mana ability must not be offered as a control of its own');
-  assert.match(mana.reason, /pay for something/i);
-  assert.deepEqual(mana.actions, [], 'nothing to apply means no tap and no damage');
+  assert.equal(mana.ok, true, mana.reason);
+
+  state = applyActions(state, mana.actions);
+
+  assert.equal(cardOf(state, 'ring')?.tapped, true);
+  assert.deepEqual(manaPoolOf(state, 'p1').map(u => u.color), ['R'], 'the mana it paid for');
+  assert.equal(state.players[0].life, before - 1, 'and the rider still costs a life');
+  assert.equal(stackHeight(state), 0, 'CR 605.3a: still no stack');
 });
 
 test('a planeswalker enters with its printed loyalty, so a minus ability is affordable', () => {

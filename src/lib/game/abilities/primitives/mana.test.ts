@@ -107,18 +107,42 @@ const addMana = (mana: string): Extract<Effect, { do: 'add-mana' }> => ({
   mana,
 });
 
-test('P04/A1 — Add {G} emits no action and exactly one deferred line', () => {
+/*
+ * A1 AND A2 USED TO ASSERT THE OPPOSITE, and that is worth writing down rather
+ * than quietly replacing. They read "emits no action and exactly one deferred
+ * line" and "names two colourless", which was the honest output when
+ * `GameState` carried no mana pool. Those assertions pinned the ABSENCE of a
+ * feature, so they were a defect written down and they had to change when the
+ * defect did.
+ */
+
+test('P04/A1 — Llanowar Elves puts {G} in a pool instead of in a note', () => {
   const state = board([{ id: 'elves', card: 'Llanowar Elves' }]);
   const result = addManaToActions(addMana('{G}'), ctxFor(state, 'elves'), env());
-  assert.deepEqual(result.actions, []);
-  assert.equal(result.deferred.length, 1);
-  assert.match(result.deferred[0], /\{G\}/);
+  assert.deepEqual(result.deferred, [], 'nothing is left for a player to do');
+  assert.equal(result.actions.length, 1);
+  assert.equal(result.actions[0].type, 'ADD_MANA');
+  assert.equal((result.actions[0] as { mana: string }).mana, '{G}');
+  assert.equal((result.actions[0] as { sourceName?: string }).sourceName, 'Llanowar Elves');
 });
 
-test('P04/A2 — Add {C}{C} names two colourless', () => {
+test('P04/A2 — Sol Ring adds {C}{C}, both of them', () => {
   const state = board([{ id: 'ring', card: 'Sol Ring' }]);
   const result = addManaToActions(addMana('{C}{C}'), ctxFor(state, 'ring'), env());
-  assert.match(result.deferred[0], /\{CC\}/);
+  assert.equal(result.actions.length, 1);
+  assert.equal((result.actions[0] as { mana: string }).mana, '{C}{C}');
+});
+
+test('P04/A2b — a symbol that is a choice is deferred, never guessed', () => {
+  // Birds of Paradise compiles "Add one mana of any color" to a `choose-mode`
+  // with five modes, so it never reaches this primitive with a hybrid string. A
+  // card that did would be asking this file to pick a colour on a player's
+  // behalf, so it adds nothing and names the symbol that stopped it.
+  const state = board([{ id: 'elves', card: 'Llanowar Elves' }]);
+  const result = addManaToActions(addMana('{R/G}'), ctxFor(state, 'elves'), env());
+  assert.deepEqual(result.actions, []);
+  assert.equal(result.deferred.length, 1);
+  assert.match(result.deferred[0], /needs a choice/);
 });
 
 test('P04/A3 — a malformed string says so rather than adding nothing quietly', () => {
@@ -126,7 +150,7 @@ test('P04/A3 — a malformed string says so rather than adding nothing quietly',
   const result = addManaToActions(addMana('two green mana'), ctxFor(state, 'elves'), env());
   assert.deepEqual(result.actions, []);
   assert.equal(result.deferred.length, 1);
-  assert.match(result.deferred[0], /not understood/);
+  assert.match(result.deferred[0], /does not understand that mana string/);
 });
 
 test('P04/never-silent — the result is never empty on both channels', () => {

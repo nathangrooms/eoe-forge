@@ -321,6 +321,24 @@ function classify(para: Paragraph, shape: CardShape, idAt: number): Classified |
       // the source. Every event in the run has to agree: "whenever ~ enters or
       // another creature enters" would otherwise let one reading license the
       // other.
+      // T3, MEASURED AND REJECTED (22 Aug 2026). The obvious next step is to
+      // bind the pronoun to `{sel:'trigger-subject'}` here instead of dropping
+      // it, now that the runtime can tell a watcher which object an event
+      // happened to. It was built, measured over the whole pool, and taken out
+      // again: worth +5 AUTOMATED cards, and it made Fearless Fledgling WRONG.
+      //
+      // "Landfall — Whenever a land you control enters, put a +1/+1 counter on
+      // this creature. It gains flying until end of turn." The "It" is the
+      // Fledgling. `itMayBind` is meant to catch exactly that and does not,
+      // because the body is split into sentences before it is applied and the
+      // second sentence starts with the pronoun, with the noun that claimed it
+      // in the sentence before. That gap is harmless while the binding is the
+      // source (which is what "It" means there anyway) and produces a confident
+      // wrong answer the moment the binding is some other object.
+      //
+      // Fix `itMayBind` to see the whole body first. Until then this stays
+      // `undefined`, which costs those cards a manual marker and costs nobody a
+      // creature that flew when it should not have.
       if (!events.every(eventSubjectIsSelf)) build.ctx.itBinding = undefined;
       const effects = compileEffectBody(trigger[3], build.ctx);
       const confidence = build.ctx.approximate ? 'approximate' : 'exact';

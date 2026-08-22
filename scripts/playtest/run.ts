@@ -33,6 +33,7 @@ interface Args {
   slim: boolean;
   noMulligan: boolean;
   aggression: 'timid' | 'normal' | 'aggressive';
+  useStack: boolean;
   limits: Partial<Limits>;
 }
 
@@ -48,6 +49,7 @@ function parseArgs(argv: readonly string[]): Args {
     slim: false,
     noMulligan: false,
     aggression: 'normal',
+    useStack: false,
     limits: {},
   };
 
@@ -71,6 +73,10 @@ function parseArgs(argv: readonly string[]): Args {
         }
         args.kind = value;
         i += 1;
+        break;
+      case '--stack':
+        // Cast through the stack and hold a priority round, the way /play does.
+        args.useStack = true;
         break;
       case '--aggression':
         if (value !== 'timid' && value !== 'normal' && value !== 'aggressive') {
@@ -110,6 +116,7 @@ DeckMatrix playtest harness
   --kind K        commander | sixty | both   (default commander)
   --players N     seats at the table (default 2)
   --aggression A  timid | normal | aggressive (default normal)
+  --stack         bots announce spells onto the stack, as Play.tsx configures them
   --verify        replay every game and check every state hash
   --slim          drop per-action state deltas from the log (smaller files)
   --no-mulligan   keep every opening hand, however unplayable
@@ -150,7 +157,10 @@ async function main(): Promise<void> {
     );
   }
 
-  const runId = `${args.kind}-${args.players}p-seed${args.seed}-x${args.games}`;
+  /* `--stack` is part of the run's identity, not a detail. Two runs on the
+     same seeds with the stack on and off are different games, and writing
+     them to one folder would let the second silently overwrite the first. */
+  const runId = `${args.kind}-${args.players}p-seed${args.seed}-x${args.games}${args.useStack ? '-stack' : ''}`;
   const outDir = path.join(args.out, runId);
   fs.mkdirSync(outDir, { recursive: true });
 
@@ -169,6 +179,7 @@ async function main(): Promise<void> {
         limits: args.limits,
         mulligan: !args.noMulligan,
         aggression: args.aggression,
+        useStack: args.useStack,
         keepDeltas: !args.slim,
       });
       records.push(record);

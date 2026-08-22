@@ -1,103 +1,56 @@
 /**
- * DeckMatrix — running an effect tree with the primitives in front.
+ * DeckMatrix — kept only so callers written against the adoption wrapper still
+ * compile. It walks nothing.
  *
- * This is the adoption path, written as a wrapper so that measuring it does not
- * require editing `to-actions.ts` while other authors are in that file. The
- * eventual edit is one line per case:
+ * ## What this file used to be, and why it is not that any more
  *
- *   case 'pump': return merge(scope, pumpToContinuous(effect, ctx, env));
+ * The primitives in this folder were written while other authors were inside
+ * `to-actions.ts`, so they could not be called from the switch that owns the
+ * `Effect` union. This file was the way round that: a second walker that ran a
+ * primitive when it had one and delegated the rest to `runEffects`. It carried
+ * its own copy of the `if` / `for-each` / `repeat` logic, because a
+ * `{do:'pump'}` inside a `{do:'if'}` had to be visible to it.
  *
- * and the switch keeps its trailing throw, so a new effect verb is still a
- * failure rather than a card that quietly does nothing.
+ * Two copies of control flow is the drift this project keeps paying for. The
+ * copies would not disagree on the day they were written. They would disagree
+ * six months later, on one card, and it would show up as two clients landing on
+ * different boards from the same action log.
  *
- * ## Why it delegates rather than reimplements
+ * So the primitives moved into the switch. `to-actions.ts` calls
+ * `pumpToContinuous`, `gainControlToContinuous`, `damageToPermanent`,
+ * `returnFromForced`, `searchLibraryForced` and `counterTargetSpell` directly,
+ * keeps its trailing throw so a new verb is still a loud failure, and turns a
+ * returned continuous effect into an `ADD_CONTINUOUS` action.
  *
- * Everything a primitive does not handle falls through to the real `runEffects`.
- * A second walker with its own copy of the `if` / `for-each` / `repeat` logic
- * would drift from the first one, and the drift would show up as two clients
- * disagreeing about a card that nobody changed.
- *
- * Control flow is the one thing this walker must own, because a `{do:'if'}` can
- * contain a `{do:'pump'}` and delegating the whole `if` to `runEffects` would
- * hide the pump behind the old deferral.
+ * `runEffectsWithPrimitives` therefore means the same thing as `runEffects`
+ * now. It stays because `scripts/primitives/measure-unlocked.ts` calls it, and
+ * because deleting the name would quietly turn that script's before/after into
+ * a comparison of one thing with itself without anybody noticing. Run today it
+ * reports what the shipped engine does, which is the honest answer: there is no
+ * longer a "before" to compare against.
  */
 
 import type { Effect } from '../../../cards/abilities/dsl.ts';
 import type { AbilityContext } from '../context.ts';
-import { evalCondition, evalValue, isPlayerSelector, resolvePlayers, resolveSelector } from '../context.ts';
-import type { Selector } from '../../../cards/abilities/dsl.ts';
 import { runEffects } from '../to-actions.ts';
 import type { PrimitiveEnv, PrimitiveResult } from './contract.ts';
-import { primitiveFor } from './registry.ts';
-import type { AnyEffectDo } from './extended-dsl.ts';
 
-/** Control-flow verbs this walker handles itself so it can see inside them. */
-const CONTROL = new Set(['if', 'for-each', 'repeat', 'may', 'choose-mode']);
-
+/**
+ * Run an effect tree through the shipped engine.
+ *
+ * `continuous` always comes back empty, and that is not a loss: the continuous
+ * effect a pump produces is already in `actions`, as `ADD_CONTINUOUS`, because
+ * that is how it reaches the reducer and the log.
+ */
 export function runEffectsWithPrimitives(
   effects: readonly Effect[],
   ctx: AbilityContext,
   env: PrimitiveEnv
 ): PrimitiveResult {
-  const out: PrimitiveResult = { actions: [], deferred: [], continuous: [] };
-  let ordinal = env.ordinal;
-
-  const push = (result: PrimitiveResult) => {
-    for (const action of result.actions) out.actions.push(action);
-    for (const line of result.deferred) out.deferred.push(line);
-    for (const effect of result.continuous) out.continuous.push(effect);
-  };
-
-  const runOne = (effect: Effect, innerCtx: AbilityContext): void => {
-    if (CONTROL.has(effect.do)) {
-      switch (effect.do) {
-        case 'if': {
-          const branch = evalCondition(effect.condition, innerCtx) ? effect.then : effect.else;
-          for (const inner of branch ?? []) runOne(inner, innerCtx);
-          return;
-        }
-        case 'for-each': {
-          if (isPlayerSelector(effect.over)) {
-            for (const playerId of resolvePlayers(effect.over, innerCtx)) {
-              const bound: AbilityContext = { ...innerCtx, eachPlayerId: playerId, controllerId: playerId };
-              for (const inner of effect.effects) runOne(inner, bound);
-            }
-            return;
-          }
-          for (const instanceId of resolveSelector(effect.over as Selector, innerCtx)) {
-            const bound: AbilityContext = { ...innerCtx, eachCardId: instanceId };
-            for (const inner of effect.effects) runOne(inner, bound);
-          }
-          return;
-        }
-        case 'repeat': {
-          const times = Math.min(Math.max(evalValue(effect.times, innerCtx), 0), 64);
-          for (let n = 0; n < times; n++) {
-            for (const inner of effect.effects) runOne(inner, innerCtx);
-          }
-          return;
-        }
-        default:
-          // `may` and `choose-mode` are player decisions. Their bodies are NOT
-          // walked: running the inside of a "you may" would be taking it.
-          break;
-      }
-    }
-
-    const primitive = primitiveFor(effect.do as AnyEffectDo);
-    if (primitive) {
-      push(primitive(effect as never, innerCtx, { ...env, ordinal: ordinal++ }));
-      return;
-    }
-
-    const fallback = runEffects([effect], innerCtx, {
-      at: env.at,
-      idPrefix: env.idPrefix,
-      ...(env.cause ? { cause: env.cause } : {}),
-    });
-    push({ actions: fallback.actions, deferred: fallback.deferred, continuous: [] });
-  };
-
-  for (const effect of effects) runOne(effect, ctx);
-  return out;
+  const run = runEffects(effects, ctx, {
+    at: env.at,
+    idPrefix: env.idPrefix,
+    ...(env.cause ? { cause: env.cause } : {}),
+  });
+  return { actions: run.actions, deferred: run.deferred, continuous: [] };
 }

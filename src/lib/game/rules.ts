@@ -78,6 +78,8 @@ import {
   stackOf,
 } from './stack.ts';
 import { addReplacement, removeReplacement, replaceAction } from './replacement.ts';
+import { manaUnitsFrom } from './mana.ts';
+import { addTimedEffect, pruneTimedEffects } from './layers.ts';
 
 /* -------------------------------------------------------------------------- */
 /* Rules constants                                                            */
@@ -822,6 +824,13 @@ function beginTurnFor(state: GameState, playerId: PlayerId): GameState {
     const { abilityUses: _cleared, ...rest } = next;
     next = rest as GameState;
   }
+  /*
+   * Housekeeping, not a rule. `liveTimedEffects` already refuses to apply an
+   * effect whose expiry has passed, so last turn's Giant Growth stopped pumping
+   * the moment the turn counter moved, with or without this line. Dropping the
+   * row keeps a long game from carrying a record of every pump ever cast.
+   */
+  next = pruneTimedEffects(next);
   return next;
 }
 
@@ -835,7 +844,7 @@ function passTurn(state: GameState, toPlayerId?: PlayerId): GameState {
   const wrapped = upNext.seat <= previousSeat;
 
   let next: GameState = {
-    ...clearMarkedDamage(state),
+    ...emptyManaPools(clearMarkedDamage(state)),
     turn: state.turn + 1,
     round: wrapped ? state.round + 1 : state.round,
     activePlayerId: upNext.id,
@@ -858,10 +867,28 @@ function skipsFirstDraw(state: GameState): boolean {
   );
 }
 
+/**
+ * CR 500.4 — every mana pool empties as a step or phase ends.
+ *
+ * Called from `enterStep` and from `passTurn`, which between them are the only
+ * ways the game leaves a step, so there is no boundary where somebody has to
+ * remember to do this. That is what makes floating mana safe to hold in state:
+ * it cannot outlive the step it was made in, whatever anybody forgets.
+ *
+ * Returns the same object when the pools are already empty, which is the normal
+ * case, so the memoised layer computation is not thrown away every step.
+ */
+function emptyManaPools(state: GameState): GameState {
+  const pool = state.manaPool;
+  if (!pool) return state;
+  if (Object.values(pool).every(units => (units ?? []).length === 0)) return state;
+  return { ...state, manaPool: {} };
+}
+
 function enterStep(state: GameState, step: Step): GameState {
   // CR 117.3a — the active player receives priority at the start of each step
   // that has one, and the round of passes starts over.
-  let next: GameState = resetPriority({ ...state, step });
+  let next: GameState = resetPriority(emptyManaPools({ ...state, step }));
 
   switch (step) {
     case 'untap':
@@ -1285,6 +1312,19 @@ export function validateAction(state: GameState, action: GameAction): Validation
     if (!effect.apply?.op) return { ok: false, reason: 'A replacement effect needs an operation.' };
   }
 
+  if (action.type === 'ADD_CONTINUOUS') {
+    const effect = action.effect;
+    if (!effect?.id?.trim()) return { ok: false, reason: 'A continuous effect needs an id.' };
+    // A stored effect with no expiry would never end, and "never" has to be
+    // said rather than left out, because the field is optional for the
+    // statics-derived effects that are rebuilt from the board every read.
+    if (!effect.expiry?.kind) return { ok: false, reason: 'A stored continuous effect needs an expiry.' };
+    if (!effect.affects?.kind) return { ok: false, reason: 'A continuous effect needs something to affect.' };
+    if (!Array.isArray(effect.parts) || effect.parts.length === 0) {
+      return { ok: false, reason: 'A continuous effect with no parts changes nothing.' };
+    }
+  }
+
   return { ok: true };
 }
 
@@ -1399,6 +1439,32 @@ function describeAction(state: GameState, action: GameAction): string {
       return `${action.effect.name} is now replacing ${action.effect.event} events.`;
     case 'REMOVE_REPLACEMENT':
       return 'A replacement effect ended.';
+    case 'ADD_CONTINUOUS':
+      /*
+       * The note is a whole sentence written by whoever built the effect, and it
+       * has to be: only the builder knows which cards the selector matched and
+       * whether the verb is "gets" or "get". Assembling it here from the id list
+       * would be a second, worse version of that sentence.
+       */
+      return `${action.effect.note ?? 'A continuous effect began'}.`;
+    case 'ADD_MANA': {
+      /*
+       * No branch for "this string adds nothing". `applyOne` never reaches this
+       * function for an action whose reducer changed nothing, so such a line
+       * could not print, and copy that can never print is a small untruth about
+       * what the log does. The honest sentence for that case comes from
+       * `addManaToActions`, one step earlier, where there is still something to
+       * say it on. See the reducer.
+       */
+      const who = playerName(state, action.playerId);
+      const from = action.sourceName ? ` from ${action.sourceName}` : '';
+      const restriction = action.restriction ? `. ${action.restriction}` : '';
+      return `${who} adds ${action.mana}${from}${restriction}.`;
+    }
+    case 'SPEND_MANA':
+      return `${playerName(state, action.playerId)} spent ${action.colors
+        .map(color => `{${color}}`)
+        .join('')} from their pool.`;
     case 'PHASE_CHANGE':
       return `Step: ${action.step}.`;
     case 'ADVANCE_STEP':
@@ -1711,6 +1777,64 @@ function reduce(state: GameState, action: GameAction): GameState {
 
     case 'REMOVE_REPLACEMENT':
       return removeReplacement(state, action.replacementId);
+
+    /* --- continuous effects a resolved spell left behind --- */
+
+    case 'ADD_CONTINUOUS':
+      return addTimedEffect(state, action.effect);
+
+    /* --- mana (CR 106) --- */
+
+    case 'ADD_MANA': {
+      const { units } = manaUnitsFrom(action.mana, {
+        ...(action.restriction ? { restriction: action.restriction } : {}),
+        ...(action.sourceName ? { sourceName: action.sourceName } : {}),
+      });
+      /*
+       * A mana string that yields no mana. UNREACHABLE FROM THE ENGINE, and
+       * that is a guarantee rather than a hope: the one producer of this action
+       * is `addManaToActions`, which defers with a note for any symbol it will
+       * not guess at and emits nothing. `mana.test.ts` pins that.
+       *
+       * The guarantee matters because `applyOne` drops an action whose reducer
+       * changed nothing, with no log entry and no version bump. So a no-op
+       * ADD_MANA would be the silent no-op this project keeps finding, and the
+       * place to stop it is at the producer, where there is still a `deferred`
+       * channel to say something on.
+       */
+      if (units.length === 0) return state;
+      return {
+        ...state,
+        manaPool: {
+          ...(state.manaPool ?? {}),
+          [action.playerId]: [...(state.manaPool?.[action.playerId] ?? []), ...units],
+        },
+      };
+    }
+
+    case 'SPEND_MANA': {
+      const existing = state.manaPool?.[action.playerId] ?? [];
+      if (existing.length === 0 || action.colors.length === 0) return state;
+
+      /*
+       * Take the FIRST unit of each colour asked for. Deterministic, so two
+       * clients replaying this log remove the same units and their pools stay
+       * identical; and oldest-first, which is the order a player thinks of
+       * their own floating mana in.
+       *
+       * A colour that is not there is skipped rather than failing the action.
+       * `planPayment` cannot produce such a list, and refusing the whole action
+       * if it ever did would take the mana off nobody and leave the spell
+       * already paid for by the taps in the same batch.
+       */
+      const remaining = [...existing];
+      for (const color of action.colors) {
+        const index = remaining.findIndex(unit => unit.color === color && !unit.restriction);
+        if (index >= 0) remaining.splice(index, 1);
+      }
+      if (remaining.length === existing.length) return state;
+      return { ...state, manaPool: { ...(state.manaPool ?? {}), [action.playerId]: remaining } };
+    }
 
     case 'PHASE_CHANGE':
       return enterStep(state, action.step);

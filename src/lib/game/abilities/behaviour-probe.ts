@@ -97,6 +97,37 @@ function probeBoard(): GameState {
 }
 
 /**
+ * Run one effect tree on the probe board and report what came out.
+ *
+ * `probeBehaviour` takes whole abilities and grades a card. This takes bare
+ * effects and grades a VERB, which is what a measuring script needs when it
+ * wants to know whether the interpreter really performs `{do:'pump'}` today
+ * rather than take somebody's word for it.
+ *
+ * That is why this is exported. `scripts/verify-ability-coverage.mjs` carried a
+ * hand-written list of six verbs "named and never resolved", and a hand-written
+ * list is a claim about code that goes stale the moment the code changes —
+ * silently, and in whichever direction flatters whoever edited it last. Asking
+ * the interpreter cannot go stale.
+ */
+export function probeEffects(effects: readonly Effect[]): {
+  actions: number;
+  deferred: string[];
+  threw?: string;
+} {
+  try {
+    const run = runEffects(effects, makeContext(probeBoard(), 'probe-source', 'p1'), {
+      at: 0,
+      cause: 'probe',
+      idPrefix: 'probe:0',
+    });
+    return { actions: run.actions.length, deferred: run.deferred };
+  } catch (err) {
+    return { actions: 0, deferred: [], threw: (err as Error).message };
+  }
+}
+
+/**
  * `{sel:'target'}` resolves to whatever the context was told the targets were.
  * The probe binds none, so a targeted ability would produce nothing and score
  * `silent` — a false rejection of correct DSL. Rather than fake a binding (which

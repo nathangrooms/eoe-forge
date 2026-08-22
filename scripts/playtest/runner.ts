@@ -109,6 +109,26 @@ export interface RunGameOptions {
   /** Mulligan a hand with no mana or nothing but mana. On by default. */
   mulligan?: boolean;
   aggression?: 'timid' | 'normal' | 'aggressive';
+  /**
+   * Announce spells onto the stack and hold a priority round, the way `/play`
+   * does.
+   *
+   * ADDED BY AN ADVERSARIAL REVIEW, because its absence made this harness
+   * measure a configuration nothing ships. `Play.tsx` passes `useStack: true`
+   * in both places it builds `BotOptions`; this file passed nothing, so every
+   * reported game ran the bot with the stack OFF. `planCastFromHand` then takes
+   * its non-stack branch, which is a bare `PLAY` straight to the resolution
+   * zone, and a spell's own text never runs. Measured: the same Divination cast
+   * with the flag off draws 0 cards and with it on draws 2.
+   *
+   * That is not a small reporting error. It means the harness could not see the
+   * spell-resolution path at all, and a run of it was being read as evidence
+   * about a game a player never plays.
+   *
+   * Off by default so every figure this harness printed before today still
+   * reproduces. `--stack` turns it on.
+   */
+  useStack?: boolean;
   /** Keep the per-action state difference in the log. On by default; it is the signal. */
   keepDeltas?: boolean;
   /**
@@ -124,7 +144,7 @@ export interface RunGameOptions {
   decide?: (
     state: GameState,
     playerId: PlayerId,
-    options: { at: number; aggression?: 'timid' | 'normal' | 'aggressive' }
+    options: { at: number; aggression?: 'timid' | 'normal' | 'aggressive'; useStack?: boolean }
   ) => BotMove | null;
   /** The reducer. Same reason as `decide`: the engine-error path needs proving too. */
   apply?: (state: GameState, action: GameAction) => GameState;
@@ -355,7 +375,11 @@ export async function runGame(options: RunGameOptions): Promise<GameRecord> {
     seatOrder(current).map(seat => {
       let move: BotMove | null = null;
       try {
-        move = decide(current, seat, { at: index, aggression: options.aggression });
+        move = decide(current, seat, {
+          at: index,
+          aggression: options.aggression,
+          useStack: options.useStack,
+        });
       } catch {
         move = null;
       }
@@ -440,7 +464,11 @@ export async function runGame(options: RunGameOptions): Promise<GameRecord> {
       if (botIds.indexOf(candidate) === -1) continue;
       let proposed: BotMove | null;
       try {
-        proposed = decide(state, candidate, { at: index, aggression: options.aggression });
+        proposed = decide(state, candidate, {
+          at: index,
+          aggression: options.aggression,
+          useStack: options.useStack,
+        });
       } catch (error) {
         stop('engine-error', `nextBotMove threw for seat ${candidate}.`, {
           message: error instanceof Error ? error.message : String(error),

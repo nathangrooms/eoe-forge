@@ -481,6 +481,32 @@ export type DependencyKey = string;
 /* -------------------------------------------------------------------------- */
 
 /**
+ * When a continuous effect stops applying, as plain JSON.
+ *
+ * A closure would be the obvious implementation and is the wrong one: a client
+ * that received only the action log has no way to reconstruct it, and this
+ * engine's promise is that everything survives `structuredClone` and a `jsonb`
+ * column. So expiry is a description, and `statics.ts` reads it when it builds
+ * the list for `computeStateLayers`.
+ *
+ * `turn` is ABSOLUTE, never a countdown. A countdown has to be decremented by
+ * something, and a replay that decremented once more or once fewer than the
+ * original would end an effect on the wrong turn — a divergence that only shows
+ * up several turns later, which is the worst kind.
+ *
+ * An effect derived from a static ability carries no expiry at all, and does not
+ * need one: `scanStatics` rebuilds the list from the battlefield every time it
+ * is asked, so an anthem leaving play already IS the anthem ending. Expiry
+ * exists for the other kind — the one a resolved spell or ability creates, which
+ * nothing can re-derive from the board.
+ */
+export type EffectExpiry =
+  | { kind: 'never' }
+  | { kind: 'end-of-turn'; turn: number }
+  | { kind: 'your-next-turn'; controllerId: PlayerId; afterTurn: number }
+  | { kind: 'while-source' };
+
+/**
  * One continuous effect. Pure data; no behaviour, no closures, no identity
  * beyond `id`.
  *
@@ -515,6 +541,16 @@ export interface ContinuousEffect {
   dependsOnEffects?: EffectId[];
   /** Human-readable, for the game log and the debug trace. */
   note?: string;
+  /**
+   * When this stops applying. Absent means "for as long as it is in the list",
+   * which is the right answer for a statics-derived effect and the wrong one for
+   * a stored effect, so anything the reducer stores sets it.
+   *
+   * `computeLayers` never reads this. Deciding whether an effect is still in
+   * force is the job of whoever assembles the list, and putting the check inside
+   * the layer engine would give the engine an opinion about turns.
+   */
+  expiry?: EffectExpiry;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1529,12 +1565,12 @@ export function baseObjectsFromState(state: GameState): BaseObject[] {
 /**
  * Convenience: compute layers straight from game state.
  *
- * `effects` is passed in rather than read off the state because the state does
- * not carry a continuous-effect list yet — the oracle-text compiler is what will
- * produce one. Until then this returns correct characteristics for counters,
- * hand-set base P/T and hand-flagged keywords, which is exactly what the current
- * engine already models, and it does it through the same code path the compiler
- * will use.
+ * `effects` is still passed in rather than read off the state, and now that
+ * `state.timedEffects` exists that is a deliberate choice rather than a gap.
+ * Most continuous effects are DERIVED from the battlefield every time they are
+ * asked for, so there is no single list to read; `continuousEffectsFor` in
+ * `abilities/statics.ts` is the one place that assembles both halves, and it is
+ * the caller a game should go through.
  */
 export function computeStateLayers(
   state: GameState,
@@ -1545,6 +1581,86 @@ export function computeStateLayers(
     effects: [...effects],
     life: lifeTotalsFromState(state),
   });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Effects a resolved spell left behind                                       */
+/* -------------------------------------------------------------------------- */
+
+/** The stored list. Optional on state, so read it here and never directly. */
+export function timedEffectsOf(state: GameState): ContinuousEffect[] {
+  return state.timedEffects ?? [];
+}
+
+/**
+ * Store one. Replaces any earlier effect with the same id, so replaying an
+ * action twice cannot double a creature's power — ids are derived from the stack
+ * id and the state version, so a replay produces the same id and lands on the
+ * same board.
+ */
+export function addTimedEffect(state: GameState, effect: ContinuousEffect): GameState {
+  const existing = timedEffectsOf(state);
+  const without = existing.filter(candidate => candidate.id !== effect.id);
+  return { ...state, timedEffects: [...without, effect] };
+}
+
+/**
+ * Is this effect still applying?
+ *
+ * Asked on every read rather than swept by an action at end of turn. A sweep
+ * needs something to remember to run it, and anything that can be forgotten
+ * eventually is: a Giant Growth that outlived its turn because nobody sent the
+ * cleanup would be a permanent, silent, wrong board. Deriving it means the
+ * effect ends whether or not anyone was watching.
+ */
+export function isEffectLive(state: GameState, effect: ContinuousEffect): boolean {
+  const expiry = effect.expiry;
+  if (!expiry) return true;
+  switch (expiry.kind) {
+    case 'never':
+      return true;
+    case 'end-of-turn':
+      // CR 514.2 — "until end of turn" ends during the cleanup step of the turn
+      // it began on. The turn counter moving past it is the same instant, one
+      // action later, and it is the version a replaying client reproduces.
+      return state.turn <= expiry.turn;
+    case 'your-next-turn':
+      // CR 611.2b — it lasts until the START of the controller's next turn, so
+      // it is still applying right up until that turn begins.
+      return !(state.turn > expiry.afterTurn && state.activePlayerId === expiry.controllerId);
+    case 'while-source':
+      /*
+       * ON THE BATTLEFIELD, not merely present in `state.cards`. A card object
+       * stays in `state.cards` after every zone change, deliberately: CR 608.2
+       * resolves an ability using last known information and the object has to
+       * remain readable for that. So "does the id exist" is true forever, and
+       * reading it here would quietly turn this expiry into "never" — the
+       * silent, durable kind of wrong the whole mechanism exists to avoid.
+       */
+      return !!effect.sourceId && state.cards[effect.sourceId]?.zone === 'battlefield';
+    default:
+      // An expiry kind nobody handles ends the effect rather than making it
+      // permanent. A stuck anthem is silent and durable; a missing one is
+      // visible on the next board a player looks at.
+      return false;
+  }
+}
+
+/** Everything a resolved spell left behind that has not ended yet. */
+export function liveTimedEffects(state: GameState): ContinuousEffect[] {
+  return timedEffectsOf(state).filter(effect => isEffectLive(state, effect));
+}
+
+/**
+ * Drop what has ended. Hygiene only — `liveTimedEffects` already refuses to
+ * apply an expired effect, so this changes the size of the state and nothing a
+ * player can see. Called when a turn begins.
+ */
+export function pruneTimedEffects(state: GameState): GameState {
+  const existing = timedEffectsOf(state);
+  if (existing.length === 0) return state;
+  const next = existing.filter(effect => isEffectLive(state, effect));
+  return next.length === existing.length ? state : { ...state, timedEffects: next };
 }
 
 /**

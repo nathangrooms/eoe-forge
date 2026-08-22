@@ -355,8 +355,28 @@ function botChoice(
   playerId: PlayerId,
   source: CardInstance,
   choice: PendingChoice
-): StackTarget | InstanceId[] | null {
+): StackTarget | InstanceId[] | number[] | null {
   if (choice.kind === 'cost') return null;
+
+  /*
+   * A MODE, answered by taking the card's own first option.
+   *
+   * That is a policy and a weak one, and it is the right weak one here. Nearly
+   * every modal ability the bot can reach is a mana ability — "{T}: Add {R} or
+   * {G}", "Add one mana of any color" — where the bot has no way to know which
+   * colour it will want and any pick is as good as any other. Declining instead
+   * would put the bot back where it was before this tranche, with a Talisman on
+   * the board it can never tap.
+   *
+   * The cost of being wrong is one mana of the wrong colour, gone at the end of
+   * the step. Compare the cost of being wrong on a `cost` choice, which is a
+   * permanent sacrificed, and which this function still declines outright.
+   */
+  if (choice.kind === 'mode') {
+    const modes = choice.modes ?? [];
+    if (modes.length === 0) return null;
+    return modes.slice(0, Math.max(1, choice.min)).map(mode => mode.index);
+  }
 
   const opponentSeat = choice.playerIds.find(id => id !== playerId);
   if (opponentSeat) return { kind: 'player', playerId: opponentSeat };

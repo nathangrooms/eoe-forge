@@ -180,6 +180,11 @@ test('abilityEngineOwns claims a card only when the engine understands all of it
       oracleText: 'Whenever another creature enters, you gain 1 life.',
     },
     {
+      id: 'pridemate',
+      name: "Ajani's Pridemate",
+      oracleText: 'Whenever you gain life, put a +1/+1 counter on this creature.',
+    },
+    {
       id: 'anthem',
       name: 'Glorious Anthem',
       typeLine: 'Enchantment',
@@ -195,8 +200,13 @@ test('abilityEngineOwns claims a card only when the engine understands all of it
   );
   assert.equal(
     abilityEngineOwns(state.cards.other),
+    true,
+    '"another creature enters" is the same enters event, watched by a different permanent'
+  );
+  assert.equal(
+    abilityEngineOwns(state.cards.pridemate),
     false,
-    '"another creature enters" is a battlefield-wide event the engine does not derive'
+    'a life-gain event is one `deriveTriggerEvents` genuinely never emits'
   );
   assert.equal(abilityEngineOwns(state.cards.anthem), false, 'a static is not a trigger');
   assert.equal(abilityEngineOwns(state.cards.bear), false, 'no rules text at all');

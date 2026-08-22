@@ -1,6 +1,13 @@
 /**
  * DeckMatrix — mana primitives. P04 and P16.
  *
+ * SUPERSEDED IN PART, 22 Aug 2026. Everything below about P04 emitting no action
+ * was true when it was written and is not any more: `GameState.manaPool` and the
+ * `ADD_MANA` action exist, so P04 emits a real action. The paragraphs are kept
+ * because the REASON it could not is the useful part, and because a header
+ * rewritten to look like it always said the right thing hides that the engine
+ * moved. See the note on `addManaToActions` for what changed.
+ *
  * P16 is a parser and is straightforwardly checkable. P04 is the interesting
  * one, because the honest implementation of it emits no action at all.
  *
@@ -23,9 +30,9 @@
 import type { ManaColor } from '../../../cards/abilities/dsl.ts';
 import type { Effect } from '../../../cards/abilities/dsl.ts';
 import type { AbilityContext } from '../context.ts';
-import { playerOf, resolvePlayers } from '../context.ts';
+import { evalValue, playerOf, resolvePlayers } from '../context.ts';
 import type { PrimitiveEnv, PrimitiveResult } from './contract.ts';
-import { defer } from './contract.ts';
+import { acted, defer, nothing } from './contract.ts';
 
 /* -------------------------------------------------------------------------- */
 /* P16 — the parser                                                           */
@@ -176,7 +183,29 @@ function describe(symbols: readonly ManaSymbol[]): string {
 /* P04 — the handler                                                          */
 /* -------------------------------------------------------------------------- */
 
-/** P04. Spec: `scripts/primitives/specs/P04.spec.json`. */
+/**
+ * P04. Spec: `scripts/primitives/specs/P04.spec.json`.
+ *
+ * THIS NOW EMITS AN ACTION. Changed 22 Aug 2026, and the module header above it
+ * is left as it was written so the reason it could not is still readable.
+ *
+ * The old body returned a deferral and nothing else, correctly, because
+ * `GameState` carried no mana pool and this file was forbidden from inventing
+ * one. `GameState.manaPool` and the `ADD_MANA` action exist now, so the honest
+ * implementation is no longer a note.
+ *
+ * `count` is honoured. `{do:'add-mana', mana:'{R}', count:{...}}` is Mana Geyser
+ * adding one red per tapped land an opponent controls, and a version of this
+ * that added a single {R} would have been a wrong number rather than a missing
+ * one. `restriction` rides along verbatim for the same reason: Geosurge's
+ * "spend this mana only to cast artifact or creature spells" changes what the
+ * mana can do, and a pool holding seven unrestricted red would let a player
+ * cast something the card does not allow.
+ *
+ * A mana string the parser will not guess at still defers and adds nothing. A
+ * hybrid or `{X}` symbol is a decision, and picking a colour on a player's
+ * behalf is exactly what this folder does not do.
+ */
 export function addManaToActions(
   effect: Extract<Effect, { do: 'add-mana' }>,
   ctx: AbilityContext,
@@ -185,14 +214,71 @@ export function addManaToActions(
   const parse = parseManaSymbols(effect.mana);
   const players = resolvePlayers(effect.who, ctx);
 
-  const lines = players.map(playerId => {
-    const name = playerOf(ctx.state, playerId)?.name ?? 'A player';
-    if (!parse.ok) {
-      return `${name} adds ${effect.mana} — mana string not understood (${parse.unrecognised.join(', ')})`;
-    }
-    return `${name} adds {${describe(parse.symbols)}} — no mana pool in game state`;
-  });
+  if (players.length === 0) return defer(`adds ${effect.mana}, but no player was resolved to add it to`);
 
-  // Never an empty result. See the module note.
-  return defer(...(lines.length > 0 ? lines : [`adds ${effect.mana} — no player resolved`]));
+  if (!parse.ok) {
+    return defer(
+      ...players.map(playerId => {
+        const name = playerOf(ctx.state, playerId)?.name ?? 'A player';
+        return `${name} adds ${effect.mana}: the engine does not understand that mana string (${parse.unrecognised.join(', ')})`;
+      })
+    );
+  }
+
+  /*
+   * A symbol the pool cannot hold without choosing something. `{R/G}` is a
+   * mode, `{X}` is a number nobody announced, `{S}` is snow this engine does
+   * not track. Each is a decision, so the whole effect defers rather than
+   * putting a guessed colour in a pool.
+   */
+  const undecidable = parse.symbols.filter(
+    symbol => symbol.sym !== 'colored' && symbol.sym !== 'generic'
+  );
+  if (undecidable.length > 0) {
+    return defer(
+      ...players.map(playerId => {
+        const name = playerOf(ctx.state, playerId)?.name ?? 'A player';
+        return `${name} adds {${describe(parse.symbols)}}, which needs a choice this cannot make: ${describe(undecidable)}`;
+      })
+    );
+  }
+
+  /*
+   * An empty string parses cleanly into no symbols at all, so it passes every
+   * check above and used to build an `ADD_MANA` that added nothing. The reducer
+   * would then change nothing, and `applyOne` drops an action that changed
+   * nothing without a log entry: a silent no-op, found by the test that pins
+   * this invariant. An effect that names no mana says so instead.
+   */
+  if (parse.symbols.length === 0) {
+    return defer(
+      ...players.map(playerId => {
+        const name = playerOf(ctx.state, playerId)?.name ?? 'A player';
+        return `${name} adds no mana: this effect names none`;
+      })
+    );
+  }
+
+  /*
+   * `count: 0` is a different thing and is genuinely nothing. "Add {R} for each
+   * creature you control" with no creatures adds no mana, which is the correct
+   * answer and not a decision anybody has to be told about.
+   */
+  const copies = Math.max(0, evalValue(effect.count ?? 1, ctx));
+  if (copies === 0) return nothing();
+
+  const mana = effect.mana.repeat(copies);
+  const sourceName = ctx.state.cards[ctx.sourceId]?.name;
+
+  return acted(
+    players.map(playerId => ({
+      type: 'ADD_MANA' as const,
+      playerId,
+      mana,
+      ...(effect.restriction ? { restriction: effect.restriction.text } : {}),
+      ...(sourceName ? { sourceName } : {}),
+      at: env.at,
+      ...(env.cause ? { cause: env.cause } : {}),
+    }))
+  );
 }

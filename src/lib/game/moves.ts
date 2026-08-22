@@ -18,6 +18,7 @@ import {
   castingCostOf,
   isLand,
   manaSourcesFor,
+  paymentActions,
   planPayment,
   resolvesToGraveyard,
   type PaymentPlan,
@@ -113,6 +114,24 @@ export interface CastOptions {
    * that picked none are both worse than a cast that asks.
    */
   hostId?: InstanceId;
+  /**
+   * CR 601.2c — what this spell was cast AT, chosen on announcement, in the
+   * order the card names them. `{sel:'target', ref: n}` in the compiled effects
+   * is an index into this list, so position is the contract and a hole is left
+   * as a hole rather than closed up.
+   *
+   * Only meaningful with `viaStack`, because it rides on the stack object.
+   * Nothing here picks a target: this carries a choice a player already made,
+   * the same way `hostId` does for an Aura.
+   *
+   * NOT YET SUPPLIED BY ANY SURFACE. Announcing a target needs a picker, the
+   * spell's `TargetSpec` list, and a legality check, and none of that exists for
+   * a spell yet — `activate.ts` has all three for an ACTIVATED ability and
+   * `AbilityPanel` draws them. So a targeted instant reaching resolution today
+   * finds this empty and says so in the log rather than doing something to
+   * nobody. The engine side is finished; the asking is not.
+   */
+  targets?: StackTarget[];
 }
 
 /**
@@ -134,7 +153,7 @@ export function planCastFromHand(
   const fail = (reason: string, payment?: PaymentPlan): CastPlan => ({
     ok: false,
     actions: [],
-    payment: payment ?? { ok: false, tapIds: [], required: 0, available: 0, reason },
+    payment: payment ?? { ok: false, tapIds: [], spend: [], required: 0, available: 0, reason },
     destination: 'battlefield',
     tax: 0,
     reason,
@@ -186,14 +205,21 @@ export function planCastFromHand(
   }
 
   const payment = options.ignoreMana
-    ? { ok: true, tapIds: [], required: 0, available: 0, reason: '' }
+    ? { ok: true, tapIds: [], spend: [], required: 0, available: 0, reason: '' }
     : planPayment(costWithTax(card, tax), manaSourcesFor(state, playerId));
 
   if (!payment.ok) {
     return { ...fail(payment.reason, payment), tax, destination };
   }
 
-  const actions: GameAction[] = payment.tapIds.map(id => ({ type: 'TAP', instanceId: id, at }));
+  /*
+   * Taps AND the floating mana this spends. Built by `paymentActions` rather
+   * than by mapping `tapIds` here, because that map WAS the whole cost of a
+   * spell and quietly stopped being it the moment `manaSourcesFor` started
+   * offering pool mana: a Dark Ritual's {B}{B}{B} would have paid for a spell
+   * and then still been sitting in the pool to pay for the next one.
+   */
+  const actions: GameAction[] = paymentActions(payment, playerId, at);
 
   /*
    * CR 903.8 - a commander leaving the command zone is announced, and this is
@@ -236,6 +262,11 @@ export function planCastFromHand(
           }
         : {}),
       ...(hostTarget.length > 0 ? { targets: hostTarget } : {}),
+      /* Announced targets win over the two special cases above, because a
+         caller that named them said what it meant. `counterStackId` and
+         `hostId` are shorthands for the two shapes that predate the general
+         list; a caller using both is describing one thing twice. */
+      ...(options.targets && options.targets.length > 0 ? { targets: options.targets } : {}),
       at,
     });
   } else {

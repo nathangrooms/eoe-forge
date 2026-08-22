@@ -25,6 +25,23 @@
  * Having the engine choose would be the same bug one level up: a card that
  * appeared to resolve and did something the player never agreed to is no better
  * than one that appeared to resolve and did nothing.
+ *
+ * ## The primitives are called from inside this switch, not beside it
+ *
+ * `abilities/primitives/` holds a gated implementation of ten of these verbs.
+ * For a while it also held `adopt.ts`, a second walker that ran the primitives
+ * in front of this one, so the folder could be measured without editing a file
+ * other people were in. A second walker with its own copy of the `if` /
+ * `for-each` / `repeat` logic is exactly the thing that drifts, and two clients
+ * disagreeing about a card nobody changed is how the drift would show up.
+ *
+ * So the primitives are called from the cases below. One switch, still ending in
+ * a throw, and `adopt.ts` now delegates here rather than walking anything.
+ *
+ * A primitive can return a CONTINUOUS EFFECT, which this file turns into an
+ * `ADD_CONTINUOUS` action rather than handing back on the side. Everything that
+ * changes the board has to be in the action log, or a +3/+3 exists on the screen
+ * that cast it and nowhere else.
  */
 
 import type { GameAction, GameState, InstanceId, PlayerId } from '../types.ts';
@@ -41,10 +58,46 @@ import {
   resolveSelector,
   viewOf,
 } from './context.ts';
+import type { PrimitiveEnv, PrimitiveResult } from './primitives/contract.ts';
+import { gainControlToContinuous, pumpToContinuous } from './primitives/continuous.ts';
+import { damageToPermanent } from './primitives/damage.ts';
+import { returnFromForced, searchLibraryForced } from './primitives/zones.ts';
+import { counterTargetSpell } from './primitives/stack.ts';
+import { addManaToActions } from './primitives/mana.ts';
 
 /* -------------------------------------------------------------------------- */
 /* Result                                                                     */
 /* -------------------------------------------------------------------------- */
+
+/**
+ * A modal decision this run could not take, WITH the legal answers attached.
+ *
+ * The difference between this and a line in `deferred` is the whole point. A
+ * deferral is a sentence: it says what did not happen, and there is nothing a
+ * caller can hand back. This carries the options, each with the index that
+ * selects it, so a caller can ask a player and run the ability again with the
+ * answer. That is the difference between an ability that is SILENT and one that
+ * is PROMPTED, and it is why this exists rather than a better-worded note.
+ *
+ * Both are still produced for the same decision, so nothing that already reads
+ * `deferred` changed behaviour when this was added.
+ */
+export interface ModeChoice {
+  /**
+   * Stable within one ability, assigned by POSITION in the effect tree rather
+   * than by order of execution. `{do:'repeat'}` runs the same `choose-mode`
+   * node several times and every one of them is the same question, so one
+   * answer holds for all of them. A counter bumped per execution would ask the
+   * same question twice and let a caller answer one iteration and not the next.
+   */
+  ref: string;
+  /** One sentence, in a player's words. */
+  prompt: string;
+  min: number;
+  max: number;
+  /** `index` is what goes back in `RunOptions.modes`; `text` is the card's own. */
+  options: Array<{ index: number; text: string }>;
+}
 
 export interface EffectRun {
   /** In order. Fed straight back through the reducer. */
@@ -57,6 +110,12 @@ export interface EffectRun {
    * that the board did not change.
    */
   deferred: string[];
+  /**
+   * The subset of those decisions a caller can actually answer, with the legal
+   * options attached. Empty when every decision this run met was one nothing
+   * can enumerate, such as a bare "you may".
+   */
+  choices: ModeChoice[];
 }
 
 export interface RunOptions {
@@ -70,6 +129,17 @@ export interface RunOptions {
    * for the same token and replay diverges on the next zone change.
    */
   idPrefix: string;
+  /**
+   * Modes the player has already chosen, keyed by `ModeChoice.ref`, each a list
+   * of indexes into that node's own `modes` array.
+   *
+   * An answer that is not legal for its node — too few, too many, out of range,
+   * the same mode twice — is NOT clamped into something legal. It is treated as
+   * no answer at all, and the choice comes back unresolved with a line saying
+   * why. Clamping would resolve a modal card in a mode nobody picked, which is
+   * the same failure as guessing one.
+   */
+  modes?: Record<string, readonly number[]>;
 }
 
 interface RunScope {
@@ -77,6 +147,9 @@ interface RunScope {
   counter: { value: number };
   out: GameAction[];
   deferred: string[];
+  choices: ModeChoice[];
+  /** Which `ref` belongs to which `choose-mode` node. See `ModeChoice.ref`. */
+  modeRefs: Map<object, string>;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -88,7 +161,14 @@ export function runEffects(
   ctx: AbilityContext,
   options: RunOptions
 ): EffectRun {
-  const scope: RunScope = { options, counter: { value: 0 }, out: [], deferred: [] };
+  const scope: RunScope = {
+    options,
+    counter: { value: 0 },
+    out: [],
+    deferred: [],
+    choices: [],
+    modeRefs: assignModeRefs(effects),
+  };
 
   // E6 honesty gate, and it runs BEFORE anything else so the note is the first
   // thing in the log rather than buried under actions computed from a zero.
@@ -106,7 +186,77 @@ export function runEffects(
   }
 
   for (const effect of effects) runEffect(effect, ctx, scope);
-  return { actions: scope.out, deferred: scope.deferred };
+  return { actions: scope.out, deferred: scope.deferred, choices: scope.choices };
+}
+
+/**
+ * Give every `choose-mode` node in this tree a stable name.
+ *
+ * A pre-walk over the STATIC shape, in a fixed order, before anything runs.
+ * That is what makes the name independent of how many times a node is reached:
+ * a `choose-mode` inside a `{do:'repeat'}` gets one ref however many iterations
+ * happen, so an answer covers all of them, and the ref does not move because a
+ * condition went the other way on one board and not another.
+ *
+ * Keyed on object identity, which is safe here because the effect tree comes
+ * out of the compiler's cache and is not rebuilt between the pre-walk and the
+ * run three lines later.
+ */
+function assignModeRefs(effects: readonly Effect[]): Map<object, string> {
+  const refs = new Map<object, string>();
+  let next = 0;
+
+  const walk = (list: readonly Effect[] | undefined): void => {
+    for (const effect of list ?? []) {
+      if (effect.do === 'choose-mode') {
+        refs.set(effect as object, `m${next++}`);
+        for (const mode of effect.modes) walk(mode.effects);
+        continue;
+      }
+      if (effect.do === 'if') {
+        walk(effect.then);
+        walk(effect.else);
+        continue;
+      }
+      if (effect.do === 'for-each' || effect.do === 'repeat' || effect.do === 'may') {
+        walk(effect.effects);
+        continue;
+      }
+      if (effect.do === 'unless-pays') walk(effect.effects);
+    }
+  };
+
+  walk(effects);
+  return refs;
+}
+
+/**
+ * The modes a caller has legally chosen for this node, or null if it is still
+ * an open question.
+ *
+ * Every way of being wrong returns null rather than a repaired answer. Out of
+ * range, repeated, too few, too many: each of those is a caller that does not
+ * agree with this file about what the card says, and resolving a modal card in
+ * a mode nobody picked is worse than not resolving it.
+ */
+function chosenModes(
+  answer: readonly number[] | undefined,
+  modeCount: number,
+  min: number,
+  max: number
+): number[] | null {
+  if (!answer) return null;
+  if (answer.length < min || answer.length > max) return null;
+  const seen = new Set<number>();
+  for (const index of answer) {
+    if (!Number.isInteger(index) || index < 0 || index >= modeCount) return null;
+    if (seen.has(index)) return null;
+    seen.add(index);
+  }
+  // Card order, not the order they were handed in. A modal spell resolves its
+  // chosen modes in the order they are printed (CR 601.2b), and two clients
+  // that answered the same set differently must still land on one board.
+  return [...seen].sort((a, b) => a - b);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -131,6 +281,51 @@ function livingIds(state: GameState, ids: PlayerId[]): PlayerId[] {
 
 function nameOf(state: GameState, playerId: PlayerId | undefined): string {
   return playerOf(state, playerId)?.name ?? 'A player';
+}
+
+/* -------------------------------------------------------------------------- */
+/* Calling a primitive                                                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Everything a primitive is allowed to know beyond its effect and the state.
+ *
+ * Every field comes from state or from the originating action. `timestamp` is
+ * `state.version`, which is a monotonic counter the reducer bumps on every
+ * applied action, so two clients replaying one log assign the same CR 613
+ * timestamps and "the last anthem wins" means the same thing on both screens. A
+ * wall clock here would break that on the first re-render.
+ */
+function envFor(ctx: AbilityContext, scope: RunScope): PrimitiveEnv {
+  return {
+    idPrefix: scope.options.idPrefix,
+    ordinal: scope.counter.value++,
+    at: scope.options.at ?? 0,
+    ...(scope.options.cause ? { cause: scope.options.cause } : {}),
+    timestamp: ctx.state.version ?? 0,
+  };
+}
+
+/**
+ * Fold a primitive's result into the run, in place, in order.
+ *
+ * A returned `ContinuousEffect` becomes an `ADD_CONTINUOUS` action here. That is
+ * the one translation this file does on a primitive's behalf, and it is done
+ * here rather than in the primitive because a primitive returns data and never
+ * decides how the engine stores it.
+ */
+function merge(scope: RunScope, result: PrimitiveResult): void {
+  for (const action of result.actions) scope.out.push(action);
+  for (const line of result.deferred) scope.deferred.push(line);
+  const at = scope.options.at ?? 0;
+  for (const effect of result.continuous) {
+    scope.out.push({
+      type: 'ADD_CONTINUOUS',
+      effect,
+      at,
+      ...(scope.options.cause ? { cause: scope.options.cause } : {}),
+    });
+  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -205,20 +400,27 @@ function runEffect(effect: Effect, ctx: AbilityContext, scope: RunScope): void {
         break;
       }
 
-      for (const instanceId of resolveSelector(effect.to, ctx)) {
-        const view = viewOf(ctx, instanceId);
-        const card = cardOf(state, instanceId);
-        if (!view || !card) continue;
-        // The reducer has no "mark damage on a permanent" action, so lethality
-        // is computed here and expressed as the zone change it causes. Saying
-        // nothing would be the silent no-op this engine exists to prevent.
-        const remaining = view.toughness - card.damage;
-        if (remaining > 0 && amount >= remaining && !view.keywords.includes('indestructible')) {
-          scope.out.push({ type: 'MOVE_ZONE', instanceId, to: 'graveyard', ...m });
-        } else {
-          scope.deferred.push(`${amount} damage marked on ${card.name}`);
-        }
-      }
+      /*
+       * DAMAGE TO A PERMANENT IS MARKED, AND NOTHING ELSE HAPPENS. CR 119.3.
+       *
+       * This used to read the toughness, subtract damage already marked, and
+       * emit a `MOVE_ZONE` to the graveyard when the incoming amount was lethal
+       * — otherwise nothing but a note. Both halves were wrong, and the first
+       * half was the dangerous one because it looked like it worked:
+       *
+       *   - two Shocks at a 4/4 killed nothing, because neither was lethal on
+       *     its own and nothing accumulated;
+       *   - deathtouch was ignored entirely (CR 702.2b), so a 1/1 deathtoucher
+       *     pinging a 5/5 did nothing at all;
+       *   - `DAMAGE_CARD` already existed, already carried a `deathtouch` flag,
+       *     and already fed the `damagedByDeathtouch` field that `sba.ts` reads
+       *     for CR 704.5h. The reducer was ready; nothing called it.
+       *
+       * `damageToPermanent` marks the damage and stops. Whether that is lethal
+       * is CR 704.5g's business, and `sba.ts` runs immediately after every
+       * action, which is exactly when 704.5g is supposed to be checked.
+       */
+      merge(scope, damageToPermanent(effect, ctx, envFor(ctx, scope)));
       break;
     }
 
@@ -336,17 +538,26 @@ function runEffect(effect: Effect, ctx: AbilityContext, scope: RunScope): void {
       break;
     }
 
+    /*
+     * A ZONE MOVE IS ONLY A DECISION WHEN THERE IS SOMETHING TO DECIDE.
+     *
+     * This used to defer both, unconditionally, on the grounds that "both need
+     * the player to pick from a zone we may not even be allowed to show them".
+     * That is true when the pool is bigger than the count and false when it is
+     * not. Raise Dead with exactly one creature in the graveyard has no decision
+     * in it, and Rampant Growth shuffles the library whether or not it found a
+     * land (CR 701.19), so a search that IS a decision still owes the table a
+     * shuffle.
+     *
+     * The genuinely-a-choice case still defers, and must: guessing which card a
+     * player tutors for is not automation, it is playing their deck for them.
+     */
     case 'return-from':
+      merge(scope, returnFromForced(effect, ctx, envFor(ctx, scope)));
+      break;
+
     case 'search-library':
-      // Both need the player to pick from a zone we may not even be allowed to
-      // show them. Named as a decision rather than resolved with a guess.
-      for (const playerId of resolvePlayers(effect.who, ctx)) {
-        scope.deferred.push(
-          effect.do === 'search-library'
-            ? `${nameOf(state, playerId)} searches their library`
-            : `${nameOf(state, playerId)} returns a card from their ${effect.zone}`
-        );
-      }
+      merge(scope, searchLibraryForced(effect, ctx, envFor(ctx, scope)));
       break;
 
     case 'shuffle':
@@ -409,31 +620,28 @@ function runEffect(effect: Effect, ctx: AbilityContext, scope: RunScope): void {
       break;
     }
 
-    case 'pump': {
-      // A pump is a duration-limited CONTINUOUS effect. `layers.ts` models one
-      // properly and the state does not yet carry a list to put it in, so it is
-      // named rather than faked with a permanent stat change that would never
-      // wear off. Wrong-and-quiet is worse than absent-and-loud.
-      const power = evalValue(effect.power, ctx);
-      const toughness = evalValue(effect.toughness, ctx);
-      const names = resolveSelector(effect.what, ctx).map(id => cardOf(state, id)?.name ?? id);
-      if (names.length === 0) break;
-      const grant = effect.grant?.length ? ` and gains ${effect.grant.join(', ')}` : '';
-      scope.deferred.push(
-        `${names.join(', ')} gets ${power >= 0 ? '+' : ''}${power}/${toughness >= 0 ? '+' : ''}${toughness}${grant} (${effect.duration})`
-      );
+    /*
+     * A pump is a duration-limited CONTINUOUS effect, and for a long time this
+     * case named one instead of making one, because `GameState` carried no list
+     * to put it in. `layers.ts` had always modelled the effect properly; the
+     * missing piece was storage, and the comment here said so honestly rather
+     * than faking it with a permanent stat change that would never wear off.
+     *
+     * `GameState.timedEffects` is that list now. `pumpToContinuous` builds the
+     * CR 613 record, `merge` turns it into an `ADD_CONTINUOUS` action, the
+     * reducer stores it, `statics.ts` merges it into the layer pass, and its
+     * `expiry` ends it without anyone having to remember to.
+     *
+     * It still defers when the selector matched nothing, because a spell that
+     * resolved and found no legal recipient is a real event the log has to show.
+     */
+    case 'pump':
+      merge(scope, pumpToContinuous(effect, ctx, envFor(ctx, scope)));
       break;
-    }
 
-    case 'gain-control': {
-      const names = resolveSelector(effect.what, ctx).map(id => cardOf(state, id)?.name ?? id);
-      const [who] = resolvePlayers(effect.who, ctx);
-      if (names.length === 0 || !who) break;
-      scope.deferred.push(
-        `${nameOf(state, who)} gains control of ${names.join(', ')} (${effect.duration})`
-      );
+    case 'gain-control':
+      merge(scope, gainControlToContinuous(effect, ctx, envFor(ctx, scope)));
       break;
-    }
 
     /*
      * CR 301.5c / 303.4f — the attachment moves onto the host.
@@ -470,24 +678,25 @@ function runEffect(effect: Effect, ctx: AbilityContext, scope: RunScope): void {
 
     /* --- mana and table --- */
 
-    case 'add-mana': {
-      // `mana.ts` derives available mana from untapped permanents rather than
-      // tracking a pool. Saying so is honest; a second pool here would be a
-      // second implementation that drifts from the first.
-      //
-      // E8 and E9 both land in the SAME note rather than being dropped from it.
-      // A note reading "adds {G}" when the card added five, or omitting "spend
-      // this mana only to cast creature spells", is a note a player acts on
-      // wrongly — the same failure as saying nothing, one step later.
-      const copies = Math.max(0, evalValue(effect.count ?? 1, ctx));
-      if (copies === 0) break;
-      const pool = effect.mana.repeat(copies);
-      const restriction = effect.restriction ? ` — ${effect.restriction.text}` : '';
-      for (const playerId of resolvePlayers(effect.who, ctx)) {
-        scope.deferred.push(`${nameOf(state, playerId)} adds ${pool}${restriction}`);
-      }
+    case 'add-mana':
+      /*
+       * This case used to write a note. It said so plainly and it was right at
+       * the time: `mana.ts` derived available mana by scanning untapped
+       * permanents and there was no pool to put anything in, so a second pool
+       * built here would have been a second implementation that drifted.
+       *
+       * `GameState.manaPool` exists now, so the mana goes in it. There is still
+       * only one pool and one payment algorithm: `manaSourcesFor` offers the
+       * floating mana and the untapped permanents to the same matcher.
+       *
+       * `addManaToActions` in `primitives/mana.ts` does the work, from inside
+       * this switch, for the reason in the file header. It keeps the honesty
+       * the note had: a count is honoured rather than flattened to one, a
+       * restriction rides along verbatim, and a symbol that needs a choice
+       * defers instead of guessing a colour.
+       */
+      merge(scope, addManaToActions(effect, ctx, envFor(ctx, scope)));
       break;
-    }
 
     case 'player-counter': {
       const count = evalValue(effect.count, ctx);
@@ -522,13 +731,21 @@ function runEffect(effect: Effect, ctx: AbilityContext, scope: RunScope): void {
       break;
     }
 
-    case 'counter': {
-      // Countering is `stack.ts`'s `COUNTER_SPELL`, which needs the stack id the
-      // target was announced with. Until an ability announces stack targets,
-      // saying so beats guessing which object was meant.
-      scope.deferred.push('counter target spell');
+    /*
+     * Countering is `stack.ts`'s `COUNTER_SPELL`, which needs the stack id the
+     * target was announced with. `StackTarget` has carried `kind:'stack'` and a
+     * `stackId` the whole time and `AbilityContext.targets` carries the
+     * announced list, so the missing piece was never a state change.
+     *
+     * `counterTargetSpell` also carries the rule that makes it safe. CR 608.2b:
+     * a target that has become illegal is simply not affected, so a stack id no
+     * longer on the stack is DROPPED. Firing at it anyway would counter whatever
+     * object now holds that id, which is the worst available failure because it
+     * is silent and it hits the wrong player's spell.
+     */
+    case 'counter':
+      merge(scope, counterTargetSpell(effect, ctx, envFor(ctx, scope)));
       break;
-    }
 
     /* --- control flow --- */
 
@@ -575,9 +792,45 @@ function runEffect(effect: Effect, ctx: AbilityContext, scope: RunScope): void {
         }
         break;
       }
-      scope.deferred.push(
-        `choose ${min === max ? min : `${min}-${max}`} of: ${effect.modes.map(mode => mode.text).join(' / ')}`
-      );
+      const ref = scope.modeRefs.get(effect as object);
+      const chosen = ref ? chosenModes(scope.options.modes?.[ref], effect.modes.length, min, max) : null;
+
+      if (chosen) {
+        // The player picked. This is the ONLY place a mode's effects run
+        // without every mode running, and it happens because somebody answered.
+        for (const index of chosen) {
+          for (const inner of effect.modes[index].effects) runEffect(inner, ctx, scope);
+        }
+        break;
+      }
+
+      const wording = `choose ${min === max ? min : `${min}-${max}`} of: ${effect.modes
+        .map(mode => mode.text)
+        .join(' / ')}`;
+
+      /*
+       * The deferral is still emitted, word for word as it was before modes
+       * could be answered at all. A caller that has not been taught to ask sees
+       * exactly what it saw before, so adding the channel could not change any
+       * existing card's behaviour.
+       *
+       * What is new is the entry beside it, which carries the options. An
+       * answer that arrived and was not legal lands here too, and says so, so a
+       * caller passing nonsense finds out instead of watching its answer be
+       * quietly rounded into a legal one.
+       */
+      const rejected = ref && scope.options.modes?.[ref] ? ' (the answer given was not a legal set of modes)' : '';
+      scope.deferred.push(`${wording}${rejected}`);
+
+      if (ref) {
+        scope.choices.push({
+          ref,
+          prompt: wording,
+          min,
+          max,
+          options: effect.modes.map((mode, index) => ({ index, text: mode.text })),
+        });
+      }
       break;
     }
 
@@ -645,21 +898,47 @@ function runEffect(effect: Effect, ctx: AbilityContext, scope: RunScope): void {
  * the whole promise — a card either resolves completely, or visibly says what
  * is left.
  */
+export interface ResolutionOptions extends RunOptions {
+  sourceInstanceId?: InstanceId;
+  /**
+   * How the ability reached the stack, for the one line that says it did
+   * nothing. 'triggered' by default because triggers were the first caller.
+   * An activated ability reporting itself as "triggered" is a small lie about
+   * a real event, and not telling small lies about what happened is this
+   * file's entire subject. 'resolved' is for an instant or sorcery, which was
+   * neither triggered nor activated: it was cast.
+   */
+  verb?: 'triggered' | 'activated' | 'resolved';
+}
+
 export function resolveAbilityActions(
   effects: readonly Effect[],
   ctx: AbilityContext,
-  options: RunOptions & {
-    sourceInstanceId?: InstanceId;
-    /**
-     * How the ability reached the stack, for the one line that says it did
-     * nothing. 'triggered' by default because triggers were the first caller.
-     * An activated ability reporting itself as "triggered" is a small lie about
-     * a real event, and not telling small lies about what happened is this
-     * file's entire subject.
-     */
-    verb?: 'triggered' | 'activated';
-  }
+  options: ResolutionOptions
 ): GameAction[] {
+  return resolveAbilityRun(effects, ctx, options).actions;
+}
+
+/**
+ * The same resolution, with the answerable decisions still attached.
+ *
+ * `resolveAbilityActions` throws `choices` away, which is right for the stack:
+ * by the time an object is resolving, its modes were chosen on announcement and
+ * there is nobody left to ask. A caller that resolves an ability BEFORE it
+ * reaches the stack — `activate.ts` with a mana ability, which CR 605.3a says
+ * never uses the stack — is still in a position to ask, and needs them.
+ *
+ * One run, not two. Calling `runEffects` to look at the choices and then
+ * `resolveAbilityActions` to get the actions would execute the effects twice;
+ * they are pure so it would not corrupt anything, but it would double every
+ * derived token id's ordinal and is the kind of thing that stops being harmless
+ * later.
+ */
+export function resolveAbilityRun(
+  effects: readonly Effect[],
+  ctx: AbilityContext,
+  options: ResolutionOptions
+): { actions: GameAction[]; choices: ModeChoice[] } {
   const run = runEffects(effects, ctx, options);
   const out = [...run.actions];
   const at = options.at ?? 0;
@@ -669,7 +948,9 @@ export function resolveAbilityActions(
     out.push({
       type: 'NOTE',
       instanceId: options.sourceInstanceId,
-      message: `${label}: not resolved automatically — ${decision}`,
+      // No em-dash: this is copy a player reads at a table, and the project's
+      // copy rules ban them in anything user-facing. A colon does the same job.
+      message: `${label}: not resolved automatically: ${decision}`,
       at,
     });
   }
@@ -685,5 +966,5 @@ export function resolveAbilityActions(
     });
   }
 
-  return out;
+  return { actions: out, choices: run.choices };
 }

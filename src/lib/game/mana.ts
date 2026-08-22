@@ -32,7 +32,16 @@
  * Pure: no clock, no randomness, no React.
  */
 
-import type { CardInstance, GameState, InstanceId, ManaColor, PlayerId } from './types.ts';
+import type {
+  CardInstance,
+  GameAction,
+  GameState,
+  InstanceId,
+  ManaColor,
+  ManaUnit,
+  PlayerId,
+} from './types.ts';
+import { parseManaSymbols } from './abilities/primitives/mana.ts';
 
 export const COLORS: readonly ManaColor[] = ['W', 'U', 'B', 'R', 'G'] as const;
 
@@ -153,15 +162,120 @@ export function castingCostOf(card: CardInstance | null | undefined): string {
 }
 
 /* -------------------------------------------------------------------------- */
+/* The pool (CR 106.4)                                                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * One player's floating mana, oldest first. Never null, never undefined.
+ *
+ * Read through this rather than off `state.manaPool`: the record is optional so
+ * a game saved before pools existed still loads, and an absent record has to
+ * read as an empty pool everywhere rather than at each call site.
+ */
+export function manaPoolOf(state: GameState, playerId: PlayerId): readonly ManaUnit[] {
+  return state.manaPool?.[playerId] ?? [];
+}
+
+/**
+ * Split a cost string into individual mana, for a pool.
+ *
+ * This is `parseManaSymbols` from `abilities/primitives/mana.ts` and not a
+ * second parser. That one was written against the catalogue's 1,092 distinct
+ * `mana_cost` values and repaired once after it scored 74.82% on them; a second
+ * reader of the same strings here would need the same repairs and would
+ * eventually disagree with it.
+ *
+ * What this adds is the pool's own question, which a cost parser never has to
+ * answer: what does one symbol actually PUT in a pool.
+ *
+ *   - `{G}` is one green. `{C}` is one colourless.
+ *   - `{2}` in "Add {2}" is two colourless. That is a real difference from
+ *     PAYING, where {2} means "any two". Nothing prints "add {2}" meaning
+ *     anything else.
+ *   - A hybrid, phyrexian, snow or {X} symbol is a choice or an unknown, and
+ *     nothing here picks for the player. It adds no mana and comes back in
+ *     `unrecognised`, so the caller can say what it skipped rather than putting
+ *     a colour in the pool that the card never made.
+ */
+export function manaUnitsFrom(
+  mana: string | null | undefined,
+  extra: { restriction?: string; sourceName?: string } = {}
+): { units: ManaUnit[]; unrecognised: string[] } {
+  const parsed = parseManaSymbols(mana ?? '');
+  const units: ManaUnit[] = [];
+  const unrecognised = [...parsed.unrecognised];
+
+  const push = (color: ManaColor) => {
+    units.push({
+      color,
+      ...(extra.restriction ? { restriction: extra.restriction } : {}),
+      ...(extra.sourceName ? { sourceName: extra.sourceName } : {}),
+    });
+  };
+
+  for (const symbol of parsed.symbols) {
+    switch (symbol.sym) {
+      case 'colored':
+        push(symbol.color);
+        break;
+      case 'generic':
+        for (let i = 0; i < symbol.amount; i++) push('C');
+        break;
+      default:
+        // hybrid, monocolor-hybrid, phyrexian, snow, x. See the note above.
+        unrecognised.push(symbol.sym);
+        break;
+    }
+  }
+
+  return { units, unrecognised };
+}
+
+/* -------------------------------------------------------------------------- */
 /* Sources                                                                    */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Something a cost can be paid from: an untapped permanent, or one mana already
+ * floating in the pool.
+ *
+ * The two are deliberately the SAME shape, so `planPayment`'s exact matching
+ * runs once over both instead of twice over each. A separate "spend the pool
+ * first, then match the rest" pass would be a second payment algorithm, and the
+ * two would disagree the first time a pool held {R} and the only untapped land
+ * was the one Mountain a {R}{R} cost needed.
+ */
 export interface ManaSource {
   instanceId: InstanceId;
   name: string;
   /** Colours this source can produce. Empty means colourless only. */
   produces: ManaColor[];
   isLand: boolean;
+  /**
+   * Set when this "source" is a mana already in the pool. Spending it removes a
+   * unit instead of tapping a permanent, and `instanceId` is a synthetic label
+   * that matches no card in the game.
+   */
+  poolColor?: ManaColor;
+}
+
+/**
+ * The synthetic `instanceId` a pool unit is offered under, and how to read the
+ * index back out. One pair of functions, because a string format invented in
+ * one file and parsed in another is a contract nothing checks.
+ *
+ * `pool:` cannot collide with a real instance id: every one of those is minted
+ * by `addCard` or derived from a stack id, and none of them contain a colon
+ * followed by a bare integer at position 5.
+ */
+export function poolSourceId(index: number): InstanceId {
+  return `pool:${index}`;
+}
+
+/** -1 when this is not a pool source. */
+export function poolIndexOf(instanceId: InstanceId): number {
+  const match = /^pool:(\d+)$/.exec(instanceId);
+  return match ? Number(match[1]) : -1;
 }
 
 export function isLand(card: CardInstance | null | undefined): boolean {
@@ -287,19 +401,53 @@ function producedFromOracle(oracle: string | undefined): ManaColor[] | null {
 }
 
 /**
- * Untapped permanents a player controls that this module is willing to call a
- * mana source.
+ * Everything a player could pay a cost from right now.
  *
- * Every land, because a land that taps for nothing is rare enough that
- * refusing all of them would be worse. Plus any other permanent whose rules
- * text says it adds mana. Summoning-sick creatures are excluded — a mana dork
- * that just landed cannot tap.
+ * FLOATING MANA FIRST, then untapped permanents.
+ *
+ * Every land, because a land that taps for nothing is rare enough that refusing
+ * all of them would be worse. Plus any other permanent whose rules text says it
+ * adds mana. Summoning-sick creatures are excluded — a mana dork that just
+ * landed cannot tap.
+ *
+ * ## Why floating mana comes first, and why that is not the engine deciding
+ *
+ * `planPayment` walks this list in order when it has a free choice, so putting
+ * the pool at the front spends mana that is about to evaporate at the end of
+ * the step before it taps a permanent that will still be there. The engine was
+ * already choosing which lands to tap; this is the same choice with one more
+ * kind of source in it, made in the direction that never wastes anything.
+ *
+ * ## Restricted mana is offered to nothing
+ *
+ * A unit carrying a `restriction` is left out entirely. `planPayment` is handed
+ * a cost string and knows nothing about what is being cast, so it cannot check
+ * "only to cast creature spells" and must not pretend to. Leaving the mana
+ * unspendable under-delivers Geosurge; letting it through would pay for the
+ * wrong spell, and a rules engine that quietly pays a cost the player could not
+ * legally pay is worse than one that makes them do it by hand. The mana is
+ * still in the pool, still visible, and the log line that added it quotes the
+ * restriction, so nothing about it is hidden.
  */
 export function manaSourcesFor(state: GameState, playerId: PlayerId): ManaSource[] {
   const player = state.players.find(p => p.id === playerId);
   if (!player) return [];
 
   const sources: ManaSource[] = [];
+
+  manaPoolOf(state, playerId).forEach((unit, index) => {
+    if (unit.restriction) return;
+    sources.push({
+      // Not an instance id in the game. Nothing taps it; `planPayment` reports
+      // it under `spend` and `tapIds` never sees it.
+      instanceId: poolSourceId(index),
+      name: unit.color === 'C' ? 'colourless mana in your pool' : `{${unit.color}} in your pool`,
+      produces: unit.color === 'C' ? [] : [unit.color],
+      isLand: false,
+      poolColor: unit.color,
+    });
+  });
+
   for (const id of player.zones.battlefield) {
     const card = state.cards[id];
     if (!card || card.tapped || card.controllerId !== playerId) continue;
@@ -342,14 +490,41 @@ export function manaSourcesFor(state: GameState, playerId: PlayerId): ManaSource
 
 export interface PaymentPlan {
   ok: boolean;
-  /** Sources to tap, in order. Empty when the cost is free or unpayable. */
+  /** Permanents to tap, in order. Empty when the cost is free or unpayable. */
   tapIds: InstanceId[];
+  /**
+   * Floating mana to take out of the pool, as colours, for a `SPEND_MANA`.
+   *
+   * Separate from `tapIds` because they are two different actions and merging
+   * them would put a synthetic `pool:0` into a `TAP`, which the reducer would
+   * quietly ignore — the cost would be charged to nobody and the spell would be
+   * free. Every caller that emits taps must also emit this, and the two tests
+   * for that are in `mana.test.ts`.
+   */
+  spend: ManaColor[];
   /** How much mana was needed. */
   required: number;
   /** How much was available. */
   available: number;
   /** Prose for a disabled control's tooltip. Empty when `ok`. */
   reason: string;
+}
+
+/**
+ * Turn a chosen source list into the two halves of a payment.
+ *
+ * One place, because the partition is the thing a caller can get wrong: a
+ * source's `poolColor` decides which half it lands in, and a caller reading
+ * `tapIds` and forgetting `spend` gets a free spell rather than a crash.
+ */
+function splitChosen(chosen: ManaSource[]): { tapIds: InstanceId[]; spend: ManaColor[] } {
+  const tapIds: InstanceId[] = [];
+  const spend: ManaColor[] = [];
+  for (const source of chosen) {
+    if (source.poolColor) spend.push(source.poolColor);
+    else tapIds.push(source.instanceId);
+  }
+  return { tapIds, spend };
 }
 
 /**
@@ -400,76 +575,74 @@ export function planPayment(
 ): PaymentPlan {
   const parsed = parseCost(cost);
   const required = parsed.total;
+  const refuse = (reason: string): PaymentPlan => ({
+    ok: false,
+    tapIds: [],
+    spend: [],
+    required,
+    available: sources.length,
+    reason,
+  });
 
   if (required === 0) {
-    return { ok: true, tapIds: [], required: 0, available: sources.length, reason: '' };
+    return { ok: true, tapIds: [], spend: [], required: 0, available: sources.length, reason: '' };
   }
 
   if (sources.length < required) {
-    return {
-      ok: false,
-      tapIds: [],
-      required,
-      available: sources.length,
-      reason: `Needs ${required} mana, ${sources.length} untapped source${sources.length === 1 ? '' : 's'} available.`,
-    };
+    return refuse(
+      `Needs ${required} mana, ${sources.length} untapped source${sources.length === 1 ? '' : 's'} available.`
+    );
   }
 
   const matched = matchPips(parsed.pips, sources);
-  if (!matched) {
-    return {
-      ok: false,
-      tapIds: [],
-      required,
-      available: sources.length,
-      reason: 'No untapped source produces the colours this costs.',
-    };
-  }
+  if (!matched) return refuse('No untapped source produces the colours this costs.');
 
   const used = new Set<number>(matched.filter(index => index >= 0));
-  const tapIds: InstanceId[] = matched.map(index => sources[index].instanceId);
+  // Sources in the order they are spent, permanents and pool mana together.
+  // `splitChosen` separates them at the end; nothing before that has to care.
+  const chosen: ManaSource[] = matched.map(index => sources[index]);
 
   // {C}: a source that makes no colour at all.
   let colorlessLeft = parsed.colorless;
   for (let s = 0; s < sources.length && colorlessLeft > 0; s++) {
     if (used.has(s) || sources[s].produces.length > 0) continue;
     used.add(s);
-    tapIds.push(sources[s].instanceId);
+    chosen.push(sources[s]);
     colorlessLeft -= 1;
   }
-  if (colorlessLeft > 0) {
-    return {
-      ok: false,
-      tapIds: [],
-      required,
-      available: sources.length,
-      reason: 'No untapped colourless source for the {C} in this cost.',
-    };
-  }
+  if (colorlessLeft > 0) return refuse('No untapped colourless source for the {C} in this cost.');
 
-  // Generic: least flexible first, so the rainbow lands survive for later.
+  /*
+   * Generic: floating mana first, then the least flexible permanent, so a
+   * rainbow land survives for the next spell.
+   *
+   * Floating mana goes first because it EVAPORATES at the end of the step and a
+   * land does not. Spending it here cannot cost the player a coloured pip: the
+   * pips were all matched above, so nothing left in this list is needed for a
+   * colour any more.
+   */
   const spare: number[] = [];
   for (let s = 0; s < sources.length; s++) if (!used.has(s)) spare.push(s);
-  spare.sort((a, b) => sources[a].produces.length - sources[b].produces.length);
+  spare.sort((a, b) => {
+    const pool = Number(!sources[a].poolColor) - Number(!sources[b].poolColor);
+    if (pool !== 0) return pool;
+    return sources[a].produces.length - sources[b].produces.length;
+  });
 
   let genericLeft = parsed.generic;
   for (const index of spare) {
     if (genericLeft <= 0) break;
-    tapIds.push(sources[index].instanceId);
+    chosen.push(sources[index]);
     genericLeft -= 1;
   }
 
   if (genericLeft > 0) {
-    return {
-      ok: false,
-      tapIds: [],
-      required,
-      available: sources.length,
-      reason: `Needs ${required} mana, ${sources.length} untapped source${sources.length === 1 ? '' : 's'} available.`,
-    };
+    return refuse(
+      `Needs ${required} mana, ${sources.length} untapped source${sources.length === 1 ? '' : 's'} available.`
+    );
   }
 
-  return { ok: true, tapIds, required, available: sources.length, reason: '' };
+  return { ok: true, ...splitChosen(chosen), required, available: sources.length, reason: '' };
 }
 
 /** Convenience: can this player cast this card right now, and what does it tap? */
@@ -481,7 +654,32 @@ export function planCast(
   return planPayment(castingCostOf(card), manaSourcesFor(state, playerId));
 }
 
-/** Untapped mana available to a player, for the HUD. */
+/**
+ * Mana available to a player, for the HUD.
+ *
+ * Floating mana counts, because a player looking at this number is asking what
+ * they can pay for and floating mana pays for things. It is the same list
+ * `planPayment` is handed, so the number and the plan cannot disagree.
+ */
 export function availableMana(state: GameState, playerId: PlayerId): number {
   return manaSourcesFor(state, playerId).length;
+}
+
+/**
+ * The actions that spend a plan: taps first, then the pool.
+ *
+ * Every caller of `planPayment` needs exactly this and there is nothing to
+ * choose between them, so it is written once. A caller that built the taps by
+ * hand and forgot `spend` would charge nothing for the pool half of the cost.
+ */
+export function paymentActions(
+  plan: PaymentPlan,
+  playerId: PlayerId,
+  at = 0
+): GameAction[] {
+  const actions: GameAction[] = plan.tapIds.map(id => ({ type: 'TAP' as const, instanceId: id, at }));
+  if (plan.spend.length > 0) {
+    actions.push({ type: 'SPEND_MANA', playerId, colors: [...plan.spend], at });
+  }
+  return actions;
 }

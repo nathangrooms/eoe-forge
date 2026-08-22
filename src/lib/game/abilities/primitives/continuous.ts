@@ -22,6 +22,7 @@
 import type { GameState, PlayerId } from '../../types.ts';
 import type {
   ContinuousEffect,
+  EffectExpiry,
   EffectPart,
   LayerSelector,
   SubLayer,
@@ -37,24 +38,37 @@ import { concatResults, defer, derivedId, nothing } from './contract.ts';
 /* -------------------------------------------------------------------------- */
 
 /**
- * When a continuous effect stops applying, as pure JSON.
+ * When a continuous effect stops applying.
  *
- * A closure would be the obvious implementation and is the wrong one: a client
- * that received only the action log has no way to reconstruct it, and the DSL's
- * central promise is that everything survives `structuredClone` and a `jsonb`
- * column. So expiry is a description, and whoever sweeps the effect list reads
- * it.
- *
- * `turn` is ABSOLUTE, never a countdown. A countdown has to be decremented by
- * something, and a replay that decremented once more or once fewer than the
- * original would end an effect on the wrong turn — a divergence that would only
- * show up several turns later, which is the worst kind.
+ * One definition, and it lives in `layers.ts` next to the `ContinuousEffect` it
+ * rides on. It was declared here first, when `ContinuousEffect` had no field for
+ * it and the expiry had to be smuggled through the note string. That workaround
+ * is gone; this alias stays so callers written against `Expiry` keep compiling,
+ * and there is still exactly one shape.
  */
-export type Expiry =
-  | { kind: 'never' }
-  | { kind: 'end-of-turn'; turn: number }
-  | { kind: 'your-next-turn'; controllerId: PlayerId; afterTurn: number }
-  | { kind: 'while-source' };
+export type Expiry = EffectExpiry;
+
+/**
+ * The duration in a player's words, for the game log.
+ *
+ * `end-of-turn` is a key, not a sentence. A log line reading "Grizzly Bears:
+ * +3/+3 (end-of-turn)" is the engine's vocabulary leaking onto a table, and the
+ * project's copy rules say to write what a player would say out loud.
+ */
+export function durationPhrase(duration: Duration): string {
+  switch (duration) {
+    case 'end-of-turn':
+      return 'until end of turn';
+    case 'your-next-turn':
+      return 'until your next turn';
+    case 'while-source-on-battlefield':
+      return 'while the source stays on the battlefield';
+    case 'permanent':
+      return 'for the rest of the game';
+    default:
+      return String(duration);
+  }
+}
 
 /** P13. Spec: `scripts/primitives/specs/P13.spec.json`. */
 export function durationToExpiry(
@@ -214,19 +228,32 @@ export function pumpToContinuous(
   const power = evalValue(effect.power, ctx);
   const toughness = evalValue(effect.toughness, ctx);
   const sign = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
-  const grantNote = effect.grant?.length ? ` and ${effect.grant.join(', ')}` : '';
-  const note = `${sign(power)}/${sign(toughness)}${grantNote} (${effect.duration})`;
+  const grantNote = effect.grant?.length ? ` and gains ${effect.grant.join(', ')}` : '';
+  /*
+   * A whole sentence, subject included, because `rules.ts` prints this note as
+   * the game log line and a player reading "+3/+3 until end of turn" with no
+   * subject has to guess which creature it happened to.
+   */
+  const affected = affects.kind === 'ids' ? affects.ids : [];
+  const names = affected.map(id => cardOf(ctx.state, id)?.name ?? id);
+  const subject = names.length === 0 ? 'It' : names.join(', ');
+  const verb = names.length === 1 ? 'gets' : 'get';
+  const note = `${subject} ${verb} ${sign(power)}/${sign(toughness)}${grantNote} ${durationPhrase(effect.duration)}`;
 
   const continuous = assembleContinuous(parts, affects, ctx, env, note);
   if (!continuous) return defer(note);
 
+  /*
+   * The expiry used to ride inside the note string, because `ContinuousEffect`
+   * had no field for it and widening a type this folder does not own would have
+   * been a fork. `layers.ts` carries `EffectExpiry` now and `statics.ts` reads
+   * it on every layer pass, so the expiry is a field and the note is prose
+   * again. Nothing parses `[expiry:...]` out of a note any more.
+   */
   return {
     actions: [],
     deferred: [],
-    // The expiry rides on the effect's note rather than on a field
-    // `ContinuousEffect` does not have. `layers.ts` owns that type; widening it
-    // is the DSL owner's call, and inventing a field here would be a fork.
-    continuous: [{ ...continuous, note: `${note} [expiry:${expiry.kind}]` }],
+    continuous: [{ ...continuous, expiry }],
   };
 }
 
@@ -251,15 +278,17 @@ export function gainControlToContinuous(
   const names = (affects.kind === 'ids' ? affects.ids : [])
     .map(id => cardOf(ctx.state, id)?.name ?? id)
     .join(', ');
+  const gainer = ctx.state.players.find(player => player.id === controller)?.name ?? 'A player';
   const continuous = assembleContinuous(
     [part],
     affects,
     ctx,
     env,
-    `control of ${names} (${effect.duration})`
+    `${gainer} gains control of ${names} ${durationPhrase(effect.duration)}`
   );
   if (!continuous) return nothing();
-  return { actions: [], deferred: [], continuous: [continuous] };
+  const expiry = durationToExpiry(effect.duration, ctx.state, ctx.controllerId);
+  return { actions: [], deferred: [], continuous: [{ ...continuous, expiry }] };
 }
 
 /** Exported so the registry can fold several primitives in one resolution. */

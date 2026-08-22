@@ -46,6 +46,7 @@
 import type {
   ActivatedAbility,
   Cost,
+  Effect,
   Selector,
   TargetSpec,
   ValueExpr,
@@ -60,11 +61,12 @@ import type {
   Zone,
 } from './types.ts';
 import { getCard, getPlayer, livingPlayers } from './rules.ts';
-import { isCreature, manaSourcesFor, planPayment } from './mana.ts';
+import { isCreature, manaSourcesFor, paymentActions, planPayment, poolIndexOf } from './mana.ts';
 import { canBeTargetedBy } from './keywords.ts';
 import { hasKeywordIn } from './characteristics.ts';
 import { readableClause } from './manual.ts';
 import { abilitiesFor } from './abilities/card-abilities.ts';
+import { resolveAbilityRun, runEffects } from './abilities/to-actions.ts';
 import {
   evalValue,
   idsInZone,
@@ -80,15 +82,33 @@ import {
 
 /** A decision the engine will not take on the player's behalf. */
 export interface PendingChoice {
-  /** `target` indexes `TargetSpec.ref`; `cost` indexes into `ability.costs`. */
-  kind: 'target' | 'cost';
+  /**
+   * `target` indexes `TargetSpec.ref`; `cost` indexes into `ability.costs`;
+   * `mode` is a `{do:'choose-mode'}` and its ref is a string, in `modeRef`.
+   */
+  kind: 'target' | 'cost' | 'mode';
   ref: number;
+  /**
+   * The `ModeChoice.ref` this question came from. Only set for `kind: 'mode'`,
+   * because a mode's ref is a position in an effect tree and not a number.
+   * `ref` still carries a number for a caller keying a list on it.
+   */
+  modeRef?: string;
   /** One sentence, in a player's words. Drawn as text. */
   prompt: string;
   /** Cards that could be chosen. */
   instanceIds: InstanceId[];
   /** Players that could be chosen. Only ever populated for a target. */
   playerIds: PlayerId[];
+  /**
+   * The modes that could be chosen, each with the index that selects it. Only
+   * ever populated for `kind: 'mode'`, and never empty when it is.
+   *
+   * This is the field that makes a modal ability PROMPTED rather than SILENT.
+   * Before it, "{T}: Add {R} or {G}" reached a note saying a choice was needed
+   * and there was nothing anywhere for a player to hand back.
+   */
+  modes?: Array<{ index: number; text: string }>;
   min: number;
   max: number;
 }
@@ -105,6 +125,11 @@ export interface ActivationChoices {
   costs?: Record<number, InstanceId[]>;
   /** The X announced for a cost or an effect that names one. */
   x?: number;
+  /**
+   * Modes chosen, keyed by `PendingChoice.modeRef`. Passed straight through to
+   * `RunOptions.modes`; an illegal set is refused there rather than repaired.
+   */
+  modes?: Record<string, readonly number[]>;
 }
 
 export interface ActivationPlan {
@@ -323,7 +348,7 @@ const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
  *     Barbarian Ring tapped.
  *     {T}: Add {R}. This land deals 1 damage to you.: Barbarian Ring goes on the stack.
  *     Barbarian Ring: Bot 1 took 1 damage from Barbarian Ring.
- *     Barbarian Ring: not resolved automatically — Bot 1 adds {R}
+ *     Barbarian Ring: not resolved automatically: Bot 1 adds {R}
  *
  * A land tapped, a point of life gone, and no mana. Refusing it is not a
  * feature gap, it is the difference between a card that does nothing and a card
@@ -375,6 +400,20 @@ interface CostContext {
    * and it exists because a permanent has one tap and can spend it once.
    */
   tapping: Set<InstanceId>;
+  /**
+   * Floating mana this batch has already committed to spending, by index into
+   * the pool.
+   *
+   * Same rule as `tapping`, one level along: a permanent has one tap and can
+   * spend it once, and one floating mana is one mana. `manaSourcesFor` reads
+   * the board fresh on every cost, so without this an ability with two mana
+   * costs would be offered the same {G} twice and pay four mana with three.
+   *
+   * Almost nothing has two mana costs, which is exactly why it is worth the
+   * three lines: it is the shape of bug that sits unnoticed until one card
+   * happens to have it.
+   */
+  poolSpent: Set<number>;
   x: number;
 }
 
@@ -446,6 +485,67 @@ function controlledCandidates(ctx: CostContext, what: Selector): InstanceId[] {
   });
 }
 
+/** Does this effect tree contain a modal node at all? A cheap static test. */
+function hasModalNode(effects: readonly Effect[] | undefined): boolean {
+  for (const effect of effects ?? []) {
+    if (effect.do === 'choose-mode') return true;
+    if (effect.do === 'if' && (hasModalNode(effect.then) || hasModalNode(effect.else))) return true;
+    if (
+      (effect.do === 'for-each' || effect.do === 'repeat' || effect.do === 'may' || effect.do === 'unless-pays') &&
+      hasModalNode(effect.effects)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * The first modal question this ability still has, or null.
+ *
+ * CR 602.2b puts the choice at activation, so it has to be asked before the
+ * ability is announced and the answer has to travel with the object. Finding
+ * the question means running the effects, because a `{do:'choose-mode'}` node's
+ * `min` and `max` are `ValueExpr` and can count the board. The run is thrown
+ * away; `runEffects` builds a list of actions and touches nothing, so running
+ * it for its questions alone changes nothing.
+ *
+ * The static guard above keeps that off the path of every non-modal ability,
+ * which is nearly all of them.
+ */
+function modeQuestionFor(
+  state: GameState,
+  playerId: PlayerId,
+  card: CardInstance,
+  ability: ActivatedAbility,
+  choices: ActivationChoices,
+  x: number,
+  at: number
+): PendingChoice | null {
+  if (!hasModalNode(ability.effects)) return null;
+
+  const ctx = makeContext(state, card.instanceId, playerId, { x, triggerSourceId: card.instanceId });
+  const run = runEffects(ability.effects, ctx, {
+    at,
+    idPrefix: `probe:${card.instanceId}:${ability.id}`,
+    ...(choices.modes ? { modes: choices.modes } : {}),
+  });
+  if (run.choices.length === 0) return null;
+
+  const choice = run.choices[0];
+  return {
+    kind: 'mode',
+    ref: 0,
+    modeRef: choice.ref,
+    prompt: choice.prompt,
+    instanceIds: [],
+    playerIds: [],
+    modes: choice.options,
+    min: choice.min,
+    max: choice.max,
+  };
+}
+
 function payOneCost(ctx: CostContext, cost: Cost, index: number): CostResult {
   const { state, playerId, card, at } = ctx;
   const player = getPlayer(state, playerId);
@@ -459,15 +559,34 @@ function payOneCost(ctx: CostContext, cost: Cost, index: number): CostResult {
       // Every source except the ones another cost has already spent. Without
       // that exclusion an ability costing "{1}, {T}" would tap its own source
       // for the {1} and then tap it again for the {T}.
-      const sources = manaSourcesFor(state, playerId).filter(
-        source => !ctx.committed.has(source.instanceId) && !ctx.tapping.has(source.instanceId)
-      );
+      const sources = manaSourcesFor(state, playerId).filter(source => {
+        // Floating mana this batch has already promised to an earlier cost.
+        // `manaSourcesFor` reads the board, and the board still holds it.
+        if (source.poolColor) return !ctx.poolSpent.has(poolIndexOf(source.instanceId));
+        return !ctx.committed.has(source.instanceId) && !ctx.tapping.has(source.instanceId);
+      });
       const payment = planPayment(cost.cost, sources);
       if (!payment.ok) return refused(payment.reason);
-      return paid(
-        payment.tapIds.map(id => ({ type: 'TAP' as const, instanceId: id, at })),
-        payment.tapIds
-      );
+      /*
+       * Reserve exactly as many units as were spent, matched by colour, taking
+       * the first unreserved one of each. Marking every pool source whose
+       * colour appears in `spend` would over-reserve: a pool holding {G}{G} and
+       * a cost of {G} would lose both, and a second cost would be refused for
+       * want of mana that is still there.
+       *
+       * The same "first of that colour" rule the reducer uses, so the units
+       * reserved here are the units `SPEND_MANA` will actually remove.
+       */
+      for (const color of payment.spend) {
+        const match = sources.find(
+          source => source.poolColor === color && !ctx.poolSpent.has(poolIndexOf(source.instanceId))
+        );
+        if (match) ctx.poolSpent.add(poolIndexOf(match.instanceId));
+      }
+      // Taps AND the floating mana this spends. `tapIds` alone was the whole
+      // cost until `manaSourcesFor` started offering pool mana; see
+      // `paymentActions` for why the pair is built in one place.
+      return paid(paymentActions(payment, playerId, at), payment.tapIds);
     }
 
     case 'tap': {
@@ -859,32 +978,48 @@ export function planActivation(
     );
   }
 
-  if (isManaAbility(ability)) {
-    /*
-     * CR 605 — a mana ability does not use the stack, and this engine has no
-     * mana pool to put its mana in. `mana.ts` derives available mana from
-     * untapped permanents at the moment a cost is paid, which means a mana
-     * ability is already being activated every time a spell is paid for; there
-     * is simply no moment at which activating one ON ITS OWN would do anything
-     * but tap a permanent and lose the mana.
-     *
-     * So it is refused, and the refusal says where the ability actually runs.
-     * Offering the button and quietly binning the mana would be the exact bug
-     * this whole module exists to remove, one layer down.
-     *
-     * Read through `isManaAbility` rather than off the compiled flag. See the
-     * note on that function: the flag is stricter than CR 605.1a and misses
-     * every land that charges for its mana.
-     */
-    return NO_PLAN(
-      'Mana abilities are used when you pay for something. Tap this as part of a cost rather than on its own.'
-    );
-  }
+  /*
+   * CR 605.3a — A MANA ABILITY DOES NOT USE THE STACK. It resolves immediately,
+   * and this branch is where that happens.
+   *
+   * This used to be a flat refusal, reading "Mana abilities are used when you
+   * pay for something. Tap this as part of a cost rather than on its own." That
+   * was the honest answer at the time and the note beside it said why: there
+   * was no mana pool, so activating one on its own could only tap a permanent
+   * and lose what it made. Offering a button that binned the mana would have
+   * been the bug this module exists to remove.
+   *
+   * `GameState.manaPool` exists now, so the mana has somewhere to go and the
+   * refusal is no longer true. Everything else about the ability is planned the
+   * same way: same timing check, same cost payment, same refusal sentences. The
+   * only difference is the last step, where a normal ability announces itself
+   * onto the stack and this one just runs.
+   *
+   * Read through `isManaAbility` rather than off the compiled flag. See the
+   * note on that function: the flag is stricter than CR 605.1a and misses every
+   * land that charges for its mana.
+   */
+  const manaAbility = isManaAbility(ability);
 
   const timing = activationTiming(state, playerId, ability.timing === 'sorcery');
   if (!timing.ok) return NO_PLAN(timing.reason);
 
   if (ability.limit) {
+    /*
+     * A mana ability never reaches the stack, and `PUT_ABILITY_ON_STACK` is the
+     * only thing that increments `abilityUses`. So the count below would be 0
+     * for a mana ability forever, and a "once each turn" limit on one would be
+     * a rule the engine claimed to keep and did not.
+     *
+     * Refused rather than ignored. The alternative was counting activations
+     * somewhere else for this one case, which is a second usage ledger for the
+     * same fact, and those drift.
+     */
+    if (manaAbility) {
+      return NO_PLAN(
+        `${card.name} can only be used ${ability.limit.count} time${ability.limit.count === 1 ? '' : 's'} per ${ability.limit.per}, and the engine does not count uses of a mana ability, so it will not let this be used. Take the mana by hand if you have not used it yet.`
+      );
+    }
     const used = abilityUsesThisTurn(state, instanceId, abilityId);
     if (used >= ability.limit.count) {
       return NO_PLAN(
@@ -938,6 +1073,7 @@ export function planActivation(
     choices,
     committed: new Set<InstanceId>(),
     tapping: new Set<InstanceId>(),
+    poolSpent: new Set<number>(),
     x,
   };
 
@@ -970,6 +1106,96 @@ export function planActivation(
     return { ok: false, actions: [], reason: targeting.reason, tapIds: [], pending: targeting.pending };
   }
 
+  if (manaAbility) {
+    /*
+     * CR 605.3a — it does not use the stack, so this is the whole resolution.
+     *
+     * Run against `state`, which is the board BEFORE the cost actions in this
+     * same batch apply. That is the same board `chooseTargets` just used, so
+     * the two halves of a plan agree with each other, and it matches what a
+     * player sees when they press the control. It matters for exactly one shape
+     * of card: "Add {R} for each tapped land your opponents control" reads
+     * their board, not the source's own tap, so the tap this batch is about to
+     * perform is not part of the count either way.
+     */
+    const ctx = makeContext(state, card.instanceId, playerId, {
+      x,
+      triggerSourceId: card.instanceId,
+    });
+    const resolved = resolveAbilityRun(ability.effects, ctx, {
+      at,
+      cause: readableClause(ability.text, card),
+      // From state, never a uuid: two clients replaying this log have to mint
+      // the same ids. `abilityUses` cannot be part of it because a mana ability
+      // never increments it.
+      idPrefix: `${card.instanceId}:${ability.id}:${state.version}`,
+      sourceInstanceId: card.instanceId,
+      verb: 'activated',
+      ...(choices.modes ? { modes: choices.modes } : {}),
+    });
+
+    /*
+     * "{T}: Add {R} or {G}." The engine will not pick, so the plan comes back
+     * refused carrying the two options, and the caller asks. This is the only
+     * question a mana ability can raise: CR 605.1a rules out a target, and a
+     * cost decision was already answered above.
+     */
+    if (resolved.choices.length > 0) {
+      const choice = resolved.choices[0];
+      return {
+        ok: false,
+        actions: [],
+        reason: choice.prompt,
+        tapIds: [],
+        pending: [
+          {
+            kind: 'mode',
+            ref: 0,
+            modeRef: choice.ref,
+            prompt: choice.prompt,
+            instanceIds: [],
+            playerIds: [],
+            modes: choice.options,
+            min: choice.min,
+            max: choice.max,
+          },
+        ],
+      };
+    }
+
+    return {
+      ok: true,
+      actions: [...manaActions, ...costActions, ...resolved.actions],
+      reason: '',
+      tapIds,
+      pending: [],
+    };
+  }
+
+  /*
+   * CR 602.2b — modes are chosen as the ability is ACTIVATED, not as it
+   * resolves, so they are asked for here and ride onto the stack object.
+   *
+   * `modeQuestionsFor` runs the effects once to find the questions and throws
+   * the actions away. That is safe because `runEffects` is pure — it builds a
+   * list and touches nothing — and it is the only way to learn what a
+   * `{do:'choose-mode'}` node's min and max evaluate to on this board, because
+   * both are `ValueExpr` and can count things.
+   *
+   * Skipped entirely for an ability with no modal node, which is almost all of
+   * them, so the common path pays nothing for this.
+   */
+  const modeQuestion = modeQuestionFor(state, playerId, card, ability, choices, x, at);
+  if (modeQuestion) {
+    return {
+      ok: false,
+      actions: [],
+      reason: modeQuestion.prompt,
+      tapIds: [],
+      pending: [modeQuestion],
+    };
+  }
+
   const announcement: GameAction = {
     type: 'PUT_ABILITY_ON_STACK',
     controllerId: playerId,
@@ -978,6 +1204,7 @@ export function planActivation(
     sourceInstanceId: card.instanceId,
     abilityId: ability.id,
     targets: targeting.targets,
+    ...(choices.modes ? { modes: choices.modes } : {}),
     at,
     cause: readableClause(ability.text, card),
   };
@@ -1004,15 +1231,16 @@ export function planActivation(
  * loop, so a bot cannot drift into a different idea of what a legal choice is.
  *
  * `decide` returns a `StackTarget` for a target choice, a list of instance ids
- * for a cost choice, or null to give up on the ability. Bounded by the number
- * of choices an ability can have, which the compiler keeps small.
+ * for a cost choice, a list of mode INDEXES for a modal one, or null to give up
+ * on the ability. Bounded by the number of choices an ability can have, which
+ * the compiler keeps small.
  */
 export function planActivationWith(
   state: GameState,
   playerId: PlayerId,
   instanceId: InstanceId,
   abilityId: string,
-  decide: (choice: PendingChoice) => StackTarget | InstanceId[] | null,
+  decide: (choice: PendingChoice) => StackTarget | InstanceId[] | number[] | null,
   options: ActivationOptions = {}
 ): ActivationPlan {
   const choices: ActivationChoices = { ...(options.choices ?? {}) };
@@ -1033,9 +1261,16 @@ export function planActivationWith(
       const targets = [...(choices.targets ?? [])];
       targets[choice.ref] = answer;
       choices.targets = targets;
+    } else if (choice.kind === 'mode') {
+      // Indexes into the card's own mode list, not instance ids. A decider that
+      // hands back the wrong shape gives up on the ability rather than having
+      // its answer read as something else.
+      if (!Array.isArray(answer) || !answer.every(entry => typeof entry === 'number')) return plan;
+      if (!choice.modeRef) return plan;
+      choices.modes = { ...(choices.modes ?? {}), [choice.modeRef]: answer as number[] };
     } else {
-      if (!Array.isArray(answer)) return plan;
-      choices.costs = { ...(choices.costs ?? {}), [choice.ref]: answer };
+      if (!Array.isArray(answer) || !answer.every(entry => typeof entry === 'string')) return plan;
+      choices.costs = { ...(choices.costs ?? {}), [choice.ref]: answer as InstanceId[] };
     }
   }
 

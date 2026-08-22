@@ -121,8 +121,15 @@ const Dashboard = () => {
           </Reveal>
         ) : (
           <>
-            {/* Five tiles of equal width: three decks, two activity. One grid,
-                so the two rails cannot drift apart. */}
+            {/* DECKS TOGETHER AT THE TOP. Owner: "its recent decks then recent
+                activity, I think recent activity and decks to finish should
+                swap - would make more sense."
+
+                It does: what you were last working on, and what still needs
+                finishing, are the same question asked twice, and a reader
+                arriving at this page is usually here to answer it. Activity is
+                a record of what already happened, which is worth seeing and
+                worth seeing second. */}
             <Reveal index={0} className="grid gap-4 lg:grid-cols-5">
               <RecentDecks
                 className={DECKS_SPAN}
@@ -132,7 +139,12 @@ const Dashboard = () => {
                 error={decksError}
                 onToggleFavorite={toggleFavorite}
               />
-              <RecentActivity className={ACTIVITY_SPAN} />
+              <DecksToFinish
+                className={ACTIVITY_SPAN}
+                decks={decks}
+                loading={decksLoading}
+                error={decksError}
+              />
             </Reveal>
 
             <Reveal index={1}>
@@ -142,12 +154,7 @@ const Dashboard = () => {
             {/* Same five-column split as the first row, so the page has one
                 rhythm rather than a new layout per section. */}
             <Reveal index={2} className="grid gap-4 lg:grid-cols-5">
-              <DecksToFinish
-                className={DECKS_SPAN}
-                decks={decks}
-                loading={decksLoading}
-                error={decksError}
-              />
+              <RecentActivity className={DECKS_SPAN} />
               <WantedNext className={ACTIVITY_SPAN} summary={summary} loading={summaryLoading} />
             </Reveal>
           </>

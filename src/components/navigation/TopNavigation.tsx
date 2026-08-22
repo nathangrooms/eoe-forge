@@ -131,6 +131,18 @@ export function TopNavigation() {
               pile of cards in your hand and no page in mind. Adding cards lives
               on the collection, and starting a deck lives on the decks page,
               which is where both were already reachable. */}
+          {/* ORDER: back and forward, shopping, scan, profile. Owner: "Maybe it
+              should be left/right - shopping - scan - profile."
+
+              It reads outward from the page you are on. The arrows are about
+              where you have BEEN, so they sit closest to the content. Then the
+              two standing errands, the list you are filling and the camera you
+              fill it with. Then you, at the far edge, which is where an account
+              menu belongs in every product anyone has used. */}
+          <HistoryNav className="mr-0.5" />
+
+          <CartNavButton />
+
           <Button
             variant="secondary"
             size="sm"
@@ -142,13 +154,6 @@ export function TopNavigation() {
             <ScanLine className="h-4 w-4" />
             <span className="hidden sm:inline">Scan</span>
           </Button>
-
-          {/* The cart sits beside back and forward because the owner has ruled
-              that navigation lives in the nav, and this is the standing way
-              back to the shopping list from anywhere in the product. */}
-          <CartNavButton />
-
-          <HistoryNav className="mr-0.5" />
 
           <AccountMenu />
         </div>

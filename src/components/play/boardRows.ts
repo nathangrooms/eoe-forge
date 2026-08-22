@@ -57,7 +57,10 @@ export const BOARD_ROWS: readonly BoardRowDef[] = [
 export const SUPPORT_BLOCK: BoardRowDef & { shortLabel: string } = {
   id: 'support',
   label: 'Artifacts · Enchantments',
-  shortLabel: 'Noncreature',
+  /* "Noncreature" is a rules term for a card's type line, not a name anybody
+     who plays uses for a row on their mat. The short form drops the second
+     word, it does not invent a different one. */
+  shortLabel: 'Artifacts',
 } as const;
 
 export function rowForCard(card: CardInstance): BoardRowId {

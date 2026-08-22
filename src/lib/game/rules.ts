@@ -2077,6 +2077,9 @@ function applyOne(state: GameState, action: GameAction, depth: number): GameStat
   // A reducer that changed nothing is a no-op: no log entry, no version bump.
   if (reduced === state) return state;
 
+  // Past this line the action really applied. See `applyActionTraced`.
+  if (applyTrace) applyTrace.push(action);
+
   let next = logAction(reduced, action, at, message);
   next = { ...next, version: state.version + 1, updatedAt: at };
   next = checkStateBasedActions(next, at);
@@ -2132,4 +2135,71 @@ export function applyAction(state: GameState, action: GameAction): GameState {
 /** Fold an action list. This is how a networked client replays a game log. */
 export function applyActions(state: GameState, actions: readonly GameAction[]): GameState {
   return actions.reduce((current, action) => applyAction(current, action), state);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Seeing what the engine actually did                                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Collector for `applyActionTraced`. Null unless a trace is running, which is
+ * never in the app: `/play`, `/simulate` and the life counter all call
+ * `applyAction`, and the one line in `applyOne` that reads this is a null check.
+ */
+let applyTrace: GameAction[] | null = null;
+
+/**
+ * Apply one action and report EVERY action the engine ran because of it.
+ *
+ * ## Why this exists
+ *
+ * `applyAction` cascades and hides the cascade. A full round of priority passes
+ * resolves the top of the stack, that resolution puts a permanent onto the
+ * battlefield, its arrival triggers something, a counterspell resolving moves
+ * the countered card to a graveyard. NONE of those appear as actions to
+ * the caller. All of it happens inside one call, under `stackFollowUps`,
+ * `collectTriggers` and `spellResolutionNotes`.
+ *
+ * The playtest harness was reading its findings off the action a bot PROPOSED,
+ * and so it could not see any of that. It reported "a spell was countered: 0
+ * times" over twenty games in which the engine's own log recorded three
+ * `COUNTER_SPELL`s, and that false zero was on its way to sending somebody to
+ * fix working code. This project has already been burned three times by a
+ * probe watching the wrong layer: lifelink, deathtouch, and this.
+ *
+ * The obvious fix, watching the state difference, works for most events and
+ * cannot work for this one. Countering is an action, not a shape on the board:
+ * a card in a graveyard looks the same whether it was countered, discarded or
+ * resolved there.
+ *
+ * ## What it does not change
+ *
+ * The state it returns is the state `applyAction` returns, action for action.
+ * Nothing about the rules reads `applyTrace` and nothing about the trace is
+ * written into the game, so a traced apply and an untraced one produce the same
+ * state, the same log and the same hash.
+ *
+ * The collector is a module variable rather than a threaded parameter because
+ * threading one through `applyOne`, the replacement recursion and the trigger
+ * drain callback would touch the hottest path in the engine for the benefit of
+ * a diagnostic. It is saved and restored around the call, so a nested trace
+ * returns only its own actions and leaves the outer one intact. JavaScript is
+ * single threaded here, and the engine is called synchronously.
+ *
+ * `applied` is in the order the engine ran them, the top-level action first,
+ * and it is EMPTY when the action was refused, which is a cheaper refusal test
+ * than comparing state references.
+ */
+export function applyActionTraced(
+  state: GameState,
+  action: GameAction
+): { state: GameState; applied: GameAction[] } {
+  const outer = applyTrace;
+  const applied: GameAction[] = [];
+  applyTrace = applied;
+  try {
+    return { state: applyOne(state, action, 0), applied };
+  } finally {
+    applyTrace = outer;
+  }
 }

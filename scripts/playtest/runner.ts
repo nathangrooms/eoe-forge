@@ -125,10 +125,33 @@ export interface RunGameOptions {
    * spell-resolution path at all, and a run of it was being read as evidence
    * about a game a player never plays.
    *
-   * Off by default so every figure this harness printed before today still
-   * reproduces. `--stack` turns it on.
+   * Now ON by default, because `bot.ts` casts through the stack unless a caller
+   * says otherwise, and a harness whose default disagrees with the bot's is
+   * back to measuring a configuration nothing ships. `--no-stack` turns it off,
+   * and the only reason to is reproducing a figure recorded before the change.
+   *
+   * Left `undefined` here rather than defaulted to `true`, so there is exactly
+   * one place that decides, and it is `bot.ts`.
    */
   useStack?: boolean;
+  /**
+   * A/B: which seats cast instants and sorceries, by seat index.
+   *
+   * THIS IS HOW "BETTER" IS MEASURED RATHER THAN ASSERTED. The pass that taught
+   * the bot to cast instants moves `instantsCast` from 3 to 113 over twenty
+   * games, and that number is a measure of LOUDER. A bot with all access and no
+   * judgement moves it exactly as far as one that plays well. The only way to
+   * separate them is to sit both at one table and count who wins, so a run can
+   * give some seats `castingPolicy: 'all'` and the rest `'permanents-only'`.
+   *
+   * Seat one moves first and that is worth something, so a fair reading needs
+   * the assignment run BOTH WAYS and the two totalled. `run.ts --ab` and
+   * `--ab-flip` are the two halves.
+   *
+   * Undefined means every seat plays the shipping policy, which is what every
+   * reported run above uses.
+   */
+  castingPolicyBySeat?: ReadonlyArray<'all' | 'permanents-only'>;
   /** Keep the per-action state difference in the log. On by default; it is the signal. */
   keepDeltas?: boolean;
   /**
@@ -144,7 +167,12 @@ export interface RunGameOptions {
   decide?: (
     state: GameState,
     playerId: PlayerId,
-    options: { at: number; aggression?: 'timid' | 'normal' | 'aggressive'; useStack?: boolean }
+    options: {
+      at: number;
+      aggression?: 'timid' | 'normal' | 'aggressive';
+      useStack?: boolean;
+      castingPolicy?: 'all' | 'permanents-only';
+    }
   ) => BotMove | null;
   /** The reducer. Same reason as `decide`: the engine-error path needs proving too. */
   apply?: (state: GameState, action: GameAction) => GameState;
@@ -223,6 +251,15 @@ export interface GameRecord {
   decks: Array<{ playerId: PlayerId; name: string; commanders: string[]; cards: string[] }>;
   /** Mulligans, applied before the first bot move. Part of the replay. */
   setupActions: GameAction[];
+  /**
+   * The A/B assignment this game was played under, by seat index, or absent
+   * when every seat played the shipping policy.
+   *
+   * Recorded IN THE GAME FILE, because a run folder that does not say which
+   * seat had which policy cannot be read afterwards, and a win count with no
+   * record of who was in which arm is not evidence of anything.
+   */
+  castingPolicyBySeat?: ReadonlyArray<'all' | 'permanents-only'>;
   actions: LoggedAction[];
   /** Hash after setup, before the first bot move. The replay anchor. */
   openingHash: string;
@@ -468,6 +505,16 @@ export async function runGame(options: RunGameOptions): Promise<GameRecord> {
           at: index,
           aggression: options.aggression,
           useStack: options.useStack,
+          /* Seat index, not player id: the A/B assignment is about turn order.
+             Absent when no A/B is running, so `bot.ts` applies its default. */
+          ...(options.castingPolicyBySeat
+            ? {
+                castingPolicy:
+                  options.castingPolicyBySeat[
+                    state.players.findIndex(p => p.id === candidate)
+                  ] ?? 'all',
+              }
+            : {}),
         });
       } catch (error) {
         stop('engine-error', `nextBotMove threw for seat ${candidate}.`, {
@@ -640,6 +687,7 @@ export async function runGame(options: RunGameOptions): Promise<GameRecord> {
     limits,
     poolVersion: pool.version,
     deckHashes: built.map(entry => deckHash(entry.deck)),
+    ...(options.castingPolicyBySeat ? { castingPolicyBySeat: options.castingPolicyBySeat } : {}),
     seats: seatReports,
     decks: built.map((entry, i) => ({
       playerId: state.players[i].id,

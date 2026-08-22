@@ -32,7 +32,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { applyAction } from '../../src/lib/game/rules.ts';
+import { applyAction, applyActionTraced } from '../../src/lib/game/rules.ts';
 import { buildTable } from '../../src/lib/game/setup.ts';
 import type {
   GameActionType,
@@ -73,42 +73,60 @@ import {
 /* -------------------------------------------------------------------------- */
 
 /**
- * The card an action is about, when it is about one.
+ * The cards that RESOLVED in this frame, and where each was being sent.
  *
  * Everything else that moved during the same reducer call is a consequence, not
- * a resolution, and must not be judged as though a player had cast it.
- */
-function subjectOf(action: GameRecord['actions'][number]['action']): string | null {
-  switch (action.type) {
-    case 'PLAY':
-    case 'MOVE_ZONE':
-    case 'CAST_SPELL':
-      return action.instanceId;
-    default:
-      return null;
-  }
-}
-
-
-/**
- * Where an action was sending the card, in the action's own words.
+ * a resolution, and must not be judged as though a player had cast it. A
+ * creature that died to lethal damage moved to a graveyard and did not resolve
+ * there; nor did a discard; nor, and this is the one that needs saying, did a
+ * spell that was COUNTERED.
  *
- * `PLAY` and `MOVE_ZONE` both carry a destination and `PLAY` defaults to the
- * battlefield. Reading it from the action rather than from the card's type line
- * is what keeps a double-faced card from being judged as the wrong half.
+ * Built from `frame.applied` rather than from the proposed action because a
+ * spell cast through the stack is announced in one action and resolves in a
+ * later one, buried inside the `PASS_PRIORITY` that finished the round. Two
+ * shapes count:
+ *
+ *   - a `PLAY`, which is a land drop, an immediate cast on a surface that runs
+ *     no priority round, or CR 608.3 putting a resolving permanent into play;
+ *   - a `MOVE_ZONE` off the stack, which is CR 608.2m finishing an instant or a
+ *     sorcery after its effects have run.
+ *
+ * A `CAST_SPELL` is deliberately NOT one of them. It is an announcement: the
+ * card is on the stack, nothing it says has happened yet, and judging it there
+ * would file every spell in the game as silent.
  */
-function destinationOf(action: GameRecord['actions'][number]['action']): string | undefined {
-  switch (action.type) {
-    case 'PLAY':
-      return action.to ?? 'battlefield';
-    case 'MOVE_ZONE':
-      return action.to;
-    case 'CAST_SPELL':
-      return action.resolvesTo;
-    default:
-      return undefined;
+function resolutionSubjects(frame: Frame): Map<string, { playedTo: string | undefined }> {
+  const subjects = new Map<string, { playedTo: string | undefined }>();
+
+  /* Countering first, so a countered card can never be picked up below. It left
+     the stack for a graveyard without resolving, which is CR 701.5, and the
+     card did nothing because it was answered rather than because it is
+     unimplemented. */
+  const countered = new Set<string>();
+  for (const applied of frame.applied) {
+    if (applied.type !== 'COUNTER_SPELL') continue;
+    const object = (frame.before.stack ?? []).find(o => o.stackId === applied.stackId);
+    if (object?.cardInstanceId) countered.add(object.cardInstanceId);
   }
+
+  for (const applied of frame.applied) {
+    if (applied.type === 'PLAY') {
+      if (countered.has(applied.instanceId)) continue;
+      subjects.set(applied.instanceId, { playedTo: applied.to ?? 'battlefield' });
+    } else if (applied.type === 'MOVE_ZONE') {
+      if (countered.has(applied.instanceId)) continue;
+      // Only off the stack. Every other `MOVE_ZONE` in the engine is a card
+      // being put somewhere by something else: a state-based action, a discard,
+      // a tutor, the CR 903.9a commander offer.
+      const object = (frame.before.stack ?? []).find(o => o.cardInstanceId === applied.instanceId);
+      if (!object) continue;
+      subjects.set(applied.instanceId, { playedTo: applied.to });
+    }
+  }
+
+  return subjects;
 }
+
 
 export interface CardSighting {
   name: string;
@@ -233,7 +251,12 @@ export async function analyzeRecord(record: GameRecord, pool: CardPool): Promise
 
   for (const entry of record.actions) {
     const before = state;
-    const after = applyAction(before, entry.action);
+    /* Traced, so the detectors can see what the ENGINE ran and not only what a
+       bot proposed. A spell cast through the stack resolves inside a
+       `PASS_PRIORITY`, so every action that carries the resolution is derived and
+       never appears in `record.actions`: the `PLAY` that lands a permanent, the
+       `MOVE_ZONE` that bins an instant, the `COUNTER_SPELL`. */
+    const { state: after, applied } = applyActionTraced(before, entry.action);
     const refused = after === before;
 
     if (hashState(after) !== entry.hash) {
@@ -260,6 +283,7 @@ export async function analyzeRecord(record: GameRecord, pool: CardPool): Promise
       before,
       after,
       logAdded,
+      applied,
       refused,
     };
 
@@ -274,29 +298,42 @@ export async function analyzeRecord(record: GameRecord, pool: CardPool): Promise
       const diff = diffState(before, after);
 
       /*
-       * Only the card this action was ABOUT is judged.
+       * Only the card this frame was ABOUT is judged.
        *
-       * One `applyAction` can move several cards: the creature that was played,
+       * One `applyAction` can move several cards: the creature that resolved,
        * plus anything state-based actions put into a graveyard on the way out.
        * Judging every mover would put a creature that died to lethal damage on
        * the silent list for "resolving" into a graveyard, which it did not do —
-       * it was killed. The action's own subject is the only card that resolved.
+       * it was killed.
+       *
+       * THIS USED TO ASK THE PROPOSED ACTION and that stopped working the day
+       * the bot started casting through the stack. A card cast that way moves
+       * hand -> stack under a `CAST_SPELL`, which is an announcement and not a
+       * resolution, and reaches the battlefield or the graveyard several
+       * actions later inside whichever `PASS_PRIORITY` completed the round.
+       * `subjectOf(PASS_PRIORITY)` is null, so every card cast through the
+       * stack would have gone unjudged and the whole "what the cards did"
+       * section would have quietly emptied while reading as if it had been
+       * measured.
+       *
+       * So the subjects come from what the engine RAN. `resolutionSubjects`
+       * builds them and says in one place which action means "this card
+       * resolved" and which does not, countering above all.
        */
-      const subject = subjectOf(entry.action);
+      const subjects = resolutionSubjects(frame);
 
       for (const move of diff.zoneMoves) {
-        if (move.instanceId !== subject) continue;
+        const subject = subjects.get(move.instanceId);
+        if (!subject) continue;
         const landed = after.cards[move.instanceId];
         if (!landed) continue;
         // Entering play is always a resolution. Landing in a graveyard only is
-        // when the card was PLAYED there, which is how this engine resolves an
+        // when the card RESOLVED there, which is how this engine finishes an
         // instant or a sorcery; a discard also moves hand to graveyard and is
         // not a card resolving.
         const resolvedNow =
           (move.to === 'battlefield' && move.from !== 'battlefield') ||
-          (move.to === 'graveyard' &&
-            (move.from === 'hand' || move.from === 'stack') &&
-            (entry.action.type === 'PLAY' || entry.action.type === 'CAST_SPELL'));
+          (move.to === 'graveyard' && (move.from === 'hand' || move.from === 'stack'));
         if (!resolvedNow) continue;
         // The card as it was when it resolved, so `automationFor` sees the text
         // and not a post-resolution copy that may have been cleaned up.
@@ -307,8 +344,9 @@ export async function analyzeRecord(record: GameRecord, pool: CardPool): Promise
           after,
           diff,
           logAdded,
+          applied,
           landedIn: move.to,
-          playedTo: destinationOf(entry.action),
+          playedTo: subject.playedTo,
         });
         out.verdicts.push({ ...verdict, seed: record.seed, at: entry.i });
 
@@ -824,8 +862,13 @@ export function writeReport(run: RunAnalysis, games: readonly GameAnalysis[]): s
   w(`## 2. Event coverage`);
   w();
   w(
-    `Every row is detected from the state difference across an action, not from the action type, ` +
-      `so an effect the engine cascaded internally is still counted.`
+    `Almost every row is detected from the state difference across an action rather than from the ` +
+      `action type, so an effect the engine cascaded internally is still counted. The exceptions ` +
+      `are the rows where an action IS the event and no shape on the board can stand in for it. ` +
+      `Countering is the clearest one, because a countered card and a discarded card sit in the ` +
+      `same graveyard. Those rows are read off the actions the engine actually ran, which is a ` +
+      `longer list than the actions a bot proposed: a spell cast through the stack resolves ` +
+      `inside a priority pass, and nobody ever proposes a COUNTER_SPELL.`
   );
   w();
 
@@ -1023,30 +1066,76 @@ export function writeReport(run: RunAnalysis, games: readonly GameAnalysis[]): s
       `evidence of the same kind.`
   );
   w();
-  w(`**Nothing ever reaches the stack, and the reason is a closed loop.**`);
+  /*
+   * GATED ON THE MEASUREMENT, because this section used to be neither.
+   *
+   * Both paragraphs below were printed unconditionally, as fixed prose, in
+   * every report this file has ever produced. One of them read "Nothing ever
+   * reaches the stack" in a run that put 3 spells and 657 abilities on it. It
+   * was true the day it was written and the file had no way to notice it had
+   * stopped being true, which is the same failure as a false zero and arguably
+   * worse: a zero is a number a reader can go and check, and a sentence is not.
+   *
+   * So each one now prints only while the rows it explains are actually zero,
+   * and prints the count instead when they are not.
+   */
+  const spellsOnStack = run.eventCounts['spell-on-stack'] ?? 0;
+  const abilitiesOnStack = run.eventCounts['ability-on-stack'] ?? 0;
+  const stackResolutions = run.eventCounts['stack-resolved'] ?? 0;
+
+  if (spellsOnStack === 0 && abilitiesOnStack === 0) {
+    w(`**Nothing ever reaches the stack, and the reason is a closed loop.**`);
+    w();
+    w(
+      `\`moves.ts\` \`planCastFromHand\` builds a \`CAST_SPELL\` only when it is called with ` +
+        `\`viaStack: true\`, and a plain \`PLAY\` otherwise. A caller that leaves \`viaStack\` ` +
+        `off sends every spell straight to its destination without it ever being an object ` +
+        `anybody could respond to. The one place that passes \`viaStack: true\` on its own is the ` +
+        `counterspell branch in \`priorityMove\`, and that branch only runs when there is already ` +
+        `something on the stack to counter. Nothing can put the first object there, so nothing ` +
+        `ever is. That single fact accounts for every stack row above reading zero: no spell on ` +
+        `the stack, no ability on the stack, no priority passed, no spell countered, no fizzle, ` +
+        `no resolution.`
+    );
+  } else {
+    w(`**The stack is in use.**`);
+    w();
+    w(
+      `${spellsOnStack.toLocaleString()} spells and ${abilitiesOnStack.toLocaleString()} ` +
+        `abilities were announced onto it in this run, and ${stackResolutions.toLocaleString()} ` +
+        `objects resolved off it. \`bot.ts\` \`chooseSpell\` casts with \`viaStack\` on unless a ` +
+        `caller turns it off, so a bot's spell is an object the rest of the table gets a priority ` +
+        `round to answer. This paragraph replaces a fixed one that said the opposite; it printed ` +
+        `unconditionally and outlived the thing it described.`
+    );
+  }
   w();
-  w(
-    `\`moves.ts\` \`planCastFromHand\` builds a \`CAST_SPELL\` only when it is called with ` +
-      `\`viaStack: true\`, and a plain \`PLAY\` otherwise. \`bot.ts\` \`chooseSpell\` passes ` +
-      `\`viaStack\` defaulted to false, so every spell a player casts goes straight to its ` +
-      `destination without ever being an object anybody could respond to. The one place that does ` +
-      `pass \`viaStack: true\` is the counterspell branch in \`priorityMove\`, and that branch ` +
-      `only runs when there is already something on the stack to counter. Nothing can put the ` +
-      `first object there, so nothing ever is. That single fact accounts for every stack row ` +
-      `above reading zero: no spell on the stack, no ability on the stack, no priority passed, no ` +
-      `spell countered, no fizzle, no resolution.`
-  );
+
+  const instantsOrSorceries =
+    (run.momentTotals['spell-resolves'] &&
+      Object.values(run.momentTotals['spell-resolves']).reduce((a, b) => a + b, 0)) ??
+    0;
+
+  w(`**Instants and sorceries.**`);
   w();
-  w(`**Instants and sorceries are never cast at all.**`);
-  w();
-  w(
-    `\`bot.ts\` \`chooseSpell\` filters its candidates with \`isPermanent(card)\`, so an instant ` +
-      `or a sorcery in hand is never even considered. Read the spell-resolves column above with ` +
-      `that in mind: the handful of entries in it are double-faced cards misrouted to the ` +
-      `graveyard, not instants being cast. **This run did not test instants and sorceries.** Any ` +
-      `zero that depends on one is untested rather than broken, and the report says so rather ` +
-      `than claiming a result it did not earn.`
-  );
+  if (instantsOrSorceries === 0) {
+    w(
+      `\`bot.ts\` \`chooseSpell\` filters its candidates with \`isPermanent(card)\`, so an ` +
+        `instant or a sorcery in hand is never even considered, and no spell resolved to a ` +
+        `graveyard in this run. **This run did not test instants and sorceries.** Any zero that ` +
+        `depends on one is untested rather than broken, and the report says so rather than ` +
+        `claiming a result it did not earn.`
+    );
+  } else {
+    w(
+      `${instantsOrSorceries.toLocaleString()} resolutions in this run finished in a graveyard ` +
+        `rather than on the battlefield, which is what an instant or a sorcery does under CR ` +
+        `608.2m. That number also counts a double-faced card misrouted there, so read it beside ` +
+        `the \`permanent-card-resolved-into-the-graveyard\` invariant rather than on its own. ` +
+        `\`chooseSpell\` still filters its candidates with \`isPermanent(card)\`, so a bot does ` +
+        `not choose to cast one; anything counted here reached a graveyard by another route.`
+    );
+  }
   w();
 
   w(`## 6. How to reproduce anything here`);

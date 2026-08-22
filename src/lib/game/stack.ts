@@ -73,6 +73,10 @@ import { getCard, getPlayer, isAlive, livingPlayers, nextLivingPlayer } from './
 import { canBeTargetedBy } from './keywords.ts';
 import { resolvesToGraveyard } from './mana.ts';
 import { auraNeedsHost } from './attach.ts';
+// The honesty note for a spell that resolved and did nothing, built by the
+// same function `spellResolutionNotes` uses for the non-stack cast path, so
+// both print the same sentence for the same card.
+import { manualNoteAction } from './effects.ts';
 /*
  * The ability bridge, for a stack object carrying `abilityId`.
  *
@@ -81,7 +85,7 @@ import { auraNeedsHost } from './attach.ts';
  * stays shallower without it. None of the three reaches back into `stack.ts`
  * or `rules.ts`, so there is no cycle to reason about.
  */
-import { abilitiesFor } from './abilities/card-abilities.ts';
+import { abilitiesFor, announcedTargetsOf } from './abilities/card-abilities.ts';
 import { makeContext } from './abilities/context.ts';
 import { resolveAbilityActions } from './abilities/to-actions.ts';
 
@@ -555,7 +559,16 @@ function compiledSpellActions(
      * pointless rather than unaimed. Two different problems should not print the
      * same sentence, so this one names itself.
      */
-    const wanted = 'targets' in ability ? (ability.targets ?? []) : [];
+    /*
+     * `announcedTargetsOf`, not `ability.targets`, and they differ for 221 of
+     * the 6,786 instants and sorceries in the card snapshot. The raw list can
+     * hold a `ref` that no effect reads — Personify carries six, Careful
+     * Consideration seventeen — and reading it here printed "no target was
+     * chosen" about spells that name no target at all. The caster asks the same
+     * function, so the two halves can no longer disagree about how many targets
+     * a spell has, which is what they were doing in both directions at once.
+     */
+    const wanted = announcedTargetsOf(ability);
     if (wanted.length > 0 && object.targets.length === 0) {
       out.push({
         type: 'NOTE',
@@ -661,19 +674,61 @@ export function resolutionActionsFor(
   // announced onto the stack and resolved into nothing at all, because the
   // stack's own `StackEffect` vocabulary has eleven members and the compiler
   // emits into one with thirty.
+  const beforeEffects = out.length;
+
   out.push(...compiledAbilityActions(state, object, at));
 
   object.effects.forEach((effect, ordinal) => {
     out.push(...actionsForEffect(state, object, effect, at, ordinal));
   });
 
+  const didSomething = out.length > beforeEffects;
+
   // CR 608.2m — an instant or sorcery is put into its owner's graveyard as the
   // final part of its own resolution, after its effects.
   if (card && destination !== 'battlefield') {
+    /*
+     * THE HONESTY RULE, ONE STEP EARLIER THAN IT USED TO BE.
+     *
+     * The check at the bottom of this function asks whether the whole
+     * resolution produced no actions. For an instant or a sorcery it never can:
+     * CR 608.2m always adds the move to the graveyard, so a spell whose text
+     * the compiler could not model went from hand to graveyard having done
+     * nothing and having said nothing.
+     *
+     * That was unreachable until now and is exactly the project's own law about
+     * green tests. No bot had ever cast a sorcery, so no sorcery had ever
+     * resolved, so the hole had never been stood on. The pass that taught the
+     * bot to cast them stood on it 48 times in twenty games and the harness
+     * filed all 48 as `silent-untold` — the one verdict the audit says must
+     * stay at zero, because a card that does nothing and says nothing is
+     * indistinguishable from a card that worked.
+     *
+     * So the emptiness is measured across the EFFECTS, before the graveyard
+     * move is added, and the note is written in the order it happened: it
+     * resolved, it did nothing, it went to the graveyard.
+     *
+     * `manualNoteAction` first, and the same call `spellResolutionNotes` makes,
+     * so the two paths print the SAME sentence for the same card. That function
+     * is the honesty rule for the non-stack cast, which fires on a `PLAY` to
+     * the graveyard; this is its twin for the stack path, which ends in a
+     * `MOVE_ZONE` and which it therefore never saw.
+     */
+    if (!didSomething) {
+      out.push(
+        manualNoteAction(card, at, 'resolves') ?? {
+          type: 'NOTE',
+          message: `${object.name} resolves — the engine applies no effects for it; resolve it by hand.`,
+          instanceId: object.cardInstanceId,
+          at,
+        }
+      );
+    }
     out.push({ type: 'MOVE_ZONE', instanceId: card.instanceId, to: destination, at, cause: object.name });
   }
 
-  // The honesty rule: an object that resolved and did nothing at all says so.
+  // The same rule for everything else: an object that resolved and did nothing
+  // at all says so.
   if (out.length === 0) {
     out.push({
       type: 'NOTE',

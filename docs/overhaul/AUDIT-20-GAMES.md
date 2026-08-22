@@ -152,7 +152,30 @@ a spell with no legal target. None of those are faults.
 `silent-untold` at zero is the one to keep at zero. Every card that cannot be
 automated either says so in the log or wears a marker on the card.
 
-## The biggest finding: nothing ever reaches the stack
+## CORRECTION: "nothing ever reaches the stack" was wrong
+
+Left in place below because the finding underneath it was real and got fixed,
+but the headline overstated it and the overstatement was mine.
+
+Measured properly by `scripts/playtest/stack-census.ts`, which replays every
+game through the real reducer and counts off the engine's own event log rather
+than off the proposed actions: in the very run this section calls empty, 657
+abilities went on the stack, 657 objects resolved off it, priority passed 1,759
+times and three spells were countered. An ACTIVATED ABILITY puts the first
+object there, so the loop I described as closed was never quite closed.
+
+What was true, and it was the thing worth fixing: a bot never CAST a spell onto
+the stack, and never cast an instant or a sorcery at all. 650 instants and
+sorceries were dealt into the eighty decks, 125 reached a hand, 3 were ever
+cast, and all three were counterspells from the single branch that already
+passed `viaStack: true`.
+
+Both are now fixed. `useStack` defaults to true and the `isPermanent` filter is
+gone from `chooseSpell`, taking spells announced onto the stack from 3 to 872,
+resolutions from 657 to 1,525 and priority passes from 1,759 to 4,803, with 20
+of 20 games still finishing, 0 stalled and 0 invariant violations.
+
+## The original finding, as written
 
 This came out of the SECOND run, once the harness stopped reporting false zeros
 and the counterspell row was the only one left at zero. It is the most important

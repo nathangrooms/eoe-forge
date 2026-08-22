@@ -356,8 +356,12 @@ const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
  *
  * The flag is still honoured when it is set, so a compiled ability that says it
  * is a mana ability stays one even if this reader cannot see the `add-mana`.
+ *
+ * Exported so the playtest harness can check the rule against the engine's own
+ * answer instead of keeping a second copy of it. A harness that re-implements a
+ * rule to check that rule proves only that two authors agreed.
  */
-function isManaAbility(ability: ActivatedAbility): boolean {
+export function isManaAbility(ability: ActivatedAbility): boolean {
   if (ability.isManaAbility) return true;
   if (ability.isLoyalty) return false;
   if (ability.targets && ability.targets.length > 0) return false;
@@ -803,19 +807,34 @@ function payOneCost(ctx: CostContext, cost: Cost, index: number): CostResult {
 /* Targets                                                                    */
 /* -------------------------------------------------------------------------- */
 
-interface TargetResult {
+/**
+ * The answer to "what is this pointed at", shared by an ability and a spell.
+ *
+ * Exported because `cast-targets.ts` asks the same question of an instant or a
+ * sorcery. A `SpellAbility` carries the identical `TargetSpec[]` an
+ * `ActivatedAbility` does, so there is one legality rule for both rather than a
+ * second copy written beside it that can drift.
+ */
+export interface TargetResult {
   targets: StackTarget[];
   reason: string;
   pending: PendingChoice[];
 }
 
-/** Cards and players one `TargetSpec` could legally be pointed at right now. */
-function targetCandidates(
+/**
+ * Cards and players one `TargetSpec` could legally be pointed at right now.
+ *
+ * `card` is the object the target belongs to: the permanent for an activated
+ * ability, the card in hand for a spell being cast. It is read for CR 115.6,
+ * where protection and hexproof are judged against the source, and as the
+ * context's source, which is what a filter's `{sel:'self'}` resolves to.
+ */
+export function targetCandidatesFor(
   state: GameState,
   playerId: PlayerId,
   card: CardInstance,
   spec: TargetSpec,
-  x: number
+  x = 0
 ): { instanceIds: InstanceId[]; playerIds: PlayerId[] } {
   const ctx = makeContext(state, card.instanceId, playerId, { x });
 
@@ -841,15 +860,22 @@ function targetCandidates(
   return { instanceIds, playerIds };
 }
 
-function chooseTargets(
+/**
+ * Line up one object's targets, asking for whatever the engine will not decide.
+ *
+ * Takes the `TargetSpec[]` rather than an ability, so an instant's list and an
+ * activated ability's list go through the same legality check, the same "a
+ * forced choice is not a choice" shortcut and the same CR 601.2c refusal when
+ * nothing legal exists.
+ */
+export function chooseTargetsFor(
   state: GameState,
   playerId: PlayerId,
   card: CardInstance,
-  ability: ActivatedAbility,
+  specs: readonly TargetSpec[],
   choices: ActivationChoices,
-  x: number
+  x = 0
 ): TargetResult {
-  const specs = ability.targets ?? [];
   const out: StackTarget[] = [];
   const pending: PendingChoice[] = [];
   let reason = '';
@@ -866,7 +892,7 @@ function chooseTargets(
       continue;
     }
 
-    const candidates = targetCandidates(state, playerId, card, spec, x);
+    const candidates = targetCandidatesFor(state, playerId, card, spec, x);
     const total = candidates.instanceIds.length + candidates.playerIds.length;
 
     const supplied = choices.targets?.[spec.ref];
@@ -1101,7 +1127,7 @@ export function planActivation(
     tapIds.push(...result.tapIds);
   }
 
-  const targeting = chooseTargets(state, playerId, card, ability, choices, x);
+  const targeting = chooseTargetsFor(state, playerId, card, ability.targets ?? [], choices, x);
   if (targeting.reason) {
     return { ok: false, actions: [], reason: targeting.reason, tapIds: [], pending: targeting.pending };
   }

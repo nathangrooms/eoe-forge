@@ -13,6 +13,11 @@
  * Every game is written to `scratch/playtest/runs/<run>/game-<seed>.json` with
  * its full action list, and the run summary sits next to them. A finding nobody
  * can reproduce is not actionable, so the seed is printed on every line.
+ *
+ * `--ab` and `--ab-flip` sit two POLICIES at one table and count who wins, which
+ * is the only way to tell "the bot casts more spells" from "the bot plays
+ * better". `policy-block.ts` beside this file answers the other half, whether a
+ * policy makes games longer, by putting a whole table on one policy at a time.
  */
 
 import fs from 'node:fs';
@@ -34,6 +39,15 @@ interface Args {
   noMulligan: boolean;
   aggression: 'timid' | 'normal' | 'aggressive';
   useStack: boolean;
+  /**
+   * The A/B: seats 1 and 3 cast instants and sorceries, seats 2 and 4 do not
+   * (`--ab`), or the other way round (`--ab-flip`).
+   *
+   * Two flags rather than one because seat one moves first. Running only one
+   * assignment measures the policy and the turn order together and cannot tell
+   * them apart; running both and totalling cancels it.
+   */
+  ab: 'none' | 'odd-seats-cast' | 'even-seats-cast';
   limits: Partial<Limits>;
 }
 
@@ -49,7 +63,12 @@ function parseArgs(argv: readonly string[]): Args {
     slim: false,
     noMulligan: false,
     aggression: 'normal',
-    useStack: false,
+    /* The stack is ON, because it is what the bot does now and what `/play`
+       does. `--no-stack` is the escape hatch, and it is there so the old
+       immediate-cast figures can still be reproduced for comparison rather
+       than because anything ships that way. */
+    useStack: true,
+    ab: 'none',
     limits: {},
   };
 
@@ -75,9 +94,17 @@ function parseArgs(argv: readonly string[]): Args {
         i += 1;
         break;
       case '--stack':
-        // Cast through the stack and hold a priority round, the way /play does.
+        // Kept so older command lines still run. This is the default now.
         args.useStack = true;
         break;
+      case '--no-stack':
+        // Cast straight to the destination, with no priority round and nothing
+        // anybody can respond to. Only useful for comparing against a run
+        // recorded before the bot started using the stack.
+        args.useStack = false;
+        break;
+      case '--ab': args.ab = 'odd-seats-cast'; break;
+      case '--ab-flip': args.ab = 'even-seats-cast'; break;
       case '--aggression':
         if (value !== 'timid' && value !== 'normal' && value !== 'aggressive') {
           throw new Error(`--aggression must be timid, normal or aggressive`);
@@ -116,7 +143,12 @@ DeckMatrix playtest harness
   --kind K        commander | sixty | both   (default commander)
   --players N     seats at the table (default 2)
   --aggression A  timid | normal | aggressive (default normal)
-  --stack         bots announce spells onto the stack, as Play.tsx configures them
+  --no-stack      bots cast straight to the destination, with no priority round
+                  (the default is the stack, which is what /play does)
+  --ab            seats 1 and 3 cast instants and sorceries, seats 2 and 4 do
+                  not (the policy before that pass existed). --ab-flip is the
+                  same assignment the other way round; run BOTH and total them,
+                  or the first move is being measured along with the policy.
   --verify        replay every game and check every state hash
   --slim          drop per-action state deltas from the log (smaller files)
   --no-mulligan   keep every opening hand, however unplayable
@@ -157,10 +189,27 @@ async function main(): Promise<void> {
     );
   }
 
-  /* `--stack` is part of the run's identity, not a detail. Two runs on the
-     same seeds with the stack on and off are different games, and writing
-     them to one folder would let the second silently overwrite the first. */
-  const runId = `${args.kind}-${args.players}p-seed${args.seed}-x${args.games}${args.useStack ? '-stack' : ''}`;
+  /* The stack setting is part of the run's identity, not a detail. Two runs on
+     the same seeds with it on and off are different games, and writing them to
+     one folder would let the second silently overwrite the first.
+
+     The suffix moved when the default did. It used to mark the stack being ON,
+     which was the unusual case; now it marks the stack being OFF. A folder with
+     no suffix is the game a player meets. */
+  /* One entry per seat, or undefined when no A/B is running. Seat index 0 is
+     the seat that moves first, so `odd-seats-cast` gives the new policy the
+     first move and `even-seats-cast` gives it to the control. */
+  const castingPolicyBySeat: ReadonlyArray<'all' | 'permanents-only'> | undefined =
+    args.ab === 'none'
+      ? undefined
+      : Array.from({ length: args.players }, (_unused, seat) => {
+          const oddSeatNumber = seat % 2 === 0; // seat index 0 reads as "seat 1"
+          const casts = args.ab === 'odd-seats-cast' ? oddSeatNumber : !oddSeatNumber;
+          return casts ? ('all' as const) : ('permanents-only' as const);
+        });
+
+  const abSuffix = args.ab === 'none' ? '' : args.ab === 'odd-seats-cast' ? '-ab' : '-abflip';
+  const runId = `${args.kind}-${args.players}p-seed${args.seed}-x${args.games}${args.useStack ? '' : '-nostack'}${abSuffix}`;
   const outDir = path.join(args.out, runId);
   fs.mkdirSync(outDir, { recursive: true });
 
@@ -180,6 +229,7 @@ async function main(): Promise<void> {
         mulligan: !args.noMulligan,
         aggression: args.aggression,
         useStack: args.useStack,
+        ...(castingPolicyBySeat ? { castingPolicyBySeat } : {}),
         keepDeltas: !args.slim,
       });
       records.push(record);

@@ -261,3 +261,143 @@ export function subscribeToTable(tableId: string, listener: TableListener): () =
     }
   };
 }
+
+/* -------------------------------------------------------------------------- */
+/* Your own account's topic                                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * How you find out somebody asked to be your friend.
+ *
+ * The topic is `user:<your id>` and the policy on it is one line:
+ * `realtime.topic() = 'user:' || auth.uid()`. Nobody else can join it, and
+ * there is no INSERT policy at all, so the only thing that can ever speak on it
+ * is a SECURITY DEFINER function inside the transaction that made the change.
+ *
+ * The message carries NOTHING but "something about your friends changed". The
+ * friends list is one query, so re-reading it costs one query, and a nudge that
+ * carries no state cannot drift from the database and not notice. That is the
+ * same decision the tables list already made and for the same reason.
+ *
+ * ONE SUBSCRIPTION, however many things are listening. The strip at the top of
+ * the play page and the panel further down are the same account.
+ */
+export interface MeListener {
+  /** A request, an answer, a block, or a table invitation. Re-read the list. */
+  onFriends?: () => void;
+  onStatus?: (status: LobbyChannelStatus) => void;
+}
+
+const mine = new Map<
+  string,
+  { channel: ReturnType<typeof supabase.channel>; listeners: Set<MeListener> }
+>();
+
+export function subscribeToMe(userId: string, listener: MeListener): () => void {
+  let entry = mine.get(userId);
+
+  if (!entry) {
+    const listeners = new Set<MeListener>();
+    const live = supabase.channel(`user:${userId}`, { config: { private: true } });
+
+    live
+      .on('broadcast', { event: 'friends' }, () => {
+        for (const each of listeners) each.onFriends?.();
+      })
+      .subscribe(state => {
+        const next: LobbyChannelStatus =
+          state === 'SUBSCRIBED'
+            ? 'live'
+            : state === 'CHANNEL_ERROR' || state === 'TIMED_OUT' || state === 'CLOSED'
+              ? 'down'
+              : 'connecting';
+        if (state === 'SUBSCRIBED' || next === 'down') {
+          for (const each of listeners) each.onStatus?.(next);
+        }
+      });
+
+    entry = { channel: live, listeners };
+    mine.set(userId, entry);
+  }
+
+  entry.listeners.add(listener);
+
+  return () => {
+    const held = mine.get(userId);
+    if (!held) return;
+    held.listeners.delete(listener);
+    if (held.listeners.size === 0) {
+      mine.delete(userId);
+      void supabase.removeChannel(held.channel);
+    }
+  };
+}
+
+/* -------------------------------------------------------------------------- */
+/* A private channel's own topic                                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Listening to a private channel.
+ *
+ * An OPEN channel's messages ride the shared `lobby` topic like everything
+ * else, which is why the whole lobby is one connection. A private one cannot:
+ * the policy on `lobby` is `to authenticated`, so every signed-in account can
+ * listen to it, and putting a private message on it would hand the words to
+ * everybody while the door stayed locked.
+ *
+ * So a private channel gets `room:<topic id>`, granted by `may_use_room_topic`
+ * to exactly its members. One subscription per open channel, and only for the
+ * one that is open.
+ */
+export interface RoomListener {
+  onChat?: (event: ForumEvent) => void;
+  onStatus?: (status: LobbyChannelStatus) => void;
+}
+
+const rooms = new Map<
+  number,
+  { channel: ReturnType<typeof supabase.channel>; listeners: Set<RoomListener> }
+>();
+
+export function subscribeToRoom(topicId: number, listener: RoomListener): () => void {
+  let entry = rooms.get(topicId);
+
+  if (!entry) {
+    const listeners = new Set<RoomListener>();
+    const live = supabase.channel(`room:${topicId}`, { config: { private: true } });
+
+    live
+      .on('broadcast', { event: 'chat' }, message => {
+        const event = toForumEvent(message);
+        if (!event) return;
+        for (const each of listeners) each.onChat?.(event);
+      })
+      .subscribe(state => {
+        const next: LobbyChannelStatus =
+          state === 'SUBSCRIBED'
+            ? 'live'
+            : state === 'CHANNEL_ERROR' || state === 'TIMED_OUT' || state === 'CLOSED'
+              ? 'down'
+              : 'connecting';
+        if (state === 'SUBSCRIBED' || next === 'down') {
+          for (const each of listeners) each.onStatus?.(next);
+        }
+      });
+
+    entry = { channel: live, listeners };
+    rooms.set(topicId, entry);
+  }
+
+  entry.listeners.add(listener);
+
+  return () => {
+    const held = rooms.get(topicId);
+    if (!held) return;
+    held.listeners.delete(listener);
+    if (held.listeners.size === 0) {
+      rooms.delete(topicId);
+      void supabase.removeChannel(held.channel);
+    }
+  };
+}

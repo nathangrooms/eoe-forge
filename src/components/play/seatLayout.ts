@@ -294,21 +294,85 @@ export function seatCardWidth(rowHeight: number, ceiling: number): number {
  *
  * Owner: *"non-creatures sit far too right, they clip off board"*, and from the
  * spec: *"enchanements/artifacts etc should have its own square right side or
- * something"*. So it stays on the right — that is what was asked for — and two
- * things about it change.
+ * something"*. So it stays on the right. That part has not changed.
  *
- * It is a **constant fraction of the mat**, not a function of how many
- * permanents are in it. It used to grow a column at a time as artifacts landed
- * and collapse to a 22px spine when the last one left, which moved the two rows
- * beside it every time and was one of the measured reflows.
+ * ---------------------------------------------------------------------------
+ * A FIFTH OF THE MAT, CAPPED AT 220, COULD NOT HOLD AN ARTIFACT DECK
+ * ---------------------------------------------------------------------------
+ * Owner, by name: the artifact and enchantment area is tiny when some people
+ * play full artifact decks. Measured on 22 Aug 2026, thirteen noncreature
+ * nonland permanents on one seat, the two rows left empty on purpose:
  *
- * And it is **smaller**. Measured on a four-seat table at 1680 it was taking
- * 257px of an 828px mat — 31% — to hold three Rancors, while the creature row
- * next to it was squeezed to 62px cards. A fifth of the mat holds a real block
- * of artifacts and leaves the rows the width they need.
+ *   viewport      the two rows         the block          each card in it
+ *   1280 x 800    885 x 234, 0 cards   220 x 473, 13      86 x 120, 43% visible
+ *   1920 x 1080   1525 x 340, 0 cards  220 x 684, 13      115 x 160, 24% visible
+ *
+ * At 1920 the block held every permanent in play in 11.6% of the mat while
+ * 1525 x 680 px of it held nothing, and a WIDER window was worse: the card grew
+ * to 115px, two columns stopped fitting inside a fixed 220, and thirteen cards
+ * fell into a single shingled stack showing a title bar each.
+ *
+ * The 220 was the cause. It is an absolute ceiling, so the block is the same
+ * 220px on a 1264px mat and on a 1904px one, and the mat getting bigger only
+ * ever made the cards inside it bigger and the column count smaller.
+ *
+ * ---------------------------------------------------------------------------
+ * WHAT REPLACES IT: rungs, and it still is not a function of the count
+ * ---------------------------------------------------------------------------
+ * `seatLayout.ts` exists to enforce that geometry follows the BOX and not the
+ * board, because a card resizing when a permanent arrives is the owner's
+ * *"weird layout shifting"*. That rule is kept where it does that work and
+ * relaxed in exactly one place, deliberately, with the trade written down.
+ *
+ * The block's width steps along a LADDER of three widths. It is not solved for
+ * the count, it is chosen by which rung the count is on, and there are two
+ * crossings in a whole game: the fifth support permanent and the eleventh. That
+ * is the same device `layoutRow` and `blockStep` already use vertically, and it
+ * has the same property — most arrivals move nothing at all.
+ *
+ * What a crossing costs is bounded and small, which is why this is affordable
+ * here and was not affordable for the card size:
+ *
+ *   - No card CHANGES SIZE. `seatCardWidth` reads the row's HEIGHT and the
+ *     player's ceiling, and neither of those is touched by the block's width.
+ *   - No card on a sparse row MOVES. `layoutRow` lays from the left with a
+ *     constant edge, so a row with room to spare is laid identically in a
+ *     narrower box.
+ *   - A crowded row can drop one pitch rung, which is a repack it already does
+ *     when a creature arrives.
+ *
+ * An EMPTY block is rung zero, which is the same fifth of the mat capped at the
+ * same 220 as before. A deck with no artifacts in it gives up nothing.
  */
-export function supportBlockWidth(matWidth: number): number {
-  return Math.round(Math.max(76, Math.min(matWidth * 0.2, 220)));
+export interface BlockWidthRung {
+  /** This rung is used once the block holds MORE than this many permanents. */
+  over: number;
+  /** Share of the mat's width. */
+  share: number;
+  /** The ceiling for that share, px. */
+  cap: number;
+}
+
+export const BLOCK_WIDTH_RUNGS: readonly BlockWidthRung[] = [
+  { over: 0, share: 0.2, cap: 220 },
+  { over: 4, share: 0.3, cap: 340 },
+  { over: 10, share: 0.4, cap: 440 },
+];
+
+/**
+ * How wide the block is on a mat of `matWidth` holding `count` permanents.
+ *
+ * `count` defaults to zero, so a caller that does not know what is in the block
+ * gets the narrow rung rather than a guess, and `supportBlockWidth.length`
+ * stays 1 — the arity `seatLayout.test.ts` pins to stop counts leaking back
+ * into the geometry that must not have them.
+ */
+export function supportBlockWidth(matWidth: number, count = 0): number {
+  let rung = BLOCK_WIDTH_RUNGS[0];
+  for (const candidate of BLOCK_WIDTH_RUNGS) {
+    if (count > candidate.over) rung = candidate;
+  }
+  return Math.round(Math.max(76, Math.min(matWidth * rung.share, rung.cap)));
 }
 
 /**

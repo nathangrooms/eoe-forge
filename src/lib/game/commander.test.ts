@@ -43,6 +43,7 @@ import { applyAction, applyActions, getCard, getPlayer } from './rules.ts';
 import { buildTable, type PlayDeck } from './setup.ts';
 import { planCastFromHand } from './moves.ts';
 import { nextBotMove } from './bot.ts';
+import { stackOf } from './stack.ts';
 import {
   commanderCost,
   commanderDamageDealt,
@@ -563,9 +564,32 @@ test('the bot casts its commander from the command zone, and pays the tax when t
   const announcement = move.actions.find(action => action.type === 'CAST_COMMANDER');
   assert.ok(announcement, `the bot cast something else: ${move.note}`);
 
-  const after = applyActions(state, move.actions);
-  assert.equal(getPlayer(after, 'p2')!.commanders[0].castCount, 2);
-  assert.equal(getCard(after, commanderOf(state, 'p2').instanceId)?.zone, 'battlefield');
+  /*
+   * The cast now ANNOUNCES rather than arrives, and this test is the place that
+   * says so out loud.
+   *
+   * `bot.ts` casts through the stack by default, so the batch ends in
+   * `CAST_SPELL` and the commander is a stack object at this point: an object
+   * the other seat could respond to, which is the whole reason for the change.
+   * It reaches the battlefield when the priority round completes, and the round
+   * is run here rather than assumed: CR 117.4, everybody passes in succession,
+   * and `stackFollowUps` derives the resolution.
+   *
+   * The cast COUNT is charged on announcement, not on resolution, which is CR
+   * 903.8 and is why that assertion sits before the round rather than after it.
+   */
+  const announced = applyActions(state, move.actions);
+  const commanderId = commanderOf(state, 'p2').instanceId;
+  assert.equal(getPlayer(announced, 'p2')!.commanders[0].castCount, 2);
+  assert.equal(getCard(announced, commanderId)?.zone, 'stack');
+  assert.equal(stackOf(announced).length, 1);
+
+  const after = applyActions(announced, [
+    { type: 'PASS_PRIORITY', playerId: 'p2', at: 2 },
+    { type: 'PASS_PRIORITY', playerId: 'p1', at: 3 },
+  ]);
+  assert.equal(stackOf(after).length, 0, 'the priority round did not resolve the commander');
+  assert.equal(getCard(after, commanderId)?.zone, 'battlefield');
 });
 
 /* ------------------------------------------------------------------ *

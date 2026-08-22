@@ -36,15 +36,32 @@ import {
   hasKeywordIn,
   isCreatureIn,
 } from './characteristics.ts';
-import { isLand, isPermanent, manaSourcesFor } from './mana.ts';
+import {
+  castingCostOf,
+  isLand,
+  isPermanent,
+  manaSourcesFor,
+  planPayment,
+  type ManaSource,
+  type PaymentPlan,
+} from './mana.ts';
 import { advanceActions, planCastFromHand, planLandDrop, declareAttack } from './moves.ts';
+// One asker for a spell's targets, reusing `activate.ts`'s legality rules. See
+// the "What a spell is FOR" section for the policy that drives it.
+import { planCastWith, spellAbilitiesOf } from './cast-targets.ts';
 import { auraNeedsHost, legalHostsFor } from './attach.ts';
 // CR 903.9a. The bot answers the same offer a human seat is shown, built by the
 // same function, so a bot deck and a player's deck lose a commander the same way.
 import { commanderZoneOffers } from './commander.ts';
 import { staticAbilitiesOf } from './abilities/card-abilities.ts';
 import { hasPriority, stackOf } from './stack.ts';
-import { responseOptions, spellToAnswer } from './respond.ts';
+import {
+  counterCanTarget,
+  countersSpells,
+  isInstantSpeed,
+  responseOptions,
+  spellToAnswer,
+} from './respond.ts';
 // The bot activates abilities through the identical planner a human click goes
 // through. It gets no private route onto the stack, which is the property that
 // makes a bot seat and a human seat the same thing to everything downstream.
@@ -64,14 +81,52 @@ export interface BotOptions {
   /**
    * Announce spells onto the stack, and take priority.
    *
-   * Off by default so `/simulate` and every existing test keep the immediate
-   * cast they were written against. On, the bot casts through the stack, holds
-   * a real priority round, and — the point of the whole thing — counters an
-   * opponent's spell when it is holding an answer and can pay for it. A bot
-   * that never responds makes every instant in a deck dead weight, and reads as
-   * an engine that does not implement counterspells.
+   * ON BY DEFAULT, and that is the change this option exists to record. Off is
+   * what made a bot's spell something nobody at the table could answer:
+   * `planCastFromHand` takes its non-stack branch, the card goes straight from
+   * hand to the battlefield or the graveyard, and there is never a moment at
+   * which it is an object. A counterspell has nothing to be cast at, an instant
+   * has no window, and the priority round is skipped entirely. Twenty recorded
+   * games with it off put 3 spells on the stack; the same twenty seeds with it
+   * on put 872.
+   *
+   * With it on the bot casts through the stack, holds a real priority round,
+   * passes when it has no answer, and counters an opponent's spell when it is
+   * holding one it can pay for.
+   *
+   * Lands are NOT affected. `planLandDrop` builds a `PLAY` and never comes
+   * through the cast planner, which is CR 305.1: a land is put onto the
+   * battlefield without using the stack and cannot be responded to. Mana
+   * abilities are not affected either. CR 605.3a keeps them off the stack and
+   * `activate.ts` already resolves one inline.
+   *
+   * Pass `false` for the old immediate cast. `/simulate` does, through
+   * `usePlayGame`, because a spell left on a stack whose priority round nobody
+   * runs is a hung game rather than a more correct one, and that surface has a
+   * human seat which is never asked to pass. Every seat in the playtest harness
+   * is a bot and a bot always passes, so the round always completes there.
    */
   useStack?: boolean;
+  /**
+   * DOES THIS SEAT CAST INSTANTS AND SORCERIES.
+   *
+   * `'all'` is the default and it is the policy the "What a spell is FOR"
+   * section of this file describes. `'permanents-only'` is the behaviour from
+   * before that policy existed, when `chooseSpell` filtered its candidates with
+   * `isPermanent` and every instant and sorcery in a bot deck was a dead card.
+   *
+   * The old behaviour is kept, named, for ONE reason: it is the control arm.
+   * "Instants cast rose from 3 to 113" is a measure of louder, not of better,
+   * and a bot with all access and no judgement moves that number exactly as far
+   * as a bot that plays well. The only way to tell the two apart is to sit them
+   * at the same table and count who wins, which is what
+   * `scripts/playtest/run.ts --ab` does with this option.
+   *
+   * It is not a difficulty setting and should not become one. If the A/B run
+   * ever says `'permanents-only'` is stronger, the answer is to fix the policy,
+   * not to ship the switch.
+   */
+  castingPolicy?: 'all' | 'permanents-only';
   /**
    * 'timid' never attacks into a possible trade, 'normal' trades up,
    * 'aggressive' attacks whenever it is not strictly losing the exchange.
@@ -97,7 +152,17 @@ function handCards(state: GameState, playerId: PlayerId): CardInstance[] {
   return player.zones.hand.map(id => state.cards[id]).filter(Boolean);
 }
 
-/** Rough "is this worth casting" score: bodies first, then anything permanent. */
+/**
+ * Rough "is this worth casting" score: bodies first, then anything permanent,
+ * then a sorcery or a non-answer instant.
+ *
+ * The last band is where an instant or a sorcery now lands, and its position is
+ * the policy: DEVELOP THE BOARD FIRST. A four-drop creature and a Divination
+ * both cost four, and the creature is the one that is still there next turn. So
+ * a `now` spell is cast out of what is left over rather than instead of the
+ * curve, which is also why the counterspell reserve almost never has to argue
+ * with one.
+ */
 function castScore(state: GameState, card: CardInstance): number {
   const cmc = card.cmc ?? 0;
   // A card in hand has no layered entry; `characteristics.ts` falls back to its
@@ -147,12 +212,359 @@ function chooseLand(state: GameState, playerId: PlayerId): CardInstance | null {
   return lands.slice().sort((a, b) => score(b) - score(a))[0];
 }
 
-/** The best castable thing right now, commander included, or null. */
+/* -------------------------------------------------------------------------- */
+/* What a spell is FOR — the policy this whole tranche is                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The four things a card in hand can be, and the whole instant policy in one
+ * type.
+ *
+ * ## Why this exists
+ *
+ * `chooseSpell` used to read `.filter(card => isPermanent(card))`. Twenty
+ * recorded commander games measured the cost: 650 instants and sorceries were
+ * dealt into eighty decks, 125 of them reached a hand, and **3 were ever cast**
+ * — all three counterspells, all three from the one branch elsewhere in this
+ * file that already knew how. Every other instant and every sorcery in every
+ * bot deck was a dead card.
+ *
+ * Taking the filter out is one line and it is not the work. Teaching a bot to
+ * cast instants means teaching it WHEN, because an instant cast in your own
+ * main phase for no reason is a sorcery you paid a premium for. So each card
+ * gets a role and each role gets a window:
+ *
+ * | role | what it is | when it is cast |
+ * |---|---|---|
+ * | `permanent` | a creature, a rock, a land's worth of board | main phase, as before |
+ * | `now` | a sorcery, or an instant that answers nothing — a draw spell, ramp, a tutor | main phase, after the permanents |
+ * | `answer` | an instant whose text harms what it points at | held, and spent at one of the two moments below |
+ * | `counter` | an instant that counters a spell | held, and only ever cast at somebody else's spell |
+ *
+ * The distinction between `answer` and `now` is the one the owner's "smart
+ * play" turns on, and it is read off the card's own compiled effects rather
+ * than a name list: see `spellPunishes`.
+ */
+type SpellRole = 'permanent' | 'now' | 'answer' | 'counter';
+
+function spellRole(card: CardInstance): SpellRole {
+  if (isPermanent(card)) return 'permanent';
+  if (countersSpells(card)) return 'counter';
+  if (isInstantSpeed(card) && spellPunishes(card)) return 'answer';
+  return 'now';
+}
+
+/** Every `{do: ...}` node in an effect tree, modal and conditional branches included. */
+function walkEffects(node: unknown, visit: (effect: Record<string, unknown>) => void): void {
+  if (Array.isArray(node)) {
+    for (const entry of node) walkEffects(entry, visit);
+    return;
+  }
+  if (!node || typeof node !== 'object') return;
+  const record = node as Record<string, unknown>;
+  if (typeof record.do === 'string') visit(record);
+  for (const value of Object.values(record)) walkEffects(value, visit);
+}
+
+/** Does any part of this effect node point at something the caster chose? */
+function mentionsTarget(node: unknown): boolean {
+  if (Array.isArray(node)) return node.some(mentionsTarget);
+  if (!node || typeof node !== 'object') return false;
+  const record = node as Record<string, unknown>;
+  if (record.sel === 'target') return true;
+  return Object.values(record).some(mentionsTarget);
+}
+
+/** A `ValueExpr` that is a plain number, or 0. Enough to read a sign off. */
+function flatNumber(value: unknown): number {
+  return typeof value === 'number' ? value : 0;
+}
+
+/**
+ * Does this spell HARM the thing it is pointed at?
+ *
+ * The same question `auraPunishes` asks of an Aura, asked of an instant, and
+ * for the same reason: the card has to decide whose board it is about, because
+ * nothing else in this file can. A removal spell aimed at the bot's own best
+ * creature is the single most embarrassing thing a bot can do, and it is what
+ * happens by default — `botChoice` prefers "an opponent" and falls back to the
+ * bot's own board when no opponent is on offer, which is right for an equip
+ * ability and catastrophic for a Doom Blade.
+ *
+ * Read off the compiled `kind: 'spell'` effects, so it is the card's own text
+ * answering. A verb that harms, aimed at something the caster chose, makes the
+ * spell an answer.
+ *
+ * Deliberately narrow, exactly as `auraPunishes` is. It says nothing about a
+ * spell whose harm the compiler did not model, and such a spell is treated as
+ * beneficial and pointed at the bot's own board. The cost of that mistake is
+ * one wasted card on the bot's own side, which is loud and visible; the cost of
+ * the opposite mistake is a bot handing an opponent a free Giant Growth, which
+ * is quiet. Narrow and wrong-in-the-loud-direction is the choice made here.
+ */
+const HARMS_ITS_TARGET = new Set([
+  'destroy',
+  'exile',
+  'damage',
+  'counter',
+  'tap',
+  'sacrifice',
+  'mill',
+  'discard',
+  'lose-life',
+  'gain-control',
+  'poison',
+]);
+
+function spellPunishes(card: CardInstance): boolean {
+  let harmful = false;
+  for (const ability of spellAbilitiesOf(card)) {
+    walkEffects(ability.effects, node => {
+      if (harmful) return;
+      if (!mentionsTarget(node)) return;
+      const verb = node.do as string;
+      if (HARMS_ITS_TARGET.has(verb)) harmful = true;
+      // "Target creature gets -3/-3" is removal; the same node with +3/+3 is a
+      // combat trick for the bot's own creature. Only the sign separates them.
+      if (verb === 'pump' && (flatNumber(node.power) < 0 || flatNumber(node.toughness) < 0)) {
+        harmful = true;
+      }
+      if (verb === 'add-counters' && String(node.counter ?? '').startsWith('-')) harmful = true;
+      // Anywhere but the battlefield is a bounce, a tuck or a bin.
+      if (verb === 'move-zone' && node.to !== 'battlefield') harmful = true;
+    });
+    if (harmful) return true;
+  }
+  return false;
+}
+
+/* -------------------------------------------------------------------------- */
+/* WHAT THE BOT WILL NOT THROW AWAY                                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * CAN THE ENGINE ACTUALLY RUN THIS SPELL, or would casting it bin the card?
+ *
+ * ## The measurement this exists for
+ *
+ * The pass that taught the bot to cast instants and sorceries was checked by
+ * counting casts, and casts went from 3 to 113 over twenty games. Replaying
+ * those same twenty games and reading what the engine DID at each resolution
+ * gives a different number: **72 of the 113 resolved having changed nothing at
+ * all**, printed a note saying so, and went to the graveyard. Broken down by
+ * the compiled text rather than by the outcome:
+ *
+ *   65 of 113 were cards with no `kind: 'spell'` ability at all — 63 of those
+ *      65 did nothing, and the other two only looked busy because something
+ *      else resolved in the same batch
+ *    4 more compiled to nothing but `manual` and `choose-mode`, and a mode is a
+ *      decision no surface makes, so none of its branches ever runs
+ *   44 had a verb the engine runs, and 39 of those 44 did real work
+ *
+ * A card the engine cannot run is a dead card in hand and a dead card is worth
+ * exactly nothing. Casting it is worse than nothing: it spends the mana, it
+ * spends the card, and it produces the event this project's own law calls a
+ * serious bug — a spell that resolves and does nothing. It also lengthens
+ * games, which is where the one seed in fifty that stopped finishing came from.
+ *
+ * So the bot holds it. This is not the coverage gap being hidden: 227 of the
+ * 498 distinct instants and sorceries in these eighty decks compile to nothing
+ * runnable, that number is unchanged, and `stack-census.ts` still reports it.
+ * What changes is that the gap stays a gap instead of being converted into
+ * wasted cards.
+ *
+ * A PERMANENT is not asked this question. A creature with no compiled text is
+ * still a body that blocks and attacks, so it is worth casting whatever the
+ * compiler made of its rules box; an instant with no compiled text is only its
+ * rules box.
+ */
+function engineCanRunSpell(card: CardInstance): boolean {
+  for (const ability of spellAbilitiesOf(card)) {
+    const effects = Array.isArray(ability.effects) ? ability.effects : [ability.effects];
+    for (const effect of effects) {
+      const verb = (effect as { do?: unknown } | null)?.do;
+      if (typeof verb !== 'string') continue;
+      /* `manual` is the compiler saying "a person has to do this". `choose-mode`
+         is a decision `planCastFromHand` has no field to carry, stated at the
+         top of `cast-targets.ts`, so a modal spell resolves on none of its
+         modes. Neither is text the engine runs. */
+      if (verb === 'manual' || verb === 'choose-mode') continue;
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Does this card print a cost the engine will not charge for it?
+ *
+ * CR 601.2f–h: an additional cost is paid as the spell is cast, and it is not
+ * optional. `planCastFromHand` prices the mana cost and nothing else, and says
+ * so at `mana.ts`. So a bot casting one of these plays a card that does not
+ * exist: measured over the twenty recorded games, six casts skipped a printed
+ * cost, including Wicked Reward's "sacrifice a creature" for a free +4/+2 and
+ * Wild Guess's "discard a card" for two free cards.
+ *
+ * Text matching, and honest about being that, exactly as `countersSpells` is.
+ * The compiler already classifies this phrase as an `alt-cast` gap, so the two
+ * agree about which cards they are; this is the same question asked where a
+ * decision is made.
+ *
+ * KICKER, AWAKEN AND OVERLOAD ARE NOT THIS. They are optional extra costs a
+ * caster may decline, and declining them is a legal way to cast the card, so
+ * the bot casting the cheap mode is playing the card as printed.
+ */
+function costsMoreThanTheEngineCharges(card: CardInstance): boolean {
+  return /as an additional cost to cast/i.test(card.oracleText ?? '');
+}
+
+/**
+ * WOULD THIS ANSWER ACTUALLY DEAL WITH THAT CREATURE?
+ *
+ * `spellPunishes` asks whether a spell harms what it points at. It says nothing
+ * about whether the harm is enough, and the gap was measured rather than
+ * guessed: in seed 9003 the bot cast Moment of Craving, "target creature gets
+ * -2/-2 until end of turn", at a 3/3 in its OWN precombat main because the 3/3
+ * outclassed its board. The creature became a 1/1 until end of turn and was a
+ * 3/3 again before it ever attacked. A card and two mana for nothing.
+ *
+ * So in the window where the creature is standing on the battlefield doing
+ * nothing yet, the answer has to REMOVE it: destroy, exile, bounce, tuck, steal
+ * it, or put enough damage or enough minus on it to kill it outright.
+ *
+ * The declare-blockers window asks a weaker question and gets it from the
+ * caller, because there a shrink is not nothing: three damage off a 5/4
+ * attacker is three life this seat keeps.
+ *
+ * Deliberately narrow, in the same direction as `spellPunishes`: harm the
+ * compiler did not model reads as "does not remove", so the card is held rather
+ * than spent. Holding a removal spell one turn too long costs a turn; spending
+ * it on a creature it cannot kill costs the card.
+ */
+function answerRemoves(state: GameState, card: CardInstance, victim: CardInstance): boolean {
+  const toughness = combatToughnessIn(state, victim);
+  let removes = false;
+
+  for (const ability of spellAbilitiesOf(card)) {
+    walkEffects(ability.effects, node => {
+      if (removes) return;
+      if (!mentionsTarget(node)) return;
+      const verb = node.do as string;
+      if (verb === 'destroy' || verb === 'exile' || verb === 'sacrifice' || verb === 'gain-control') {
+        removes = true;
+        return;
+      }
+      // Anywhere off the battlefield is gone: a bounce, a tuck or a bin.
+      if (verb === 'move-zone' && node.to !== 'battlefield') {
+        removes = true;
+        return;
+      }
+      if (verb === 'damage' && flatNumber(node.amount) >= toughness && toughness > 0) removes = true;
+      if (verb === 'pump' && -flatNumber(node.toughness) >= toughness) removes = true;
+    });
+    if (removes) return true;
+  }
+  return false;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Holding mana open                                                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * What is left to tap after a payment has been planned out of `sources`.
+ *
+ * `planPayment` is pure over a source list, so "could I still pay for X after
+ * casting Y" is answerable exactly rather than by counting lands. One entry is
+ * removed per tapped permanent and one pool unit per colour spent, which is
+ * precisely what `paymentActions` will emit.
+ */
+function sourcesLeftAfter(sources: readonly ManaSource[], payment: PaymentPlan): ManaSource[] {
+  const tapped = new Set(payment.tapIds);
+  const spent = [...payment.spend];
+  const left: ManaSource[] = [];
+  for (const source of sources) {
+    if (tapped.has(source.instanceId)) {
+      tapped.delete(source.instanceId);
+      continue;
+    }
+    if (source.poolColor) {
+      const index = spent.indexOf(source.poolColor);
+      if (index !== -1) {
+        spent.splice(index, 1);
+        continue;
+      }
+    }
+    left.push(source);
+  }
+  return left;
+}
+
+/**
+ * THE MANA THIS SEAT WILL NOT SPEND, and why only a counterspell earns it.
+ *
+ * A counterspell's entire value is that the mana was open on somebody else's
+ * turn. Tap out for a four-drop while holding one and the counterspell is not a
+ * card, it is a piece of paper — which is the "all access and no judgement"
+ * failure the owner's brief names.
+ *
+ * REMOVAL DOES NOT EARN THE RESERVE, and that is a decision rather than an
+ * oversight. Removal keeps its value when it is cast on this seat's own turn,
+ * so holding mana back for it buys nothing; a bot that reserved for every
+ * instant in hand would stop developing its board altogether, which is a worse
+ * bot by a wide margin than one that occasionally taps out.
+ *
+ * Returns the cost string to keep open, or null when there is nothing to hold.
+ */
+function reservedCounterCost(state: GameState, playerId: PlayerId): string | null {
+  const sources = manaSourcesFor(state, playerId);
+  const held = handCards(state, playerId)
+    .filter(card => !isLand(card) && countersSpells(card) && isInstantSpeed(card))
+    .filter(card => planPayment(castingCostOf(card), sources).ok)
+    .sort((a, b) => (a.cmc ?? 0) - (b.cmc ?? 0));
+  const cheapest = held[0];
+  return cheapest ? castingCostOf(cheapest) : null;
+}
+
+/** Would this payment still leave the reserved counterspell payable? */
+function keepsTheReserve(
+  sources: readonly ManaSource[],
+  payment: PaymentPlan,
+  reserve: string | null
+): boolean {
+  if (!reserve) return true;
+  return planPayment(reserve, sourcesLeftAfter(sources, payment)).ok;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Casting                                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The best castable thing right now, commander included, or null.
+ *
+ * `roles` is the window: a main phase asks for `permanent` and `now`, and the
+ * answer windows ask for `answer` on their own. A role is never cast outside
+ * the window that names it, which is what stops the bot dumping its whole hand
+ * in its first main phase.
+ *
+ * ## Instants and sorceries are only cast when the stack is on
+ *
+ * `useStack: false` is `/simulate`'s configuration, and on that path
+ * `planCastFromHand` builds a bare `PLAY` straight to the resolution zone.
+ * `compiledSpellActions` only runs from `stack.ts` at resolution, so an instant
+ * cast without the stack moves from hand to graveyard having done NOTHING. A
+ * bot allowed to do that would discard its whole hand for no effect, which is
+ * strictly worse than the dead card this tranche is removing. So the old
+ * behaviour is kept exactly, on purpose, wherever the stack is off.
+ */
 function chooseSpell(
   state: GameState,
   playerId: PlayerId,
   at: number,
-  viaStack = false
+  viaStack = true,
+  roles: readonly SpellRole[] = ['permanent'],
+  reserve: string | null = null
 ): { card: CardInstance; actions: GameAction[] } | null {
   const player = getPlayer(state, playerId);
   if (!player) return null;
@@ -164,8 +576,24 @@ function chooseSpell(
     ...player.zones.command.map(id => state.cards[id]).filter(Boolean),
   ];
 
+  const sources = manaSourcesFor(state, playerId);
+
   const ranked = candidates
-    .filter(card => isPermanent(card))
+    .filter(card => {
+      const role = spellRole(card);
+      if (roles.indexOf(role) === -1) return false;
+      // See the doc comment. Nothing but a permanent is cast without the stack.
+      if (!viaStack && role !== 'permanent') return false;
+      /* An instant or a sorcery IS its rules box, so one the engine cannot run
+         is a card thrown away and one whose printed extra cost the engine will
+         not charge is a card that does not exist. A permanent is a body either
+         way and is asked neither question. See `engineCanRunSpell`. */
+      if (role !== 'permanent') {
+        if (!engineCanRunSpell(card)) return false;
+        if (costsMoreThanTheEngineCharges(card)) return false;
+      }
+      return true;
+    })
     .sort((a, b) => castScore(state, b) - castScore(state, a));
 
   for (const card of ranked) {
@@ -194,12 +622,312 @@ function chooseSpell(
       : undefined;
     if (wantsHost && !hostId) continue;
 
-    const plan = planCastFromHand(state, playerId, card.instanceId, {
-      at,
-      viaStack,
-      ...(hostId ? { hostId } : {}),
+    /*
+     * `planCastWith` rather than `planCastFromHand`, and this is the second
+     * half of the tranche. A spell that names a target is announced AT
+     * something (CR 601.2c) or it resolves having affected nobody — measured on
+     * the eighty decks of the twenty game run, 187 of the 271 runnable instants
+     * and sorceries are in that shape. The decider below is this file's policy;
+     * the legality is `activate.ts`'s, unchanged and shared with every
+     * activated ability.
+     *
+     * It also gives "a removal spell with no legal target is not cast" for
+     * nothing: `chooseTargetsFor` refuses with CR 601.2c's own sentence, the
+     * plan comes back not ok, and the loop moves on to the next card.
+     */
+    const plan = planCastWith(
+      state,
+      playerId,
+      card.instanceId,
+      choice => botSpellTarget(state, playerId, card, choice),
+      { at, viaStack, ...(hostId ? { hostId } : {}) }
+    );
+    if (!plan.ok) continue;
+    if (!keepsTheReserve(sources, plan.payment, reserve)) continue;
+    return { card, actions: plan.actions };
+  }
+  return null;
+}
+
+/**
+ * WHERE THE BOT POINTS A SPELL, decided by whether the spell hurts.
+ *
+ * `botChoice` is this file's answer for an activated ability and it is the
+ * wrong answer for a spell: it prefers an opponent and falls back to the bot's
+ * own board when no opponent is on offer, which turns "destroy target creature"
+ * into a bot destroying its own creature the moment the opponents have none.
+ *
+ * So the direction is read off the card first, through `spellPunishes`, and
+ * then the pick inside that direction is the obvious one:
+ *
+ *   - A spell that harms goes at the biggest creature an opponent controls. A
+ *     creature rather than a face, because a burn spell that kills a blocker
+ *     changes a game and three damage to a forty life commander seat does not.
+ *     Only if no opposing permanent is legal does it go at an opponent's seat.
+ *   - A spell that helps goes at this seat's own biggest creature, or at this
+ *     seat. It is NEVER pointed across the table.
+ *
+ * Declining is a real answer. A harmful spell with nothing but the bot's own
+ * board to choose from is not cast at all, which is the whole reason this
+ * function exists rather than reusing `botChoice`.
+ */
+function botSpellTarget(
+  state: GameState,
+  playerId: PlayerId,
+  card: CardInstance,
+  choice: PendingChoice
+): StackTarget | null {
+  if (choice.kind !== 'target') return null;
+
+  const harmful = spellPunishes(card);
+  const theirs = choice.instanceIds.filter(id => state.cards[id]?.controllerId !== playerId);
+  const mine = choice.instanceIds.filter(id => state.cards[id]?.controllerId === playerId);
+
+  const pickCard = (ids: InstanceId[]): StackTarget | null => {
+    const chosen = bestHostOf(state, ids, () => true);
+    if (!chosen) return null;
+    const target = state.cards[chosen];
+    return {
+      kind: 'card',
+      instanceId: chosen,
+      zone: target?.zone,
+      zoneChangeCounter: target?.zoneChangeCounter ?? 0,
+    };
+  };
+
+  if (harmful) {
+    const opponentSeat = choice.playerIds.find(id => id !== playerId);
+    return pickCard(theirs) ?? (opponentSeat ? { kind: 'player', playerId: opponentSeat } : null);
+  }
+
+  const own = choice.playerIds.indexOf(playerId) !== -1 ? playerId : undefined;
+  return pickCard(mine) ?? (own ? { kind: 'player', playerId: own } : null);
+}
+
+/* -------------------------------------------------------------------------- */
+/* WHEN AN ANSWER IS SPENT                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * How big a creature has to be before a removal spell is spent on it.
+ *
+ * A POLICY NUMBER, not a rule, and written down here rather than inlined so it
+ * can be argued with. Without a floor, a bot that controls no creatures on turn
+ * two finds that every creature on the table "outclasses its board" — which is
+ * true and useless — and fires its Doom Blade at a Llanowar Elves. Three power
+ * is the point at which a creature is doing something a chump block cannot
+ * survive and a two-drop cannot trade with.
+ *
+ * The cost of being wrong is a removal spell held one turn longer than it
+ * needed to be. The cost of no floor at all was measured in the other
+ * direction: it is the "all access and no judgement" the brief warns about.
+ */
+const REMOVAL_WORTH_SPENDING_ON = 3;
+
+/** The biggest power and toughness this seat has on the board, or 0 and 0. */
+function boardCeiling(state: GameState, playerId: PlayerId): { power: number; toughness: number } {
+  const player = getPlayer(state, playerId);
+  let power = 0;
+  let toughness = 0;
+  for (const id of player?.zones.battlefield ?? []) {
+    const card = state.cards[id];
+    if (!card || !isCreatureIn(state, card)) continue;
+    power = Math.max(power, combatPowerIn(state, card));
+    toughness = Math.max(toughness, combatToughnessIn(state, card));
+  }
+  return { power, toughness };
+}
+
+/**
+ * Creatures on an opponent's board that THIS SEAT'S COMBAT CANNOT DEAL WITH.
+ *
+ * The definition is the bot's own attack maths read from the other side: a
+ * creature whose toughness is greater than the power of everything this seat
+ * controls, so nothing here can kill it, AND whose power is at least the
+ * toughness of the biggest thing here, so it kills whatever blocks it. That is
+ * what "combat has no answer" means, stated as two comparisons rather than a
+ * feeling.
+ *
+ * This is the release valve on holding an answer, and it needs one. A seat that
+ * is never attacked would otherwise hold its removal for the whole game, which
+ * is the dead card this tranche exists to remove wearing a different hat.
+ */
+function outclassingCreatures(state: GameState, playerId: PlayerId): Set<InstanceId> {
+  const ceiling = boardCeiling(state, playerId);
+  const out = new Set<InstanceId>();
+  for (const player of livingPlayers(state)) {
+    if (player.id === playerId) continue;
+    for (const id of player.zones.battlefield) {
+      const card = state.cards[id];
+      if (!card || !isCreatureIn(state, card)) continue;
+      const power = combatPowerIn(state, card);
+      const toughness = combatToughnessIn(state, card);
+      if (power < REMOVAL_WORTH_SPENDING_ON) continue;
+      if (toughness <= ceiling.power) continue;
+      if (power < ceiling.toughness) continue;
+      out.add(id);
+    }
+  }
+  return out;
+}
+
+/**
+ * Attackers pointed at this seat that no block can answer.
+ *
+ * Every eligible blocker is tried against each attacker: if not one of them can
+ * block it and either kill it or survive it, the only block available is a
+ * chump block, and this is the moment a removal spell is worth the most in the
+ * whole game. The creature is already tapped and committed, the damage has not
+ * happened yet, and the trade that would have made the removal unnecessary does
+ * not exist.
+ *
+ * An attacker nothing may legally block at all — flying over an empty board,
+ * menace against one body — is in the list for the same reason.
+ *
+ * The same `REMOVAL_WORTH_SPENDING_ON` floor `outclassingCreatures` uses, for
+ * the same reason and because it was missing here: seed 9003 spent Dark Deed on
+ * a 2/2 and seed 9007 spent Lightning Dart on a 2/1, each a whole card to stop
+ * two damage in a format that starts on forty life. A swing that would actually
+ * kill this seat overrides the floor, because at that point the card is worth
+ * whatever it costs.
+ */
+function unanswerableAttackers(state: GameState, playerId: PlayerId): Set<InstanceId> {
+  const out = new Set<InstanceId>();
+  const blockers = eligibleBlockers(state, playerId);
+  const life = getPlayer(state, playerId)?.life ?? 0;
+
+  for (const declaration of state.combat.attackers) {
+    if (declaration.defenderPlayerId !== playerId) continue;
+    if (declaration.blockedBy.length > 0) continue;
+    const attacker = state.cards[declaration.attackerId];
+    if (!attacker) continue;
+
+    const power = combatPowerIn(state, attacker);
+    const toughness = combatToughnessIn(state, attacker);
+    if (power < REMOVAL_WORTH_SPENDING_ON && power < life) continue;
+    const answered = blockers.some(blocker => {
+      if (!canBlock(state, attacker, blocker)) return false;
+      if (blockersRequiredFor(state, attacker) > blockers.length) return false;
+      const kills =
+        combatPowerIn(state, blocker) >= toughness || hasKeywordIn(state, blocker, 'deathtouch');
+      const survives = combatToughnessIn(state, blocker) > power;
+      return kills || survives;
     });
-    if (plan.ok) return { card, actions: plan.actions };
+    if (!answered) out.add(declaration.attackerId);
+  }
+  return out;
+}
+
+/**
+ * Spend one held answer on one of these creatures, or hold it.
+ *
+ * The cheapest answer that can legally be aimed at a creature in `victims` is
+ * the one spent, because a Doom Blade and a Ruinous Ultimatum kill the same 4/4
+ * and only one of them is still in hand afterwards.
+ *
+ * A card whose targets cannot reach any victim is NOT cast — an "exile target
+ * artifact" is not spent on a creature it cannot touch just because the bot
+ * wanted to do something. That is the same refusal `chooseTargetsFor` makes for
+ * a spell with no legal target at all, one step narrower.
+ *
+ * `mustRemove` is the difference between the two windows this is called from.
+ * In the caster's own main phase the creature is standing there doing nothing,
+ * so an answer that does not actually remove it achieves nothing at all and the
+ * card is held — see `answerRemoves` for the game that measured it. At declare
+ * blockers the damage is already pointed at this seat, so shrinking the
+ * attacker is worth something even when it does not kill it.
+ */
+function chooseAnswer(
+  state: GameState,
+  playerId: PlayerId,
+  at: number,
+  viaStack: boolean,
+  victims: Set<InstanceId>,
+  mustRemove: boolean
+): { card: CardInstance; victim: string; actions: GameAction[] } | null {
+  if (!viaStack) return null; // See `chooseSpell`: an instant off the stack does nothing.
+  if (victims.size === 0) return null;
+
+  const held = handCards(state, playerId)
+    .filter(card => !isLand(card) && spellRole(card) === 'answer')
+    /* The same two questions `chooseSpell` asks of a `now` spell, and for the
+       same reasons: a removal spell the engine cannot run kills nothing, and one
+       whose printed additional cost nothing charges is a card that does not
+       exist. See `engineCanRunSpell`. */
+    .filter(card => engineCanRunSpell(card) && !costsMoreThanTheEngineCharges(card))
+    .sort((a, b) => (a.cmc ?? 0) - (b.cmc ?? 0) || a.name.localeCompare(b.name));
+
+  for (const card of held) {
+    /*
+     * WHICH VICTIMS THIS CARD MAY BE POINTED AT, worked out once so the loop
+     * below can ask about them and the check after the plan can ask again.
+     *
+     * In the main-phase window the answer has to finish the job, so a victim
+     * this card cannot actually remove is not a victim for it. See
+     * `answerRemoves`.
+     */
+    const reachableVictim = (id: InstanceId): boolean => {
+      if (!victims.has(id)) return false;
+      if (!mustRemove) return true;
+      const victim = state.cards[id];
+      return Boolean(victim) && answerRemoves(state, card, victim);
+    };
+
+    let aimedAt: string | null = null;
+
+    const plan = planCastWith(
+      state,
+      playerId,
+      card.instanceId,
+      choice => {
+        if (choice.kind !== 'target') return null;
+        const reachable = choice.instanceIds.filter(reachableVictim);
+        if (reachable.length > 0) {
+          const chosen = bestHostOf(state, reachable, () => true);
+          if (chosen) {
+            aimedAt = state.cards[chosen]?.name ?? 'it';
+            const target = state.cards[chosen];
+            return {
+              kind: 'card',
+              instanceId: chosen,
+              zone: target?.zone,
+              zoneChangeCounter: target?.zoneChangeCounter ?? 0,
+            };
+          }
+        }
+        /* A second target on the same card — "and put a +1/+1 counter on target
+           creature you control" — is answered by the ordinary policy. */
+        return botSpellTarget(state, playerId, card, choice);
+      },
+      { at, viaStack }
+    );
+
+    if (!plan.ok) continue;
+
+    /*
+     * THE DECIDER IS NOT ALWAYS ASKED, and reading the answer off `aimedAt`
+     * alone was a defect that hid in the one case that matters most.
+     *
+     * `chooseTargetsFor` takes a forced choice without asking — one legal
+     * candidate is not a decision. So when the opponent's creature is the ONLY
+     * creature on the battlefield, which is most of the early game, the callback
+     * above never ran, `aimedAt` stayed null, and the bot declined to cast a
+     * removal spell it had every reason to cast. Reproduced as a unit test in
+     * `botSpells.test.ts`: with a 4/4 across the table and nothing on the bot's
+     * own board, the bot held Murder and moved to combat.
+     *
+     * So the plan is asked what it announced, rather than the callback being
+     * asked what it was told. The targets ride on the last action of the batch,
+     * which is the `CAST_SPELL` (or the `PLAY` when the stack is off).
+     */
+    const announced = plan.actions
+      .flatMap(action => ('targets' in action ? (action.targets ?? []) : []))
+      .filter((target): target is StackTarget & { kind: 'card' } => target.kind === 'card')
+      .filter(target => reachableVictim(target.instanceId));
+
+    const hit = aimedAt ?? (announced.length > 0 ? state.cards[announced[0].instanceId]?.name : null);
+    if (!hit) continue;
+    return { card, victim: hit, actions: plan.actions };
   }
   return null;
 }
@@ -413,9 +1141,12 @@ function botChoice(
 function chooseActivation(
   state: GameState,
   playerId: PlayerId,
-  at: number
+  at: number,
+  reserve: string | null = null
 ): { card: CardInstance; option: AbilityCandidate; actions: GameAction[] } | null {
   if (activationsThisTurn(state, playerId) >= MAX_ACTIVATIONS_PER_TURN) return null;
+
+  const sources = manaSourcesFor(state, playerId);
 
   for (const entry of activatablePermanents(state, playerId, { at })) {
     for (const option of entry.options) {
@@ -429,7 +1160,37 @@ function chooseActivation(
         choice => botChoice(state, playerId, entry.card, choice),
         { at }
       );
-      if (plan.ok) return { card: entry.card, option, actions: plan.actions };
+      if (!plan.ok) continue;
+
+      /*
+       * The counterspell reserve applies here too, or it is not a reserve: a
+       * bot that declined to cast a four-drop and then tapped the same four
+       * lands to equip a sword has held nothing open.
+       *
+       * A MANA ABILITY IS EXEMPT, and it has to be. `manaSourcesFor` counts the
+       * pool, so tapping a land for {G} moves one source from the battlefield
+       * to the pool and leaves the total unchanged — but the check below only
+       * sees the tap, would read it as a source lost, and would stop the bot
+       * using its own Llanowar Elves while it held a Counterspell.
+       *
+       * Approximate in one direction and stated as such: `ActivationPlan`
+       * reports `tapIds` and not the pool mana a cost spent, so an ability paid
+       * for out of floating mana is judged as cheaper than it was. The error
+       * lets a reserve slip, never invents one.
+       */
+      if (!option.isManaAbility) {
+        const asPayment: PaymentPlan = {
+          ok: true,
+          tapIds: plan.tapIds,
+          spend: [],
+          required: 0,
+          available: sources.length,
+          reason: '',
+        };
+        if (!keepsTheReserve(sources, asPayment, reserve)) continue;
+      }
+
+      return { card: entry.card, option, actions: plan.actions };
     }
   }
   return null;
@@ -452,6 +1213,17 @@ function chooseActivation(
  * effect on your own first one is a real Magic play and it is not modelled
  * here; a bot that did it would need a plan for what the two spells are doing
  * together, and it does not have one.
+ *
+ * ## Why a removal spell is not cast here
+ *
+ * A counterspell is the only card whose window IS this one. Answering a
+ * creature spell on the stack with a removal spell means paying for the removal
+ * and still letting the creature resolve, and answering an ability with it does
+ * less than that. So an `answer` is held for the two windows
+ * `unanswerableAttackers` and `outclassingCreatures` describe, where the
+ * creature is on the battlefield and killing it changes something. A bot that
+ * fired removal at every stack object would be casting more spells and playing
+ * worse, which is the failure this tranche is written against.
  */
 function priorityMove(state: GameState, playerId: PlayerId, options: BotOptions): BotMove | null {
   const at = options.at ?? 0;
@@ -459,7 +1231,17 @@ function priorityMove(state: GameState, playerId: PlayerId, options: BotOptions)
 
   const answering = spellToAnswer(state, playerId);
   if (answering) {
-    const counter = responseOptions(state, playerId).find(option => option.counters);
+    /*
+     * `counterCanTarget` as well as `counters`, and the second half is a defect
+     * this tranche closes. `responseOptions` reports that a card counters
+     * SOMETHING; it says nothing about what. Measured across twenty recorded
+     * games: all three counterspells a bot ever cast were aimed at an activated
+     * ability, one of them Essence Capture — "counter target creature spell" —
+     * countering a tap ability. Nothing in the engine refused it.
+     */
+    const counter = responseOptions(state, playerId).find(
+      option => option.counters && counterCanTarget(state, option.card, answering)
+    );
     if (counter) {
       const plan = planCastFromHand(state, playerId, counter.card.instanceId, {
         at,
@@ -611,7 +1393,76 @@ function activeMove(state: GameState, playerId: PlayerId, options: BotOptions): 
         }
       }
 
-      const spell = chooseSpell(state, playerId, at, options.useStack);
+      /* `?? true`, not `options.useStack`. A caller that says nothing gets the
+         stack, and only a caller that says `false` out loud gets the immediate
+         cast. The old reading, where undefined is falsy so silence meant off,
+         is how every surface except `/play` ended up casting spells nobody
+         could answer without anybody choosing that. */
+      const useStack = options.useStack ?? true;
+      /* The control arm. See `BotOptions.castingPolicy`. */
+      const castsSpells = (options.castingPolicy ?? 'all') === 'all';
+
+      /*
+       * REMOVAL BEFORE DEVELOPMENT, and only against a creature combat cannot
+       * deal with.
+       *
+       * Before, because if a creature is bigger than everything this seat
+       * controls then the four-drop cast instead does not change that: next
+       * turn the bot is one card down and still behind it. Killing it first is
+       * the play, and it is the reason removal is worth holding at all.
+       *
+       * Only in the precombat main. Casting it after combat spends a card to
+       * change a board that is not about to be attacked into, and the same
+       * spell is worth more in the declare blockers window on the next seat's
+       * turn, which `nextBotMove` now offers.
+       */
+      if (state.step === 'precombat_main' && castsSpells) {
+        const answer = chooseAnswer(
+          state,
+          playerId,
+          at,
+          useStack,
+          outclassingCreatures(state, playerId),
+          /* The creature is standing on the battlefield with nothing pointed at
+             anybody yet, so an answer that does not remove it changes nothing
+             before it wears off. See `answerRemoves`. */
+          true
+        );
+        if (answer) {
+          return {
+            actions: answer.actions,
+            note: `Casts ${answer.card.name} at ${answer.victim}, which its board cannot beat in combat.`,
+          };
+        }
+      }
+
+      /*
+       * The mana this seat will not spend, worked out once and applied to both
+       * the cast below and the activation after it. See `reservedCounterCost`
+       * for why only a counterspell earns it.
+       */
+      const reserve = castsSpells ? reservedCounterCost(state, playerId) : null;
+
+      /*
+       * TWO PASSES, and the second one is the concession that makes the reserve
+       * safe to ship.
+       *
+       * First the bot looks for something it can cast while still leaving the
+       * counterspell payable — which is the behaviour asked for: with six lands,
+       * a three-drop and a four-drop in hand and a Counterspell held, it casts
+       * the three-drop and keeps two open. Only if NOTHING at all fits does it
+       * drop the reserve and cast the best thing it can.
+       *
+       * Holding a counterspell is worth a cheaper spell. It is not worth a whole
+       * turn: a bot that sat on five lands doing nothing for six turns because
+       * it was "holding up mana" would be the worse-to-play-against bot this
+       * tranche is written against, and it would show up in the harness as
+       * games that never end.
+       */
+      const wanted: SpellRole[] = castsSpells ? ['permanent', 'now'] : ['permanent'];
+      const spell =
+        chooseSpell(state, playerId, at, useStack, wanted, reserve) ??
+        chooseSpell(state, playerId, at, useStack, wanted, null);
       if (spell) {
         const mana = manaSourcesFor(state, playerId).length;
         return {
@@ -627,7 +1478,7 @@ function activeMove(state: GameState, playerId: PlayerId, options: BotOptions): 
        * player makes. It also means the mana this ability taps is mana nothing
        * else wanted this turn.
        */
-      const activation = chooseActivation(state, playerId, at);
+      const activation = chooseActivation(state, playerId, at, reserve);
       if (activation) {
         return {
           actions: activation.actions,
@@ -721,6 +1572,48 @@ function activeMove(state: GameState, playerId: PlayerId, options: BotOptions): 
 /* -------------------------------------------------------------------------- */
 /* Responding on someone else's turn                                          */
 /* -------------------------------------------------------------------------- */
+
+/**
+ * THE OTHER WINDOW AN ANSWER IS SPENT IN: being attacked by something no block
+ * can deal with.
+ *
+ * Taken before blocks are declared, on purpose. Killing the attacker means the
+ * block that would have been a chump block is not needed at all, and the
+ * creature spared is still there on the next turn — whereas removal cast after
+ * the block has already traded a body for nothing.
+ *
+ * This is the one place the bot acts at instant speed on somebody else's turn,
+ * and it is reachable because `seatOrder` in the playtest runner asks the
+ * DEFENDERS first at this step. The attacking seat's own move here is "waits
+ * for blocks", so a defender that has something to do gets to do it.
+ */
+function answerAttackerMove(
+  state: GameState,
+  playerId: PlayerId,
+  options: BotOptions
+): BotMove | null {
+  const player = getPlayer(state, playerId);
+  if (!player || !isAlive(player)) return null;
+
+  if ((options.castingPolicy ?? 'all') !== 'all') return null;
+
+  const answer = chooseAnswer(
+    state,
+    playerId,
+    options.at ?? 0,
+    options.useStack ?? true,
+    unanswerableAttackers(state, playerId),
+    /* The damage is already aimed at this seat, so shrinking an attacker that
+       survives is still life this seat keeps. See `chooseAnswer`. */
+    false
+  );
+  if (!answer) return null;
+
+  return {
+    actions: answer.actions,
+    note: `Casts ${answer.card.name} at ${answer.victim}, an attacker it cannot block and live.`,
+  };
+}
 
 /**
  * Blocks. Priorities, in order: survive lethal by chumping, take a block that
@@ -860,7 +1753,9 @@ export function nextBotMove(
   if (stackOf(state).length > 0) return priorityMove(state, playerId, options);
 
   if (state.activePlayerId === playerId) return activeMove(state, playerId, options);
-  if (state.step === 'declare_blockers') return blockMove(state, playerId, options);
+  if (state.step === 'declare_blockers') {
+    return answerAttackerMove(state, playerId, options) ?? blockMove(state, playerId, options);
+  }
   return null;
 }
 

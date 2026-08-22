@@ -321,7 +321,9 @@ export function WatchedTable({
           <GameFeed state={state} feed={feed} variant="feed" />
         </div>
 
-        <TurnBanner state={state} viewerPlayerId={watchedId} />
+        {/* No seat here is the reader's, so the banner names whoever is
+            actually playing rather than saying YOUR TURN at somebody watching. */}
+        <TurnBanner state={state} viewerPlayerId={watchedId} viewerOwnsSeat={false} />
 
         {/*
           The table moved seat on its own, and says so.

@@ -49,6 +49,7 @@ import { cardCombatFor, combatSentence, combatStageFor } from './combatUi';
 import type { CombatChipProps, Lunge } from './GameCardView';
 import type { LifeDeltaMap } from './useTableMotion';
 import {
+  eligibleBlockers,
   layoutFromViewpoint,
   livingPlayers,
   resolveCombat,
@@ -420,14 +421,32 @@ export function PlayTable({
   }, [dispatch]);
 
   const armedCard = armedBlockerId ? state.cards[armedBlockerId] ?? null : null;
+  /*
+   * Can this seat block AT ALL?
+   *
+   * Measured on 22 Aug 2026, real bot game, turn 8: four creatures swinging in,
+   * seven damage coming through, and the bar read "Press the shield on one of
+   * your creatures, then the attacker it blocks" over a battlefield with no
+   * creatures on it. An instruction the reader cannot carry out reads as the
+   * page being broken, not as the board being empty.
+   *
+   * `eligibleBlockers` is the same helper `turnFlow.decisionFor` asks, so the
+   * bar and the HUD cannot disagree about whether a block is available.
+   */
+  const canBlockAtAll = useMemo(
+    () => (stage === 'blockers' ? eligibleBlockers(state, viewerPlayerId).length > 0 : false),
+    [stage, state, viewerPlayerId]
+  );
   const combatHint =
     stage === 'attackers'
       ? declared.length > 0
         ? 'Press another sword to add it to the swing, or attack.'
         : 'Press the sword on a creature to send it in. Greyed-out creatures cannot attack.'
-      : armedCard
-        ? `${armedCard.name} is ready. Now press the attacker it stands in front of.`
-        : 'Press the shield on one of your creatures, then the attacker it blocks.';
+      : !canBlockAtAll
+        ? 'You have nothing that can block this. Let it through.'
+        : armedCard
+          ? `${armedCard.name} is ready. Now press the attacker it stands in front of.`
+          : 'Press the shield on one of your creatures, then the attacker it blocks.';
 
   return (
     /* Publishes the live state so every `GameCardView` below draws its stat line

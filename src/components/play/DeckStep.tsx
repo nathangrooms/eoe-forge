@@ -21,6 +21,7 @@ import { CardImage, CARD_ASPECT } from '@/components/cards';
 import { ColorIdentity } from '@/components/ui/mana-cost';
 import { PowerScore } from '@/components/deck/PowerScore';
 import { DeckWall } from './DeckWall';
+import { forwardLabelFor } from './playFlow';
 import { cardCountLine, deckIntent, deckPlayability } from './playDeckView';
 import type { PlayDeckOption } from './usePlayDecks';
 import { modeOf, type PlayModeId } from './playModes';
@@ -75,12 +76,29 @@ export function DeckStep({ decks, loading, mode, value, onChoose, allowSeeded }:
           <Button asChild>
             <Link to="/decks/new">Build a deck</Link>
           </Button>
-          {allowSeeded && (
-            <Button variant="secondary" onClick={() => onChoose(null)}>
-              Use a seeded deck
-            </Button>
-          )}
         </div>
+
+        {/*
+          There used to be a "Use a seeded deck" button here, and it did nothing.
+          Measured on 22 Aug 2026 by walking the flow: with no decks, the choice
+          is ALREADY the seeded one — the trail at the top of the page reads
+          "DECK Seeded deck" and the way on is already live — so the button
+          called `onChoose(null)` with the value already null. The page and the
+          buttons were byte for byte the same before and after pressing it, so
+          the reader cannot tell whether it worked, and the one control the page
+          was pointing at was the one that did nothing.
+
+          A sentence instead. It says what is already true and names the control
+          that carries on, which is the control that was always going to be
+          pressed.
+        */}
+        {allowSeeded && (
+          <p className="mt-4 text-sm text-muted-foreground">
+            A seeded commander deck is ready for you in the meantime. Press{' '}
+            <span className="font-medium text-foreground">{forwardLabelFor('deck', mode)}</span> at
+            the top to carry on with it.
+          </p>
+        )}
       </section>
     );
   }

@@ -1,13 +1,35 @@
 /**
  * The furniture every step of the play flow shares.
  *
- * A step label and a big title, the choices made so far, and back bottom left
- * with the next step bottom right. Four modes look like one product because
- * they walk the same three screens wearing the same three pieces, not because
- * anybody remembered to copy a header.
+ * A step label and a big title, and then ONE bar carrying everything about
+ * moving: back, the choices made so far, and the way on.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THE BAR IS AT THE TOP
+ * ---------------------------------------------------------------------------
+ * Owner, twice: *"start button top right"*, and then *"find table, choose a
+ * deck and the main bottom bar, should be at the top not bottom"*. Two
+ * statements a day apart is a settled preference rather than a note on one
+ * screen, so this is where the controls live now and moving them back down is a
+ * change that has to argue with the owner.
+ *
+ * It was also measured. Playing the flow on 22 Aug 2026 found step two's
+ * controls at y=410 of an 800px window, step three's forward control at the top
+ * and its back control at y=1470, four hundred pixels below the fold. So the
+ * flow read downwards on two steps, upwards on the third, and needed a scroll
+ * to go back. One bar, one place, every step.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THE BREADCRUMB IS IN THE BAR AND NOT ABOVE IT
+ * ---------------------------------------------------------------------------
+ * Back, "where am I" and forward are one question asked three ways. Two stacked
+ * strips of navigation above the content is the second thing that pushes the
+ * actual step down the page, and the trail is already a row of jump-back
+ * controls, so the row of jump-back controls and the back button belong beside
+ * each other.
  *
  * No borders anywhere in here. Steps are separated by surface and spacing, and
- * the trail is a row of raised chips rather than a ruled line.
+ * the bar is a raised panel rather than a ruled line.
  */
 
 import type { ReactNode } from 'react';
@@ -47,13 +69,18 @@ export function ChoiceTrail({
   crumbs,
   current,
   onJump,
+  className,
 }: {
   crumbs: Crumb[];
   current: PlayStepId;
   onJump: (step: PlayStepId) => void;
+  className?: string;
 }) {
   return (
-    <nav aria-label="Choices so far" className="flex w-full flex-wrap items-center gap-2">
+    <nav
+      aria-label="Choices so far"
+      className={cn('flex min-w-0 flex-wrap items-center gap-2', className)}
+    >
       {crumbs.map(crumb => {
         const active = crumb.step === current;
         const reachable = crumb.value !== null && !active;
@@ -98,13 +125,36 @@ export function ChoiceTrail({
   );
 }
 
+export interface StepBarProps {
+  /** The choices so far. Drawn between back and forward. */
+  crumbs?: Crumb[];
+  current?: PlayStepId;
+  onJump?: (step: PlayStepId) => void;
+
+  backLabel?: string;
+  onBack?: () => void;
+  forwardLabel?: string;
+  onForward?: () => void;
+  forwardDisabled?: boolean;
+  /**
+   * The sentence that says why the forward control is refusing to move, or
+   * what is not finished about this step. Sits UNDER the bar's controls rather
+   * than between them, so it is read after the button it is about and does not
+   * squeeze the trail.
+   */
+  note?: ReactNode;
+  /** Anything the step wants beside the forward control. */
+  extra?: ReactNode;
+}
+
 /**
- * Back bottom left, forward bottom right, exactly as the reference has it.
- *
- * `note` is the sentence between them, which is where a step says why the
- * forward control is refusing to move.
+ * Back on the left, where you came from in the middle, the way on at the right.
+ * At the top of the step, on every step, in every mode.
  */
-export function StepFooter({
+export function StepBar({
+  crumbs,
+  current,
+  onJump,
   backLabel,
   onBack,
   forwardLabel,
@@ -112,39 +162,41 @@ export function StepFooter({
   forwardDisabled,
   note,
   extra,
-}: {
-  backLabel?: string;
-  onBack?: () => void;
-  forwardLabel?: string;
-  onForward?: () => void;
-  forwardDisabled?: boolean;
-  note?: ReactNode;
-  /** Anything the step wants beside the forward control. */
-  extra?: ReactNode;
-}) {
-  if (!onBack && !onForward && !note && !extra) return null;
+}: StepBarProps) {
+  const hasTrail = Boolean(crumbs && crumbs.length > 0 && current && onJump);
+  if (!hasTrail && !onBack && !onForward && !note && !extra) return null;
 
   return (
-    <div className="flex w-full flex-wrap items-center justify-between gap-3 rounded-xl bg-card px-4 py-3 shadow-sm">
-      <div className="min-w-0">
+    <div className="w-full rounded-xl bg-card px-3 py-3 shadow-sm sm:px-4">
+      <div className="flex w-full flex-wrap items-center gap-3">
         {onBack && (
-          <Button variant="ghost" onClick={onBack}>
+          <Button variant="ghost" onClick={onBack} className="shrink-0">
             <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" />
             {backLabel ?? 'Back'}
           </Button>
         )}
+
+        {hasTrail && (
+          <ChoiceTrail
+            crumbs={crumbs as Crumb[]}
+            current={current as PlayStepId}
+            onJump={onJump as (step: PlayStepId) => void}
+            className="flex-1"
+          />
+        )}
+
+        <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-3">
+          {extra}
+          {onForward && (
+            <Button size="lg" onClick={onForward} disabled={forwardDisabled}>
+              {forwardLabel ?? 'Next'}
+              <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
+            </Button>
+          )}
+        </div>
       </div>
 
-      <div className="flex min-w-0 flex-wrap items-center justify-end gap-3">
-        {note && <p className="min-w-0 text-xs text-muted-foreground">{note}</p>}
-        {extra}
-        {onForward && (
-          <Button size="lg" onClick={onForward} disabled={forwardDisabled}>
-            {forwardLabel ?? 'Next'}
-            <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
-          </Button>
-        )}
-      </div>
+      {note && <p className="mt-2 w-full text-xs text-muted-foreground">{note}</p>}
     </div>
   );
 }

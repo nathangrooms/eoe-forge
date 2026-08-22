@@ -289,13 +289,56 @@ test('shrink to fit never lets a row overflow the width it was given', () => {
 /* The seat's fixed furniture                                                  */
 /* -------------------------------------------------------------------------- */
 
-test('the support block is a fifth of the mat, not a third of it', () => {
-  /* Measured before: 257px of an 828px mat — 31% — holding three Rancors, while
-     the creature row beside it was at the 62px card floor. */
+test('an empty block is a fifth of the mat, exactly as it was', () => {
+  /* Measured before that rule existed: 257px of an 828px mat — 31% — holding
+     three Rancors, while the creature row beside it was at the 62px card floor.
+     A deck with no artifacts in it still gives up nothing more than a fifth. */
   assert.equal(supportBlockWidth(828), 166);
   assert.ok(supportBlockWidth(828) / 828 < 0.22);
   assert.equal(supportBlockWidth(3000), 220, 'and it is capped, so a wide mat is not all block');
   assert.equal(supportBlockWidth(200), 76, 'and floored, so a narrow one still shows the zone');
+});
+
+test('the block widens on rungs once there is an artifact deck in it', () => {
+  /* Measured on 22 Aug 2026: thirteen permanents in a 220 x 684 block on a
+     1904px mat, one column, 115 x 160 cards with 38px of each showing, while
+     1525 x 680 of the same mat held nothing. */
+  assert.equal(supportBlockWidth(1904, 0), 220, 'empty, the narrow rung');
+  assert.equal(supportBlockWidth(1904, 4), 220, 'four still fits the narrow rung');
+  assert.equal(supportBlockWidth(1904, 5), 340, 'the first crossing');
+  assert.equal(supportBlockWidth(1904, 10), 340);
+  assert.equal(supportBlockWidth(1904, 11), 440, 'the second, and the last');
+  assert.equal(supportBlockWidth(1904, 40), 440, 'there is no third');
+});
+
+test('there are exactly two crossings in a game, so the rows move twice at most', () => {
+  const widths = [];
+  for (let count = 0; count <= 60; count += 1) widths.push(supportBlockWidth(1264, count));
+  let crossings = 0;
+  for (let i = 1; i < widths.length; i += 1) {
+    if (widths[i] !== widths[i - 1]) crossings += 1;
+    assert.ok(widths[i] >= widths[i - 1], 'the block never gets narrower as it fills');
+  }
+  assert.equal(crossings, 2);
+});
+
+test('a widening block never resizes a card on the rows beside it', () => {
+  /* This is what makes the rung affordable. `seatCardWidth` reads the row's
+     HEIGHT and the player's ceiling, and the block's width is neither, so a
+     crossing cannot change the size of a single permanent on the mat. */
+  for (const [width, height] of [
+    [1904, 746],
+    [1264, 535],
+    [948, 369],
+  ]) {
+    const band = height - identityBandHeight(height) - 12;
+    const { creatureHeight } = splitBands(band);
+    const card = seatCardWidth(creatureHeight, 200);
+    for (const count of [0, 4, 5, 10, 11, 30]) {
+      assert.ok(supportBlockWidth(width, count) > 0);
+      assert.equal(seatCardWidth(creatureHeight, 200), card, `card size moved at ${count}`);
+    }
+  }
 });
 
 test('the rail is sized by the tiles it has to stack, not by width alone', () => {

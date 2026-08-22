@@ -22,7 +22,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { addCard, applyActions, createGame } from './rules.ts';
+import { addCard, applyActionTraced, applyActions, createGame } from './rules.ts';
 import { planCastFromHand } from './moves.ts';
 import { nextBotMove } from './bot.ts';
 import { stackOf, stackTop } from './stack.ts';
@@ -427,4 +427,297 @@ test('nothing is castable without priority while the stack is loaded', () => {
 test('a finished game is castable in no sense at all', () => {
   const state = { ...myMain(board()), status: 'complete' as const };
   assert.equal(castTiming(state, ME, state.cards['p2-drake']).ok, false);
+});
+
+/* -------------------------------------------------------------------------- *
+ * What the engine ran, which is not what anybody proposed
+ * -------------------------------------------------------------------------- */
+
+/**
+ * `applyActionTraced` exists because the playtest harness was reading its
+ * findings off the action a bot PROPOSED, and reported "a spell was countered:
+ * 0 times" over twenty games in which three spells were countered.
+ *
+ * Nobody ever proposes a `COUNTER_SPELL`. A player casts a counterspell, the
+ * table passes, the counterspell resolves, and the engine derives the counter
+ * inside that last pass. These two tests are the ratchet on that: one proves
+ * the nested action is visible, the other proves the trace does not change the
+ * game it is watching.
+ */
+test('the trace sees a COUNTER_SPELL nobody proposed', () => {
+  let state = theyCast(board({ myLands: 2, myCounters: 1 }));
+  const answering = stackTop(state);
+  assert.ok(answering, 'nothing to answer');
+
+  state = applyActions(state, [{ type: 'PASS_PRIORITY', playerId: THEM, at: 2 }]);
+  const counter = planCastFromHand(state, ME, 'p1-cs0', {
+    viaStack: true,
+    counterStackId: answering.stackId,
+    at: 3,
+  });
+  assert.equal(counter.ok, true, counter.reason);
+  state = applyActions(state, counter.actions);
+
+  /* One priority round finishes it. The LAST pass is the only action anybody
+     proposes, and everything the counter does hangs off it. */
+  state = applyActions(state, [{ type: 'PASS_PRIORITY', playerId: ME, at: 4 }]);
+  const last = applyActionTraced(state, { type: 'PASS_PRIORITY', playerId: THEM, at: 5 });
+
+  const types = last.applied.map(action => action.type);
+  assert.equal(types[0], 'PASS_PRIORITY', 'the proposed action comes first');
+  assert.ok(
+    types.includes('COUNTER_SPELL'),
+    `no COUNTER_SPELL in what the engine ran: ${types.join(', ')}`
+  );
+  assert.ok(types.includes('RESOLVE_STACK'), 'the counterspell itself never resolved');
+  assert.equal(stackOf(last.state).length, 0, 'the stack did not empty');
+  assert.equal(last.state.cards['p2-drake'].zone, 'graveyard');
+
+  // And the countered card is not in the trace as something that resolved: it
+  // was moved by the counter, which is the distinction the harness needs.
+  assert.ok(
+    !last.applied.some(action => action.type === 'PLAY' && action.instanceId === 'p2-drake'),
+    'a countered spell must never be played onto the battlefield'
+  );
+});
+
+test('tracing an action changes nothing about the action', () => {
+  const state = theyCast(board({ myLands: 2, myCounters: 1 }));
+  const pass = { type: 'PASS_PRIORITY' as const, playerId: THEM, at: 2 };
+
+  const plain = applyActions(state, [pass]);
+  const traced = applyActionTraced(state, pass);
+
+  assert.deepEqual(traced.state, plain, 'a traced apply produced a different state');
+  assert.equal(traced.state.version, plain.version);
+  assert.equal(traced.state.log.length, plain.log.length);
+});
+
+test('a refused action traces to nothing at all', () => {
+  const state = board();
+  // p2 does not hold priority, so this is refused and the state comes straight
+  // back. An empty trace is the cheap way to ask "did anything happen".
+  const traced = applyActionTraced(state, {
+    type: 'COUNTER_SPELL',
+    stackId: 'no-such-object',
+    at: 1,
+  });
+  assert.equal(traced.state, state, 'a refused action must return the same reference');
+  assert.deepEqual(traced.applied, []);
+});
+
+/* -------------------------------------------------------------------------- *
+ * A bot's spell is an object the table can answer
+ * -------------------------------------------------------------------------- */
+
+/**
+ * The measurement these four tests are the ratchet on.
+ *
+ * Twenty recorded four-seat games, seeds 9000 to 9019, with the bot casting
+ * straight to the destination: 3 spells reached the stack in the whole run, and
+ * all three were counterspells cast from the one branch that asked for the
+ * stack by name. Nothing a bot cast for its own text was ever an object anybody
+ * could respond to. The same twenty seeds with the stack on put 872 spells
+ * there.
+ *
+ * `bot.ts` now casts through the stack unless a caller says otherwise, so the
+ * question each of these asks is whether that survived.
+ */
+
+/** p2's own main phase, holding priority, with mana up. */
+function theirMain(state: GameState): GameState {
+  return {
+    ...state,
+    activePlayerId: THEM,
+    priorityPlayerId: THEM,
+    step: 'precombat_main',
+  };
+}
+
+test('a bot asked for nothing in particular casts onto the stack', () => {
+  const state = theirMain(board());
+
+  const move = nextBotMove(state, THEM, { at: 1 });
+  assert.ok(move, 'the bot had no move on its own main phase with a castable creature');
+  assert.ok(
+    move.actions.some(action => action.type === 'CAST_SPELL'),
+    `the bot did not announce anything: ${move.actions.map(a => a.type).join(', ')}`
+  );
+  assert.ok(
+    !move.actions.some(action => action.type === 'PLAY' && action.instanceId === 'p2-drake'),
+    'the creature went straight into play, so nobody could have answered it'
+  );
+
+  const after = applyActions(state, move.actions);
+  assert.equal(after.cards['p2-drake'].zone, 'stack');
+  assert.equal(stackOf(after).length, 1);
+  assert.equal(
+    spellToAnswer(after, ME),
+    null,
+    'the caster holds priority first, so the other seat is not asked yet'
+  );
+
+  const passed = applyActions(after, [{ type: 'PASS_PRIORITY', playerId: THEM, at: 2 }]);
+  assert.equal(
+    spellToAnswer(passed, ME)?.name,
+    'Wind Drake',
+    'the other seat was never offered the spell'
+  );
+});
+
+test('a land drop is not a spell and never touches the stack', () => {
+  let state = theirMain(board());
+  state = put(state, THEM, 'hand', {
+    instanceId: 'p2-island-hand',
+    name: 'Island',
+    typeLine: 'Basic Land — Island',
+    manaCost: '',
+    cmc: 0,
+    colorIdentity: ['U'],
+    oracleText: '({T}: Add {U}.)',
+  });
+
+  /* CR 305.1: playing a land uses no stack and cannot be responded to. The land
+     drop is taken before the cast on a precombat main, so this is the move. */
+  const move = nextBotMove(state, THEM, { at: 1 });
+  assert.ok(move);
+  assert.match(move.note, /Plays Island/);
+  assert.deepEqual(
+    move.actions.map(action => action.type),
+    ['PLAY'],
+    'a land drop must be one PLAY and nothing else'
+  );
+
+  const after = applyActions(state, move.actions);
+  assert.equal(stackOf(after).length, 0, 'a land reached the stack');
+  assert.equal(after.cards['p2-island-hand'].zone, 'battlefield');
+});
+
+test('useStack false still casts straight into play, which is what /simulate wants', () => {
+  const state = theirMain(board());
+
+  const move = nextBotMove(state, THEM, { useStack: false, at: 1 });
+  assert.ok(move);
+  assert.ok(
+    move.actions.some(action => action.type === 'PLAY' && action.instanceId === 'p2-drake'),
+    'the opt-out no longer opts out'
+  );
+  assert.ok(!move.actions.some(action => action.type === 'CAST_SPELL'));
+
+  const after = applyActions(state, move.actions);
+  assert.equal(stackOf(after).length, 0);
+  assert.equal(after.cards['p2-drake'].zone, 'battlefield');
+});
+
+test('two bots cast, pass and resolve without either of them stalling', () => {
+  /*
+   * The failure mode this whole change had to be designed against: a bot that
+   * will not pass priority freezes the table, and the playtest harness records
+   * that as a stalled game rather than a bug.
+   *
+   * So this drives BOTH seats off `nextBotMove` alone, with nothing else
+   * pushing the game along, and requires that the spell announced at the start
+   * has resolved by the end.
+   */
+  let state = theirMain(board({ myLands: 2, myCounters: 0 }));
+
+  for (let step = 0; step < 20; step++) {
+    if (state.cards['p2-drake'].zone === 'battlefield') break;
+    const mover = [THEM, ME].find(seat => nextBotMove(state, seat, { at: step }) !== null);
+    assert.ok(mover, `nobody had a move at step ${step}, which is the deadlock`);
+    const move = nextBotMove(state, mover, { at: step });
+    assert.ok(move);
+    const next = applyActions(state, move.actions);
+    assert.notEqual(next, state, `the move by ${mover} changed nothing: ${move.note}`);
+    state = next;
+  }
+
+  assert.equal(
+    state.cards['p2-drake'].zone,
+    'battlefield',
+    'the spell never resolved, so the priority round never completed'
+  );
+  assert.equal(stackOf(state).length, 0);
+});
+
+/* -------------------------------------------------------------------------- */
+/* The whole point: a PERSON answering a BOT's spell                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Every test above drives one half of this. `theyCast` builds the opponent's
+ * cast by hand, and `the bot counters when it is holding an answer` has the bot
+ * doing the answering. Neither is the thing the feature exists for, which is a
+ * bot DECIDING to cast something and a person at the table answering it.
+ *
+ * That distinction is this project's own law: the engine supporting a thing and
+ * a player reaching it are different claims. So this test uses the bot's own
+ * decision for the cast and, for the answer, the exact calls `/play` makes:
+ * `usePlayGame` iterates the bot seats only, `Play.tsx` reads `responseOptions`
+ * to draw the buttons and `handleRespond` builds the counter with
+ * `planCastFromHand(..., { viaStack: true, counterStackId })`.
+ */
+test('a person answers a spell the BOT decided to cast, through the calls /play makes', () => {
+  let state = theirMain(board({ myLands: 2, myCounters: 1 }));
+
+  /* 1. The bot's own decision puts something on the stack. `waitForPlayerIds`
+        is what `usePlayGame` passes, so this is the shipping configuration. */
+  const cast = nextBotMove(state, THEM, { at: 1, waitForPlayerIds: [ME] });
+  assert.ok(cast, 'the bot had nothing to do holding a castable creature');
+  assert.match(cast.note, /Casts Wind Drake/);
+  state = applyActions(state, cast.actions);
+  assert.equal(stackTop(state)?.name, 'Wind Drake');
+
+  /* 2. The bot passes its own priority. Nothing else may move until it does. */
+  const pass = nextBotMove(state, THEM, { at: 2, waitForPlayerIds: [ME] });
+  assert.ok(pass);
+  assert.deepEqual(
+    pass.actions.map(action => action.type),
+    ['PASS_PRIORITY']
+  );
+  state = applyActions(state, pass.actions);
+
+  /* 3. The table is now waiting for the person, and says so. This is the
+        negative half: a bot that kept moving here would resolve its own spell
+        out from under the reader. */
+  assert.equal(nextBotMove(state, THEM, { at: 3, waitForPlayerIds: [ME] }), null);
+  assert.equal(state.priorityPlayerId, ME);
+
+  const answering = spellToAnswer(state, ME);
+  assert.ok(answering, 'the person was not offered the bot spell to answer');
+  assert.equal(hasResponse(state, ME), true, 'no Respond control would be drawn');
+
+  const offered = responseOptions(state, ME);
+  assert.equal(offered.length, 1);
+  assert.equal(offered[0].card.name, 'Counterspell');
+  assert.equal(offered[0].counters, true, 'the counter was not offered as a counter');
+
+  /* 4. `handleRespond`, line for line. */
+  const answer = planCastFromHand(state, ME, offered[0].card.instanceId, {
+    viaStack: true,
+    counterStackId: answering.stackId,
+    at: 4,
+  });
+  assert.equal(answer.ok, true, answer.reason);
+  state = applyActions(state, answer.actions);
+
+  /* 5. `flowActions` on a non-empty stack is one `PASS_PRIORITY`, and the bot
+        seat passes through `nextBotMove` as it does in the app. */
+  for (let step = 5; step < 20 && stackOf(state).length > 0; step++) {
+    if (state.priorityPlayerId === ME) {
+      state = applyActions(state, [{ type: 'PASS_PRIORITY', playerId: ME, at: step }]);
+      continue;
+    }
+    const move = nextBotMove(state, THEM, { at: step, waitForPlayerIds: [ME] });
+    assert.ok(move, `the bot froze at step ${step} with a spell on the stack`);
+    state = applyActions(state, move.actions);
+  }
+
+  assert.equal(
+    state.cards['p2-drake'].zone,
+    'graveyard',
+    'the bot spell resolved anyway, so the person could not actually answer it'
+  );
+  assert.equal(state.cards['p1-cs0'].zone, 'graveyard');
+  assert.equal(stackOf(state).length, 0);
 });

@@ -81,6 +81,109 @@ export function countersSpells(card: CardInstance | null | undefined): boolean {
 }
 
 /**
+ * MAY THIS COUNTERSPELL BE CAST AT THIS OBJECT?
+ *
+ * `countersSpells` asks whether a card counters anything. It says nothing about
+ * WHAT, and the gap was measured rather than theorised: across twenty recorded
+ * commander games all three counterspells a bot ever cast were aimed at an
+ * ACTIVATED ABILITY. Essence Capture, which reads "counter target creature
+ * spell", countered Blinding Mage's "{W}, {T}: Tap target creature". Quench
+ * countered an equip ability. Spell Rupture countered Lembas.
+ *
+ * Nothing refused any of them. `validateAction` in `rules.ts` checks that the
+ * object exists and is not marked can't-be-countered, and asks nothing about
+ * its kind; `spellToAnswer` hands back `stackTop` whatever it is, which is
+ * right for its own job — being offered an ability to answer IS a real decision
+ * — and wrong as an answer to this question.
+ *
+ * So this is the missing check, and it is deliberately narrow. It reads the
+ * phrase the card itself prints after "counter target" and asks whether the
+ * object on the stack matches it:
+ *
+ *   - "counter target spell" and its kin need a SPELL. An activated or a
+ *     triggered ability is not a spell (CR 111.1, CR 113.1).
+ *   - "creature spell" needs a creature spell, "noncreature spell" needs
+ *     anything but, "instant or sorcery spell" needs one of those two.
+ *   - "counter target activated or triggered ability" is the one printed form
+ *     that wants an ability, and it is matched as one.
+ *
+ * A phrase the pattern does not recognise falls through to "it must at least be
+ * a spell", which is the weakest claim still true of every printed
+ * counterspell. Being narrow costs a counter that could have been cast; being
+ * wide costs a card resolving as though it read something it does not, and only
+ * one of those two is a rules error.
+ *
+ * The type line is read WHOLE rather than by face, for the one reason
+ * `faceTypeLine` exists to avoid elsewhere: a modal double-faced card is cast
+ * as one of its faces and `StackObject` does not record which. Reading the
+ * front face alone would refuse counters that are legal. A wider read here can
+ * only offer more, and everything it offers still goes through
+ * `validateAction`.
+ */
+export function counterCanTarget(
+  state: GameState,
+  card: CardInstance | null | undefined,
+  object: StackObject | null | undefined
+): boolean {
+  if (!card || !object) return false;
+
+  const match = /counter target ([a-z ]*?)(?:\.|,| unless| if| with| and| that| you| whose|$)/i.exec(
+    card.oracleText ?? ''
+  );
+  const phrase = (match?.[1] ?? '').trim().toLowerCase();
+
+  /*
+   * ABILITY FIRST, AND ONLY WHEN THE PHRASE DOES NOT ALSO SAY SPELL.
+   *
+   * Counted over the 426 cards in the cached snapshot that print "counter
+   * target": four of them read "counter target spell or ability" — Diplomatic
+   * Escort and its kin — and the first version of this check saw the word
+   * ability, decided the card wanted an ability, and refused every spell. A
+   * card that counters both must be offered against both.
+   */
+  const wantsAbility = phrase.includes('ability');
+  const wantsSpell = !wantsAbility || phrase.includes('spell');
+
+  if (object.kind === 'activated' || object.kind === 'triggered') return wantsAbility;
+  if (object.kind !== 'spell' || !wantsSpell) return false;
+
+  const spellCard = object.cardInstanceId ? state.cards[object.cardInstanceId] : undefined;
+  const line = (spellCard?.typeLine ?? '').toLowerCase();
+
+  if (phrase.includes('noncreature')) return !line.includes('creature');
+
+  /*
+   * "creature or planeswalker spell", "artifact or creature spell", "instant or
+   * aura spell" — 22 of the 426 name more than one type, and asking about the
+   * first one alone refused counters that are legal. Any named type matching is
+   * the printed rule.
+   */
+  const NAMED_TYPES = [
+    'creature',
+    'instant',
+    'sorcery',
+    'artifact',
+    'enchantment',
+    'planeswalker',
+    'land',
+    'battle',
+    'aura',
+  ];
+  const named = NAMED_TYPES.filter(type => phrase.includes(type));
+  if (named.length > 0) return named.some(type => line.includes(type));
+
+  /*
+   * A colour word — "counter target blue spell", "red or green spell" — is not
+   * read. `CardInstance` carries colour IDENTITY, which is a deck-building
+   * property and not the colour of a spell on the stack, so answering from it
+   * would be a guess. 12 of the 426 are in this shape and all of them are
+   * offered against any spell, which is the same answer the engine gave before
+   * this function existed.
+   */
+  return true;
+}
+
+/**
  * May this player cast this card AT THIS MOMENT, cost set aside?
  *
  * `planCastFromHand` answers zone and cost and deliberately answers nothing

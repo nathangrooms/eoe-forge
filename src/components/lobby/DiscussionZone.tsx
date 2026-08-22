@@ -18,6 +18,7 @@ import {
   type ForumTopic,
 } from '@/lib/lobby';
 import { safeName, safeTitle } from '@/lib/lobby/richText';
+import { ChatBox } from './ChatBox';
 import { DiscussionThread } from './DiscussionThread';
 import { NewTopicPanel } from './NewTopicPanel';
 import { TopicList } from './TopicList';
@@ -27,12 +28,25 @@ import { useBoard, useThread } from './useDiscussion';
  * The discussion zone.
  *
  * ---------------------------------------------------------------------------
- * A FORUM, NOT A STREAM
+ * A ROOM FIRST, AND THE TOPICS UNDER IT
  * ---------------------------------------------------------------------------
- * Owner: "an open chat/discussion zone like on classic forums". So: topics with
- * titles, replies underneath them, and none of it disappearing. Somebody who
- * arrives on Tuesday can read what was said on Monday, which is the entire
- * point of the reference and the thing a chat window cannot do.
+ * Owner, first: "an open chat/discussion zone like on classic forums", which
+ * this was built as. Owner, having then looked at it: "conversation lobby
+ * should be more like chat box".
+ *
+ * Both are true and they are not the same thing, so the zone is both, in that
+ * order. The ROOM is the default and the top of the zone: newest at the bottom,
+ * one scrolling column, type at the bottom, enter sends, messages arriving
+ * without a refresh. It is where somebody says one sentence.
+ *
+ * The TOPICS sit under it, quieter, for the thing a room genuinely cannot do:
+ * a question somebody answers on Tuesday, still there on Friday. They are not
+ * deleted for the chat box and the chat box is not a tab you have to find.
+ *
+ * There is no second messages table underneath any of this. A room is a
+ * `forum_topics` row with `kind = 'room'` and its messages are ordinary
+ * `forum_posts`, so removal, blocking, reporting, the read policies and the
+ * push channel are all the code that was already here.
  *
  * ---------------------------------------------------------------------------
  * ONE PAGE, TWO STATES, ONE URL
@@ -62,6 +76,9 @@ export interface DiscussionZoneProps {
   /** Which conversation is open, from the URL. Null is the list. */
   openTopicId: number | null;
   onOpenTopic: (topicId: number | null) => void;
+  /** Which chat room is open, from the URL, so a room can be linked to. */
+  roomSlug: string | null;
+  onOpenRoom: (slug: string) => void;
 }
 
 export function DiscussionZone({
@@ -72,6 +89,8 @@ export function DiscussionZone({
   myTableCode,
   openTopicId,
   onOpenTopic,
+  roomSlug,
+  onOpenRoom,
 }: DiscussionZoneProps) {
   /* Everybody reads. Only an account listens: the `lobby` Realtime topic is
      granted to `authenticated`, so a signed-out join is a refused connection
@@ -291,60 +310,76 @@ export function DiscussionZone({
   /* ---------------------------------------------------------------------- */
 
   return (
-    <section className="w-full rounded-xl bg-muted/30 p-4 sm:p-6">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="text-lg font-semibold text-foreground">Discussion</h2>
-          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{BOARD_BLURB}</p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {/* The channel's real state, said plainly. A board that has stopped
-              hearing about replies looks exactly like a quiet one. */}
-          <span className="text-xs text-muted-foreground">
-            {!signedIn
-              ? 'Sign in to see it update as it happens'
-              : board.live === 'live'
-                ? 'Updating as it happens'
-                : board.live === 'connecting'
-                  ? 'Connecting'
-                  : 'Reconnecting'}
-          </span>
-
-          <Button onClick={() => setWriting(true)} disabled={!signedIn || blocked}>
-            <MessageSquarePlus className="mr-2 h-4 w-4" aria-hidden="true" />
-            Start a conversation
-          </Button>
-        </div>
-      </header>
-
-      {/* Only the fact the blurb does not already carry. The blurb says anybody
-          can read this, so repeating "an account is only needed to post" under
-          it is the same sentence twice. Being blocked is a different fact and
-          somebody needs to be told it. */}
-      {blocked && verdict.reason && (
-        <p className="mt-3 text-sm text-foreground">{verdict.reason}</p>
-      )}
-
-      {error && <p className="mt-3 text-sm text-foreground">{error}</p>}
-
-      <div className="mt-4">
-        <TopicList
-          topics={board.topics}
-          loading={board.loading}
-          signedIn={signedIn}
-          onOpen={topic => onOpenTopic(topic.id)}
-        />
-      </div>
-
-      <NewTopicPanel
-        open={writing}
-        onOpenChange={setWriting}
-        posting={starting}
-        error={error}
+    <div className="w-full space-y-4">
+      {/* The room. First, because it is where people talk. */}
+      <ChatBox
+        signedIn={signedIn}
+        myUserId={myUserId}
+        myName={myName}
+        isModerator={isModerator}
         myTableCode={myTableCode}
-        onStart={value => void onStart(value)}
+        slug={roomSlug}
+        onOpenRoom={onOpenRoom}
       />
-    </section>
+
+      {/* The topics. Under it, and quieter, for the thing a room cannot do. */}
+      <section className="w-full rounded-xl bg-muted/30 p-4 sm:p-6">
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-foreground">
+              Conversations that stay
+            </h2>
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{BOARD_BLURB}</p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* The channel's real state, said plainly. A board that has stopped
+                hearing about replies looks exactly like a quiet one. */}
+            <span className="text-xs text-muted-foreground">
+              {!signedIn
+                ? 'Sign in to see it update as it happens'
+                : board.live === 'live'
+                  ? 'Updating as it happens'
+                  : board.live === 'connecting'
+                    ? 'Connecting'
+                    : 'Reconnecting'}
+            </span>
+
+            <Button onClick={() => setWriting(true)} disabled={!signedIn || blocked}>
+              <MessageSquarePlus className="mr-2 h-4 w-4" aria-hidden="true" />
+              Start a conversation
+            </Button>
+          </div>
+        </header>
+
+        {/* Only the fact the blurb does not already carry. The blurb says
+            anybody can read this, so repeating "an account is only needed to
+            post" under it is the same sentence twice. Being blocked is a
+            different fact and somebody needs to be told it. */}
+        {blocked && verdict.reason && (
+          <p className="mt-3 text-sm text-foreground">{verdict.reason}</p>
+        )}
+
+        {error && <p className="mt-3 text-sm text-foreground">{error}</p>}
+
+        <div className="mt-4">
+          <TopicList
+            topics={board.topics}
+            loading={board.loading}
+            signedIn={signedIn}
+            onOpen={topic => onOpenTopic(topic.id)}
+          />
+        </div>
+
+        <NewTopicPanel
+          open={writing}
+          onOpenChange={setWriting}
+          posting={starting}
+          error={error}
+          myTableCode={myTableCode}
+          onStart={value => void onStart(value)}
+        />
+      </section>
+    </div>
   );
 }

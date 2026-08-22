@@ -130,6 +130,12 @@ export interface ForumTopic {
   pinned: boolean;
   locked: boolean;
   removed: boolean;
+  /**
+   * Only its members may read a word of it, or post in it, or see that it is
+   * there. Always false on a thread: the database carries a check constraint
+   * saying a private topic has to be a room.
+   */
+  private: boolean;
 }
 
 /** One message. */
@@ -152,6 +158,32 @@ export interface ForumPost {
   removed: boolean;
   /** Only meaningful to somebody who moderates. Everyone else ignores it. */
   reportCount: number;
+}
+
+/**
+ * A chat room.
+ *
+ * The same row as a `ForumTopic`, with `kind = 'room'` in the database and a
+ * slug so a link can name it. It is a separate TYPE and not a separate table,
+ * because the two are read and drawn differently — a thread from its first post
+ * and a room from its last — while everything about writing, removing, blocking
+ * and reporting is shared code operating on the same rows.
+ */
+export interface ChatRoom extends Omit<ForumTopic, 'title'> {
+  /** Always set on a room, and unique. `general`, `deck-help`. */
+  slug: string;
+  /** Always set on a room. `General`, `Deck help`. */
+  title: string;
+}
+
+/** Somebody who is in a private channel. */
+export interface ChatRoomMember {
+  userId: string;
+  name: string;
+  avatarUrl: string | null;
+  addedAt: string;
+  /** The person who made the channel. They cannot be removed from it. */
+  isOwner: boolean;
 }
 
 /** A conversation and what has been said in it, as one read returns them. */

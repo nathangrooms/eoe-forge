@@ -84,6 +84,127 @@ export const DECISION_LABEL: Record<PlayDecision, string> = {
   respond: 'Respond, or let it resolve',
 };
 
+/**
+ * What the LOUDEST control on the screen says when this decision is owed.
+ *
+ * ---------------------------------------------------------------------------
+ * THE WORST MOMENT IN THE PRODUCT, AND THIS IS WHERE IT WAS
+ * ---------------------------------------------------------------------------
+ * Measured by playing a real bot game on 22 Aug 2026. At the declare-blockers
+ * stop, with the game waiting for the player and nothing else able to move:
+ *
+ *   the big top-right button   "PLARGG AND NASSARI'S TURN", greyed out
+ *   the line under the phases  "Plargg and Nassari has priority"
+ *   the phase pill             "Declare Blockers"
+ *
+ * Two of the three loudest signals on the page said the opponent was acting.
+ * The game was waiting for the reader. Pressing the big button did nothing,
+ * because END TURN is not what the game wanted, and in an automated run this
+ * looked exactly like a hang.
+ *
+ * The cause is that the button asked "is it my turn" rather than "is the game
+ * waiting for me". Declaring blockers happens on somebody else's turn, so those
+ * two questions have different answers at precisely the moment it matters most.
+ *
+ * So `decisionFor()` already knows the answer, and the button says it. Ending
+ * the turn is what a MAIN phase decision resolves to, and it is what the button
+ * says then. Everything else names the thing that is actually owed.
+ */
+export const DECISION_ACTION: Record<PlayDecision, string> = {
+  main: 'End turn',
+  'second-main': 'End turn',
+  attackers: 'Declare attackers',
+  blockers: 'Declare blockers',
+  manual: 'Resolve by hand',
+  respond: 'Respond',
+};
+
+/**
+ * True when the big control must name the decision rather than the turn.
+ *
+ * A main phase resolves to END TURN, which is already the right word and the
+ * one the player is looking for. The other four are owed on steps where END
+ * TURN is either wrong or not yet legal, and two of them — blocking, and
+ * responding to a spell — are owed on ANOTHER SEAT'S TURN.
+ */
+export function decisionOwnsTheButton(decision: PlayDecision | null): boolean {
+  return decision !== null && decision !== 'main' && decision !== 'second-main';
+}
+
+/**
+ * The opening hand, which is a decision the ENGINE does not know about.
+ *
+ * ---------------------------------------------------------------------------
+ * THE WORST MOMENT MOVED, IT DID NOT GO AWAY
+ * ---------------------------------------------------------------------------
+ * `decisionFor` reads a `GameState`, and during the opening hand that state is
+ * already `playing`, on turn one, with the human seat active. So it returned
+ * null, `waitingLine` said **"Your turn, nothing owed"**, and the loudest
+ * control on the page was a live red END TURN — at the exact moment the
+ * mulligan bar was asking the reader to keep the hand or shuffle it back.
+ *
+ * Measured on 22 Aug 2026, real two-player bot game, 1280 x 800, driving the
+ * shipped page:
+ *
+ *   press END TURN on the mulligan   the control became a DISABLED "Ending…"
+ *                                    spinner and stayed one; still turn 1,
+ *                                    untap, 5.5 seconds later
+ *   then press KEEP                  the latched end-turn fired at once and the
+ *                                    reader arrived at "TURN 2, PLARGG AND
+ *                                    NASSARI'S TURN" without having taken a turn
+ *
+ * So the first press on the first screen of every bot and goldfish game either
+ * hung the loudest control or silently spent the reader's whole first turn. The
+ * opening hand lives in `/play`'s own state rather than the reducer's, so the
+ * fact has to be HANDED to the HUD rather than derived from the game.
+ */
+export type OpeningStop =
+  /** Seven cards are on the table and nothing moves until they are answered. */
+  | 'keep-or-mulligan'
+  /** Kept after N mulligans: N cards owe the bottom of the library. */
+  | 'bottom';
+
+/** What the status line calls the opening hand. */
+export const OPENING_LABEL: Record<OpeningStop, string> = {
+  'keep-or-mulligan': 'Your opening hand',
+  bottom: 'Put cards back',
+};
+
+/**
+ * What the loudest control says while the opening hand is unanswered.
+ *
+ * The same rule the decisions follow: the button names the thing that is
+ * actually owed. KEEP and MULLIGAN are both on the mat, over the hand being
+ * judged, which is where the choice belongs. This is the HUD agreeing with
+ * them instead of offering a different and wrong press beside them.
+ */
+export const OPENING_ACTION: Record<OpeningStop, string> = {
+  'keep-or-mulligan': 'Keep this hand',
+  bottom: 'Put them back',
+};
+
+/**
+ * Who the game is waiting for, in one line, said from the reader's side.
+ *
+ * "Plargg and Nassari has priority" was true and useless: it is a rules term
+ * for a thing the reader cannot act on, printed at the moment the reader was
+ * the one being waited for.
+ */
+export function waitingLine(input: {
+  over: boolean;
+  decision: PlayDecision | null;
+  myTurn: boolean;
+  activeName: string | null;
+  /** Set while the opening hand is unanswered. Answered first, because it is. */
+  opening?: OpeningStop | null;
+}): string {
+  if (input.over) return 'Game over';
+  if (input.opening) return 'The game is waiting for you';
+  if (input.decision !== null) return 'The game is waiting for you';
+  if (input.myTurn) return 'Your turn, nothing owed';
+  return `Waiting on ${input.activeName ?? 'another seat'}`;
+}
+
 export interface FlowOptions {
   /** Goldfish mode ignores mana, which changes what counts as "castable". */
   freeCast?: boolean;

@@ -66,6 +66,25 @@ export interface Frame {
   after: GameState;
   /** Log lines this one action appended. The engine's own words, used as evidence, never as proof. */
   logAdded: GameEvent[];
+  /**
+   * EVERY action the engine ran because of `action`, in order, the top-level
+   * one first. Produced by `applyActionTraced` in `rules.ts`.
+   *
+   * `action` is what a bot PROPOSED. This is what the engine DID, and they are
+   * not the same list: one `PASS_PRIORITY` completing a round resolves the top
+   * of the stack, the resolution plays a card, the card triggers something, and
+   * a counterspell resolving moves the countered card to a graveyard. All of it
+   * is folded inside that one call and none of it is a proposed action.
+   *
+   * Read from this ONLY where the action IS the event and no state difference
+   * can stand in for it. Countering is that case: a card in a graveyard looks
+   * identical whether it was countered, discarded, or resolved there. Anything
+   * visible on the board is still read off the board, which is the rule the
+   * header of this file sets out and which has not changed.
+   *
+   * Empty when the action was refused.
+   */
+  applied: GameAction[];
   /** True when the reducer refused the action outright. */
   refused: boolean;
 }
@@ -727,8 +746,32 @@ export function detectEvents(frame: Frame): EventHit[] {
   if (stackAfter.length < stackBefore.length) {
     push('stack-resolved', `${stackBefore.length} to ${stackAfter.length}`);
   }
-  if (action.type === 'COUNTER_SPELL') push('spell-countered', `stack ${action.stackId}`);
-  if (action.type === 'PASS_PRIORITY') push('priority-passed', String(action.playerId ?? ''));
+  /*
+   * COUNTERING IS READ OFF WHAT THE ENGINE RAN, NOT OFF WHAT A BOT PROPOSED.
+   * ----------------------------------------------------------------------
+   * This line used to be `action.type === 'COUNTER_SPELL'` and it was a false
+   * zero of exactly the shape this file's header warns about. Nobody ever
+   * proposes a `COUNTER_SPELL`. A player casts a counterspell, the table
+   * passes, the counterspell resolves, and `stackFollowUps` produces the
+   * `COUNTER_SPELL` inside `applyAction` as a consequence. The proposed action
+   * is a `PASS_PRIORITY`.
+   *
+   * Measured: twenty recorded games in which the engine's own log holds three
+   * `COUNTER_SPELL` entries, reported by this file as "a spell was countered,
+   * 0 times", printed at the top of the report as the one thing the owner asked
+   * about that never happened. That is the third probe on this project to
+   * watch the wrong layer, after lifelink and deathtouch.
+   *
+   * A state-difference detector cannot replace it. A countered card sits in a
+   * graveyard and so does a discarded one and so does a resolved instant.
+   * Countering is an action or it is nothing.
+   *
+   * A single resolution can counter more than one object, so every entry counts.
+   */
+  for (const applied of frame.applied) {
+    if (applied.type === 'COUNTER_SPELL') push('spell-countered', `stack ${applied.stackId}`);
+    if (applied.type === 'PASS_PRIORITY') push('priority-passed', String(applied.playerId ?? ''));
+  }
 
   /* ---- combat ---- */
 
@@ -1027,9 +1070,34 @@ export function checkInvariants(frame: Frame): InvariantHit[] {
    * Reading the front face here is not a second guess at the rule; it is the
    * only reading that can be right, because the front face is the one being
    * cast.
+   *
+   * READ OFF `applied`, not off the proposed action, and both of the two
+   * shapes the misroute takes.
+   *
+   * A spell cast WITHOUT the stack is a `PLAY` straight to the graveyard, which
+   * is what this used to watch and all it used to watch. A spell cast THROUGH
+   * the stack is a `MOVE_ZONE` produced by `resolutionActionsFor` under CR
+   * 608.2m, buried inside the `PASS_PRIORITY` that completed the round, and
+   * proposed by nobody. Once the bot started casting through the stack the old
+   * check saw nothing at all, which would have read as the bug being fixed.
+   *
+   * The `MOVE_ZONE` half asks the stack object it came off, not the card. A
+   * card going from the stack to a graveyard is also what COUNTERING looks
+   * like, and a countered creature spell belongs in the graveyard. The
+   * difference is on the object: a misrouted spell is one whose `resolvesTo`
+   * was already `graveyard` when it was announced, and a countered one is not.
    */
-  if (frame.action.type === 'PLAY' && frame.action.to === 'graveyard') {
-    const card = frame.before.cards[frame.action.instanceId];
+  for (const applied of frame.applied) {
+    let instanceId: InstanceId | null = null;
+    if (applied.type === 'PLAY' && applied.to === 'graveyard') {
+      instanceId = applied.instanceId;
+    } else if (applied.type === 'MOVE_ZONE' && applied.to === 'graveyard') {
+      const object = (frame.before.stack ?? []).find(o => o.cardInstanceId === applied.instanceId);
+      if (object && object.resolvesTo === 'graveyard') instanceId = applied.instanceId;
+    }
+    if (!instanceId) continue;
+
+    const card = frame.before.cards[instanceId] ?? frame.after.cards[instanceId];
     const line = (card?.typeLine ?? '');
     const front = line.split('//')[0].toLowerCase();
     const isPermanentFront =

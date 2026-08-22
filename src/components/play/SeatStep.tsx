@@ -322,11 +322,19 @@ export function SeatStep({
         )}
       </section>
 
-      {/* Your surface, and the shuffle. */}
-      <div className="grid w-full items-start gap-4 xl:grid-cols-[24rem_minmax(0,1fr)]">
+      {/* The surface and the shuffle, beside the deck wall.
+
+          Two equal halves rather than a 24rem column and the rest. Measured on
+          22 Aug 2026: on a 1920 page that column was 384px holding the whole
+          playmat picker, six texture tiles stacked into a strip, while the page
+          was 1510px tall. Half the page each is the width these two actually
+          want. */}
+      <div className="grid w-full items-start gap-4 lg:grid-cols-2">
         <section className="min-w-0 rounded-xl bg-card p-4 shadow-sm md:p-5">
+          {/* "Your seat" is a lie in playtest, where the step above it has just
+              said none of the seats are yours. */}
           <h2 className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            Your seat
+            {mode === 'playtest' ? 'The table' : 'Your seat'}
           </h2>
 
           <div className="mt-4">

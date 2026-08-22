@@ -25,6 +25,7 @@ import { ManaCost } from '@/components/ui/mana-cost';
 import { CardImage } from '@/components/cards/CardImage';
 import { CardBack, CARD_RADIUS } from './CardBack';
 import { CARD_RATIO } from './Battlefield';
+import { counterBadge } from './cardMarks';
 import {
   attachmentsOn,
   automationFor,
@@ -248,6 +249,12 @@ export const GameCardView = memo(function GameCardView({
      from across the table rather than found by hovering. */
   const swordChip = Math.min(42, Math.max(24, Math.round(renderedWidth * 0.3)));
 
+  /* The counter and damage badges, on the same proportional rule. They used to
+     be a fixed 9px in a 16px pill at every card size, which was the only mark
+     on a card that did not follow the card. `cardMarks.ts` has the measurement
+     that says so. */
+  const badge = counterBadge(renderedWidth);
+
   /*
    * The live board, published by `PlayTable`. Every question below about what
    * this permanent CURRENTLY is — its stat line, whether it is a creature,
@@ -430,8 +437,26 @@ export const GameCardView = memo(function GameCardView({
         }
         className={cn(
           'relative w-full origin-center',
-          // Greyed out, properly, the way the owner asked for it back.
-          dimmed && 'saturate-0 brightness-[0.52] contrast-[0.92]',
+          /*
+           * Cannot be cast, cannot attack, cannot block: said with OPACITY and
+           * nothing else.
+           *
+           * This was `saturate-0 brightness-[0.52] contrast-[0.92]`, applied
+           * over the Scryfall image of every uncastable card in hand and every
+           * creature that cannot attack or block. That is desaturating and
+           * colour shifting a card image, which Scryfall's terms forbid and
+           * which this project has already been pulled up for twice —
+           * `Playmat.tsx` records taking exactly that filter off the mat for
+           * exactly that reason.
+           *
+           * It also made a first hand look broken. On turn one nothing is
+           * castable, so the first thing a new player saw was seven grey cards.
+           *
+           * Opacity is the one channel this project's own rules already bless
+           * for a state change, it reads as unlit against the mat, and it does
+           * not alter a single pixel's colour relative to its neighbours.
+           */
+          dimmed && 'opacity-50',
           role === 'attacker' && 'drop-shadow-[0_10px_18px_rgba(0,0,0,0.65)]',
           selected && 'drop-shadow-[0_8px_16px_rgba(0,0,0,0.6)]'
         )}
@@ -600,11 +625,22 @@ export const GameCardView = memo(function GameCardView({
       )}
 
       {(counters.length > 0 || damage > 0) && (
-        <div className="pointer-events-none absolute -bottom-1.5 left-0 right-0 z-10 flex flex-wrap justify-center gap-0.5">
+        <div
+          className="pointer-events-none absolute left-0 right-0 z-10 flex flex-wrap justify-center gap-1"
+          style={{ bottom: -Math.round(badge.height * 0.34) }}
+        >
           {counters.map(([key, value]) => (
             <span
               key={key}
-              className="rounded-full bg-foreground px-1.5 text-[9px] font-semibold leading-4 text-background shadow-md shadow-black/50"
+              className="flex items-center justify-center rounded-full bg-foreground font-semibold tabular-nums text-background shadow-md shadow-black/50"
+              style={{
+                fontSize: badge.font,
+                lineHeight: `${badge.height}px`,
+                height: badge.height,
+                minWidth: badge.height,
+                paddingLeft: badge.padX,
+                paddingRight: badge.padX,
+              }}
               title={`${value} ${key} counters`}
             >
               {value > 0 ? `+${value}` : value}
@@ -612,7 +648,15 @@ export const GameCardView = memo(function GameCardView({
           ))}
           {damage > 0 && (
             <span
-              className="rounded-full bg-destructive px-1.5 text-[9px] font-semibold leading-4 text-destructive-foreground shadow-md shadow-black/50"
+              className="flex items-center justify-center rounded-full bg-destructive font-semibold tabular-nums text-destructive-foreground shadow-md shadow-black/50"
+              style={{
+                fontSize: badge.font,
+                lineHeight: `${badge.height}px`,
+                height: badge.height,
+                minWidth: badge.height,
+                paddingLeft: badge.padX,
+                paddingRight: badge.padX,
+              }}
               title={`${damage} damage marked`}
             >
               {damage}

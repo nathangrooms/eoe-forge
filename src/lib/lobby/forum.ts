@@ -68,6 +68,7 @@ interface TopicRow {
   pinned: boolean;
   locked: boolean;
   removed_at: string | null;
+  private: boolean | null;
 }
 
 interface PostRow {
@@ -100,6 +101,10 @@ function toTopic(row: TopicRow): ForumTopic {
     pinned: row.pinned,
     locked: row.locked,
     removed: row.removed_at !== null,
+    /* A thread is never private: the check constraint on `forum_topics` says a
+       private topic has to be a room. It travels anyway, so nothing downstream
+       has to know which kind of topic it is holding. */
+    private: row.private === true,
   };
 }
 
@@ -137,9 +142,13 @@ export async function readBoard(limit = BOARD_PAGE): Promise<ForumTopic[]> {
   const { data, error } = await supabase
     .from('forum_topics' as never)
     .select(
-      'id, scope, table_id, title, author_id, author_name, table_code, created_at, last_post_at, last_post_name, post_count, pinned, locked, removed_at'
+      'id, scope, table_id, title, author_id, author_name, table_code, created_at, last_post_at, last_post_name, post_count, pinned, locked, removed_at, private'
     )
     .eq('scope', 'board')
+    /* Threads only. A room is a topic too, but it is a PLACE rather than a
+       conversation somebody started, and a list sorted by who spoke last is
+       not where it belongs. `chat.ts` reads those. */
+    .eq('kind', 'thread')
     .is('removed_at', null)
     .order('pinned', { ascending: false })
     .order('last_post_at', { ascending: false })

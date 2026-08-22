@@ -36,6 +36,8 @@
  *                    and why, the CR 903.9a choice a player makes when their
  *                    commander dies, and the per-commander damage tallies
  *   - `moves.ts`     composite moves (cast, land drop, advance) shared by UI and bot
+ *   - `cast-targets.ts` CR 601.2c — aiming an instant or a sorcery as it is
+ *                    cast, reusing `activate.ts`'s target legality
  *   - `setup.ts`     decklists in, shuffled and dealt `GameState` out
  *   - `bot.ts`       a plausible opponent that decides only in `GameAction`s
  *
@@ -97,6 +99,10 @@ export * from './attach.ts';
 // builds its `CAST_COMMANDER` announcement from here.
 export * from './commander.ts';
 export * from './moves.ts';
+// CR 601.2c — the asker that lets an instant or a sorcery be cast AT something.
+// After `moves.ts` and `activate.ts` because it composes both: it reuses
+// `activate.ts`'s target legality and ends in `moves.ts`'s cast plan.
+export * from './cast-targets.ts';
 export * from './setup.ts';
 export * from './bot.ts';
 

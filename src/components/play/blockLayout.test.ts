@@ -61,17 +61,59 @@ const REAL_BLOCKS: ReadonlyArray<readonly [number, number, number]> = [
   [126, 218, 72], //  1280, quads
 ];
 
-test('adding a permanent never changes the size of the cards already there', () => {
+test('the card size steps twice in a whole game, and only at the two rungs', () => {
+  /*
+   * It used to be pinned constant here, and for most of this file's life that
+   * was the right answer: `fitBlockCardWidth` resized every card in the block
+   * whenever one arrived, 102px to 100px to 66px to 64px as three Rancors
+   * landed, and stopping that was why the count was taken out of the geometry.
+   *
+   * The count is back in exactly one form, a LADDER, because the constant could
+   * not hold an artifact deck: measured on 22 Aug 2026, thirteen permanents in
+   * a 220 x 684 block drew one column of 115px cards showing 38px of each. So
+   * the block plans for four, then ten, then sixteen, and the two crossings are
+   * the only two moments in a game when anything in it resizes.
+   */
   for (const [width, height, ceiling] of REAL_BLOCKS) {
     const sizes = [];
-    for (let count = 1; count <= 10; count++) {
+    for (let count = 1; count <= 40; count++) {
       sizes.push(blockLayout(count, width, height, ceiling).cardWidth);
     }
-    assert.deepEqual(
-      [...new Set(sizes)],
-      [sizes[0]],
-      `block ${width}x${height} resized its cards between 1 and 10 permanents: ${sizes.join(',')}`
+    for (let i = 1; i < sizes.length; i++) {
+      assert.ok(
+        sizes[i] <= sizes[i - 1],
+        `block ${width}x${height} grew its cards at ${i + 1} permanents: ${sizes.join(',')}`
+      );
+    }
+    /* Three rungs, plus the floor a genuinely overfull block comes down to
+       rather than painting onto the seat below. Four distinct sizes across a
+       board of forty permanents, against one per arrival before any of this. */
+    assert.ok(
+      new Set(sizes).size <= 4,
+      `block ${width}x${height} used ${new Set(sizes).size} sizes: ${sizes.join(',')}`
     );
+  }
+});
+
+test('within a rung nothing moves at all, which is where a game is spent', () => {
+  for (const [width, height, ceiling] of REAL_BLOCKS) {
+    /* The first two rungs only. The third is where a block that is genuinely
+       fuller than its box can hold starts coming down in size instead of
+       painting onto the seat below, and the overfull tests further down own
+       that case. */
+    for (const rung of [
+      [1, 4],
+      [5, 10],
+    ]) {
+      const first = blockLayout(rung[0], width, height, ceiling).cardWidth;
+      for (let count = rung[0]; count <= rung[1]; count++) {
+        assert.equal(
+          blockLayout(count, width, height, ceiling).cardWidth,
+          first,
+          `block ${width}x${height} resized at ${count}, inside rung ${rung[0]}..${rung[1]}`
+        );
+      }
+    }
   }
 });
 
@@ -109,12 +151,43 @@ test('a four-seat block draws the size the old search reached at four cards', ()
   assert.equal(blockLayout(4, 166, 300, 102).cardWidth, 64);
 });
 
-test('a wider block spends the room on a bigger card, still without a count', () => {
+test('a wider block spends the room on a bigger card', () => {
   const narrow = blockCardWidth(166, 300, 105);
   const wide = blockCardWidth(220, 300, 105);
   assert.ok(wide > narrow, `a 220px block drew ${wide}px against a 166px block's ${narrow}px`);
-  for (let count = 1; count <= 12; count++) {
+  /* Constant across the first rung, which is the whole of most games. */
+  for (let count = 1; count <= 4; count++) {
     assert.equal(blockLayout(count, 220, 300, 105).cardWidth, wide, `resized at ${count}`);
+  }
+});
+
+test('a wider window is never a worse block, which it used to be', () => {
+  /*
+   * The defect this pair replaces, in one assertion. Measured on 22 Aug 2026,
+   * thirteen permanents on one seat:
+   *
+   *   1280 x 800    block 220 x 473, card 86 x 120, TWO columns, 43% of each
+   *   1920 x 1080   block 220 x 684, card 115 x 160, ONE column,  24% of each
+   *
+   * Making the window wider bought a bigger card and lost a column, so more
+   * screen meant less board. A block never returns to one column above the
+   * first rung when its box can hold two.
+   */
+  for (const [width, height, ceiling] of [
+    [340, 473, 164],
+    [440, 473, 164],
+    [340, 684, 200],
+    [440, 684, 200],
+    [284, 309, 105],
+    [379, 309, 105],
+  ] as ReadonlyArray<readonly [number, number, number]>) {
+    for (const count of [5, 8, 11, 13, 20]) {
+      const plan = blockLayout(count, width, height, ceiling);
+      assert.ok(
+        plan.columns >= 2,
+        `${width}x${height} fell to ${plan.columns} column at ${count} permanents`
+      );
+    }
   }
 });
 

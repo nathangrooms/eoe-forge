@@ -51,7 +51,7 @@
  * it is the strongest kind in the report.
  */
 
-import type { CardInstance, GameEvent, GameState, PlayerId } from '../../src/lib/game/types.ts';
+import type { CardInstance, GameAction, GameEvent, GameState, PlayerId } from '../../src/lib/game/types.ts';
 import { automationFor, parseIntervening } from '../../src/lib/game/effects.ts';
 import {
   ADVISORY_KEYWORDS,
@@ -590,9 +590,33 @@ export interface Footprint {
 export function footprintOf(
   diff: StateDiff,
   selfInstanceId: string,
-  logAdded: readonly GameEvent[] = []
+  logAdded: readonly GameEvent[] = [],
+  options: { name?: string; applied?: readonly GameAction[] } = {}
 ): Footprint {
   const effects: string[] = [];
+
+  /*
+   * COUNTERING IS THE ONE EFFECT WITH NO FOOTPRINT ON THE BOARD.
+   *
+   * Countering an ability takes an object off the stack and moves no card at
+   * all: there is no card behind an activated ability. Countering a spell moves
+   * one card from the stack to a graveyard, and the block below ignores the
+   * whole `stack` path because a resolution always disturbs it. Between them,
+   * a counterspell that did exactly what it says came out as "resolved and
+   * changed nothing", which filed Essence Capture and Quench under
+   * `silent-untold` in a run where both worked. That row means "did nothing and
+   * told nobody", and it is the row this project holds at zero, so putting two
+   * working cards in it is not a small mistake.
+   *
+   * `reason` on a `COUNTER_SPELL` is the name of the object that countered,
+   * set by `actionsForEffect` in `stack.ts`, so this is the card's own name
+   * coming back off the action the engine ran.
+   */
+  for (const action of options.applied ?? []) {
+    if (action.type !== 'COUNTER_SPELL') continue;
+    if (options.name && action.reason !== options.name) continue;
+    effects.push(`countered ${action.reason ?? 'a spell'}`);
+  }
 
   /*
    * State-based actions run inside the same `applyAction` call, so a creature
@@ -648,6 +672,34 @@ export function footprintOf(
       // Turn structure is not the card's doing.
       continue;
     }
+
+    /*
+     * THE PRIORITY ROUND IS NOT THE CARD'S DOING EITHER, and this is the line
+     * that stops a harness repair from turning into a flattering lie.
+     *
+     * A spell cast through the stack resolves inside the `PASS_PRIORITY` that
+     * completed the round, so the state difference for that one action ALWAYS
+     * carries `stack` shrinking and `passedPriority` being cleared, whatever
+     * the card was. Without this, every card that resolved would have a
+     * non-empty footprint, `quiet` would be false for all of them, and every
+     * one would be filed as `acted`.
+     *
+     * Measured on seed 9000 before the fix: 42 resolutions in that one game,
+     * every single one credited with "stack changed" and "passedPriority
+     * changed" and nothing else. Across the twenty games it moved `acted` from
+     * 185 to 942 and `correctly-quiet` from 1,141 to 482, with no engine change
+     * behind any of it. A false zero sends somebody to fix working code; a
+     * false success like that one stops anybody looking at all, which is worse,
+     * and it is the direction this project has overstated itself in before.
+     *
+     * `pendingTriggers` and `timedEffects` are deliberately NOT here. A card
+     * that queued a trigger or registered a continuous effect did something,
+     * and those are the difference that says so.
+     */
+    if (path === 'stack' || path.startsWith('stack.') || path.startsWith('stack[')) continue;
+    if (path === 'passedPriority' || path.startsWith('passedPriority')) continue;
+    if (path === 'nextStackId') continue;
+
     effects.push(`${path} changed`);
   }
 
@@ -1040,6 +1092,13 @@ export interface JudgeInput {
   diff: StateDiff;
   /** Log lines this one action appended. */
   logAdded: readonly GameEvent[];
+  /**
+   * Every action the engine ran for this frame, from `applyActionTraced`.
+   *
+   * Only countering is read from it, and only because countering is the one
+   * effect a player can see and a state difference cannot. See `footprintOf`.
+   */
+  applied?: readonly GameAction[];
 }
 
 /**
@@ -1088,7 +1147,10 @@ function judgeWhatHappened(input: JudgeInput): Omit<CardVerdict, 'severity'> {
     sentTo === 'battlefield' ? 'enters' : 'spell-resolves';
   const controller = card.controllerId;
   const automation = automationFor(card);
-  const footprint = footprintOf(diff, card.instanceId, logAdded);
+  const footprint = footprintOf(diff, card.instanceId, logAdded, {
+    name: card.name,
+    applied: input.applied,
+  });
 
   const drawbacks = drawbacksAfterBoard(
     inertDrawbacks(card),

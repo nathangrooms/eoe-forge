@@ -25,13 +25,27 @@ import type { GameState, PlayerId } from '@/lib/game';
 export interface TurnBannerProps {
   state: GameState;
   viewerPlayerId: PlayerId;
+  /**
+   * Whether that seat is actually the reader's.
+   *
+   * False in a playtest, where `viewerPlayerId` marks the seat the table is
+   * being WATCHED through and nobody is playing it. Measured on 22 Aug 2026: a
+   * playtest drew the seat badge as WATCHING and BOT while this banner said
+   * YOUR TURN across the middle of the board in letters about 60px tall.
+   */
+  viewerOwnsSeat?: boolean;
   className?: string;
 }
 
 /** How long the call stays up. Long enough to read, short enough not to nag. */
 const HOLD_MS = 1150;
 
-export function TurnBanner({ state, viewerPlayerId, className }: TurnBannerProps) {
+export function TurnBanner({
+  state,
+  viewerPlayerId,
+  viewerOwnsSeat = true,
+  className,
+}: TurnBannerProps) {
   const reduceMotion = useReducedMotion();
   const [shown, setShown] = useState<number | null>(null);
 
@@ -46,7 +60,7 @@ export function TurnBanner({ state, viewerPlayerId, className }: TurnBannerProps
   }, [turn, playing, reduceMotion]);
 
   const active = state.players.find(p => p.id === state.activePlayerId);
-  const mine = state.activePlayerId === viewerPlayerId;
+  const mine = viewerOwnsSeat && state.activePlayerId === viewerPlayerId;
 
   return (
     <div

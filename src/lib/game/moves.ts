@@ -82,11 +82,16 @@ export interface CastOptions {
   /**
    * Announce the spell onto the STACK instead of putting it straight into play.
    *
-   * Off by default, and that default is load-bearing rather than lazy. Two
-   * surfaces drive this engine — `/play` and `/simulate` — plus a life counter
-   * and a pile of tests, and a spell that sits on the stack waiting for a
-   * priority round it will never receive is a hung game, not a more correct
-   * one. So the stack is opt-in by whoever is prepared to run the round.
+   * Off by default HERE, because this function is called by a life counter and
+   * a pile of tests as well as by the two playing surfaces, and a spell that
+   * sits on the stack waiting for a priority round it will never receive is a
+   * hung game rather than a more correct one. So the stack is opt-in by
+   * whoever is prepared to run the round.
+   *
+   * **The bot is now one of those.** `bot.ts` `chooseSpell` passes `true`
+   * unless a caller says `false` out loud, so a bot's spell is an object at the
+   * table by default. Read the default here as "this planner does not decide",
+   * not as "the app casts without the stack".
    *
    * With it on, the batch ends in `CAST_SPELL`: `rules.ts` moves the card to
    * the stack, `stack.ts` builds the object and gives the caster priority, and

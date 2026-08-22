@@ -41,7 +41,16 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PHASE_OF_STEP, STEP_LABELS, type GameState, type Phase, type PlayerId } from '@/lib/game';
-import { DECISION_LABEL, type PlayDecision } from './turnFlow';
+import {
+  DECISION_ACTION,
+  DECISION_LABEL,
+  OPENING_ACTION,
+  OPENING_LABEL,
+  decisionOwnsTheButton,
+  waitingLine,
+  type OpeningStop,
+  type PlayDecision,
+} from './turnFlow';
 
 export type PlayViewId = 'table' | 'hand' | 'view' | 'combat';
 
@@ -61,6 +70,25 @@ export interface PlayHUDProps {
   onViewSeat: (playerId: PlayerId) => void;
   /** The decision this seat owes the table, or null while the game is flowing. */
   decision: PlayDecision | null;
+  /**
+   * Go to where that decision is made. Pressed from the big control when the
+   * game is waiting for this seat and END TURN is not the answer.
+   */
+  onDecision?: () => void;
+  /**
+   * The opening hand, while it is still unanswered.
+   *
+   * Handed in rather than read off the state, because the mulligan is `/play`'s
+   * own step and the reducer has already started turn one underneath it. Set,
+   * it outranks everything: the game genuinely cannot move, so END TURN must
+   * neither be offered nor be pressable. See `turnFlow.ts` for what pressing it
+   * used to do.
+   */
+  opening?: OpeningStop | null;
+  /** Answer the opening hand from the HUD: keep, or put the owed cards back. */
+  onOpening?: () => void;
+  /** False while a bottoming step is still short of, or over, its count. */
+  openingReady?: boolean;
   /** Manual escape hatch — one step, for when auto-advance is off. */
   onAdvance: () => void;
   /** One press: run the rest of the turn and pass it on. */
@@ -153,6 +181,10 @@ export function PlayHUD({
   viewSeatId,
   onViewSeat,
   decision,
+  onDecision,
+  opening = null,
+  onOpening,
+  openingReady = true,
   onAdvance,
   onEndTurn,
   ending,
@@ -169,17 +201,30 @@ export function PlayHUD({
   const currentPhase = PHASE_OF_STEP[state.step];
   const phaseIndex = PHASES.findIndex(entry => entry.id === currentPhase);
 
+  /* The opening hand outranks every other reading of the board. The reducer has
+     already started turn one, so `myTurn` is true and `decision` is null, and
+     without this the button would offer END TURN over a hand nobody has kept
+     yet. `turnFlow.ts` records what that press did. */
+  const waitingOnOpening = !over && opening !== null;
+
+  /* The game is waiting for this seat, and END TURN is not what it wants. This
+     is true on somebody else's turn when you are the one blocking, which is
+     exactly where the old `myTurn` question gave the wrong answer. */
+  const owed = !over && !waitingOnOpening && decisionOwnsTheButton(decision);
+
   const status = over
     ? state.winnerIds.length > 0
       ? `${state.players.find(p => p.id === state.winnerIds[0])?.name ?? 'Someone'} wins`
       : 'A draw'
-    : decision
-      ? DECISION_LABEL[decision]
-      : botThinking
-        ? `${active?.name ?? 'Opponent'} is thinking…`
-        : myTurn
-          ? STEP_LABELS[state.step]
-          : `${active?.name ?? 'Opponent'}'s turn`;
+    : waitingOnOpening
+      ? OPENING_LABEL[opening as OpeningStop]
+      : decision
+        ? DECISION_LABEL[decision]
+        : botThinking
+          ? `${active?.name ?? 'Opponent'} is thinking…`
+          : myTurn
+            ? STEP_LABELS[state.step]
+            : `${active?.name ?? 'Opponent'}'s turn`;
 
   return (
     <div
@@ -310,7 +355,9 @@ export function PlayHUD({
 
       {/* Who is acting, and on what. */}
       <div className="ml-auto flex min-w-0 items-center gap-2">
-        <div className="hidden min-w-0 flex-col items-end leading-tight xl:flex">
+        {/* `xl:flex` before this, so the one line saying whether the game was
+            waiting for you vanished entirely below 1280px wide. */}
+        <div className="hidden min-w-0 flex-col items-end leading-tight sm:flex">
           <span className="flex items-center gap-1.5 truncate text-xs font-semibold text-foreground">
             {botThinking && !myTurn && (
               <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-foreground" />
@@ -318,11 +365,13 @@ export function PlayHUD({
             {status}
           </span>
           <span className="truncate text-[10px] text-muted-foreground">
-            {over
-              ? 'Game over'
-              : myTurn
-                ? 'You have priority'
-                : `${active?.name ?? 'Opponent'} has priority`}
+            {waitingLine({
+              over,
+              decision,
+              myTurn,
+              activeName: active?.name ?? null,
+              opening,
+            })}
           </span>
         </div>
 
@@ -358,15 +407,27 @@ export function PlayHUD({
         {/* The one press. */}
         <button
           type="button"
-          onClick={onEndTurn}
-          disabled={!myTurn || over || ending}
-          title={myTurn ? 'End your turn' : `Waiting on ${active?.name ?? 'another seat'}`}
+          onClick={waitingOnOpening ? onOpening : owed ? onDecision : onEndTurn}
+          disabled={
+            over ||
+            ending ||
+            (waitingOnOpening ? !openingReady : !owed && !myTurn)
+          }
+          title={
+            waitingOnOpening
+              ? OPENING_LABEL[opening as OpeningStop]
+              : owed && decision
+                ? DECISION_LABEL[decision]
+                : myTurn
+                  ? 'End your turn'
+                  : `Waiting on ${active?.name ?? 'another seat'}`
+          }
           className={cn(
             // A fixed floor on the width so the label changing from END TURN to
             // a player's name does not resize the loudest control on screen.
             'flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg px-3 text-xs font-semibold uppercase tracking-wide transition-colors md:min-w-[9.5rem] md:px-5 md:text-sm',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-            myTurn && !over
+            !over && (waitingOnOpening || owed || myTurn)
               ? 'bg-destructive text-destructive-foreground shadow-lg shadow-black/50 hover:bg-destructive/90 disabled:opacity-70'
               : 'bg-muted/70 text-muted-foreground'
           )}
@@ -375,11 +436,15 @@ export function PlayHUD({
           <span className="truncate">
             {over
               ? 'Game over'
-              : myTurn
-                ? ending
-                  ? 'Ending…'
-                  : 'End turn'
-                : `${active?.name ?? 'Opponent'}'s turn`}
+              : waitingOnOpening
+                ? OPENING_ACTION[opening as OpeningStop]
+                : owed && decision
+                  ? DECISION_ACTION[decision]
+                  : myTurn
+                    ? ending
+                      ? 'Ending…'
+                      : 'End turn'
+                    : `${active?.name ?? 'Opponent'}'s turn`}
           </span>
         </button>
       </div>

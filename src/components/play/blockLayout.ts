@@ -124,13 +124,53 @@ function rowsAt(height: number, cardHeight: number, step: number): number {
  * column to two because a third aura resolved is the 34% resize this file's
  * header measured.
  *
- * Four is a realistic support board — a mana rock, a signet, a couple of
- * enchantments — and on the narrowest mat this project draws (a four-seat
- * quadrant at 1680, a 166px block) it lands on exactly the size the old
- * count-driven search produced for four cards. So the picture at four is
- * unchanged and the picture at one, two and three no longer moves.
+ * ---------------------------------------------------------------------------
+ * ONE CONSTANT FOUR WAS NOT AN ARTIFACT DECK
+ * ---------------------------------------------------------------------------
+ * Owner, by name: the artifact and enchantment area is tiny when some people
+ * play full artifact decks. Four is a mana rock, a signet and a couple of
+ * enchantments, which is a green deck's support board, not an artifact deck's.
+ *
+ * Four was also being satisfied the wrong way. Measured on 22 Aug 2026 at
+ * 1920 x 1080 with thirteen permanents in the block: the block was 220 x 684,
+ * ONE column, cards 115 x 160 with 38px of each one showing. A single column
+ * four rows deep satisfies "holds four" perfectly well, so the size search kept
+ * the widest card it could, and a WIDER window produced a NARROWER grid.
+ *
+ * So the capacity is a rung, on the same three rungs and the same two crossings
+ * as `supportBlockWidth`. Four for a block with four or fewer things in it,
+ * where four cards clear of each other in one column is the right picture and
+ * forcing a second column would only make them smaller for nothing. Ten and
+ * sixteen above that, which is what turns a tall stack into a grid.
  */
 export const BLOCK_CAPACITY = 4;
+
+/** How many the block plans to hold, given how many are in it. */
+export const BLOCK_CAPACITY_RUNGS: readonly { over: number; capacity: number }[] = [
+  { over: 0, capacity: BLOCK_CAPACITY },
+  { over: 4, capacity: 10 },
+  { over: 10, capacity: 16 },
+];
+
+export function blockCapacityFor(count: number): number {
+  let capacity = BLOCK_CAPACITY;
+  for (const rung of BLOCK_CAPACITY_RUNGS) {
+    if (count > rung.over) capacity = rung.capacity;
+  }
+  return capacity;
+}
+
+/**
+ * The fewest columns a block above the first rung will settle for.
+ *
+ * A one-column block is a stack, and a stack of thirteen shows thirteen title
+ * bars. It applies only once the block is past four permanents, because below
+ * that a single column holds them all clear of each other and a second column
+ * would buy nothing but a smaller card. Where the box genuinely cannot fit two
+ * readable cards side by side, one column is the honest answer and this floor
+ * stands aside.
+ */
+export const BLOCK_MIN_COLUMNS = 2;
 
 /**
  * The card size the block draws at, from its BOX and the ceiling alone.
@@ -147,20 +187,57 @@ export const BLOCK_CAPACITY = 4;
  * It takes no count, and `blockLayout.test.ts` pins that arity, so a future
  * change that wants the count back has to delete a test that says why.
  */
-export function blockCardWidth(width: number, height: number, ceiling: number): number {
+export function blockCardWidth(
+  width: number,
+  height: number,
+  ceiling: number,
+  capacity = BLOCK_CAPACITY
+): number {
   const byHeight = Math.floor((height - BLOCK_LABEL) * CARD_RATIO);
   const top = Math.max(1, Math.min(Math.floor(ceiling), byHeight));
 
+  /* Two columns, but only above the first rung, and only where two readable
+     cards genuinely fit side by side. On a narrower box, or on a block holding
+     four or fewer, one column is the truth. */
+  const wantColumns =
+    capacity > BLOCK_CAPACITY && blockColumns(width, MIN_BOARD_CARD) >= BLOCK_MIN_COLUMNS
+      ? BLOCK_MIN_COLUMNS
+      : 1;
+
   let widestThatFits = 0;
+  let bestSlots = 0;
+  let bestWidth = 0;
   for (let w = top; w >= MIN_BOARD_CARD; w -= 1) {
     if (!blockFitsColumn(width, w)) continue;
     if (!widestThatFits) widestThatFits = w;
     const cardHeight = w / CARD_RATIO;
+    const columns = blockColumns(width, w);
+    if (columns < wantColumns) continue;
     const clearRows = rowsAt(height, cardHeight, cardHeight + blockGap(w));
-    if (blockColumns(width, w) * clearRows >= BLOCK_CAPACITY) return w;
+    const slots = columns * clearRows;
+    if (slots >= capacity) return w;
+    /* Walking DOWN, so the first width to reach a given slot count is the
+       widest that reaches it. Recording only strict improvements keeps the
+       largest card of the best grid. */
+    if (slots > bestSlots) {
+      bestSlots = slots;
+      bestWidth = w;
+    }
   }
-  /* Nothing at a readable size holds four. Draw the largest readable card the
-     box will take and let the ladder overlap the rest. */
+  /*
+   * Nothing at a readable size holds the rung's capacity clear of each other,
+   * which is a cramped box rather than a wide one: a four-seat quadrant with an
+   * artifact deck on it.
+   *
+   * The answer is the grid that holds the MOST, at the largest card that
+   * reaches it, and not the largest card the box will take. Measured on a
+   * four-seat 1920 table, a 284 x 309 block: the widest card meeting the column
+   * floor is 105px in two columns and one clear row, which shingles eight
+   * permanents down to 31% of each. The best grid is 62px in three columns and
+   * three clear rows, which holds nine of them whole. A card you can see all of
+   * beats a bigger card you can see a title bar of.
+   */
+  if (bestWidth) return bestWidth;
   if (widestThatFits) return widestThatFits;
 
   for (let w = Math.min(top, MIN_BOARD_CARD); w >= 1; w -= 1) {
@@ -229,7 +306,8 @@ export function blockLayout(
   height: number,
   ceiling: number
 ): BlockLayout {
-  const top = blockCardWidth(width, height, ceiling);
+  const capacity = blockCapacityFor(count);
+  const top = blockCardWidth(width, height, ceiling, capacity);
   if (count <= 0) {
     return { cardWidth: top, columns: 1, rows: 0, step: 0, overlap: 0, height: BLOCK_LABEL };
   }

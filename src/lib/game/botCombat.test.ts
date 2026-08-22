@@ -32,6 +32,7 @@ import { buildTable, type PlayCard, type PlayDeck } from './setup.ts';
 import { nextBotMove, botsAwaitingMove } from './bot.ts';
 import { advanceActions } from './moves.ts';
 import { eligibleAttackers, eligibleBlockers } from './combat.ts';
+import { hasPriority, stackOf } from './stack.ts';
 import type { GameState, PlayerId } from './types.ts';
 
 /* ------------------------------------------------------------------ *
@@ -177,9 +178,38 @@ function play(options: {
       continue;
     }
 
-    /* The human seats. They block when they can and otherwise press next, which
-       is exactly what `/play` does through `turnFlow.decisionFor`. */
+    /*
+     * A human seat holding priority PASSES it, and this is the half that was
+     * missing.
+     *
+     * The loop used to press `advanceActions` for a human whatever was on the
+     * stack. That was harmless while nothing ever reached the stack and became
+     * a deadlock the moment the bot started casting through it: the bot
+     * announces a creature, passes, priority reaches the human seat, the human
+     * presses "next", `ADVANCE_STEP` changes the step and leaves the spell
+     * sitting there, and from then on every bot decision is "pass priority" on
+     * a round that can never complete. Both human-seat tests in this file
+     * failed exactly that way, with the bot never reaching a declare-attackers
+     * step again.
+     *
+     * `/play` never had that bug: `turnFlow.ts` `flowActions` is one helper for
+     * both meanings of "next" and it sends `PASS_PRIORITY` whenever the stack
+     * is not empty. The two lines below are that rule, written out rather than
+     * imported, because an engine test importing a component is worse than a
+     * duplicated pair of lines. If `flowActions` changes, this changes with it.
+     */
     let acted = false;
+    if (stackOf(state).length > 0) {
+      const holder = options.humanSeats.find(seat => hasPriority(state, seat));
+      if (holder) {
+        const next = applyActions(state, [{ type: 'PASS_PRIORITY', playerId: holder, at: 0 }]);
+        if (next !== state) {
+          state = next;
+          continue;
+        }
+      }
+    }
+
     for (const seat of options.humanSeats) {
       if (state.step !== 'declare_blockers') continue;
       const incoming = state.combat.attackers.filter(d => d.defenderPlayerId === seat);

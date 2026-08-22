@@ -395,10 +395,19 @@ export function SeatMat({
   const creatureCardWidth = boardCardWidth;
   const landCardWidth = boardCardWidth;
 
-  /* The support block is a constant fifth of the mat. See `supportBlockWidth`
-     for the measurement that says why it is not a growing third of it. */
+  /*
+   * The support block's width: a fifth of the mat when it is empty, and one of
+   * three rungs wider once there is an artifact deck in it.
+   *
+   * This is the ONE number on this mat that reads the board, and the reason is
+   * written out in `supportBlockWidth`: at 1920 the block held every permanent
+   * in play in 11.6% of the mat while 1525 x 680 px of the mat held nothing.
+   * It steps twice in a whole game, at the fifth support permanent and the
+   * eleventh, and neither step changes any card's SIZE — `seatCardWidth` reads
+   * the row's height, which the block cannot touch.
+   */
   const supportWidth = Math.min(
-    supportBlockWidth(width),
+    supportBlockWidth(width, rows.support.length),
     Math.max(0, width - sideWidth - 180 - BAND_GAP - 14)
   );
   const supportHeight = bandsHeight;
@@ -423,11 +432,13 @@ export function SeatMat({
    * beside it did not move — but "contained" is not the same as "does not
    * happen", and it is the owner's complaint in the owner's own words.
    *
-   * `blockCardWidth` takes the box and this ceiling and no count. It reaches
-   * the same 64px the old search reached once four cards were down, so a full
-   * block looks the same and a filling one no longer moves.
+   * `blockLayout` takes the box and a CEILING and decides the whole grid, so
+   * this line hands it the ceiling and nothing else. It used to run
+   * `blockCardWidth` here as well and pass that answer down as the ceiling, so
+   * the same search ran twice and the second one could never reach past what
+   * the first had already settled on.
    */
-  const supportCardWidth = Math.max(26, blockCardWidth(supportWidth, supportHeight, boardCardWidth));
+  const supportCardWidth = boardCardWidth;
 
   /* Below this the identity band cannot hold everything, so the optional parts
      — the "Bot" chip, the word "mana", the spread of face-down cards — drop out
@@ -547,8 +558,10 @@ export function SeatMat({
         onClick={onOpenZone ? () => onOpenZone(player.id, 'exile') : undefined}
       >
         {exileTop ? (
-          // Exiled cards read as removed from the game: same pile, drained.
-          <span className="block opacity-70 saturate-0">
+          /* Exiled cards read as removed from the game: same pile, unlit.
+             `saturate-0` before this, over a Scryfall image, which the licence
+             forbids and this project has been pulled up for twice. */
+          <span className="block opacity-60">
             <GameCardView card={exileTop} width={tileCardWidth} ignoreTapped />
           </span>
         ) : (
@@ -819,7 +832,9 @@ export function SeatMat({
         title={`${untapped} untapped mana source${untapped === 1 ? '' : 's'}`}
       >
         {untapped}
-        {roomy ? ' mana' : ''}
+        {/* "0 mana" reads as "you cannot cast anything". The number is a count
+            of untapped mana SOURCES, so the chip says so. */}
+        {roomy ? ' untapped' : ''}
       </span>
 
       {showHandBacks && roomy && handCount > 0 && (
@@ -850,7 +865,9 @@ export function SeatMat({
   return (
     <section
       ref={matRef}
-      aria-label={`${player.name}'s seat`}
+      /* `${player.name}'s seat` read "You's seat" on the viewer's own mat,
+         because the viewer's name IS "You". */
+      aria-label={player.name === 'You' ? 'Your seat' : `${player.name}'s seat`}
       className={cn('relative h-full w-full', className)}
     >
       <Playmat
@@ -862,7 +879,9 @@ export function SeatMat({
         className={cn(
           'h-full w-full transition-shadow duration-300 motion-reduce:transition-none',
           active ? 'shadow-[0_0_40px_rgba(0,0,0,0.55)]' : 'shadow-[0_0_24px_rgba(0,0,0,0.45)]',
-          dead && 'opacity-60 saturate-0'
+          /* A dead seat is unlit, not drained. `saturate-0` here desaturated
+             every card image on that seat's mat along with the mat itself. */
+          dead && 'opacity-60'
         )}
       >
         {/* Under attack the mat itself goes red, rather than a ring appearing. */}

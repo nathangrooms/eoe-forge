@@ -24,6 +24,7 @@ import {
   Search,
   ArrowUpDown,
   SlidersHorizontal,
+  ShoppingCart,
 } from 'lucide-react';
 import { ListToProxiesPanel } from '@/components/shopping';
 import { proxyCandidatesFromWishlist } from '@/lib/shopping';
@@ -121,6 +122,7 @@ export default function Wishlist() {
   const [moveTarget, setMoveTarget] = useState<WishlistItem | null>(null);
   const [moving, setMoving] = useState(false);
   const [proxying, setProxying] = useState(false);
+  const [toShopping, setToShopping] = useState(false);
 
   const [activeTab, setActiveTab] = useState('wishlist');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -738,6 +740,19 @@ export default function Wishlist() {
             {/* People proxy a deck to play it before they buy into it, so a
                 wishlist is the list most worth printing. One action for all of
                 it, not one click per card. */}
+            {/* The wishlist is what you WANT; the shopping list is what you are
+                actually going to buy. Moving between them was the one step you
+                had to do by hand, one card at a time. Owner: "On the wishlist,
+                we should also be able to move to shopping list". */}
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setToShopping(true)}
+              disabled={proxyCandidates.length === 0}
+            >
+              <ShoppingCart className="mr-2 h-4 w-4" aria-hidden="true" />
+              Add to shopping list
+            </Button>
             <Button
               variant="secondary"
               size="sm"
@@ -1008,6 +1023,15 @@ export default function Wishlist() {
             />
           </TabsContent>
         </Tabs>
+
+        <ListToProxiesPanel
+          kind="shopping"
+          open={toShopping}
+          onOpenChange={setToShopping}
+          candidates={proxyCandidates}
+          sourceLabel="your wishlist"
+          description="Everything you want, ready to buy. Leave out anything you are not buying yet."
+        />
 
         <ListToProxiesPanel
           open={proxying}

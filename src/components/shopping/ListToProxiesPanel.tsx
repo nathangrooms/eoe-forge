@@ -48,6 +48,17 @@ export interface ListToProxiesPanelProps {
   sourceLabel: string;
   /** One line under the heading saying what is about to be printed. */
   description?: string;
+  /**
+   * Which list the cards are going ONTO. Defaults to the proxy list, which is
+   * what this panel was built for.
+   *
+   * It was always the same job: take a list of cards, let somebody deselect
+   * the ones they do not want, recover the ones we hold no art for, and write
+   * them somewhere in one request. Only the destination differed, so the
+   * destination became a parameter rather than a second copy of the panel.
+   * Owner: "On the wishlist, we should also be able to move to shopping list".
+   */
+  kind?: 'proxy' | 'shopping';
 }
 
 /** A candidate after we have tried to find art for it. */
@@ -63,7 +74,9 @@ export function ListToProxiesPanel({
   candidates,
   sourceLabel,
   description,
+  kind = 'proxy',
 }: ListToProxiesPanelProps) {
+  const listName = kind === 'shopping' ? 'shopping list' : 'proxy list';
   const addMany = useCardLists(state => state.addMany);
 
   const [rows, setRows] = useState<Row[]>([]);
@@ -167,9 +180,9 @@ export function ListToProxiesPanel({
         oracle_id: row.oracleId ?? row.card?.oracle_id ?? null,
         quantity: Math.max(1, row.quantity),
       }));
-      await addMany({ kind: 'proxy', items, source: 'manual' });
+      await addMany({ kind, items, source: 'manual' });
       setAdded(copies);
-      showSuccess('On your proxy list', `${showListItemCount(copies)} from ${sourceLabel}.`);
+      showSuccess(`On your ${listName}`, `${showListItemCount(copies)} from ${sourceLabel}.`);
     } catch (error: any) {
       showError('Could not add those', error?.message ?? 'Please try again.');
     } finally {

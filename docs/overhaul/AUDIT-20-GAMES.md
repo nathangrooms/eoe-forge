@@ -36,6 +36,40 @@ twenty games report lifelink 32 times and five deathtouch kills, one of them
 Glissa, the Traitor killing Qarsi Deceiver with 3 power into 4 toughness, which
 is the keyword doing exactly the job it exists for.
 
+## Where it finished
+
+The run was done three times: once to find things, once against the fixed
+engine and the repaired harness, and once more after the XMage vocabulary
+tranche landed. The third run is the current state.
+
+| | first run | final run |
+|---|---|---|
+| games finished | 20 of 20 | 20 of 20 |
+| stalled | 0 | 0 |
+| invariant violations | **0** | **0** |
+| actions | 22,237 | 22,581 |
+| tracked behaviours that never fired | **3 of 14** | **1 of 14** |
+
+The one left is counterspells, and the section below explains why it is not
+really about counterspells.
+
+Two things worth reading off the final run, because they are the machinery this
+session added actually running in real games rather than on a probe board:
+
+- `ADD_CONTINUOUS` fires **62** times. That is the continuous-effect state pump
+  was waiting on, working in play.
+- `DAMAGE_CARD` fires **688** times, against **0** before this session. Combat
+  marks damage on survivors now, and ability damage is marked rather than
+  resolved inline.
+- The stack is genuinely in use: **675** resolutions and **3,628** priority
+  passes.
+
+A note on comparing runs. The second and third runs are byte-identical across
+all twenty games, and that is not evidence that the engine work changed nothing.
+Workflows edit the working tree and do not commit, so the second run already had
+those edits in it. Two runs of the same code agreeing is the harness being
+deterministic, which is the point of the seeds.
+
 ## The headline: two of the three reported failures were the harness
 
 The generated report opened with three keywords that "never fired once in 20

@@ -44,3 +44,9 @@ verify_jwt = false
 
 [functions.mtgjson-deck-sync]
 verify_jwt = false
+
+# Generating art costs money on every call, so this one keeps verify_jwt on and
+# additionally checks profiles.is_admin in its own body. A visitor must not be
+# able to spend the owner's budget.
+[functions.generate-art]
+verify_jwt = true

@@ -588,7 +588,18 @@ export function detectEvents(frame: Frame): EventHit[] {
       else push('equipment-attached', `${detail} (type line: ${now.typeLine ?? 'unknown'})`);
     }
 
-    /* deathtouch */
+    /* DEATHTOUCH, WHICH MOSTLY LEAVES NO MARK BECAUSE IT KILLED.
+       ------------------------------------------------------------------
+       The state flag is the easy half and it only catches survivors: an
+       indestructible blocker, or a permanent damaged out of combat. The
+       ordinary case is a deathtoucher killing something, and `combat.ts`
+       resolves that by working out lethality itself and emitting `MOVE_ZONE`
+       straight to the graveyard, so no permanent ever carries the flag and
+       nothing observable is left behind.
+
+       That is why this event read zero across twenty games while deathtouch
+       was working correctly, which the unit tests and a direct probe both
+       confirm. Catch the kill as well as the mark. */
     if (!was.damagedByDeathtouch && now.damagedByDeathtouch) {
       push('deathtouch-marked', `${now.name} was dealt deathtouch damage`);
     }
@@ -598,6 +609,31 @@ export function detectEvents(frame: Frame): EventHit[] {
       const move = `${was.zone} to ${now.zone}`;
       if (was.zone === 'battlefield' && now.zone === 'graveyard' && isCreatureCard(now)) {
         push('creature-died', `${now.name}`);
+
+        /* Was this a deathtouch kill? It counts only when deathtouch was what
+           MADE it lethal: a 4/4 deathtoucher killing a 2/2 would have killed it
+           anyway, and counting that would inflate the number with damage the
+           keyword did not cause. So the opposing creature in the lane must have
+           had deathtouch AND too little power to kill it on its own. */
+        const toughness = knownToughness(before, was);
+        const lane = before.combat.attackers.find(
+          a => a.attackerId === now.instanceId || a.blockedBy.includes(now.instanceId)
+        );
+        if (lane && toughness !== null && toughness > 0) {
+          const opponents =
+            lane.attackerId === now.instanceId
+              ? lane.blockedBy
+              : [lane.attackerId];
+          for (const id of opponents) {
+            const other = before.cards[id];
+            if (!other || !kw(before, other, 'deathtouch')) continue;
+            const power = combatPowerIn(before, other);
+            if (power > 0 && power < toughness) {
+              push('deathtouch-marked', `${other.name} killed ${now.name} (${power} into ${toughness})`);
+              break;
+            }
+          }
+        }
       }
       if (now.zone === 'exile') push('permanent-exiled', `${now.name} from ${was.zone}`);
       if (was.zone === 'hand' && now.zone === 'graveyard') push('card-discarded', now.name);
@@ -741,24 +777,35 @@ export function detectEvents(frame: Frame): EventHit[] {
     if (kw(before, source, 'first strike') || kw(before, source, 'double strike')) {
       push('first-strike-damage', `${source?.name}`);
     }
-    if (kw(before, source, 'lifelink')) {
-      const controller = source?.controllerId;
-      const wasLife = before.players.find(p => p.id === controller)?.life ?? 0;
-      const nowLife = after.players.find(p => p.id === controller)?.life ?? 0;
-      if (nowLife > wasLife) push('lifelink-gain', `${source?.name} gained ${nowLife - wasLife}`);
-    }
+    /* Lifelink is NOT read from a life total here. See the LIFE_CHANGE branch
+       below for why looking at one was wrong. */
   }
   if (action.type === 'DAMAGE_CARD' && action.sourceInstanceId) {
     const source = after.cards[action.sourceInstanceId] ?? before.cards[action.sourceInstanceId];
     if (kw(before, source, 'first strike') || kw(before, source, 'double strike')) {
       push('first-strike-damage', `${source?.name}`);
     }
-    if (kw(before, source, 'lifelink')) {
-      const controller = source?.controllerId;
-      const wasLife = before.players.find(p => p.id === controller)?.life ?? 0;
-      const nowLife = after.players.find(p => p.id === controller)?.life ?? 0;
-      if (nowLife > wasLife) push('lifelink-gain', `${source?.name} gained ${nowLife - wasLife}`);
-    }
+  }
+
+  /* LIFELINK, READ WHERE THE ENGINE ACTUALLY PUTS IT.
+     --------------------------------------------------------------------
+     This used to sit inside the DAMAGE and DAMAGE_CARD branches above and ask
+     whether the controller's life total went up DURING that action. It never
+     did, so the harness reported "lifelink gained life: 0 times, 24 chances"
+     and called it a headline bug in a report a person would act on.
+
+     Lifelink was working the whole time. `combat.ts` accumulates the life
+     across every hit in the damage step and emits ONE `LIFE_CHANGE` with
+     `cause: 'Lifelink'` once the step is done, which is both correct and
+     invisible to a probe watching the damage action. The recorded games had 32
+     of them while the report said zero.
+
+     A harness is trusted, so a false zero on a core keyword is worse than no
+     measurement at all: it sends somebody to fix working code and it hides
+     whatever the real problem was. Read the cause. */
+  if (action.type === 'LIFE_CHANGE' && action.cause === 'Lifelink' && action.delta > 0) {
+    const name = before.players.find(p => p.id === action.playerId)?.name ?? 'a player';
+    push('lifelink-gain', `${name} gained ${action.delta}`);
   }
 
   /* ---- what the engine said, which is evidence about the player, not about the rules ---- */

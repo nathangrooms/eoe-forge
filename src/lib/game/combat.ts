@@ -472,6 +472,41 @@ export function resolveCombat(state: GameState, at = 0): CombatOutcome {
     }
   }
 
+  /* CR 510.2 — DAMAGE STAYS MARKED ON WHAT SURVIVED.
+     ----------------------------------------------------------------------
+     Everything above works out damage in the local `marked` map and emits an
+     action only for what DIED. That is enough to finish a combat and it is not
+     enough to be right, because a creature that survives combat carries the
+     damage until cleanup.
+
+     Twenty recorded bot games found it: a 3/3 blocked by a 2/2 came out of
+     combat with `damage: 0` rather than 2. Every consequence favours the
+     defender wrongly. A Shock cannot finish off a creature that just traded
+     blows. A second combat step in the same turn meets a creature that has
+     quietly healed. Anything reading marked damage sees a board that was never
+     hit.
+
+     Only survivors are emitted. The dead are already leaving by `MOVE_ZONE`
+     above, and sending damage after them would be damage dealt to a card that
+     is no longer on the battlefield. `DAMAGE_CARD` adds to `card.damage` and
+     sets the deathtouch flag without destroying anything: destruction is CR
+     704.5g/h, which `sba.ts` runs after every action and which correctly
+     declines to destroy an indestructible permanent. So an indestructible
+     blocker soaked by a deathtoucher keeps the mark and lives, which is what
+     the rules say. */
+  for (const [instanceId, amount] of marked) {
+    if (amount <= 0 || dead.has(instanceId)) continue;
+    const card = state.cards[instanceId];
+    if (!card || card.zone !== 'battlefield') continue;
+    actions.push({
+      type: 'DAMAGE_CARD',
+      instanceId,
+      amount,
+      ...(deathtouched.has(instanceId) ? { deathtouch: true } : {}),
+      at,
+    });
+  }
+
   for (const [playerId, amount] of lifelinkTotals) {
     if (amount <= 0) continue;
     actions.push({ type: 'LIFE_CHANGE', playerId, delta: amount, at, cause: 'Lifelink' });

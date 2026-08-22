@@ -18,7 +18,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { addCard, createGame } from './rules.ts';
+import { addCard, applyAction, createGame } from './rules.ts';
 import {
   blockersRequiredFor,
   canBlock,
@@ -502,4 +502,70 @@ test('no declared attackers resolves to nothing at all', () => {
   const outcome = resolveCombat(table([{ id: 'a', owner: 'p1' }]));
   assert.deepEqual(outcome.actions, []);
   assert.equal(outcome.summary, 'No combat damage.');
+});
+
+/* ------------------------------------------------------------------ *
+ * CR 510.2 — what survives keeps the damage
+ *
+ * These three go through `applyAction`, unlike everything above, and that is
+ * the whole point of them. Every other test in this file reads `outcome`
+ * directly, which is the right way to check the damage MATHS and is exactly
+ * why this bug lived: the maths was correct in the local map and the result
+ * was never written to a card, so a suite that only reads the outcome passed
+ * while a 3/3 walked out of combat undamaged.
+ *
+ * Found by replaying twenty recorded bot games and looking at the board
+ * afterwards rather than at the return value.
+ * ------------------------------------------------------------------ */
+
+test('a survivor keeps its combat damage marked until cleanup', () => {
+  let state = withCombat(
+    table([
+      { id: 'big', owner: 'p1', power: '3', toughness: '3' },
+      { id: 'small', owner: 'p2', power: '2', toughness: '2' },
+    ]),
+    [{ attacker: 'big', blockedBy: ['small'] }]
+  );
+
+  for (const action of resolveCombat(state).actions) state = applyAction(state, action);
+
+  assert.equal(state.cards['big'].zone, 'battlefield', 'a 3/3 survives a 2/2');
+  assert.equal(state.cards['big'].damage, 2, 'and carries the 2 damage it took');
+  assert.equal(state.cards['small'].zone, 'graveyard');
+});
+
+test('marked damage makes a later burn spell lethal', () => {
+  let state = withCombat(
+    table([
+      { id: 'big', owner: 'p1', power: '3', toughness: '3' },
+      { id: 'small', owner: 'p2', power: '2', toughness: '2' },
+    ]),
+    [{ attacker: 'big', blockedBy: ['small'] }]
+  );
+  for (const action of resolveCombat(state).actions) state = applyAction(state, action);
+
+  // Two more damage. Without the marked 2 this is survivable, which is the
+  // player-visible half of the bug: a creature that traded blows could not be
+  // finished off.
+  state = applyAction(state, { type: 'DAMAGE_CARD', instanceId: 'big', amount: 2, at: 0 });
+
+  assert.equal(state.cards['big'].zone, 'graveyard', '2 marked + 2 more kills a 3/3');
+});
+
+test('an indestructible blocker keeps deathtouch damage and still lives', () => {
+  let state = withCombat(
+    table([
+      { id: 'wall', owner: 'p1', power: '0', toughness: '6', keywords: ['Indestructible'] },
+      { id: 'snake', owner: 'p2', power: '1', toughness: '1', keywords: ['Deathtouch'] },
+    ]),
+    [{ attacker: 'wall', blockedBy: ['snake'] }]
+  );
+
+  for (const action of resolveCombat(state).actions) state = applyAction(state, action);
+
+  // CR 704.5h destroys a permanent damaged by deathtouch; CR 702.12b says
+  // indestructible ignores destruction. The mark is still correct to record.
+  assert.equal(state.cards['wall'].zone, 'battlefield', 'indestructible ignores deathtouch');
+  assert.equal(state.cards['wall'].damage, 1);
+  assert.equal(state.cards['wall'].damagedByDeathtouch, true);
 });

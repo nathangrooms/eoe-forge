@@ -65,7 +65,7 @@ export function HomePlayTable() {
         <AppScreenshot
           scene="play-table"
           alt="A game of Commander part-way through: creatures and lands on both battlefields, the commander in its own zone, and a hand of cards along the bottom edge"
-          caption="A real game, several turns in. Nothing here is drawn — this board was played out and photographed."
+          caption="A real game, several turns in."
         />
       </div>
 

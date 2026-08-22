@@ -115,7 +115,7 @@ function FocusBrackets() {
 const STEPS = [
   {
     title: 'It waits for a clean frame',
-    body: 'It only takes the photo once the picture has held still and sharp, so you are never fighting the shutter.',
+    body: 'It waits until the card is in focus before it takes the shot.',
   },
   {
     title: 'It forgives a bad read',

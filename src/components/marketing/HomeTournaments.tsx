@@ -271,13 +271,12 @@ export function HomeTournaments() {
         title="Run the pod, not a spreadsheet"
         lead={
           <>
-            Swiss or knockout, scored the way a paper event scores it. Three points for a win and one
-            for a draw, with your opponents&rsquo; win rate breaking the ties.{' '}
+            Swiss or knockout, paired and scored the way a paper event is, with your
+            opponents&rsquo; win rate breaking the ties.{' '}
             {/* Two more sentences from `sm` up. At 390px this lead ran to nine
                 lines before the section had shown anything at all. */}
             <span className="hidden sm:inline">
-              Nobody gets paired with the same person twice while somebody else is free. Results go
-              in with one click, and you can take them back.
+              Nobody gets paired with the same person twice while somebody else is still free.
             </span>
           </>
         }

@@ -136,7 +136,7 @@ export function HomeFormatPicker() {
             What is legal comes from the cards themselves, not from a list someone updates by hand,
             so a new ban shows up here as soon as the cards update overnight.{' '}
             <span className="hidden sm:inline">
-              Pick a format and the cards below change with it.
+              Every format, with its own legal card pool.
             </span>
           </>
         }

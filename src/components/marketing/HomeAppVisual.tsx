@@ -34,9 +34,17 @@ import { AppScreenshot } from '@/components/marketing/AppScreenshot';
 export function HomeAppVisual() {
   return (
     <Section tint>
+      {/* WAS: "Cards drop into the right group on their own, the curve redraws
+          as you go, and what the deck costs is always on screen."
+
+          The owner picked out "curve redraws as you go", and it is wrong twice
+          over. It is fussy about a mechanism instead of saying what you get,
+          and NONE of it is in the picture below: that is the deck page, not the
+          edit surface, so the lead was narrating an animation nobody can see.
+          Say what the picture actually shows. */}
       <SectionHeading
-        title="This is the builder"
-        lead="Cards drop into the right group on their own, the curve redraws as you go, and what the deck costs is always on screen."
+        title="Build a deck, then see what you built"
+        lead="Every card grouped by type, a power score, what the list is worth and its colour identity, all worked out from the deck itself."
       />
 
       <div className="mt-8 sm:mt-14">

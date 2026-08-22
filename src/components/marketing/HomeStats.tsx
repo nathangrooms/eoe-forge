@@ -193,7 +193,7 @@ export function HomeBuilderPreview() {
     <Section tint>
       <SectionHeading
         title="A builder that groups itself"
-        lead="Cards sort into type categories as you add them, with a running total of what the list costs to finish."
+        lead="Grouped by type, with a running total of what the list costs to finish."
       />
 
       <div className="mt-14 overflow-hidden rounded-xl bg-background shadow-2xl shadow-black/40">

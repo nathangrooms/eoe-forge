@@ -325,7 +325,7 @@ export function HomePortability() {
           <>
             Paste in a list from anywhere, and get it back out in whatever shape you need. Nothing
             you put in here is stuck here.{' '}
-            <span className="hidden sm:inline">This is it working, on this page.</span>
+            <span className="hidden sm:inline">Every format below is one you can paste in or export to.</span>
           </>
         }
       />

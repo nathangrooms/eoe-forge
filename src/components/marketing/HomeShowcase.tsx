@@ -242,7 +242,7 @@ export function HomeShowcase() {
           <Panel
             className="lg:col-span-2"
             title="Every detail, straight off the card"
-            body="Name, type, printing, mana cost and what it sells for. None of it is typed in by hand, and mana costs show as proper symbols."
+            body="Name, type, printing, mana cost and what it sells for."
           >
             {/* Four rows, not six.
 
@@ -287,7 +287,7 @@ export function HomeShowcase() {
           <Panel
             className="max-sm:hidden"
             title="See the curve"
-            body="Worked out from the real mana costs of the cards above. The deck builder does the same sum on your own deck."
+            body="The curve of the cards above. Your own decks get the same breakdown."
           >
             {loading ? (
               <Skeleton className="min-h-[10rem] w-full flex-1" />

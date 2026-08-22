@@ -196,7 +196,7 @@ export function HomeSearch() {
             If you know how to search on Scryfall, you already know how to search here. The same
             search terms all work: colour identity, mana value, rules text, what is legal where,
             power and toughness.{' '}
-            <span className="hidden sm:inline">Pick one below and watch it run.</span>
+            <span className="hidden sm:inline">Some of the searches people run most.</span>
           </>
         }
       />

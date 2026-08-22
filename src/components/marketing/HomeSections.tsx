@@ -165,7 +165,7 @@ export function HomeCollection() {
         <AppScreenshot
           scene="collection"
           alt="The DeckMatrix collection page: a header counting the cards, the unique cards among them and their market value, above a grid of real Magic cards each showing its set, condition and price"
-          caption="Cards, unique cards, market value and the ones nobody has a price for — counted from the copies you actually own, at the printing you own."
+          caption="Counted from the copies you own, at the printing you own."
         />
       </div>
 

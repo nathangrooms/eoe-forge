@@ -119,39 +119,28 @@ export function TopNavigation() {
             <Search className="h-5 w-5" />
           </Button>
 
+          {/* SCAN IS THE ONLY ACTION UP HERE NOW.
+
+              It was a phone-only icon beside "Add cards" and "New deck", which
+              between them made the bar a third place to start a deck and a
+              second place to add cards. Owner: "remove scan cards from the left
+              menu, add it to top menu - remove add cards and new deck from top
+              menu."
+
+              Scanning earns the spot because it is the one thing you do with a
+              pile of cards in your hand and no page in mind. Adding cards lives
+              on the collection, and starting a deck lives on the decks page,
+              which is where both were already reachable. */}
           <Button
-            variant="ghost"
+            variant="secondary"
             size="sm"
-            className="h-9 w-9 p-0 md:hidden"
+            className="h-9 gap-2 px-2.5 sm:px-3"
             onClick={() => navigate('/scan')}
             aria-label="Scan cards"
+            title="Scan cards with your camera"
           >
-            <ScanLine className="h-5 w-5" />
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            className="hidden h-9 lg:inline-flex"
-            onClick={() => navigate('/collection?tab=add-cards')}
-          >
-            <Upload className="h-4 w-4" />
-            Add cards
-          </Button>
-
-          {/* `/deck-builder` with no `?deck=` redirects to the deck list, so this
-              button used to promise a new deck and deliver the list instead. It
-              now goes to the `/decks/new` route — a real link, so it can be
-              middle-clicked and browser Back leaves it. */}
-          {/* Charcoal, not white. The top bar carries several actions and the
-              primary white treatment made this one shout over the search field
-              and the account. Owner: "New deck should be another charcoal
-              colour, not white in top nav". */}
-          <Button variant="secondary" size="sm" className="hidden h-9 md:inline-flex" asChild>
-            <Link to="/decks/new">
-              <Plus className="h-4 w-4" />
-              New deck
-            </Link>
+            <ScanLine className="h-4 w-4" />
+            <span className="hidden sm:inline">Scan</span>
           </Button>
 
           {/* The cart sits beside back and forward because the owner has ruled

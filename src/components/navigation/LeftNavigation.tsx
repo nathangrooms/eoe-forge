@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/AuthProvider';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
-  NAV_HOME,
+  NAV_ROOT_ITEMS,
   isNavItemActive,
   visibleGroups,
   type NavItem,
@@ -127,7 +127,9 @@ export function LeftNavigation() {
         )}
       >
         <ul className="space-y-0.5">
-          <li>{renderItem(NAV_HOME)}</li>
+          {NAV_ROOT_ITEMS.map(item => (
+            <li key={item.href}>{renderItem(item)}</li>
+          ))}
         </ul>
 
         {groups.map(group => (

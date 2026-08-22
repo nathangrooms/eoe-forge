@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/components/AuthProvider';
 import { AccountIdentity } from './AccountMenu';
 import {
-  NAV_HOME,
+  NAV_ROOT_ITEMS,
   isNavItemActive,
   pathMatches,
   visibleGroups,
@@ -113,7 +113,7 @@ export function MobileNavigation() {
           {/* Collapse on tap even when the item is the current route, where the
               pathname effect would not fire. */}
           <nav aria-label="Main" className="px-3 py-3" onClick={() => setIsOpen(false)}>
-            <ul className="space-y-0.5">{renderItem(NAV_HOME)}</ul>
+            <ul className="space-y-0.5">{NAV_ROOT_ITEMS.map(item => renderItem(item))}</ul>
 
             {visibleGroups(isAdmin).map(group => (
               <section key={group.id} className="mt-5">

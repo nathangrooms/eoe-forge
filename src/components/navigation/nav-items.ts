@@ -66,6 +66,25 @@ export const NAV_HOME: NavItem = {
   description: 'Your decks and collection at a glance',
 };
 
+/**
+ * Directly under Home, above every group. Owner: "Card search should be below
+ * the home page too."
+ *
+ * It earns the position for the same reason Home has it: searching the whole
+ * catalogue is not one of the things you own, build or play with, so it does
+ * not belong inside Collection, Decks or Play. It is a way into everything,
+ * which is what the root of a nav is for.
+ */
+export const NAV_SEARCH: NavItem = {
+  title: 'Card Search',
+  href: '/cards',
+  icon: Search,
+  description: 'Search every printing with Scryfall syntax',
+};
+
+/** The items that sit above the groups, in order. */
+export const NAV_ROOT_ITEMS: NavItem[] = [NAV_HOME, NAV_SEARCH];
+
 export const NAV_GROUPS: NavGroup[] = [
   {
     id: 'collection',
@@ -77,24 +96,19 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: Library,
         description: 'Everything you own, by set and by card',
       },
-      {
-        title: 'Scan Cards',
-        href: '/scan',
-        icon: ScanLine,
-        description: 'Add cards to your collection with the camera',
-      },
+      /* Scanning lives in the top bar now, not here. Owner: "remove scan
+         cards from the left menu, add it to top menu". It is the one action you
+         reach for with cards in your hand and no page in mind, so it belongs
+         with search rather than inside a list of places. /scan is unchanged. */
       {
         title: 'Wishlist',
         href: '/wishlist',
         icon: Heart,
         description: 'Cards you are still hunting for',
       },
-      {
-        title: 'Shopping List',
-        href: '/shopping',
-        icon: ShoppingCart,
-        description: 'What to buy, what you bought and what is on the way',
-      },
+      /* Shopping List lives in the top bar, as the cart. Owner: "Shopping list
+         doesnt need to be in left menu, as it's in top nav." One standing
+         place, not two. /shopping is unchanged. */
       {
         // The owner asked for proxies to stop being buried in the deck page:
         // "Maybe Proxies should be its own feature in left nav". The deck
@@ -105,17 +119,10 @@ export const NAV_GROUPS: NavGroup[] = [
         description: 'Cards to print out and play with',
       },
       {
-        /* Card Search and Marketplace sit with the collection rather than under
-           Discover. Owner: "Card search and marketplace should move into my
-           collection part of left menu". Both are how you find a card to OWN,
-           which is the same errand as the four above them; Discover was a
-           category built around the app's structure rather than the reader's. */
-        title: 'Card Search',
-        href: '/cards',
-        icon: Search,
-        description: 'Search every printing with Scryfall syntax',
-      },
-      {
+        /* Marketplace sits with the collection rather than under Discover.
+           Owner: "Card search and marketplace should move into my collection
+           part of left menu". It is how you find a card to OWN, the same errand
+           as the entries above it. Card Search went further, up beside Home. */
         title: 'Marketplace',
         href: '/marketplace',
         icon: Store,
@@ -214,6 +221,7 @@ export const NAV_GROUPS: NavGroup[] = [
 /** Every nav item, home first, in rail order. */
 export const ALL_NAV_ITEMS: NavItem[] = [
   NAV_HOME,
+  ...NAV_ROOT_ITEMS,
   ...NAV_GROUPS.flatMap(group => group.items),
 ];
 

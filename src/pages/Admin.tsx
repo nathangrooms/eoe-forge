@@ -3,7 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   LayoutDashboard, Flag, Users, Brain, ClipboardList,
   Download, Loader2, AlertCircle, CreditCard, Rocket
-} from 'lucide-react';
+, Sparkles } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 
@@ -16,6 +16,7 @@ import { AISystemAdmin } from '@/components/admin/AISystemAdmin';
 import { HomepageModeToggle } from '@/components/admin/HomepageModeToggle';
 import SyncDashboard from '@/components/SyncDashboard';
 import { DevConsole } from '@/components/admin/DevConsole';
+import { ArtStudio } from '@/components/admin/ArtStudio';
 
 const TABS = [
   { value: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -26,6 +27,7 @@ const TABS = [
   { value: 'ai', label: 'AI', icon: Brain },
   { value: 'sync', label: 'Sync', icon: Download },
   { value: 'dev', label: 'Dev', icon: Rocket },
+  { value: 'art', label: 'Art', icon: Sparkles },
 ] as const;
 
 export default function Admin() {
@@ -67,7 +69,7 @@ export default function Admin() {
     <StandardPageLayout title="Admin" description="Platform data, users, features and sync">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="-mx-3 overflow-x-auto px-3 scrollbar-none sm:mx-0 sm:px-0">
-          <TabsList className="inline-flex h-auto w-max sm:grid sm:w-full sm:grid-cols-8">
+          <TabsList className="inline-flex h-auto w-max sm:grid sm:w-full sm:grid-cols-9">
             {TABS.map(({ value, label, icon: Icon }) => (
               <TabsTrigger
                 key={value}
@@ -119,6 +121,9 @@ export default function Admin() {
 
         <TabsContent value="dev" className="mt-4">
           <DevConsole />
+        </TabsContent>
+        <TabsContent value="art" className="mt-4 space-y-4">
+          <ArtStudio />
         </TabsContent>
       </Tabs>
     </StandardPageLayout>

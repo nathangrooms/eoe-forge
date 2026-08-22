@@ -17,10 +17,15 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { CardGrid, CardImage, CardSizeSlider, cardDetailPath, useCardSize } from '@/components/cards';
+import { CardImage, CardSizeSlider, cardDetailPath } from '@/components/cards';
 import { usePagedItems } from '@/hooks/usePagination';
-import { Pager } from '@/components/ui/pagination';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
+import {
+  ListingFrame,
+  SEGMENTED,
+  useListingView,
+  type ListingMode,
+} from '@/components/listing';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { cn } from '@/lib/utils';
 import {
@@ -81,6 +86,17 @@ import { useProxyArt, type ProxyArt, type RowArtState } from './useProxyArt';
  * so they cannot disagree about card size. This page selects cards and hands
  * them over. The deck builder's generator keeps working exactly as it did.
  */
+/**
+ * One way to look at a proxy list, which is the honest answer.
+ *
+ * `ViewModeToggle` draws nothing for a single mode, so declaring it costs no
+ * control on screen; what the declaration buys is the size slider and the page
+ * size hanging off the same object every other listing uses.
+ */
+const MODES: ListingMode[] = [
+  { id: 'grid', label: 'Image grid', icon: Images, layout: 'grid' },
+];
+
 export default function ProxyListPage() {
   const load = useCardLists(state => state.load);
   const loading = useCardLists(state => state.loading);
@@ -93,7 +109,13 @@ export default function ProxyListPage() {
   const remove = useCardLists(state => state.remove);
   const clear = useCardLists(state => state.clear);
 
-  const [cardWidth, setCardWidth] = useCardSize('proxies', 170);
+  /*
+   * The surface name stays `proxies`, which is the key `useCardSize` has been
+   * writing all along. The page size joins it, so the pager offers the same
+   * 24 / 48 / 96 choice as every other listing instead of the constant 60 this
+   * file used to pass.
+   */
+  const view = useListingView({ surface: 'proxies', modes: MODES, defaultSize: 170 });
   const [pasting, setPasting] = useState(false);
   const [exporting, setExporting] = useState(false);
   /** The row whose art is being changed, by list row id. */
@@ -198,7 +220,7 @@ export default function ProxyListPage() {
      `usePagedItems` is written for exactly this shape and says so in its own
      doc: page in the browser only when the screen needs a figure computed over
      every row, and page at the database otherwise. */
-  const pagedProxies = usePagedItems(proxies, { pageSize: 60 });
+  const pagedProxies = usePagedItems(proxies, { pageSize: view.pageSize });
 
   const missingArt = slots.filter(slot => !slot.imageUrl).length;
 
@@ -492,25 +514,37 @@ export default function ProxyListPage() {
                   Empty the list
                 </Button>
               )}
-              <CardSizeSlider storageKey="proxies" value={cardWidth} onValueChange={setCardWidth} />
+              <CardSizeSlider
+                storageKey="proxies"
+                value={view.size}
+                onValueChange={view.setSize}
+                showValue={false}
+              />
             </div>
           </div>
 
           <ArtSaveLine art={art} />
 
-          {pagedProxies.pageCount > 1 && (
-            <Pager
-              page={pagedProxies.page}
-              pageCount={pagedProxies.pageCount}
-              onPageChange={pagedProxies.setPage}
-              total={pagedProxies.total}
-              shown={pagedProxies.pageItems.length}
-              pageSize={pagedProxies.pageSize}
-              label="Proxy list pages"
-              className="mb-3"
-            />
-          )}
-          <CardGrid width={cardWidth}>
+          {/*
+            The same frame as the collection, the wishlist and the shopping
+            list. What it adds here, beyond one skin: a pager under the grid as
+            well as over it, a page-size choice, and the page turning back to
+            the top when you move to the next one. This page had the pager on
+            top only, so on a forty card page you paged forward and were left
+            looking at the bottom of the new page.
+          */}
+          <ListingFrame
+            view={view}
+            count={pagedProxies.pageItems.length}
+            pager={{
+              page: pagedProxies.page,
+              pageCount: pagedProxies.pageCount,
+              onPageChange: pagedProxies.setPage,
+              total: pagedProxies.total,
+              shown: pagedProxies.pageItems.length,
+              label: 'Proxy list pages',
+            }}
+          >
             {pagedProxies.pageItems.map(item => {
               const printing = printingFor(item);
               const href = cardDetailPath({
@@ -527,7 +561,7 @@ export default function ProxyListPage() {
                     aria-label={`Open ${item.card_name}`}
                     className="rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <CardImage card={printing ?? { name: item.card_name }} width={cardWidth} fill interactive>
+                    <CardImage card={printing ?? { name: item.card_name }} width={view.size} fill interactive>
                       <ListCardBadges quantity={item.quantity} finish={item.finish} />
                     </CardImage>
                   </Link>
@@ -600,7 +634,7 @@ export default function ProxyListPage() {
                 </div>
               );
             })}
-          </CardGrid>
+          </ListingFrame>
 
           <div>
             <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
@@ -872,22 +906,24 @@ function Choice({
   return (
     <div className="flex items-center gap-2">
       <span className="text-xs uppercase tracking-wide text-muted-foreground">{label}</span>
-      <div className="flex overflow-hidden rounded-md bg-muted/40">
+      {/* The shared segmented shell, so a paper-size picker and a view-mode
+          toggle are not two different-looking controls doing the same thing.
+          The shell has to be opaque: `bg-muted/40` under a tinted selected chip
+          is what measured 1.09:1 on three surfaces, which is a selected state
+          that was not drawn at all. */}
+      <div className={SEGMENTED}>
         {options.map(option => (
-          <button
+          <Button
             key={option.value}
             type="button"
-            onClick={() => onChange(option.value)}
+            size="sm"
+            variant={value === option.value ? 'default' : 'ghost'}
+            className="h-7 px-2.5"
             aria-pressed={value === option.value}
-            className={cn(
-              'px-2.5 py-1 text-sm transition-colors',
-              value === option.value
-                ? 'bg-foreground text-background'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
+            onClick={() => onChange(option.value)}
           >
             {option.label}
-          </button>
+          </Button>
         ))}
       </div>
     </div>

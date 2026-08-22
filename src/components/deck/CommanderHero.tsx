@@ -83,7 +83,7 @@ export function CommanderHero({
         fill
         eager={eager}
         onClick={onClick ? () => onClick() : undefined}
-        title={`${card.name} — commander of ${deckName}`}
+        title={`${card.name}, commander of ${deckName}`}
         className={className}
       >
         {children}
@@ -146,7 +146,7 @@ export function CommanderFallback({
       <div
         role={onClick ? 'button' : undefined}
         tabIndex={onClick ? 0 : undefined}
-        aria-label={onClick ? `${deckName} — ${wantsCommander ? 'choose a commander' : 'open deck'}` : undefined}
+        aria-label={onClick ? `${deckName}: ${wantsCommander ? 'choose a commander' : 'open deck'}` : undefined}
         onClick={onClick}
         onKeyDown={
           onClick

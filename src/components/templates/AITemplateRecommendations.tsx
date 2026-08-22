@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Brain, Sparkles, Layers, Loader2, AlertCircle } from 'lucide-react';
+import { Sparkles, Layers, Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import ReactMarkdown from 'react-markdown';
 
@@ -70,28 +70,34 @@ Focus on variety and strategic diversity. End with: Referenced Cards: [list comm
   return (
     <Card>
       <CardContent className="p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-full bg-gradient-cosmic flex items-center justify-center shadow-cosmic-glow">
-            <Brain className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <div>
-            <h3 className="font-bold text-lg">AI Template Advisor</h3>
-            <p className="text-sm text-muted-foreground">Personalized deck template recommendations</p>
-          </div>
+        {/*
+          COPY AND TREATMENT, BOTH FIXED HERE.
+
+          It read "AI Template Advisor / Personalized deck template
+          recommendations", inside a `bg-gradient-cosmic` circle with a
+          `shadow-cosmic-glow`. Three standing rules, all broken in one header:
+          no AI vocabulary in user-facing copy (CLAUDE.md 10a bans "AI",
+          "smart", "intelligent" outright, because Magic players dislike it),
+          no jargon, and design law 6 forbids gradients and glows.
+
+          A knowledgeable player is answering, so it says what it does.
+        */}
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold">Which archetype suits your decks</h3>
+          <p className="text-sm text-muted-foreground">
+            Reads the decks you already have and suggests blueprints that fit them.
+          </p>
         </div>
 
         {!recommendations && !loading && (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Template suggestions based on your playstyle and format.
+              Suggestions drawn from the decks on your account and the format you are
+              looking at.
             </p>
-            <Button 
-              onClick={generateRecommendations}
-              className="w-full bg-gradient-cosmic hover:opacity-90"
-              disabled={loading}
-            >
+            <Button onClick={generateRecommendations} className="w-full" disabled={loading}>
               <Sparkles className="h-4 w-4 mr-2" />
-              Get Recommendations
+              Suggest archetypes
             </Button>
           </div>
         )}
@@ -112,26 +118,19 @@ Focus on variety and strategic diversity. End with: Referenced Cards: [list comm
 
         {recommendations && (
           <div className="space-y-4">
-            <div className="rounded-lg bg-spacecraft/10 p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-6 h-6 rounded bg-gradient-cosmic flex items-center justify-center">
-                  <span className="text-xs font-bold text-primary-foreground">AI</span>
-                </div>
-                <span className="text-xs font-bold text-spacecraft">TEMPLATE RECOMMENDATIONS</span>
+            <div className="rounded-lg bg-muted/40 p-4">
+              <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Suggested archetypes
               </div>
               <div className="prose prose-sm max-w-none dark:prose-invert">
                 <ReactMarkdown>{recommendations}</ReactMarkdown>
               </div>
             </div>
             
-            <Button 
-              onClick={generateRecommendations}
-              variant="outline"
-              size="sm"
-              className="w-full"
-            >
+            {/* `secondary`, not `outline`. Outline is a border variant. */}
+            <Button onClick={generateRecommendations} variant="secondary" size="sm" className="w-full">
               <Layers className="h-4 w-4 mr-2" />
-              Refresh Recommendations
+              Suggest again
             </Button>
           </div>
         )}

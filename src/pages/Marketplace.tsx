@@ -1,21 +1,24 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { MarkAsSoldInline } from '@/components/marketplace/MarkAsSoldInline';
-import { MessageNotificationBadge } from '@/components/marketplace/MessageNotificationBadge';
+import {
+  MessageNotificationBadge,
+  useUnreadByListing,
+} from '@/components/marketplace/MessageNotificationBadge';
 import { MarketplaceHeader } from '@/components/marketplace/MarketplaceHeader';
 import { PriceSearchPanel } from '@/components/marketplace/PriceSearchPanel';
 import { PriceTrendCard } from '@/components/marketplace/PriceTrendCard';
 import { PriceWatchlist } from '@/components/marketplace/PriceWatchlist';
 import { ShoppingList } from '@/components/marketplace/ShoppingList';
-import { CardImage, cardDetailPath } from '@/components/cards';
+import { CardGrid, CardImage, cardDetailPath } from '@/components/cards';
+import { EmptyState, PageTabs } from '@/components/listing';
 import { CardPrices } from '@/components/pricing';
 import { readAmount } from '@/lib/pricing';
 import {
@@ -96,6 +99,15 @@ export default function Marketplace() {
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>([]);
   const [activeTab, setActiveTab] = useState('search');
+  /* Controlled, because the uncontrolled `defaultValue` version reset to "For
+     sale" whenever anything above it re-rendered, which includes marking a card
+     sold from the Sold tab. */
+  const [listingsTab, setListingsTab] = useState('for-sale');
+
+  /* One read and one realtime channel for the page, rather than one of each per
+     listing tile. See `MessageNotificationBadge`: the per-tile version threw on
+     the second tile and took the whole tab down with it. */
+  const unreadByListing = useUnreadByListing();
 
   useEffect(() => {
     loadMyListings();
@@ -445,7 +457,7 @@ export default function Marketplace() {
                     <MessageCircle className="h-3 w-3 mr-1" />
                     Msg
                     <MessageNotificationBadge
-                      listingId={listing.id}
+                      count={unreadByListing[listing.id] ?? 0}
                       className="absolute -top-1 -right-1"
                     />
                   </Link>
@@ -493,7 +505,7 @@ export default function Marketplace() {
     return (
       <StandardPageLayout
         title="Marketplace"
-        description="Compare prices and find the best deals"
+        description="Compare prices across platforms and find the best deals"
       >
         <div className="space-y-6">
           <Skeleton className="h-32 w-full rounded-xl" />
@@ -524,38 +536,38 @@ export default function Marketplace() {
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 h-auto">
-            <TabsTrigger value="search" className="flex items-center gap-2 py-3">
-              <Search className="h-4 w-4" />
-              <span className="hidden sm:inline">Price Search</span>
-              <span className="sm:hidden">Search</span>
-            </TabsTrigger>
-            <TabsTrigger value="trends" className="flex items-center gap-2 py-3">
-              <TrendingUp className="h-4 w-4" />
-              <span className="hidden sm:inline">Trends</span>
-              <span className="sm:hidden">Trends</span>
-            </TabsTrigger>
-            <TabsTrigger value="watchlist" className="flex items-center gap-2 py-3">
-              <Star className="h-4 w-4" />
-              <span className="hidden sm:inline">Watchlist</span>
-              <span className="sm:hidden">Watch</span>
-              {watchlist.length > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 text-xs justify-center">
-                  {watchlist.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="listings" className="flex items-center gap-2 py-3">
-              <Package className="h-4 w-4" />
-              <span className="hidden sm:inline">My Listings</span>
-              <span className="sm:hidden">Sell</span>
-              {myListings.length > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 text-xs justify-center">
-                  {myListings.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
+          {/*
+            The page's four sections, in the control every other page uses.
+
+            This was a `grid w-full grid-cols-4` of full-width triggers, which
+            is a fifth tab treatment and the only one that stretched each tab to
+            a quarter of the screen whatever its label said. Sentence case, too:
+            "Price Search" and "My Listings" were the only Title Case labels in
+            the product.
+          */}
+          <PageTabs
+            value={activeTab}
+            onChange={setActiveTab}
+            label="Marketplace sections"
+            tabs={[
+              { id: 'search', label: 'Price search', shortLabel: 'Search', icon: Search },
+              { id: 'trends', label: 'Trends', icon: TrendingUp },
+              {
+                id: 'watchlist',
+                label: 'Watchlist',
+                shortLabel: 'Watch',
+                icon: Star,
+                count: loading ? null : watchlist.length,
+              },
+              {
+                id: 'listings',
+                label: 'My listings',
+                shortLabel: 'Sell',
+                icon: Package,
+                count: loading ? null : myListings.length,
+              },
+            ]}
+          />
 
           {/* Price Search Tab */}
           <TabsContent value="search" className="mt-6">
@@ -589,53 +601,64 @@ export default function Marketplace() {
                 three more zeroes and pushed the listings themselves down. */}
 
             {/* Listings Sub-tabs */}
-            <Tabs defaultValue="for-sale" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="for-sale" className="flex items-center gap-2">
-                  <Package className="h-4 w-4" />
-                  For Sale ({myListings.length})
-                </TabsTrigger>
-                <TabsTrigger value="sold" className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4" />
-                  Sold ({soldListings.length})
-                </TabsTrigger>
-              </TabsList>
+            {/* The same strip again one level down, rather than a sixth skin.
+                It is controlled now as well: `defaultValue` meant the sub-tab
+                snapped back to For sale whenever the page above it
+                re-rendered, which includes marking a card sold. */}
+            <PageTabs
+              value={listingsTab}
+              onChange={setListingsTab}
+              label="Your listings"
+              tabs={[
+                {
+                  id: 'for-sale',
+                  label: 'For sale',
+                  icon: Package,
+                  count: loading ? null : myListings.length,
+                },
+                {
+                  id: 'sold',
+                  label: 'Sold',
+                  icon: CheckCircle,
+                  count: loading ? null : soldListings.length,
+                },
+              ]}
+            />
 
-              <TabsContent value="for-sale" className="space-y-4 mt-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {myListings.map(renderListingCard)}
-                </div>
-
-                {myListings.length === 0 && (
-                  <div className="text-center py-12">
-                    <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium mb-2">No listings yet</h3>
-                    <p className="text-muted-foreground mb-4">
-                      Start by marking cards for sale in your collection.
-                    </p>
-                    <Button asChild>
-                      <a href="/collection">Go to Collection</a>
+            {/*
+              `CardGrid` rather than a breakpoint table of columns. A listing
+              tile has a natural width and the grid reflows to it, which is what
+              every other grid in the product does; `grid-cols-1 md:2 lg:3 xl:4`
+              gave a 1600px screen four 380px tiles and a 1100px screen three
+              340px ones, so the same tile was a different size on every
+              machine.
+            */}
+            {listingsTab === 'for-sale' &&
+              (myListings.length === 0 ? (
+                <EmptyState
+                  icon={Package}
+                  title="No listings yet"
+                  description="Mark a card for sale in your collection and it turns up here."
+                  actions={
+                    <Button size="sm" asChild>
+                      <Link to="/collection">Go to your collection</Link>
                     </Button>
-                  </div>
-                )}
-              </TabsContent>
+                  }
+                />
+              ) : (
+                <CardGrid width={300}>{myListings.map(renderListingCard)}</CardGrid>
+              ))}
 
-              <TabsContent value="sold" className="space-y-4 mt-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {soldListings.map(renderListingCard)}
-                </div>
-
-                {soldListings.length === 0 && (
-                  <div className="text-center py-12">
-                    <CheckCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium mb-2">No sold items yet</h3>
-                    <p className="text-muted-foreground mb-4">
-                      Items you mark as sold will appear here.
-                    </p>
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
+            {listingsTab === 'sold' &&
+              (soldListings.length === 0 ? (
+                <EmptyState
+                  icon={CheckCircle}
+                  title="Nothing sold yet"
+                  description="Cards you mark as sold are kept here with what you asked for them."
+                />
+              ) : (
+                <CardGrid width={300}>{soldListings.map(renderListingCard)}</CardGrid>
+              ))}
           </TabsContent>
         </Tabs>
 

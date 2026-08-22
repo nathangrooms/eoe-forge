@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
@@ -8,23 +8,23 @@ import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  FacetChip,
+  FilterBar,
+  ListingFrame,
+  ListingSearch,
+  SortControl,
+  matchedLabel,
+  resultSentence,
+  totalActiveFilters,
+  useListingView,
+  useSearchText,
+  type ListingMode,
+  type SortOption,
+} from '@/components/listing';
 import { ColorIdentity } from '@/components/ui/mana-cost';
-import { Loader2, Plus, Search } from 'lucide-react';
+import { LayoutGrid, Loader2, Plus, ScrollText } from 'lucide-react';
 import { BASE_TEMPLATES } from '@/lib/deckbuilder/templates/base-templates';
 import type { ArchetypeTemplate } from '@/lib/deckbuilder/types';
 import { formatLabel } from '@/lib/deck/formats';
@@ -40,6 +40,23 @@ import { formatLabel } from '@/lib/deck/formats';
  *
  * There is deliberately no win rate or popularity figure: the platform does
  * not collect that data, so it cannot be shown.
+ *
+ * ## What the consistency pass changed
+ *
+ * This was the worst-drifted listing in the product and none of it was decided.
+ * A bare `<Input className="pl-10">`, which is the shadcn default and therefore
+ * draws the hairline border the owner has ruled out. A bare `<SelectTrigger>`,
+ * same. A row of `variant="outline"` format buttons, which is literally a
+ * border variant. No clear control at all, so a reader who narrowed to a format
+ * with no matches had a blank panel and no way back except finding the right
+ * button again. No debounce. No URL for the search. And the details panel was a
+ * centred `Dialog` that dims the page and traps focus, which design law 3 rules
+ * out outright.
+ *
+ * Everything works the same and every control is still here. The search, the
+ * sort and the format chips are `FilterBar`'s; the count line is the shared
+ * sentence; the details panel is a right-hand slide-over, which is the approved
+ * pattern for looking at something without leaving the page you are on.
  */
 
 type SortKey = 'name' | 'format' | 'colors';
@@ -50,10 +67,24 @@ const ALL_FORMATS = Array.from(
   new Set(TEMPLATES.flatMap(template => template.formats))
 ).sort();
 
-const SORT_OPTIONS: Array<{ value: SortKey; label: string }> = [
+const SORT_OPTIONS: SortOption[] = [
   { value: 'name', label: 'Name' },
   { value: 'format', label: 'Format' },
   { value: 'colors', label: 'Colour count' },
+];
+
+/**
+ * One mode: a wall of archetype cards.
+ *
+ * `ViewModeToggle` draws nothing for a single mode, so this costs no chrome. It
+ * is declared rather than omitted because `ListingFrame` needs to know who lays
+ * the body out, and here the page does: an archetype card is a block of text
+ * with a quota summary, not a card image, so it belongs in its own responsive
+ * grid rather than in a `CardGrid` at a slider's width. There is no size
+ * control for the same reason.
+ */
+const TEMPLATE_MODES: ListingMode[] = [
+  { id: 'grid', label: 'Archetypes', icon: LayoutGrid, layout: 'rows' },
 ];
 
 /** Human-readable role names for the quota table. */
@@ -77,12 +108,33 @@ export default function Templates() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [searchQuery, setSearchQuery] = useState('');
+  /* The search is in the URL and debounced now. It was neither, so an
+     archetype search was not something you could send anybody and the page
+     re-filtered on every keystroke. */
+  const [searchQuery, commitSearchQuery] = useSearchText('q');
   const [selectedFormat, setSelectedFormat] = useState<string>('all');
-  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const view = useListingView({
+    surface: 'deckmatrix.templates.view',
+    modes: TEMPLATE_MODES,
+    defaultSortKey: 'name',
+    defaultSortDir: 'asc',
+  });
+  const sortKey = view.sortKey as SortKey;
   const [userDecks, setUserDecks] = useState<Array<{ name: string; format: string; colors: string[] }>>([]);
   const [previewTemplate, setPreviewTemplate] = useState<ArchetypeTemplate | null>(null);
   const [creatingFrom, setCreatingFrom] = useState<string | null>(null);
+
+  const activeFilters = totalActiveFilters(
+    searchQuery.trim() ? 1 : 0,
+    selectedFormat !== 'all' ? 1 : 0
+  );
+
+  /* The clear control this page did not have. A reader who narrowed to a format
+     with nothing in it had a blank panel and no way out of it. */
+  const clearEverything = useCallback(() => {
+    commitSearchQuery(undefined);
+    setSelectedFormat('all');
+  }, [commitSearchQuery]);
 
   useEffect(() => {
     if (!user) return;
@@ -129,20 +181,27 @@ export default function Templates() {
       return haystack.includes(query);
     });
 
+    /* The three axes gain a direction, which is three orderings this page did
+       not have a control for. Colour count reads high-to-low descending, which
+       is what the single "Colour count" option used to mean. */
+    const flip = view.sortDir === 'desc' ? -1 : 1;
     return filtered.sort((a, b) => {
       switch (sortKey) {
         case 'format':
-          return a.formats[0].localeCompare(b.formats[0]) || a.name.localeCompare(b.name);
+          return (
+            flip * a.formats[0].localeCompare(b.formats[0]) || a.name.localeCompare(b.name)
+          );
         case 'colors':
           return (
-            (b.colors?.length ?? 0) - (a.colors?.length ?? 0) || a.name.localeCompare(b.name)
+            flip * ((a.colors?.length ?? 0) - (b.colors?.length ?? 0)) ||
+            a.name.localeCompare(b.name)
           );
         case 'name':
         default:
-          return a.name.localeCompare(b.name);
+          return flip * a.name.localeCompare(b.name);
       }
     });
-  }, [searchQuery, selectedFormat, sortKey]);
+  }, [searchQuery, selectedFormat, sortKey, view.sortDir]);
 
   /** Create a real deck seeded from this archetype and open it in the builder. */
   const handleUseTemplate = async (template: ArchetypeTemplate) => {
@@ -187,76 +246,74 @@ export default function Templates() {
   return (
     <StandardPageLayout
       title="Deck Templates"
-      description="Archetype blueprints that define the role quotas and curve a deck should hit"
+      /* "Archetype blueprints that define the role quotas and curve a deck
+         should hit". "Role quotas" is a term this product invented for itself,
+         which copy rule 1 rules out: write for a Commander player who does not
+         know this product. */
+      description="Ready-made shapes for a deck: how many creatures, how much removal, and where the curve should sit"
     >
-      <div className="space-y-6">
+      <div className="space-y-4">
         <AITemplateRecommendations
           selectedFormat={selectedFormat !== 'all' ? selectedFormat : undefined}
           userDecks={userDecks}
         />
 
-        <div className="flex flex-col gap-3 md:flex-row md:items-center">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
+        <FilterBar
+          view={view}
+          activeCount={activeFilters}
+          onClear={clearEverything}
+          search={
+            <ListingSearch
               value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search archetypes by name, role or synergy…"
-              className="pl-10"
-              aria-label="Search templates"
+              onCommit={commitSearchQuery}
+              placeholder="Search archetypes by name, role or synergy"
+              label="Search templates"
             />
-          </div>
-
-          <Select value={sortKey} onValueChange={value => setSortKey(value as SortKey)}>
-            <SelectTrigger className="w-full md:w-48" aria-label="Sort templates">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {SORT_OPTIONS.map(option => (
-                <SelectItem key={option.value} value={option.value}>
-                  Sort: {option.label}
-                </SelectItem>
+          }
+          sort={
+            <SortControl
+              options={SORT_OPTIONS}
+              value={sortKey}
+              onValueChange={view.setSortKey}
+              dir={view.sortDir}
+              onToggleDir={view.toggleSortDir}
+              label="Sort templates by"
+            />
+          }
+          facets={
+            /* `FacetChip`, not `variant="outline"`. Outline is a border variant,
+               and these were eleven hairlines in a row on a page whose whole
+               palette is meant to be borderless. */
+            <>
+              <FacetChip selected={selectedFormat === 'all'} onClick={() => setSelectedFormat('all')}>
+                All formats
+              </FacetChip>
+              {ALL_FORMATS.map(format => (
+                <FacetChip
+                  key={format}
+                  selected={selectedFormat === format}
+                  onClick={() => setSelectedFormat(format)}
+                >
+                  {formatLabel(format)}
+                </FacetChip>
               ))}
-            </SelectContent>
-          </Select>
-        </div>
+            </>
+          }
+        />
 
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant={selectedFormat === 'all' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setSelectedFormat('all')}
-            aria-pressed={selectedFormat === 'all'}
-          >
-            All formats
-          </Button>
-          {ALL_FORMATS.map(format => (
-            <Button
-              key={format}
-              variant={selectedFormat === format ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedFormat(format)}
-              aria-pressed={selectedFormat === format}
-            >
-              {formatLabel(format)}
-            </Button>
-          ))}
-        </div>
-
-        <p className="text-sm text-muted-foreground">
-          {visibleTemplates.length} archetype{visibleTemplates.length === 1 ? '' : 's'}
-        </p>
-
-        {visibleTemplates.length === 0 ? (
-          <Card>
-            <CardContent className="p-10 text-center">
-              <p className="font-medium">No archetypes match</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Try a different search term or format.
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
+        <ListingFrame
+          view={view}
+          count={visibleTemplates.length}
+          summary={resultSentence([
+            matchedLabel(visibleTemplates.length, TEMPLATES.length, 'archetype'),
+          ])}
+          empty={{
+            title: 'No archetypes match',
+            description: 'Try a different search term, or a different format.',
+            icon: ScrollText,
+            onClearFilters: activeFilters > 0 ? clearEverything : undefined,
+          }}
+        >
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {visibleTemplates.map(template => {
               const keywords = templateKeywords(template).slice(0, 5);
@@ -284,10 +341,13 @@ export default function Templates() {
                   <CardContent className="flex flex-1 flex-col gap-3">
                     <ul className="flex flex-wrap gap-1">
                       {keywords.map(keyword => (
-                        <li key={keyword}>
-                          <Badge variant="outline" className="text-[10px] font-normal">
-                            {roleLabel(keyword)}
-                          </Badge>
+                        <li
+                          key={keyword}
+                          /* `Badge variant="outline"` is a hairline. Surface
+                             tint carries the same distinction. */
+                          className="rounded-full bg-muted/50 px-2 py-0.5 text-[10px] font-normal text-muted-foreground"
+                        >
+                          {roleLabel(keyword)}
                         </li>
                       ))}
                     </ul>
@@ -310,7 +370,7 @@ export default function Templates() {
                         )}
                         Use template
                       </Button>
-                      <Button variant="outline" onClick={() => setPreviewTemplate(template)}>
+                      <Button variant="secondary" onClick={() => setPreviewTemplate(template)}>
                         Details
                       </Button>
                     </div>
@@ -319,26 +379,41 @@ export default function Templates() {
               );
             })}
           </div>
-        )}
+        </ListingFrame>
       </div>
 
-      <Dialog
+      {/*
+        The details panel, as a right-hand slide-over.
+
+        It was a centred `Dialog`, which dims the page, traps focus and covers
+        the wall of archetypes you were comparing against. Design law 3 rules
+        that out and names the replacement: an action taken without leaving the
+        current context is a slide-over, and the page stays visible and keeps
+        its scroll position behind it. Every section is unchanged — the role
+        quotas, the creature curve targets, the required packages and the
+        "Use this template" action at the foot.
+      */}
+      <Sheet
         open={Boolean(previewTemplate)}
         onOpenChange={open => {
           if (!open) setPreviewTemplate(null);
         }}
       >
-        <DialogContent className="max-h-[80vh] max-w-2xl overflow-auto">
+        <SheetContent
+          side="right"
+          className="flex w-full flex-col gap-0 border-0 bg-card p-0 shadow-2xl shadow-black/50 sm:max-w-lg"
+        >
           {previewTemplate && (
             <>
-              <DialogHeader>
-                <DialogTitle>{previewTemplate.name}</DialogTitle>
-                <DialogDescription>
-                  Blueprint used by the deck builder to fill this archetype.
-                </DialogDescription>
-              </DialogHeader>
+              {/* pr-12 clears the Sheet's own close control. */}
+              <div className="py-3 pl-4 pr-12">
+                <SheetTitle className="text-lg font-semibold">{previewTemplate.name}</SheetTitle>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  Blueprint the deck builder uses to fill this archetype.
+                </p>
+              </div>
 
-              <div className="space-y-5">
+              <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 pb-6">
                 <div className="flex flex-wrap items-center gap-2">
                   <ColorIdentity colors={previewTemplate.colors ?? []} size="md" />
                   {previewTemplate.formats.map(format => (
@@ -406,8 +481,8 @@ export default function Templates() {
               </div>
             </>
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </StandardPageLayout>
   );
 }

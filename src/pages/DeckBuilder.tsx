@@ -832,8 +832,11 @@ const DeckBuilder = () => {
       description={`${formatLabel(deck.format)} • ${displayedCardCount} cards`}
       action={
         /* Named destination, not a direction: back and forward belong to the
-           top nav only, so nothing on a page is labelled "Back". */
-        <Button variant="outline" onClick={() => navigate('/decks')}>
+           top nav only, so nothing on a page is labelled "Back".
+
+           `secondary`, not `outline`. Outline is a border variant, and this was
+           the last visible hairline on the builder. */
+        <Button variant="secondary" onClick={() => navigate('/decks')}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           <span className="hidden xs:inline">All decks</span>
           <span className="xs:hidden">Decks</span>

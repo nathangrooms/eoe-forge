@@ -1,0 +1,422 @@
+/**
+ * Step three, for the three modes that deal their own table.
+ *
+ * Owner: *"Opponent DECKS must be selectable."* So the whole screen is the
+ * seats: each one a full, uncropped commander at a size you can read, its
+ * colours and card count beneath, and one shared deck wall below that fills
+ * whichever seat is armed.
+ *
+ * ---------------------------------------------------------------------------
+ * ONE SCREEN, THREE MODES, AND THE DIFFERENCE IS WHO PRESSES THE BUTTONS
+ * ---------------------------------------------------------------------------
+ * `bots` and `playtest` are the same table with the same seats. The only thing
+ * that separates them is whether seat one is played by you or played for you,
+ * and that is a flag on the seat when the table is built, not a second screen.
+ * `PlaytestSetup` used to be that second screen, with its own seat card, its own
+ * deck wall and its own temperament row, and the drift it caused is exactly what
+ * the project law exists to stop. It is gone; this is what replaced it.
+ *
+ * Goldfish is the same screen with no opponents, so the seats half collapses to
+ * one and says why.
+ *
+ * The playmat picker lives here, in Your seat, and again in the in game menu.
+ * Both stay reachable: owner, *"I dont see the themed playmats?"*
+ */
+
+import { Bot, Loader2, Plus, UserRound, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { CardImage, CARD_ASPECT } from '@/components/cards';
+import { ColorIdentity } from '@/components/ui/mana-cost';
+import { MatStylePicker } from './MatStylePicker';
+import { DeckWall } from './DeckWall';
+import { cardCountLine } from './playDeckView';
+import type { PlayDeckOption } from './usePlayDecks';
+import type { PlayModeId } from './playModes';
+import { seatingFor, seatingVariants, type SeatingVariant } from '@/lib/game';
+
+export type Aggression = 'timid' | 'normal' | 'aggressive';
+
+const MAX_SEATS = 4;
+
+const AGGRESSION: Array<{ id: Aggression; label: string; hint: string }> = [
+  { id: 'timid', label: 'Cautious', hint: 'Only attacks when it wins the exchange outright' },
+  { id: 'normal', label: 'Even', hint: 'Trades up and blocks sensibly' },
+  { id: 'aggressive', label: 'Aggressive', hint: 'Swings whenever it is not strictly losing' },
+];
+
+export interface SeatStepProps {
+  mode: PlayModeId;
+  decks: PlayDeckOption[];
+  loadingDecks: boolean;
+  /** Seat one, chosen at step two. `null` means a seeded deck. */
+  deckId: string | null;
+  /** Changing seat one from here. It is the same choice step two made. */
+  onDeckId: (next: string | null) => void;
+  /** Seats two and up. One entry per opponent. */
+  opponents: Array<{ deckId: string | null }>;
+  onOpponents: (next: Array<{ deckId: string | null }>) => void;
+  armedSeat: number;
+  onArmSeat: (index: number) => void;
+  aggression: Aggression;
+  onAggression: (next: Aggression) => void;
+  variant: SeatingVariant;
+  onVariant: (next: SeatingVariant) => void;
+  seed: number;
+  onSeed: (next: number) => void;
+  error?: string | null;
+}
+
+/** One chair. Not a deck tile: it can be empty, it can be removed, and it arms. */
+function Seat({
+  label,
+  deck,
+  seeded,
+  armed,
+  removable,
+  onArm,
+  onRemove,
+  className,
+}: {
+  label: string;
+  deck: PlayDeckOption | null;
+  seeded: boolean;
+  armed: boolean;
+  removable: boolean;
+  onArm: () => void;
+  onRemove: () => void;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        'relative min-w-0 rounded-xl p-3 transition-colors',
+        armed ? 'bg-muted shadow-lg shadow-black/30' : 'bg-muted/20 hover:bg-muted/40',
+        className
+      )}
+    >
+      <button type="button" onClick={onArm} className="w-full text-left" aria-pressed={armed}>
+        <div className="flex items-center gap-1.5">
+          {label === 'Your seat' ? (
+            <UserRound className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+          ) : (
+            <Bot className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+          )}
+          <span className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            {label}
+          </span>
+        </div>
+
+        {/* Capped rather than stretched: a seat is a quarter of a wide table,
+            and a card drawn to that whole width is 600px tall with nothing else
+            able to fit beside it. */}
+        <div className="mt-2 w-full max-w-[190px]">
+          {deck?.faceCard ? (
+            <CardImage card={deck.faceCard} size="lg" fill eager />
+          ) : (
+            <div
+              className="flex flex-col items-center justify-center gap-1 rounded-lg bg-muted/40 px-2 text-center"
+              style={{ aspectRatio: CARD_ASPECT }}
+            >
+              <span className="text-[0.7rem] leading-tight text-muted-foreground">
+                {seeded ? 'Seeded commander deck' : 'No commander art'}
+              </span>
+            </div>
+          )}
+        </div>
+
+        <p className="mt-2 truncate text-sm font-medium text-foreground">
+          {deck?.name ?? 'Seeded commander deck'}
+        </p>
+        <p className="truncate text-xs text-muted-foreground">
+          {deck ? deck.commanderName ?? 'No commander set' : 'Built live from the card database'}
+        </p>
+        <div className="mt-1.5 flex items-center gap-2">
+          <ColorIdentity colors={deck?.colors ?? []} size="sm" />
+          <span className="truncate text-[0.7rem] text-muted-foreground">
+            {deck ? cardCountLine(deck) : '99 cards'}
+          </span>
+        </div>
+      </button>
+
+      {removable && (
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label={`Remove ${label}`}
+          className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-md bg-background/70 text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <X className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+export function SeatStep({
+  mode,
+  decks,
+  loadingDecks,
+  deckId,
+  onDeckId,
+  opponents,
+  onOpponents,
+  armedSeat,
+  onArmSeat,
+  aggression,
+  onAggression,
+  variant,
+  onVariant,
+  seed,
+  onSeed,
+  error,
+}: SeatStepProps) {
+  const byId = new Map(decks.map(deck => [deck.id, deck]));
+  const deckFor = (id: string | null) => (id ? byId.get(id) ?? null : null);
+
+  /* Every seat at this table, seat one first. Bots and playtest hold the same
+     list; only the label on seat one and the `isBot` flag when it is dealt
+     tell them apart. */
+  const seatDecks: Array<string | null> = [deckId, ...opponents.map(seat => seat.deckId)];
+  const seatCount = mode === 'goldfish' ? 1 : seatDecks.length;
+  const layout = seatingFor(seatCount, variant);
+  const variants = seatingVariants(seatCount);
+
+  const setOpponentCount = (count: number) => {
+    // Existing choices survive a count change: 3 to 1 and back to 3 must not
+    // wipe the decks already chosen for seats two and three.
+    onOpponents(Array.from({ length: count }, (_, i) => opponents[i] ?? { deckId: null }));
+  };
+
+  const removeSeat = (index: number) => {
+    if (opponents.length <= 1) return;
+    onOpponents(opponents.filter((_, i) => i !== index));
+    if (armedSeat > index) onArmSeat(armedSeat - 1);
+  };
+
+  const setSeatDeck = (index: number, id: string | null) => {
+    /* Seat one is the deck chosen at step two. It is the SAME choice, so it is
+       written back to the same place rather than kept twice: two copies of "my
+       deck" is how a table ends up dealing the one you did not pick. */
+    if (index === 0) {
+      onDeckId(id);
+      return;
+    }
+    onOpponents(opponents.map((seat, i) => (i === index - 1 ? { deckId: id } : seat)));
+  };
+
+  /* Goldfish has one chair, so the wall below always fills seat one whatever
+     the armed index happens to be from a previous mode. Without this, arriving
+     from versus bots left seat two armed, and choosing a deck on a screen with
+     one seat on it silently set an opponent nobody was going to play. */
+  const activeSeat = mode === 'goldfish' ? 0 : Math.min(armedSeat, seatCount - 1);
+  const armedIsYours = activeSeat === 0;
+
+  return (
+    <div className="w-full space-y-4">
+      {/* The table. */}
+      <section className="w-full rounded-xl bg-card p-4 shadow-sm md:p-6">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <h2 className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            The table
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            {mode === 'goldfish'
+              ? 'One seat. Nothing blocks and nothing attacks back.'
+              : mode === 'playtest'
+                ? 'Every seat is played by the bot policy, on the same rules engine as a game you play yourself.'
+                : 'Seat one is yours. Pick a seat, then pick its deck below.'}
+          </p>
+        </div>
+
+        {/* Wrapping row rather than a four column grid. Two seats in a
+            four column grid left half a screen of empty card, and a table with
+            two people at it should look like a table with two people at it. */}
+        <div className="mt-4 flex flex-wrap gap-3">
+          {seatDecks.slice(0, seatCount).map((id, index) => (
+            <Seat
+              key={index}
+              className="w-full min-w-0 flex-none sm:w-[15rem]"
+              label={
+                mode === 'playtest'
+                  ? `Seat ${index + 1}`
+                  : index === 0
+                    ? 'Your seat'
+                    : `Opponent ${index}`
+              }
+              deck={deckFor(id)}
+              seeded={id === null}
+              armed={activeSeat === index}
+              removable={index > 1}
+              onArm={() => onArmSeat(index)}
+              onRemove={() => removeSeat(index - 1)}
+            />
+          ))}
+
+          {mode !== 'goldfish' && seatCount < MAX_SEATS && (
+            <button
+              type="button"
+              onClick={() => setOpponentCount(opponents.length + 1)}
+              className="motion-press flex w-full flex-none flex-col items-center justify-center gap-2 rounded-xl bg-muted/10 p-3 text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground sm:w-[15rem]"
+            >
+              <Plus className="h-5 w-5" aria-hidden="true" />
+              <span className="text-xs font-medium">
+                {mode === 'playtest' ? 'Add a seat' : 'Add an opponent'}
+              </span>
+            </button>
+          )}
+        </div>
+
+        {mode !== 'goldfish' && (
+          <div className="mt-5 flex flex-wrap items-center gap-1.5">
+            <span className="mr-1 text-[11px] font-medium text-muted-foreground">
+              Bot temperament
+            </span>
+            {AGGRESSION.map(option => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => onAggression(option.id)}
+                aria-pressed={aggression === option.id}
+                title={option.hint}
+                className={cn(
+                  'motion-press rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
+                  aggression === option.id
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground'
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
+            <span className="ml-1 text-[11px] text-muted-foreground">
+              {AGGRESSION.find(option => option.id === aggression)?.hint}
+            </span>
+          </div>
+        )}
+
+        {variants.length > 1 && (
+          <div className="mt-4">
+            <span className="text-[11px] font-medium text-muted-foreground">Seating</span>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {variants.map(option => (
+                <button
+                  key={option.variant}
+                  type="button"
+                  onClick={() => onVariant(option.variant)}
+                  aria-pressed={variant === option.variant}
+                  title={option.description}
+                  className={cn(
+                    'motion-press rounded-md px-2.5 py-1.5 text-xs font-medium capitalize transition-colors',
+                    variant === option.variant
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground'
+                  )}
+                >
+                  {option.variant}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-[11px] text-muted-foreground">{layout.description}</p>
+          </div>
+        )}
+      </section>
+
+      {/* Your surface, and the shuffle. */}
+      <div className="grid w-full items-start gap-4 xl:grid-cols-[24rem_minmax(0,1fr)]">
+        <section className="min-w-0 rounded-xl bg-card p-4 shadow-sm md:p-5">
+          <h2 className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Your seat
+          </h2>
+
+          <div className="mt-4">
+            <span className="text-[11px] font-medium text-muted-foreground">Shuffle seed</span>
+            <div className="mt-1 flex items-center gap-2">
+              <span className="rounded-md bg-muted px-2.5 py-1.5 font-mono text-xs text-foreground">
+                {seed}
+              </span>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="h-8 text-xs"
+                onClick={() => onSeed(Math.floor(Math.random() * 100000) + 1)}
+              >
+                New seed
+              </Button>
+            </div>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+              The shuffle is seeded, so the same seed and the same decks deal the same game. That
+              is what makes a bad draw reproducible instead of anecdotal.
+            </p>
+          </div>
+
+          <div className="mt-5">
+            <span className="text-[11px] font-medium text-muted-foreground">Playmat</span>
+            {/* The chosen deck's colours, so the preview is the mat this seat
+                actually gets rather than six charcoal rectangles. Also in the
+                in game menu; both stay reachable. */}
+            <MatStylePicker
+              className="mt-2"
+              colors={deckFor(deckId)?.colors}
+              showManageLink
+            />
+            <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+              Drawn rather than photographed, so it stays sharp on any screen. Saved to your
+              account, so it is the same on every device.
+            </p>
+          </div>
+        </section>
+
+        {/* The wall that fills the armed seat. Same component as step two. */}
+        <section className="min-w-0 rounded-xl bg-card p-4 shadow-sm md:p-5">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <h2 className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              {mode === 'goldfish'
+                ? 'Change your deck'
+                : armedIsYours
+                  ? mode === 'playtest'
+                    ? 'Deck for seat 1'
+                    : 'Deck for your seat'
+                  : mode === 'playtest'
+                    ? `Deck for seat ${activeSeat + 1}`
+                    : `Deck for opponent ${activeSeat}`}
+            </h2>
+            {armedIsYours && mode !== 'goldfish' && (
+              <p className="text-xs text-muted-foreground">
+                Seat one was chosen at step two. Choosing here changes it.
+              </p>
+            )}
+          </div>
+
+          {loadingDecks ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
+            </div>
+          ) : (
+            <DeckWall
+              /* Fewer columns than the wall on step two gets, because this one
+                 shares its row with Your seat. Tailwind's breakpoints are the
+                 VIEWPORT, not this container, so leaving the defaults on made a
+                 1280 screen draw five 145px cards in an 800px column. */
+              className="mt-4 grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+              decks={decks}
+              mode={mode}
+              value={seatDecks[activeSeat] ?? null}
+              onChoose={id => setSeatDeck(activeSeat, id)}
+              seeded={{
+                label: 'Seeded commander deck',
+                hint: 'No deck of my own for this seat',
+                chosen: seatDecks[activeSeat] === null,
+                onChoose: () => setSeatDeck(activeSeat, null),
+              }}
+            />
+          )}
+        </section>
+      </div>
+
+      {error && (
+        <p className="rounded-lg bg-destructive/15 px-3 py-2 text-xs text-foreground">{error}</p>
+      )}
+    </div>
+  );
+}

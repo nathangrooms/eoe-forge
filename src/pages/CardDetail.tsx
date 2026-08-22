@@ -200,7 +200,7 @@ function Rulings({ card, className }: { card: any; className?: string }) {
         Rulings
       </h2>
       {loading && <p className="text-sm text-muted-foreground">Loading rulings from Scryfall…</p>}
-      {error && <p className="text-sm text-destructive">Could not load rulings — {error}</p>}
+      {error && <p className="text-sm text-destructive">Could not load rulings. {error}</p>}
       {!loading && !error && rulings?.length === 0 && (
         <p className="text-sm text-muted-foreground">
           No rulings have been published for this card.

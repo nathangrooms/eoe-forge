@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { FIELD } from '@/components/listing';
+import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -116,7 +118,7 @@ export function DeckNotesPanel({ deckId }: DeckNotesPanelProps) {
             value={newNote}
             onChange={(e) => setNewNote(e.target.value)}
             rows={3}
-            className="resize-none"
+            className={cn(FIELD, 'resize-none')}
           />
           <div className="flex justify-end">
             <Button

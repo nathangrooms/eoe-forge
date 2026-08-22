@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { FIELD } from '@/components/listing';
+import { cn } from '@/lib/utils';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -105,7 +107,7 @@ export function DeckPrimerGenerator({ deckName, commander, strategy, cardCount }
               value={overview}
               onChange={(e) => setOverview(e.target.value)}
               placeholder="Describe the overall strategy and theme of your deck..."
-              className="min-h-[100px]"
+              className={cn(FIELD, 'min-h-[100px]')}
             />
           </div>
 
@@ -116,7 +118,7 @@ export function DeckPrimerGenerator({ deckName, commander, strategy, cardCount }
               value={winConditions}
               onChange={(e) => setWinConditions(e.target.value)}
               placeholder="How does this deck win? List primary and backup win conditions..."
-              className="min-h-[100px]"
+              className={cn(FIELD, 'min-h-[100px]')}
             />
           </div>
 
@@ -127,7 +129,7 @@ export function DeckPrimerGenerator({ deckName, commander, strategy, cardCount }
               value={keyCards}
               onChange={(e) => setKeyCards(e.target.value)}
               placeholder="List and explain the most important cards in the deck..."
-              className="min-h-[100px]"
+              className={cn(FIELD, 'min-h-[100px]')}
             />
           </div>
 
@@ -138,7 +140,7 @@ export function DeckPrimerGenerator({ deckName, commander, strategy, cardCount }
               value={gameplan}
               onChange={(e) => setGameplan(e.target.value)}
               placeholder="Describe the turn-by-turn strategy and decision-making..."
-              className="min-h-[100px]"
+              className={cn(FIELD, 'min-h-[100px]')}
             />
           </div>
 

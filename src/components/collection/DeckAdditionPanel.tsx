@@ -186,7 +186,7 @@ export function DeckAdditionPanel({
               </div>
             </div>
             <Button
-              variant={addToCollection ? "default" : "outline"}
+              variant={addToCollection ? "default" : "secondary"}
               size="sm"
               onClick={() => handleSelectionChange({ addToCollection: !addToCollection })}
             >
@@ -204,8 +204,14 @@ export function DeckAdditionPanel({
                 <p className="text-xs text-muted-foreground">Build simultaneously</p>
               </div>
             </div>
+            {/* `secondary`, not `outline`. `outline` is the one Button variant that
+                draws a hairline, and these two were the last visible borders left on
+                any page in this pass: measured at 1.12:1 on /scan, which is a line
+                nobody can see doing a job the fill already does. On and off read as
+                `default` against `secondary` here, the same pair the segmented
+                controls use. */}
             <Button
-              variant={addToDeck ? "default" : "outline"}
+              variant={addToDeck ? "default" : "secondary"}
               size="sm"
               onClick={() => handleSelectionChange({ addToDeck: !addToDeck })}
             >
@@ -223,8 +229,14 @@ export function DeckAdditionPanel({
                 <p className="text-xs text-muted-foreground">Organize storage</p>
               </div>
             </div>
+            {/* `secondary`, not `outline`. `outline` is the one Button variant that
+                draws a hairline, and these two were the last visible borders left on
+                any page in this pass: measured at 1.12:1 on /scan, which is a line
+                nobody can see doing a job the fill already does. On and off read as
+                `default` against `secondary` here, the same pair the segmented
+                controls use. */}
             <Button
-              variant={addToBox ? "default" : "outline"}
+              variant={addToBox ? "default" : "secondary"}
               size="sm"
               onClick={() => handleSelectionChange({ addToBox: !addToBox })}
             >
@@ -242,7 +254,7 @@ export function DeckAdditionPanel({
               <Label className="text-sm font-medium">Select Deck</Label>
               <Select value={selectedDeckId} onValueChange={(value) => handleSelectionChange({ selectedDeckId: value })}>
                 <SelectTrigger className="bg-background">
-                  <SelectValue placeholder="Choose a deck..." />
+                  <SelectValue placeholder="Choose a deck" />
                 </SelectTrigger>
                 <SelectContent className="bg-background">
                   {decks.map(deck => (
@@ -285,7 +297,7 @@ export function DeckAdditionPanel({
               <Label className="text-sm font-medium">Select Box</Label>
               <Select value={selectedBoxId} onValueChange={(value) => handleSelectionChange({ selectedBoxId: value })}>
                 <SelectTrigger className="bg-background">
-                  <SelectValue placeholder="Choose a box..." />
+                  <SelectValue placeholder="Choose a box" />
                 </SelectTrigger>
                 <SelectContent className="bg-background">
                   {storageContainers.map(container => (

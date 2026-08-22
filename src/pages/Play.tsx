@@ -76,12 +76,24 @@ import {
 } from '@/components/play/tableMetrics';
 
 import { PlayHUD, type PlayViewId } from '@/components/play/PlayHUD';
+import { ModeWall } from '@/components/play/ModeWall';
+import { DeckStep } from '@/components/play/DeckStep';
+import { SeatStep } from '@/components/play/SeatStep';
+import { GoldfishStudy } from '@/components/play/GoldfishStudy';
+import { ChoiceTrail, StepFooter, StepTitle } from '@/components/play/StepChrome';
 import {
-  PlaySetup,
-  playerCountFor,
+  breadcrumbFor,
+  forwardLabelFor,
+  headingFor,
   startLabelFor,
-  type PlaySetupValue,
-} from '@/components/play/PlaySetup';
+  type PlayStepId,
+} from '@/components/play/playFlow';
+import { isPlayMode, modeOf, seatsFor, type PlayModeId } from '@/components/play/playModes';
+import { reconcileDeck } from '@/components/play/playDeckView';
+import { usePlayDecks, type PlayDeckOption } from '@/components/play/usePlayDecks';
+import { WatchedTable } from '@/components/play/WatchedTable';
+import { useWatchedGame } from '@/components/play/useWatchedGame';
+import { uniqueSeatNames } from '@/components/play/seatNames';
 import { PlayTable } from '@/components/play/PlayTable';
 import { ViewerHand } from '@/components/play/ViewerHand';
 import { CastSpotlight } from '@/components/play/CastSpotlight';
@@ -102,12 +114,11 @@ import { useCastSpotlight, useLifeDeltas } from '@/components/play/useTableMotio
 import { canReachCombat, controlsFlow, decisionFor, flowActions } from '@/components/play/turnFlow';
 import { defaultSeatingFor } from '@/components/play/seatingDefaults';
 
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { listOpenTables } from '@/lib/lobby';
 import { usePlayGame } from '@/hooks/usePlayGame';
-import {
-  listPlayableDecks,
-  resolveDeckDetailed,
-  type DeckSummary,
-} from '@/lib/play/deckSource';
+import { resolveDeckDetailed } from '@/lib/play/deckSource';
 import {
   advanceActions,
   applyActions,
@@ -140,6 +151,9 @@ import {
 } from '@/lib/game';
 
 const HUMAN_SEAT: PlayerId = 'p1';
+
+/** One stable empty list, so "no decks yet" is not a new value every render. */
+const NO_DECKS: PlayDeckOption[] = [];
 
 /* The insets, the starting card sizes and the hand arithmetic all live in
    `tableMetrics.ts`. They used to live here, and a second copy with different
@@ -174,20 +188,54 @@ function botNameFor(deck: PlayDeck, index: number): string {
 export default function Play() {
   const { user } = useAuth();
   const reduceMotion = useReducedMotion();
+  const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
 
-  const [decks, setDecks] = useState<DeckSummary[]>([]);
-  const [loadingDecks, setLoadingDecks] = useState(true);
   const [starting, setStarting] = useState(false);
   const [setupError, setSetupError] = useState<string | null>(null);
 
-  const [setup, setSetup] = useState<PlaySetupValue>({
-    mode: 'bots',
-    deckId: null,
-    opponents: [{ deckId: null }],
+  /* ---------------------------------------------------------------------- */
+  /* The flow: mode, then deck, then the table                              */
+  /* ---------------------------------------------------------------------- */
+
+  /**
+   * Which step is on screen, and which mode it belongs to.
+   *
+   * Both live in the URL as well as in state, so back and forward work, a link
+   * to `/play?mode=playtest` lands on the right door, and `/simulate?deck=x`
+   * can redirect here without losing what it was pointing at. `ModernDeckTile`
+   * and `DeckTile` both send people here that way.
+   */
+  const urlMode = params.get('mode');
+  const [mode, setMode] = useState<PlayModeId | null>(() =>
+    isPlayMode(urlMode) ? urlMode : null
+  );
+  const [step, setStep] = useState<PlayStepId>(() => (isPlayMode(urlMode) ? 'deck' : 'mode'));
+  /** Which seat the deck wall on step three is filling. */
+  const [armedSeat, setArmedSeat] = useState(1);
+  /** The opening hand study, which is goldfish's second question. */
+  const [studying, setStudying] = useState(false);
+
+  const [setup, setSetup] = useState({
+    deckId: params.get('deck'),
+    opponents: [{ deckId: null }] as Array<{ deckId: string | null }>,
     variant: defaultSeatingFor(2),
-    aggression: 'normal',
+    aggression: 'normal' as 'timid' | 'normal' | 'aggressive',
     seed: 7,
   });
+
+  /**
+   * Whether the table on screen is being WATCHED rather than played.
+   *
+   * Playtest is not a second page and not a second engine. It is this table
+   * with every seat flagged `isBot`, so the only thing the page has to hold is
+   * which driver is running: `usePlayGame`, which reserves a seat for a human,
+   * or `useWatchedGame`, which does not. Everything downstream of that is the
+   * same components on the same state.
+   */
+  const [watching, setWatching] = useState(false);
+  const [watchRunning, setWatchRunning] = useState(true);
+  const [watchSpeedMs, setWatchSpeedMs] = useState(450);
 
   const [table, setTable] = useState<BuiltTable | null>(null);
   const [variant, setVariant] = useState<SeatingVariant>('table');
@@ -268,7 +316,12 @@ export default function Play() {
   const dismissedCombatOnTurn = useRef<number | null>(null);
 
   const { state, dispatch, undo, canUndo, botPlayerIds, botThinking, feed } = usePlayGame({
-    table,
+    /* A watched table is driven by the other hook. `usePlayGame` always
+       reserves one seat as the one the bots must wait for, which is correct
+       for a game you play and deadlocks a game where every seat is a bot:
+       an attacker politely stops at declare blockers for a defender that is
+       itself a bot, and nobody moves again. See `useWatchedGame`. */
+    table: watching ? null : table,
     humanPlayerId: HUMAN_SEAT,
     botSpeedMs: 750,
     aggression: setup.aggression,
@@ -282,6 +335,16 @@ export default function Play() {
     useStack: true,
   });
 
+  /* The same table, with nobody to wait for. One of these two hooks is live at
+     a time and the other is handed a null table, so there is never a second
+     game running behind the one on screen. */
+  const watched = useWatchedGame({
+    table: watching ? table : null,
+    aggression: setup.aggression,
+    speedMs: watchSpeedMs,
+    running: watchRunning,
+  });
+
   // Presentation-only memory of the previous board: what life changed, and what
   // just left somebody's hand. Neither belongs in game state.
   const lifeDeltas = useLifeDeltas(state);
@@ -291,31 +354,61 @@ export default function Play() {
   /* Deck list                                                              */
   /* ---------------------------------------------------------------------- */
 
+  /* Three batched queries for the whole wall, cached under one key and shared
+     with the lobby. See `usePlayDecks` for why this is not one RPC per deck. */
+  const deckQuery = usePlayDecks(user?.id);
+  /* A module-level empty array, not `?? []`. A fresh literal every render makes
+     a new dependency every render, so the effect below and `startGame` would
+     both be rebuilt on every keystroke anywhere on the page. */
+  const decks = deckQuery.data ?? NO_DECKS;
+  const loadingDecks = Boolean(user) && deckQuery.isLoading;
+
+  /* The one live fact on the mode wall, and the reason online leads: how many
+     tables are actually waiting. `open_game_tables()` is a single grouped query
+     with the seats already aggregated, so this is one round trip and it is only
+     asked while step one is on screen. Nothing polls it; the lobby itself is
+     the surface that keeps up to date, over a pushed channel. */
+  const openTables = useQuery({
+    queryKey: ['open-game-tables'],
+    queryFn: listOpenTables,
+    enabled: Boolean(user?.id) && step === 'mode',
+    staleTime: 30_000,
+  });
+  const onlineLive = !user
+    ? undefined
+    : openTables.data === undefined
+      ? undefined
+      : openTables.data.length === 0
+        ? 'No tables waiting right now'
+        : `${openTables.data.length} table${openTables.data.length === 1 ? '' : 's'} waiting`;
+
+  /* The deck that is actually chosen, once the list has arrived: whatever the
+     URL asked for if this mode can deal it, else the first one that can be
+     dealt. Nothing is chosen for a reader who has not picked a mode yet, so
+     landing on step one does not silently commit a deck. */
   useEffect(() => {
-    let cancelled = false;
-    if (!user) {
-      setLoadingDecks(false);
-      return;
-    }
+    if (!mode || decks.length === 0) return;
+    setSetup(previous => {
+      const next = reconcileDeck(decks, mode, previous.deckId);
+      return next === previous.deckId ? previous : { ...previous, deckId: next };
+    });
+  }, [decks, mode]);
 
-    listPlayableDecks(user.id)
-      .then(list => {
-        if (cancelled) return;
-        setDecks(list);
-        if (list.length > 0) setSetup(previous => ({ ...previous, deckId: list[0].id }));
-      })
-      .catch(error => {
-        console.warn('[play] could not list decks:', error);
-        if (!cancelled) setDecks([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingDecks(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
+  /* The URL follows the flow rather than the other way round, so Back leaves
+     the step it was on and a link can be sent. `replace` while walking forward,
+     because three steps should not cost three presses of the back button to
+     leave the page. */
+  useEffect(() => {
+    const next = new URLSearchParams(params);
+    if (mode) next.set('mode', mode);
+    else next.delete('mode');
+    if (setup.deckId) next.set('deck', setup.deckId);
+    else next.delete('deck');
+    if (next.toString() !== params.toString()) setParams(next, { replace: true });
+    // `params` is deliberately out of the dependency list: it is the thing
+    // being written, and including it re-runs this on its own result.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, setup.deckId, setParams]);
 
   /* ---------------------------------------------------------------------- */
   /* Starting a game                                                        */
@@ -329,7 +422,11 @@ export default function Play() {
       const summaryFor = (deckId: string | null) =>
         deckId ? decks.find(deck => deck.id === deckId) ?? null : null;
 
-      const playerCount = playerCountFor(setup);
+      const active = mode ?? 'bots';
+      const playerCount = seatsFor(active, setup.opponents.length);
+      /* Playtest is this table with every seat played for you. Nothing else
+         about it differs, which is why it is a flag here and not a page. */
+      const watchedTable = active === 'playtest';
 
       /* Every seat resolves the same way, and every seat says what it landed
          on. `resolveDeckDetailed` returns a notice when it could not deal the
@@ -350,11 +447,22 @@ export default function Play() {
         const seat = await resolveDeckDetailed(summaryFor(setup.opponents[i]?.deckId ?? null), {
           seed: setup.seed + (i + 1) * 977,
         });
-        if (seat.notice) notices.push(`Opponent ${i + 1}: ${seat.notice}`);
+        if (seat.notice) {
+          notices.push(
+            watchedTable ? `Seat ${i + 2}: ${seat.notice}` : `Opponent ${i + 1}: ${seat.notice}`
+          );
+        }
         opponents.push(seat.deck);
       }
 
       const myDeck = mine.deck;
+
+      /* Seat names come from `uniqueSeatNames` when nobody at the table is you,
+         because four bots called after their commanders can collide and "The
+         Ur-Dragon" twice is unreadable. A table with you in it keeps your own
+         name in seat one. */
+      const allDecks = [myDeck, ...opponents];
+      const watchedNames = watchedTable ? uniqueSeatNames(allDecks) : null;
 
       const built = buildTable({
         id: `play-${setup.seed}-${playerCount}-${Date.now()}`,
@@ -364,12 +472,19 @@ export default function Play() {
         seats: [
           {
             deck: myDeck,
-            playerName: user?.email ? user.email.split('@')[0] : 'You',
+            playerName: watchedNames
+              ? watchedNames[0]
+              : user?.email
+                ? user.email.split('@')[0]
+                : 'You',
             playerId: HUMAN_SEAT,
+            // The one difference playtest makes to a table: seat one is played
+            // for you as well.
+            ...(watchedTable ? { isBot: true } : {}),
           },
           ...opponents.map((deck, index) => ({
             deck,
-            playerName: botNameFor(deck, index),
+            playerName: watchedNames ? watchedNames[index + 1] : botNameFor(deck, index),
             playerId: `p${index + 2}` as PlayerId,
             isBot: true,
           })),
@@ -391,7 +506,12 @@ export default function Play() {
 
       setVariant(setup.variant);
       setView('table');
-      setOpening({ taken: 0, bottoming: false, chosen: [] });
+      setWatching(watchedTable);
+      setWatchRunning(true);
+      /* A watched table has no opening hand to offer: every seat has already
+         answered its own, above. Offering one would stop a game nobody is
+         playing, waiting for a decision nobody is making. */
+      setOpening(watchedTable ? null : { taken: 0, bottoming: false, chosen: [] });
       setDutiesDismissed(null);
       setEndingTurn(null);
       setInspectId(null);
@@ -416,7 +536,7 @@ export default function Play() {
     } finally {
       setStarting(false);
     }
-  }, [decks, setup, user]);
+  }, [decks, mode, setup, user]);
 
   /* ---------------------------------------------------------------------- */
   /* Whose move is it, really                                               */
@@ -899,53 +1019,243 @@ export default function Play() {
   /* Render                                                                 */
   /* ---------------------------------------------------------------------- */
 
+  /* -------------------------------------------------------------------- */
+  /* A watched table                                                       */
+  /* -------------------------------------------------------------------- */
+
+  /* Playtest. The same engine, the same mat, the same hand, the same card
+     preview and the same log; the only difference is that nobody is waiting on
+     a human, so the driver is `useWatchedGame` and the surface carries a speed
+     control and a step button instead of a hand you can act from. This used to
+     be a separate page at `/simulate` with its own setup screen, and the drift
+     that caused is what the one table law exists to stop. */
+  if (watching && table && watched.state) {
+    return (
+      <WatchedTable
+        state={watched.state}
+        feed={watched.feed}
+        lastPlay={watched.lastPlay}
+        halted={watched.halted}
+        running={watchRunning}
+        onRunning={setWatchRunning}
+        speedMs={watchSpeedMs}
+        onSpeedMs={setWatchSpeedMs}
+        onStep={watched.stepOnce}
+        onRestart={watched.restart}
+        onLeave={() => {
+          setTable(null);
+          setWatching(false);
+          setWatchRunning(true);
+        }}
+      />
+    );
+  }
+
   if (!table || !state) {
+    const heading = headingFor(step, mode);
+    const chosenDeck = setup.deckId ? decks.find(deck => deck.id === setup.deckId) ?? null : null;
+    const seats = mode ? seatsFor(mode, setup.opponents.length) : 0;
+
+    const deckCrumb =
+      step === 'mode'
+        ? null
+        : chosenDeck
+          ? chosenDeck.name
+          : mode === 'online'
+            ? null
+            : 'Seeded deck';
+
+    const trail = breadcrumbFor({
+      mode,
+      deckName: deckCrumb,
+      tableLabel: step === 'table' ? `${seats} seat${seats === 1 ? '' : 's'}` : null,
+    });
+
+    const goBack = () => {
+      if (studying) {
+        setStudying(false);
+        return;
+      }
+      if (step === 'table') setStep('deck');
+      else if (step === 'deck') setStep('mode');
+    };
+
+    const goForward = () => {
+      if (step === 'mode') {
+        setStep('deck');
+        return;
+      }
+      if (step === 'deck') {
+        /* Online carries on at the lobby, taking the deck with it. It is the
+           third step of THIS flow rather than a fresh start: the lobby wears
+           the same step label and the same breadcrumb, and its back control
+           comes here. It has its own URL because a table link is the owner's
+           stated way in and a link needs a real address. */
+        if (mode === 'online') {
+          navigate(
+            setup.deckId
+              ? `/play/online?deck=${encodeURIComponent(setup.deckId)}`
+              : '/play/online'
+          );
+          return;
+        }
+        setStep('table');
+        return;
+      }
+      void startGame();
+    };
+
+    /* Whether the forward control can move, and why not when it cannot. */
+    const blocked =
+      step === 'mode' && !mode
+        ? 'Pick a mode to carry on.'
+        : step === 'deck' && mode === 'online' && !setup.deckId
+          ? 'Online needs one of your decks with cards in it.'
+          : null;
+
     return (
       <StandardPageLayout
-        title="Play"
-        description="Goldfish a deck or play a pod against bots, on the rules engine that will run online tables."
-        /* The one thing this page is for, where a primary action belongs.
-           It used to be a full width bar under a tall setup panel. */
+        title={<StepTitle label={heading.label} title={heading.title} />}
+        description={heading.note ?? undefined}
+        /* The start control lives here, beside the title, in the layout's own
+           action slot, matching every other page in the app. It was moved out
+           of a full width bar at the bottom of the setup panel once already and
+           must not go back. */
         action={
-          <Button size="lg" onClick={startGame} disabled={starting}>
-            {starting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Shuffling up…
-              </>
-            ) : (
-              startLabelFor(setup)
-            )}
-          </Button>
+          step === 'table' && mode && mode !== 'online' && !studying ? (
+            <Button size="lg" onClick={() => void startGame()} disabled={starting}>
+              {starting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                  Shuffling up
+                </>
+              ) : (
+                startLabelFor(mode, seats)
+              )}
+            </Button>
+          ) : null
         }
       >
-        <PlaySetup
-          decks={decks}
-          loadingDecks={loadingDecks}
-          starting={starting}
-          error={setupError}
-          value={setup}
-          onChange={setSetup}
-          onStart={startGame}
-        />
+        <div className="w-full space-y-4">
+          <ChoiceTrail
+            crumbs={trail}
+            current={step}
+            onJump={next => {
+              setStudying(false);
+              setStep(next);
+            }}
+          />
+
+          {step === 'mode' && (
+            <ModeWall
+              value={mode}
+              live={{ online: onlineLive }}
+              onChoose={next => {
+                setMode(next);
+                setArmedSeat(1);
+                setStep('deck');
+              }}
+            />
+          )}
+
+          {step === 'deck' && mode && (
+            <DeckStep
+              decks={decks}
+              loading={loadingDecks}
+              mode={mode}
+              value={setup.deckId}
+              onChoose={deckId => setSetup(previous => ({ ...previous, deckId }))}
+              allowSeeded={mode !== 'online'}
+            />
+          )}
+
+          {step === 'table' && mode && mode !== 'online' && !studying && (
+            <SeatStep
+              mode={mode}
+              decks={decks}
+              loadingDecks={loadingDecks}
+              deckId={setup.deckId}
+              onDeckId={deckId => setSetup(previous => ({ ...previous, deckId }))}
+              opponents={setup.opponents}
+              onOpponents={opponents =>
+                setSetup(previous => ({
+                  ...previous,
+                  opponents,
+                  variant: defaultSeatingFor(seatsFor(mode, opponents.length)),
+                }))
+              }
+              armedSeat={armedSeat}
+              onArmSeat={setArmedSeat}
+              aggression={setup.aggression}
+              onAggression={aggression => setSetup(previous => ({ ...previous, aggression }))}
+              variant={setup.variant}
+              onVariant={variant => setSetup(previous => ({ ...previous, variant }))}
+              seed={setup.seed}
+              onSeed={seed => setSetup(previous => ({ ...previous, seed }))}
+              error={setupError}
+            />
+          )}
+
+          {studying && setup.deckId && (
+            <GoldfishStudy
+              deckId={setup.deckId}
+              deckName={chosenDeck?.name ?? 'That deck'}
+              onBack={() => setStudying(false)}
+            />
+          )}
+
+          {!studying && (
+            <StepFooter
+              backLabel={
+                step === 'deck' ? 'Change mode' : step === 'table' ? 'Change deck' : undefined
+              }
+              onBack={step === 'mode' ? undefined : goBack}
+              forwardLabel={forwardLabelFor(step, mode)}
+              onForward={step === 'table' ? undefined : goForward}
+              forwardDisabled={Boolean(blocked) || starting}
+              note={blocked ?? (step === 'table' && mode ? modeOf(mode).developing : null)}
+              extra={
+                /* Goldfish asks two questions with two different measurements:
+                   how the deck plays, and how it opens. Playing it is the
+                   control in the header; the opening hand study is this, and it
+                   is the tab that used to live on `/simulate`. Neither half was
+                   dropped in the merge. */
+                step === 'table' && mode === 'goldfish' ? (
+                  <Button
+                    variant="secondary"
+                    onClick={() => setStudying(true)}
+                    disabled={!setup.deckId}
+                    /* Shown and disabled rather than hidden. A control that
+                       vanishes leaves the reader wondering whether the feature
+                       exists; one that says what it needs does not. */
+                    title={
+                      setup.deckId
+                        ? undefined
+                        : 'The study samples a real list, so it needs one of your own decks rather than a seeded one.'
+                    }
+                  >
+                    Study opening hands
+                  </Button>
+                ) : null
+              }
+            />
+          )}
+        </div>
         {/*
           There is deliberately NO overlay here.
 
           This used to render `fixed inset-0 ... bg-background/70` with a
           spinner in it while the decks were being resolved: a dimmed,
           full-screen, click-eating backdrop, which is the one thing play mode
-          is not allowed to have. It also bought nothing. `PlaySetup` already
-          disables its start button and turns it into "Shuffling up…" with a
-          spinner in the button itself, which is where the reader is already
-          looking, so the overlay dimmed the whole page to repeat a message
-          that was six pixels away.
+          is not allowed to have. It also bought nothing. The start control
+          already disables itself and turns into a spinner in the button, which
+          is where the reader is already looking.
 
           It survived this long because the screenshot harness cannot see it:
           `scripts/play-preview-shots.mjs` skips any full-screen candidate whose
           class list contains the string `bg-background`, to let the immersive
           board's own opaque `bg-background` root through, and `bg-background/70`
-          contains that string too. Measured with that exemption removed, it was
-          the only full-screen dimmer left in either surface.
+          contains that string too.
         */}
       </StandardPageLayout>
     );

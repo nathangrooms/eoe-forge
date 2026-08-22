@@ -40,12 +40,26 @@ import {
   type CardCategory,
 } from './deck-categories';
 import {
-  useDeckViewPrefs,
-  CARD_SIZE_MIN,
-  CARD_SIZE_MAX,
+  DECK_BUILD_MODES,
+  DECK_BUILD_SORTS,
+  DECK_BUILD_VIEW_SURFACE,
+  DEFAULT_DECK_CARD_SIZE,
+  GROUP_LABELS,
+  useDeckGroupBy,
   type DeckGroupBy,
   type DeckSortKey,
 } from './deck-view-prefs';
+import {
+  EmptyState,
+  FIELD,
+  FilterBar,
+  ListingSearch,
+  SURFACE,
+  SortControl,
+  matchedLabel,
+  resultSentence,
+  useListingView,
+} from '@/components/listing';
 
 interface DeckCard {
   id: string;
@@ -89,21 +103,6 @@ interface CardGroup {
   cards: DeckCard[];
 }
 
-const GROUP_LABELS: Record<DeckGroupBy, string> = {
-  type: 'Card type',
-  color: 'Colour',
-  cmc: 'Mana value',
-  none: 'No grouping',
-};
-
-const SORT_LABELS: Record<DeckSortKey, string> = {
-  cmc: 'Mana value',
-  name: 'Name',
-  quantity: 'Copies',
-  price: 'Price',
-  type: 'Type',
-};
-
 const COLOR_GROUP_NAMES: Record<string, string> = {
   W: 'White',
   U: 'Blue',
@@ -145,7 +144,25 @@ export function VisualDeckView({
   /* Clicking a card goes to the card page — the same everywhere in the app.
      The builder's own controls (quantity, remove, group) stay in place. */
   const openCard = useOpenCard();
-  const { prefs, update } = useDeckViewPrefs();
+  /* Mode, sort axis, direction and card width, under the key this surface has
+     always written, so nobody's choice resets. Grouping stays its own control
+     because no other listing in the product has an axis worth cutting on. */
+  const view = useListingView({
+    surface: DECK_BUILD_VIEW_SURFACE,
+    modes: DECK_BUILD_MODES,
+    defaultMode: 'grid',
+    defaultSortKey: 'cmc',
+    defaultSortDir: 'asc',
+    defaultSize: DEFAULT_DECK_CARD_SIZE,
+  });
+  const [groupBy, setGroupBy] = useDeckGroupBy();
+  const prefs = {
+    mode: view.mode as 'grid' | 'table' | 'text',
+    sortKey: view.sortKey as DeckSortKey,
+    sortDir: view.sortDir,
+    cardSize: view.size,
+    groupBy,
+  };
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -296,6 +313,10 @@ export function VisualDeckView({
   }, [groups, commander, prefs.groupBy]);
 
   const totalShown = filtered.reduce((sum, c) => sum + (c.quantity || 1), 0);
+  const totalCopies = cards.reduce((sum, c) => sum + (c.quantity || 1), 0);
+  /* `84 of 100 cards`, and only `100 cards` when nothing is narrowing it. The
+     same sentence the deck page, the collection and card search all print. */
+  const countLine = resultSentence([matchedLabel(totalShown, totalCopies, 'card')]);
 
   const copyDecklist = () => {
     navigator.clipboard
@@ -375,7 +396,11 @@ export function VisualDeckView({
                   min={0}
                   value={card.quantity ?? 1}
                   onChange={e => handleQuantityInput(card, e.target.value)}
-                  className="h-8 w-14 bg-background text-center tabular-nums"
+                  /* One of these sits on every card in the deck. Measured on
+                     the built bundle, a hundred-card deck rendered 99 visible
+                     hairlines on the busiest screen in the product, all of them
+                     from `Input`'s default border. */
+                  className={cn(FIELD, 'h-8 w-14 text-center tabular-nums')}
                   aria-label={`Copies of ${card.name}`}
                 />
               ) : (
@@ -445,7 +470,7 @@ export function VisualDeckView({
                     min={0}
                     value={card.quantity ?? 1}
                     onChange={e => handleQuantityInput(card, e.target.value)}
-                    className="h-7 w-12 px-1 text-center tabular-nums"
+                    className={cn(FIELD, 'h-7 w-12 px-1 text-center tabular-nums')}
                     aria-label={`Copies of ${card.name}`}
                   />
                 ) : (
@@ -599,129 +624,79 @@ export function VisualDeckView({
             Clear &ldquo;{searchTerm}&rdquo;
           </button>
         )}
-        <span className="ml-auto text-xs text-muted-foreground tabular-nums">
-          {totalShown} card{totalShown === 1 ? '' : 's'}
-        </span>
+        <span className="ml-auto text-xs tabular-nums text-muted-foreground">{countLine}</span>
       </div>
 
       {showFilters && (
-      <div className="flex flex-wrap items-center gap-2 rounded-xl bg-card p-2.5 shadow-sm">
-        <div className="relative min-w-[200px] flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            placeholder="Filter cards in this deck…"
-            className="h-9 border-0 bg-background/60 pl-9 shadow-none focus-visible:ring-1"
-          />
-          {searchTerm && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
-              onClick={() => setSearchTerm('')}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
+        /* One bar, the same one every listing in the product uses.
 
-        <Select value={prefs.groupBy} onValueChange={v => update('groupBy', v as DeckGroupBy)}>
-          <SelectTrigger className="h-9 w-[150px] border-0 bg-background/60" aria-label="Group by">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {(Object.keys(GROUP_LABELS) as DeckGroupBy[]).map(k => (
-              <SelectItem key={k} value={k}>
-                {GROUP_LABELS[k]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <div className="flex items-center">
-          <Select value={prefs.sortKey} onValueChange={v => update('sortKey', v as DeckSortKey)}>
-            <SelectTrigger className="h-9 w-[140px] rounded-r-none border-0 bg-background/60" aria-label="Sort by">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {(Object.keys(SORT_LABELS) as DeckSortKey[]).map(k => (
-                <SelectItem key={k} value={k}>
-                  {SORT_LABELS[k]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            variant="outline"
-            size="icon"
-            className="rounded-l-none border-l-0"
-            onClick={() => update('sortDir', prefs.sortDir === 'asc' ? 'desc' : 'asc')}
-            aria-label={`Sort ${prefs.sortDir === 'asc' ? 'ascending' : 'descending'}`}
-            title={prefs.sortDir === 'asc' ? 'Ascending' : 'Descending'}
-          >
-            {prefs.sortDir === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
-          </Button>
-        </div>
-
-        {/* Card size — only meaningful in the grid */}
-        {prefs.mode === 'grid' && (
-          <div className="hidden w-40 items-center gap-2 sm:flex">
-            <Grid3X3 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            <Slider
-              value={[prefs.cardSize]}
-              min={CARD_SIZE_MIN}
-              max={CARD_SIZE_MAX}
-              step={10}
-              onValueChange={([v]) => update('cardSize', v)}
-              aria-label="Card size"
+           This was six controls hand-drawn here: a search box with no debounce,
+           a group select, a sort select welded to an `outline` direction button
+           with `border-l-0`, a bespoke card-size `Slider`, and a segmented
+           control wrapped in `border border-border`. That last one is a literal
+           hairline, which design law 2 rules out, and the sort button next to
+           it was a second. Every control survived; none of them is drawn here
+           any more. */
+        <FilterBar
+          view={view}
+          activeCount={searchTerm.trim() ? 1 : 0}
+          onClear={() => setSearchTerm('')}
+          search={
+            <ListingSearch
+              value={searchTerm}
+              onCommit={next => setSearchTerm(next ?? '')}
+              placeholder="Filter cards in this deck"
+              label="Filter cards in this deck"
             />
-            <Grid3X3 className="h-5 w-5 shrink-0 text-muted-foreground" />
-          </div>
-        )}
-
-        <div className="flex items-center rounded-md border border-border p-0.5">
-          {[
-            { mode: 'grid' as const, icon: Grid3X3, label: 'Grid' },
-            { mode: 'table' as const, icon: LayoutList, label: 'Table' },
-            { mode: 'text' as const, icon: TypeIcon, label: 'Text' },
-          ].map(({ mode, icon: Icon, label }) => (
-            <button
-              key={mode}
-              onClick={() => update('mode', mode)}
-              aria-pressed={prefs.mode === mode}
-              title={`${label} view`}
-              className={cn(
-                'flex h-8 items-center gap-1.5 rounded px-2.5 text-xs font-medium transition-colors',
-                prefs.mode === mode
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-              )}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">{label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
+          }
+          presets={
+            /* Grouping is this surface's own control and no other listing has
+               one, so it is passed in rather than built into the bar. */
+            <Select value={prefs.groupBy} onValueChange={v => setGroupBy(v as DeckGroupBy)}>
+              <SelectTrigger className={cn(FIELD, 'h-9 w-[150px]')} aria-label="Group by">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className={SURFACE}>
+                {(Object.keys(GROUP_LABELS) as DeckGroupBy[]).map(k => (
+                  <SelectItem key={k} value={k}>
+                    {GROUP_LABELS[k]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          }
+          sort={
+            <SortControl
+              options={DECK_BUILD_SORTS}
+              value={prefs.sortKey}
+              onValueChange={view.setSortKey}
+              dir={prefs.sortDir}
+              onToggleDir={view.toggleSortDir}
+              label="Sort cards by"
+            />
+          }
+        />
       )}
 
       {/* Body — full width. The detail pane that used to dock to the right of
           this grid is gone; a card click leaves for `/cards/:id`. */}
       <div>
         {cards.length === 0 ? (
-          <div className="py-16 text-center">
-            <Sparkles className="mx-auto mb-4 h-10 w-10 text-muted-foreground" />
-            <p className="text-base font-medium">No cards in this deck yet</p>
-            <p className="text-sm text-muted-foreground">Use the Add Cards tab to search for cards.</p>
-          </div>
+          /* The shared panel, not a bare centred stack. There were seven of
+             those and they differed on padding and on whether the icon sat in
+             a 16px circle or a 20px one. */
+          <EmptyState
+            title="No cards in this deck yet"
+            description="Use the Add Cards tab to search for cards."
+            icon={Sparkles}
+          />
         ) : filtered.length === 0 ? (
-          <div className="py-16 text-center">
-            <p className="text-base font-medium">No cards match that filter</p>
-            <Button variant="outline" size="sm" className="mt-3" onClick={() => setSearchTerm('')}>
-              Clear filter
-            </Button>
-          </div>
+          <EmptyState
+            title="No cards match that filter"
+            description="Widen the search, or clear it and see the whole list."
+            icon={Search}
+            onClearFilters={() => setSearchTerm('')}
+          />
         ) : prefs.mode === 'text' ? (
           <div className="space-y-2">
             <div className="flex justify-end">

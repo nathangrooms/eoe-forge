@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Boxes, Crown, Plus, Sparkles, Star } from 'lucide-react';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
@@ -13,22 +13,29 @@ import { DeckSearchFilters } from '@/components/deck-builder/DeckSearchFilters';
 import { FirstDeckOnboarding } from '@/components/deck-builder/FirstDeckOnboarding';
 import { DeckTile, DECK_HERO_COLUMN } from '@/components/deck/DeckTile';
 import {
-  DeckViewControls,
-  useDeckViewPrefs,
+  DECK_LISTING_MODES,
+  DECK_SORT_OPTIONS,
+  DECK_VIEW_SURFACE,
   type DeckSortKey,
 } from '@/components/deck/DeckViewControls';
-import { CardImageSkeleton } from '@/components/cards';
-import { DeckAPI, type DeckSummary } from '@/lib/api/deckAPI';
-import { useDeckFilters } from '@/hooks/useDeckFilters';
-import { useDeckPowerBackfill } from '@/hooks/useDeckPowerBackfill';
-import type { DeckPower } from '@/lib/deck/power';
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
+  FilterBar,
+  ListingFrame,
+  ListingSearch,
+  RemovableChip,
+  SortControl,
+  matchedLabel,
+  resultSentence,
+  useListingView,
+  useSearchText,
+} from '@/components/listing';
+import { CardImageSkeleton } from '@/components/cards';
+import { ManaPip } from '@/components/ui/mana-cost';
+import { DeckAPI, type DeckSummary } from '@/lib/api/deckAPI';
+import { COLOR_MATCH_LABELS, useDeckFilters } from '@/hooks/useDeckFilters';
+import { useDeckPowerBackfill } from '@/hooks/useDeckPowerBackfill';
+import { formatLabel } from '@/lib/deck/formats';
+import type { DeckPower } from '@/lib/deck/power';
 
 /**
  * Two tiles per row on desktop, and never more.
@@ -119,7 +126,18 @@ export default function Decks() {
    * the tile just navigates and this page keeps no state for them at all.
    */
 
-  const { prefs, update: updatePrefs } = useDeckViewPrefs();
+  /* The surface name is the key `useDeckViewPrefs` has always written, so
+     nobody's grid-or-list choice resets. Card size and page size derive from it
+     too and are unused here: this page has neither control, by the reasoning in
+     `DeckViewControls`. */
+  const view = useListingView({
+    surface: DECK_VIEW_SURFACE,
+    modes: DECK_LISTING_MODES,
+    defaultMode: 'grid',
+    defaultSortKey: 'updated',
+    defaultSortDir: 'desc',
+  });
+  const sortKey = view.sortKey as DeckSortKey;
 
   const {
     filters,
@@ -131,6 +149,23 @@ export default function Decks() {
     hasActiveFilters,
     activeFilterCount,
   } = useDeckFilters(deckSummaries);
+
+  /*
+   * The search text lives in the URL now.
+   *
+   * It did not, and the audit named the consequence: a narrowed deck list was
+   * not something you could send anybody and the back button did not undo a
+   * search. `useSearchText` exists for exactly this case, a surface with no
+   * shared filter controller of its own, and it writes with `replace` so typing
+   * does not deposit a history entry per word.
+   *
+   * The box also has the shared 250ms debounce. This page had none, so it
+   * re-filtered the whole library on every keystroke.
+   */
+  const [searchText, commitSearchText] = useSearchText('q');
+  useEffect(() => {
+    updateFilters({ searchQuery: searchText });
+  }, [searchText, updateFilters]);
 
   const loadDeckSummaries = useCallback(async () => {
     setLoading(true);
@@ -167,11 +202,30 @@ export default function Decks() {
   const sortedDecks = useMemo(() => {
     const copy = [...filteredDecks];
     copy.sort((a, b) => {
-      const result = compareDecks(a, b, prefs.sortKey);
-      return prefs.sortDir === 'asc' ? result : -result;
+      const result = compareDecks(a, b, sortKey);
+      return view.sortDir === 'asc' ? result : -result;
     });
     return copy;
-  }, [filteredDecks, prefs.sortKey, prefs.sortDir]);
+  }, [filteredDecks, sortKey, view.sortDir]);
+
+  /**
+   * Clear everything the bar can see, the favourites toggle included.
+   *
+   * The toggle sits in the page's action row rather than in the bar, because it
+   * is how somebody arrives at their favourites rather than a facet they go
+   * looking for. It is still a filter, so it is still counted, still shown as a
+   * removable chip, and still cleared here. The collection paid for the lesson
+   * that "Clear all" clearing half of what is on leaves a narrowed list with
+   * nothing on screen saying why.
+   */
+  const clearEverything = useCallback(() => {
+    resetFilters();
+    commitSearchText(undefined);
+  }, [resetFilters, commitSearchText]);
+
+  const powerNarrowed = filters.minPower !== 1 || filters.maxPower !== 10;
+
+  const summary = resultSentence([matchedLabel(sortedDecks.length, deckSummaries.length, 'deck')]);
 
   const handleCreateFirstDeck = async (
     name: string,
@@ -269,7 +323,10 @@ export default function Decks() {
 
   return (
     <StandardPageLayout
-      title="Deck Manager"
+      /* "My Decks", the same words as the left nav and the same words the
+         owner uses for it. It said "Deck Manager", so one place had two names
+         depending on whether you were reading the rail or the page. */
+      title="My Decks"
       description="Create, analyse and optimise your Magic: The Gathering decks"
       action={
         showOnboarding ? null : (
@@ -322,61 +379,115 @@ export default function Decks() {
           loading={creatingFirstDeck}
         />
       ) : (
-        <div className="space-y-6">
-          {!loading && deckSummaries.length > 0 && <DecksSummaryStats decks={deckSummaries} />}
+        <div className="space-y-4">
+          {/* The row holds its 95px from the first paint rather than appearing
+              when the decks land and shoving the grid down. */}
+          <DecksSummaryStats decks={deckSummaries} loading={loading} />
 
-          <DeckSearchFilters
-            filters={filters}
-            onUpdateFilters={updateFilters}
-            onResetFilters={resetFilters}
-            onToggleFormat={toggleFormat}
-            onToggleColor={toggleColor}
-            hasActiveFilters={hasActiveFilters}
-            activeFilterCount={activeFilterCount}
+          <FilterBar
+            view={view}
+            activeCount={activeFilterCount}
+            onClear={clearEverything}
+            search={
+              <ListingSearch
+                value={searchText}
+                onCommit={commitSearchText}
+                placeholder="Search your decks by name"
+                label="Search decks"
+              />
+            }
+            filters={
+              <DeckSearchFilters
+                filters={filters}
+                onUpdateFilters={updateFilters}
+                onResetFilters={clearEverything}
+                onToggleFormat={toggleFormat}
+                onToggleColor={toggleColor}
+                hasActiveFilters={hasActiveFilters}
+                activeFilterCount={activeFilterCount}
+              />
+            }
+            sort={
+              <SortControl
+                options={DECK_SORT_OPTIONS}
+                value={sortKey}
+                onValueChange={view.setSortKey}
+                dir={view.sortDir}
+                onToggleDir={view.toggleSortDir}
+                label="Sort decks by"
+              />
+            }
+            chips={
+              /* Chips are new here. The popover this replaces showed what was on
+                 only while it was open, so a reader who set a power range and
+                 closed it was looking at a short list with a badge for an
+                 explanation. */
+              activeFilterCount > 0 ? (
+                <>
+                  {filters.favoritesOnly && (
+                    <RemovableChip onRemove={() => updateFilters({ favoritesOnly: false })}>
+                      Favourites only
+                    </RemovableChip>
+                  )}
+                  {filters.format.map(format => (
+                    <RemovableChip key={format} onRemove={() => toggleFormat(format)}>
+                      {formatLabel(format)}
+                    </RemovableChip>
+                  ))}
+                  {filters.colors.map(color => (
+                    <RemovableChip key={color} onRemove={() => toggleColor(color)}>
+                      <span className="flex items-center gap-1.5">
+                        <ManaPip symbol={color} size="xs" />
+                        {COLOR_MATCH_LABELS[filters.colorMode]}
+                      </span>
+                    </RemovableChip>
+                  ))}
+                  {powerNarrowed && (
+                    <RemovableChip
+                      onRemove={() => updateFilters({ minPower: 1, maxPower: 10 })}
+                    >
+                      Power {filters.minPower} to {filters.maxPower}
+                    </RemovableChip>
+                  )}
+                </>
+              ) : null
+            }
           />
 
-          {!loading && deckSummaries.length > 0 && (
-            <DeckViewControls
-              prefs={prefs}
-              onChange={updatePrefs}
-              resultCount={sortedDecks.length}
-            />
-          )}
-
-          {loading ? (
-            <div className={DECK_GRID_CLASS} aria-busy="true">
-              {[0, 1, 2, 3].map(i => (
-                <DeckTileSkeleton key={i} />
-              ))}
-            </div>
-          ) : sortedDecks.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center gap-4 p-12 text-center">
-                <div className="rounded-full bg-muted p-4">
-                  <Crown className="h-7 w-7 text-muted-foreground" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-lg font-bold">No decks found</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {hasActiveFilters
-                      ? 'No deck matches these filters.'
-                      : 'Create your first deck to get started.'}
-                  </p>
-                </div>
-                {hasActiveFilters ? (
-                  <Button variant="secondary" onClick={resetFilters}>
-                    Clear filters
-                  </Button>
-                ) : (
-                  <Button onClick={() => navigate('/decks/new')}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    New deck
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            <div className={prefs.mode === 'grid' ? DECK_GRID_CLASS : 'space-y-2'}>
+          <ListingFrame
+            view={view}
+            count={sortedDecks.length}
+            loading={loading}
+            /* Handed over unconditionally: the frame holds the line's box
+               while the decks are in flight and stays quiet when there is
+               nothing to count, so the grid below does not move when the data
+               lands. */
+            summary={summary}
+            /* Deck tiles, not card placeholders: the real tile is 340px tall
+               and a grid of 12 card-shaped bars would jump when it landed. */
+            skeleton={
+              <div className={DECK_GRID_CLASS} aria-busy="true">
+                {[0, 1, 2, 3].map(i => (
+                  <DeckTileSkeleton key={i} />
+                ))}
+              </div>
+            }
+            empty={{
+              title: hasActiveFilters ? 'No deck matches these filters' : 'No decks yet',
+              description: hasActiveFilters
+                ? 'Widen a filter, or clear them all and start again.'
+                : 'Create your first deck to get started.',
+              icon: Crown,
+              onClearFilters: hasActiveFilters ? clearEverything : undefined,
+              action: hasActiveFilters
+                ? undefined
+                : { label: 'New deck', onClick: () => navigate('/decks/new') },
+            }}
+          >
+            {/* Both modes are `rows`, so the frame hands the body straight
+                through and the two-column cap on the grid is kept here where it
+                is documented. */}
+            <div className={view.mode === 'grid' ? DECK_GRID_CLASS : 'space-y-2'}>
               {sortedDecks.map((deckSummary, index) => (
                 // The wrapper carries the entrance stagger and `h-full`, so the
                 // two tiles in a row keep equal height whatever their content.
@@ -387,7 +498,7 @@ export default function Decks() {
                 >
                   <DeckTile
                     deckSummary={deckSummary}
-                    variant={prefs.mode}
+                    variant={view.mode as 'grid' | 'list'}
                     priority={index < 2}
                     className="h-full"
                     // The backfill hook was computed and then never handed to
@@ -408,10 +519,9 @@ export default function Decks() {
                 </div>
               ))}
             </div>
-          )}
+          </ListingFrame>
         </div>
       )}
-
-          </StandardPageLayout>
+    </StandardPageLayout>
   );
 }

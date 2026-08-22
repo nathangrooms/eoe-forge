@@ -1,15 +1,10 @@
 import type { ReactNode } from 'react';
-import { Search, X } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { ManaPip } from '@/components/ui/mana-cost';
 import { cn } from '@/lib/utils';
 import { bandRange, PLAYABILITY_BANDS } from '@/lib/deck/playabilityView';
 import type { PlayabilityBandId } from '@/lib/deck/playabilityView';
 import type { DeckCategory } from '@/lib/deck/cardCategories';
 import {
-  isFilterActive,
   type ColourFacet,
   type DeckCardFacets,
   type DeckCardFilterState,
@@ -19,17 +14,32 @@ import {
 } from '@/lib/deck/deckCardFilters';
 
 /**
- * The card-list filter bar.
+ * The deck's own facets, always open, with live counts.
  *
- * Deliberately not a popover. The brief is "filters must be visible and
- * immediate, not buried in a menu": every facet the deck actually has is on
- * screen with its real count, one click toggles it, and the result count
- * updates as you go. Nothing here opens an overlay, so the list never
- * disappears behind the control that is filtering it.
+ * ## Why this one is not a slide-over, when four others are
  *
- * Laid out for a desktop at full width — a label column and a flowing chip row
- * per facet, which stays readable at 1440px instead of collapsing into the
- * two-column card of tiny selects this replaces.
+ * The audit found filter placement was being decided per page: a slide-over on
+ * card search, the collection, the wishlist and the deck builder, a popover on
+ * My Decks, an inline panel on the marketplace, always-open rows here. Four of
+ * those were the same job and are now the same control. This is the genuine
+ * exception, and it stays.
+ *
+ * The difference is what the facets are made of. Every chip here is computed
+ * from the deck in your hand and carries its real count: `Creature 30`,
+ * `2 mana 18`, `Reliable 41`. That is a map of the deck rather than a query
+ * builder, and hiding a map behind a button defeats the map. A card-search
+ * facet list is fixed, knows nothing about your results, and has no count to
+ * show, which is why it can live behind a trigger.
+ *
+ * ## What moved out of this file
+ *
+ * The search box, the count line, the clear control, the view toggle and the
+ * `Card` the whole thing sat in. All five were this page's own copies of things
+ * that exist once now: the search had no debounce and drew the shadcn `Input`
+ * with its hairline border, and the count line was one of six phrasings of
+ * "how many results". `DeckCardsPanel` composes them from `FilterBar`.
+ *
+ * What is left is the facet rows, which is the part no other page has.
  */
 
 interface ChipProps {
@@ -71,13 +81,7 @@ function Chip({ active, onClick, count, children, className, title }: ChipProps)
   );
 }
 
-function FacetRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
+function FacetRow({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
       <span className="w-full shrink-0 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground sm:w-28">
@@ -92,11 +96,6 @@ export interface DeckCardFiltersProps {
   facets: DeckCardFacets;
   state: DeckCardFilterState;
   onChange: (next: DeckCardFilterState) => void;
-  /** Copies currently shown, and copies in the deck — both real counts. */
-  shown: number;
-  total: number;
-  /** Right-hand slot, used for the grid/table view toggle. */
-  action?: ReactNode;
   className?: string;
 }
 
@@ -104,12 +103,8 @@ export function DeckCardFilters({
   facets,
   state,
   onChange,
-  shown,
-  total,
-  action,
   className,
 }: DeckCardFiltersProps) {
-  const active = isFilterActive(state);
 
   /** Toggle one value inside one array facet. */
   function toggle<K extends keyof DeckCardFilterState>(
@@ -125,52 +120,7 @@ export function DeckCardFilters({
   }
 
   return (
-    <Card className={cn('overflow-hidden', className)}>
-      <CardContent className="space-y-4 p-4 md:p-5">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-          <div className="relative min-w-0 flex-1">
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-              aria-hidden
-            />
-            <Input
-              value={state.search}
-              onChange={e => onChange({ ...state, search: e.target.value })}
-              placeholder="Search this deck by name, type or rules text…"
-              aria-label="Search cards in this deck"
-              className="h-11 pl-10 text-base"
-            />
-          </div>
-
-          <div className="flex items-center gap-3">
-            <span className="whitespace-nowrap text-sm tabular-nums text-muted-foreground">
-              <span className="font-semibold text-foreground">{shown}</span> of {total} cards
-            </span>
-            {active && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  onChange({
-                    search: '',
-                    categories: [],
-                    colours: [],
-                    manaValues: [],
-                    rarities: [],
-                    prices: [],
-                    playability: [],
-                  })
-                }
-              >
-                <X className="mr-1.5 h-4 w-4" />
-                Clear
-              </Button>
-            )}
-            {action}
-          </div>
-        </div>
-
-        <div className="space-y-3">
+    <div className={cn('w-full space-y-3', className)}>
           {facets.categories.length > 1 && (
             <FacetRow label="Type">
               {facets.categories.map((option: FacetOption<DeckCategory>) => (
@@ -279,9 +229,7 @@ export function DeckCardFilters({
               ))}
             </FacetRow>
           )}
-        </div>
-      </CardContent>
-    </Card>
+    </div>
   );
 }
 

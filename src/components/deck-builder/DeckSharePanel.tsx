@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { FIELD } from '@/components/listing';
+import { cn } from '@/lib/utils';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -224,7 +226,7 @@ export function DeckSharePanel({
                 id="deck-share-url"
                 value={shareUrl}
                 readOnly
-                className="font-mono text-sm"
+                className={cn(FIELD, 'font-mono text-sm')}
               />
               <Button onClick={handleCopyLink} variant="secondary" size="icon">
                 <Copy className="h-4 w-4" />

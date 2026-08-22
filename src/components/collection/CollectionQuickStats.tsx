@@ -1,5 +1,5 @@
 import { formatPrice, formatPriceCompact } from '@/components/collection/browser/types';
-import { Changed } from '@/components/motion';
+import { MetricRow, type Metric } from '@/components/listing';
 
 interface CollectionQuickStatsProps {
   totalValue: number;
@@ -17,49 +17,41 @@ interface CollectionQuickStatsProps {
 }
 
 /**
- * The collection facts, on one line, in the page header.
+ * The collection's figures, in the tiles My Decks uses.
  *
- * This used to be four full-height stat cards stacked under the header, and
- * three of those four figures were already printed in the header's own subtitle
- * directly above them. Between that row and the favourites block, 640px of the
- * first screen went to chrome and roughly 180px was left for the card grid, so
- * the collection was the last thing visible on the collection page. The figures
- * are worth keeping; the boxes were not.
+ * ## What changed and why
  *
- * ## Why this is six fixed slots and not a wrapping row
+ * This was six figures on one 20px line inside the page title, and the owner
+ * named it directly: *"my decks has proper metric tiles, when on my collection
+ * page we dont have these and they are much smaller due to the multi menu
+ * system"*. Measured, a collection figure had 2,534 px² against a deck figure's
+ * 19,447, with its number drawn at 14px against 24px. Thirteen per cent of the
+ * area for the same kind of fact.
  *
- * It was `flex flex-wrap`, and the loading placeholder was a single `h-5` bar.
- * Those two agree only when the figures happen to fit on one line, which they
- * do at 1680 and 1440 and do not below that. Measured on the built page, the
- * block resolved from 20px to 42px at 1280, 768 and 390 and to 64px at 1024,
- * and each of those pushed the tab strip and the entire tab panel down with it.
- * Cumulative Layout Shift on the analytics tab read 0 at 1680 and 1440 and
- * 0.011, 0.027 and 0.038 at 1280, 1024 and 390.
+ * The previous version of this file argued, correctly, that the four tall stat
+ * cards it replaced were not worth their height: between them and the
+ * favourites block, 640px of the first screen was chrome and roughly 180px was
+ * left for the actual cards. That reasoning was right about the symptom and
+ * wrong about the cause. The height was going to three separate bands of menus,
+ * not to the figures, and shrinking the figures was fixing the wrong thing.
+ * Those bands are one band now, so the figures can have the treatment the owner
+ * asked for.
  *
- * A wrapping row cannot be reserved for, because where it wraps depends on how
- * wide the numbers turn out to be, and that is the thing not known yet. So the
- * row does not wrap on content any more. `auto-fit` over a fixed `7rem` floor
- * makes the column count a function of the container width alone, the slot
- * count is always six, and the number of rows therefore follows from the width
- * and nothing else. The placeholder renders the same six slots in the same
- * grid, so it occupies the same box as the figures that replace it, at every
- * width, whatever the figures turn out to be.
+ * ## What is kept from the version this replaces
  *
- * The sixth slot is the unpriced-cards warning, which only has something to say
- * on some accounts. It holds its slot either way rather than being spliced in,
- * because a slot that arrives later is the same shift by another route.
+ * Its two hard-won properties survive, because `MetricRow` has both:
  *
- * Labels are short enough to sit inside a 7rem track at `text-sm`, so no chip
- * truncates at any width. Lengthening one is a layout change, not a copy
- * change.
+ * - **The column count is a function of the container, never of the content.**
+ *   A row that wrapped on its own figures moved everything under it when the
+ *   data landed; measured CLS was 0.038 at 390px.
+ * - **A slot with nothing to say still holds its place.** The unpriced figure
+ *   only applies to some accounts. It is drawn either way, as a dash when there
+ *   is nothing to report, so the row is the same six tiles on every account and
+ *   at every moment of loading.
+ *
+ * The `Changed` animation on a figure that moves also survives, through
+ * `MetricRow`'s `raw`.
  */
-
-/** Column count is width-driven, never content-driven. That is the whole trick. */
-const GRID = 'grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] items-start gap-x-4 gap-y-0.5';
-
-/** Every slot is exactly one `text-sm` line box, loading or loaded. */
-const SLOT = 'flex h-5 items-baseline gap-1.5';
-
 export function CollectionQuickStats({
   totalValue,
   totalCards,
@@ -69,58 +61,57 @@ export function CollectionQuickStats({
   unpricedCards = 0,
   loading = false,
 }: CollectionQuickStatsProps) {
-  if (loading) {
-    return (
-      <div className={`mt-1 text-sm ${GRID}`} aria-hidden="true">
-        {Array.from({ length: 6 }, (_, i) => (
-          <span key={i} className={SLOT}>
-            <span className="h-3 w-full max-w-24 self-center animate-pulse rounded bg-muted motion-reduce:animate-none" />
-          </span>
-        ))}
-      </div>
-    );
-  }
-
-  /**
-   * `raw` is what decides whether the figure changed; `value` is what is
-   * printed. Comparing the formatted string would miss a £4.10 → £4.14 move on
-   * a compacted total and would fire on a re-render that formatted the same
-   * number differently.
-   */
-  const stats: ({ raw: number; value: string; label: string } | null)[] = [
-    { raw: totalCards, value: totalCards.toLocaleString(), label: 'cards' },
-    { raw: uniqueCards, value: uniqueCards.toLocaleString(), label: 'unique' },
-    { raw: totalValue, value: formatPriceCompact(totalValue), label: 'value' },
-    // Sits with the money rather than at the end, because it qualifies the
-    // money. `null` holds the slot open on an account where every card has a
-    // price, so the box is the same height on both.
-    unpricedCards > 0
-      ? { raw: unpricedCards, value: unpricedCards.toLocaleString(), label: 'unpriced' }
-      : null,
-    { raw: avgCardValue, value: formatPrice(avgCardValue), label: 'average' },
-    { raw: recentlyAddedCount, value: recentlyAddedCount.toLocaleString(), label: 'new this week' },
+  const metrics: Metric[] = [
+    { id: 'cards', label: 'Cards', value: totalCards.toLocaleString(), raw: totalCards },
+    {
+      id: 'unique',
+      label: 'Entries',
+      value: uniqueCards.toLocaleString(),
+      raw: uniqueCards,
+      subtext: 'Rows in your collection',
+    },
+    {
+      id: 'value',
+      label: 'Total value',
+      /* A dash, never $0.00: the smallest real price in the database is 0.01,
+         so a rendered zero is always invented. An empty collection is not worth
+         nothing, it is worth nothing yet. */
+      value: totalCards > 0 ? formatPriceCompact(totalValue) : '—',
+      raw: totalValue,
+      // Compact on the tile, exact on hover. $12.3k is readable at a glance and
+      // $12,341.87 is the number somebody actually wants when they look twice.
+      title: totalCards > 0 ? formatPrice(totalValue) : undefined,
+    },
+    /*
+     * Sits beside the money because it qualifies the money, and it is always
+     * drawn.
+     *
+     * A tile that appears only on some accounts is a tile that appears the
+     * moment the rows land, shoving the other five sideways. A dash is how
+     * `DecksSummaryStats` already reports a figure with nothing to say, and it
+     * reads as "nothing to report" rather than as a zero somebody computed.
+     */
+    {
+      id: 'unpriced',
+      label: 'No price',
+      value: unpricedCards > 0 ? unpricedCards.toLocaleString() : '—',
+      raw: unpricedCards,
+      subtext: unpricedCards > 0 ? 'Left out of the total' : 'Every copy is priced',
+    },
+    {
+      id: 'average',
+      label: 'Average card',
+      value: totalCards > 0 ? formatPrice(avgCardValue) : '—',
+      raw: avgCardValue,
+    },
+    {
+      id: 'recent',
+      label: 'New this week',
+      value: recentlyAddedCount.toLocaleString(),
+      raw: recentlyAddedCount,
+      subtext: 'Added in the last 7 days',
+    },
   ];
 
-  return (
-    /* `motion-reveal` because this replaces the loading bars above rather than
-       appearing beside them: the figures fade up into the space the placeholder
-       already reserved, so nothing on the header moves. */
-    <div className={`motion-reveal mt-1 text-sm ${GRID}`}>
-      {stats.map((stat, i) =>
-        stat ? (
-          <span key={stat.label} className={SLOT}>
-            {/* Adding cards, filing a box or a price sync landing all change
-                these silently otherwise, and a total that quietly becomes a
-                different total is the reader's problem to notice. */}
-            <Changed value={stat.raw} className="font-semibold tabular-nums text-foreground">
-              {stat.value}
-            </Changed>
-            <span className="text-muted-foreground">{stat.label}</span>
-          </span>
-        ) : (
-          <span key={`slot-${i}`} className={SLOT} aria-hidden="true" />
-        )
-      )}
-    </div>
-  );
+  return <MetricRow metrics={metrics} columns={6} loading={loading} />;
 }

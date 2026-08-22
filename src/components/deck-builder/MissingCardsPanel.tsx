@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
+import { FIELD } from '@/components/listing';
+import { cn } from '@/lib/utils';
 import { readAmount } from '@/lib/pricing';
+import { fetchCardsByIds, type DeckCardDetail } from '@/lib/deck/deckCards';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -84,50 +87,54 @@ export function MissingCardsPanel({ deckId, deckName }: MissingCardsPanelProps) 
         ownedCardsMap.set(card.card_id, card.quantity);
       });
 
-      // Find missing cards with accurate count
-      const missing: MissingCard[] = [];
-      const cardDetailsCache = new Map();
+      // Which rows are short, and by how many.
+      const shortfall = deckCards
+        .map(deckCard => ({
+          deckCard,
+          needed: Math.max(0, deckCard.quantity - (ownedCardsMap.get(deckCard.card_id) || 0)),
+        }))
+        .filter(row => row.needed > 0);
 
-      for (const deckCard of deckCards) {
-        const owned = ownedCardsMap.get(deckCard.card_id) || 0;
-        const needed = Math.max(0, deckCard.quantity - owned);
-
-        if (needed > 0) {
-          // Check cache first
-          let cardDetails = cardDetailsCache.get(deckCard.card_id);
-
-          if (!cardDetails) {
-            // Get card details
-            const { data, error: cardError } = await supabase
-              .from('cards')
-              .select('rarity, type_line, image_uris, prices')
-              .eq('id', deckCard.card_id)
-              .single();
-
-            if (!cardError && data) {
-              cardDetails = data;
-              cardDetailsCache.set(deckCard.card_id, data);
-            }
-          }
-
-          /* null, not 0, when we have no price. A missing price used to be
-             added to the buy total as zero, which told a player the deck was
-             cheaper to finish than it is. */
-          const unit = readAmount((cardDetails?.prices as any)?.usd);
-          const estimatedPrice = unit == null ? null : unit * needed;
-
-          const imageUris = cardDetails?.image_uris as any;
-          missing.push({
-            card_id: deckCard.card_id,
-            card_name: deckCard.card_name,
-            quantity: needed,
-            estimated_price: estimatedPrice,
-            rarity: cardDetails?.rarity,
-            type_line: cardDetails?.type_line,
-            image_uri: imageUris?.normal || imageUris?.large
-          });
-        }
+      /*
+       * ONE query for every card on the list, not one per card.
+       *
+       * This used to sit inside the loop below: `from('cards').eq('id', …)`
+       * once per missing row, awaited in sequence. A hundred-card commander
+       * deck on a fresh account is a hundred round trips to draw one panel,
+       * and a lookup inside a loop over a deck's cards is the exact shape that
+       * has taken this database down. `fetchCardsByIds` is the house helper
+       * for this and chunks at 100 so the URL stays inside its limit.
+       */
+      let details: Map<string, DeckCardDetail>;
+      try {
+        details = await fetchCardsByIds(shortfall.map(row => row.deckCard.card_id));
+      } catch (cardError) {
+        // A failed catalogue read and "no card has a price" look identical on
+        // screen otherwise, which is how a broken query stays broken.
+        console.error('Error loading card details for missing cards:', cardError);
+        details = new Map();
       }
+
+      const missing: MissingCard[] = shortfall.map(({ deckCard, needed }) => {
+        const cardDetails = details.get(deckCard.card_id);
+
+        /* null, not 0, when we have no price. A missing price used to be
+           added to the buy total as zero, which told a player the deck was
+           cheaper to finish than it is. */
+        const unit = readAmount(cardDetails?.prices?.usd);
+        const estimatedPrice = unit == null ? null : unit * needed;
+
+        const imageUris = cardDetails?.image_uris;
+        return {
+          card_id: deckCard.card_id,
+          card_name: deckCard.card_name,
+          quantity: needed,
+          estimated_price: estimatedPrice,
+          rarity: cardDetails?.rarity ?? undefined,
+          type_line: cardDetails?.type_line ?? undefined,
+          image_uri: imageUris?.normal || imageUris?.large,
+        };
+      });
 
       // Unpriced cards sort last rather than pretending to be the cheapest.
       setMissingCards(missing.sort((a, b) => (b.estimated_price ?? -1) - (a.estimated_price ?? -1)));
@@ -319,7 +326,7 @@ export function MissingCardsPanel({ deckId, deckName }: MissingCardsPanelProps) 
             placeholder="Search missing cards..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className={cn(FIELD, 'pl-10')}
           />
         </div>
         <div className="flex gap-1">

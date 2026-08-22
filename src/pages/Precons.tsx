@@ -8,18 +8,47 @@ import {
 } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
+import { Boxes } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { CardGrid } from '@/components/cards';
+import { ManaPip } from '@/components/ui/mana-cost';
+import {
+  FIELD,
+  FacetChip,
+  FilterBar,
+  ListingFrame,
+  ListingSearch,
+  SURFACE,
+  SortControl,
+  matchedLabel,
+  resultSentence,
+  totalActiveFilters,
+  useListingView,
+  useSearchText,
+} from '@/components/listing';
+import { usePagedItems } from '@/hooks/usePagination';
+import { cn } from '@/lib/utils';
 import { PreconTile, PreconTileSkeleton } from '@/components/precons/PreconTile';
 import { PreconDeckView } from '@/components/precons/PreconDeckView';
 import {
-  PreconFilterBar,
+  PRECON_MODES,
+  PRECON_SORT_OPTIONS,
+  PRECON_VIEW_SURFACE,
+  TILE_WIDTH,
+  WUBRG,
   type PreconDensity,
-  type PreconSort,
-} from '@/components/precons/PreconFilterBar';
+  type PreconSortKey,
+} from '@/components/precons/precon-view';
 import { preconIndexEntry } from '@/data/precon-index';
 import type { DeckCardRow } from '@/lib/deck/deckCards';
 import {
@@ -49,41 +78,24 @@ import {
  */
 
 /**
- * Minimum tile width, per density.
+ * ## Paging: numbered pages, and why the infinite scroll went
  *
- * `large` was widened from 300 so the commander's artwork is presented at
- * something like the size it was painted for rather than as a strip — the tile
- * carries the whole 626 × 457 crop plus a card over it, and at 300 the art was
- * too small for either to land. On a 1440px screen that is two columns, which
- * is a beautiful way to look at six precons and a punishing way to look at 184:
- * the catalogue runs to roughly fifty-five thousand pixels of scroll.
+ * This page grew its results by an `IntersectionObserver` with a 600px root
+ * margin, plus a "Show 24 more" button as a fallback. It was one of two
+ * surfaces in the product that paged that way, and the audit named the cost:
+ * design law 4 requires back and forward to work everywhere, and a scroll
+ * position is not somewhere you can go back to. You could not link the third
+ * screenful of precons, a reload put you at the top, and Back left the
+ * catalogue entirely.
  *
- * `compact` is the answer to the volume rather than to the art — four columns
- * inside the same 1136px band, the whole crop still uncropped, the commander
- * still a readable card, about a quarter of the scroll.
+ * The limit was never a fetch, only a render limit over an array already in
+ * memory, so `Pager` is a straight swap: same reason for not mounting all 184
+ * tiles at once (each carries two images, so the whole catalogue is ~370
+ * requests on first paint), and now the page is in the address bar, the
+ * rows-per-page is a real choice, and turning a page starts you at the top of
+ * it. That last part is the one thing infinite scroll got right for free, and
+ * `ListingFrame` does it on purpose.
  */
-const TILE_WIDTH: Record<PreconDensity, number> = { large: 380, compact: 260 };
-
-/**
- * Tiles rendered per page. Each one carries two images (the artwork and the
- * commander's card), so mounting all 184 at once queues ~370 requests on first
- * paint — `loading="lazy"` alone does not save you when the whole grid is in
- * the document. Compact tiles are cheaper and four fit across, so a page is a
- * round number of rows either way. The next page loads as the end of the list
- * comes into view, or on a click.
- */
-const PAGE_SIZE: Record<PreconDensity, number> = { large: 24, compact: 40 };
-
-const DENSITY_KEY = 'deckmatrix.precons.density';
-
-function readDensity(): PreconDensity {
-  if (typeof window === 'undefined') return 'large';
-  try {
-    return window.localStorage.getItem(DENSITY_KEY) === 'compact' ? 'compact' : 'large';
-  } catch {
-    return 'large';
-  }
-}
 
 /** A precon opened by deep link, before the catalogue has answered. */
 function summaryFromIndex(id: string): PreconSummary | null {
@@ -113,20 +125,25 @@ export default function Precons() {
   const [loadingList, setLoadingList] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
 
-  const [query, setQuery] = useState('');
+  /* The search text is in the URL now, with the shared 250ms debounce. This
+     page had neither, so it re-filtered 184 rows on every keystroke and a
+     narrowed catalogue was not something you could send anybody. */
+  const [query, commitQuery] = useSearchText('q');
   const [colors, setColors] = useState<string[]>([]);
   const [set, setSet] = useState('all');
-  const [sort, setSort] = useState<PreconSort>('newest');
-  const [density, setDensity] = useState<PreconDensity>(readDensity);
 
-  const changeDensity = useCallback((next: PreconDensity) => {
-    setDensity(next);
-    try {
-      window.localStorage.setItem(DENSITY_KEY, next);
-    } catch {
-      /* storage unavailable — the choice just does not persist */
-    }
-  }, []);
+  /* Density, sort axis and direction under the key the density has always been
+     written to. It held the bare word `large` or `compact`, which
+     `readListingView` reads, so nobody's choice resets. */
+  const view = useListingView({
+    surface: PRECON_VIEW_SURFACE,
+    modes: PRECON_MODES,
+    defaultMode: 'large',
+    defaultSortKey: 'released',
+    defaultSortDir: 'desc',
+  });
+  const density = view.mode as PreconDensity;
+  const sortKey = view.sortKey as PreconSortKey;
 
   const [deck, setDeck] = useState<PreconDeck | null>(null);
   const [rows, setRows] = useState<DeckCardRow[]>([]);
@@ -205,10 +222,22 @@ export default function Precons() {
     };
   }, [selectedId]);
 
+  /*
+   * Opening and closing a precon touches `deck` and nothing else.
+   *
+   * These used to replace the whole query string, which was harmless while the
+   * only thing in it was `deck`. The search text and the page number are in
+   * there now, so wiping it would drop somebody back at page one of an
+   * unfiltered catalogue after they looked at one deck out of page six.
+   */
   const openPrecon = useCallback(
     (precon: PreconSummary) => {
       browseScroll.current = window.scrollY;
-      setSearchParams({ deck: precon.id });
+      setSearchParams(prev => {
+        const next = new URLSearchParams(prev);
+        next.set('deck', precon.id);
+        return next;
+      });
       window.scrollTo({ top: 0, behavior: 'auto' });
     },
     [setSearchParams]
@@ -216,7 +245,11 @@ export default function Precons() {
 
   const closePrecon = useCallback(() => {
     pendingScroll.current = browseScroll.current;
-    setSearchParams({});
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.delete('deck');
+      return next;
+    });
   }, [setSearchParams]);
 
   /* -------------------------------------------------- filtering ------- */
@@ -262,25 +295,38 @@ export default function Precons() {
       return dir * b.released.localeCompare(a.released) || a.name.localeCompare(b.name);
     };
 
+    /* Three axes with a direction, where there used to be four fixed
+       orderings. Descending on a date is "newest first", which is what the old
+       enum called it; ascending is "oldest first". Name and set gain a reverse
+       that had no control before. Undated precons still sort last in both
+       directions rather than pretending to be the oldest thing here, which is
+       why `byDate` takes the direction rather than the caller reversing the
+       array. */
     const sorted = [...matches];
-    switch (sort) {
-      case 'newest':
-        sorted.sort((a, b) => byDate(a, b, 1));
-        break;
-      case 'oldest':
-        sorted.sort((a, b) => byDate(a, b, -1));
-        break;
+    const descending = view.sortDir === 'desc';
+    switch (sortKey) {
       case 'name':
-        sorted.sort((a, b) => a.name.localeCompare(b.name));
+        sorted.sort((a, b) => (descending ? -1 : 1) * a.name.localeCompare(b.name));
         break;
       case 'set':
-        sorted.sort((a, b) => a.set.localeCompare(b.set) || a.name.localeCompare(b.name));
+        sorted.sort(
+          (a, b) =>
+            (descending ? -1 : 1) * a.set.localeCompare(b.set) || a.name.localeCompare(b.name)
+        );
+        break;
+      case 'released':
+      default:
+        sorted.sort((a, b) => byDate(a, b, descending ? 1 : -1));
         break;
     }
     return sorted;
-  }, [summaries, query, colors, set, sort]);
+  }, [summaries, query, colors, set, sortKey, view.sortDir]);
 
-  const activeFilters = (query ? 1 : 0) + colors.length + (set !== 'all' ? 1 : 0);
+  const activeFilters = totalActiveFilters(
+    query ? 1 : 0,
+    colors.length,
+    set !== 'all' ? 1 : 0
+  );
 
   const toggleColor = useCallback((color: string) => {
     setColors(current =>
@@ -289,40 +335,26 @@ export default function Precons() {
   }, []);
 
   const resetFilters = useCallback(() => {
-    setQuery('');
+    commitQuery(undefined);
     setColors([]);
     setSet('all');
-  }, []);
+  }, [commitQuery]);
 
   /* -------------------------------------------------- paging ---------- */
 
-  const pageSize = PAGE_SIZE[density];
-  const [limit, setLimit] = useState(pageSize);
-  const sentinel = useRef<HTMLDivElement | null>(null);
+  /* Any change to the result set starts the page count over, or a narrowing
+     search leaves the reader on page 6 of a two-page catalogue. */
+  const resetKey = useMemo(
+    () => JSON.stringify([query, colors, set, sortKey, view.sortDir, density]),
+    [query, colors, set, sortKey, view.sortDir, density]
+  );
 
-  // Any change to the result set starts the page count over, or a narrow
-  // search would inherit a limit large enough to render everything anyway.
-  useEffect(() => {
-    setLimit(PAGE_SIZE[density]);
-  }, [query, colors, set, sort, density]);
-
-  useEffect(() => {
-    const node = sentinel.current;
-    if (!node || limit >= visible.length) return;
-
-    const observer = new IntersectionObserver(
-      entries => {
-        if (entries.some(entry => entry.isIntersecting)) {
-          setLimit(current => current + pageSize);
-        }
-      },
-      { rootMargin: '600px' }
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [limit, visible.length, pageSize]);
-
-  const page = useMemo(() => visible.slice(0, limit), [visible, limit]);
+  const paged = usePagedItems(visible, {
+    pageSize: view.pageSize,
+    resetKey,
+    key: 'page',
+  });
+  const page = paged.pageItems;
 
   /* -------------------------------------------------- shelves --------- */
 
@@ -339,7 +371,7 @@ export default function Precons() {
    */
   const shelves = useMemo(() => {
     const shelfOf = (precon: PreconSummary): { key: string; label: string } => {
-      switch (sort) {
+      switch (sortKey) {
         case 'set':
           return { key: precon.set, label: precon.set };
         case 'name': {
@@ -370,7 +402,7 @@ export default function Precons() {
       seen += shelf.items.length;
     }
     return out;
-  }, [page, sort]);
+  }, [page, sortKey]);
 
   /**
    * Put the reader back where they were when they opened a precon.
@@ -497,116 +529,161 @@ export default function Precons() {
       title="Precons"
       description="Every official Commander preconstructed deck, led by its commander."
     >
-      <div className="space-y-5">
-        <PreconFilterBar
-          query={query}
-          onQueryChange={setQuery}
-          colors={colors}
-          onToggleColor={toggleColor}
-          set={set}
-          sets={sets}
-          onSetChange={setSet}
-          sort={sort}
-          onSortChange={setSort}
+      <div className="space-y-4">
+        <FilterBar
+          view={view}
           activeCount={activeFilters}
-          onReset={resetFilters}
-          density={density}
-          onDensityChange={changeDensity}
-        />
-
-        <p className="text-sm text-muted-foreground">
-          {loadingList ? (
-            'Loading the precon catalogue…'
-          ) : (
+          onClear={resetFilters}
+          search={
+            <ListingSearch
+              value={query}
+              onCommit={commitQuery}
+              placeholder="Search precons, commanders or sets"
+              label="Search precons"
+            />
+          }
+          presets={
+            <Select value={set} onValueChange={setSet}>
+              <SelectTrigger
+                className={cn(FIELD, 'h-9 w-full min-w-[9rem] lg:w-44')}
+                aria-label="Filter by set"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className={SURFACE}>
+                <SelectItem value="all">All sets</SelectItem>
+                {sets.map(s => (
+                  <SelectItem key={s.name} value={s.name}>
+                    {s.name} ({s.count})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          }
+          sort={
+            <SortControl
+              options={PRECON_SORT_OPTIONS}
+              value={sortKey}
+              onValueChange={view.setSortKey}
+              dir={view.sortDir}
+              onToggleDir={view.toggleSortDir}
+              label="Sort precons by"
+            />
+          }
+          facets={
+            /* Colour identity, as real mana pips. The page's own facet: no
+               other listing here asks a question about a commander's colours,
+               and it is the first thing a Commander player narrows on. */
             <>
-              <span className="font-medium tabular-nums text-foreground">{visible.length}</span>{' '}
-              {visible.length === 1 ? 'precon' : 'precons'}
-              {activeFilters > 0 && summaries.length > 0 ? (
-                <span className="tabular-nums"> of {summaries.length}</span>
-              ) : (
-                // Only meaningful unfiltered — with a filter on it counts sets
-                // in the catalogue, not sets in the result.
-                sets.length > 0 && (
-                  <span className="tabular-nums"> across {sets.length} sets</span>
-                )
+              <span className="mr-1 text-[0.7rem] font-medium uppercase tracking-wider text-muted-foreground">
+                Colours
+              </span>
+              {WUBRG.map(color => (
+                <FacetChip
+                  key={color}
+                  selected={colors.includes(color)}
+                  onClick={() => toggleColor(color)}
+                  title={`Commanders whose identity includes ${color}`}
+                >
+                  <ManaPip symbol={color} size="xs" />
+                </FacetChip>
+              ))}
+              {colors.length > 0 && (
+                <span className="ml-1 text-xs text-muted-foreground">
+                  {colors.length === 1
+                    ? 'Commander identity includes this colour'
+                    : 'Commander identity includes all of these'}
+                </span>
               )}
             </>
-          )}
-        </p>
+          }
+        />
 
-        {listError ? (
-          <div className="rounded-xl bg-card p-10 text-center shadow-lg shadow-black/20">
-            <p className="font-medium">{listError}</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              The precon catalogue is fetched live from a public repository. Try again shortly.
-            </p>
-          </div>
-        ) : loadingList ? (
-          <CardGrid width={TILE_WIDTH[density]}>
-            {Array.from({ length: density === 'compact' ? 16 : 12 }, (_, i) => (
-              <PreconTileSkeleton key={i} compact={density === 'compact'} />
-            ))}
-          </CardGrid>
-        ) : visible.length === 0 ? (
-          <div className="rounded-xl bg-card p-12 text-center shadow-lg shadow-black/20">
-            <p className="font-medium">No precons match those filters</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Try a different colour combination or clear the search.
-            </p>
-            {activeFilters > 0 && (
-              <Button variant="secondary" size="sm" onClick={resetFilters} className="mt-4">
-                Clear filters
-              </Button>
-            )}
-          </div>
-        ) : (
-          <>
-            <div className="space-y-8">
-              {shelves.map(shelf => (
-                <section key={shelf.key} aria-label={shelf.label}>
-                  {/* Sticky under the 64px fixed top bar, so the shelf you are
-                      looking at names itself the whole way down. */}
-                  <h2 className="sticky top-16 z-20 -mx-1 mb-3 flex items-baseline gap-3 bg-background/90 px-1 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/70">
-                    <span className="text-xl font-bold tracking-tight tabular-nums">
-                      {shelf.label}
-                    </span>
-                    <span className="text-xs tabular-nums text-muted-foreground">
-                      {shelf.items.length} {shelf.items.length === 1 ? 'deck' : 'decks'}
-                    </span>
-                  </h2>
-
-                  <CardGrid width={TILE_WIDTH[density]}>
-                    {shelf.items.map((precon, index) => (
-                      <PreconTile
-                        key={precon.id}
-                        precon={precon}
-                        cards={commanderCards}
-                        onSelect={openPrecon}
-                        compact={density === 'compact'}
-                        eager={shelf.offset + index < (density === 'compact' ? 8 : 6)}
-                      />
-                    ))}
-                  </CardGrid>
-                </section>
+        <ListingFrame
+          view={view}
+          count={page.length}
+          loading={loadingList}
+          summary={
+            listError
+              ? undefined
+              : resultSentence([
+                  matchedLabel(visible.length, summaries.length, 'precon'),
+                  /* Only meaningful unfiltered: with a filter on it counts sets
+                     in the catalogue, not sets in the result. */
+                  activeFilters === 0 &&
+                    sets.length > 0 && {
+                      value: `across ${sets.length.toLocaleString()}`,
+                      label: sets.length === 1 ? 'set' : 'sets',
+                    },
+                ])
+          }
+          skeleton={
+            <CardGrid width={TILE_WIDTH[density]}>
+              {Array.from({ length: density === 'compact' ? 16 : 12 }, (_, i) => (
+                <PreconTileSkeleton key={i} compact={density === 'compact'} />
               ))}
-            </div>
-
-            {limit < visible.length && (
-              // Doubles as the observer target and a real control. The next
-              // page is already in memory — this is a render limit, not a
-              // fetch — so a click expands instantly, and the button covers
-              // the cases where the observer is throttled or never fires.
-              <div ref={sentinel} className="flex justify-center pt-2">
-                <Button
-                  variant="secondary"
-                  onClick={() => setLimit(current => current + pageSize)}
-                >
-                  Show {Math.min(pageSize, visible.length - limit)} more
-                </Button>
+            </CardGrid>
+          }
+          beforeResults={
+            listError ? (
+              <div className="rounded-xl bg-card p-10 text-center shadow-lg shadow-black/20">
+                <p className="font-medium">{listError}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  The precon catalogue is fetched live from a public repository. Try again shortly.
+                </p>
               </div>
-            )}
-          </>
-        )}
+            ) : null
+          }
+          pager={{
+            page: paged.page,
+            pageCount: paged.pageCount,
+            onPageChange: paged.setPage,
+            total: paged.total,
+            shown: page.length,
+            noun: 'precon',
+            label: 'Precon pages',
+          }}
+          empty={{
+            title: listError ? 'Nothing to show' : 'No precons match those filters',
+            description: listError
+              ? undefined
+              : 'Try a different colour combination, or clear the search.',
+            icon: Boxes,
+            onClearFilters: activeFilters > 0 ? resetFilters : undefined,
+          }}
+        >
+          {/* Both modes are `rows`, so the frame hands the body straight
+              through and the shelves keep their own grids. */}
+          <div className="space-y-8">
+            {shelves.map(shelf => (
+              <section key={shelf.key} aria-label={shelf.label}>
+                {/* Sticky under the 64px fixed top bar, so the shelf you are
+                    looking at names itself the whole way down. */}
+                <h2 className="sticky top-16 z-20 -mx-1 mb-3 flex items-baseline gap-3 bg-background/90 px-1 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+                  <span className="text-xl font-bold tracking-tight tabular-nums">
+                    {shelf.label}
+                  </span>
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {shelf.items.length} {shelf.items.length === 1 ? 'deck' : 'decks'}
+                  </span>
+                </h2>
+
+                <CardGrid width={TILE_WIDTH[density]}>
+                  {shelf.items.map((precon, index) => (
+                    <PreconTile
+                      key={precon.id}
+                      precon={precon}
+                      cards={commanderCards}
+                      onSelect={openPrecon}
+                      compact={density === 'compact'}
+                      eager={shelf.offset + index < (density === 'compact' ? 8 : 6)}
+                    />
+                  ))}
+                </CardGrid>
+              </section>
+            ))}
+          </div>
+        </ListingFrame>
       </div>
     </StandardPageLayout>
   );

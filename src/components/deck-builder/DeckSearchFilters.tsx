@@ -1,13 +1,8 @@
-import { Input } from '@/components/ui/input';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import {
   Select,
   SelectContent,
@@ -15,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search, Filter, X } from 'lucide-react';
+import { FIELD, FacetChip, FilterButton, SURFACE } from '@/components/listing';
 import { cn } from '@/lib/utils';
 import { ManaPip } from '@/components/ui/mana-cost';
 import { DECK_FORMATS } from '@/lib/deck/formats';
@@ -25,15 +20,30 @@ import {
   type DeckFilters,
 } from '@/hooks/useDeckFilters';
 
-interface DeckSearchFiltersProps {
-  filters: DeckFilters;
-  onUpdateFilters: (filters: Partial<DeckFilters>) => void;
-  onResetFilters: () => void;
-  onToggleFormat: (format: string) => void;
-  onToggleColor: (color: string) => void;
-  hasActiveFilters: boolean;
-  activeFilterCount: number;
-}
+/**
+ * The deck filters: format, colour identity and power range.
+ *
+ * ## Why this is a slide-over now and was a popover
+ *
+ * The audit counted four presentations of the same job — a right-hand slide-over
+ * on `/cards`, `/collection`, `/wishlist` and the deck builder, a popover here,
+ * an inline panel on the marketplace, always-open rows on the deck page — and
+ * found the choice was being made per page rather than per case. Four of those
+ * are one case: questions you ask of a list you are looking at, which the list
+ * should stay visible for. Design law 3 names the pattern, and it is the
+ * slide-over. So this is now the same control in the same place as the rest.
+ *
+ * The deck page keeps its always-open rows, and that is a real difference
+ * rather than drift: those facets carry live counts off the deck in your hand,
+ * and hiding a map behind a button defeats the map.
+ *
+ * Every facet survived the move. Format chips, the colour-match mode, six
+ * colour pips including colourless, and the two power sliders with their note
+ * about unscored decks. The search box left, because it was never a filter
+ * panel's job: it is `ListingSearch` in the bar now, with the shared 250ms
+ * debounce this page did not have, and its text goes into the URL so a narrowed
+ * deck list is something you can send somebody.
+ */
 
 /** W/U/B/R/G plus colourless, drawn as real mana pips. */
 const COLOR_OPTIONS = [
@@ -45,6 +55,16 @@ const COLOR_OPTIONS = [
   { value: 'C', label: 'Colourless' },
 ];
 
+interface DeckSearchFiltersProps {
+  filters: DeckFilters;
+  onUpdateFilters: (filters: Partial<DeckFilters>) => void;
+  onResetFilters: () => void;
+  onToggleFormat: (format: string) => void;
+  onToggleColor: (color: string) => void;
+  hasActiveFilters: boolean;
+  activeFilterCount: number;
+}
+
 export const DeckSearchFilters = ({
   filters,
   onUpdateFilters,
@@ -54,160 +74,131 @@ export const DeckSearchFilters = ({
   hasActiveFilters,
   activeFilterCount,
 }: DeckSearchFiltersProps) => {
+  const [open, setOpen] = useState(false);
+
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-      <div className="relative w-full flex-1">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        {/* Borderless, muted ground — the field skin every other card surface
-            uses (`PreconFilterBar`, the commander wall). The shared `Input`
-            default carries `border-input`, which at rgb(41,42,46) on a
-            rgb(9,10,11) page is a plainly visible hairline: the one thing the
-            owner has ruled out outright. */}
-        <Input
-          placeholder="Search decks…"
-          value={filters.searchQuery}
-          onChange={e => onUpdateFilters({ searchQuery: e.target.value })}
-          className="border-0 bg-muted/50 pl-10 shadow-none focus-visible:ring-1 focus-visible:ring-offset-0"
-          aria-label="Search decks by name"
-        />
-      </div>
-
-      <Popover>
-        <PopoverTrigger asChild>
-          {/* `outline` is literally a border variant. */}
-          <Button variant="secondary" className="gap-2">
-            <Filter className="h-4 w-4" />
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
+        <FilterButton count={activeFilterCount} />
+      </SheetTrigger>
+      {/* The same shell as `CardFilterSheet`, because it is the same drawer. */}
+      <SheetContent
+        side="right"
+        className="flex w-full flex-col gap-0 border-0 bg-card p-0 shadow-2xl shadow-black/50 sm:max-w-md"
+      >
+        {/* pr-12 clears the Sheet's own close control, which is absolutely placed. */}
+        <div className="flex items-center justify-between py-3 pl-4 pr-12">
+          <SheetTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             Filters
-            {hasActiveFilters && (
-              <Badge variant="secondary" className="ml-1 h-5 px-1.5 tabular-nums">
-                {activeFilterCount}
-              </Badge>
-            )}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-80 border-0 shadow-xl shadow-black/40" align="end">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h4 className="font-semibold">Filters</h4>
-              {hasActiveFilters && (
-                <Button variant="ghost" size="sm" onClick={onResetFilters} className="h-8 px-2">
-                  <X className="mr-1 h-3 w-3" />
-                  Clear
-                </Button>
-              )}
-            </div>
+          </SheetTitle>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={onResetFilters}
+              className="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Clear all
+            </button>
+          )}
+        </div>
 
-            <div className="space-y-2">
-              <Label>Format</Label>
-              <div className="flex flex-wrap gap-1.5">
-                {DECK_FORMATS.map(format => (
-                  <Badge
-                    key={format.value}
-                    variant={filters.format.includes(format.value) ? 'default' : 'outline'}
-                    className="cursor-pointer"
-                    role="checkbox"
-                    aria-checked={filters.format.includes(format.value)}
-                    tabIndex={0}
-                    onClick={() => onToggleFormat(format.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        onToggleFormat(format.value);
-                      }
-                    }}
-                  >
-                    {format.label}
-                  </Badge>
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 pb-6">
+          <section className="space-y-2">
+            <Label>Format</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {DECK_FORMATS.map(format => (
+                /* `FacetChip`, not `Badge variant="outline"`. The outline
+                   variant is literally a border, and these chips were the last
+                   hairlines on this page. */
+                <FacetChip
+                  key={format.value}
+                  selected={filters.format.includes(format.value)}
+                  onClick={() => onToggleFormat(format.value)}
+                >
+                  {format.label}
+                </FacetChip>
+              ))}
+            </div>
+          </section>
+
+          <section className="space-y-2">
+            <Label>Colour identity</Label>
+            <Select
+              value={filters.colorMode}
+              onValueChange={value => onUpdateFilters({ colorMode: value as ColorMatchMode })}
+            >
+              <SelectTrigger className={cn(FIELD, 'h-9')} aria-label="Colour match mode">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className={SURFACE}>
+                {(Object.keys(COLOR_MATCH_LABELS) as ColorMatchMode[]).map(mode => (
+                  <SelectItem key={mode} value={mode}>
+                    {COLOR_MATCH_LABELS[mode]}
+                  </SelectItem>
                 ))}
-              </div>
+              </SelectContent>
+            </Select>
+            <div className="flex flex-wrap gap-1.5">
+              {COLOR_OPTIONS.map(color => (
+                <FacetChip
+                  key={color.value}
+                  selected={filters.colors.includes(color.value)}
+                  onClick={() => onToggleColor(color.value)}
+                  title={color.label}
+                  className="gap-1.5"
+                >
+                  <ManaPip symbol={color.value} size="xs" />
+                  {color.label}
+                </FacetChip>
+              ))}
             </div>
+          </section>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>Colour identity</Label>
-              </div>
-              <Select
-                value={filters.colorMode}
-                onValueChange={value => onUpdateFilters({ colorMode: value as ColorMatchMode })}
-              >
-                <SelectTrigger className="h-8" aria-label="Colour match mode">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(COLOR_MATCH_LABELS) as ColorMatchMode[]).map(mode => (
-                    <SelectItem key={mode} value={mode}>
-                      {COLOR_MATCH_LABELS[mode]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="flex flex-wrap gap-2">
-                {COLOR_OPTIONS.map(color => {
-                  const selected = filters.colors.includes(color.value);
-                  return (
-                    <button
-                      key={color.value}
-                      type="button"
-                      onClick={() => onToggleColor(color.value)}
-                      aria-pressed={selected}
-                      aria-label={color.label}
-                      className={cn(
-                        'flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs transition-colors',
-                        selected
-                          ? 'border-foreground bg-secondary text-secondary-foreground'
-                          : 'border-border text-muted-foreground hover:bg-muted'
-                      )}
-                    >
-                      <ManaPip symbol={color.value} size="xs" />
-                      {color.label}
-                    </button>
-                  );
-                })}
-              </div>
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label>Power level</Label>
+              <span className="text-sm tabular-nums text-muted-foreground">
+                {filters.minPower} – {filters.maxPower}
+              </span>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Decks without a computed power score are always shown.
+            </p>
+            <div>
+              <Label className="text-xs">Min: {filters.minPower}</Label>
+              <Slider
+                value={[filters.minPower]}
+                onValueChange={([value]) =>
+                  onUpdateFilters({ minPower: Math.min(value, filters.maxPower) })
+                }
+                min={1}
+                max={10}
+                step={1}
+                className="mt-2"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Max: {filters.maxPower}</Label>
+              <Slider
+                value={[filters.maxPower]}
+                onValueChange={([value]) =>
+                  onUpdateFilters({ maxPower: Math.max(value, filters.minPower) })
+                }
+                min={1}
+                max={10}
+                step={1}
+                className="mt-2"
+              />
+            </div>
+          </section>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>Power level</Label>
-                <span className="text-sm tabular-nums text-muted-foreground">
-                  {filters.minPower} – {filters.maxPower}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Decks without a computed power score are always shown.
-              </p>
-              <div className="space-y-3">
-                <div>
-                  <Label className="text-xs">Min: {filters.minPower}</Label>
-                  <Slider
-                    value={[filters.minPower]}
-                    onValueChange={([value]) =>
-                      onUpdateFilters({ minPower: Math.min(value, filters.maxPower) })
-                    }
-                    min={1}
-                    max={10}
-                    step={1}
-                    className="mt-2"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Max: {filters.maxPower}</Label>
-                  <Slider
-                    value={[filters.maxPower]}
-                    onValueChange={([value]) =>
-                      onUpdateFilters({ maxPower: Math.max(value, filters.minPower) })
-                    }
-                    min={1}
-                    max={10}
-                    step={1}
-                    className="mt-2"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </PopoverContent>
-      </Popover>
-    </div>
+          <Button className="w-full" onClick={() => setOpen(false)}>
+            Show decks
+          </Button>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 };
+
+export default DeckSearchFilters;

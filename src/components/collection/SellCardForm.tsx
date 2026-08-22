@@ -198,7 +198,7 @@ export function SellCardForm({
         <Label htmlFor="note">Note (optional)</Label>
         <Textarea
           id="note"
-          placeholder="Anything a buyer should know about this copy..."
+          placeholder="Anything a buyer should know about this copy"
           value={formData.note}
           onChange={e => setFormData(prev => ({ ...prev, note: e.target.value }))}
           rows={3}

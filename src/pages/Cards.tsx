@@ -198,7 +198,7 @@ export default function Cards() {
         onCardAdd={addToCollection}
         onCardWishlist={addToWishlist}
         browseViews={BROWSE_VIEWS}
-        placeholder="Search by name, or use Scryfall syntax — t:creature id:wu mv<=3"
+        placeholder="Name, type, or Scryfall syntax like t:creature id:wu mv<=3"
         showFilters
         showAddButton
         showWishlistButton

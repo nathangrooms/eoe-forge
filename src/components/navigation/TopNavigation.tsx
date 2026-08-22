@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { cn } from '@/lib/utils';
+import { FIELD } from '@/components/listing';
 import { Wordmark } from '@/components/Wordmark';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, ScanLine, Search, Upload } from 'lucide-react';
@@ -97,7 +99,13 @@ export function TopNavigation() {
               onChange={event => setSearchQuery(event.target.value)}
               placeholder="Search cards"
               aria-label="Search cards"
-              className="h-9 pl-9 pr-14"
+              /* The one hairline that was on every page in the product.
+                 Measured on the built bundle: every screen in the deck and
+                 discovery pass reported exactly one visible border and it was
+                 this field, because `Input` ships `border border-input` and
+                 this mount never opted out. It wears the shared field skin now,
+                 the same as the search box on every listing it leads to. */
+              className={cn(FIELD, 'h-9 pl-9 pr-14')}
             />
             <kbd className="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground md:inline-block">
               ⌘K

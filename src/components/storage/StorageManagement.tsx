@@ -10,7 +10,8 @@ import type {
 import { CreateContainerPanel } from './CreateContainerPanel';
 import { ContainerObject } from './ContainerObject';
 import { showError } from '@/components/ui/toast-helpers';
-import { formatPrice } from '@/components/collection/browser/types';
+import { formatPrice, formatPriceCompact } from '@/components/collection/browser/types';
+import { MetricRow } from '@/components/listing';
 import { cn } from '@/lib/utils';
 
 /**
@@ -125,36 +126,14 @@ export function StorageManagement({
 
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-background">
-      {/* Header — the real totals on one line, so the shelf gets the room. */}
+      {/* Header. The title and the one action; the figures get their own row. */}
       <div className="bg-card px-4 py-5 shadow-lg shadow-black/20 md:px-6">
-        <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold tracking-tight text-foreground">Storage</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               Where each physical card actually lives.
             </p>
-            {containers.length > 0 && (
-              <p className="mt-3 flex flex-wrap items-baseline gap-x-5 gap-y-1 text-sm text-muted-foreground">
-                <span>
-                  <span className="font-semibold tabular-nums text-foreground">
-                    {containers.length}
-                  </span>{' '}
-                  {containers.length === 1 ? 'container' : 'containers'}
-                </span>
-                <span>
-                  <span className="font-semibold tabular-nums text-foreground">
-                    {totalCards.toLocaleString()}
-                  </span>{' '}
-                  {totalCards === 1 ? 'card stored' : 'cards stored'}
-                </span>
-                <span>
-                  <span className="font-semibold tabular-nums text-foreground">
-                    {formatPrice(totalValue)}
-                  </span>{' '}
-                  on the shelf
-                </span>
-              </p>
-            )}
           </div>
 
           <Button
@@ -168,7 +147,61 @@ export function StorageManagement({
         </div>
       </div>
 
-      <div className="flex-1 px-4 py-6 md:px-6">
+      <div className="flex-1 space-y-6 px-4 py-6 md:px-6">
+        {/*
+          The same tiles as My Collection and My Decks.
+
+          These three figures were a 14px run of text under the page title, for
+          the same reason the collection's were and with the same result: the
+          question this page answers is "how much of my collection is actually
+          filed", and the answer was set smaller than the label above it. The
+          fourth tile is the one the shelf could not say at all, and it is the
+          reason to keep going.
+        */}
+        {(containers.length > 0 || unassignedCount > 0) && (
+          <MetricRow
+            columns={4}
+            loading={loading}
+            metrics={[
+              {
+                id: 'containers',
+                label: 'Containers',
+                value: containers.length.toLocaleString(),
+                raw: containers.length,
+                subtext: 'Binders, deck boxes and bulk',
+              },
+              {
+                id: 'stored',
+                label: 'Cards stored',
+                value: totalCards.toLocaleString(),
+                raw: totalCards,
+                subtext: 'In a container you named',
+              },
+              {
+                id: 'value',
+                label: 'On the shelf',
+                /* A dash, never $0.00. The smallest real price in the database
+                   is 0.01, so a rendered zero is always something we failed to
+                   price rather than something that is free. */
+                value: totalCards > 0 ? formatPriceCompact(totalValue) : '—',
+                raw: totalValue,
+                title: totalCards > 0 ? formatPrice(totalValue) : undefined,
+                subtext: totalCards > 0 ? 'Worth of filed cards' : 'Nothing filed yet',
+              },
+              {
+                id: 'unassigned',
+                label: 'Nowhere recorded',
+                value: unassignedCount > 0 ? unassignedCount.toLocaleString() : '—',
+                raw: unassignedCount,
+                subtext:
+                  unassignedCount > 0
+                    ? `${formatPrice(unassignedValue)} with no container`
+                    : 'Every card has a home',
+              },
+            ]}
+          />
+        )}
+
         {creating && (
           <CreateContainerPanel
             key={initialType ?? 'default'}
@@ -189,7 +222,10 @@ export function StorageManagement({
           />
         ) : (
           <>
-            {/* Cards with nowhere recorded — the reason to keep going. */}
+            {/* Cards with nowhere recorded — the reason to keep going. It is
+                also a tile above, and it stays here because the tile can only
+                carry the count while this line carries what it is worth and how
+                much of that we could not price. */}
             {unassignedCount > 0 && (
               <div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl bg-card px-4 py-3 shadow-lg shadow-black/20">
                 <Boxes className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />

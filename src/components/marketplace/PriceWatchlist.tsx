@@ -18,6 +18,8 @@ import { showSuccess } from '@/components/ui/toast-helpers';
 import { Link } from 'react-router-dom';
 import { CardImage, cardDetailPath } from '@/components/cards';
 import { formatAmount, readAmount, NO_PRICE } from '@/lib/pricing';
+import { cn } from '@/lib/utils';
+import { FIELD } from '@/components/listing';
 
 interface WatchlistItem {
   id: string;
@@ -245,7 +247,10 @@ export function PriceWatchlist({
                         placeholder="Target"
                         value={targetValue}
                         onChange={(e) => setTargetValue(e.target.value)}
-                        className="w-20 h-8 text-sm"
+                        /* Borderless, like every other field in the product.
+                           `Input` ships `border border-input`, so a mount that
+                           does not opt out draws the hairline the owner banned. */
+                        className={cn(FIELD, 'h-8 w-20 text-sm')}
                         autoFocus
                       />
                       <Button

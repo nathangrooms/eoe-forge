@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { FIELD } from '@/components/listing';
+import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -355,7 +357,7 @@ export const DeckImportExport = ({ currentDeck, onImportDeck }: DeckImportExport
             value={importText}
             onChange={(e) => setImportText(e.target.value)}
             rows={8}
-            className="font-mono text-sm"
+            className={cn(FIELD, 'font-mono text-sm')}
           />
           
           {parseResult && (
@@ -426,7 +428,7 @@ export const DeckImportExport = ({ currentDeck, onImportDeck }: DeckImportExport
         <CardContent className="space-y-4">
           <div className="flex items-center space-x-4">
             <Select value={exportFormat} onValueChange={(value: any) => setExportFormat(value)}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className={cn(FIELD, 'w-40')}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -445,7 +447,7 @@ export const DeckImportExport = ({ currentDeck, onImportDeck }: DeckImportExport
             value={exportedContent}
             readOnly
             rows={12}
-            className="font-mono text-sm"
+            className={cn(FIELD, 'font-mono text-sm')}
           />
 
           <div className="flex gap-2">

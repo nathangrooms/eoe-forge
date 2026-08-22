@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { FIELD } from '@/components/listing';
+import { cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -185,7 +187,7 @@ export function EnhancedDeckExport({ deckName, deckCards, commander, format, des
         <div className="space-y-2">
           <Label>Export Format</Label>
           <Select value={exportFormat} onValueChange={setExportFormat}>
-            <SelectTrigger>
+            <SelectTrigger className={FIELD}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

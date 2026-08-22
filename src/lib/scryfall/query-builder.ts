@@ -233,7 +233,9 @@ export const PRESET_QUERIES: { name: string; query: string; description: string 
   {
     name: "Commander staples",
     query: "f:commander -t:land",
-    description: "The most-played nonland cards in EDH — sort by EDHREC",
+    // No em-dash: this line is read by a player, in the Presets popover on the
+    // card page and on every other surface that mounts the shared search.
+    description: "The most-played nonland cards in EDH, in EDHREC order",
   },
   {
     name: "Legendary creatures",

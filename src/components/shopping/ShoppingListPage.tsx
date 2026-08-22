@@ -1,12 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, PackageCheck, Printer, RefreshCw, Send, ShoppingCart, Truck } from 'lucide-react';
+import { LayoutGrid, PackageCheck, Printer, RefreshCw, Send, ShoppingCart, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { CardGrid, CardGridSkeleton, CardSizeSlider, useCardSize } from '@/components/cards';
+import { CardSizeSlider } from '@/components/cards';
 import { usePagedItems } from '@/hooks/usePagination';
-import { Pager } from '@/components/ui/pagination';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
-import { Changed } from '@/components/motion';
+import {
+  EmptyState,
+  ListingFrame,
+  MetricRow,
+  PageTabs,
+  matchedLabel,
+  resultSentence,
+  useListingView,
+  type ListingMode,
+  type Metric,
+} from '@/components/listing';
 import { useFlipOnChange, useLeavingList } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import {
@@ -49,6 +58,18 @@ import { PastPurchases } from './PastPurchases';
 
 type Tab = 'buy' | 'coming' | 'bought';
 
+/**
+ * One way to look at a shopping list, and that is the honest answer.
+ *
+ * `useListingView` still wants the modes declared, because the size slider and
+ * the page size hang off the same object, and `ViewModeToggle` draws nothing
+ * when a surface offers one mode. A page does not get a control it has no use
+ * for, and it does not have to pretend to have three views to use the frame.
+ */
+const MODES: ListingMode[] = [
+  { id: 'grid', label: 'Image grid', icon: LayoutGrid, layout: 'grid' },
+];
+
 export default function ShoppingListPage() {
   const load = useCardLists(state => state.load);
   const loading = useCardLists(state => state.loading);
@@ -58,7 +79,13 @@ export default function ShoppingListPage() {
   const wishlist = useCardLists(state => state.wishlist);
   const shortfalls = useCardLists(state => state.shortfalls);
 
-  const [cardWidth, setCardWidth] = useCardSize('shopping', 200);
+  /*
+   * The surface name stays `shopping`, which is the key `useCardSize` has been
+   * writing all along. What is new is that the page size is a preference now
+   * rather than the constant 60 this file used to pass, so the pager offers the
+   * same 24 / 48 / 96 choice as every other listing.
+   */
+  const view = useListingView({ surface: 'shopping', modes: MODES, defaultSize: 200 });
   const [tab, setTab] = useState<Tab>('buy');
   const [buying, setBuying] = useState<ShoppingEntry | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -121,18 +148,26 @@ export default function ShoppingListPage() {
      `usePagedItems` is written for exactly this shape and says so in its own
      doc: page in the browser only when the screen needs a figure computed over
      every row, and page at the database otherwise. */
-  const paged = usePagedItems(buyRows, { pageSize: 60 });
+  const paged = usePagedItems(buyRows, { pageSize: view.pageSize });
 
   useFlipOnChange(gridRef, paged.pageItems.map(row => row.key).join(' '));
 
   const copies = list.toBuy.reduce((sum, entry) => sum + entry.quantity, 0);
   const inTransit = [...list.arriving, ...list.arrived].reduce((sum, item) => sum + item.quantity, 0);
 
-  const tabs: { id: Tab; label: string; count: number; icon: typeof ShoppingCart }[] = [
-    { id: 'buy', label: 'To buy', count: list.toBuy.length, icon: ShoppingCart },
-    { id: 'coming', label: 'On the way', count: list.arriving.length + list.arrived.length, icon: Truck },
-    { id: 'bought', label: 'Already bought', count: list.filed.length, icon: PackageCheck },
-  ];
+  /**
+   * What is on this page, in the sentence every listing uses.
+   *
+   * It was "12 cards, 30 copies in total. 4 more already on the way." — one of
+   * six phrasings of the same fact counted across the product. The figures are
+   * the same ones; the shape is now the shape the collection, the wishlist and
+   * card search all use.
+   */
+  const summary = resultSentence([
+    matchedLabel(list.toBuy.length, list.toBuy.length, 'card'),
+    { value: copies.toLocaleString(), label: copies === 1 ? 'copy' : 'copies' },
+    inTransit > 0 && { value: inTransit.toLocaleString(), label: 'more on the way' },
+  ]);
 
   return (
     <StandardPageLayout
@@ -187,85 +222,119 @@ export default function ShoppingListPage() {
             together, and saying how many were bought with no price kept. */}
         {tab === 'coming' && inTransit > 0 && <MoneyInThePost items={[...list.arriving, ...list.arrived]} />}
 
-        <div className="flex flex-wrap items-center gap-1.5">
-          {tabs.map(item => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setTab(item.id)}
-              aria-pressed={tab === item.id}
-              className={cn(
-                'flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm transition-colors',
-                tab === item.id
-                  ? 'bg-foreground text-background'
-                  : 'bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground'
-              )}
-            >
-              <item.icon className="h-4 w-4" aria-hidden />
-              {item.label}
-              {item.count > 0 && <span className="tabular-nums opacity-70">{item.count}</span>}
-            </button>
-          ))}
+        {/*
+          The three sections, in the control every page in this product uses.
 
-          {tab === 'buy' && list.toBuy.length > 0 && (
-            <CardSizeSlider
-              storageKey="shopping"
-              value={cardWidth}
-              onValueChange={setCardWidth}
-              className="ml-auto"
-            />
-          )}
-        </div>
+          These were `rounded-full` pills with the selected one on
+          `bg-foreground` — a fifth tab treatment, on a page one click from four
+          others that each had their own. The card-size slider keeps its place
+          at the far end of the same row through the `trailing` slot: the size
+          control belongs at the right-hand end of the last control row above
+          the results, and on a page with a filter bar that row is the filter
+          bar's. This page has no filters, so a band of its own to hold one
+          slider would be chrome.
+        */}
+        <PageTabs
+          value={tab}
+          onChange={next => setTab(next as Tab)}
+          label="Shopping list sections"
+          tabs={[
+            {
+              id: 'buy',
+              label: 'To buy',
+              icon: ShoppingCart,
+              count: loaded ? list.toBuy.length : null,
+            },
+            {
+              id: 'coming',
+              label: 'On the way',
+              icon: Truck,
+              count: loaded ? list.arriving.length + list.arrived.length : null,
+            },
+            {
+              id: 'bought',
+              label: 'Already bought',
+              shortLabel: 'Bought',
+              icon: PackageCheck,
+              count: loaded ? list.filed.length : null,
+            },
+          ]}
+          trailing={
+            tab === 'buy' && list.toBuy.length > 0 ? (
+              <CardSizeSlider
+                storageKey="shopping"
+                value={view.size}
+                onValueChange={view.setSize}
+                showValue={false}
+                className="hidden sm:flex"
+              />
+            ) : null
+          }
+        />
 
         {tab === 'buy' && (
-          <>
-            {!loaded && loading ? (
-              <CardGridSkeleton width={cardWidth} count={10} />
-            ) : list.toBuy.length === 0 ? (
-              <EmptyBuyState hasAnything={shopping.length > 0 || inTransit > 0} />
-            ) : (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  {list.toBuy.length} {list.toBuy.length === 1 ? 'card' : 'cards'}, {copies}{' '}
-                  {copies === 1 ? 'copy' : 'copies'} in total.
-                  {inTransit > 0 && ` ${inTransit} more already on the way.`}
-                </p>
-                {paged.pageCount > 1 && (
-                  <Pager
-                    page={paged.page}
-                    pageCount={paged.pageCount}
-                    onPageChange={paged.setPage}
-                    total={paged.total}
-                    shown={paged.pageItems.length}
-                    pageSize={paged.pageSize}
-                    label="Shopping list pages"
-                    className="mb-3"
-                  />
-                )}
-                <CardGrid ref={gridRef} width={cardWidth}>
-                  {paged.pageItems.map(row => (
-                    <ShoppingEntryTile
-                      key={row.key}
-                      motionKey={row.key}
-                      leaving={row.leaving}
-                      entry={row.item}
-                      width={cardWidth}
-                      onBuy={setBuying}
-                    />
-                  ))}
-                </CardGrid>
-              </>
-            )}
-          </>
+          <ListingFrame
+            view={view}
+            gridRef={gridRef}
+            count={paged.pageItems.length}
+            loading={!loaded && loading}
+            /* Unconditional: `ListingFrame` reserves the line and decides when
+               it has something to say. */
+            summary={summary}
+            pager={{
+              page: paged.page,
+              pageCount: paged.pageCount,
+              onPageChange: paged.setPage,
+              total: paged.total,
+              shown: paged.pageItems.length,
+              label: 'Shopping list pages',
+            }}
+            empty={{
+              icon: ShoppingCart,
+              title:
+                shopping.length > 0 || inTransit > 0
+                  ? 'Nothing left to buy'
+                  : 'Your shopping list is empty',
+              description:
+                shopping.length > 0 || inTransit > 0
+                  ? 'Everything your decks and your wishlist asked for is either bought or in your collection.'
+                  : 'Cards land here from your wishlist, from decks that are short of something, and from the add button on any card.',
+              /* Two ways out rather than one, which is why this page used to
+                 build its own panel. They are links, so they go in the
+                 `actions` slot rather than through `action`, which takes a
+                 click handler. */
+              actions: (
+                <>
+                  <Button variant="secondary" size="sm" asChild>
+                    <Link to="/cards">Find cards</Link>
+                  </Button>
+                  <Button variant="secondary" size="sm" asChild>
+                    <Link to="/decks">Check your decks</Link>
+                  </Button>
+                </>
+              ),
+            }}
+          >
+            {paged.pageItems.map(row => (
+              <ShoppingEntryTile
+                key={row.key}
+                motionKey={row.key}
+                leaving={row.leaving}
+                entry={row.item}
+                width={view.size}
+                onBuy={setBuying}
+              />
+            ))}
+          </ListingFrame>
         )}
 
         {tab === 'coming' && (
           <>
             {list.arriving.length === 0 && list.arrived.length === 0 ? (
-              <EmptyPanel
+              <EmptyState
                 icon={Truck}
                 title="Nothing in the post"
-                body="When you mark something as bought it moves here, with what you paid and the date, until you say it arrived."
+                description="When you mark something as bought it moves here, with what you paid and the date, until you say it arrived."
               />
             ) : (
               <ArrivingCards arriving={list.arriving} arrived={list.arrived} />
@@ -312,86 +381,29 @@ const MONEY_WORD: Record<'USD' | 'EUR', string> = { USD: 'dollars', EUR: 'euros'
 function MoneyInThePost({ items }: { items: CardListItem[] }) {
   const { totals, copiesWithNoPrice } = paidTotals(items);
   if (totals.length === 0 && copiesWithNoPrice === 0) return null;
-  return (
-    <div className="grid gap-2 sm:grid-cols-3">
-      {totals.map(total => (
-        <div key={total.currency} className="min-w-0 rounded-xl bg-muted/30 px-4 py-3">
-          <p className="text-[0.7rem] uppercase tracking-wide text-muted-foreground">
-            Paid in {MONEY_WORD[total.currency]}
-          </p>
-          <p className="mt-0.5 text-2xl font-semibold tabular-nums text-foreground">
-            <Changed value={total.amount}>{formatAmount(total.amount, total.currency)}</Changed>
-          </p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {total.copies} {total.copies === 1 ? 'card' : 'cards'}
-          </p>
-        </div>
-      ))}
-      {copiesWithNoPrice > 0 && (
-        <div className="min-w-0 rounded-xl bg-muted/30 px-4 py-3">
-          <p className="text-[0.7rem] uppercase tracking-wide text-muted-foreground">No price kept</p>
-          <p className="mt-0.5 text-2xl font-semibold tabular-nums text-foreground">
-            <Changed value={copiesWithNoPrice}>{copiesWithNoPrice}</Changed>
-          </p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {copiesWithNoPrice === 1 ? 'card is' : 'cards are'} missing from these totals
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
 
-function EmptyBuyState({ hasAnything }: { hasAnything: boolean }) {
-  return (
-    <EmptyPanel
-      icon={ShoppingCart}
-      title={hasAnything ? 'Nothing left to buy' : 'Your shopping list is empty'}
-      body={
-        hasAnything
-          ? 'Everything your decks and your wishlist asked for is either bought or in your collection.'
-          : 'Cards land here from your wishlist, from decks that are short of something, and from the add button on any card.'
-      }
-      action={
-        <div className="mt-4 flex flex-wrap justify-center gap-2">
-          <Button variant="secondary" asChild>
-            <Link to="/cards">Find cards</Link>
-          </Button>
-          <Button variant="secondary" asChild>
-            <Link to="/decks">Check your decks</Link>
-          </Button>
-        </div>
-      }
-    />
-  );
-}
+  /*
+   * The same tiles as `PlatformTotals` above it, because they were the same
+   * three lines written out twice in two files. Both are `MetricRow` now, so
+   * the money you are about to spend and the money you already spent are drawn
+   * the same size on the same page.
+   */
+  const metrics: Metric[] = [
+    ...totals.map(total => ({
+      id: total.currency,
+      label: `Paid in ${MONEY_WORD[total.currency]}`,
+      value: formatAmount(total.amount, total.currency) ?? '—',
+      raw: total.amount,
+      subtext: `${total.copies} ${total.copies === 1 ? 'card' : 'cards'}`,
+    })),
+    copiesWithNoPrice > 0 && {
+      id: 'unpriced',
+      label: 'No price kept',
+      value: copiesWithNoPrice.toLocaleString(),
+      raw: copiesWithNoPrice,
+      subtext: `${copiesWithNoPrice === 1 ? 'card is' : 'cards are'} missing from these totals`,
+    },
+  ].filter(Boolean) as Metric[];
 
-export function EmptyPanel({
-  icon: Icon,
-  title,
-  body,
-  action,
-}: {
-  icon: typeof ShoppingCart;
-  title: string;
-  body: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-xl bg-card px-6 py-16 text-center shadow-lg shadow-black/20">
-      <Icon className="mx-auto mb-4 h-10 w-10 text-muted-foreground" aria-hidden />
-      <h2 className="text-lg font-medium text-foreground">{title}</h2>
-      <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">{body}</p>
-      {action}
-    </div>
-  );
-}
-
-export function PageSpinner() {
-  return (
-    <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-      Loading your list
-    </div>
-  );
+  return <MetricRow metrics={metrics} columns={3} />;
 }

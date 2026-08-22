@@ -444,7 +444,8 @@ Direct quotes, kept verbatim so intent is not diluted:
 
 **Protected:** `/dashboard` · `/collection` · `/marketplace` · `/scan` · `/decks` · `/precons` ·
 `/deck-builder` · `/deck/:id` · `/builder` · `/smart-builder` · `/tutor` · `/templates` · `/cards` ·
-`/wishlist` · `/simulate` · `/tournament` · `/settings` · `/admin` · `/landing`
+`/wishlist` · `/simulate` (redirects to `/play?mode=playtest`) · `/tournament` · `/settings` ·
+`/admin` · `/landing`
 
 Component-count hotspots: `deck-builder/` **95**, `ui/` 55, `collection/` 32, `marketing/` 28,
 `simulation/` 19, `marketplace/` 18, `admin/` 14, `wishlist/` 13.
@@ -950,3 +951,130 @@ The reason this matters more than tidiness: play mode has already been through a
 period where capabilities existed and no player could reach them. Four copies of
 the surface would guarantee that a fix reaches one mode and not the other three,
 and nobody would notice which.
+
+## The play page is one flow with four doors (22 Aug 2026)
+
+Owner: *"we need to redesign the entire play a game UI - leading with online"*,
+*"Then you'd have a deck selection mode too"*, *"maybe deck select could be the
+full cards - maybe reuse from deck pages?"* and *"playtest can probably merge
+with the play page as a main option"*.
+
+`/play` is now **mode, then deck, then the table**, and all four modes walk the
+same three screens:
+
+| Step | What it is | Where it lives |
+|---|---|---|
+| One | Four full bleed doors: ONLINE, VERSUS BOTS, GOLDFISH, PLAYTEST | `ModeWall.tsx`, copy in `playModes.ts` |
+| Two | One deck wall, commander cards whole and at full size | `DeckStep.tsx` over `DeckWall.tsx` |
+| Three | Seats and the shuffle, or for online the lobby | `SeatStep.tsx`, or `/play/online` |
+
+The step label, the big title, the breadcrumb of choices and back bottom left
+with the next step bottom right are `StepChrome.tsx` and `playFlow.ts`, shared by
+every step of every mode including the online lobby. That is what makes four
+modes read as one product.
+
+### `/simulate` is gone as a page and kept as a redirect
+
+Playtest was never a different product: same rules engine, same mat, same hand,
+same log, differing only in who provided the actions. It is now the fourth mode,
+and the only thing that changes when it is chosen is that seat one is dealt with
+`isBot: true` and the driver is `useWatchedGame` rather than `usePlayGame`.
+
+`/simulate` **redirects** rather than being deleted, carrying `?deck=` across,
+because two deck tiles have been sending people to `/simulate?deck=<id>` for a
+long time and that link is in bookmarks. The left nav has **one** Play a Game
+entry now.
+
+Measured after the merge, signed out against the live card database
+(`scripts/play-merge-check.mjs`): a real game on `src/lib/game`, turn 2 by nine
+seconds, life and boards moving, and every control that used to be on
+`/simulate` still on the board (Pause, Step, 0.5x through Max, Restart, Leave,
+Follow the turn, One seat, LOG, CMD).
+
+### The one deck wall
+
+`DeckWall.tsx` replaced **two** copies of the same grid (`PlaytestSetup` and
+`GoldfishSetup`, both deleted) and a dropdown (`PlaySetup`, deleted). It reuses
+`CardImage`, `PowerScoreBadge` and `ColorIdentity` rather than redrawing them.
+`ModernDeckTile` on `/decks` stays where it is: managing a deck and choosing one
+to play are different jobs.
+
+Its rows come from `usePlayDecks`, which is **three batched queries whatever the
+deck count** and shares one React Query key with the lobby. It is deliberately
+not `DeckAPI.getDeckSummaries()`, which is one `compute_deck_summary` RPC per
+deck and is the shape that took this app down twice.
+
+### Mode covers: the path, the shape, and the rule
+
+One asset per mode at **`public/covers/play/<id>.webp`, 3:4 portrait, 1200 x
+1600**. None exist yet and the page ships without them: every door falls back to
+the procedural playmat (`matStyles.ts`), each mode carrying its own weave and
+tint so four coverless doors are still four different doors.
+
+**Never point a cover at Magic card art.** A cover has to be darkened for type
+to sit on it and Scryfall's guidelines forbid modifying card images. A deck tile
+shows a card WHOLE and UNMODIFIED, which is the permitted case, and that is the
+whole reason art is allowed at step two and not at step one.
+`public/covers/play/README.md` repeats this where the files go.
+
+## The discussion: who may read, who may post (22 Aug 2026)
+
+The lobby's discussion is a forum, not a chat. `forum_topics` and `forum_posts`,
+two scopes, one set of components.
+
+**The rule, decided and enforced in two places each:**
+
+| | reading | posting |
+|---|---|---|
+| the open board (`scope = 'board'`) | **anybody, signed out included** | account required |
+| a table's talk (`scope = 'table'`) | only the people at that table | account, and a seat |
+
+Reading is decided by RLS policy. Posting is decided by there being **no INSERT,
+UPDATE or DELETE grant to `anon` or `authenticated` on either table at all**, so
+the only way a row is ever written is through `start_forum_topic`,
+`post_forum_reply` or `post_table_message`, each of which refuses a null
+`auth.uid()`. A client that could insert directly could post under somebody
+else's name and skip the rate limit doing it.
+
+The open board is public on purpose. A forum whose value is that the
+conversation is already there when you arrive cannot sit behind a sign-up wall,
+so `/play/online` is registered on the signed-out route tree too. The board says
+so on screen, at the point somebody is deciding what to type.
+
+**The deck rule does not apply to talking.** Sitting down needs an account and
+one deck with cards in it. Asking whether anybody wants a game needs an account
+and nothing else. `postingVerdict` in `src/lib/lobby/forumView.ts` has a test
+asserting this, because it is the sort of thing that gets copied across.
+
+### Two things that must not be undone
+
+1. **`scope` and `table_id` are copied onto `forum_posts`.** They are already on
+   the topic. They are duplicated so a policy on `forum_posts` can decide using
+   the row in front of it instead of reading `forum_topics`, which is the exact
+   shape that raised **42P17 infinite recursion** on `game_participants` and
+   killed every authenticated read on this project.
+
+2. **Nothing renders a post through `dangerouslySetInnerHTML`, ever.**
+   `tokenisePost` in `src/lib/lobby/richText.ts` returns small objects, never a
+   string of markup, and `PostBody` draws them as React children. Links are
+   allowed only after `new URL()` says http or https, so `javascript:` and
+   `data:` cannot get through a pattern match. Control characters and the
+   bidirectional overrides are stripped. `richText.test.ts` is written as an
+   attack list. If bold text or card links are wanted later, add a TOKEN KIND
+   and a branch, not a parser that emits tags.
+
+### The rate limit is at the database
+
+`forum_write_guard` enforces 2 seconds between posts, 12 posts a minute, no
+repeat of the same words inside 5 minutes, and 6 new topics an hour. All of it
+is one index scan bounded to the last hour. A disabled button is not a limit, it
+is a hint to the one client running our JavaScript.
+
+### Moderation exists
+
+`is_dev_admin()` gates `block_forum_poster` (with an optional wipe of everything
+that account wrote on the board), `remove_forum_topic` and
+`set_forum_topic_flags`. Anybody may remove their own post, and anybody may
+report one; `report_count` is kept on the post row so the moderator view costs
+no extra read. **Removal nulls the body**: the words leave the database, and the
+row stays only so the reply written underneath it still makes sense.

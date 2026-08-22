@@ -16,6 +16,8 @@ import { showSuccess } from '@/components/ui/toast-helpers';
 import { Link } from 'react-router-dom';
 import { CardImage, cardDetailPath } from '@/components/cards';
 import { getBestCardImage } from '@/lib/scryfall/card-utils';
+import { cn } from '@/lib/utils';
+import { FIELD } from '@/components/listing';
 
 interface ShoppingListItem {
   id: string;
@@ -166,11 +168,13 @@ export function ShoppingList({ items: externalItems, onUpdate }: ShoppingListPro
         {/* Add Item Input */}
         <div className="flex gap-2">
           <Input
-            placeholder="Add a card to your shopping list..."
+            placeholder="Add a card to your shopping list"
             value={newItemName}
             onChange={(e) => setNewItemName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
-            className="flex-1"
+            /* `Input` ships `border border-input`; every field in this product
+               opts out of it, and this one had not. */
+            className={cn(FIELD, 'h-9 flex-1')}
           />
           <Button 
             onClick={handleAddItem} 

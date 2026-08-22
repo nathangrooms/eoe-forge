@@ -1,13 +1,14 @@
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ColorIdentity } from '@/components/ui/mana-cost';
+import { MetricRow, MetricTile, type Metric } from '@/components/listing';
+import { formatLabel } from '@/lib/deck/formats';
 import { CATEGORY_CONFIG, CATEGORY_ORDER, type CardCategory } from './deck-categories';
 
 /**
- * The deck's own numbers, and only its own numbers.
+ * A deck's own numbers, and only its own numbers.
  *
  * This strip used to carry an `edhpowerlevel.com` tile in slot two — a scraped
  * third-party figure, on a different scale, painted in `text-power-*`, the
@@ -16,6 +17,20 @@ import { CATEGORY_CONFIG, CATEGORY_ORDER, type CardCategory } from './deck-categ
  * 7.6 here and 5.1 forty pixels below. It also duplicated the labelled
  * second-opinion row the builder already renders. The scraped figure and its
  * sub-metrics now live in that row alone, clearly attributed.
+ *
+ * ## What the consistency pass changed
+ *
+ * The four tiles were a local `StatTile` at `Card p-3`, which is one of the six
+ * metric rows the audit counted. They are `MetricRow` now, so a figure on the
+ * deck page is the same size as a figure on My Decks and on My Collection: the
+ * same 24px number on the same 16px-padded tile, rather than the same number at
+ * 12px less padding because two files were written a month apart.
+ *
+ * Nothing was dropped. The card count keeps its progress bar, which is
+ * `Metric.meter`; the format moved from a `Badge variant="outline"` beside the
+ * label, which is a hairline, into the line under the figure where it reads as
+ * what it is; and the colour identity is a `MetricTile`, because it is the
+ * shape of a tile and not the shape of a number.
  */
 export interface DeckQuickStatsProps {
   totalCards: number;
@@ -30,28 +45,6 @@ export interface DeckQuickStatsProps {
   ownedPct?: number | null;
   missingCards?: number | null;
   ownershipLoading?: boolean;
-}
-
-function StatTile({
-  label,
-  children,
-  action,
-  className,
-}: {
-  label: string;
-  children: React.ReactNode;
-  action?: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <Card className={cn('p-3', className)}>
-      <div className="mb-1 flex items-start justify-between gap-2">
-        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
-        {action}
-      </div>
-      {children}
-    </Card>
-  );
 }
 
 export function DeckQuickStats({
@@ -73,40 +66,53 @@ export function DeckQuickStats({
 
   const presentTypes = CATEGORY_ORDER.filter(c => c !== 'commanders' && (typeCounts[c] ?? 0) > 0);
 
+  const metrics: Metric[] = [
+    {
+      id: 'cards',
+      label: 'Cards',
+      value: displayCards.toLocaleString(),
+      raw: displayCards,
+      suffix: `/ ${targetCards}`,
+      meter: completionPct,
+      subtext: formatLabel(format),
+    },
+    {
+      id: 'value',
+      label: 'Est. value',
+      /* A dash, never $0. The smallest real price in the database is 0.01, so a
+         rendered zero is always invented, and an empty deck is not worth
+         nothing, it is worth nothing yet. */
+      value: totalValue > 0 ? `$${totalValue.toFixed(0)}` : '—',
+      raw: totalValue,
+      subtext: 'market, USD',
+    },
+    {
+      id: 'cmc',
+      label: 'Avg mana value',
+      value: totalCards > 0 ? avgCmc.toFixed(2) : '—',
+      raw: avgCmc,
+      subtext: 'nonland cards',
+    },
+  ];
+
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {/* Cards */}
-        <StatTile label="Cards" action={<Badge variant="outline" className="text-[10px]">{format}</Badge>}>
-          <div className="text-2xl font-semibold tabular-nums">
-            {displayCards}
-            <span className="text-sm font-normal text-muted-foreground"> / {targetCards}</span>
-          </div>
-          <Progress value={completionPct} className="mt-2 h-1" />
-        </StatTile>
-
-        {/* Value */}
-        <StatTile label="Est. value">
-          <div className="text-2xl font-semibold tabular-nums">${totalValue.toFixed(0)}</div>
-          <div className="mt-1 text-xs text-muted-foreground">market, USD</div>
-        </StatTile>
-
-        {/* Average mana value */}
-        <StatTile label="Avg mana value">
-          <div className="text-2xl font-semibold tabular-nums">{avgCmc.toFixed(2)}</div>
-          <div className="mt-1 text-xs text-muted-foreground">nonland cards</div>
-        </StatTile>
-
-        {/* Colour identity */}
-        <StatTile label="Colour identity">
+      <MetricRow metrics={metrics} columns={4}>
+        {/* Colour identity is a tile, not a figure. It goes in the slot rather
+            than being hand-built beside the row, so it wears the same ground
+            and the same label type as the three numbers next to it. */}
+        <MetricTile label="Colour identity">
           <div className="flex h-8 items-center">
             <ColorIdentity colors={colors} size="lg" />
           </div>
-          <div className="mt-1 text-xs text-muted-foreground">
+          {/* Two reserved lines, matching the meter and the subtext on the
+              figures beside it, so all four tiles are the same height. */}
+          <div className="mt-1 h-1" aria-hidden="true" />
+          <p className="truncate text-[10px] text-muted-foreground">
             {colors.length === 0 ? 'Colourless' : `${colors.length}-colour`}
-          </div>
-        </StatTile>
-      </div>
+          </p>
+        </MetricTile>
+      </MetricRow>
 
       {/* Collection ownership — only rendered when it is real */}
       <Card className="p-3">

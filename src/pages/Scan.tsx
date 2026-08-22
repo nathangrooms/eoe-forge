@@ -8,6 +8,7 @@ import { Camera, Settings, Trash2 } from 'lucide-react';
 import { useScanStore } from '@/features/scan/store';
 import { DeckAdditionPanel } from '@/components/collection/DeckAdditionPanel';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
+import { matchedLabel, ResultSummary } from '@/components/listing';
 import { ScanInsightsHelper } from '@/components/scan/ScanInsightsHelper';
 import { CardGrid, CardImage, cardDetailPath } from '@/components/cards';
 import { formatPrice } from '@/components/collection/browser/types';
@@ -163,7 +164,7 @@ export default function Scan() {
 
   return (
     <StandardPageLayout
-      title="Card Scanner"
+      title="Card scanner"
       description="Point the camera at a card, confirm the match, and it lands wherever you send it."
       action={
         <Button asChild size="lg" className="touch-target gap-2">
@@ -249,20 +250,24 @@ export default function Scan() {
             <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
               <h2 className="text-lg font-semibold text-foreground">Recent scans</h2>
               <div className="flex items-center gap-4">
-                <p className="text-sm text-muted-foreground">
-                  <span className="font-semibold tabular-nums text-foreground">
-                    {recentScans.length}
-                  </span>{' '}
-                  cards ·{' '}
-                  <span className="font-semibold tabular-nums text-foreground">
-                    {scannedCopies}
-                  </span>{' '}
-                  copies ·{' '}
-                  <span className="font-semibold tabular-nums text-foreground">
-                    {(avgConfidence * 100).toFixed(0)}%
-                  </span>{' '}
-                  mean match confidence
-                </p>
+                {/* The shared count line. This was a sixth phrasing of the
+                    one fact every list on this side of the app states, and the
+                    only one that emboldened each figure inside the sentence. */}
+                {/* `ResultSummary`, not `resultSentence`: the match figure
+                    carries a caption saying what it is an average of, and a
+                    string cannot hold one. */}
+                <ResultSummary
+                  className="text-sm text-muted-foreground"
+                  parts={[
+                    matchedLabel(recentScans.length, recentScans.length, 'card'),
+                    { value: scannedCopies.toLocaleString(), label: scannedCopies === 1 ? 'copy' : 'copies' },
+                    {
+                      value: `${(avgConfidence * 100).toFixed(0)}%`,
+                      label: 'average match',
+                      title: 'How sure the scanner was, averaged over these cards.',
+                    },
+                  ]}
+                />
                 <Button variant="ghost" size="sm" onClick={clearRecentScans} className="gap-1.5">
                   <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                   Clear

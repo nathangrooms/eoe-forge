@@ -314,7 +314,7 @@ export function describePlayability(
        the *library*: how many sources exist that would not still be sitting
        tapped or uncast on that turn. Say "the library holds" so the sentence
        cannot be mistaken for what is on the battlefield. */
-    const text = `${symbols} × ${pip.count} — ${needs}. The library holds ${live} ${names} ${plural(live, 'source')} that can be online by turn ${turn}.`;
+    const text = `${symbols} × ${pip.count}, ${needs}. The library holds ${live} ${names} ${plural(live, 'source')} that can be online by turn ${turn}.`;
     reasons.push(text);
 
     // The tightest requirement is the one worth quoting in one line: fewest
@@ -334,12 +334,12 @@ export function describePlayability(
   );
 
   const summary = worst
-    ? `${Math.round(pct)}% — ${worst.text}.`
-    : `${Math.round(pct)}% — ${total} mana ${plural(total, 'source')} online by turn ${turn}, needing ${card.manaRequired}.`;
+    ? `${Math.round(pct)}% castable. There ${worst.text.startsWith('only 1 ') ? 'is' : 'are'} ${worst.text}.`
+    : `${Math.round(pct)}% castable. ${total} mana ${plural(total, 'source')} online by turn ${turn}, needing ${card.manaRequired}.`;
 
   return {
     headline: `${pct.toFixed(1)}% castable on turn ${turn}`,
-    cost: `Costs ${pipText(card)} — ${card.manaRequired} mana by turn ${turn}.`,
+    cost: `Costs ${pipText(card)}. That is ${card.manaRequired} mana by turn ${turn}.`,
     reasons,
     summary,
     approximate: card.approximate,

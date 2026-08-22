@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { FIELD } from '@/components/listing';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -276,7 +278,7 @@ export function AddCardPanel({
               {toDeck && decks.length > 0 && (
                 <div className="pl-7">
                   <Select value={deckId} onValueChange={setDeckId}>
-                    <SelectTrigger>
+                    <SelectTrigger className={FIELD}>
                       <SelectValue placeholder="Choose a deck" />
                     </SelectTrigger>
                     <SelectContent>
@@ -324,7 +326,7 @@ export function AddCardPanel({
                 max={99}
                 value={quantity}
                 onChange={e => setQuantity(Math.max(1, Number(e.target.value) || 1))}
-                className="w-20"
+                className={cn(FIELD, 'w-20')}
               />
             </div>
           </>

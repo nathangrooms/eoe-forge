@@ -1,14 +1,38 @@
-import { Card, CardContent } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
+import { MetricRow, type Metric } from '@/components/listing';
 import type { DeckSummary } from '@/lib/api/deckAPI';
 import { usesPowerLevel } from '@/lib/deck/formats';
 
 interface DecksSummaryStatsProps {
   decks: DeckSummary[];
+  loading?: boolean;
   className?: string;
 }
 
-export function DecksSummaryStats({ decks, className }: DecksSummaryStatsProps) {
+/**
+ * My Decks' figures.
+ *
+ * This row is where the shared metric tile came from. The owner named it good
+ * and named My Collection's bad, the audit measured the gap at 19,447 px²
+ * against 2,534, and `MetricRow` is this treatment lifted out so every page
+ * gets it. Several pages wear it now.
+ *
+ * So this file draws no tiles any more. It works out six figures and hands them
+ * over, which is all a page should have to decide about its own numbers.
+ *
+ * Two things it used to say in a comment are enforced by the shared component
+ * now, and both are worth repeating here because both were paid for:
+ *
+ * - **No icons.** Owner: *"Deck manage metrics dont need icons - makes it look
+ *   like ai slop"*. `MetricRow` has no `icon` prop.
+ * - **Six columns whatever the content.** A row that wrapped on its own figures
+ *   moved everything below it when the data landed.
+ *
+ * What it gains: `raw` on every figure, so a number that moves animates the way
+ * the collection's total does, and a loading state, so the row holds its 95px
+ * from the first paint instead of appearing under the title when the decks
+ * arrive and shoving the deck grid down.
+ */
+export function DecksSummaryStats({ decks, loading = false, className }: DecksSummaryStatsProps) {
   const totalDecks = decks.length;
   const favoriteCount = decks.filter(d => d.favorite).length;
 
@@ -19,9 +43,7 @@ export function DecksSummaryStats({ decks, className }: DecksSummaryStatsProps) 
    * `useCachedDeckStats`, so the two headers can no longer disagree about the
    * same collection.
    */
-  const powerDecks = decks.filter(
-    d => usesPowerLevel(d.format) && d.power && !d.power.stale
-  );
+  const powerDecks = decks.filter(d => usesPowerLevel(d.format) && d.power && !d.power.stale);
   const avgPowerLevel =
     powerDecks.length > 0
       ? powerDecks.reduce((sum, d) => sum + (d.power?.score ?? 0), 0) / powerDecks.length
@@ -45,16 +67,13 @@ export function DecksSummaryStats({ decks, className }: DecksSummaryStatsProps) 
   const completionRate =
     builtDecks.length > 0 ? Math.round((completeDecks / builtDecks.length) * 100) : 0;
 
-  const stats: Array<{
-    label: string;
-    value: string;
-    suffix?: string;
-    subtext?: string;
-  }> = [
-    { label: 'Total decks', value: totalDecks.toLocaleString() },
+  const metrics: Metric[] = [
+    { id: 'decks', label: 'Total decks', value: totalDecks.toLocaleString(), raw: totalDecks },
     {
+      id: 'power',
       label: 'Avg power',
       value: avgPowerLevel === null ? '—' : avgPowerLevel.toFixed(1),
+      raw: avgPowerLevel ?? undefined,
       suffix: avgPowerLevel === null ? undefined : '/10',
       subtext:
         avgPowerLevel === null
@@ -62,14 +81,26 @@ export function DecksSummaryStats({ decks, className }: DecksSummaryStatsProps) 
           : `${powerDecks.length} scored Commander deck${powerDecks.length === 1 ? '' : 's'}`,
     },
     {
+      id: 'value',
       label: 'Total value',
-      value: `$${Math.round(totalValue).toLocaleString()}`,
+      /* A dash, never $0. The smallest real price in the database is 0.01, so a
+         rendered zero is always invented, and a library of empty decks is not
+         worth nothing, it is worth nothing yet. */
+      value: totalValue > 0 ? `$${Math.round(totalValue).toLocaleString()}` : '—',
+      raw: totalValue,
     },
-    { label: 'Favorites', value: favoriteCount.toLocaleString() },
-    { label: 'Total cards', value: totalCards.toLocaleString() },
     {
+      id: 'favorites',
+      label: 'Favorites',
+      value: favoriteCount.toLocaleString(),
+      raw: favoriteCount,
+    },
+    { id: 'cards', label: 'Total cards', value: totalCards.toLocaleString(), raw: totalCards },
+    {
+      id: 'complete',
       label: 'Complete',
       value: builtDecks.length > 0 ? `${completionRate}%` : '—',
+      raw: builtDecks.length > 0 ? completionRate : undefined,
       subtext:
         builtDecks.length > 0
           ? `${completeDecks} of ${builtDecks.length} built deck${builtDecks.length === 1 ? '' : 's'}`
@@ -77,33 +108,5 @@ export function DecksSummaryStats({ decks, className }: DecksSummaryStatsProps) 
     },
   ];
 
-  return (
-    <div className={cn('grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6', className)}>
-      {stats.map(stat => (
-        <Card key={stat.label}>
-          <CardContent className="p-4">
-            {/* NO ICONS. A boxed pictogram beside every number says nothing the
-                label does not, and six of them in a row is the house style of
-                every generated dashboard. Owner: "Deck manage metrics dont need
-                icons - makes it look like ai slop". The number is the thing;
-                give it the space instead. */}
-            <div className="flex items-center gap-3">
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-xs text-muted-foreground">{stat.label}</p>
-                <div className="flex items-baseline gap-0.5">
-                  <span className="text-2xl font-semibold tabular-nums">{stat.value}</span>
-                  {stat.suffix && (
-                    <span className="text-xs text-muted-foreground">{stat.suffix}</span>
-                  )}
-                </div>
-                {stat.subtext && (
-                  <p className="truncate text-[10px] text-muted-foreground">{stat.subtext}</p>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
+  return <MetricRow metrics={metrics} columns={6} loading={loading} className={className} />;
 }

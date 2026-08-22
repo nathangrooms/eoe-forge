@@ -37,7 +37,7 @@ export function PlayabilityMeter({
       <span className={cn('text-sm text-muted-foreground', className)}>
         <span aria-hidden>—</span>
         <span className="sr-only">
-          {card?.skipped === 'land' ? 'Land — not cast' : 'No castability figure'}
+          {card?.skipped === 'land' ? 'A land, so nothing to cast' : 'No castability figure'}
         </span>
       </span>
     );

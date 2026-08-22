@@ -102,12 +102,14 @@ export default function AIBuilder() {
   /* One query at a time, chosen by what the reader last did. Three separate
      browse hooks used to run side by side so that clearing a box did not
      re-fetch the wall; the page cache in `useScryfallPage` covers that now, and
-     covers every page already seen rather than only the first. */
-  const [committedSearch, setCommittedSearch] = useState('');
-  useEffect(() => {
-    const timer = window.setTimeout(() => setCommittedSearch(commanderSearch.trim()), 400);
-    return () => window.clearTimeout(timer);
-  }, [commanderSearch]);
+     covers every page already seen rather than only the first.
+
+     The 400ms debounce that used to sit here is gone. `ListingSearch` inside
+     the wall holds the draft and commits on the shared 250ms, so what arrives
+     at `setCommanderSearch` is already settled text and there is nothing left
+     to wait out. The audit counted 250, 300, 400 and 220ms across the product
+     with no reason recorded for any of them. */
+  const committedSearch = commanderSearch.trim();
 
   /** The finder's query, frozen when Search was pressed rather than live. */
   const [finderUrl, setFinderUrl] = useState<string | null>(null);
@@ -133,7 +135,6 @@ export default function AIBuilder() {
 
   const runFinderSearch = () => {
     setCommanderSearch('');
-    setCommittedSearch('');
     setFinderActive(true);
     setFinderUrl(commanderSearchUrl(buildCommanderQuery(filters), sortOrder));
   };

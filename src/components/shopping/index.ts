@@ -67,5 +67,5 @@ export {
   type RowArtState,
 } from './useProxyArt';
 
-export { default as ShoppingListPage, EmptyPanel } from './ShoppingListPage';
+export { default as ShoppingListPage } from './ShoppingListPage';
 export { default as ProxyListPage } from './ProxyListPage';

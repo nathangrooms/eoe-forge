@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FIELD } from '@/components/listing';
+import { cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -377,7 +379,7 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
             <div className="space-y-1">
               <Label className="text-xs">Paper</Label>
               <Select value={paperSize} onValueChange={v => setPaperSize(v as PaperSize)}>
-                <SelectTrigger className="h-8 text-xs">
+                <SelectTrigger className={cn(FIELD, 'h-8 text-xs')}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -392,7 +394,7 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
             <div className="space-y-1">
               <Label className="text-xs">Art resolution</Label>
               <Select value={quality} onValueChange={v => setQuality(v as ProxyQuality)}>
-                <SelectTrigger className="h-8 text-xs">
+                <SelectTrigger className={cn(FIELD, 'h-8 text-xs')}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

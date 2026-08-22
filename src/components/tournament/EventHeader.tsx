@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { MetricRow, type Metric } from '@/components/listing';
 import { viewFor, type PlayerView } from './playerViews';
 import type { Standing, Tournament } from './scoring';
 
@@ -93,6 +94,49 @@ export function EventHeader({
   const leaderCard =
     leader && tournament.rounds.length > 0 ? viewFor(views, leader.player).card : null;
   const ground = leaderCard?.image_uris.art_crop ?? leaderCard?.image_uris.normal ?? null;
+
+  const headerMetrics: Metric[] = [
+    {
+      id: 'players',
+      label: 'Players',
+      value: active.toLocaleString(),
+      raw: active,
+      subtext:
+        tournament.dropped.length > 0
+          ? `${tournament.dropped.length} dropped`
+          : `${registered} decks registered`,
+    },
+    {
+      id: 'round',
+      label: 'Round',
+      value:
+        tournament.status === 'setup'
+          ? String(tournament.currentRound > 0 ? tournament.currentRound : 0)
+          : String(tournament.currentRound),
+      suffix: `/ ${totalRounds}`,
+      raw: tournament.status === 'setup' ? 0 : tournament.currentRound,
+      subtext: STRUCTURE_LABEL[tournament.format],
+    },
+    {
+      id: 'results',
+      label: 'Results in',
+      /* A dash rather than 0 / 0 before the first round is paired. There are no
+         tables yet, so there is nothing to be none of. */
+      value: tables === 0 ? '—' : String(decided),
+      suffix: tables === 0 ? undefined : `/ ${tables}`,
+      raw: decided,
+      subtext:
+        tables === 0 ? 'Not started' : `${tables} table${tables === 1 ? '' : 's'}`,
+    },
+    {
+      id: 'leader',
+      label: tournament.status === 'completed' ? 'Champion' : 'Leader',
+      value: leader ? leader.player : '—',
+      subtext: leader
+        ? `${leader.points} pts · ${leader.wins}–${leader.losses}–${leader.draws}`
+        : 'No results yet',
+    },
+  ];
 
   return (
     <section className="relative isolate overflow-hidden rounded-2xl bg-card shadow-sm">
@@ -194,32 +238,18 @@ export function EventHeader({
         </div>
       </div>
 
-      {/* Counted facts. Spaced panels, not divided cells — a 1px grid gap over a
-          tinted background is a hairline by another name. */}
-      <div className="grid grid-cols-2 gap-4 bg-muted/20 px-4 py-3 sm:grid-cols-4">
-        <Stat label="Players" value={String(active)} hint={
-          tournament.dropped.length > 0 ? `${tournament.dropped.length} dropped` : `${registered} decks registered`
-        } />
-        <Stat
-          label="Round"
-          value={
-            tournament.status === 'setup'
-              ? `0 / ${totalRounds}`
-              : `${tournament.currentRound} / ${totalRounds}`
-          }
-          hint={tournament.format === 'swiss' ? 'Swiss' : 'Bracket'}
-        />
-        <Stat
-          label="Results in"
-          value={tables === 0 ? 'None yet' : `${decided} / ${tables}`}
-          hint={tables === 0 ? 'Not started' : `${tables} table${tables === 1 ? '' : 's'}`}
-        />
-        <Stat
-          label={tournament.status === 'completed' ? 'Champion' : 'Leader'}
-          value={leader ? leader.player : 'Nobody yet'}
-          hint={leader ? `${leader.points} pts · ${leader.wins}–${leader.losses}–${leader.draws}` : 'No results yet'}
-          truncate
-        />
+      {/* Counted facts, in the tiles every other figure in the product wears.
+
+          These were four 18px numbers with 10px labels above them, which is one
+          of the metric rows the audit counted and the smallest of them. They
+          are `MetricRow` now, so a figure a tournament organiser glances at
+          between calls is the same size as a figure on My Decks.
+
+          `on="card"` because this row sits inside a card that is already
+          raised. Depth here comes from surface tint, so a `bg-card` tile on a
+          `bg-card` panel is not a subtle tile, it is no tile at all. */}
+      <div className="px-4 py-3">
+        <MetricRow metrics={headerMetrics} columns={4} on="card" />
       </div>
 
       {/* Round clock */}
@@ -299,35 +329,5 @@ function StatusChip({ status }: { status: Tournament['status'] }) {
       <Icon className={cn('h-3 w-3', status === 'in-progress' && 'fill-current')} />
       {config.label}
     </span>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  hint,
-  truncate = false,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-  truncate?: boolean;
-}) {
-  return (
-    <div className="min-w-0">
-      <p className="text-[0.6rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-        {label}
-      </p>
-      <p
-        className={cn(
-          'mt-0.5 text-lg font-semibold text-foreground',
-          truncate && 'truncate',
-          !truncate && 'tabular-nums'
-        )}
-      >
-        {value}
-      </p>
-      {hint && <p className="truncate text-xs text-muted-foreground">{hint}</p>}
-    </div>
   );
 }

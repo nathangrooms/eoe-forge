@@ -1,35 +1,22 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { CheckSquare, LayoutGrid, Rows3, Sparkles, Square, Table2 } from 'lucide-react';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  ArrowDown,
-  ArrowUp,
-  CheckSquare,
-  LayoutGrid,
-  Rows3,
-  Search,
-  SlidersHorizontal,
-  Sparkles,
-  Square,
-  Table2,
-  X,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { CardGrid, CardSizeSlider, useCardSize } from '@/components/cards';
-import { Pager } from '@/components/ui/pagination';
-import { usePagedItems, usePageSize } from '@/hooks/usePagination';
-import {
-  ActiveFilterChips,
-  CardFilterSheet,
-  useCardFilterState,
-} from '@/components/filters';
+  FacetChip,
+  FilterBar,
+  FilterButton,
+  ListingFrame,
+  ListingSearch,
+  RemovableChip,
+  ResultSummary,
+  SortControl,
+  matchedLabel,
+  totalActiveFilters,
+  useListingView,
+  type ListingMode,
+} from '@/components/listing';
+import { usePagedItems } from '@/hooks/usePagination';
+import { ActiveFilterChips, CardFilterSheet, useCardFilterState } from '@/components/filters';
 import { matchesCardFilter } from '@/lib/cards/local-filter';
 import { CollectionCardTile } from './CollectionCardTile';
 import { CollectionCardRow } from './CollectionCardRow';
@@ -45,10 +32,8 @@ import {
   sortCards,
   valueOf,
   type BrowserCard,
-  type BrowserViewMode,
   type ConditionGrade,
   type OwnershipFilterState,
-  type SortDirection,
   type SortKey,
   SORT_OPTIONS,
 } from './types';
@@ -56,44 +41,54 @@ import {
 /**
  * The browser every list of owned cards renders through.
  *
- * Two things changed here and they are the whole point:
+ * Three things are true of it and they are the whole point:
  *
- * 1. **One filter.** The bespoke `CollectionFilterState` is gone. This drives
- *    the shared `CardFilterPanel` — the same control, with the same facets, as
- *    the card-search pages — and evaluates its `CardSearchState` locally via
- *    `matchesCardFilter`. Ownership questions the panel cannot ask (condition,
- *    foil, copies owned) sit beside it, because no Scryfall query can express
- *    "cards I own two of in Lightly Played".
+ * 1. **One filter.** It drives the shared `CardFilterPanel`, the same control
+ *    with the same facets as the card-search pages, and evaluates its
+ *    `CardSearchState` locally through `matchesCardFilter`. Ownership questions
+ *    the panel cannot ask (condition, foil, copies owned) sit beside it,
+ *    because no Scryfall query can express "cards I own two of in Lightly
+ *    Played".
  * 2. **One card renderer.** `CardImage` inside `CardGrid`, sized by a
- *    continuous `CardSizeSlider` rather than a five-step density enum.
+ *    continuous slider rather than a five-step density enum.
+ * 3. **One set of listing controls.** Search, filter bar, view modes, size,
+ *    paging and the count line come from `@/components/listing`. This file
+ *    draws none of them any more. It says which modes exist, what a row is,
+ *    and what its own facets are, and that is all a listing surface should
+ *    have to decide.
+ *
+ * ## Two things moved, and nothing was removed
+ *
+ * The ownership chips share the control row with the size and view controls
+ * now instead of holding a band of their own. The audit measured 449px of
+ * chrome above the first card here against My Decks' 339px, and the extra came
+ * from bands rather than from controls. The chips are a genuine difference and
+ * they stay; a band to themselves was not.
+ *
+ * "Clear all" now clears the ownership facets too. It used to be
+ * `ActiveFilterChips`' own control, which knows only about the shared half, so
+ * clearing everything left the condition chips on and the grid stayed narrowed
+ * with nothing on screen explaining why.
  */
 
-interface PersistedView {
-  view: BrowserViewMode;
-  sortKey: SortKey;
-  sortDir: SortDirection;
-}
-
-function loadView(key: string | undefined, fallback: PersistedView): PersistedView {
-  if (!key || typeof window === 'undefined') return fallback;
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) return fallback;
-    const parsed = JSON.parse(raw) as Partial<PersistedView>;
-    return {
-      view: parsed.view ?? fallback.view,
-      sortKey: parsed.sortKey ?? fallback.sortKey,
-      sortDir: parsed.sortDir ?? fallback.sortDir,
-    };
-  } catch {
-    return fallback;
-  }
-}
+/**
+ * The three ways to look at owned cards.
+ *
+ * Not the same three as card search, deliberately. A table here carries
+ * condition, quantity and value columns that a Scryfall result has no values
+ * for, and card search's text list exists for copying a decklist out, which is
+ * not something anybody does with a collection.
+ */
+const MODES: ListingMode[] = [
+  { id: 'grid', label: 'Image grid', icon: LayoutGrid, layout: 'grid' },
+  { id: 'list', label: 'List', icon: Rows3, layout: 'rows' },
+  { id: 'table', label: 'Table', icon: Table2, layout: 'rows' },
+];
 
 export interface CollectionBrowserProps {
   cards: BrowserCard[];
   loading?: boolean;
-  /** localStorage key so view mode, card size and sort survive navigation. */
+  /** localStorage key so view mode, card size, sort and page size survive navigation. */
   storageKey?: string;
   onCardClick?: (card: BrowserCard) => void;
   actions?: BrowserAction[];
@@ -142,23 +137,28 @@ export function CollectionBrowser({
   emptyDescription,
   emptyAction,
 }: CollectionBrowserProps) {
-  const initial = useMemo(
-    () => loadView(storageKey, { view: 'grid', sortKey: 'name', sortDir: 'asc' }),
-    [storageKey]
-  );
+  /*
+   * `storageKey` goes straight through as the surface name, so the keys this
+   * reads are the keys it has always written: the view under the key itself,
+   * card size under `dm.card-size.<key>`, page size under `dm.pageSize.<key>`.
+   * Renaming it would silently reset every existing reader's preferences, and
+   * `readListingView` still answers to the older `view` field for the same
+   * reason.
+   */
+  const view = useListingView({
+    surface: storageKey,
+    modes: MODES,
+    defaultMode: 'grid',
+    defaultSortKey: 'name',
+    defaultSortDir: 'asc',
+    defaultSize: 200,
+  });
+  /* The vocabulary keeps sort keys as strings because every surface sorts on a
+     different set. This is the one place the collection's own set is named. */
+  const sortKey = view.sortKey as SortKey;
 
   const filters = useCardFilterState({ urlSync });
   const [ownership, setOwnership] = useState<OwnershipFilterState>(EMPTY_OWNERSHIP);
-  const [view, setView] = useState<BrowserViewMode>(initial.view);
-  const [sortKey, setSortKey] = useState<SortKey>(initial.sortKey);
-  const [sortDir, setSortDir] = useState<SortDirection>(initial.sortDir);
-  const [cardWidth, setCardWidth] = useCardSize(storageKey ?? 'collection', 200);
-  const [pageSize, setPageSize] = usePageSize(storageKey ?? 'collection');
-
-  useEffect(() => {
-    if (!storageKey || typeof window === 'undefined') return;
-    window.localStorage.setItem(storageKey, JSON.stringify({ view, sortKey, sortDir }));
-  }, [storageKey, view, sortKey, sortDir]);
 
   /**
    * Projection is memoised on `cards`, not recomputed per keystroke — a
@@ -177,18 +177,18 @@ export function CollectionBrowser({
           matchesCardFilter(local, filters.state) && matchesOwnership(card, ownership)
       )
       .map(({ card }) => card);
-    return sortCards(kept, sortKey, sortDir);
-  }, [projected, filters.state, ownership, sortKey, sortDir]);
+    return sortCards(kept, sortKey, view.sortDir);
+  }, [projected, filters.state, ownership, sortKey, view.sortDir]);
 
   /**
    * Copies on screen, what they are worth, and how many of them we could not
    * price.
    *
    * The third number is the one that was missing. Prices are absent for
-   * thousands of printings (5,186 of 52,130 rows carry no `usd` at all), and
-   * those copies used to add 0 to this sum, so the total looked exact while
-   * being quietly too low. The valuation rule itself is unchanged, because
-   * changing it would move every user's reported collection value.
+   * thousands of printings, and those copies used to add 0 to this sum, so the
+   * total looked exact while being quietly too low. The valuation rule itself
+   * is unchanged, because changing it would move every user's reported
+   * collection value.
    */
   const visibleTotals = useMemo(() => {
     let copies = 0;
@@ -207,44 +207,29 @@ export function CollectionBrowser({
    * Page the rows, after sorting and never before.
    *
    * The whole filtered set stays in hand because this screen reports figures
-   * over all of it — copies, value, and how many copies could not be priced.
-   * What paging cuts is the drawing: a 1,200-row collection used to put 1,200
-   * card tiles and 20,029 elements into the document at once, and every
-   * keystroke in the search box re-rendered all of them.
+   * over all of it. What paging cuts is the drawing: a 1,200-row collection
+   * used to put 1,200 card tiles and 20,029 elements into the document at once,
+   * and every keystroke in the search box re-rendered all of them.
    *
    * `visible` is already sorted by `sortCards`, which breaks ties on the row id
    * so the order cannot shuffle between renders and put a card on two pages.
    */
   const resetKey = useMemo(
-    () => JSON.stringify([filters.state, ownership, sortKey, sortDir]),
-    [filters.state, ownership, sortKey, sortDir]
+    () => JSON.stringify([filters.state, ownership, sortKey, view.sortDir]),
+    [filters.state, ownership, sortKey, view.sortDir]
   );
 
   const paged = usePagedItems(visible, {
-    pageSize,
+    pageSize: view.pageSize,
     resetKey,
     urlSync,
     key: 'page',
   });
 
-  /** Turning the page starts you at the top of it, not halfway down. */
-  const listTop = useRef<HTMLDivElement>(null);
-  const goToPage = useCallback(
-    (next: number) => {
-      paged.setPage(next);
-      const top = listTop.current;
-      if (!top) return;
-      const y = top.getBoundingClientRect().top + window.scrollY - 16;
-      window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
-    },
-    [paged]
-  );
-
   const ownedCount = ownershipFilterCount(ownership);
-  const filterCount = filters.activeCount + ownedCount;
+  const filterCount = totalActiveFilters(filters.activeCount, ownedCount);
   const selected = selectedIds ?? new Set<string>();
-  const allVisibleSelected =
-    visible.length > 0 && visible.every(c => selected.has(c.rowId));
+  const allVisibleSelected = visible.length > 0 && visible.every(c => selected.has(c.rowId));
 
   const clearEverything = useCallback(() => {
     filters.reset();
@@ -256,14 +241,6 @@ export function CollectionBrowser({
     [filters.patch] // eslint-disable-line react-hooks/exhaustive-deps
   );
 
-  const handleSortColumn = (key: SortKey) => {
-    if (key === sortKey) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
-    else {
-      setSortKey(key);
-      setSortDir(key === 'name' || key === 'set' ? 'asc' : 'desc');
-    }
-  };
-
   const toggleCondition = (grade: ConditionGrade) =>
     setOwnership(o => ({
       ...o,
@@ -272,65 +249,99 @@ export function CollectionBrowser({
         : [...o.conditions, grade],
     }));
 
+  /** The table's column headers sort too, and share one axis with the control. */
+  const handleSortColumn = (key: SortKey) => {
+    if (key === sortKey) view.toggleSortDir();
+    else {
+      view.setSortKey(key);
+      view.setSortDir(key === 'name' || key === 'set' ? 'asc' : 'desc');
+    }
+  };
+
+  /* `ResultSummary`, not `resultSentence`: the unpriced figure carries a
+     caption saying the total above it is short, and a string throws that away.
+     The caption was on screen as a `<span title>` before this page moved to the
+     shared count line, and a valuation that is quietly low while looking exact
+     is the one thing this figure must not be. */
+  const summary = (
+    <ResultSummary
+      parts={[
+        matchedLabel(visible.length, cards.length, 'entry', 'entries'),
+        { value: visibleTotals.copies.toLocaleString(), label: 'cards' },
+        /* Only when there is a price to state. `formatPrice(0)` returns
+           "$0.00", and the smallest real price in the database is 0.01, so a
+           rendered zero here is always invented. Filter the collection down to
+           cards the catalogue has no price for and this line said the result
+           was worth nothing; it is worth nothing KNOWN, which is what the
+           "copies with no price" figure beside it is for. */
+        visibleTotals.value > 0 && { value: formatPrice(visibleTotals.value) },
+        visibleTotals.unpriced > 0 && {
+          value: visibleTotals.unpriced.toLocaleString(),
+          label: visibleTotals.unpriced === 1 ? 'copy with no price' : 'copies with no price',
+          title: 'We hold no price for these copies, so the total above is lower than the real one.',
+        },
+      ]}
+    />
+  );
+
   return (
     <div className="space-y-4">
-      {/* Toolbar — a raised surface, not a boxed one. */}
-      <div className="space-y-3 rounded-lg bg-card p-3 shadow-lg shadow-black/20">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <SearchBox value={filters.state.text ?? ''} onCommit={commitText} />
-
-          <div className="flex items-center gap-2">
-            <CardFilterSheet
-              controller={filters}
-              showSort={false}
-              showChips={false}
-              trigger={
-                <Button variant="secondary" size="sm" className="gap-1.5">
-                  <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-                  Filters
-                  {filterCount > 0 && (
-                    <span className="ml-0.5 rounded-full bg-primary px-1.5 py-0.5 text-[0.65rem] font-bold leading-none text-primary-foreground">
-                      {filterCount}
-                    </span>
-                  )}
-                </Button>
-              }
-            />
-
-            <Select value={sortKey} onValueChange={v => setSortKey(v as SortKey)}>
-              <SelectTrigger
-                className="h-9 w-[150px] border-0 bg-muted/50"
-                aria-label="Sort by"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="border-0">
-                {SORT_OPTIONS.map(o => (
-                  <SelectItem key={o.value} value={o.value}>
-                    {o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Button
-              variant="secondary"
-              size="icon"
-              className="h-9 w-9 shrink-0"
-              onClick={() => setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))}
-              aria-label={sortDir === 'asc' ? 'Sort ascending' : 'Sort descending'}
-              title={sortDir === 'asc' ? 'Ascending' : 'Descending'}
-            >
-              {sortDir === 'asc' ? (
-                <ArrowUp className="h-4 w-4" />
-              ) : (
-                <ArrowDown className="h-4 w-4" />
+      <FilterBar
+        view={view}
+        activeCount={filterCount}
+        onClear={clearEverything}
+        search={
+          <ListingSearch
+            value={filters.state.text ?? ''}
+            onCommit={commitText}
+            placeholder="Name, type, or Scryfall syntax like t:creature mv<=3"
+            label="Search cards"
+          />
+        }
+        filters={
+          <CardFilterSheet
+            controller={filters}
+            showSort={false}
+            showChips={false}
+            trigger={<FilterButton count={filterCount} />}
+          />
+        }
+        sort={
+          <SortControl
+            options={SORT_OPTIONS}
+            value={sortKey}
+            onValueChange={next => view.setSortKey(next)}
+            dir={view.sortDir}
+            onToggleDir={view.toggleSortDir}
+          />
+        }
+        chips={
+          filterCount > 0 ? (
+            <>
+              {/* The bar owns the one clear control, so the chips do not draw a
+                  second one that would reset only half of what is on. */}
+              <ActiveFilterChips controller={filters} showClear={false} />
+              {ownership.conditions.map(grade => (
+                <RemovableChip key={grade} onRemove={() => toggleCondition(grade)}>
+                  Condition: {grade}
+                </RemovableChip>
+              ))}
+              {ownership.foilOnly && (
+                <RemovableChip onRemove={() => setOwnership(o => ({ ...o, foilOnly: false }))}>
+                  Foil copies
+                </RemovableChip>
               )}
-            </Button>
-          </div>
-        </div>
-
-        {/* Ownership facets — the questions a Scryfall query cannot ask. */}
+              {ownership.minCopies > 0 && (
+                <RemovableChip onRemove={() => setOwnership(o => ({ ...o, minCopies: 0 }))}>
+                  {ownership.minCopies}+ copies
+                </RemovableChip>
+              )}
+            </>
+          ) : null
+        }
+      >
+        {/* Ownership facets and selection share this row with the size and view
+            controls rather than each taking a band of their own. */}
         {showOwnershipFilters && (
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-[0.7rem] font-medium uppercase tracking-wider text-muted-foreground">
@@ -366,212 +377,106 @@ export function CollectionBrowser({
           </div>
         )}
 
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            {onToggleSelectionMode && (
-              <>
-                <Button
-                  variant={selectionMode ? 'secondary' : 'ghost'}
-                  size="sm"
-                  onClick={onToggleSelectionMode}
-                  className="gap-1.5"
-                  aria-pressed={selectionMode}
-                >
-                  {selectionMode ? (
-                    <CheckSquare className="h-4 w-4" />
-                  ) : (
-                    <Square className="h-4 w-4" />
-                  )}
-                  Select
-                </Button>
-                {selectionMode && onSelectVisible && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      allVisibleSelected
-                        ? onClearSelection?.()
-                        : onSelectVisible(visible.map(c => c.rowId))
-                    }
-                  >
-                    {/* Every row the filter matched, not just this page. On a
-                        paged list "shown" would read as the 24 on screen. */}
-                    {allVisibleSelected
-                      ? 'Deselect all'
-                      : `Select all ${visible.length.toLocaleString()} matching`}
-                  </Button>
-                )}
-              </>
+        {onToggleSelectionMode && (
+          <>
+            <Button
+              variant={selectionMode ? 'default' : 'ghost'}
+              size="sm"
+              onClick={onToggleSelectionMode}
+              className="gap-1.5"
+              aria-pressed={selectionMode}
+            >
+              {selectionMode ? (
+                <CheckSquare className="h-4 w-4" />
+              ) : (
+                <Square className="h-4 w-4" />
+              )}
+              Select
+            </Button>
+            {selectionMode && onSelectVisible && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  allVisibleSelected
+                    ? onClearSelection?.()
+                    : onSelectVisible(visible.map(c => c.rowId))
+                }
+              >
+                {/* Every row the filter matched, not just this page. On a paged
+                    list "shown" would read as the 24 on screen. */}
+                {allVisibleSelected
+                  ? 'Deselect all'
+                  : `Select all ${visible.length.toLocaleString()} matching`}
+              </Button>
             )}
-          </div>
-
-          <div className="flex items-center gap-3">
-            {view === 'grid' && (
-              <CardSizeSlider
-                storageKey={storageKey ?? 'collection'}
-                value={cardWidth}
-                onValueChange={setCardWidth}
-                showValue={false}
-                className="hidden sm:flex"
-              />
-            )}
-
-            <div className="flex items-center gap-1 rounded-md bg-muted/40 p-0.5">
-              {(
-                [
-                  { mode: 'grid' as const, icon: LayoutGrid, label: 'Image grid' },
-                  { mode: 'list' as const, icon: Rows3, label: 'List' },
-                  { mode: 'table' as const, icon: Table2, label: 'Table' },
-                ]
-              ).map(({ mode, icon: Icon, label }) => (
-                <Button
-                  key={mode}
-                  variant={view === mode ? 'secondary' : 'ghost'}
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => setView(mode)}
-                  aria-label={label}
-                  aria-pressed={view === mode}
-                  title={label}
-                >
-                  <Icon className="h-4 w-4" />
-                </Button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {filterCount > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <ActiveFilterChips controller={filters} />
-            {ownership.conditions.map(grade => (
-              <RemovableChip key={grade} onRemove={() => toggleCondition(grade)}>
-                Condition: {grade}
-              </RemovableChip>
-            ))}
-            {ownership.foilOnly && (
-              <RemovableChip onRemove={() => setOwnership(o => ({ ...o, foilOnly: false }))}>
-                Foil copies
-              </RemovableChip>
-            )}
-            {ownership.minCopies > 0 && (
-              <RemovableChip onRemove={() => setOwnership(o => ({ ...o, minCopies: 0 }))}>
-                {ownership.minCopies}+ copies
-              </RemovableChip>
-            )}
-          </div>
+          </>
         )}
-      </div>
+      </FilterBar>
 
-      {toolbarSlot}
-
-      {/* Result summary */}
-      {!loading && cards.length > 0 && (
-        <p className="text-sm text-muted-foreground">
-          <span className="font-medium text-foreground">
-            {visible.length.toLocaleString()}
-          </span>
-          {' of '}
-          {cards.length.toLocaleString()} entries
-          {' · '}
-          <span className="font-medium text-foreground">
-            {visibleTotals.copies.toLocaleString()}
-          </span>{' '}
-          cards
-          {' · '}
-          <span className="font-medium text-foreground">
-            {formatPrice(visibleTotals.value)}
-          </span>
-          {visibleTotals.unpriced > 0 && (
-            <span title="We hold no price for these copies, so the total above is lower than the real one.">
-              {' · '}
-              {visibleTotals.unpriced.toLocaleString()}
-              {visibleTotals.unpriced === 1 ? ' copy' : ' copies'} with no price
-            </span>
-          )}
-        </p>
-      )}
-
-      <div ref={listTop} className="h-px" aria-hidden />
-
-      {!loading && paged.pageCount > 1 && (
-        <Pager
-          page={paged.page}
-          pageCount={paged.pageCount}
-          onPageChange={goToPage}
-          total={paged.total}
-          shown={paged.pageItems.length}
-          pageSize={pageSize}
-          onPageSizeChange={setPageSize}
-          noun="entry"
-          nounPlural="entries"
-          label="Collection pages"
-        />
-      )}
-
-      {/* Results */}
-      {loading ? (
-        <CardGrid width={cardWidth}>
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div
-              key={i}
-              className="aspect-[488/680] w-full animate-pulse rounded-lg bg-muted motion-reduce:animate-none"
-            />
-          ))}
-        </CardGrid>
-      ) : visible.length === 0 ? (
-        <div className="rounded-lg bg-muted/30 p-12 text-center">
-          <h3 className="text-base font-semibold text-foreground">{emptyTitle}</h3>
-          {emptyDescription && (
-            <p className="mt-1 text-sm text-muted-foreground">{emptyDescription}</p>
-          )}
-          {filterCount > 0 && (
-            <Button variant="secondary" size="sm" className="mt-4" onClick={clearEverything}>
-              Clear filters
-            </Button>
-          )}
-          {emptyAction && cards.length === 0 && (
-            <Button size="sm" className="mt-4" onClick={emptyAction.onClick}>
-              {emptyAction.label}
-            </Button>
-          )}
-        </div>
-      ) : view === 'table' ? (
-        <CollectionTable
-          cards={paged.pageItems}
-          sortKey={sortKey}
-          sortDir={sortDir}
-          onSort={handleSortColumn}
-          onCardClick={onCardClick}
-          actions={actions}
-          selectionMode={selectionMode}
-          selectedIds={selected}
-          onToggleSelect={onToggleSelect ?? (() => {})}
-          showCondition={showOwnershipFilters}
-        />
-      ) : view === 'list' ? (
-        <div className="space-y-2">
-          {paged.pageItems.map(card => (
-            <CollectionCardRow
-              key={card.rowId}
-              card={card}
-              onClick={onCardClick}
-              actions={actions}
-              selectionMode={selectionMode}
-              selected={selected.has(card.rowId)}
-              onToggleSelect={onToggleSelect ?? (() => {})}
-              onQuantityChange={onQuantityChange}
-              showCondition={showOwnershipFilters}
-            />
-          ))}
-        </div>
-      ) : (
-        <CardGrid width={cardWidth}>
-          {paged.pageItems.map(card => (
+      <ListingFrame
+        view={view}
+        count={paged.pageItems.length}
+        loading={loading}
+        /* Unconditional: `ListingFrame` reserves the line and decides when it
+           has something to say. Suppressing it here left the box unreserved and
+           the grid jumped by a line when the collection landed. */
+        summary={summary}
+        beforeResults={toolbarSlot}
+        pager={{
+          page: paged.page,
+          pageCount: paged.pageCount,
+          onPageChange: paged.setPage,
+          total: paged.total,
+          shown: paged.pageItems.length,
+          noun: 'entry',
+          nounPlural: 'entries',
+          label: 'Collection pages',
+        }}
+        empty={{
+          title: emptyTitle,
+          description: emptyDescription,
+          onClearFilters: filterCount > 0 ? clearEverything : undefined,
+          action: cards.length === 0 ? emptyAction : undefined,
+        }}
+      >
+        {view.mode === 'table' ? (
+          <CollectionTable
+            cards={paged.pageItems}
+            sortKey={sortKey}
+            sortDir={view.sortDir}
+            onSort={handleSortColumn}
+            onCardClick={onCardClick}
+            actions={actions}
+            selectionMode={selectionMode}
+            selectedIds={selected}
+            onToggleSelect={onToggleSelect ?? (() => {})}
+            showCondition={showOwnershipFilters}
+          />
+        ) : view.mode === 'list' ? (
+          <div className="space-y-2">
+            {paged.pageItems.map(card => (
+              <CollectionCardRow
+                key={card.rowId}
+                card={card}
+                onClick={onCardClick}
+                actions={actions}
+                selectionMode={selectionMode}
+                selected={selected.has(card.rowId)}
+                onToggleSelect={onToggleSelect ?? (() => {})}
+                onQuantityChange={onQuantityChange}
+                showCondition={showOwnershipFilters}
+              />
+            ))}
+          </div>
+        ) : (
+          /* A grid mode arrives inside `ListingFrame`'s `CardGrid` at the
+             slider's width, so the tiles need no wrapper of their own. */
+          paged.pageItems.map(card => (
             <CollectionCardTile
               key={card.rowId}
               card={card}
-              width={cardWidth}
+              width={view.size}
               onClick={onCardClick}
               actions={actions}
               selectionMode={selectionMode}
@@ -580,128 +485,9 @@ export function CollectionBrowser({
               onQuantityChange={onQuantityChange}
               showCondition={showOwnershipFilters}
             />
-          ))}
-        </CardGrid>
-      )}
-
-      {!loading && paged.pageCount > 1 && (
-        <Pager
-          page={paged.page}
-          pageCount={paged.pageCount}
-          onPageChange={goToPage}
-          total={paged.total}
-          shown={paged.pageItems.length}
-          pageSize={pageSize}
-          onPageSizeChange={setPageSize}
-          noun="entry"
-          nounPlural="entries"
-          label="Collection pages"
-        />
-      )}
+          ))
+        )}
+      </ListingFrame>
     </div>
-  );
-}
-
-/* ------------------------------------------------------------------ *
- * Toolbar pieces
- * ------------------------------------------------------------------ */
-
-/**
- * Debounced so a 4,000-card collection is not re-filtered on every keystroke,
- * and reset from the outside when the filter is cleared elsewhere.
- */
-function SearchBox({
-  value,
-  onCommit,
-}: {
-  value: string;
-  onCommit: (next: string | undefined) => void;
-}) {
-  const [draft, setDraft] = useState(value);
-  const [committed, setCommitted] = useState(value);
-
-  useEffect(() => {
-    if (value !== committed) {
-      setCommitted(value);
-      setDraft(value);
-    }
-    // Adopts external changes only; typing is handled by the timer below.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
-
-  useEffect(() => {
-    if (draft === committed) return;
-    const id = window.setTimeout(() => {
-      setCommitted(draft);
-      onCommit(draft.trim() ? draft : undefined);
-    }, 250);
-    return () => window.clearTimeout(id);
-  }, [draft, committed, onCommit]);
-
-  return (
-    <div className="relative min-w-0 flex-1">
-      <Search
-        className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-        aria-hidden="true"
-      />
-      <Input
-        value={draft}
-        onChange={e => setDraft(e.target.value)}
-        placeholder="Name, type, or Scryfall syntax like t:creature mv<=3"
-        aria-label="Search cards"
-        spellCheck={false}
-        className="border-0 bg-muted/50 pl-8 focus-visible:ring-1 focus-visible:ring-offset-0"
-      />
-    </div>
-  );
-}
-
-function FacetChip({
-  selected,
-  onClick,
-  title,
-  children,
-}: {
-  selected: boolean;
-  onClick: () => void;
-  title?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={selected}
-      title={title}
-      className={cn(
-        'inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        selected
-          ? 'bg-primary text-primary-foreground'
-          : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-function RemovableChip({
-  onRemove,
-  children,
-}: {
-  onRemove: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onRemove}
-      title="Remove filter"
-      className="group inline-flex items-center gap-1.5 rounded-full bg-muted/60 py-1 pl-2.5 pr-1.5 text-xs text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    >
-      <span className="truncate">{children}</span>
-      <X className="h-3 w-3 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
-    </button>
   );
 }

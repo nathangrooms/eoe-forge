@@ -18,7 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { CardGrid, CardImage } from '@/components/cards';
+import { CardImage } from '@/components/cards';
 import { AddToListButton } from '@/components/shopping';
 import { formatPrice } from '@/components/collection/browser/types';
 import { PriceTag } from '@/components/pricing';
@@ -98,8 +98,17 @@ export function WishlistCardGrid({
 
   const roomy = width >= ACTIONS_THRESHOLD;
 
+  /*
+   * The tiles, and no grid around them.
+   *
+   * `ListingFrame` puts a `CardGrid` at the slider's width around whatever a
+   * surface hands it for a `grid` mode, so a second one here would be a grid
+   * inside a grid: one column of full-width rows, each holding its own row of
+   * cards. A fragment is transparent to CSS grid, so these become direct
+   * children of the frame's grid and lay out exactly as they did.
+   */
   return (
-    <CardGrid width={width}>
+    <>
       {items.map(item => {
         const belowTarget = isPriceBelowTarget(item);
 
@@ -338,6 +347,6 @@ export function WishlistCardGrid({
           </div>
         );
       })}
-    </CardGrid>
+    </>
   );
 }

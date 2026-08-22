@@ -2,6 +2,8 @@
 // Matches Brain.tsx styling and functionality
 
 import { useState, useRef, useEffect } from 'react';
+import { FIELD } from '@/components/listing';
+import { cn } from '@/lib/utils';
 import { Send, Sparkles, RefreshCw, MessageSquare, TrendingUp, Zap, Target, Lightbulb } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Button } from '@/components/ui/button';
@@ -422,7 +424,7 @@ This reads your decklist. Ask me anything about your deck's strategy, card inter
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
             placeholder="Ask about your deck strategy, card choices, upgrades..."
             disabled={isLoading}
-            className="flex-1"
+            className={cn(FIELD, 'flex-1')}
           />
           <Button 
             onClick={() => handleSendMessage()} 

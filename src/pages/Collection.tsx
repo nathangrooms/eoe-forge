@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLocation, useSearchParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import {
   Package,
   Plus,
@@ -44,6 +43,7 @@ import { CollectionEmptyState } from '@/components/collection/CollectionEmptySta
 import { CollectionLoadingSkeleton } from '@/components/collection/CollectionLoadingSkeleton';
 import { AddCardsHeader } from '@/components/collection/AddCardsHeader';
 import { useAuth } from '@/components/AuthProvider';
+import { PageTabs } from '@/components/listing';
 
 const TABS = ['collection', 'analytics', 'add-cards', 'storage'] as const;
 
@@ -301,27 +301,18 @@ export default function Collection() {
      * fixed viewport, so nothing on it claims one.
      */
     <div className="min-h-screen bg-background">
-      {/* Header — carries state, not marketing copy */}
+      {/*
+        Header — carries state, not marketing copy.
+
+        The four actions sit on the title line, which is My Decks' arrangement
+        and the reason its metric row gets the whole content band. Here they
+        used to share a flex row with the figures, so the figures had 840 of
+        1,288px to work with and were shrunk to a 20px run of text to fit. The
+        figures have their own line under the tab strip now.
+      */}
       <div className="bg-card px-3 py-3 shadow-lg shadow-black/20 md:px-6 md:py-4">
-        <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
-          <div className="min-w-0 flex-1">
-            <h1 className="text-xl font-bold text-foreground md:text-2xl">Collection</h1>
-            {/* One line, five facts. The four stat cards that used to sit under
-                the tab strip repeated three of them word for word. */}
-            <CollectionQuickStats
-              totalValue={collectionStats.totalValue}
-              totalCards={collectionStats.totalCards}
-              uniqueCards={collectionStats.uniqueCards}
-              avgCardValue={
-                collectionStats.totalCards > 0
-                  ? collectionStats.totalValue / collectionStats.totalCards
-                  : 0
-              }
-              recentlyAddedCount={recentlyAddedCount}
-              unpricedCards={summary.unpriced}
-              loading={loading}
-            />
-          </div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-xl font-bold text-foreground md:text-2xl">Collection</h1>
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="secondary" size="sm" onClick={() => refresh()} className="gap-2">
               <RefreshCw className="h-4 w-4" aria-hidden="true" />
@@ -348,45 +339,71 @@ export default function Collection() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="scrollbar-none overflow-x-auto bg-card px-3 sm:px-6">
-        <Tabs value={currentTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="inline-flex h-12 w-max gap-1 bg-transparent p-0 sm:w-auto">
-            {[
-              { value: 'collection', label: 'Cards', icon: Layers, counted: true },
-              { value: 'analytics', label: 'Analytics', icon: BarChart3, counted: false },
-              { value: 'add-cards', label: 'Add cards', icon: Search, counted: false },
-              { value: 'storage', label: 'Storage', icon: Package, counted: false },
-            ].map(tab => (
-              <TabsTrigger
-                key={tab.value}
-                value={tab.value}
-                className="relative whitespace-nowrap rounded-none px-3 py-2 font-medium data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none sm:px-4 data-[state=active]:after:absolute data-[state=active]:after:bottom-0 data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:h-0.5 data-[state=active]:after:bg-foreground"
-              >
-                <tab.icon className="mr-1.5 h-4 w-4 sm:mr-2" aria-hidden="true" />
-                {tab.label}
-                {/* The badge holds its place from the first paint and turns
-                    visible when the count arrives. It used to be absent until
-                    then, so the moment the collection loaded the Cards tab grew
-                    by 50px and shoved the other three tabs sideways. `min-w`
-                    covers counts up to five digits, which is past any real
-                    collection; a wider one would nudge them once more. */}
-                {tab.counted && (
-                  <Badge
-                    variant="secondary"
-                    aria-hidden={collectionStats.uniqueCards === 0}
-                    className={`ml-1.5 hidden min-w-[3.25rem] justify-center text-xs sm:inline-flex ${
-                      collectionStats.uniqueCards === 0 ? 'invisible' : ''
-                    }`}
-                  >
-                    {collectionStats.uniqueCards || 0}
-                  </Badge>
-                )}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+      {/*
+        The page's four sections.
+
+        This was an underline strip built out of eight
+        `data-[state=active]:after:` rules, one of six different tab treatments
+        across the pages in this pass. It is `PageTabs` now, the same control
+        the wishlist, the shopping list, the marketplace and the scanner use, so
+        moving between them does not mean meeting a new control for the same
+        action.
+
+        The reason the badge holds its place from the first paint moved into
+        that component with it: it used to be absent until the count arrived, so
+        the moment the collection loaded the Cards tab grew and shoved the other
+        three sideways.
+      */}
+      <div className="bg-card px-3 pb-3 sm:px-6">
+        <PageTabs
+          value={currentTab}
+          onChange={setActiveTab}
+          label="Collection sections"
+          tabs={[
+            {
+              id: 'collection',
+              label: 'Cards',
+              icon: Layers,
+              count: loading ? null : collectionStats.uniqueCards,
+            },
+            { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+            { id: 'add-cards', label: 'Add cards', shortLabel: 'Add', icon: Search },
+            { id: 'storage', label: 'Storage', icon: Package },
+          ]}
+        />
       </div>
+
+      {/*
+        The figures, on their own line and with the full content band.
+
+        Below the tab strip rather than inside the header, because a metric tile
+        is `bg-card` and the header is too: a card drawn on a card is not a
+        tile, it is a rectangle nobody can see. Here they sit on the page ground
+        and read as raised, which is the whole point of the treatment.
+
+        Outside `Tabs` so it survives the tab change without remounting, but
+        NOT on Storage. Storage answers a different question and draws its own
+        four figures for it, and two 95px rows stacked is 190px of numbers
+        before the shelf starts. One row per screen; which figures are in it
+        follows the tab.
+      */}
+      {currentTab !== 'storage' && (
+        <div className="px-3 pt-4 sm:px-4 md:px-6">
+          <CollectionQuickStats
+            totalValue={collectionStats.totalValue}
+            totalCards={collectionStats.totalCards}
+            uniqueCards={collectionStats.uniqueCards}
+            avgCardValue={
+              collectionStats.totalCards > 0
+                ? collectionStats.totalValue / collectionStats.totalCards
+                : 0
+            }
+            recentlyAddedCount={recentlyAddedCount}
+            unpricedCards={summary.unpriced}
+            loading={loading}
+          />
+        </div>
+      )}
 
       {/* Main content */}
       <div>

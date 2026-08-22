@@ -61,7 +61,7 @@ import { Toaster } from 'sonner';
 import '../index.css';
 import { AuthProvider } from '../components/AuthProvider';
 import { TooltipProvider } from '../components/ui/tooltip';
-import Simulate from '../pages/Simulate';
+import Play from '../pages/Play';
 
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
@@ -69,8 +69,8 @@ createRoot(document.getElementById('root')!).render(
   <QueryClientProvider client={client}>
     <TooltipProvider>
       <AuthProvider>
-        <MemoryRouter initialEntries={['/simulate']}>
-          <Simulate />
+        <MemoryRouter initialEntries={['/play?mode=playtest']}>
+          <Play />
           <Toaster position="top-center" />
         </MemoryRouter>
       </AuthProvider>

@@ -10,9 +10,9 @@ import { DeckCardTable } from '@/components/deck/DeckCardTable';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { MetricRow, PageTabs, type Metric } from '@/components/listing';
 import { ColorIdentity } from '@/components/ui/mana-cost';
-import { Copy, Download, ExternalLink, Eye, Loader2 } from 'lucide-react';
+import { Copy, Download, ExternalLink, Eye, LayoutGrid, Loader2, Rows3 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useOpenCard } from '@/components/cards';
 import {
@@ -83,6 +83,10 @@ export default function PublicDeck() {
   const [rows, setRows] = useState<DeckCardRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [tracked, setTracked] = useState(false);
+  /* Which rendering of the decklist is showing. Local state rather than the
+     URL: a shared deck link is a link to the deck, and adding a view parameter
+     to it would mean the same deck arrives at two addresses. */
+  const [listView, setListView] = useState<'visual' | 'list'>('visual');
 
   /* Clicking a card goes to `/cards/:id`, the same as everywhere else in the
      product. The card page is public, so a visitor following a shared decklist
@@ -244,6 +248,24 @@ export default function PublicDeck() {
       : deck.colors;
   const avgMv = averageManaValue(deck.curve?.bins, deck.counts?.lands ?? 0);
 
+  const publicDeckMetrics: Metric[] = [
+    { id: 'cards', label: 'Cards', value: stats.totalCards.toLocaleString(), raw: stats.totalCards },
+    {
+      id: 'mv',
+      label: 'Avg mana value',
+      value: stats.totalCards > 0 ? avgMv.toFixed(2) : '—',
+      raw: avgMv,
+    },
+    {
+      id: 'value',
+      label: 'Value',
+      /* A dash, never $0. The smallest real price in the database is 0.01, so
+         a rendered zero is always invented. */
+      value: stats.totalValueUSD > 0 ? `$${stats.totalValueUSD.toFixed(0)}` : '—',
+      raw: stats.totalValueUSD,
+    },
+  ];
+
   return (
     <>
       <Helmet>
@@ -270,7 +292,9 @@ export default function PublicDeck() {
                   <h1 className="truncate text-xl font-bold text-foreground md:text-2xl">
                     {deck.name}
                   </h1>
-                  <Badge variant="outline" className="gap-1">
+                  {/* `secondary`, not `outline`. Outline is a border variant,
+                      and design law 2 rules hairlines out. */}
+                  <Badge variant="secondary" className="gap-1">
                     <Eye className="h-3 w-3" />
                     Read-only
                   </Badge>
@@ -296,11 +320,11 @@ export default function PublicDeck() {
               </div>
 
               <div className="flex flex-shrink-0 items-center gap-2">
-                <Button variant="outline" size="sm" onClick={handleCopyList}>
+                <Button variant="secondary" size="sm" onClick={handleCopyList}>
                   <Copy className="mr-2 h-4 w-4" />
                   Copy list
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleExport}>
+                <Button variant="secondary" size="sm" onClick={handleExport}>
                   <Download className="mr-2 h-4 w-4" />
                   Export
                 </Button>
@@ -328,24 +352,14 @@ export default function PublicDeck() {
           ) : (
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[360px_1fr]">
               <aside className="space-y-4">
-                <Card>
-                  <CardContent className="grid grid-cols-3 gap-2 p-4 text-center">
-                    <div>
-                      <p className="text-lg font-bold tabular-nums">{stats.totalCards}</p>
-                      <p className="text-[11px] text-muted-foreground">Cards</p>
-                    </div>
-                    <div>
-                      <p className="text-lg font-bold tabular-nums">{avgMv.toFixed(2)}</p>
-                      <p className="text-[11px] text-muted-foreground">Avg MV</p>
-                    </div>
-                    <div>
-                      <p className="text-lg font-bold tabular-nums">
-                        ${stats.totalValueUSD.toFixed(0)}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">Value</p>
-                    </div>
-                  </CardContent>
-                </Card>
+                {/* The same tiles as every other figure in the product.
+
+                    This was three 18px numbers with their labels underneath in
+                    11px, inside one card, which is a fourth answer to "how big
+                    is a metric". A shared deck is the first thing a lot of
+                    people ever see of DeckMatrix, so it is the last place the
+                    numbers should be smaller than they are everywhere else. */}
+                <MetricRow metrics={publicDeckMetrics} columns={3} />
 
                 {/* Read-only: the visitor is not the owner, so nothing is
                     persisted from this page. */}
@@ -358,22 +372,29 @@ export default function PublicDeck() {
                 />
               </aside>
 
-              <Tabs defaultValue="visual">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="visual">Visual</TabsTrigger>
-                  <TabsTrigger value="list">List</TabsTrigger>
-                </TabsList>
-                <TabsContent value="visual" className="mt-4">
+              <div className="space-y-4">
+                {/* `PageTabs`, the same strip as the deck page and the
+                    collection. This was `grid w-full grid-cols-2`, which is one
+                    of the twenty-three tab skins the audit counted. */}
+                <PageTabs
+                  tabs={[
+                    { id: 'visual', label: 'Visual', icon: LayoutGrid },
+                    { id: 'list', label: 'List', icon: Rows3 },
+                  ]}
+                  value={listView}
+                  onChange={id => setListView(id as 'visual' | 'list')}
+                  label="Decklist view"
+                />
+                {listView === 'visual' ? (
                   <DeckCardGrid rows={rows} collapsedByDefault={['lands']} onCardClick={openCard} />
-                </TabsContent>
-                <TabsContent value="list" className="mt-4">
+                ) : (
                   <Card>
                     <CardContent className="p-0">
                       <DeckCardTable rows={rows} onCardClick={openCard} />
                     </CardContent>
                   </Card>
-                </TabsContent>
-              </Tabs>
+                )}
+              </div>
             </div>
           )}
         </div>

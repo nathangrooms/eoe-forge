@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { FIELD } from '@/components/listing';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -283,7 +284,7 @@ export function FirstDeckOnboarding({ onCreateDeck, loading }: FirstDeckOnboardi
                   value={deckName}
                   onChange={(e) => setDeckName(e.target.value)}
                   placeholder={selectedFormat === 'commander' ? "e.g., Atraxa Superfriends" : "e.g., Mono Red Aggro"}
-                  className="h-12 text-lg"
+                  className={cn(FIELD, 'h-12 text-lg')}
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && deckName.trim()) {
@@ -383,7 +384,7 @@ export function FirstDeckOnboarding({ onCreateDeck, loading }: FirstDeckOnboardi
                     placeholder="Search for a legendary creature..."
                     value={commanderSearch}
                     onChange={(e) => setCommanderSearch(e.target.value)}
-                    className="pl-10 h-12 text-lg"
+                    className={cn(FIELD, 'pl-10 h-12 text-lg')}
                     autoFocus
                   />
                 </div>

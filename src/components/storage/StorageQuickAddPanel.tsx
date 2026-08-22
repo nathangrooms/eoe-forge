@@ -352,7 +352,7 @@ export function StorageQuickAddPanel({
           <EnhancedUniversalCardSearch
             mode="pick"
             onCardAdd={handleAddCard}
-            placeholder="Search for cards to add to this container..."
+            placeholder="Search for cards to add to this container"
             showFilters={true}
             showAddButton={true}
             showWishlistButton={false}
@@ -378,7 +378,7 @@ export function StorageQuickAddPanel({
                 <Label className="text-sm font-medium">Select a deck</Label>
                 <Select value={selectedDeck} onValueChange={setSelectedDeck}>
                   <SelectTrigger className="h-11 border-0 bg-muted/40">
-                    <SelectValue placeholder="Choose a deck to add all cards from..." />
+                    <SelectValue placeholder="Choose a deck to add all cards from" />
                   </SelectTrigger>
                   <SelectContent>
                     {decks.map(deck => (
@@ -440,7 +440,7 @@ export function StorageQuickAddPanel({
                 aria-hidden="true"
               />
               <Input
-                placeholder="Filter your collection..."
+                placeholder="Filter your collection"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 className="h-11 border-0 bg-muted/40 pl-9"

@@ -48,7 +48,7 @@ export default function DeckAnalysis() {
 
   return (
     <DeckSubpageLayout
-      title={summary ? `${summary.name} — analysis` : 'Deck analysis'}
+      title={summary ? `${summary.name}: analysis` : 'Deck analysis'}
       description="Power, curve, types and mana base for this deck."
       backTo={id ? `/deck/${id}` : '/decks'}
       backLabel="Back to deck"

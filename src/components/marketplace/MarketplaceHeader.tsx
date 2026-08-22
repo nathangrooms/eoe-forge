@@ -1,10 +1,13 @@
 import { Store, ExternalLink } from 'lucide-react';
+import { formatPrice, formatPriceCompact } from '@/components/collection/browser/types';
+import { MetricRow, type Metric } from '@/components/listing';
 
 interface MarketplaceHeaderProps {
   watchlistCount: number;
   shoppingListCount: number;
   myListingsCount: number;
   totalListingValue: number;
+  loading?: boolean;
 }
 
 const MARKETPLACES = [
@@ -15,31 +18,73 @@ const MARKETPLACES = [
 ];
 
 /**
- * One strip: outbound price sources on the left, the four counters on the right.
+ * Where prices come from, and the four figures this page is about.
  *
- * These used to be two stacked blocks — a links bar, then a 2×4 grid of stat
- * tiles — which together burned ~190px at the top of the page and meant that for
- * a user with an empty watchlist the first thing on a card-trading page was four
- * large zeroes. As a single flat row the same four numbers cost ~64px and the
- * cards start near the top of the viewport. The numbers are unchanged and still
- * counted from the live lists.
+ * ## Why the figures grew back
+ *
+ * The previous version of this file folded all four into a 14px run of text
+ * along the right of the links bar, and the reason it gave was floor space:
+ * *"As a single flat row the same four numbers cost ~64px and the cards start
+ * near the top of the viewport."*
+ *
+ * That is word for word the argument the collection's header made, and the
+ * owner overruled it there: *"my decks has proper metric tiles, when on my
+ * collection page we dont have these and they are much smaller due to the multi
+ * menu system"*. Measured, a squeezed figure had 2,534 px² against a My Decks
+ * tile's 19,447, with its number at 14px against 24px. The same squeeze was
+ * here, for the same reason, and it gets the same answer: the room was going to
+ * chrome, not to the figures, and shrinking the figures was fixing the wrong
+ * thing.
+ *
+ * The links keep their strip, because four outbound links are not figures and a
+ * price source is not something you count.
  */
 export function MarketplaceHeader({
   watchlistCount,
   shoppingListCount,
   myListingsCount,
   totalListingValue,
+  loading = false,
 }: MarketplaceHeaderProps) {
-  const stats: { label: string; value: string }[] = [
-    { label: 'Watching', value: String(watchlistCount) },
-    { label: 'Shopping list', value: String(shoppingListCount) },
-    { label: 'Listings', value: String(myListingsCount) },
-    { label: 'Listing value', value: `$${totalListingValue.toFixed(2)}` },
+  const metrics: Metric[] = [
+    {
+      id: 'watching',
+      label: 'Watching',
+      value: watchlistCount.toLocaleString(),
+      raw: watchlistCount,
+      subtext: 'Cards with a price you track',
+    },
+    {
+      id: 'shopping',
+      label: 'Shopping list',
+      value: shoppingListCount.toLocaleString(),
+      raw: shoppingListCount,
+      subtext: 'Still to buy',
+    },
+    {
+      id: 'listings',
+      label: 'Listings',
+      value: myListingsCount.toLocaleString(),
+      raw: myListingsCount,
+      subtext: 'Cards you have for sale',
+    },
+    {
+      id: 'listing-value',
+      label: 'Listing value',
+      /* Compact on the tile, exact on hover, same rule as every other money
+         figure in the product. A dash, never $0.00: with nothing listed there
+         is no asking price, and a rendered zero would read as "your listings
+         are worthless". */
+      value: myListingsCount > 0 ? formatPriceCompact(totalListingValue) : '—',
+      raw: totalListingValue,
+      title: myListingsCount > 0 ? formatPrice(totalListingValue) : undefined,
+      subtext: myListingsCount > 0 ? 'What you are asking for them' : 'Nothing listed yet',
+    },
   ];
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg bg-card px-4 py-3 shadow-lg shadow-black/20 lg:flex-row lg:items-center lg:justify-between">
-      <div className="flex flex-wrap items-center gap-x-1 gap-y-1">
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-x-1 gap-y-1 rounded-lg bg-card px-4 py-3 shadow-lg shadow-black/20">
         <Store className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         <span className="mr-1 text-xs text-muted-foreground">Price sources</span>
         {MARKETPLACES.map(m => (
@@ -56,14 +101,7 @@ export function MarketplaceHeader({
         ))}
       </div>
 
-      <dl className="flex flex-wrap items-center gap-x-6 gap-y-1">
-        {stats.map(stat => (
-          <div key={stat.label} className="flex items-baseline gap-1.5">
-            <dt className="text-xs text-muted-foreground">{stat.label}</dt>
-            <dd className="text-sm font-semibold tabular-nums text-foreground">{stat.value}</dd>
-          </div>
-        ))}
-      </dl>
+      <MetricRow metrics={metrics} columns={4} loading={loading} />
     </div>
   );
 }

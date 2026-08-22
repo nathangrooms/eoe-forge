@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { FIELD } from '@/components/listing';
+import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -143,7 +145,7 @@ export function EnhancedMatchTracker({ deckId, deckName }: EnhancedMatchTrackerP
                     value={formData.result}
                     onValueChange={(value) => setFormData({ ...formData, result: value })}
                   >
-                    <SelectTrigger id="match-result">
+                    <SelectTrigger className={FIELD} id="match-result">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -156,7 +158,7 @@ export function EnhancedMatchTracker({ deckId, deckName }: EnhancedMatchTrackerP
 
                 <div className="space-y-2">
                   <Label htmlFor="match-date">Date</Label>
-                  <Input
+                  <Input className={FIELD}
                     id="match-date"
                     type="date"
                     value={formData.played_at}
@@ -166,7 +168,7 @@ export function EnhancedMatchTracker({ deckId, deckName }: EnhancedMatchTrackerP
 
                 <div className="space-y-2">
                   <Label htmlFor="match-opponent-commander">Opponent's commander (optional)</Label>
-                  <Input
+                  <Input className={FIELD}
                     id="match-opponent-commander"
                     value={formData.opponent_commander}
                     onChange={(e) => setFormData({ ...formData, opponent_commander: e.target.value })}
@@ -176,7 +178,7 @@ export function EnhancedMatchTracker({ deckId, deckName }: EnhancedMatchTrackerP
 
                 <div className="space-y-2">
                   <Label htmlFor="match-opponent-deck">Opponent's deck name (optional)</Label>
-                  <Input
+                  <Input className={FIELD}
                     id="match-opponent-deck"
                     value={formData.opponent_deck_name}
                     onChange={(e) => setFormData({ ...formData, opponent_deck_name: e.target.value })}
@@ -187,7 +189,7 @@ export function EnhancedMatchTracker({ deckId, deckName }: EnhancedMatchTrackerP
 
               <div className="space-y-2">
                 <Label htmlFor="match-notes">Notes (optional)</Label>
-                <Textarea
+                <Textarea className={FIELD}
                   id="match-notes"
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}

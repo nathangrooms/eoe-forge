@@ -1,20 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, ArrowLeft, Crown, Loader2, Search, Sword, TrendingUp, Wand2, X } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Crown, Loader2, Sword, Wand2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  CardGrid,
-  CardGridSkeleton,
-  CardImage,
-  CardSizeSlider,
-  cardSizeForWidth,
-  useCardSize,
-} from '@/components/cards';
+import { CardImage } from '@/components/cards';
 import { ColorIdentity } from '@/components/ui/mana-cost';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { useCommanderBrowse } from '@/components/ai-builder/useCommanderBrowse';
@@ -25,8 +18,7 @@ import {
   countActiveFilters,
   type CommanderFilters,
 } from '@/components/ai-builder/commander-query';
-import { CommanderFinder } from '@/components/ai-builder/CommanderFinder';
-import { Pager } from '@/components/ui/pagination';
+import { CommanderWall } from '@/components/ai-builder/CommanderWall';
 
 /**
  * The "New Deck" flow, as a real page at `/decks/new`.
@@ -67,9 +59,6 @@ const FALLBACK_NAME = 'Untitled deck';
 /** The default wall: every legal commander, most played first. */
 const POPULAR_URL = commanderSearchUrl('is:commander legal:commander', 'edhrec');
 
-/** How long the typing pause is before a name search is sent to Scryfall. */
-const SEARCH_DEBOUNCE_MS = 350;
-
 export function NewDeck() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -79,7 +68,6 @@ export function NewDeck() {
   const [commander, setCommander] = useState<any>(null);
   const [query, setQuery] = useState('');
   const [creating, setCreating] = useState(false);
-  const [cardWidth, setCardWidth] = useCardSize('new-deck-commanders', 172);
 
   // Whether the name box has been typed in. An auto-filled commander name may
   // be overwritten by a later commander choice; a name the user typed may not.
@@ -97,18 +85,17 @@ export function NewDeck() {
    * rather than only the first.
    * ---------------------------------------------------------------- */
 
-  /** The typed query, after the pause. Debounced so a keystroke is not a fetch. */
-  const [committedQuery, setCommittedQuery] = useState('');
-  useEffect(() => {
-    const trimmed = query.trim();
-    const timer = window.setTimeout(() => setCommittedQuery(trimmed), SEARCH_DEBOUNCE_MS);
-    return () => window.clearTimeout(timer);
-  }, [query]);
+  /* The typed query, already settled.
+     `ListingSearch` inside the wall holds the draft and commits on the shared
+     250ms, so the local 350ms timer that used to sit here has nothing left to
+     wait out. The audit counted 250, 300, 350, 400 and 220ms across the
+     product, with no reason recorded for any of them. */
+  const committedQuery = query.trim();
 
-  /* The same finder the deck generator uses, not a second one styled to match.
-     Owner: "Maybe new deck uses the same header style for searching too?" Both
-     pages are answering the same question, so they should ask it the same way
-     and share the code that builds the query. */
+  /* The same finder the deck generator uses, and now the same wall underneath
+     it rather than a second one styled to match. Owner: "Maybe new deck uses
+     the same header style for searching too?" Both pages are answering the same
+     question, so they ask it with the same component. */
   const [filters, setFilters] = useState<CommanderFilters>(EMPTY_COMMANDER_FILTERS);
   const [sortOrder, setSortOrder] = useState('edhrec');
   const activeFilters = countActiveFilters(filters);
@@ -133,24 +120,9 @@ export function NewDeck() {
     sizeKey: 'new-deck-commanders',
   });
 
-  /** A page turn starts at the top of the wall, not halfway down the last page. */
-  const wallTop = useRef<HTMLDivElement | null>(null);
-  const goToPage = useCallback(
-    (next: number) => {
-      browse.setPage(next);
-      const top = wallTop.current;
-      if (!top) return;
-      const y = top.getBoundingClientRect().top + window.scrollY - 16;
-      window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
-    },
-    [browse]
-  );
-
-  /**
-   * `large` is a 672px scan — four times what a 2× display can resolve at the
-   * sizes this grid renders, paid once per commander across a wall of them.
-   */
-  const imageQuality = cardSizeForWidth(cardWidth) === 'xl' ? undefined : ('normal' as const);
+  /* A page turn starting at the top of the wall, and the image quality ladder
+     that keeps a wall of commanders from fetching 672px scans, both moved into
+     `CommanderWall` and `ListingFrame`. They were written out twice. */
 
   const pickCommander = useCallback((card: any) => {
     setCommander(card);
@@ -365,7 +337,7 @@ export function NewDeck() {
               ) : (
                 <div className="flex h-11 items-center rounded-lg bg-muted/40 px-3">
                   <p className="truncate text-sm text-muted-foreground">
-                    Optional — pick one from the wall below.
+                    Optional. Pick one from the wall below.
                   </p>
                 </div>
               )}
@@ -375,145 +347,46 @@ export function NewDeck() {
       </div>
 
       {wantsCommander && (
-        <section className="mt-6 space-y-4">
-          {/* One row of filters, exactly as on the deck generator: colour pips,
-              playstyle behind a control, sort and search at the right end. */}
-          <CommanderFinder
+        <section className="mt-6">
+          {/*
+            The same wall the deck generator's first step draws.
+
+            It was written out twice: the finder, the search box, the size
+            slider, the heading, the grid of picks and the pager all existed
+            here and again in `CommanderStage`, and the two copies had already
+            drifted on card width, slider breakpoint and debounce. One
+            component, two callers, and the only thing this page asks for that
+            the generator does not is the ring on the commander you chose,
+            because this page keeps you here afterwards.
+          */}
+          <CommanderWall
+            cards={browse.cards}
+            loading={browse.loading}
+            error={browse.error}
+            total={browse.total}
+            page={browse.page}
+            pageCount={browse.pageCount}
+            onPageChange={browse.setPage}
+            pageSize={browse.pageSize}
+            onPageSizeChange={browse.setPageSize}
+            searchValue={query}
+            onSearchChange={setQuery}
             filters={filters}
             onFiltersChange={setFilters}
             sortOrder={sortOrder}
             onSortOrderChange={setSortOrder}
-            onSearch={() => setCommittedQuery(query.trim())}
-            onClear={() => setFilters(EMPTY_COMMANDER_FILTERS)}
-            searching={browse.loading}
-            resultCount={searching ? browse.total : null}
+            onRunFinder={() => setQuery(query.trim())}
+            onClearFinder={() => setFilters(EMPTY_COMMANDER_FILTERS)}
+            finderSearching={browse.loading}
+            finderResultCount={searching ? browse.total : null}
+            sizeKey="new-deck-commanders"
+            defaultSize={172}
+            heading={searching ? 'Search results' : 'Most played commanders'}
+            headingHint={searching ? undefined : 'in EDHREC play order'}
+            selectedId={commander?.id ?? null}
+            onSelect={pickCommander}
+            selectVerb="Use"
           />
-
-          {/* Search and sizing, full width and unboxed — the grid below is the
-              thing worth looking at, so nothing competes with it for width. */}
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative min-w-[16rem] flex-1">
-              <Search
-                aria-hidden="true"
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-              />
-              <Input
-                id="new-deck-commander"
-                value={query}
-                onChange={event => setQuery(event.target.value)}
-                placeholder="Search commanders, partners and backgrounds…"
-                className="h-11 border-none bg-muted/50 pl-9 pr-9 text-base"
-              />
-              {query && (
-                <button
-                  type="button"
-                  onClick={() => setQuery('')}
-                  aria-label="Clear search"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-            <CardSizeSlider
-              storageKey="new-deck-commanders"
-              value={cardWidth}
-              onValueChange={setCardWidth}
-              showValue={false}
-              className="hidden lg:flex"
-            />
-          </div>
-
-          <div ref={wallTop} className="h-px" aria-hidden />
-
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <h2 className="flex items-center gap-2 text-sm font-semibold">
-              {!searching && <TrendingUp className="h-4 w-4 text-muted-foreground" />}
-              {searching ? 'Search results' : 'Most played commanders'}
-            </h2>
-            {!searching && (
-              <span className="text-xs text-muted-foreground">in EDHREC play order</span>
-            )}
-            {/* The count and the range live in the pager, which is the one
-                place that knows whether Scryfall reported a total at all. */}
-          </div>
-
-          {browse.error && (
-            <p className="rounded-lg bg-muted/50 p-4 text-sm text-destructive">{browse.error}</p>
-          )}
-
-          {browse.loading ? (
-            <CardGridSkeleton width={cardWidth} count={12} />
-          ) : browse.cards.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-16 text-center">
-              <Search className="h-6 w-6 text-muted-foreground/50" />
-              <p className="text-sm text-muted-foreground">
-                {searching
-                  ? `No commanders match “${query.trim()}”.`
-                  : 'No commanders came back from Scryfall.'}
-              </p>
-            </div>
-          ) : (
-            <CardGrid width={cardWidth}>
-              {browse.cards.map((card: any, i: number) => {
-                const chosen = commander?.id === card.id;
-                return (
-                  <button
-                    key={card.id ?? card.name}
-                    type="button"
-                    onClick={() => pickCommander(card)}
-                    aria-pressed={chosen}
-                    title={`Use ${card.name} as commander`}
-                    className={cn(
-                      'group/pick block w-full rounded-lg text-left transition-shadow',
-                      chosen && 'shadow-[0_0_0_3px_hsl(var(--foreground))]',
-                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background'
-                    )}
-                  >
-                    <CardImage
-                      card={card}
-                      width={cardWidth}
-                      quality={imageQuality}
-                      fill
-                      interactive
-                      eager={i < 12}
-                      hideFlip
-                    >
-                      {/* Sits on card art, so light-on-dark is correct here. */}
-                      <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/90 to-transparent p-2 pt-8 opacity-0 transition-opacity duration-200 group-hover/pick:opacity-100 group-focus-visible/pick:opacity-100">
-                        <span className="min-w-0">
-                          <span className="block truncate text-[0.7rem] font-semibold text-white">
-                            {card.name}
-                          </span>
-                          {typeof card.edhrec_rank === 'number' && (
-                            <span className="block text-[0.65rem] tabular-nums text-white/70">
-                              EDHREC #{card.edhrec_rank.toLocaleString()}
-                            </span>
-                          )}
-                        </span>
-                        <ColorIdentity colors={card.color_identity} size="xs" />
-                      </span>
-                    </CardImage>
-                  </button>
-                );
-              })}
-            </CardGrid>
-          )}
-
-          {!browse.loading && browse.cards.length > 0 && (
-            <Pager
-              page={browse.page}
-              pageCount={browse.pageCount}
-              onPageChange={goToPage}
-              total={browse.total}
-              shown={browse.cards.length}
-              pageSize={browse.pageSize}
-              onPageSizeChange={browse.setPageSize}
-              noun="commander"
-              label="Commander pages"
-            />
-          )}
-
         </section>
       )}
 
@@ -525,7 +398,7 @@ export function NewDeck() {
             {wantsCommander && commander
               ? `Commander: ${commander.name}`
               : wantsCommander
-                ? 'No commander chosen — you can add one in the builder.'
+                ? 'No commander chosen. You can add one in the builder.'
                 : `${FORMATS.find(f => f.id === format)?.label} deck`}
           </p>
           <div className="flex shrink-0 gap-2">

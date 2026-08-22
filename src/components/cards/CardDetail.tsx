@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PageTabs } from '@/components/listing';
+import { BookOpen, Gavel, Layers } from 'lucide-react';
 import { ColorIdentity } from '@/components/ui/mana-cost';
 import { CardCost } from '@/components/cards/CardCost';
 import { CardImage } from './CardImage';
@@ -146,10 +147,15 @@ export function CardDetail({
   className,
 }: CardDetailProps) {
   const [face, setFace] = useState(0);
+  /* Which of the three sections is open. `PageTabs` is a controlled strip, and
+     the section is a preference within one card rather than a place, so it
+     stays in component state and resets when the card changes. */
+  const [section, setSection] = useState<'rulings' | 'legality' | 'printings'>('rulings');
   const { rulings, loading: loadingRulings, error: rulingsError } = useRulings(card, !!card);
 
   useEffect(() => {
     setFace(0);
+    setSection('rulings');
   }, [card?.id]);
 
   const pt = useMemo(() => getPowerToughness(card), [card]);
@@ -340,14 +346,23 @@ export function CardDetail({
             </div>
           )}
 
-          <Tabs defaultValue="rulings" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="rulings">Rulings</TabsTrigger>
-              <TabsTrigger value="legality">Legality</TabsTrigger>
-              <TabsTrigger value="printings">Printings</TabsTrigger>
-            </TabsList>
+          {/* `PageTabs`, the same strip as every other page. This was
+              `grid w-full grid-cols-3` of stretched triggers, one of the
+              twenty-three tab skins the audit counted, and its selected state
+              was drawn by the shadcn default rather than by the one decision
+              the rest of the product makes once. */}
+          <PageTabs
+            tabs={[
+              { id: 'rulings', label: 'Rulings', icon: BookOpen, count: rulings?.length ?? null },
+              { id: 'legality', label: 'Legality', icon: Gavel },
+              { id: 'printings', label: 'Printings', icon: Layers },
+            ]}
+            value={section}
+            onChange={id => setSection(id as typeof section)}
+            label="Card sections"
+          />
 
-            <TabsContent value="rulings" className="space-y-3 pt-3">
+          <div hidden={section !== 'rulings'} className="space-y-3 pt-3">
               {loadingRulings && (
                 <p className="text-sm text-muted-foreground">Loading rulings from Scryfall…</p>
               )}
@@ -368,9 +383,9 @@ export function CardDetail({
                   </p>
                 </div>
               ))}
-            </TabsContent>
+          </div>
 
-            <TabsContent value="legality" className="pt-3">
+          <div hidden={section !== 'legality'} className="pt-3">
               {card.legalities ? (
                 <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                   {CURATED_FORMATS.filter(f => card.legalities[f.key]).map(format => {
@@ -393,12 +408,19 @@ export function CardDetail({
                   Legality information is not available for this card.
                 </p>
               )}
-            </TabsContent>
+          </div>
 
-            <TabsContent value="printings" className="pt-3">
+          {/* Mounted only when it is open, which is what Radix's `TabsContent`
+              already did here. It is stated rather than inherited now, because
+              this section fetches every printing of the card from Scryfall and
+              doing that for a section nobody opened would be a request per card
+              view for nothing. The two above are cheap and stay mounted, so
+              their scroll position survives a switch. */}
+          {section === 'printings' && (
+            <div className="pt-3">
               <CardPrintingComparison cardName={card.name || ''} oracleId={card.oracle_id} />
-            </TabsContent>
-          </Tabs>
+            </div>
+          )}
         </div>
       </div>
     </div>

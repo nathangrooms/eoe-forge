@@ -111,17 +111,22 @@ const EXTRAS: { key: keyof NonNullable<CardSearchState['extras']>; label: string
   { key: 'promo', label: 'Promo' },
 ];
 
+/*
+ * The hints name the Scryfall token and then say what it does. A colon, not an
+ * em-dash: these seven strings are on screen wherever card search is, which is
+ * six surfaces, and the copy rule covers every word a player reads.
+ */
 const IDENTITY_MODES: { value: ColorMatchMode; label: string; hint: string }[] = [
-  { value: 'atmost', label: 'At most', hint: 'id<= — everything a deck of these colors may run' },
-  { value: 'exact', label: 'Exactly', hint: 'id= — this identity and no other' },
-  { value: 'atleast', label: 'Including', hint: 'id>= — has these colors, may have more' },
+  { value: 'atmost', label: 'At most', hint: 'id<=: everything a deck of these colors may run' },
+  { value: 'exact', label: 'Exactly', hint: 'id=: this identity and no other' },
+  { value: 'atleast', label: 'Including', hint: 'id>=: has these colors, may have more' },
 ];
 
 const COLOR_MODES: { value: ColorMatchMode; label: string; hint: string }[] = [
-  { value: 'any', label: 'Any of', hint: 'c: — at least one of these colors' },
-  { value: 'exact', label: 'Exactly', hint: 'c= — precisely these colors' },
-  { value: 'atleast', label: 'Including', hint: 'c>= — these colors and maybe more' },
-  { value: 'atmost', label: 'At most', hint: 'c<= — no colors outside these' },
+  { value: 'any', label: 'Any of', hint: 'c: at least one of these colors' },
+  { value: 'exact', label: 'Exactly', hint: 'c=: precisely these colors' },
+  { value: 'atleast', label: 'Including', hint: 'c>=: these colors and maybe more' },
+  { value: 'atmost', label: 'At most', hint: 'c<=: no colors outside these' },
 ];
 
 const LANGUAGES: { value: string; label: string }[] = [
@@ -667,9 +672,21 @@ function useActiveChips(
 
 export function ActiveFilterChips({
   controller,
+  showClear = true,
   className,
 }: {
   controller: CardFilterController;
+  /**
+   * Draw the "Clear all" control at the end of the chips.
+   *
+   * On by default, which is right for a surface whose only filter is this one.
+   * A surface with facets of its own — the collection's condition and foil
+   * chips, which no Scryfall query can express — turns it off and puts a single
+   * clear on its `FilterBar` instead. Otherwise "Clear all" resets the shared
+   * half, leaves the page's own half on, and the reader is looking at a
+   * filtered grid that says nothing is filtering it.
+   */
+  showClear?: boolean;
   className?: string;
 }) {
   const sets = useSetCatalog();
@@ -694,13 +711,15 @@ export function ActiveFilterChips({
           <X className="h-3 w-3 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
         </button>
       ))}
-      <button
-        type="button"
-        onClick={controller.reset}
-        className="rounded-full px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        Clear all
-      </button>
+      {showClear && (
+        <button
+          type="button"
+          onClick={controller.reset}
+          className="rounded-full px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Clear all
+        </button>
+      )}
     </div>
   );
 }
@@ -893,11 +912,16 @@ export function CardFilterPanel({
     <div className={cn('space-y-3', className)}>
       {/* ------------------------------ Search ----------------------------- */}
       <div className="space-y-2">
+        {/* "like", not an em-dash. The copy rule covers everything a player
+            reads, and this placeholder is the shared filter's, so it is on the
+            card page, the collection, the wishlist, the marketplace, My Decks
+            and the deck builder at once. The phrasing matches the collection's
+            own search box, which already said "like". */}
         <SearchField
           value={state.text ?? ''}
           onCommit={commitText}
           autoFocus={autoFocusSearch}
-          placeholder='Card name, or Scryfall syntax — t:creature mv<=3 o:"draw a card"'
+          placeholder='Card name, or Scryfall syntax like t:creature mv<=3 o:"draw a card"'
         />
         <p className="px-1 text-[0.7rem] leading-relaxed text-muted-foreground">
           Anything you type here is passed to Scryfall verbatim, so the full query

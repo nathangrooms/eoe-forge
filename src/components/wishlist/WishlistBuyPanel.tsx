@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
-import { ClipboardList, ExternalLink, Layers } from 'lucide-react';
+import { ClipboardList, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CardImage } from '@/components/cards';
+import { MetricRow, type Metric } from '@/components/listing';
 import { formatPrice, toNumber } from '@/components/collection/browser/types';
 import { cn } from '@/lib/utils';
 
@@ -104,6 +105,42 @@ export function WishlistBuyPanel({
 
   if (items.length === 0) return null;
 
+  const metrics: Metric[] = [
+    summary.forDeckCount > 0 && {
+      id: 'for-decks',
+      label: 'A deck is short of',
+      value: `${summary.forDeckCount} card${summary.forDeckCount === 1 ? '' : 's'}`,
+      raw: summary.forDeckCount,
+      subtext: `${formatPrice(summary.forDeckTotal)} of the total`,
+    },
+    {
+      id: 'median',
+      label: 'Median card',
+      value: formatPrice(summary.median),
+      raw: summary.median,
+      subtext: 'Half the list costs less than this',
+    },
+    {
+      id: 'top-ten',
+      label: 'Dearest ten',
+      value: `${Math.round(summary.topShare * 100)}%`,
+      raw: summary.topShare,
+      subtext: 'Of the total sits in ten cards',
+    },
+    ...summary.bands.map(band => ({
+      id: band.key,
+      label: band.label,
+      // "No price" rather than $0.00: a band whose only card is unpriced is not
+      // a band of free cards.
+      value: band.pricedCount > 0 ? formatPrice(band.total) : 'No price',
+      raw: band.total,
+      subtext:
+        band.pricedCount < band.count
+          ? `${band.count} cards, ${band.count - band.pricedCount} not priced`
+          : `${band.count} card${band.count === 1 ? '' : 's'}`,
+    })),
+  ].filter(Boolean) as Metric[];
+
   return (
     <div className="rounded-xl bg-card p-4 shadow-lg shadow-black/20 md:p-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -138,54 +175,12 @@ export function WishlistBuyPanel({
         </Button>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-3">
-        {summary.forDeckCount > 0 && (
-          <div className="min-w-[12rem] flex-1 rounded-lg bg-muted/30 p-3">
-            <p className="flex items-center gap-1.5 text-[0.7rem] text-muted-foreground">
-              <Layers className="h-3 w-3" aria-hidden="true" />
-              A deck is short of
-            </p>
-            <p className="mt-0.5 text-lg font-bold tabular-nums text-foreground">
-              {summary.forDeckCount} card{summary.forDeckCount === 1 ? '' : 's'}
-            </p>
-            <p className="text-xs tabular-nums text-muted-foreground">
-              {formatPrice(summary.forDeckTotal)} of the total
-            </p>
-          </div>
-        )}
-
-        <div className="min-w-[12rem] flex-1 rounded-lg bg-muted/30 p-3">
-          <p className="text-[0.7rem] text-muted-foreground">Median card</p>
-          <p className="mt-0.5 text-lg font-bold tabular-nums text-foreground">
-            {formatPrice(summary.median)}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            half the list costs less than this
-          </p>
-        </div>
-
-        <div className="min-w-[12rem] flex-1 rounded-lg bg-muted/30 p-3">
-          <p className="text-[0.7rem] text-muted-foreground">Dearest ten</p>
-          <p className="mt-0.5 text-lg font-bold tabular-nums text-foreground">
-            {Math.round(summary.topShare * 100)}%
-          </p>
-          <p className="text-xs text-muted-foreground">of the total sits in ten cards</p>
-        </div>
-
-        {summary.bands.map(band => (
-          <div key={band.key} className="min-w-[12rem] flex-1 rounded-lg bg-muted/30 p-3">
-            <p className="text-[0.7rem] text-muted-foreground">{band.label}</p>
-            <p className="mt-0.5 text-lg font-bold tabular-nums text-foreground">
-              {band.pricedCount > 0 ? formatPrice(band.total) : 'No price'}
-            </p>
-            <p className="text-xs tabular-nums text-muted-foreground">
-              {band.count} card{band.count === 1 ? '' : 's'}
-              {band.pricedCount < band.count &&
-                `, ${band.count - band.pricedCount} not priced`}
-            </p>
-          </div>
-        ))}
-      </div>
+      {/* The same tiles as the row at the top of the page, recessed because
+          this panel is already a raised card and a `bg-card` tile on a
+          `bg-card` panel is not a subtle tile, it is no tile at all. They were
+          hand-built here at 18px with a `flex-wrap` that gave the last tile in
+          a row a different width from the first. */}
+      <MetricRow metrics={metrics} columns={Math.min(6, metrics.length)} on="card" className="mt-4" />
 
       {summary.dearest.length > 0 && (
         <div className="mt-4">

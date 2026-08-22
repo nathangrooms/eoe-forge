@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
@@ -20,8 +19,18 @@ import {
   CardFilterSheet,
   useCardFilterState,
 } from '@/components/filters/CardFilterPanel';
-import { cardDetailPath, CardGridSkeleton, CardSizeSlider, useCardSize } from '@/components/cards';
-import { Pager } from '@/components/ui/pagination';
+import { cardDetailPath, CardGridSkeleton } from '@/components/cards';
+import {
+  FIELD,
+  FilterBar,
+  FilterButton,
+  ListingFrame,
+  ListingSearch,
+  SURFACE,
+  resultSentence,
+  useListingView,
+  type ListingMode,
+} from '@/components/listing';
 import { useAdvancedCardSearch } from '@/hooks/useAdvancedCardSearch';
 import { cn } from '@/lib/utils';
 import {
@@ -37,16 +46,14 @@ import {
   HelpCircle,
   List,
   Rows3,
-  RotateCcw,
   Search,
-  SlidersHorizontal,
   Zap,
 } from 'lucide-react';
 
 /**
  * The card search surface.
  *
- * Two structural changes from the version this replaces:
+ * Three structural changes from the versions this replaces:
  *
  * - **One filter.** The bespoke `AdvancedFilterPanel` is gone; filter state is
  *   owned by `useCardFilterState` and edited through the shared
@@ -55,6 +62,31 @@ import {
  * - **No borders.** The segmented controls, the autocomplete dropdown, the
  *   result containers and every input in here were hairline-bordered boxes.
  *   They are surfaces and shadows now.
+ * - **One listing vocabulary.** The search box, the toolbar, the view toggle,
+ *   the size slider, the count line, the pager and the empty panels come from
+ *   `@/components/listing` and are the same objects My Collection and My Decks
+ *   use. This file used to draw all of them, including a `SEGMENTED` shell of
+ *   its own that had drifted to `rounded-lg bg-muted/40` while the collection's
+ *   was `rounded-md bg-muted`.
+ *
+ * ## Nothing here lost a control, and three things had to move to keep that true
+ *
+ * The audit's whole point is that a page keeps what it genuinely needs, so:
+ *
+ * 1. **Browse views are a row, so they go in `facets`, not `presets`.** Five
+ *    named views with words on them do not fit a control cluster.
+ * 2. **The grid keeps its size slider** through `ListingMode.sized`, because
+ *    `UniversalCardDisplay` lays its own `CardGrid` out — its arrow-key
+ *    navigation measures the live column count off that element — and a mode
+ *    that draws its own grid still has a card width.
+ * 3. **Rows-per-page stays with the fetch.** Changing it has to move the page
+ *    number so the reader keeps their place, and only `useAdvancedCardSearch`
+ *    knows which row is first on screen.
+ *
+ * The one control that went is the `RotateCcw` reset button, and it went
+ * because `FilterBar` draws exactly the same action beside the chips. Two
+ * clears sitting next to each other is how "Clear all" came to clear half of
+ * the collection's filters without anybody noticing.
  */
 
 /**
@@ -178,17 +210,22 @@ const BROWSE_STORAGE_KEY = 'dm.cardSearch.browse';
  */
 const DEFAULT_CARD_WIDTH = 230;
 
-/** Borderless field skin. `Input`/`SelectTrigger` ship with `border border-input`. */
-const FIELD = 'border-0 bg-muted/50 focus:ring-1 focus:ring-ring focus:ring-offset-0 focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0';
-/** Flat popover surface — depth from shadow, never from a hairline. */
-const SURFACE = 'border-0 bg-popover shadow-xl shadow-black/40';
-/** Segmented-control shell: a recessed tint instead of a box. */
-const SEGMENTED = 'flex items-center gap-0.5 rounded-lg bg-muted/40 p-0.5';
-
-const VIEW_MODES: { mode: CardViewMode; label: string; icon: typeof Grid3x3 }[] = [
-  { mode: 'grid', label: 'Card grid', icon: Grid3x3 },
-  { mode: 'list', label: 'Table', icon: List },
-  { mode: 'compact', label: 'Text list', icon: Rows3 },
+/**
+ * The three ways to read a set of search results.
+ *
+ * The ids are the words this surface has always written to
+ * `dm.cardSearch.view`, so a reader who is on the table stays on the table.
+ *
+ * All three are `rows` because `UniversalCardDisplay` lays out whichever one is
+ * showing, including the grid. `sized` puts the card-width slider back on the
+ * grid, which is the fact `layout` alone could not express: a mode that draws
+ * its own grid still has a card width. A table and a text list do not, which is
+ * why neither of those carries it.
+ */
+const VIEW_MODES: ListingMode[] = [
+  { id: 'grid', label: 'Card grid', icon: Grid3x3, layout: 'rows', sized: true },
+  { id: 'list', label: 'Table', icon: List, layout: 'rows' },
+  { id: 'compact', label: 'Text list', icon: Rows3, layout: 'rows' },
 ];
 
 /** Sort axes the results table can also drive from its own column headers. */
@@ -265,7 +302,7 @@ export function EnhancedUniversalCardSearch({
   suppressNavigate = false,
   mode = 'browse',
   onQueryChange,
-  placeholder = 'Search Magic cards by name, or use Scryfall syntax like t:creature mv<=3',
+  placeholder = 'Name, type, or Scryfall syntax like t:creature mv<=3',
   showFilters = true,
   showAddButton = true,
   showWishlistButton = true,
@@ -298,16 +335,28 @@ export function EnhancedUniversalCardSearch({
     [browseViews, browseId]
   );
 
-  const [cardWidth, setCardWidth] = useCardSize(sizeKey, DEFAULT_CARD_WIDTH);
-
-  const [viewMode, setViewMode] = useState<CardViewMode>(() => {
-    const stored = typeof window !== 'undefined' ? localStorage.getItem(VIEW_STORAGE_KEY) : null;
-    return stored === 'list' || stored === 'compact' || stored === 'grid' ? stored : 'grid';
+  /*
+   * View mode under one key, card size under another, and both are the keys
+   * this component has always written.
+   *
+   * `dm.cardSearch.view` is shared by all five mounts, because grid-versus-table
+   * is how you like to read results wherever you are. The card size is per
+   * mount, because how big a card should be depends on how much room the
+   * surface has: `card-search` on the full page, `deck-builder` beside a
+   * decklist. Folding them onto one key would have reset one or the other for
+   * every existing reader, which is why `sizeSurface` exists.
+   */
+  const view = useListingView({
+    surface: VIEW_STORAGE_KEY,
+    sizeSurface: sizeKey,
+    modes: VIEW_MODES,
+    defaultMode: 'grid',
+    defaultSize: DEFAULT_CARD_WIDTH,
   });
+  const viewMode = view.mode as CardViewMode;
+  const cardWidth = view.size;
 
   const searchInputRef = useRef<HTMLInputElement>(null);
-  /** Scrolled to on a page turn, so a new page starts at its first card. */
-  const resultsTopRef = useRef<HTMLDivElement>(null);
 
   const {
     results,
@@ -325,46 +374,26 @@ export function EnhancedUniversalCardSearch({
   } = useAdvancedCardSearch({ urlSync, sizeKey });
 
   /* ------------------------- Search box drafting ------------------------ */
-  // The box holds its own draft and commits on a debounce. Writing straight
-  // into the controller would push a URL replace on every keystroke.
+  /*
+   * `ListingSearch` holds the draft and the debounce now. All this keeps is a
+   * mirror of the uncommitted text, because Scryfall's name autocomplete has to
+   * run against what is being typed rather than against what has settled — see
+   * `onDraftChange`. Nothing filters off it.
+   *
+   * The debounce goes from 300ms to the shared 250ms. The audit found 250, 300,
+   * 400 and 220 across the product with no reason recorded for any of them.
+   */
   const committedText = searchState.text ?? '';
   const [draft, setDraft] = useState(committedText);
-  const lastCommitted = useRef(committedText);
-
-  // Adopt external changes — a removed chip, "clear all", a shared link —
-  // without stomping on what is being typed.
-  useEffect(() => {
-    if (committedText !== lastCommitted.current) {
-      lastCommitted.current = committedText;
-      setDraft(committedText);
-    }
-  }, [committedText]);
-
-  useEffect(() => {
-    if (draft === lastCommitted.current) return;
-    const timer = window.setTimeout(() => {
-      lastCommitted.current = draft;
-      patch({ text: draft.trim() ? draft : undefined });
-    }, 300);
-    return () => window.clearTimeout(timer);
-  }, [draft, patch]);
 
   const commitNow = useCallback(
-    (text: string) => {
-      lastCommitted.current = text;
-      setDraft(text);
-      patch({ text: text.trim() ? text : undefined });
-    },
+    (text: string) => patch({ text: text.trim() ? text : undefined }),
     [patch]
   );
 
   const suggestions = useCardNameSuggestions(draft);
 
   /* ------------------------------ Effects ------------------------------- */
-  useEffect(() => {
-    localStorage.setItem(VIEW_STORAGE_KEY, viewMode);
-  }, [viewMode]);
-
   // A caller-owned mirror of the query text (Cards.tsx used to keep `?q=`).
   const onQueryChangeRef = useRef(onQueryChange);
   onQueryChangeRef.current = onQueryChange;
@@ -387,8 +416,11 @@ export function EnhancedUniversalCardSearch({
         e.preventDefault();
         searchInputRef.current?.focus();
       }
+      /* Esc inside the box is `ListingSearch`'s own, and it clears the draft.
+         This adds the blur, which is the part a shared field cannot decide:
+         only a page with a `/` shortcut knows that Esc should hand the keyboard
+         back to the page. */
       if (e.key === 'Escape' && document.activeElement === searchInputRef.current) {
-        setDraft('');
         setShowSuggestions(false);
         searchInputRef.current?.blur();
       }
@@ -439,24 +471,9 @@ export function EnhancedUniversalCardSearch({
     }
   }, []);
 
-  /**
-   * Turning the page puts you at the top of the new page.
-   *
-   * Without this a page turn from halfway down leaves the reader looking at the
-   * middle of a set of cards they have not seen the start of. It is the one
-   * thing infinite scroll got right for free and paging has to do on purpose.
-   * Page 1 is left alone: a fresh search should not yank the window about.
-   */
-  const goToPage = useCallback(
-    (next: number) => {
-      setPage(next);
-      const top = resultsTopRef.current;
-      if (!top) return;
-      const y = top.getBoundingClientRect().top + window.scrollY - 16;
-      window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
-    },
-    [setPage]
-  );
+  /* Turning the page puts you at the top of the new page. `ListingFrame` does
+     that for every listing now, off an anchor above the results, so the local
+     copy of this and the ref it scrolled to are both gone. */
 
   /* ------------------------------ Handlers ------------------------------ */
   const handleSortKey = useCallback(
@@ -499,9 +516,10 @@ export function EnhancedUniversalCardSearch({
     if (path) navigate(path);
   };
 
+  /* The one clear on this surface, wired to `FilterBar`'s single control.
+     `ListingSearch` empties itself when `value` comes back blank, so the box
+     does not have to be reset separately. */
   const handleReset = useCallback(() => {
-    lastCommitted.current = '';
-    setDraft('');
     setShowSuggestions(false);
     resetFilters();
     clearResults();
@@ -520,90 +538,138 @@ export function EnhancedUniversalCardSearch({
 
   const presetButtons = useMemo(() => PRESET_QUERIES.slice(0, 4), []);
 
+
+  /**
+   * The count line, in the shared sentence.
+   *
+   * A browse view says what the grid is showing rather than how much of it,
+   * because "Commander-legal nonland cards in EDHREC play order" is the more
+   * useful fact when nobody has asked a question yet. The moment there is a
+   * query, the figure is the answer.
+   */
+  const summary =
+    !hasCriteria && browseView
+      ? browseView.caption
+      : totalResults === null
+        ? 'Search results'
+        : resultSentence([
+            {
+              value: totalResults.toLocaleString(),
+              label: totalResults === 1 ? 'card matched' : 'cards matched',
+            },
+          ]);
+
+  /**
+   * What to say when there is nothing on screen, and there are three of those.
+   *
+   * A page past the end of the results is not the same thing as a query that
+   * matched nothing, and neither is the same as a picker nobody has typed into
+   * yet. They used to be three hand-built panels differing in padding and in
+   * whether the icon circle was 16px or 20px.
+   */
+  const empty =
+    page > 1
+      ? {
+          title: `Nothing on page ${page.toLocaleString()}`,
+          description: 'This search does not go that far.',
+          action: { label: 'Back to page 1', onClick: () => setPage(1) },
+        }
+      : hasCriteria
+        ? {
+            title: 'No cards matched',
+            description:
+              'Scryfall parsed the query but nothing matched. Loosen a filter, or check the syntax reference beside the search box.',
+            icon: Search,
+            onClearFilters: handleReset,
+          }
+        : {
+            /* The blank slate survives only where there is nothing else to
+               show: an embedded picker with no browse views configured. */
+            title: 'Search every Magic card',
+            description: 'Type a card name, or use Scryfall syntax.',
+            icon: Search,
+            actions: (
+              <>
+                {presetButtons.map(preset => (
+                  <Button
+                    key={preset.name}
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => commitNow(preset.query)}
+                  >
+                    {preset.name}
+                  </Button>
+                ))}
+              </>
+            ),
+          };
+
   return (
     <div className="space-y-4">
-      {/* ---------------------------- Search bar ---------------------------- */}
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap gap-2 sm:flex-nowrap">
-          <div className="relative min-w-0 flex-1">
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-              aria-hidden
+      <FilterBar
+        /* `showViewModes={false}` (storage quick add) hides the toggle and
+           keeps the size slider, which is what it has always done. The bar gets
+           a copy holding one mode rather than the view being built with one:
+           `dm.cardSearch.view` is shared with the card page, and writing `grid`
+           back to it from a surface that offers only the grid would reset that
+           reader's table on `/cards`. */
+        view={showViewModes ? view : { ...view, modes: [view.activeMode] }}
+        activeCount={filters.activeCount}
+        onClear={handleReset}
+        search={
+          <ListingSearch
+            value={committedText}
+            onCommit={commitNow}
+            onDraftChange={setDraft}
+            onFocusChange={setShowSuggestions}
+            onSubmit={() => setShowSuggestions(false)}
+            inputRef={searchInputRef}
+            placeholder={placeholder}
+            label="Search cards"
+            suggestions={
+              showSuggestions && suggestions.length > 0 ? (
+                <div
+                  className={cn(
+                    'absolute inset-x-0 top-full z-50 mt-1 overflow-hidden rounded-lg py-1',
+                    SURFACE
+                  )}
+                >
+                  {suggestions.map(name => (
+                    <button
+                      key={name}
+                      type="button"
+                      /* The pointer-down blurs the field and the blur unmounts
+                         this list, so without it the click lands on nothing. */
+                      onMouseDown={e => e.preventDefault()}
+                      onClick={() => {
+                        commitNow(name);
+                        setShowSuggestions(false);
+                      }}
+                      className="block w-full px-3 py-2 text-left text-sm text-popover-foreground transition-colors hover:bg-accent"
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              ) : null
+            }
+          />
+        }
+        filters={
+          showFilters ? (
+            <CardFilterSheet
+              controller={filters}
+              showChips={false}
+              trigger={<FilterButton count={facetCount} />}
             />
-            <Input
-              ref={searchInputRef}
-              value={draft}
-              onChange={e => {
-                setDraft(e.target.value);
-                setShowSuggestions(true);
-              }}
-              onFocus={() => setShowSuggestions(true)}
-              onBlur={() => setTimeout(() => setShowSuggestions(false), 140)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  setShowSuggestions(false);
-                  commitNow(draft);
-                }
-              }}
-              placeholder={placeholder}
-              aria-label="Search cards"
-              className={cn(FIELD, 'h-11 w-full pl-10 text-base')}
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck="false"
-            />
-
-            {showSuggestions && suggestions.length > 0 && (
-              <div
-                className={cn(
-                  'absolute inset-x-0 top-full z-50 mt-1 overflow-hidden rounded-lg py-1',
-                  SURFACE
-                )}
-              >
-                {suggestions.map(name => (
-                  <button
-                    key={name}
-                    type="button"
-                    onMouseDown={e => e.preventDefault()}
-                    onClick={() => {
-                      commitNow(name);
-                      setShowSuggestions(false);
-                    }}
-                    className="block w-full px-3 py-2 text-left text-sm text-popover-foreground transition-colors hover:bg-accent"
-                  >
-                    {name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="flex gap-2">
-            {showFilters && (
-              <CardFilterSheet
-                controller={filters}
-                showChips={false}
-                trigger={
-                  <Button variant="secondary" className="h-11 gap-2">
-                    <SlidersHorizontal className="h-4 w-4" />
-                    <span className="hidden sm:inline">Filters</span>
-                    {/* Facets only. The text box is not a "filter" the sheet can show. */}
-                    {facetCount > 0 && (
-                      <span className="grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-[0.7rem] font-bold leading-none text-primary-foreground">
-                        {facetCount}
-                      </span>
-                    )}
-                  </Button>
-                }
-              />
-            )}
-
+          ) : null
+        }
+        presets={
+          <>
             {showPresets && (
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="secondary" className="h-11 gap-2">
+                  <Button variant="secondary" size="sm" className="h-9 gap-1.5">
                     <Zap className="h-4 w-4" />
                     <span className="hidden sm:inline">Presets</span>
                   </Button>
@@ -633,7 +699,7 @@ export function EnhancedUniversalCardSearch({
                 <Button
                   variant="secondary"
                   size="icon"
-                  className="h-11 w-11"
+                  className="h-9 w-9"
                   aria-label="Search syntax help"
                 >
                   <HelpCircle className="h-4 w-4" />
@@ -659,276 +725,158 @@ export function EnhancedUniversalCardSearch({
                 </p>
               </PopoverContent>
             </Popover>
+          </>
+        }
+        sort={
+          <>
+            <Select
+              value={shownUnique}
+              onValueChange={(unique: 'cards' | 'prints' | 'art') => patch({ unique })}
+            >
+              <SelectTrigger className={cn(FIELD, 'h-9 w-[132px]')} aria-label="Result uniqueness">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className={SURFACE}>
+                <SelectItem value="cards">Unique cards</SelectItem>
+                <SelectItem value="prints">All printings</SelectItem>
+                <SelectItem value="art">Unique art</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={shownOrder} onValueChange={(order: SortField) => patch({ order })}>
+              <SelectTrigger className={cn(FIELD, 'h-9 w-[140px]')} aria-label="Sort results by">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className={SURFACE}>
+                {SORT_OPTIONS.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
             <Button
-              variant="ghost"
+              variant="secondary"
               size="icon"
-              className="h-11 w-11"
-              onClick={handleReset}
-              disabled={filters.activeCount === 0 && !draft}
-              aria-label="Reset search"
+              className="h-9 w-9 shrink-0"
+              onClick={() => patch({ dir: shownDir === 'asc' ? 'desc' : 'asc' })}
+              title={shownDir === 'desc' ? 'Sort ascending' : 'Sort descending'}
+              aria-label={shownDir === 'desc' ? 'Sort ascending' : 'Sort descending'}
             >
-              <RotateCcw className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-
-        {/*
-          Removable chips for whatever the filter sheet set. Suppressed when the
-          only "filter" is the query text — the search box is already showing it,
-          and a chip repeating it verbatim is noise on this surface.
-        */}
-        {facetCount > 0 && <ActiveFilterChips controller={filters} />}
-
-        {/* ------------------------- Browse views -------------------------- */}
-        {/* Only while the filter is untouched: the moment there is a query, the
-            query is the subject of the page and a competing set of "views"
-            beside it would be lying about what the grid contains. */}
-        {browseViews && browseViews.length > 0 && !hasCriteria && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="mr-1 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              Browse
-            </span>
-            {browseViews.map(view => (
-              <Button
-                key={view.id}
-                variant={view.id === browseView?.id ? 'default' : 'secondary'}
-                size="sm"
-                className="h-8"
-                onClick={() => selectBrowse(view.id)}
-                aria-pressed={view.id === browseView?.id}
-              >
-                {view.label}
-              </Button>
-            ))}
-          </div>
-        )}
-
-        {/* ------------------------ Results toolbar ------------------------ */}
-        {(results.length > 0 || loading) && (
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm text-muted-foreground" aria-live="polite">
-              {/* The count lives in the pager below, which is the one place
-                  that knows whether a total was actually reported. This line
-                  says what the grid is showing, not how much of it. */}
-              {loading
-                ? 'Searching…'
-                : !hasCriteria && browseView
-                  ? browseView.caption
-                  : totalResults === null
-                    ? 'Search results'
-                    : `${totalResults.toLocaleString()} ${totalResults === 1 ? 'card' : 'cards'} matched`}
-            </p>
-
-            <div className="flex flex-wrap items-center gap-2">
-              {viewMode === 'grid' && (
-                <CardSizeSlider
-                  storageKey={sizeKey}
-                  value={cardWidth}
-                  onValueChange={setCardWidth}
-                  className="hidden sm:flex"
-                />
+              {shownDir === 'desc' ? (
+                <ArrowDown className="h-4 w-4" />
+              ) : (
+                <ArrowUp className="h-4 w-4" />
               )}
-
-              {showViewModes && (
-                <div className={SEGMENTED} role="group" aria-label="Result layout">
-                  {VIEW_MODES.map(({ mode, label, icon: Icon }) => (
-                    <Button
-                      key={mode}
-                      variant={viewMode === mode ? 'default' : 'ghost'}
-                      size="sm"
-                      onClick={() => setViewMode(mode)}
-                      className="h-8 rounded-md px-2"
-                      aria-pressed={viewMode === mode}
-                      title={label}
-                    >
-                      <Icon className="h-4 w-4" />
-                    </Button>
-                  ))}
-                </div>
-              )}
-
-              <Select
-                value={shownUnique}
-                onValueChange={(unique: 'cards' | 'prints' | 'art') => patch({ unique })}
-              >
-                <SelectTrigger
-                  className={cn(FIELD, 'h-8 w-[132px]')}
-                  aria-label="Result uniqueness"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className={SURFACE}>
-                  <SelectItem value="cards">Unique cards</SelectItem>
-                  <SelectItem value="prints">All printings</SelectItem>
-                  <SelectItem value="art">Unique art</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={shownOrder}
-                onValueChange={(order: SortField) => patch({ order })}
-              >
-                <SelectTrigger className={cn(FIELD, 'h-8 w-[140px]')} aria-label="Sort results by">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className={SURFACE}>
-                  {SORT_OPTIONS.map(opt => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => patch({ dir: shownDir === 'asc' ? 'desc' : 'asc' })}
-                className="h-8 bg-muted/40 px-2"
-                title={shownDir === 'desc' ? 'Sort ascending' : 'Sort descending'}
-                aria-label={shownDir === 'desc' ? 'Sort ascending' : 'Sort descending'}
-              >
-                {shownDir === 'desc' ? (
-                  <ArrowDown className="h-4 w-4" />
-                ) : (
-                  <ArrowUp className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* ------------------------------ Results ----------------------------- */}
-      {/* Full width, every time. A card detail pane used to dock to the right of
-          these results; clicking a card now goes to `/cards/:id` instead, so
-          the grid keeps the whole page. */}
-      <div className="space-y-4">
-        <div ref={resultsTopRef} className="h-px" aria-hidden />
-
-        {loading && results.length === 0 && (
-          <CardGridSkeleton width={cardWidth} count={Math.min(pageSize, 12)} />
-        )}
-
-        {error && (
-          <div className="rounded-xl bg-card p-6 shadow-lg shadow-black/20">
-            <p className="mb-1 text-sm font-medium text-destructive">
-              Scryfall could not run that search
-            </p>
-            <p className="text-sm text-muted-foreground">{error}</p>
-            <Button variant="secondary" size="sm" onClick={handleReset} className="mt-3">
-              Clear search
             </Button>
-          </div>
-        )}
-
-        {results.length > 0 && (
-          <>
-            {/* Above and below. A pager only at the bottom means scrolling
-                back past a whole page to change anything about it. */}
-            <Pager
-              page={page}
-              pageCount={pageCount}
-              hasNext={hasNext}
-              onPageChange={goToPage}
-              total={totalResults}
-              shown={results.length}
-              pageSize={pageSize}
-              onPageSizeChange={setPageSize}
-              busy={loading}
-              label="Search result pages"
-            />
-
-            <UniversalCardDisplay
-              cards={results}
-              viewMode={viewMode}
-              cardWidth={cardWidth}
-              sort={tableSort}
-              onSortChange={handleSortKey}
-              onCardClick={handleCardClick}
-              // Only while picking. On a browsing surface the body click
-              // already opens the card, so a second control that does the same
-              // thing is noise.
-              onCardOpen={picking ? handleCardOpen : undefined}
-              onCardAdd={showAddButton ? onCardAdd : undefined}
-              onCardWishlist={showWishlistButton ? onCardWishlist : undefined}
-              showWishlistButton={showWishlistButton}
-              showListButtons={showListButtons}
-            />
-
-            <Pager
-              page={page}
-              pageCount={pageCount}
-              hasNext={hasNext}
-              onPageChange={goToPage}
-              total={totalResults}
-              shown={results.length}
-              pageSize={pageSize}
-              onPageSizeChange={setPageSize}
-              busy={loading}
-              label="Search result pages"
-            />
           </>
-        )}
+        }
+        facets={
+          /* THE BROWSE VIEWS.
 
-        {/* A page past the end of the results. Reachable from an old link or a
-            filter that narrowed while somebody was deep in the list. */}
-        {!loading && !error && results.length === 0 && page > 1 && (
-          <div className="rounded-xl bg-card p-8 text-center shadow-lg shadow-black/20">
-            <h3 className="mb-1 text-base font-medium text-foreground">
-              Nothing on page {page.toLocaleString()}
-            </h3>
-            <p className="mb-4 text-sm text-muted-foreground">
-              This search does not go that far.
-            </p>
-            <Button variant="secondary" onClick={() => goToPage(1)}>
-              Back to page 1
-            </Button>
-          </div>
-        )}
+             Only while the filter is untouched: the moment there is a query,
+             the query is the subject of the page, and a competing set of
+             "views" beside it would be lying about what the grid contains.
 
-        {/* `page === 1` keeps this from stacking under the message above: an
-            empty page 7 is not the same thing as a query that matched nothing. */}
-        {!loading && !error && results.length === 0 && hasCriteria && page === 1 && (
-          <div className="rounded-xl bg-card p-8 text-center shadow-lg shadow-black/20">
-            <Search className="mx-auto mb-4 h-10 w-10 text-muted-foreground" aria-hidden />
-            <h3 className="mb-1 text-base font-medium text-foreground">No cards matched</h3>
-            <p className="mx-auto mb-4 max-w-md text-sm text-muted-foreground">
-              Scryfall parsed the query but nothing matched. Loosen a filter, or check the syntax
-              reference in the help menu.
-            </p>
-            <Button variant="secondary" onClick={handleReset}>
-              Clear search
-            </Button>
-          </div>
-        )}
-
-        {/* The blank slate survives only where there is nothing else to show:
-            an embedded picker with no browse views configured. */}
-        {!loading && !error && results.length === 0 && !hasCriteria && !browseView && page === 1 && (
-          <div className="rounded-xl bg-card p-8 text-center shadow-lg shadow-black/20">
-            <Search className="mx-auto mb-4 h-10 w-10 text-muted-foreground" aria-hidden />
-            <h3 className="mb-1 text-base font-medium text-foreground">Search every Magic card</h3>
-            <p className="mx-auto mb-5 max-w-md text-sm text-muted-foreground">
-              Type a card name, or use Scryfall syntax. Press <Key>/</Key> from anywhere to jump to
-              the search box.
-            </p>
-            <div className="flex flex-wrap justify-center gap-2">
-              {presetButtons.map(preset => (
+             They sit in `facets` rather than `presets` because `facets` is a
+             full row of the page's own narrowing controls, and five named views
+             with words on them are a row. See the note on `FilterBar`. */
+          browseViews && browseViews.length > 0 && !hasCriteria ? (
+            <>
+              <span className="mr-1 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                Browse
+              </span>
+              {browseViews.map(v => (
                 <Button
-                  key={preset.name}
-                  variant="secondary"
+                  key={v.id}
+                  variant={v.id === browseView?.id ? 'default' : 'secondary'}
                   size="sm"
-                  onClick={() => commitNow(preset.query)}
+                  className="h-8"
+                  onClick={() => selectBrowse(v.id)}
+                  aria-pressed={v.id === browseView?.id}
                 >
-                  {preset.name}
+                  {v.label}
                 </Button>
               ))}
+            </>
+          ) : null
+        }
+        chips={
+          /* Suppressed when the only "filter" is the query text: the search box
+             is already showing it, and a chip repeating it verbatim is noise on
+             this surface. */
+          facetCount > 0 ? <ActiveFilterChips controller={filters} showClear={false} /> : null
+        }
+      />
+
+      <ListingFrame
+        view={view}
+        count={results.length}
+        /* A refetch with rows already on screen keeps the rows and marks the
+           pager busy. Only an empty first load gets the skeleton. */
+        loading={loading && results.length === 0}
+        summary={summary}
+        skeleton={<CardGridSkeleton width={cardWidth} count={Math.min(pageSize, 12)} />}
+        beforeResults={
+          error ? (
+            <div className="rounded-xl bg-card p-6 shadow-lg shadow-black/20">
+              <p className="mb-1 text-sm font-medium text-destructive">
+                Scryfall could not run that search
+              </p>
+              <p className="text-sm text-muted-foreground">{error}</p>
+              <Button variant="secondary" size="sm" onClick={handleReset} className="mt-3">
+                Clear search
+              </Button>
             </div>
-          </div>
-        )}
-      </div>
+          ) : null
+        }
+        pager={
+          results.length > 0
+            ? {
+                page,
+                pageCount,
+                hasNext,
+                onPageChange: setPage,
+                total: totalResults,
+                shown: results.length,
+                /* Rows per page belongs to the fetch here, not to the view: the
+                   hook moves the page number so the row being read stays on
+                   screen, and only it knows which row that is. */
+                pageSize,
+                onPageSizeChange: setPageSize,
+                busy: loading,
+                label: 'Search result pages',
+              }
+            : null
+        }
+        /* An error already says what happened, in the panel above. A second
+           panel underneath it guessing at why would be two explanations. */
+        empty={error ? { title: 'Nothing to show' } : empty}
+      >
+        {/* Full width, every time. A card detail pane used to dock to the right
+            of these results; clicking a card goes to `/cards/:id` instead, so
+            the grid keeps the whole page.
+
+            `UniversalCardDisplay` lays out all three modes including the grid,
+            which is why every mode is declared `rows`. */}
+        <UniversalCardDisplay
+          cards={results}
+          viewMode={viewMode}
+          cardWidth={cardWidth}
+          sort={tableSort}
+          onSortChange={handleSortKey}
+          onCardClick={handleCardClick}
+          // Only while picking. On a browsing surface the body click already
+          // opens the card, so a second control that does the same thing is
+          // noise.
+          onCardOpen={picking ? handleCardOpen : undefined}
+          onCardAdd={showAddButton ? onCardAdd : undefined}
+          onCardWishlist={showWishlistButton ? onCardWishlist : undefined}
+          showWishlistButton={showWishlistButton}
+          showListButtons={showListButtons}
+        />
+      </ListingFrame>
     </div>
   );
 }

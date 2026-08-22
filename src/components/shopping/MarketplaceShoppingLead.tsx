@@ -116,7 +116,7 @@ export function MarketplaceShoppingLead({ className }: { className?: string }) {
         </p>
       ) : (
         <>
-          <PlatformTotals lines={costLines} size="sm" />
+          <PlatformTotals lines={costLines} on="card" />
 
           <div className="space-y-1.5">
             {list.toBuy.slice(0, 8).map(entry => (

@@ -161,16 +161,16 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Play',
     items: [
       {
+        /* ONE entry, not two. `/play` and `/simulate` were two pages and two
+           nav entries for one thing with a different seat arrangement; playtest
+           is the fourth mode on this page now. `matches` keeps the rail lit on
+           every step of the flow and on the online lobby, and on `/simulate`
+           for the moment its redirect is in flight. */
         title: 'Play a Game',
         href: '/play',
         icon: Gamepad2,
-        description: 'Against bots, or on your own',
-      },
-      {
-        title: 'Playtest',
-        href: '/simulate',
-        icon: Swords,
-        description: 'Watch your decks play each other',
+        matches: ['/play', '/simulate'],
+        description: 'Online, versus bots, goldfish or playtest',
       },
       {
         title: 'Life Counter',

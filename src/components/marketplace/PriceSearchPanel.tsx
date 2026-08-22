@@ -1,28 +1,29 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ManaCost } from '@/components/ui/mana-cost';
-import {
-  Search,
-  Star,
-  Plus,
-  X,
-  Loader2,
-  ArrowUpDown,
-  Filter,
-  LayoutGrid,
-  List,
-  SlidersHorizontal,
-  Tag,
-} from 'lucide-react';
+import { Search, Star, Plus, Loader2, LayoutGrid, List, Tag } from 'lucide-react';
 import { showSuccess } from '@/components/ui/toast-helpers';
 import { cn } from '@/lib/utils';
-import { cardDetailPath, CardGrid, CardGridSkeleton, CardImage, CardSizeSlider, useCardSize } from '@/components/cards';
-import { ActiveFilterChips, CardFilterPanel, useCardFilterState } from '@/components/filters';
+import { cardDetailPath, CardGrid, CardGridSkeleton, CardImage } from '@/components/cards';
+import { ActiveFilterChips, CardFilterSheet, useCardFilterState } from '@/components/filters';
+import {
+  EmptyState,
+  FacetChip,
+  FIELD,
+  FilterBar,
+  FilterButton,
+  ListingSearch,
+  SortControl,
+  matchedLabel,
+  resultSentence,
+  useListingView,
+  type ListingMode,
+  type SortOption as ListingSortOption,
+} from '@/components/listing';
 import { getBestCardImage } from '@/lib/scryfall/card-utils';
 import { CardPriceDetail } from './CardPriceDetail';
 import { useMarketplaceSeed } from './useMarketplaceSeed';
@@ -78,6 +79,31 @@ interface MarketplacePreferences {
   showFoil: boolean;
   viewMode: ViewMode;
 }
+
+/**
+ * Two ways to look at a price search.
+ *
+ * A list here is a table of prices per printing, which is a different job from
+ * the collection's table of what you own, so the modes are this surface's own.
+ */
+const MODES: ListingMode[] = [
+  { id: 'grid', label: 'Image grid', icon: LayoutGrid, layout: 'grid' },
+  { id: 'list', label: 'Price table', icon: List, layout: 'rows' },
+];
+
+const SORT_OPTIONS: ListingSortOption[] = [
+  { value: 'name', label: 'Name' },
+  { value: 'price', label: 'Price' },
+  { value: 'set', label: 'Set name' },
+];
+
+/** Which axis each of the four old baked-in options was really sorting on. */
+const SORT_AXIS: Record<SortOption, string> = {
+  name: 'name',
+  'price-asc': 'price',
+  'price-desc': 'price',
+  set: 'set',
+};
 
 const PREFERENCES_KEY = 'marketplace-preferences';
 const PAGE_SIZE = 60;
@@ -209,8 +235,26 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
   const storedPrefs = getStoredPreferences();
 
   const filters = useCardFilterState();
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [cardWidth, setCardWidth] = useCardSize('marketplace', 190);
+
+  /**
+   * View mode, sort and card size, in the one object every listing uses.
+   *
+   * The surface name is `marketplace`, which is the key `useCardSize` has been
+   * writing all along, so nobody's card size resets. The view mode and the sort
+   * used to live in this file's own `marketplace-preferences` blob; they are
+   * read out of it as the defaults, so somebody who last used the list view
+   * still lands on the list view the first time after this ships and the new
+   * key takes over from there.
+   */
+  const view = useListingView({
+    surface: 'marketplace',
+    modes: MODES,
+    defaultMode: storedPrefs.viewMode ?? 'grid',
+    defaultSortKey: SORT_AXIS[storedPrefs.sortBy ?? 'name'],
+    defaultSortDir: storedPrefs.sortBy === 'price-desc' ? 'desc' : 'asc',
+    defaultSize: 190,
+  });
+  const cardWidth = view.size;
 
   /* Real cards to show before a query exists — the user's own wishlist and
      collection, priced. See `useMarketplaceSeed`. */
@@ -225,14 +269,26 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
   const [totalCards, setTotalCards] = useState(0);
   const [selectedCard, setSelectedCard] = useState<CardPriceData | null>(null);
   const [showFoil, setShowFoil] = useState(storedPrefs.showFoil ?? false);
-  const [sortBy, setSortBy] = useState<SortOption>(storedPrefs.sortBy ?? 'name');
   const [filterBy, setFilterBy] = useState<FilterOption>(storedPrefs.filterBy ?? 'all');
   const [hideNoPrice, setHideNoPrice] = useState(storedPrefs.hideNoPrice ?? true);
-  const [viewMode, setViewMode] = useState<ViewMode>(storedPrefs.viewMode ?? 'grid');
+
+  /* The axis and direction, back in the shape the rest of this file sorts by.
+     `price-asc` and `price-desc` were two options rather than one option and a
+     direction, which is why "Set name" could not be reversed at all. */
+  const sortBy: SortOption =
+    view.sortKey === 'price'
+      ? view.sortDir === 'asc'
+        ? 'price-asc'
+        : 'price-desc'
+      : (view.sortKey as SortOption);
+  const viewMode = view.mode as ViewMode;
 
   // Guards against an earlier in-flight request overwriting a newer one.
   const requestId = useRef(0);
 
+  /* Only this panel's own facets are written here now. Mode, sort and size are
+     `useListingView`'s, under the keys every other listing uses. The two old
+     fields are still written so a roll-back reads a sensible value. */
   useEffect(() => {
     savePreferences({ sortBy, filterBy, hideNoPrice, showFoil, viewMode });
   }, [sortBy, filterBy, hideNoPrice, showFoil, viewMode]);
@@ -418,166 +474,151 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
 
   return (
     <div className="space-y-6">
-      {/* Search + filters */}
-      <div className="space-y-4 rounded-lg bg-card p-4 shadow-lg shadow-black/20">
-        <h2 className="text-base font-semibold text-foreground">Search and compare prices</h2>
+      {/*
+        The same band as the collection, the wishlist and card search.
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <PriceSearchBox
+        What was here: a hand-rolled search box, a Filters button opening an
+        inline copy of `CardFilterPanel` with a second "Clear all" of its own,
+        two bordered-by-default selects with an icon glued to each, and a view
+        toggle whose selected chip was `variant="secondary"` on a `bg-muted/40`
+        shell. That last one is not a style difference: measured, the selected
+        chip came out at **1.09:1** against the shell it sits on, because
+        `--secondary` is one lightness point from `--muted` in the dark theme and
+        the identical value in the light one. The selected view was not drawn at
+        all. `ViewModeToggle` is the fixed version, at 15.80:1.
+
+        Nothing was dropped. The version filter, the foil switch, the hide-no-
+        price switch and the seed chips all pass in through slots.
+      */}
+      <FilterBar
+        view={view}
+        activeCount={filters.activeCount}
+        onClear={filters.reset}
+        search={
+          <ListingSearch
             value={filters.state.text ?? ''}
             onCommit={commitText}
-            loading={loading}
+            placeholder="Card name, or Scryfall syntax"
+            label="Search cards by name or Scryfall syntax"
+            size="large"
+            /* The spinner sits where the clear control would, which is where
+               this box already put it. A search that is running and a search
+               that is done look different without moving anything. */
+            trailing={
+              loading ? (
+                <Loader2
+                  className="h-4 w-4 animate-spin text-muted-foreground"
+                  aria-label="Searching"
+                />
+              ) : null
+            }
           />
+        }
+        /* Which real list fills the grid before a query exists. This is the
+           `presets` slot, the same one card search puts its browse views in:
+           named starting points that are not filters. */
+        presets={
+          !searchUrl && seeds.length > 1 ? (
+            <div className="flex items-center gap-1.5">
+              {seeds.map(seed => (
+                <FacetChip
+                  key={seed.id}
+                  selected={seed.id === activeSeed?.id}
+                  onClick={() => setSeedId(seed.id)}
+                >
+                  {seed.label}
+                </FacetChip>
+              ))}
+            </div>
+          ) : null
+        }
+        /*
+         * The slide-over, not an inline panel.
+         *
+         * The inline version argued that a Sheet would slide over the results
+         * it filters. That is true of a centred dialog and it is why this
+         * project bans those; a right-hand panel is the pattern the owner
+         * asked for by name, the page keeps its scroll position behind it, and
+         * it is what every other card-search surface already uses. One filter,
+         * in one place, on all of them.
+         */
+        filters={
+          <CardFilterSheet
+            controller={filters}
+            showSort={false}
+            showChips={false}
+            trigger={<FilterButton count={filters.activeCount} />}
+          />
+        }
+        sort={
+          activeResults.length > 0 ? (
+            <SortControl
+              options={SORT_OPTIONS}
+              value={view.sortKey}
+              onValueChange={view.setSortKey}
+              dir={view.sortDir}
+              onToggleDir={view.toggleSortDir}
+            />
+          ) : null
+        }
+        chips={
+          filters.activeCount > 0 ? (
+            <ActiveFilterChips controller={filters} showClear={false} />
+          ) : null
+        }
+      >
+        {/* This panel's own questions, which no Scryfall query can ask: which
+            printings to show, whether prices are foil prices, and whether to
+            keep the printings we hold no price for. */}
+        <div className="flex flex-wrap items-center gap-3">
+          {activeResults.length > 0 && (
+            <Select value={filterBy} onValueChange={v => setFilterBy(v as FilterOption)}>
+              <SelectTrigger className={cn(FIELD, 'h-9 w-[170px]')} aria-label="Which printings">
+                <SelectValue placeholder="Filter versions" />
+              </SelectTrigger>
+              <SelectContent className="border-0 shadow-xl shadow-black/40">
+                <SelectItem value="all">All versions ({activeResults.length})</SelectItem>
+                <SelectItem value="standard">Standard ({standardCount})</SelectItem>
+                <SelectItem value="art-variants">Alt art ({artVariantCount})</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
 
-          <Button
-            variant="secondary"
-            className="shrink-0 gap-2"
-            onClick={() => setFiltersOpen(open => !open)}
-            aria-expanded={filtersOpen}
-          >
-            <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-            Filters
-            {filters.activeCount > 0 && (
-              <span className="rounded-full bg-primary px-1.5 py-0.5 text-[0.65rem] font-bold leading-none text-primary-foreground">
-                {filters.activeCount}
-              </span>
-            )}
-          </Button>
-
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex items-center gap-2">
             <Switch id="foil-toggle" checked={showFoil} onCheckedChange={setShowFoil} />
-            <Label htmlFor="foil-toggle" className="text-sm">
+            <Label htmlFor="foil-toggle" className="cursor-pointer text-xs">
               Foil prices
             </Label>
           </div>
-        </div>
 
-        {/* Filters expand in place under the search row — no Sheet sliding over
-            the results they are filtering. */}
-        {filtersOpen && (
-          <div className="rounded-lg bg-muted/30 p-3">
-            <div className="mb-2 flex items-center justify-between">
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                Filters
-              </h3>
-              {filters.activeCount > 0 && (
-                <button
-                  type="button"
-                  onClick={filters.reset}
-                  className="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  Clear all
-                </button>
-              )}
-            </div>
-            <CardFilterPanel controller={filters} showSort={false} showChips={false} />
-          </div>
-        )}
-
-        {filters.activeCount > 0 && <ActiveFilterChips controller={filters} />}
-
-        {/* Which real list is filling the grid, while there is no query. More
-            than one only when the user has both a wishlist and a collection. */}
-        {!searchUrl && seeds.length > 1 && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            {seeds.map(seed => (
-              <Button
-                key={seed.id}
-                variant={seed.id === activeSeed?.id ? 'default' : 'secondary'}
-                size="sm"
-                className="h-8"
-                onClick={() => setSeedId(seed.id)}
-                aria-pressed={seed.id === activeSeed?.id}
-              >
-                {seed.label}
-              </Button>
-            ))}
-          </div>
-        )}
-
-        {!searchUrl && activeSeed && (
-          <p className="text-sm text-muted-foreground">{activeSeed.caption}</p>
-        )}
-
-        {/* Listing-level controls — printings, sort, density, view. */}
-        {activeResults.length > 0 && (
-          <div className="flex flex-wrap items-center gap-3 pt-1">
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-              <Select value={filterBy} onValueChange={v => setFilterBy(v as FilterOption)}>
-                <SelectTrigger className="h-8 w-[170px] border-0 bg-muted/50">
-                  <SelectValue placeholder="Filter versions" />
-                </SelectTrigger>
-                <SelectContent className="border-0">
-                  <SelectItem value="all">All versions ({activeResults.length})</SelectItem>
-                  <SelectItem value="standard">Standard ({standardCount})</SelectItem>
-                  <SelectItem value="art-variants">Alt art ({artVariantCount})</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <ArrowUpDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-              <Select value={sortBy} onValueChange={v => setSortBy(v as SortOption)}>
-                <SelectTrigger className="h-8 w-[160px] border-0 bg-muted/50">
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent className="border-0">
-                  <SelectItem value="name">Name</SelectItem>
-                  <SelectItem value="price-asc">Price: low to high</SelectItem>
-                  <SelectItem value="price-desc">Price: high to low</SelectItem>
-                  <SelectItem value="set">Set name</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
+          {activeResults.length > 0 && (
             <div className="flex items-center gap-2">
               <Switch id="hide-no-price" checked={hideNoPrice} onCheckedChange={setHideNoPrice} />
               <Label htmlFor="hide-no-price" className="cursor-pointer text-xs">
                 Hide no price {noPriceCount > 0 && `(${noPriceCount})`}
               </Label>
             </div>
+          )}
+        </div>
+      </FilterBar>
 
-            <div className="ml-auto flex items-center gap-3">
-              {viewMode === 'grid' && (
-                <CardSizeSlider
-                  storageKey="marketplace"
-                  value={cardWidth}
-                  onValueChange={setCardWidth}
-                  showValue={false}
-                  className="hidden sm:flex"
-                />
-              )}
-              <div className="flex items-center gap-1 rounded-md bg-muted/40 p-0.5">
-                {(
-                  [
-                    { mode: 'grid' as const, icon: LayoutGrid, label: 'Card grid' },
-                    { mode: 'list' as const, icon: List, label: 'List' },
-                  ]
-                ).map(({ mode, icon: Icon, label }) => (
-                  <Button
-                    key={mode}
-                    size="icon"
-                    variant={viewMode === mode ? 'secondary' : 'ghost'}
-                    className="h-7 w-7"
-                    onClick={() => setViewMode(mode)}
-                    aria-label={label}
-                    aria-pressed={viewMode === mode}
-                    title={label}
-                  >
-                    <Icon className="h-4 w-4" />
-                  </Button>
-                ))}
-              </div>
-            </div>
+      {!searchUrl && activeSeed && (
+        <p className="text-sm text-muted-foreground">{activeSeed.caption}</p>
+      )}
 
-            <div className="w-full text-xs text-muted-foreground sm:w-auto">
-              Showing {filteredAndSortedResults.length} of {activeResults.length} loaded
-              {searchUrl && totalCards > results.length && ` · ${totalCards} printings match`}
-            </div>
-          </div>
-        )}
-      </div>
+      {/* The count line, in the shared sentence. It read "Showing 42 of 42
+          loaded · 913 printings match", which is a fifth phrasing of the one
+          fact every listing states. */}
+      {activeResults.length > 0 && (
+        <p className="text-sm text-muted-foreground">
+          {resultSentence([
+            matchedLabel(filteredAndSortedResults.length, activeResults.length, 'printing'),
+            searchUrl && totalCards > results.length
+              ? { value: totalCards.toLocaleString(), label: 'match in all' }
+              : null,
+          ])}
+        </p>
+      )}
 
       {/* Price detail — an inline pane above the results it is compared
           against, not a Sheet sliding over them. */}
@@ -805,83 +846,20 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
       )}
 
       {!loading && results.length === 0 && searchUrl && (
-        <div className="rounded-lg bg-muted/30 p-12 text-center">
-          <Search className="mx-auto mb-4 h-10 w-10 text-muted-foreground" aria-hidden="true" />
-          <h3 className="mb-2 text-lg font-medium text-foreground">No cards found</h3>
-          <p className="text-sm text-muted-foreground">Try a different search term.</p>
-        </div>
+        <EmptyState
+          icon={Search}
+          title="No cards found"
+          description="Try a different name, or widen the filters."
+        />
       )}
 
       {!loading && activeResults.length > 0 && filteredAndSortedResults.length === 0 && (
-        <div className="rounded-lg bg-muted/30 p-12 text-center">
-          <h3 className="mb-2 text-lg font-medium text-foreground">
-            Every result is filtered out
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            Loosen the version filter or turn off &ldquo;hide no price&rdquo;.
-          </p>
-        </div>
+        <EmptyState
+          title="Every result is filtered out"
+          description={'Loosen the version filter, or turn off "hide no price".'}
+        />
       )}
 
-    </div>
-  );
-}
-
-/** Debounced name/syntax box. The request itself is debounced downstream too. */
-function PriceSearchBox({
-  value,
-  onCommit,
-  loading,
-}: {
-  value: string;
-  onCommit: (next: string | undefined) => void;
-  loading: boolean;
-}) {
-  const [draft, setDraft] = useState(value);
-  const [committed, setCommitted] = useState(value);
-
-  useEffect(() => {
-    if (value !== committed) {
-      setCommitted(value);
-      setDraft(value);
-    }
-    // Adopts external changes (chip removal, clear all) without stomping typing.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
-
-  useEffect(() => {
-    if (draft === committed) return;
-    const id = window.setTimeout(() => {
-      setCommitted(draft);
-      onCommit(draft.trim() ? draft : undefined);
-    }, 250);
-    return () => window.clearTimeout(id);
-  }, [draft, committed, onCommit]);
-
-  return (
-    <div className="relative min-w-0 flex-1">
-      <Input
-        placeholder="Card name, or Scryfall syntax"
-        value={draft}
-        onChange={e => setDraft(e.target.value)}
-        spellCheck={false}
-        className="border-0 bg-muted/50 pr-10 text-base focus-visible:ring-1 focus-visible:ring-offset-0"
-        aria-label="Card name"
-      />
-      {loading ? (
-        <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-      ) : draft ? (
-        <button
-          type="button"
-          onClick={() => setDraft('')}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
-          aria-label="Clear search"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      ) : (
-        <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-      )}
     </div>
   );
 }

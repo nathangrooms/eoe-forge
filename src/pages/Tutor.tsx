@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { FIELD } from '@/components/listing';
 import {
   Send,
   Zap,
@@ -1063,7 +1064,9 @@ ${cardBrief(selectedCard)}` : message,
                       ? 'Ask about your deck…'
                       : 'Ask anything about Magic…'
                 }
-                className="max-h-32 min-h-[52px] resize-none pr-12 text-base"
+                /* The one hairline left on this page. `Textarea` ships
+                   `border border-input` and this mount never opted out. */
+                className={cn(FIELD, 'max-h-32 min-h-[52px] resize-none pr-12 text-base')}
                 disabled={isLoading}
                 rows={1}
               />

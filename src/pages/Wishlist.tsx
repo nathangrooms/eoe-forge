@@ -1,16 +1,7 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
@@ -18,12 +9,10 @@ import {
   Heart,
   Download,
   LayoutGrid,
-  List,
+  Rows3,
   Layers,
   Printer,
   Search,
-  ArrowUpDown,
-  SlidersHorizontal,
   ShoppingCart,
 } from 'lucide-react';
 import { ListToProxiesPanel } from '@/components/shopping';
@@ -34,7 +23,6 @@ import { WishlistQuickStats } from '@/components/wishlist/WishlistQuickStats';
 import { WishlistCardGrid } from '@/components/wishlist/WishlistCardGrid';
 import { WishlistListView } from '@/components/wishlist/WishlistListView';
 import { WishlistByDeck, type DeckGap, type DeckGapCard } from '@/components/wishlist/WishlistByDeck';
-import { WishlistEmptyState } from '@/components/wishlist/WishlistEmptyState';
 import { WishlistBuyPanel } from '@/components/wishlist/WishlistBuyPanel';
 import {
   MoveToCollectionPanel,
@@ -42,12 +30,25 @@ import {
 } from '@/components/wishlist/MoveToCollectionPanel';
 import { formatPrice, toNumber } from '@/components/collection/browser/types';
 import { pickPrintingsByName } from '@/lib/wishlist/printing';
-import { CardGridSkeleton, CardSizeSlider, useCardSize } from '@/components/cards';
-import { Pager } from '@/components/ui/pagination';
-import { usePagedItems, usePageSize } from '@/hooks/usePagination';
+import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
+import { usePagedItems } from '@/hooks/usePagination';
 import { ActiveFilterChips, CardFilterSheet, useCardFilterState } from '@/components/filters';
 import { matchesCardFilter, toLocalCard } from '@/lib/cards/local-filter';
-import { cn } from '@/lib/utils';
+import {
+  FacetChip,
+  FilterBar,
+  FilterButton,
+  ListingFrame,
+  ListingSearch,
+  PageTabs,
+  SortControl,
+  matchedLabel,
+  resultSentence,
+  totalActiveFilters,
+  useListingView,
+  type ListingMode,
+  type SortOption,
+} from '@/components/listing';
 
 interface WishlistItem {
   id: string;
@@ -74,16 +75,36 @@ interface UserDeck {
   colors: string[];
 }
 
-type ViewMode = 'grid' | 'list';
-type SortOption = 'date-desc' | 'date-asc' | 'price-desc' | 'price-asc' | 'name-asc' | 'priority';
 type PriorityFilter = 'all' | 'high' | 'medium' | 'low';
 
-const SORT_OPTIONS: { value: SortOption; label: string }[] = [
-  { value: 'date-desc', label: 'Newest' },
-  { value: 'date-asc', label: 'Oldest' },
-  { value: 'price-desc', label: 'Price high' },
-  { value: 'price-asc', label: 'Price low' },
-  { value: 'name-asc', label: 'Name' },
+/**
+ * The two ways to look at a wishlist.
+ *
+ * No table, deliberately. A collection table earns its columns because
+ * condition, quantity and value are all facts about a copy you hold; a wishlist
+ * row is a card you do not own yet, and the only column it could add is the
+ * price, which the tile already prints.
+ */
+const MODES: ListingMode[] = [
+  { id: 'grid', label: 'Image grid', icon: LayoutGrid, layout: 'grid' },
+  { id: 'list', label: 'List', icon: Rows3, layout: 'rows' },
+];
+
+/**
+ * Sort axis and direction, rather than six baked-in pairs.
+ *
+ * The old control offered `Newest / Oldest / Price high / Price low / Name /
+ * Priority`, which is four axes with the direction spelled into the label on
+ * three of them and missing on the fourth. Every one of those six still exists
+ * here as an axis plus a direction, and reverse priority, which had no option
+ * before, exists now too. Nothing was taken away.
+ */
+type SortKey = 'added' | 'price' | 'name' | 'priority';
+
+const SORT_OPTIONS: SortOption[] = [
+  { value: 'added', label: 'Date added' },
+  { value: 'price', label: 'Price' },
+  { value: 'name', label: 'Name' },
   { value: 'priority', label: 'Priority' },
 ];
 
@@ -125,9 +146,26 @@ export default function Wishlist() {
   const [toShopping, setToShopping] = useState(false);
 
   const [activeTab, setActiveTab] = useState('wishlist');
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const [sortBy, setSortBy] = useState<SortOption>('date-desc');
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
+
+  /**
+   * View mode, sort, card size and page size, in one object.
+   *
+   * The surface name stays `wishlist` because that is the key `useCardSize` and
+   * `usePageSize` have been writing all along, and renaming it would silently
+   * reset every reader's card size. The view mode and the sort were plain
+   * `useState` before, so they were forgotten on every navigation; they persist
+   * now, the same way My Decks and the collection already did.
+   */
+  const view = useListingView({
+    surface: 'wishlist',
+    modes: MODES,
+    defaultMode: 'grid',
+    defaultSortKey: 'added',
+    defaultSortDir: 'desc',
+    defaultSize: 200,
+  });
+  const sortKey = view.sortKey as SortKey;
 
   /**
    * The same filter the card-search pages use, evaluated locally against the
@@ -135,8 +173,6 @@ export default function Wishlist() {
    * *entry*, not of the card, and no Scryfall query can express it.
    */
   const filters = useCardFilterState();
-  const [cardWidth, setCardWidth] = useCardSize('wishlist', 200);
-  const [pageSize, setPageSize] = usePageSize('wishlist');
 
   const loadWishlist = useCallback(async () => {
     if (!user) return;
@@ -389,22 +425,23 @@ export default function Wishlist() {
     const tieBreak = (a: WishlistItem, b: WishlistItem) =>
       a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 
-    items = [...items].sort((a, b) => {
-      const ordered = compareBySort(a, b);
-      return ordered === 0 ? tieBreak(a, b) : ordered;
-    });
-
-    function compareBySort(a: WishlistItem, b: WishlistItem): number {
-      switch (sortBy) {
-        case 'date-desc':
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        case 'date-asc':
+    /*
+     * One comparison per axis, always ascending, and the direction is applied
+     * once at the end. Writing the direction into each branch is how the old
+     * six-way switch ended up with three axes that could be reversed and one
+     * that could not.
+     *
+     * "Ascending" for priority means high first, which is what the single
+     * `priority` option used to do and what a reader expects from a list of
+     * things ranked by how badly they are wanted.
+     */
+    const ascending = (a: WishlistItem, b: WishlistItem): number => {
+      switch (sortKey) {
+        case 'added':
           return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-        case 'price-desc':
-          return toNumber(b.card?.prices?.usd) - toNumber(a.card?.prices?.usd);
-        case 'price-asc':
+        case 'price':
           return toNumber(a.card?.prices?.usd) - toNumber(b.card?.prices?.usd);
-        case 'name-asc':
+        case 'name':
           return a.card_name.localeCompare(b.card_name);
         case 'priority': {
           const order: Record<string, number> = { high: 0, medium: 1, low: 2 };
@@ -413,10 +450,20 @@ export default function Wishlist() {
         default:
           return 0;
       }
-    }
+    };
+
+    const sign = view.sortDir === 'asc' ? 1 : -1;
+
+    items = [...items].sort((a, b) => {
+      const ordered = ascending(a, b) * sign;
+      // The tie-break is NOT reversed. Reversing it would make the two
+      // directions disagree about which of two identical rows comes first, and
+      // a page boundary landing between them would drop one.
+      return ordered === 0 ? tieBreak(a, b) : ordered;
+    });
 
     return items;
-  }, [projected, priorityFilter, sortBy, filters.state]);
+  }, [projected, priorityFilter, sortKey, view.sortDir, filters.state]);
 
 
   const addToWishlist = useCallback(
@@ -632,10 +679,14 @@ export default function Wishlist() {
     [openCard]
   );
 
-  const totalValue = useMemo(
-    () => wishlistItems.reduce((sum, i) => sum + toNumber(i.card?.prices?.usd) * i.quantity, 0),
-    [wishlistItems]
-  );
+  /*
+   * The whole list's value used to be summed here for a line under the page
+   * title. It is a tile now, and `WishlistQuickStats` computes it through
+   * `totalPrices`, which counts the copies it could not price instead of adding
+   * them as zero. Two sums over the same rows disagreeing by whatever the
+   * unpriced copies are worth is exactly the drift this pass is closing, so
+   * there is one, and it is the honest one.
+   */
 
   /**
    * The whole wishlist, ready to print.
@@ -675,7 +726,12 @@ export default function Wishlist() {
     showSuccess('Copied', `${items.length} lines copied for mass entry`);
   }, []);
 
-  const activeFilterCount = filters.activeCount + (priorityFilter === 'all' ? 0 : 1);
+  /* Priority lives outside `CardSearchState`, so it has to be added in or the
+     badge under-reports and a reader cannot tell why the grid is short. */
+  const activeFilterCount = totalActiveFilters(
+    filters.activeCount,
+    priorityFilter === 'all' ? 0 : 1
+  );
   const hasActiveFilter = activeFilterCount > 0;
 
   /**
@@ -687,27 +743,15 @@ export default function Wishlist() {
    * paging cuts is the drawing.
    */
   const pagedWishlist = usePagedItems(filteredItems, {
-    pageSize,
-    resetKey: JSON.stringify([filters.state, priorityFilter, sortBy]),
+    pageSize: view.pageSize,
+    resetKey: JSON.stringify([filters.state, priorityFilter, sortKey, view.sortDir]),
   });
-
-  const wishlistTop = useRef<HTMLDivElement>(null);
-  const goToWishlistPage = useCallback(
-    (next: number) => {
-      pagedWishlist.setPage(next);
-      const top = wishlistTop.current;
-      if (!top) return;
-      const y = top.getBoundingClientRect().top + window.scrollY - 16;
-      window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
-    },
-    [pagedWishlist]
-  );
 
   /**
    * Keyed on `filters.patch` — which `useCardFilterState` keeps stable — rather
-   * than on the controller object, which is rebuilt every render. WishlistSearchBox
-   * debounces inside an effect keyed on this callback, so a new identity per render
-   * would reset the 250ms timer before it ever fired.
+   * than on the controller object, which is rebuilt every render. `ListingSearch`
+   * debounces inside an effect keyed on this callback, so a new identity per
+   * render would reset the 250ms timer before it ever fired.
    */
   const { patch: patchFilters } = filters;
   const commitFilterText = useCallback(
@@ -720,203 +764,193 @@ export default function Wishlist() {
     filters.reset();
   }, [filters]);
 
+  /**
+   * What the rows on screen are worth, in the shared sentence.
+   *
+   * The page had no count line at all; the only figures were in the header, and
+   * they described the whole wishlist rather than what a filter had left. So a
+   * reader who narrowed to three cards still read "94 cards · $4,676" and had
+   * no way to see what the three cost.
+   */
+  const shownValue = useMemo(
+    () => filteredItems.reduce((sum, i) => sum + toNumber(i.card?.prices?.usd) * i.quantity, 0),
+    [filteredItems]
+  );
+  const shownCopies = useMemo(
+    () => filteredItems.reduce((sum, i) => sum + i.quantity, 0),
+    [filteredItems]
+  );
+
+  const summary = resultSentence([
+    matchedLabel(filteredItems.length, wishlistItems.length, 'entry', 'entries'),
+    { value: shownCopies.toLocaleString(), label: 'cards' },
+    shownValue > 0 && { value: formatPrice(shownValue) },
+  ]);
+
+
   return (
-    <div className="min-h-screen bg-background">
-      <div className="w-full space-y-6 px-3 py-2 md:px-6 md:py-4">
-        {/* Header */}
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-          <div>
-            <h1 className="flex items-center gap-2 text-xl font-bold text-foreground md:text-2xl">
-              <Heart className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
-              Wishlist
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {wishlistItems.length} card{wishlistItems.length === 1 ? '' : 's'} ·{' '}
-              {formatPrice(totalValue)}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {/* People proxy a deck to play it before they buy into it, so a
-                wishlist is the list most worth printing. One action for all of
-                it, not one click per card. */}
-            {/* The wishlist is what you WANT; the shopping list is what you are
-                actually going to buy. Moving between them was the one step you
-                had to do by hand, one card at a time. Owner: "On the wishlist,
-                we should also be able to move to shopping list". */}
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setToShopping(true)}
-              disabled={proxyCandidates.length === 0}
-            >
-              <ShoppingCart className="mr-2 h-4 w-4" aria-hidden="true" />
-              Add to shopping list
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setProxying(true)}
-              disabled={proxyCandidates.length === 0}
-            >
-              <Printer className="mr-2 h-4 w-4" aria-hidden="true" />
-              Print as proxies
-            </Button>
-            <Button variant="secondary" size="sm" onClick={exportToCSV} disabled={wishlistItems.length === 0}>
-              <Download className="mr-2 h-4 w-4" aria-hidden="true" />
-              Export
-            </Button>
-          </div>
+    <StandardPageLayout
+      title={
+        <span className="flex items-center gap-2">
+          <Heart className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
+          Wishlist
+        </span>
+      }
+      description="Cards you want, what they would cost, and which of your decks is waiting on them."
+      action={
+        <div className="flex flex-wrap items-center gap-2">
+          {/* The wishlist is what you WANT; the shopping list is what you are
+              actually going to buy. Moving between them was the one step you
+              had to do by hand, one card at a time. Owner: "On the wishlist,
+              we should also be able to move to shopping list". */}
+          <Button
+            variant="secondary"
+            size="sm"
+            className="gap-2"
+            onClick={() => setToShopping(true)}
+            disabled={proxyCandidates.length === 0}
+          >
+            <ShoppingCart className="h-4 w-4" aria-hidden="true" />
+            Add to shopping list
+          </Button>
+          {/* People proxy a deck to play it before they buy into it, so a
+              wishlist is the list most worth printing. One action for all of
+              it, not one click per card. */}
+          <Button
+            variant="secondary"
+            size="sm"
+            className="gap-2"
+            onClick={() => setProxying(true)}
+            disabled={proxyCandidates.length === 0}
+          >
+            <Printer className="h-4 w-4" aria-hidden="true" />
+            Print as proxies
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="gap-2"
+            onClick={exportToCSV}
+            disabled={wishlistItems.length === 0}
+          >
+            <Download className="h-4 w-4" aria-hidden="true" />
+            Export
+          </Button>
         </div>
+      }
+    >
+      <div className="space-y-6">
+        {/*
+          The figures, in the tiles My Decks and My Collection use.
 
+          They used to be four boxes with a 40px icon each, and the page title
+          carried a second, smaller copy of two of the same numbers. One row,
+          one size, one place.
+        */}
         <WishlistQuickStats
           items={wishlistItems}
           neededByDeck={neededByDeck}
           ownedByCard={ownedByCard}
+          loading={loading}
         />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <div className="flex flex-col gap-4">
-            <div className="scrollbar-none -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-              <TabsList className="h-auto w-max bg-muted p-1 sm:w-auto">
-                <TabsTrigger value="wishlist" className="gap-1.5 whitespace-nowrap sm:gap-2">
-                  <Heart className="h-4 w-4" aria-hidden="true" />
-                  Cards
-                  {wishlistItems.length > 0 && (
-                    <Badge variant="secondary" className="ml-1 text-xs">
-                      {wishlistItems.length}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="by-deck" className="gap-1.5 whitespace-nowrap sm:gap-2">
-                  <Layers className="h-4 w-4" aria-hidden="true" />
-                  Deck gaps
-                  {deckGaps.length > 0 && (
-                    <Badge variant="secondary" className="ml-1 text-xs">
-                      {deckGaps.length}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="add" className="gap-1.5 whitespace-nowrap sm:gap-2">
-                  <Search className="h-4 w-4" aria-hidden="true" />
-                  Add
-                </TabsTrigger>
-              </TabsList>
-            </div>
+          <PageTabs
+            value={activeTab}
+            onChange={setActiveTab}
+            label="Wishlist sections"
+            tabs={[
+              {
+                id: 'wishlist',
+                label: 'Cards',
+                icon: Heart,
+                // `null` while the rows are still coming, so the badge holds
+                // its place instead of shoving the other two tabs sideways
+                // the moment the count arrives.
+                count: loading ? null : wishlistItems.length,
+              },
+              {
+                id: 'by-deck',
+                label: 'Deck gaps',
+                icon: Layers,
+                count: gapsLoading ? null : deckGaps.length,
+              },
+              // No count: "Add" is a search panel, not a pile of things.
+              { id: 'add', label: 'Add', icon: Search },
+            ]}
+          />
 
-            {activeTab === 'wishlist' && wishlistItems.length > 0 && (
-              <div className="space-y-3 rounded-lg bg-card p-3 shadow-lg shadow-black/20">
-                <div className="flex flex-wrap items-center gap-2">
-                  <WishlistSearchBox
+          <TabsContent value="wishlist" className="mt-4 space-y-4">
+            {/*
+              One band, and every control that was on the page before is still
+              on it.
+
+              The toolbar was three rows: search with filters and sort, then a
+              priority row of its own, then the chips. Priority shares the last
+              row with the size slider and the view toggle now, which is the
+              same arrangement the collection uses for its ownership chips, and
+              the bar owns the single clear control so that clearing everything
+              actually clears the priority too. It did not before: "Clear all"
+              belonged to `ActiveFilterChips`, which knows only about the shared
+              filter state, so it left the priority chip on and the list stayed
+              narrowed with nothing on screen saying why.
+            */}
+            {wishlistItems.length > 0 && (
+              <FilterBar
+                view={view}
+                activeCount={activeFilterCount}
+                onClear={clearFilters}
+                search={
+                  <ListingSearch
                     value={filters.state.text ?? ''}
                     onCommit={commitFilterText}
+                    placeholder="Name, type, or Scryfall syntax like t:creature mv<=3"
+                    label="Search your wishlist"
                   />
-
+                }
+                filters={
                   <CardFilterSheet
                     controller={filters}
                     showSort={false}
                     showChips={false}
-                    trigger={
-                      <Button variant="secondary" size="sm" className="h-8 shrink-0 gap-1.5">
-                        <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
-                        Filters
-                        {activeFilterCount > 0 && (
-                          <span className="rounded-full bg-primary px-1.5 py-0.5 text-[0.65rem] font-bold leading-none text-primary-foreground">
-                            {activeFilterCount}
-                          </span>
-                        )}
-                      </Button>
-                    }
+                    trigger={<FilterButton count={activeFilterCount} />}
                   />
-
-                  <Select value={sortBy} onValueChange={v => setSortBy(v as SortOption)}>
-                    <SelectTrigger
-                      className="h-8 w-[130px] shrink-0 border-0 bg-muted/50 text-xs"
-                      aria-label="Sort by"
-                    >
-                      <ArrowUpDown className="mr-1 h-3 w-3" aria-hidden="true" />
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="border-0">
-                      {SORT_OPTIONS.map(opt => (
-                        <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <div className="ml-auto flex items-center gap-3">
-                    {viewMode === 'grid' && (
-                      <CardSizeSlider
-                        storageKey="wishlist"
-                        value={cardWidth}
-                        onValueChange={setCardWidth}
-                        showValue={false}
-                        className="hidden sm:flex"
-                      />
-                    )}
-                    <div className="flex shrink-0 items-center gap-1 rounded-md bg-muted/40 p-0.5">
-                      {(
-                        [
-                          { mode: 'grid' as const, icon: LayoutGrid, label: 'Card grid' },
-                          { mode: 'list' as const, icon: List, label: 'List' },
-                        ]
-                      ).map(({ mode, icon: Icon, label }) => (
-                        <Button
-                          key={mode}
-                          size="sm"
-                          variant={viewMode === mode ? 'secondary' : 'ghost'}
-                          className={cn('h-7 px-2')}
-                          onClick={() => setViewMode(mode)}
-                          aria-label={label}
-                          aria-pressed={viewMode === mode}
-                          title={label}
-                        >
-                          <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Priority is a property of the wishlist entry, not the card. */}
+                }
+                sort={
+                  <SortControl
+                    options={SORT_OPTIONS}
+                    value={sortKey}
+                    onValueChange={next => view.setSortKey(next)}
+                    dir={view.sortDir}
+                    onToggleDir={view.toggleSortDir}
+                  />
+                }
+                chips={
+                  activeFilterCount > 0 ? (
+                    <ActiveFilterChips controller={filters} showClear={false} />
+                  ) : null
+                }
+              >
+                {/* Priority is a property of the wishlist entry, not of the
+                    card, so no Scryfall query can ask for it and it cannot live
+                    inside the shared filter. */}
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="text-[0.7rem] font-medium uppercase tracking-wider text-muted-foreground">
                     Priority
                   </span>
                   {PRIORITY_FILTERS.map(f => (
-                    <button
+                    <FacetChip
                       key={f.value}
-                      type="button"
+                      selected={priorityFilter === f.value}
                       onClick={() => setPriorityFilter(f.value)}
-                      aria-pressed={priorityFilter === f.value}
-                      className={cn(
-                        'rounded-md px-2 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                        priorityFilter === f.value
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
-                      )}
                     >
                       {f.label}
-                    </button>
+                    </FacetChip>
                   ))}
                 </div>
-
-                {filters.activeCount > 0 && <ActiveFilterChips controller={filters} />}
-              </div>
+              </FilterBar>
             )}
-          </div>
 
-          <TabsContent value="wishlist" className="mt-4 space-y-4">
-            {!loading && filteredItems.length > 0 && (
-              <WishlistBuyPanel
-                items={filteredItems}
-                filtered={hasActiveFilter}
-                neededByDeck={neededByDeck}
-                onCopyBuyList={copyWishlistBuyList}
-              />
-            )}
             {moveTarget && (
               <MoveToCollectionPanel
                 key={moveTarget.id}
@@ -927,70 +961,91 @@ export default function Wishlist() {
                 busy={moving}
               />
             )}
-            <div ref={wishlistTop} className="h-px" aria-hidden />
 
-            {!loading && pagedWishlist.pageCount > 1 && (
-              <Pager
-                page={pagedWishlist.page}
-                pageCount={pagedWishlist.pageCount}
-                onPageChange={goToWishlistPage}
-                total={pagedWishlist.total}
-                shown={pagedWishlist.pageItems.length}
-                pageSize={pageSize}
-                onPageSizeChange={setPageSize}
-                label="Wishlist pages"
-              />
-            )}
-
-            {loading ? (
-              <CardGridSkeleton width={cardWidth} count={12} />
-            ) : filteredItems.length === 0 ? (
-              <WishlistEmptyState
-                hasFilter={hasActiveFilter}
-                onClearFilter={clearFilters}
-                onAddCards={() => setActiveTab('add')}
-              />
-            ) : viewMode === 'list' ? (
-              <WishlistListView
-                items={pagedWishlist.pageItems}
-                onCardClick={handleCardClick}
-                onBuy={item => openBuyLink(item as WishlistItem)}
-                onAddToCollection={item =>
-                  setMoveTarget(wishlistItems.find(i => i.id === item.id) ?? null)
-                }
-                onRemove={removeFromWishlist}
-                onUpdatePriority={updatePriority}
-                onUpdateTargetPrice={updateTargetPrice}
-                onToggleAlert={toggleAlert}
-              />
-            ) : (
-              <WishlistCardGrid
-                items={pagedWishlist.pageItems}
-                width={cardWidth}
-                onCardClick={handleCardClick}
-                onBuy={item => openBuyLink(item as WishlistItem)}
-                onAddToCollection={item =>
-                  setMoveTarget(wishlistItems.find(i => i.id === item.id) ?? null)
-                }
-                onRemove={removeFromWishlist}
-                onUpdatePriority={updatePriority}
-                onUpdateTargetPrice={updateTargetPrice}
-                onToggleAlert={toggleAlert}
-              />
-            )}
-
-            {!loading && pagedWishlist.pageCount > 1 && (
-              <Pager
-                page={pagedWishlist.page}
-                pageCount={pagedWishlist.pageCount}
-                onPageChange={goToWishlistPage}
-                total={pagedWishlist.total}
-                shown={pagedWishlist.pageItems.length}
-                pageSize={pageSize}
-                onPageSizeChange={setPageSize}
-                label="Wishlist pages"
-              />
-            )}
+            <ListingFrame
+              view={view}
+              count={pagedWishlist.pageItems.length}
+              loading={loading}
+              /* Unconditional: `ListingFrame` reserves the line and decides
+                 when it has something to say. */
+              summary={summary}
+              /* The buy panel totals the whole filtered list, so it belongs
+                 above the results rather than beside them. */
+              beforeResults={
+                !loading && filteredItems.length > 0 ? (
+                  <WishlistBuyPanel
+                    items={filteredItems}
+                    filtered={hasActiveFilter}
+                    neededByDeck={neededByDeck}
+                    onCopyBuyList={copyWishlistBuyList}
+                  />
+                ) : null
+              }
+              pager={{
+                page: pagedWishlist.page,
+                pageCount: pagedWishlist.pageCount,
+                onPageChange: pagedWishlist.setPage,
+                total: pagedWishlist.total,
+                shown: pagedWishlist.pageItems.length,
+                noun: 'entry',
+                nounPlural: 'entries',
+                label: 'Wishlist pages',
+              }}
+              /* Two different empty screens, because "your filter matched
+                 nothing" and "you have never wanted a card" need different
+                 words and different ways out. Both were a hand-built panel in
+                 `WishlistEmptyState` before, with a heart in a circle; the
+                 heart is the frame's `icon` slot now, so the shell is the same
+                 one the collection and card search draw. */
+              empty={
+                hasActiveFilter
+                  ? {
+                      icon: Heart,
+                      title: 'No cards match your filters',
+                      description: 'Try widening the search or clearing the priority filter.',
+                      onClearFilters: clearFilters,
+                    }
+                  : {
+                      icon: Heart,
+                      title: 'Your wishlist is empty',
+                      description:
+                        'Track the cards you want, set a target price, and see which of your decks are still missing them.',
+                      action: { label: 'Add your first card', onClick: () => setActiveTab('add') },
+                    }
+              }
+            >
+              {view.mode === 'list' ? (
+                <WishlistListView
+                  items={pagedWishlist.pageItems}
+                  onCardClick={handleCardClick}
+                  onBuy={item => openBuyLink(item as WishlistItem)}
+                  onAddToCollection={item =>
+                    setMoveTarget(wishlistItems.find(i => i.id === item.id) ?? null)
+                  }
+                  onRemove={removeFromWishlist}
+                  onUpdatePriority={updatePriority}
+                  onUpdateTargetPrice={updateTargetPrice}
+                  onToggleAlert={toggleAlert}
+                />
+              ) : (
+                /* A grid mode arrives inside `ListingFrame`'s own `CardGrid` at
+                   the slider's width, so the tiles need no wrapper of their
+                   own. */
+                <WishlistCardGrid
+                  items={pagedWishlist.pageItems}
+                  width={view.size}
+                  onCardClick={handleCardClick}
+                  onBuy={item => openBuyLink(item as WishlistItem)}
+                  onAddToCollection={item =>
+                    setMoveTarget(wishlistItems.find(i => i.id === item.id) ?? null)
+                  }
+                  onRemove={removeFromWishlist}
+                  onUpdatePriority={updatePriority}
+                  onUpdateTargetPrice={updateTargetPrice}
+                  onToggleAlert={toggleAlert}
+                />
+              )}
+            </ListingFrame>
           </TabsContent>
 
           <TabsContent value="by-deck" className="mt-4">
@@ -1041,58 +1096,6 @@ export default function Wishlist() {
           description="Everything you have your eye on. Print it and play the deck before you spend anything."
         />
       </div>
-    </div>
-  );
-}
-
-/**
- * Debounced free-text box for the wishlist toolbar.
- *
- * The same 250ms commit the collection browser uses, so typing into a
- * several-hundred-card wishlist does not re-run the predicate per keystroke.
- */
-function WishlistSearchBox({
-  value,
-  onCommit,
-}: {
-  value: string;
-  onCommit: (next: string | undefined) => void;
-}) {
-  const [draft, setDraft] = useState(value);
-  const [committed, setCommitted] = useState(value);
-
-  useEffect(() => {
-    if (value !== committed) {
-      setCommitted(value);
-      setDraft(value);
-    }
-    // Adopts external changes (chip removal, clear all) without stomping typing.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
-
-  useEffect(() => {
-    if (draft === committed) return;
-    const id = window.setTimeout(() => {
-      setCommitted(draft);
-      onCommit(draft.trim() ? draft : undefined);
-    }, 250);
-    return () => window.clearTimeout(id);
-  }, [draft, committed, onCommit]);
-
-  return (
-    <div className="relative min-w-0 flex-1 sm:max-w-xs">
-      <Search
-        className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
-        aria-hidden="true"
-      />
-      <Input
-        value={draft}
-        onChange={e => setDraft(e.target.value)}
-        placeholder="Name, type, or Scryfall syntax"
-        aria-label="Search wishlist"
-        spellCheck={false}
-        className="h-8 border-0 bg-muted/50 pl-8 text-sm focus-visible:ring-1 focus-visible:ring-offset-0"
-      />
-    </div>
+    </StandardPageLayout>
   );
 }

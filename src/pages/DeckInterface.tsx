@@ -15,7 +15,7 @@ import {
 } from '@/lib/deck/power';
 import { DeckCardsPanel, type DeckCardView } from '@/components/deck/DeckCardsPanel';
 import { ManaSourcesPanel } from '@/components/deck/ManaSourcesPanel';
-import { DeckTabStrip } from '@/components/deck/DeckTabStrip';
+import { PageTabs } from '@/components/listing';
 import { CommanderHero } from '@/components/deck/CommanderHero';
 import { createPlayabilityEngine } from '@/lib/deck/playability';
 import { rowsToPlayabilityInputs } from '@/lib/deck/playabilityView';
@@ -431,8 +431,11 @@ export default function DeckInterface() {
           {[0, 1, 2].map(i => (
             <Card key={i}>
               <CardContent className="space-y-3 p-4">
-                <div className="h-4 w-1/3 animate-pulse rounded bg-muted" />
-                <div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
+                {/* `motion-reduce:animate-none` like every other placeholder in
+                    the product: a reader who asked for less motion should not
+                    get a pulsing bar because this one panel forgot. */}
+                <div className="h-4 w-1/3 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+                <div className="h-4 w-1/2 animate-pulse rounded bg-muted motion-reduce:animate-none" />
               </CardContent>
             </Card>
           ))}
@@ -493,11 +496,13 @@ export default function DeckInterface() {
       description={`${formatLabel(deck.format)} · ${stats.totalCards} cards`}
       action={
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={toggleFavorite}>
+          {/* `secondary`, not `outline`. Outline is a border variant, and these
+              two were the only hairlines left in this page's header. */}
+          <Button variant="secondary" size="sm" onClick={toggleFavorite}>
             <Heart className={`mr-2 h-4 w-4 ${isFavorited ? 'fill-current' : ''}`} />
             {isFavorited ? 'Favorited' : 'Favorite'}
           </Button>
-          <Button variant="outline" size="sm" onClick={() => navigate(`/deck/${deck.id}/export`)}>
+          <Button variant="secondary" size="sm" onClick={() => navigate(`/deck/${deck.id}/export`)}>
             <Download className="mr-2 h-4 w-4" />
             Export
           </Button>
@@ -643,11 +648,19 @@ export default function DeckInterface() {
         </div>
       )}
 
-      <DeckTabStrip
-        tabs={tabs}
-        activeTab={activeTab}
+      {/* `PageTabs`, not a strip of this page's own. `DeckTabStrip` drew a
+          third shell (`bg-muted/40 p-1.5`) and a third selected treatment
+          (`bg-background shadow-sm`) for the job the view toggle and every
+          other tab strip in the product already do. The two-line hint that made
+          this strip worth having survives as `PageTab.hint`, so "Mana / Curve
+          and sources" still says which tab holds the curve. */}
+      <PageTabs
+        tabs={tabs.map(tab =>
+          tab.id === 'cards' ? { ...tab, count: stats.totalCards } : tab
+        )}
+        value={activeTab}
         onChange={setActiveTab}
-        badges={{ cards: stats.totalCards }}
+        label="Deck sections"
       />
 
       <div className="mt-5">

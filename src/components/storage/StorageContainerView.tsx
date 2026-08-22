@@ -2,9 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRightLeft,
-  Package,
-  Layers,
-  DollarSign,
   Trash2,
   Edit,
   Settings2,
@@ -19,7 +16,6 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -45,6 +41,7 @@ import { StorageMovePanel } from './StorageMovePanel';
 import { StorageSlotStrip, type SlotSelection } from './StorageSlotStrip';
 import { BinderPageView } from './BinderPageView';
 import { CollectionBrowser } from '@/components/collection/browser/CollectionBrowser';
+import { MetricRow, type Metric } from '@/components/listing';
 import type { BrowserAction } from '@/components/collection/browser/actions';
 import {
   formatPrice,
@@ -402,14 +399,30 @@ export function StorageContainerView({
      bulk box or a shelf, so there is no denominator here and nothing invents
      one. A binder PAGE is the single exception in the whole feature, and that
      fraction is drawn by `BinderPageView` off the nine pockets a page has. */
-  const stats: { label: string; value: string; note?: string; icon: typeof Layers }[] = [
-    { label: 'Total cards', value: totalCards.toLocaleString(), icon: Layers },
-    { label: 'Unique cards', value: uniqueCards.toLocaleString(), icon: Package },
+  /**
+   * The container's three figures, in the tiles every other surface uses.
+   *
+   * They were a hand-built row with a 40px icon square beside a number set at
+   * 14px on a phone and 20px on a desktop, which is the same squeeze the owner
+   * named on My Collection. The icons go for the reason he gave for the
+   * identical row on My Decks: the label already says what the number is.
+   */
+  const stats: Metric[] = [
+    { id: 'cards', label: 'Cards', value: totalCards.toLocaleString(), raw: totalCards },
     {
+      id: 'entries',
+      label: 'Entries',
+      value: uniqueCards.toLocaleString(),
+      raw: uniqueCards,
+      subtext: 'Rows in this container',
+    },
+    {
+      id: 'value',
       label: 'Total value',
-      value: value.pricedCopies > 0 ? formatPrice(value.amount) : 'No prices yet',
-      note: describeGapsShort(value) ?? undefined,
-      icon: DollarSign,
+      // A dash, never a zero, and the gap is stated rather than swallowed.
+      value: value.pricedCopies > 0 ? formatPrice(value.amount) : '—',
+      raw: value.amount,
+      subtext: describeGapsShort(value) ?? 'Every copy is priced',
     },
   ];
 
@@ -645,32 +658,7 @@ export function StorageContainerView({
           )}
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-2 md:gap-3">
-          {stats.map(stat => (
-            <Card key={stat.label}>
-              <CardContent className="p-2.5 md:p-4">
-                <div className="flex items-center gap-2 md:gap-3">
-                  <div className="rounded-lg bg-muted p-1.5 md:p-2.5">
-                    <stat.icon
-                      className="h-4 w-4 text-muted-foreground md:h-5 md:w-5"
-                      aria-hidden="true"
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-bold tabular-nums text-card-foreground md:text-xl">
-                      {stat.value}
-                    </div>
-                    <div className="truncate text-[10px] text-muted-foreground md:text-xs">
-                      {stat.label}
-                      {stat.note ? `, ${stat.note}` : ''}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <MetricRow metrics={stats} columns={3} loading={loading} />
       </div>
 
       {/* Contents */}

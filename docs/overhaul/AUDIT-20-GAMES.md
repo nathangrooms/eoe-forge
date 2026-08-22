@@ -28,6 +28,14 @@ below comes from a position the game was not actually in.
 Game N uses seed `9000 + N`, so any single game reproduces on its own with
 `--seed <that number> --games 1`.
 
+**The whole run was then done a second time** against the fixed engine and the
+repaired harness: 20 of 20 finished, 0 stalled, 0 invariant violations, 22,581
+actions. The action count rose by 344 because survivors now carry a
+`DAMAGE_CARD` they were never given before. After the harness repair the same
+twenty games report lifelink 32 times and five deathtouch kills, one of them
+Glissa, the Traitor killing Qarsi Deceiver with 3 power into 4 toughness, which
+is the keyword doing exactly the job it exists for.
+
 ## The headline: two of the three reported failures were the harness
 
 The generated report opened with three keywords that "never fired once in 20
@@ -109,6 +117,61 @@ a spell with no legal target. None of those are faults.
 
 `silent-untold` at zero is the one to keep at zero. Every card that cannot be
 automated either says so in the log or wears a marker on the card.
+
+## The biggest finding: nothing ever reaches the stack
+
+This came out of the SECOND run, once the harness stopped reporting false zeros
+and the counterspell row was the only one left at zero. It is the most important
+thing in this document.
+
+**A bot never casts an instant or a sorcery. Not once, in any game.**
+
+`bot.ts` `chooseSpell` filters its candidates with `isPermanent(card)`, so an
+instant or sorcery sitting in hand is never even considered. Every instant and
+every sorcery in every bot deck is a dead card.
+
+**And no spell a bot casts ever goes on the stack.**
+
+`moves.ts` `planCastFromHand` builds a `CAST_SPELL` only when called with
+`viaStack: true`, and a plain `PLAY` otherwise. `chooseSpell` leaves `viaStack`
+defaulted to false, so every spell goes straight to its destination without ever
+being an object anybody could respond to.
+
+It is a closed loop. The one place that passes `viaStack: true` is the
+counterspell branch in `priorityMove`, and that branch only runs when there is
+already something on the stack to counter. Nothing can put the first object
+there, so nothing ever is.
+
+**That single fact explains every remaining zero in the report**: no spell on the
+stack, no ability on the stack, no priority passed, no spell countered, no
+fizzle, no resolution. The counterspell zero was never really about
+counterspells.
+
+Read the "spell resolves" column with this in mind. The handful of entries in it
+are double-faced cards misrouted to the graveyard, not instants being cast.
+**This run did not test instants and sorceries at all.** Any zero that depends
+on one is untested rather than broken, and is reported that way rather than
+claiming a result it did not earn.
+
+### Why it is not fixed in this pass
+
+Two reasons, and the second is the real one.
+
+`bot.ts` and `moves.ts` are both being edited by the XMage vocabulary workflow
+right now (it is adding modal-choice handling in `botChoice`). That is a
+different function and would probably merge, so on its own it would not stop the
+work.
+
+The real reason is that this is not a one line change. Letting a bot cast
+instants means teaching it WHEN: at instant speed, in response to something, or
+in its own main phase, and holding mana open rather than tapping out. Flipping
+`viaStack` to true changes the action flow of every game, and a bot that passes
+priority wrongly deadlocks instead of playing. Done carelessly this produces a
+bot that is worse to play against than the one that ignores instants, and it
+would land at the end of a long session with no time to play twenty more games
+and find out.
+
+It needs its own pass, with the same twenty game harness run before and after.
 
 ## Outstanding: conditional "enters tapped"
 

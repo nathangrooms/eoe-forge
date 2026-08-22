@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { HomeHero } from '@/components/marketing/HomeHero';
 import { HomeCTA, HomeCollection } from '@/components/marketing/HomeSections';
+import { HomeShowcase } from '@/components/marketing/HomeShowcase';
 import { HomeNewSets } from '@/components/marketing/HomeNewSets';
+import { HomeCatalogue } from '@/components/marketing/HomeStats';
+import { HomeFormatPicker } from '@/components/marketing/HomeFormatPicker';
 import { HomeStorage } from '@/components/marketing/HomeStorage';
-import { HomeProxies } from '@/components/marketing/HomeProxies';
 import { HomeAppVisual } from '@/components/marketing/HomeAppVisual';
 import {
   HomeSearch, HomePortability, HomePower, HomeScanner, HomeTutor,
@@ -47,12 +49,6 @@ function HomeFooter() {
         { label: 'Storage', to: '/collection/storage' },
         { label: 'Card search', to: '/cards' },
         { label: 'Precons', to: '/precons' },
-        /* Both ship, both have their own nav entry, and neither was in the
-           site map. `/proxies` now has a section of its own; `/shopping` is
-           the same primitive with a different ending and this link is the
-           only mention it gets. */
-        { label: 'Proxies', to: '/proxies' },
-        { label: 'Shopping list', to: '/shopping' },
         { label: 'Wishlist', to: '/wishlist' },
       ],
     },
@@ -218,66 +214,62 @@ export default function Homepage() {
       <PublicNavigation />
 
       {/* ---------------------------------------------------------------- hook
-          One promise, the price, the real card count, and cards a Commander
-          player recognises on sight. */}
+          One promise, the real card count, and seven cards a Commander player
+          recognises on sight. */}
       <HomeHero cardCount={cardCount} />
 
-      {/* --------------------------------------------- the reason to switch
-​
-          THE ORDER CHANGED HERE ON 22 AUG 2026, AND THIS IS THE WHOLE POINT
-          OF IT.
-​
-          The page used to open with a card marquee, a catalogue count, a
-          Scryfall search and a deck page — four screens of things Moxfield and
-          Archidekt also do, before a visitor who already uses one of them saw a
-          single reason to move. The comment that used to sit halfway down this
-          file admitted it in as many words and then put storage fifth anyway.
-​
-          So storage is second. "Know which box it is in" is the one heading on
-          this page a competitor cannot copy, and it is now where the visitor is
-          still deciding whether to keep reading. The collection screenshot
-          follows because it is what a mapped collection looks like, and the
-          scanner follows that because the obvious objection to both is "that is
-          hours of typing". */}
-      <HomeStorage />
-      <HomeCollection />
-      <HomeScanner />
-
-      {/* ------------------------------------------------ what you do with it
-          The cards are in. Build against them, print the ones you have not
-          bought yet, and bring the decks you already have somewhere else.
-​
-          Import and export moves up from position eighteen. It answers the last
-          objection anybody has before signing up — can I get my decks in, and
-          back out — and answering it at the foot of the page is answering it
-          after the reader has gone. */}
-      <HomeAppVisual />
-      <HomeProxies />
-      <HomePortability />
-
-      {/* --------------------------------------------------------- the depth
-          Not a mile wide and an inch deep: Scryfall syntax against the whole
-          pool, 184 real precon products, a published power score and a Tutor
-          that reads your actual list. */}
+      {/* ------------------------------------------- proof the product is real
+          Cards → scale → find one → build with it. Four beats, in the order a
+          sceptical visitor asks the questions: does it have real cards, how
+          many, can I search them the way I already know how, and what do I get
+          when I do. Every figure in this run is a live count. */}
+      <HomeShowcase />
+      <HomeCatalogue />
       <HomeSearch />
-      <HomePrecons />
-      <HomePower />
-      <HomeTutor />
+      <HomeAppVisual />
+
+      {/* ------------------------------------------------------ the collection
+          Back on the page after being dropped on 2026-08-19. It was dropped
+          because its picture was the hero's own background reused as
+          decoration; it is here because the picture is now a photograph of the
+          real `/collection` screen, and the hero promises a collection that the
+          page then never showed. It sits after the builder because "build with
+          what you own" is the sentence it answers. */}
+      <HomeCollection />
+
+      {/* ------------------------------------------------- the differentiator
+          Everything above this line, Moxfield and Archidekt also do. This is
+          the part they do not, so it lands early — roughly a quarter of the way
+          down — rather than being buried in a feature list. Scanner follows it
+          because "know which box it is in" is worthless until getting cards in
+          is cheap, and the camera is the answer to that. */}
+      <HomeStorage />
+      <HomeScanner />
 
       {/* ------------------------------------------------------- the breadth
           Four products a deck site is not expected to have at all: a playable
-          game, a life counter for the table, a tournament organiser and price
-          history. Ordered table-first, because playing a game in the browser is
-          the least expected of the four. Marketplace is last of them because it
-          is the one still waiting on its data. */}
+          game, a life counter for the table, price history, and a tournament
+          organiser. Ordered table-first, because playing a game in the browser
+          is the least expected of the four. */}
       <HomePlayTable />
       <HomeLifeCounter />
-      <HomeTournaments />
       <HomeMarketplace />
+      <HomeTournaments />
+
+      {/* --------------------------------------------------------- the depth
+          Having shown the range, show that it is not a mile wide and an inch
+          deep: 184 real precon products, an assistant that reads your actual
+          decklist, a published power score, and per-format legality read from
+          the card rather than a hand-kept list. */}
+      <HomePrecons />
+      <HomeTutor />
+      <HomePower />
+      <HomeFormatPicker />
 
       {/* ---------------------------------------------------------- the close
-          Freshness, then the objections, then the ask. */}
+          Freshness, then no lock-in, then the objections, then the ask. */}
       <HomeNewSets />
+      <HomePortability />
       <FAQSection />
       <HomeCTA />
       <HomeFooter />
@@ -286,40 +278,14 @@ export default function Homepage() {
 }
 
 /*
- * THREE SECTIONS LEFT THE PAGE ON 22 AUG 2026. Their files have since been
- * deleted — HomeShowcase.tsx, HomeStats.tsx and HomeFormatPicker.tsx are gone
- * from src/components/marketing/ and nothing imported them. This note stays
- * because the reasons are the argument, not the files.
- *
- *   HomeShowcase ("Real cards. Real costs. Real prices.") — a marquee, a
- *     four-row catalogue table and a mana curve. The heading was a rhetorical
- *     triple denying a doubt no visitor had, the table was captioned "a real row
- *     out of the card table", which is database vocabulary, and the curve was
- *     drawn over TWELVE EXPENSIVE UNRELATED CARDS. An EDH player reads a curve
- *     over a non-deck as a bug. The hero's own fan is already a wall of
- *     recognisable art, one screen higher up.
- *
- *   HomeCatalogue (in HomeStats.tsx) — three tiles: cards, legendary creatures,
- *     mythic rares. The card count moved to the hero's meta line, where a
- *     visitor is still reading. "Every one of them a legal commander" under the
- *     legendary count was not true — banned legends, Un-set legends and the
- *     non-creature faces of double-faced cards all fail it — and that is exactly
- *     the shape of overstatement this page has had to correct before. The mythic
- *     count nobody has ever chosen a collection manager on.
- *
- *   HomeFormatPicker ("What can you build in Commander?") — six tabs over six
- *     whole cards. Well built, and the fourth wall of cards on the page, arguing
- *     a point nobody disputes: that format legality works. Its lead was entirely
- *     about our implementation ("not from a list someone updates by hand"), and
- *     no player has ever wondered how a site stores legality. The FAQ answers
- *     the question at the point somebody actually asks it.
- *
- * Still dropped, from an earlier pass:
+ * One section is still dropped from the page rather than reordered. (The other,
+ * HomeCollection, is back — see the comment beside it above: it was dropped for
+ * its picture, and its picture is now a photograph of the real screen.)
  *
  *   HomeColors ("Colour identity, counted properly") — five live counts drawn as
  *     five bars: 7,759 / 7,602 / 7,661 / 7,746 / 7,504. The numbers are real and
  *     the point is true, but WUBRG is evenly distributed by design, so the chart
  *     rendered as five bars of visibly identical length across 1,600px. A bar
  *     chart whose bars are all the same length is an admission that there was
- *     nothing to show.
+ *     nothing to show. Still exported from HomeStats.tsx.
  */

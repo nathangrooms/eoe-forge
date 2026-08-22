@@ -1,7 +1,4 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { CardImage, CardImageSkeleton } from '@/components/cards/CardImage';
 import { portabilityCards } from '@/lib/homepage/snapshot';
 import { Section, SectionHeading } from '@/components/marketing/Section';
@@ -10,12 +7,6 @@ import { cn } from '@/lib/utils';
 
 /**
  * Import and export.
- *
- * The file is still called `HomePortability` and the heading is not, on purpose.
- * "Portability" is on CLAUDE.md's banned-word list by name and it is why the
- * copy in here used to read the way it did, but a component's filename is not
- * user-facing and renaming it means a second file rather than a moved one.
- * Nothing a visitor reads says the word.
  *
  * The old version was two boxes of ticks — twelve format names in two columns,
  * no cards, no text, nothing that could be checked. It asserted portability on a
@@ -50,34 +41,21 @@ import { cn } from '@/lib/utils';
  * The pasted list.
  *
  * Deliberately messy, because a real paste is: an Arena comment line, a `Deck`
- * header, a set code and collector number, a leading `1x`, and a trailing `x1`.
+ * header, a set code and collector number, a leading `2x`, and a trailing `x1`.
  * Every one of those is a shape `parseDeckList` handles, and the panel on the
  * right is the proof.
- *
- * IT WAS A COMMANDER LIST WITH FOUR-OFS IN IT UNTIL 22 AUG 2026: `4 Lightning
- * Bolt` and `4 Counterspell` sat between Sol Ring, Command Tower, Rhystic Study
- * and Craterhoof Behemoth. Every card in it is an EDH staple and no reader was
- * ever going to take it for a sixty-card list, so what the panel actually
- * showed a Commander player was a decklist that is illegal on sight — the
- * identical tell `HomeAppVisual` documents having already been corrected for
- * once, where the builder mock drew the same card three times.
- *
- * Singleton now. Nothing else moved: the names are fixed by
- * `scripts/homepage-snapshot.mjs`, which resolves them once a night, and the
- * four quantity shapes are all still exercised because it is the SYNTAX being
- * demonstrated and never the number.
  */
 const PASTE = `// exported from MTG Arena
 Deck
-1 Lightning Bolt (CLU) 141
+4 Lightning Bolt (CLU) 141
 1 Sol Ring
-1x Arcane Signet
+2x Arcane Signet
 Swords to Plowshares x1
 1 Cyclonic Rift
 1 Rhystic Study
 1 Smothering Tithe
 1 Demonic Tutor
-1 Counterspell
+4 Counterspell
 1 Beast Within
 1 Craterhoof Behemoth
 1 Command Tower`;
@@ -341,13 +319,15 @@ export function HomePortability() {
     <Section tint>
       <div ref={ref} aria-hidden className="h-0" />
 
-      {/* "Bring your decks in, take them out again" collided with the closing
-          section's heading and was two clauses where the reader is scanning for
-          two words. "This is it working, on this page" was the page insisting on
-          itself again. */}
       <SectionHeading
-        title="Import and export"
-        lead="Paste in a list from anywhere, and get it back out in whatever shape you need. Nothing you put in here is stuck here."
+        title="Bring your decks in, take them out again"
+        lead={
+          <>
+            Paste in a list from anywhere, and get it back out in whatever shape you need. Nothing
+            you put in here is stuck here.{' '}
+            <span className="hidden sm:inline">This is it working, on this page.</span>
+          </>
+        }
       />
 
       <div className="mt-9 grid gap-6 sm:mt-14 lg:grid-cols-12 lg:gap-8">
@@ -404,15 +384,17 @@ export function HomePortability() {
             />
           </div>
 
-          {/* THE PARAGRAPH WENT AND THE CHIPS TOOK ITS PLACE ON EVERY WIDTH.
-​
-              It read: "Comments, an Arena `Deck` header, a set code with a
-              collector number, a leading `2x` and a trailing `x1` are all in
-              that block, and every one of them works:" — a list of test cases
-              read aloud, immediately above four chips that show the same four
-              shapes in four characters each. The chips were the desktop-only
-              half. They are the better half, so they are what stayed. */}
-          <div className="mt-4 flex flex-wrap gap-2 sm:mt-5">
+          <p className="mt-4 text-sm leading-relaxed text-muted-foreground sm:mt-5">
+            Comments, an Arena <span className="font-mono text-foreground/80">Deck</span> header, a
+            set code with a collector number, a leading{' '}
+            <span className="font-mono text-foreground/80">2x</span> and a trailing{' '}
+            <span className="font-mono text-foreground/80">x1</span> are all in that block, and every
+            one of them works:
+          </p>
+          {/* The four line shapes, spelled out. Desktop only: the sentence
+              directly above already names every one of them in prose, and the
+              block they describe is on screen two inches up. */}
+          <div className="mt-3 flex flex-wrap gap-2 max-sm:hidden">
             {SHAPES.map(shape => (
               <span
                 key={shape}
@@ -426,14 +408,14 @@ export function HomePortability() {
 
         {/* -------------------------------------------------- what it became */}
         <div className="min-w-0 lg:col-span-7">
-          {/* The label above this count used to say "DeckMatrix reads this",
-              which is a caption for a thing the count already states better.
-              The count is computed from the parse and is the only claim here. */}
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              DeckMatrix reads this
+            </p>
             {!loading && (
-              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              <span className="text-[11px] tabular-nums text-muted-foreground/70">
                 {resolved.length} of {PARSED.length} lines matched · {copies} cards
-              </p>
+              </span>
             )}
           </div>
 
@@ -476,29 +458,16 @@ export function HomePortability() {
                 ))}
           </div>
 
-          {/* The paragraph that closed this column is gone. It insisted the
-              cards were looked up in "the real card list", and its last clause
-              pointed at "the file below" — which has not been below since the
-              paste and the exports merged into one tabbed panel beside it. A
-              sentence that no longer describes the layout is worse than no
-              sentence. */}
+          {!loading && (
+            <p className="mt-4 text-sm leading-relaxed text-muted-foreground sm:mt-5">
+              Each card above was looked up by name in the real card list, so its printing, mana cost,
+              colours and price all came with it. That is why the file below is a real deck and not
+              just a copy of what you pasted.
+            </p>
+          )}
         </div>
       </div>
 
-      {/* THE ONLY SECTION ON THE PAGE THAT ENDED ON A PARAGRAPH.
-​
-          Every other one offers a way through and this one stopped dead, at the
-          exact point a reader has just been told their decks are not stuck
-          anywhere. The import and export panel lives on `/deck-builder`
-          (`DeckImportExport`, mounted in src/pages/DeckBuilder.tsx). */}
-      <div className="mt-8 text-center sm:mt-10">
-        <Button asChild size="lg" variant="outline">
-          <Link to="/deck-builder">
-            Import a decklist
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Link>
-        </Button>
-      </div>
     </Section>
   );
 }

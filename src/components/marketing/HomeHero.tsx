@@ -138,16 +138,8 @@ export function HomeHero({ cardCount }: { cardCount: number | null }) {
               lightest pixel behind it. At /70 its worst pixel is 4.1:1 — over
               the 3:1 this size clears, and short of the 4.5:1 body-copy bar,
               which is why it is a meta line and not the lead. */}
-          {/* Price joins this line rather than getting one of its own.
-​
-              "Free while we are in early access" appeared exactly twice on this
-              page, at the very bottom and inside FAQ question six, and it is the
-              second thing every visitor wants to know. It costs three words
-              here and no height at `sm` and above; on a phone it wraps this line
-              to two, which is the cheapest answer to that question available. */}
           <p className="mt-6 text-sm text-foreground/70 sm:mt-7">
-            Free in early access · {countLabel ? `${countLabel} cards` : 'Full card pool'} · synced
-            nightly from Scryfall
+            {countLabel ? `${countLabel} cards` : 'Full card pool'} · synced nightly from Scryfall
           </p>
         </div>
       </div>

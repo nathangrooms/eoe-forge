@@ -264,20 +264,8 @@ export interface PriceTracking {
  * to chart yet. An empty chart is the honest rendering of that; an invented one
  * is what the old homepage did.
  */
-export function readPriceTracking(): PriceTracking | null {
-  return snapshotPriceTracking() as PriceTracking | null;
-}
-
-/**
- * The same thing, wrapped in a resolved promise.
- *
- * Kept only for callers that still want the deferring hooks. `HomeMarketplace`
- * does not: awaiting a value that is already in the bundle cost it a first
- * render drawing a skeleton and a second one collapsing 939px out of the page.
- * Reach for {@link readPriceTracking} unless there is a real round trip.
- */
 export function loadPriceTracking(): Promise<PriceTracking | null> {
-  return Promise.resolve(readPriceTracking());
+  return Promise.resolve(snapshotPriceTracking() as PriceTracking | null);
 }
 
 /* -------------------------------------------------------------------------- */

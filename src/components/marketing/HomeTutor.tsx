@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Layers } from 'lucide-react';
+import { ArrowRight, Layers, SendHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ColorIdentity } from '@/components/ui/mana-cost';
@@ -257,21 +257,9 @@ export function HomeTutor() {
 
   return (
     <Section tint>
-      {/* "The answer is about your deck, not decks in general" was a promise
-          about output quality, which is the exact register that makes Magic
-          players distrust a tool. The panel underneath demonstrates it instead:
-          a real question, a real hundred-card list and an answer that disagrees
-          with the premise and names three cards out of it. */}
-      {/* "WHAT YOU ALREADY OWN" CLAIMED MORE THAN GOES. What the question
-          carries is `deckContext.economy` — `ownedPct` and `missing`, a
-          percentage and a count (`supabase/functions/mtg-brain/index.ts:229`,
-          built by `useCollectionOwnership`). Tutor is not told WHICH cards you
-          have, so "what you already own" promised a card-by-card reading of a
-          collection that never leaves the browser. "How much of it" is the
-          figure that actually travels. */}
       <SectionHeading
         title="Ask about the deck you actually built"
-        lead="Your decklist goes with the question: every card in it, your curve, and how much of it you already own."
+        lead="Your question goes off with your actual decklist attached: every card in it, your curve, and what you already own. The answer is about your deck, not decks in general."
       />
 
       <div
@@ -341,7 +329,8 @@ export function HomeTutor() {
                 </div>
               ) : failed ? (
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  A 100-card Commander precon, the same one the Precons page loads.
+                  A real 100-card deck. It is the same one the Precons page loads, and the same one
+                  Tutor is handed when you ask it something.
                 </p>
               ) : (
                 <Skeleton className="mt-7 h-32 w-full rounded-lg max-sm:hidden" />
@@ -403,10 +392,8 @@ export function HomeTutor() {
               than the viewport. */}
           <div className="flex items-start gap-2 rounded-2xl bg-muted/50 px-3.5 py-2 text-xs leading-relaxed text-muted-foreground">
             <Layers className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            {/* "Deck context" is prompt-assembly vocabulary. The player's word
-                for a decklist travelling with a question is attached. */}
             <span className="min-w-0">
-              Attached: {index?.name ?? 'Draconic Domination'}
+              Deck context: {index?.name ?? 'Draconic Domination'}
               {stats ? `, ${stats.total} cards, ${stats.unique} unique` : ''}
             </span>
           </div>
@@ -419,62 +406,34 @@ export function HomeTutor() {
             <div className="max-w-[95%] rounded-2xl rounded-bl-md bg-muted/45 px-5 py-4">
               {stats ? (
                 <div className="space-y-3.5 text-sm leading-relaxed">
-                  {/* TWO THINGS LEFT THIS PARAGRAPH.
-​
-                      "I read all 100 cards first" was the tool defending itself
-                      before answering, which is the thing that reads as a tell.
-                      The counts that follow prove it did without saying so.
-​
-                      And the full type breakdown — 34 creatures, 24 of them
-                      Dragons, 6 artifacts and so on — is the eight stat tiles
-                      to the left of this bubble, read aloud. Six numbers the
-                      rest of the answer never uses again. */}
                   <p>
+                    I read all {stats.total} cards first.{' '}
                     <span className="tabular-nums">{stats.lands}</span> lands,{' '}
                     <span className="tabular-nums">{stats.nonland}</span> spells, average mana value{' '}
-                    <span className="tabular-nums">{stats.avgMv.toFixed(2)}</span>.
+                    <span className="tabular-nums">{stats.avgMv.toFixed(2)}</span>.{' '}
+                    {/* The full type breakdown, dropped on a phone along with
+                        the eight tiles that say the same thing on the left.
+                        They are six numbers the rest of the answer never uses,
+                        and the sentence that survives is the one that carries
+                        the argument: it read the whole list before answering.
+                        Kept whole from `sm` up, where the tiles are beside it
+                        and the two agree. */}
+                    <span className="max-sm:hidden">
+                      Those spells are <span className="tabular-nums">{stats.creatures}</span>{' '}
+                      creatures, <span className="tabular-nums">{stats.dragons}</span> of them
+                      Dragons, <span className="tabular-nums">{stats.artifacts}</span> artifacts,{' '}
+                      <span className="tabular-nums">{stats.enchantments}</span> enchantments,{' '}
+                      <span className="tabular-nums">{stats.sorceries}</span> sorceries and{' '}
+                      <span className="tabular-nums">{stats.instants}</span> instants.
+                    </span>
                   </p>
-                  {/* THIS PARAGRAPH USED TO GIVE A WRONG ANSWER, AND WRONG IN
-                      THE ONE WAY A COMMANDER PLAYER SPOTS IMMEDIATELY.
-​
-                      It read: "You are asking to cut toward something that is
-                      not in the list: 0 of the 63 spells are instants, so
-                      interaction here has to be added rather than swapped in."
-                      That equates interaction with instants. Draconic
-                      Domination has plenty of interaction — Crux of Fate,
-                      Fractured Identity, Fortunate Few, Rain of Thorns,
-                      Earthquake — and all of it is sorcery-speed. Telling a
-                      player who owns this deck that it has no answers, over a
-                      panel that lists Crux of Fate, is the fastest way to prove
-                      the thing answering does not play.
-​
-                      What is actually true, and what the numbers on the left
-                      support, is the timing: this deck can act on its own turn
-                      and cannot respond on anybody else's. That is a real
-                      answer to "what should I cut for more interaction", and it
-                      is the answer a player at the table would give. */}
                   <p>
-                    {/* Branched, because the sentence is only true while the
-                        count is nought. The deck is a frozen 2017 product so it
-                        will stay nought, and an exhibit that asserts a thing
-                        the numbers beside it contradict is the whole fault this
-                        paragraph was rewritten for. */}
-                    {stats.instants === 0 ? (
-                      <>
-                        There are answers in here, but not one of the{' '}
-                        <span className="tabular-nums">{stats.nonland}</span> spells is an instant,
-                        so nothing you hold does anything on somebody else&rsquo;s turn.
-                      </>
-                    ) : (
-                      <>
-                        <span className="tabular-nums">{stats.instants}</span> of the{' '}
-                        <span className="tabular-nums">{stats.nonland}</span> spells are instants,
-                        so most of what answers a threat here has to wait for your own turn.
-                      </>
-                    )}{' '}
-                    The room to fix that is at the top of the curve.{' '}
-                    <span className="tabular-nums">{stats.heavy}</span> of those spells cost five or
-                    more. The heaviest that are not your commander:{' '}
+                    You are asking to cut <em>toward</em> something that is not in the list:{' '}
+                    <span className="tabular-nums">{stats.instants}</span> of the{' '}
+                    <span className="tabular-nums">{stats.nonland}</span> spells are instants, so
+                    interaction here has to be added rather than swapped in. The room is at the top
+                    of the curve. <span className="tabular-nums">{stats.heavy}</span> of those
+                    spells cost five or more. The heaviest that are not your commander:{' '}
                     {named.map((e, i) => (
                       <span key={e.scryfall_id}>
                         {i > 0 && (i === named.length - 1 ? ' and ' : ', ')}
@@ -486,10 +445,9 @@ export function HomeTutor() {
                   </p>
                 </div>
               ) : failed ? (
-                /* Same correction as the lead: how much of it, not which ones. */
                 <p className="text-sm leading-relaxed text-muted-foreground">
                   Tutor reads the whole deck before it answers: every card, the curve, the mana,
-                  and how much of it you already own.
+                  and which of them you already own.
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -503,39 +461,57 @@ export function HomeTutor() {
             </div>
           </div>
 
-          {/* THE FOOTNOTE IS GONE. It read: "Every number above is counted
-              from the 100 cards on the left, and the three it names carry a
-              white badge in that grid. In the app your own deck is attached to
-              the question before Tutor answers it." Three sentences: one
-              insisting the arithmetic is real, one explaining our own badge
-              styling to a stranger, and one repeating the section's lead. */}
+          <p className="mt-5 text-[11px] leading-relaxed text-muted-foreground/80">
+            {stats
+              ? <>
+                  Every number above is counted from the {stats.total} cards{' '}
+                  {/* The deck is beside this on a desktop and above it on a
+                      phone, so the direction has to follow the layout. */}
+                  <span className="sm:hidden">shown above</span>
+                  <span className="hidden sm:inline">on the left</span>, and the three it names
+                  carry a white badge in that grid. In the app your own deck is attached to the
+                  question before Tutor answers it.
+                </>
+              : 'In the app your decklist is attached to the question before Tutor answers it.'}
+          </p>
 
-          {/* The six prompts Tutor ships with, copied from `DECK_QUICK_ACTIONS`
-              in src/pages/Tutor.tsx rather than invented for this page — which
-              is why the spelling of "Analyze deck" is what it is. They are
-              deliberately unlabelled now: "Also one tap away" was a caption for
-              six things that are visibly buttons.
-​
-              Desktop only, as before. On a desktop they fill the floor of a
-              panel that would otherwise have a hole in it; at 390px there is no
-              hole and they are ~110px of pills between the answer and the way
-              in. */}
-          <div className="mt-auto flex flex-wrap gap-2 pt-7 max-sm:hidden sm:pt-9">
-            {QUICK_ACTIONS.map(a => (
-              <span
-                key={a}
-                className="rounded-full bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground"
-              >
-                {a}
-              </span>
-            ))}
+          {/* Composer group sits on the floor of the panel — the space above it
+              is the empty conversation area every chat UI has, rather than a
+              hole punched between two blocks. */}
+          {/* Desktop only. These six chips are the prompts Tutor ships with,
+              and they are furniture around the answer rather than part of it:
+              on a desktop they fill the floor of a panel that would otherwise
+              have a hole in it, and at 390px there is no hole and they are
+              ~110px of pills between the answer and the way in. */}
+          <div className="mt-auto pt-7 max-sm:hidden sm:pt-9">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              Also one tap away
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {QUICK_ACTIONS.map(a => (
+                <span
+                  key={a}
+                  className="rounded-full bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground"
+                >
+                  {a}
+                </span>
+              ))}
+            </div>
           </div>
 
-          {/* The drawn composer went with the footnote. It was a picture of a
-              text box sitting directly on top of a real button that does the
-              same thing, on both a phone and a desktop. */}
           <div className="mt-7 sm:mt-9">
-            <Button asChild size="lg" variant="outline" className="w-full">
+            {/* The drawn composer. Desktop only: it is a picture of the box
+                you type into, and the real control is the button directly under
+                it, so on a phone it is a second way in stacked on the first. */}
+            <Link
+              to="/tutor"
+              className="flex items-center gap-3 rounded-2xl bg-muted/50 px-4 py-3.5 text-sm text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground max-sm:hidden"
+            >
+              <span className="min-w-0 flex-1 truncate">Ask about your own deck</span>
+              <SendHorizontal className="h-4 w-4 shrink-0" />
+            </Link>
+
+            <Button asChild size="lg" variant="outline" className="w-full sm:mt-4">
               <Link to="/tutor">
                 Open Tutor
                 <ArrowRight className="ml-2 h-4 w-4" />

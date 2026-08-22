@@ -11,31 +11,14 @@ import { Section, SectionHeading } from '@/components/marketing/Section';
 /* Answers must describe what the product actually does. The previous set
    asserted "bank-level encryption", "95%+ accuracy validated by the community",
    "analyzes thousands of high-performing decks" and "we're the only platform
-   that…" — none of which was true or checkable.
-​
-   SEVEN QUESTIONS BECAME FIVE, AND THE IMPORTANT ONE MOVED.
-​
-   "Is it free?" was sixth of seven. It is the second thing every visitor wants
-   to know and it is now the second question, as well as being on the hero's own
-   meta line above the fold.
-​
-   Cut: "What does the storage feature actually do?" — there is an illustrated
-   section on storage sixteen screens above, and "actually" is the page bracing
-   for disbelief. And "Is this an official Wizards of the Coast product?" —
-   the footer carries that text verbatim, two inches below this accordion. */
+   that…" — none of which was true or checkable. */
 const faqs = [
   {
     question: 'What is DeckMatrix?',
     answer:
-      'A deck builder and collection manager for Magic: The Gathering. What it does that others do ' +
-      'not is keep track of where your cards physically are, so a decklist can tell you which box ' +
-      'to open.',
-  },
-  {
-    question: 'Is it free?',
-    answer:
-      'Yes, while DeckMatrix is in early access. There is no card required and no trial countdown. If paid ' +
-      'plans are introduced later, existing accounts will be told before anything changes.',
+      'A deck builder and collection manager for Magic: The Gathering. You record the cards you own, ' +
+      'including which box each one is in, and build decks against that list. So you always know ' +
+      'what you already have and what you would still have to buy.',
   },
   {
     question: 'Where does the card data come from?',
@@ -44,18 +27,38 @@ const faqs = [
       'shortly after Scryfall publishes them. Card images and rules text are Scryfall data.',
   },
   {
-    question: 'Which formats can I build in?',
+    question: 'What does the storage feature actually do?',
     answer:
-      'Format legality comes straight from Scryfall, so Commander, Modern, Pioneer, Standard, Legacy, ' +
-      'Vintage, Pauper and the rest. Commander gets the most tooling, since colour identity and ' +
-      'singleton are handled in the builder itself.',
+      'You set up your real boxes, whether those are binders, deck boxes or bulk boxes, and put cards ' +
+      'in them down to the exact slot. When a deck asks for a card you own, DeckMatrix tells you ' +
+      'which box it is in instead of leaving you to dig through all of them.',
   },
   {
-    question: 'How is collection value worked out?',
+    question: 'How is collection value calculated?',
     answer:
-      'Prices are captured daily and kept as history, so value is a trend over time rather than only a ' +
-      'current figure. They are estimates from published market data and will not exactly match any ' +
-      'particular seller or buylist.',
+      'Prices are captured on a daily schedule and stored as history, so value is shown as a trend over time ' +
+      'rather than only a current figure. Prices are estimates from published market data and will not exactly ' +
+      'match any particular seller or buylist.',
+  },
+  {
+    question: 'Which formats are supported?',
+    answer:
+      'Format legality comes straight from Scryfall, which covers Commander, Modern, Pioneer, Standard, Legacy, ' +
+      'Vintage, Pauper and the rest. Commander gets the most dedicated tooling, since colour identity and ' +
+      'singleton rules are handled explicitly.',
+  },
+  {
+    question: 'Is it free?',
+    answer:
+      'Yes, while DeckMatrix is in early access. There is no card required and no trial countdown. If paid ' +
+      'plans are introduced later, existing accounts will be told before anything changes.',
+  },
+  {
+    question: 'Is this an official Wizards of the Coast product?',
+    answer:
+      'No. DeckMatrix is unofficial Fan Content permitted under the Wizards of the Coast Fan Content Policy. ' +
+      'It is not approved or endorsed by Wizards. Portions of the materials used are property of Wizards of ' +
+      'the Coast.',
   },
 ];
 
@@ -110,9 +113,6 @@ export function FAQSection() {
         whileInView={{ opacity: 1 }}
         viewport={{ once: true, amount: 0, margin: '0px 0px -10% 0px' }}
       >
-        {/* "Contact our support team" is a claim about a company with thirteen
-            registered accounts. The address is true and friendlier, and it is
-            the same address the link always pointed at. */}
         <p className="text-muted-foreground mb-4">
           Still have questions?
         </p>
@@ -120,7 +120,7 @@ export function FAQSection() {
           href="mailto:support@deckmatrix.com"
           className="inline-block py-2.5 font-medium text-primary hover:underline sm:py-0"
         >
-          Email support@deckmatrix.com
+          Contact our support team →
         </a>
       </motion.div>
     </Section>

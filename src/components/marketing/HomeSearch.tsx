@@ -189,16 +189,16 @@ export function HomeSearch() {
     <Section>
       <div ref={ref} aria-hidden className="h-0" />
 
-      {/* The lead used to say the same thing twice — "you already know how to
-          search here" and then "the same search terms all work" — and paraphrase
-          FORMAT LEGALITY as "what is legal where", which is a term every deck
-          builder this reader has used prints on screen. One sentence, and the
-          list names the operators in the words Scryfall itself uses. The stage
-          direction under it ("Pick one below and watch it run") went: the chips
-          are buttons and the reader can see that. */}
       <SectionHeading
         title="Search it the way you search Scryfall"
-        lead="If you know how to search on Scryfall you already know how to search here: colour identity, mana value, rules text, format legality, power and toughness."
+        lead={
+          <>
+            If you know how to search on Scryfall, you already know how to search here. The same
+            search terms all work: colour identity, mana value, rules text, what is legal where,
+            power and toughness.{' '}
+            <span className="hidden sm:inline">Pick one below and watch it run.</span>
+          </>
+        }
       />
 
       {/* --------------------------------------------------------- the queries */}
@@ -248,35 +248,13 @@ export function HomeSearch() {
         </span>
       </div>
 
-      {/* ------------------------------------------------------------ the cards
-
-          THE SKELETON HAS TO BE THE SHAPE OF THE THING, NOT ONLY THE PICTURE OF
-          IT. It drew a bare `CardImageSkeleton` while `ResultCard` draws the
-          image PLUS a name line and a mana row, and the caption underneath was
-          not drawn at all until the answer arrived. So this section grew by two
-          text rows per slot and a three-line caption the moment Scryfall
-          replied.
-
-          Measured on a phone against the built site: 1,083px to 1,258px. A
-          176px displacement against an 844px viewport is a cumulative layout
-          shift of 0.208 on its own, twice the score at which the number is
-          called poor, on a page whose law is to animate transform and opacity
-          and never move the layout. It was the last shift left on the page.
-
-          This is the one section with a genuine round trip behind it — the
-          query really is sent to Scryfall — so the space it will need is
-          reserved rather than the request being pretended away. */}
+      {/* ------------------------------------------------------------ the cards */}
       {(loading || current) && (
         <div className="mt-8 grid grid-cols-2 gap-x-5 gap-y-8 sm:mt-10 sm:grid-cols-3 lg:grid-cols-6">
           {loading
             ? Array.from({ length: SHOWN }).map((_, i) => (
                 <div key={i} className={cn(i >= SHOWN_ON_PHONE && 'hidden sm:block')}>
                   <CardImageSkeleton size="md" fill />
-                  {/* The exact rows `ResultCard`'s figcaption occupies. */}
-                  <div aria-hidden className="mt-3">
-                    <p className="text-sm font-medium leading-snug">&nbsp;</p>
-                    <div className="mt-1.5 min-h-[1.125rem]" />
-                  </div>
                 </div>
               ))
             : current!.cards.map((card, i) => (
@@ -287,33 +265,17 @@ export function HomeSearch() {
         </div>
       )}
 
-      {(loading || current) && (
+      {current && (
         <p className="mt-6 text-center text-xs leading-relaxed text-muted-foreground sm:mt-8">
           {/* Counts what is drawn, not what was asked for, so it is true at both
               counts: the phone hides the last two and says so. */}
-          {/* "in the order Scryfall ranks them by how often people play them"
-              is EDHREC rank, which is what `order=edhrec` asks for and what the
-              reader calls it. Nine words became two. The sentence after it,
-              insisting the search really ran, went with the rest of pattern 1:
-              nobody suspected it had not. */}
-          {current ? (
-            <>
-              The first{' '}
-              <span className="sm:hidden">{Math.min(SHOWN_ON_PHONE, current.cards.length)}</span>
-              <span className="hidden sm:inline">{current.cards.length}</span> of{' '}
-              {current.total.toLocaleString()} results for{' '}
-              <span className="font-mono text-foreground/80">{active}</span>, {note.toLowerCase()},
-              by EDHREC rank.
-            </>
-          ) : (
-            /* Holds the caption's own height while the request is out, so the
-               line arriving does not push the rest of the page down. 41px is
-               the measured height of that caption at 390px, where it wraps to
-               three lines; one line from `sm` up. Over-reserving is a shift in
-               the other direction, so the number is measured rather than
-               rounded up. */
-            <span aria-hidden className="block min-h-[41px] sm:min-h-[20px]" />
-          )}
+          The first{' '}
+          <span className="sm:hidden">{Math.min(SHOWN_ON_PHONE, current.cards.length)}</span>
+          <span className="hidden sm:inline">{current.cards.length}</span> of{' '}
+          {current.total.toLocaleString()} results for{' '}
+          <span className="font-mono text-foreground/80">{active}</span>, {note.toLowerCase()}, in the
+          order Scryfall ranks them by how often people play them. This ran for real when the page
+          loaded, on the same search the card browser uses.
         </p>
       )}
 

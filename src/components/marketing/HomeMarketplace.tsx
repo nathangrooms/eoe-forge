@@ -15,36 +15,33 @@
  * unsmoothed: the first and last points, the low, the high and the percentage
  * are all computed from those rows. Nothing here is seeded.
  *
- * When there is no series the section says there is no series, and it knows on
- * the first render. Two earlier shapes both got this wrong in the same place.
- * `useDeferred` could not tell `priceTracking: null` from "still loading", so
- * the live homepage pulsed a skeleton chart at every visitor for ever, which is
- * a fabrication in animation rather than in text. `useDeferredResult` fixed the
- * claim and kept the shape, so the section still drew the skeleton first and
- * then collapsed 939px out of the page underneath the reader. There is nothing
- * to defer: the series is a bundled JSON file. It is read during render now.
+ * When there is no series the section says there is no series. It used to claim
+ * that and not do it: with `priceTracking: null` in the snapshot the loader
+ * answered null, `useDeferred` could not tell that from "still loading", and
+ * the live homepage showed a pulsing skeleton chart to every visitor for ever.
+ * A permanent loading state is a promise that something is coming, which is a
+ * fabrication in animation rather than in text. Hence `useDeferredResult`.
  *
  * Listings themselves are deliberately absent: `listings` is row-level-secured
- * to its owner, so a logged-out visitor cannot be shown one truthfully. That
- * same policy is why {@link SellPanel} no longer mentions buyers.
+ * to its owner, so a logged-out visitor cannot be shown one truthfully.
  */
 
 import { Link } from 'react-router-dom';
 import { ArrowDownRight, ArrowRight, ArrowUpRight } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { CardImage } from '@/components/cards/CardImage';
 import { ManaCost } from '@/components/ui/mana-cost';
 import { cn } from '@/lib/utils';
 
 import { Section, SectionHeading } from '@/components/marketing/Section';
-/* `readPriceTracking`, not `loadPriceTracking`: the same snapshot read without
-   the resolved promise a deferring hook had to await. See the note in the
-   section for what that promise was costing. */
 import {
+  loadPriceTracking,
   money,
-  readPriceTracking,
   shortDate,
+  useDeferredResult,
+  useNearViewport,
   type TrackedCard,
 } from '@/components/marketing/sectionData';
 
@@ -187,147 +184,75 @@ function WatchRow({ entry }: { entry: TrackedCard }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* The two things that are true whether or not there is a chart               */
-/* -------------------------------------------------------------------------- */
-
-/**
- * The most concrete sentence in this section, promoted out of a side panel.
- *
- * "TAKE MESSAGES FROM BUYERS" WAS REMOVED ON 22 AUG 2026. THERE ARE NO BUYERS.
- *
- * `listings` carries exactly one policy — "Users can manage their own listings",
- * `USING (auth.uid() = user_id)` — checked against `pg_policies` on the live
- * database, so no account can read a row another account wrote. `Marketplace.tsx`
- * matches it: every query it makes is `.eq('user_id', session.user.id)`, and the
- * page has no browse tab at all (search, trends, watchlist, listings). So a
- * listing cannot be found by anybody, and a message about one cannot arrive.
- *
- * CLAUDE.md §8 already knew: "listings/wishlist_shares are owner-only, so the
- * marketplace and shared wishlists cannot actually be read by other users — that
- * is a FEATURE GAP, and closing it means loosening RLS deliberately".
- *
- * What is left is every part of the flow that does work today, and it is a real
- * feature: the listing, the condition and foiling, recording the sale, and the
- * copy leaving your collection. When the other half of the market exists, this
- * sentence gets the clause back.
- */
-function SellPanel() {
-  return (
-    <div className="rounded-xl bg-muted/30 p-4">
-      <p className="text-sm font-medium">Sell what you are not playing</p>
-      <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-        List straight out of your collection with condition, foiling and quantity. Record the sale
-        and the copy leaves your collection on its own.
-      </p>
-    </div>
-  );
-}
-
-/** Verified against `buildBuyRows`. True today, chart or no chart. */
-function BuyLinks({ className }: { className?: string }) {
-  return (
-    <div className={cn('flex flex-wrap items-center gap-2', className)}>
-      <span className="mr-1 text-[11px] uppercase tracking-wider text-muted-foreground">
-        Buy links open at
-      </span>
-      {VENDORS.map(v => (
-        <span key={v} className="rounded-full bg-muted/40 px-3 py-1 text-xs text-muted-foreground">
-          {v}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
 /* Section                                                                    */
 /* -------------------------------------------------------------------------- */
 
 export function HomeMarketplace() {
+  const [ref, near] = useNearViewport<HTMLDivElement>();
   /*
-   * READ STRAIGHT OUT OF THE SNAPSHOT, DURING RENDER. NO GATE, NO SKELETON, NO
-   * SETTLING — AND THIS WAS THE BIGGEST LAYOUT SHIFT ON THE PAGE.
-   *
-   * The old shape was `useDeferredResult(near, loadPriceTracking)`: wait for
-   * the section to come within 600px, then resolve a promise, then re-render.
-   * Two renders, and the first one drew the skeleton branch. Measured on a
-   * 390px phone against the built site, this section went from 1,600px to
-   * 661px the moment it settled — a 939px collapse under the reader, and every
-   * section below it moving up by that much. Under a fast scroll it measured
-   * CLS 0.208, which is twice the "poor" threshold, on a page whose law is
-   * "animate transform and opacity only, never shift layout".
-   *
-   * None of that bought anything, because `loadPriceTracking` was
-   * `Promise.resolve(priceTracking())` over a JSON file that is already in the
-   * bundle. There is nothing to wait for. `priceTracking()` returns the same
-   * answer on the first render as on the second, so the section can be right
-   * the first time it paints and never move again.
-   *
-   * The distinction the old comment was defending is still kept and still
-   * matters: null means "no card has two price snapshots yet", never "this is
-   * arriving". It is simply known immediately now, so no skeleton is drawn at
-   * all rather than being drawn and then withdrawn.
+   * `settled` is the whole point. A skeleton means "this is arriving"; null
+   * from this loader means "no card has two price snapshots yet", and those are
+   * not the same statement. Read through the plain `useDeferred`, which cannot
+   * tell them apart, this section drew a pulsing chart and four pulsing rows on
+   * the live homepage indefinitely, because the committed snapshot carries
+   * `priceTracking: null`. The file comment above claimed the section rendered
+   * nothing in that case. It did not; it faked loading.
    */
-  const data = readPriceTracking();
+  const { data, settled } = useDeferredResult(near, loadPriceTracking);
 
   const hero = data?.cards[0] ?? null;
   const rest = data?.cards.slice(1) ?? [];
-  /** Nothing to draw. Known on the first render, so nothing ever swaps. */
-  const noSeries = hero === null;
+  /** Settled with nothing: we tried, and there is no series to draw. */
+  const noSeries = settled && hero === null;
 
   return (
     <Section>
+      {/* Load gate. React 18 will not forward a ref through <Section>, so the
+          sentinel sits at the top of the content instead of on the element. */}
+      <div ref={ref} aria-hidden className="h-0" />
 
-      {/* TWO CLAIMS CAME OUT OF THIS LEAD BECAUSE NEITHER WAS TRUE.
-​
-          "going back months" — broad daily capture only started on 19 August
-          2026 (CLAUDE.md §7), and `priceTracking` is null in the shipped
-          snapshot, so there is no series of any length behind it yet.
-​
-          "buy without leaving the page" — contradicted four hundred pixels
-          below by our own chip row, which says buy links open at TCGplayer,
-          Cardmarket and three others. Buying leaves the page. */}
       <SectionHeading
         eyebrow="Marketplace"
         title="Watch the price before you buy it"
         lead={
           <>
-            DeckMatrix saves the price of every card it tracks, once a day, so you can see whether a
-            card is climbing or falling instead of only today&rsquo;s number.{' '}
+            DeckMatrix saves the price of every card it tracks, once a day, going back months. So
+            you can see whether a card is climbing or falling instead of only today&rsquo;s number.{' '}
             <span className="hidden sm:inline">
-              Put cards up for sale straight from your collection, and get told when one hits the
-              price you wanted.
+              Put cards up for sale straight from your collection, get told when one hits the price
+              you wanted, and buy without leaving the page.
             </span>
           </>
         }
       />
 
-      {/* WITH NO SERIES, THE SECTION SHOWS THE THINGS THAT ARE TRUE.
-​
-          `priceTracking` is null in the shipped snapshot, so until now every
-          visitor to deckmatrix.com read "No price history to chart yet" and
-          "Nothing on the watch list yet." under a heading promising a price
-          before you buy. Both lines were honest and well written and both were
-          an apology for an exhibit that had not arrived.
-​
-          A homepage section is not obliged to hold a slot open for data it does
-          not have. Selling out of your collection and the five places a buy
-          link opens are true today, so those are what the section is when there
-          is no chart, and the chart comes back on its own the first morning two
-          days of prices exist. */}
-      {noSeries ? (
-        <div className="mt-9 rounded-2xl bg-card p-5 shadow-2xl shadow-black/40 sm:mt-14 sm:p-8">
-          <SellPanel />
-          <BuyLinks className="pt-6" />
-        </div>
-      ) : (
       <div className="mt-9 grid gap-5 sm:mt-14 lg:grid-cols-[minmax(0,1fr)_360px]">
         {/* ---------------------------------------------------- the tracked card */}
         <div className="flex min-w-0 flex-col rounded-2xl bg-card p-5 shadow-2xl shadow-black/40 sm:p-8">
-          {/* No skeleton branch. `noSeries` above is `hero === null`, so this
-              arm only ever runs with a card in hand. The skeleton that stood
-              here was the second render of a value that was never late. */}
-          {(
+          {noSeries ? (
+            /* Nothing to draw, said plainly. Daily capture reached the whole
+               catalogue on 19 August 2026, so most cards have one recorded day
+               and a line needs two. The section keeps its heading, its buy
+               links and its way through to the marketplace, because all three
+               are true whether or not there is a chart yet. */
+            <div className="flex flex-1 flex-col justify-center py-10">
+              <p className="text-lg font-medium text-foreground">
+                No price history to chart yet
+              </p>
+              <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
+                Prices are saved once a day. A card needs two days on record before there is a line
+                worth drawing, so the first charts appear here as the days build up.
+              </p>
+            </div>
+          ) : hero === null ? (
+            <div className="grid gap-8 sm:grid-cols-[200px_minmax(0,1fr)]">
+              <Skeleton className="aspect-[5/7] w-[200px] rounded-xl" />
+              <div className="space-y-4">
+                <Skeleton className="h-10 w-40" />
+                <Skeleton className="h-40 w-full rounded-xl" />
+              </div>
+            </div>
+          ) : (
             <div className="grid gap-8 sm:grid-cols-[200px_minmax(0,1fr)]">
               {/* Whole card at 5:7 — this is a card, so it is never cropped. */}
               <div>
@@ -363,7 +288,7 @@ export function HomeMarketplace() {
                 <div className="mt-2 flex items-center justify-between text-[11px] tabular-nums text-muted-foreground">
                   <span>{data ? shortDate(data.from) : ''}</span>
                   <span>
-                    {hero.series.length} days
+                    {hero.series.length} snapshots
                   </span>
                   <span>{data ? shortDate(data.to) : ''}</span>
                 </div>
@@ -390,7 +315,19 @@ export function HomeMarketplace() {
             </div>
           )}
 
-          <BuyLinks className="mt-auto pt-8" />
+          <div className="mt-auto flex flex-wrap items-center gap-2 pt-8">
+            <span className="mr-1 text-[11px] uppercase tracking-wider text-muted-foreground">
+              Buy links open at
+            </span>
+            {VENDORS.map(v => (
+              <span
+                key={v}
+                className="rounded-full bg-muted/40 px-3 py-1 text-xs text-muted-foreground"
+              >
+                {v}
+              </span>
+            ))}
+          </div>
         </div>
 
         {/* -------------------------------------------------------- the watchlist */}
@@ -400,12 +337,16 @@ export function HomeMarketplace() {
           </p>
 
           <ul className="mt-4 space-y-2.5">
-            {(
+            {noSeries ? null : data === null ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <li key={i}>
+                  <Skeleton className="h-16 w-full rounded-xl" />
+                </li>
+              ))
+            ) : (
               /* Two on a phone, four from `sm` up. Each row is a card, a
                  sparkline and two figures, and the list is a supporting exhibit
-                 beside the tracked card above it rather than the argument.
-                 No skeleton arm: `data` is read during render, so it is never
-                 null here. */
+                 beside the tracked card above it rather than the argument. */
               rest.map((entry, i) => (
                 <div key={entry.card.id} className={cn(i >= 2 && 'hidden sm:block')}>
                   <WatchRow entry={entry} />
@@ -413,21 +354,33 @@ export function HomeMarketplace() {
               ))
             )}
           </ul>
+          {noSeries && (
+            <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+              Nothing on the watch list yet.
+            </p>
+          )}
 
           <div className="mt-auto pt-6">
-            <SellPanel />
+            <div className="rounded-xl bg-muted/30 p-4">
+              <p className="text-sm font-medium">Sell what you are not playing</p>
+              <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                List straight out of your collection with condition, foiling and quantity, take
+                messages from buyers, then record the sale and the copy leaves your collection.
+              </p>
+            </div>
           </div>
         </div>
       </div>
-      )}
 
       {/* The dates are the claim. They say which day the last point on these
           lines is from, which is the only honest way to caption a chart drawn
-          from a file written last night. "Snapshots" was our word for a stored
-          row; the reader's word is prices. */}
+          from a file written last night. It used to say "read live", and that
+          stopped being true the moment this section started reading the
+          nightly snapshot instead of the database. */}
       {data && (
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          Daily prices between {shortDate(data.from)} and {shortDate(data.to)}.
+          Daily price snapshots between {shortDate(data.from)} and {shortDate(data.to)}, from
+          DeckMatrix's own price history.
         </p>
       )}
 

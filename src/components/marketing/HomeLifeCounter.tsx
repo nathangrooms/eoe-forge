@@ -2,14 +2,18 @@
  * Homepage — the life counter.
  *
  * The owner's note was specific: show it as it looks on a device lying flat in
- * the middle of the table, with the seats rotated. There are four boards here:
- * one at full size and three small ones showing two, three and four seats.
+ * the middle of the table, with the seats rotated. There are now two pictures
+ * here and they do different jobs.
  *
- * The big one was a photograph of `/life` between 19 and 22 Aug 2026 and is a
- * drawing again. See {@link LifeBoards} for why, in one sentence: the real
- * screen colour-shifts Scryfall card art and the picture published it.
+ * **The big one is a photograph** of `/life` running a four-player game, taken
+ * by `scripts/app-shots.mjs`. It was a drawing until 2026-08-19, and drawn from
+ * the app's own geometry at that — but a claim about how something LOOKS on a
+ * table is the one claim a photograph settles outright, and the photograph
+ * carries two things the drawing could not: the mats with their real card art,
+ * and totals that a game left behind rather than four seats still on 40.
  *
- * All four are drawn the same way, which is the thing that keeps them honest:
+ * **The three small ones are still drawn**, because they are the one thing a
+ * single screenshot cannot be — two, three and four seats at once:
  *
  *   - Seat rectangles and rotations come from `seatingFor` in `src/lib/game`,
  *     the same function `/life` calls. Nothing here hardcodes a percentage, so
@@ -40,6 +44,8 @@ import { MatSurface } from '@/components/life/MatSurface';
 import type { MatColor } from '@/components/life/mats';
 
 import { Section, SectionHeading } from '@/components/marketing/Section';
+import { AppScreenshot } from '@/components/marketing/AppScreenshot';
+import { useNearViewport } from '@/components/marketing/sectionData';
 
 /* -------------------------------------------------------------------------- */
 /* The pod                                                                    */
@@ -64,15 +70,11 @@ const POD: PodSeat[] = [
   { name: 'Player 4', mat: 'R', life: 4, commander: 15 },
 ];
 
-/* "Undo any tap" said tap, on a page that uses that word in Magic's sense two
-   sections above ("counters, tap and zone controls"). It meant a press on the
-   screen. `useLifeGame` undoes by snapshot and works after a game has ended,
-   which is the case worth advertising: a lethal you did not mean. */
 const FEATURES = [
   'Commander damage',
   'Poison',
   'Energy and experience',
-  'Undo a wrong total',
+  'Undo any tap',
   'Screen stays awake',
   'Full screen',
 ];
@@ -217,46 +219,41 @@ function PodRow() {
 }
 
 /**
- * The hero board: four seats, drawn from the counter's own geometry.
+ * The hero board: a photograph of the real counter, four seats, mid-game.
  *
- * A PHOTOGRAPH STOOD HERE AND HAD TO COME OFF ON 22 AUG 2026.
+ * This used to be a fourth `Device` — the counter's own geometry drawn from
+ * `seatingFor`, which is as close as a drawing gets to the thing. It was
+ * replaced because the promise this section makes is about how the counter
+ * LOOKS on a table, and that is the one kind of claim a photograph settles
+ * outright. The picture shows two things the drawing could not: the real mats,
+ * with the card art that sits behind them, and four totals that are what a game
+ * leaves behind rather than four seats still on 40.
  *
- * `public/screens/life-counter-*.webp` is a picture of `/life` running, and
- * `/life` paints Scryfall's `art_crop` under every seat through `matArtStyle`
- * in `src/components/life/mats.ts`, which applies
- * `saturate(0.68) brightness(0.58) contrast(1.1)` — the values are at lines
- * 253, 261 and 276, applied at 364 — and then washes a colour across the top of
- * it. Scryfall's image guidelines say plainly: do not blur, sharpen, desaturate
- * or colour-shift card images.
+ * `scripts/app-shots.mjs` starts a four-player game on `/life` and takes the
+ * points off using the panels' own controls — the same press a player makes.
  *
- * This is not a judgement call, because the identical breach has already been
- * found and corrected one directory away: `src/components/play/Playmat.tsx`
- * carries a comment quoting that guideline and naming the values it removed,
- * `saturate(0.26) brightness(0.4) contrast(1.06)`. The life counter was missed.
- * Re-taking this screenshot on 22 Aug refreshed the breach onto the homepage
- * rather than fixing it, and a marketing page is the worst place to publish one.
- *
- * `src/components/life/` is not this workflow's to edit, so the only fix
- * available here is also the right one: do not publish it. The photograph comes
- * back the moment `mats.ts` drops `artFilter`, and re-taking it costs one run of
- * `scripts/app-shots.mjs`.
- *
- * What replaces it is what stood here before the photograph did: the same
- * `Device`, drawn from `seatingFor` — the function `/life` itself calls — at
- * four seats and full size. `MatSurface` is passed no art, so a mat is its
- * colour tokens alone and there is no card image on it to treat.
+ * The three seating variants above it are still drawn, because they are the one
+ * thing a single screenshot cannot be: two, three and four seats at once.
  */
 function LifeBoards() {
   return (
     <div>
-      {/* The table the device is lying on. */}
+      {/* The table the device is lying on. The screenshot takes the screen's
+          own rounding here and drops its shadow, because the bezel around it is
+          already doing both. */}
       <div className="rounded-[2.25rem] bg-muted/40 p-4 shadow-2xl shadow-black/50 sm:p-9">
-        <Device layout={seatingFor(4, 'quads')} aspect="4 / 3" />
+        <div className="overflow-hidden rounded-[1.25rem] shadow-2xl shadow-black/60">
+          <AppScreenshot
+            scene="life-counter"
+            frame={false}
+            alt="Four life-counter panels filling the screen, one to each edge of the table, each rotated to face the player sitting there"
+          />
+        </div>
       </div>
 
-      {/* No caption. It read "Four players, one to an edge. Every panel is
-          turned to face the person sitting at it." — which is the lead beside
-          it, describing the picture above it, for the third time. */}
+      <p className="mt-5 text-center text-xs text-muted-foreground">
+        Four players, one to an edge. Every panel is turned to face the person sitting at it.
+      </p>
     </div>
   );
 }
@@ -266,9 +263,11 @@ function LifeBoards() {
 /* -------------------------------------------------------------------------- */
 
 export function HomeLifeCounter() {
+  const [ref, near] = useNearViewport<HTMLDivElement>();
 
   return (
     <Section tint>
+      <div ref={ref} aria-hidden className="h-0" />
 
       {/* items-start, and the three seating variants moved into the copy
           column below. Before this the right column ran 944px against 405px of
@@ -279,12 +278,21 @@ export function HomeLifeCounter() {
           align="left"
           eyebrow="Life counter"
           title="The phone goes in the middle of the table"
-          /* One sentence. What went: the consequence of the photograph
-             underneath ("so nobody has to read their life total upside down"),
-             a manual instruction about tap targets, and a list of six features
-             that is the chip row forty pixels below this line. The chips carry
-             them in six words each and cannot get out of step with themselves. */
-          lead="Every seat gets its own panel, turned to face whoever is sitting there."
+          lead={
+            <>
+              Every seat gets its own panel, turned to face whoever is sitting there, so nobody has
+              to read their life total upside down. Tap the top to gain and the bottom to lose.{' '}
+              {/* The chips directly under this lead already name commander
+                  damage, poison, energy, full screen and the screen staying
+                  awake, so on a phone the sentence that lists them again is the
+                  same content twice. */}
+              <span className="hidden sm:inline">
+                Quick taps add up into one change, so a mis-tap is easy to fix. It counts commander
+                damage, poison, energy and experience too, goes full screen, and stops the phone
+                sleeping.
+              </span>
+            </>
+          }
         >
           <div className="mt-7 flex flex-wrap gap-2 sm:mt-8">
             {FEATURES.map(f => (
@@ -304,22 +312,16 @@ export function HomeLifeCounter() {
             </Link>
           </Button>
 
-          {/* THE VIEWPORT GATE IS GONE, AND IT WAS COSTING A LAYOUT SHIFT.
-​
-              `near && <PodRow />` plus a 16:10 placeholder standing in for a
-              4:3 board meant this section grew 180px the moment the reader got
-              within 600px of it, and every section below it moved down by that
-              much. Measured on a phone against the built site: 706px before the
-              gate opened, 886px after.
-​
-              It bought nothing. There is no request behind either of these and
-              there never was: every board here is `seatingFor` arithmetic and
-              sixteen tinted divs. The only thing the gate deferred was work
-              cheaper than the gate. */}
-          <PodRow />
+          {near && <PodRow />}
         </SectionHeading>
 
-        <LifeBoards />
+        {near ? (
+          <LifeBoards />
+        ) : (
+          <div className="rounded-[2.25rem] bg-muted/40 p-6 sm:p-10">
+            <div className="w-full rounded-[1.25rem] bg-background" style={{ aspectRatio: '16 / 10' }} />
+          </div>
+        )}
       </div>
     </Section>
   );

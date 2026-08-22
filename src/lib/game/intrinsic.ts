@@ -51,6 +51,8 @@
 
 import type { CardInstance, GameState, ReplacementEffect } from './types.ts';
 import { replacementAbilitiesOf } from './abilities/card-abilities.ts';
+import { evalCondition, makeContext } from './abilities/context.ts';
+import type { Condition } from '@/lib/cards/abilities/dsl';
 
 /**
  * Namespace for a derived effect's id.
@@ -135,5 +137,50 @@ export function intrinsicReplacementsFor(
   instanceId: string | undefined
 ): ReplacementEffect[] {
   if (!instanceId) return [];
-  return intrinsicReplacements(state.cards[instanceId]);
+  const card = state.cards[instanceId];
+  if (!card) return [];
+
+  /* CONDITIONAL SELF-REPLACEMENTS, which is nearly all of them on lands.
+     ------------------------------------------------------------------
+     "This land enters tapped unless you control a legendary creature" compiles
+     to an `enters-tapped` result carrying a condition. The condition is the
+     whole card: applied unconditionally the land always comes in tapped, which
+     is a penalty it does not always have; ignored entirely it never does, which
+     is the drawback deleted. Neither is the printed card.
+
+     `intrinsicReplacements` has no state and cannot answer the question, so it
+     is answered here, where there is one. A condition that cannot be evaluated
+     leaves the effect in place, because the compiler only attaches one to a
+     land whose DEFAULT is to enter tapped, and the default is the safer of the
+     two wrong answers. */
+  const derived = intrinsicReplacements(card);
+  if (derived.length === 0) return derived;
+
+  const conditions = conditionsByAbility(card);
+  if (conditions.size === 0) return derived;
+
+  return derived.filter(effect => {
+    const condition = conditions.get(effect.id);
+    if (!condition) return true;
+    try {
+      return evalCondition(condition, makeContext(state, card.instanceId, card.controllerId));
+    } catch {
+      return true;
+    }
+  });
+}
+
+/**
+ * The condition on each self-replacement this card carries, keyed by the same
+ * id `intrinsicReplacements` stamps, so the two can be lined up without
+ * compiling the card twice.
+ */
+function conditionsByAbility(card: CardInstance): Map<string, Condition> {
+  const out = new Map<string, Condition>();
+  for (const ability of replacementAbilitiesOf(card)) {
+    if (ability.event.on !== 'enters' || !ability.selfReplacement) continue;
+    if (!ability.condition) continue;
+    out.set(intrinsicReplacementId(card.instanceId, ability.id), ability.condition);
+  }
+  return out;
 }

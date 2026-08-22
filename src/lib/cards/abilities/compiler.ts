@@ -390,6 +390,9 @@ function classify(para: Paragraph, shape: CardShape, idAt: number): Classified |
         kind: 'replacement', id: id(0), text: raw, confidence: 'exact',
         event: replacement.event, result: replacement.result,
         selfReplacement: replacement.selfReplacement,
+        // Present only for the conditional forms ("enters tapped unless ...").
+        // Undefined for everything else, so the ability is unchanged.
+        ...(replacement.condition ? { condition: replacement.condition } : {}),
       }],
     };
   }

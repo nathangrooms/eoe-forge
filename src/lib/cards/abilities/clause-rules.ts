@@ -783,6 +783,51 @@ export interface ReplacementShape {
   event: ReplaceableEvent;
   result: ReplacementResult;
   selfReplacement: boolean;
+  /**
+   * When present, the replacement applies only while this holds.
+   *
+   * `ReplacementAbility` in the DSL has carried a `condition` since it was
+   * written; nothing filled it in, so every conditional replacement was refused
+   * whole and the card kept no ability at all. For a land that is not a small
+   * omission: "enters tapped unless you control a legendary creature" with no
+   * ability means it ALWAYS enters untapped, which is the drawback deleted and
+   * the card played stronger than it is printed.
+   */
+  condition?: Condition;
+}
+
+/**
+ * "you control a Swamp or an Island", and the rest of the check lands.
+ *
+ * `parseCondition` reads "you control a Swamp" and refuses the two-type form,
+ * which on its own leaves out the whole check land cycle: Drowned Catacomb,
+ * Clifftop Retreat, Sunpetal Grove and their friends are among the most played
+ * lands there are, and every one of them was entering untapped for free.
+ *
+ * Rather than teach the main condition grammar a new shape, this composes the
+ * one it already reads. "control a permanent that is an A or a B" and "control
+ * an A, or control a B" answer identically for an at-least-one check, and the
+ * second is built out of parts that are already tested.
+ *
+ * Deliberately narrow. Only "you control ..." splits, only on a single " or ",
+ * and both halves must parse on their own or the whole thing is refused. A
+ * clause this cannot read keeps its card unchanged rather than guessing, which
+ * is the same bargain the caller makes.
+ */
+function parseControlsEither(clause: string): Condition | null {
+  const controls = clause.trim().toLowerCase().match(/^you control (.+)$/);
+  if (!controls) return null;
+
+  const halves = controls[1].split(/ or /);
+  if (halves.length !== 2) return null;
+
+  const of: Condition[] = [];
+  for (const half of halves) {
+    const parsed = parseCondition(`you control ${half.trim()}`);
+    if (!parsed) return null;
+    of.push(parsed);
+  }
+  return { if: 'or', of };
 }
 
 export function parseReplacement(paragraph: string): ReplacementShape | null {
@@ -790,6 +835,30 @@ export function parseReplacement(paragraph: string): ReplacementShape | null {
 
   if (/^~ enters tapped$/.test(p)) {
     return { event: { on: 'enters', who: { sel: 'self' } }, result: { do: 'enters-tapped' }, selfReplacement: true };
+  }
+
+  /* "~ enters tapped UNLESS <condition>."
+     ------------------------------------------------------------------
+     Twenty recorded games found this as the largest single cluster of cards
+     playing stronger than printed: around twenty lands, all entering untapped
+     every time, because the rule above is an EXACT match and every conditional
+     wording fell straight through it to no ability at all.
+
+     "Unless X" is "not X", so the condition is negated here and the runtime
+     needs no special case for the word. A condition this file cannot read is
+     still refused whole rather than downgraded to an unconditional tap: being
+     wrong in the other direction would tap a land that should have come in
+     ready, which is a penalty the card does not carry. */
+  const unlessTapped = p.match(/^~ enters tapped unless (.+)$/);
+  if (unlessTapped) {
+    const condition = parseCondition(unlessTapped[1]) ?? parseControlsEither(unlessTapped[1]);
+    if (!condition) return null;
+    return {
+      event: { on: 'enters', who: { sel: 'self' } },
+      result: { do: 'enters-tapped' },
+      selfReplacement: true,
+      condition: { if: 'not', of: condition },
+    };
   }
 
   const counters = p.match(new RegExp(`^~ enters with (${N}) (\\+\\d+/\\+\\d+|-\\d+/-\\d+|[a-z]+) counters? on it$`));

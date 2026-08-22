@@ -200,3 +200,87 @@ test('a card whose counter count is not a plain number is left to the player', (
     'an unknown count must not become a made-up one'
   );
 });
+
+/* -------------------------------------------------------------------------- */
+/* Conditional arrivals: "enters tapped UNLESS ..."                            */
+/*                                                                            */
+/* Twenty recorded bot games found around twenty lands entering untapped every */
+/* single time, because the rule that reads "enters tapped" was an EXACT match */
+/* and every conditional wording fell through it to no ability at all. A land  */
+/* with its drawback deleted is a land played stronger than it is printed, and */
+/* the other seat has no answer to it.                                         */
+/*                                                                            */
+/* Both directions are asserted. Applying the tap unconditionally would be the */
+/* opposite error and just as wrong: a penalty the card does not always carry. */
+/* -------------------------------------------------------------------------- */
+
+const CHOCOBO = 'This land enters tapped unless you control a legendary creature.';
+
+test('a conditional land enters TAPPED when the condition is not met', () => {
+  let state = withCard(table(), 'camp', 'Chocobo Camp', 'Land', CHOCOBO);
+  state = applyAction(state, play('camp'));
+
+  assert.equal(card(state, 'camp').zone, 'battlefield');
+  assert.equal(card(state, 'camp').tapped, true, 'no legendary creature, so it comes in tapped');
+});
+
+test('the same land enters UNTAPPED once the condition is met', () => {
+  let state = withCard(table(), 'camp', 'Chocobo Camp', 'Land', CHOCOBO);
+  state = addCard(
+    state,
+    {
+      instanceId: 'hero',
+      cardId: 'hero',
+      name: 'Some Legend',
+      ownerId: 'p1',
+      typeLine: 'Legendary Creature — Human',
+      oracleText: '',
+      power: '2',
+      toughness: '2',
+    },
+    'battlefield'
+  );
+  state = applyAction(state, play('camp'));
+
+  assert.equal(card(state, 'camp').tapped, false, 'the legendary creature turns the drawback off');
+});
+
+test('an unconditional enters-tapped land is unaffected by any of this', () => {
+  let state = withCard(table(), 'gate', 'Dimir Guildgate', 'Land — Gate', 'This land enters tapped.');
+  state = applyAction(state, play('gate'));
+  assert.equal(card(state, 'gate').tapped, true);
+});
+
+test('a condition the compiler cannot read builds no ability rather than guessing', () => {
+  // "three or more other Swamps" is not in the condition vocabulary yet. The
+  // card keeps no replacement at all, which is the behaviour before this change
+  // and is deliberately NOT replaced by an unconditional tap.
+  const state = withCard(
+    table(),
+    'cottage',
+    "Witch's Cottage",
+    'Land',
+    'This land enters tapped unless you control three or more other Swamps.'
+  );
+  assert.deepEqual(intrinsicReplacements(card(state, 'cottage')), []);
+});
+
+test('a check land reads its two-type condition', () => {
+  // Drowned Catacomb and its cycle are among the most played lands there are.
+  // "a Swamp or an Island" is one permanent that is either, which answers the
+  // same as "control a Swamp, or control an Island" for an at-least-one check.
+  const CATACOMB = 'This land enters tapped unless you control an Island or a Swamp.';
+
+  let bare = withCard(table(), 'cat', 'Drowned Catacomb', 'Land', CATACOMB);
+  bare = applyAction(bare, play('cat'));
+  assert.equal(card(bare, 'cat').tapped, true, 'no Island and no Swamp, so it is tapped');
+
+  let withSwamp = withCard(table(), 'cat', 'Drowned Catacomb', 'Land', CATACOMB);
+  withSwamp = addCard(
+    withSwamp,
+    { instanceId: 'sw', cardId: 'sw', name: 'Swamp', ownerId: 'p1', typeLine: 'Basic Land — Swamp', oracleText: '' },
+    'battlefield'
+  );
+  withSwamp = applyAction(withSwamp, play('cat'));
+  assert.equal(card(withSwamp, 'cat').tapped, false, 'either half of the or is enough');
+});

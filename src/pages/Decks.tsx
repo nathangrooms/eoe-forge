@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Crown, Library, Plus, Star } from 'lucide-react';
+import { Boxes, Crown, Plus, Sparkles, Star } from 'lucide-react';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { DecksSummaryStats } from '@/components/deck-builder/DecksSummaryStats';
@@ -22,7 +22,6 @@ import { DeckAPI, type DeckSummary } from '@/lib/api/deckAPI';
 import { useDeckFilters } from '@/hooks/useDeckFilters';
 import { useDeckPowerBackfill } from '@/hooks/useDeckPowerBackfill';
 import type { DeckPower } from '@/lib/deck/power';
-import { ArchetypeLibrary } from '@/components/deck-builder/ArchetypeLibrary';
 import {
   Sheet,
   SheetContent,
@@ -112,7 +111,6 @@ export default function Decks() {
   const [showOnboardingFlow, setShowOnboardingFlow] = useState(false);
   const [creatingFirstDeck, setCreatingFirstDeck] = useState(false);
 
-  const [showArchetypes, setShowArchetypes] = useState(false);
 
   /**
    * Analysis, missing cards, share and export used to be four overlays launched
@@ -289,9 +287,18 @@ export default function Decks() {
               />
               <span className="hidden sm:inline">Favourites</span>
             </Button>
-            <Button variant="secondary" onClick={() => setShowArchetypes(true)}>
-              <Library className="mr-2 h-4 w-4" />
-              <span className="hidden sm:inline">Archetypes</span>
+            {/* Archetypes made way for the two things people actually come here
+                to start a deck with. Owner: "remove archetypes and add the Deck
+                Generator", then "replace archetypes with precons maybe". Both,
+                since they are the two routes into a new deck that are not
+                building it by hand. */}
+            <Button variant="secondary" onClick={() => navigate('/smart-builder')}>
+              <Sparkles className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Deck Generator</span>
+            </Button>
+            <Button variant="secondary" onClick={() => navigate('/precons')}>
+              <Boxes className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Precons</span>
             </Button>
             {/* Goes to the new deck page, the same place the left menu and the
                 top bar go. It used to open an onboarding wizard, so the same
@@ -405,34 +412,6 @@ export default function Decks() {
         </div>
       )}
 
-      {/* Design law 3: browsing archetypes without leaving My Decks is a
-          right-hand slide-out, never a centred dialog that dims the grid and
-          traps focus. The deck list stays visible and keeps its scroll. */}
-      <Sheet open={showArchetypes} onOpenChange={setShowArchetypes}>
-        <SheetContent
-          side="right"
-          className="w-full overflow-y-auto border-0 sm:max-w-xl lg:max-w-2xl"
-        >
-          <SheetHeader className="text-left">
-            <SheetTitle>Archetype library</SheetTitle>
-            <SheetDescription>
-              Proven shells, each with the power band and Commander bracket a well-built version
-              lands in — the same scale every deck on this page is scored against.
-            </SheetDescription>
-          </SheetHeader>
-          <div className="mt-4">
-            <ArchetypeLibrary
-              currentFormat="commander"
-              onStartFromTemplate={template => {
-                setShowArchetypes(false);
-                navigate(
-                  `/smart-builder?archetype=${encodeURIComponent(template.id)}&power=${template.targetPower.max}`
-                );
-              }}
-            />
-          </div>
-        </SheetContent>
-      </Sheet>
-    </StandardPageLayout>
+          </StandardPageLayout>
   );
 }

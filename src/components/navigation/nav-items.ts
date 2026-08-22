@@ -104,6 +104,23 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: Printer,
         description: 'Cards to print out and play with',
       },
+      {
+        /* Card Search and Marketplace sit with the collection rather than under
+           Discover. Owner: "Card search and marketplace should move into my
+           collection part of left menu". Both are how you find a card to OWN,
+           which is the same errand as the four above them; Discover was a
+           category built around the app's structure rather than the reader's. */
+        title: 'Card Search',
+        href: '/cards',
+        icon: Search,
+        description: 'Search every printing with Scryfall syntax',
+      },
+      {
+        title: 'Marketplace',
+        href: '/marketplace',
+        icon: Store,
+        description: 'Prices and listings',
+      },
     ],
   },
   {
@@ -119,12 +136,10 @@ export const NAV_GROUPS: NavGroup[] = [
         matches: ['/deck', '/deck-builder'],
         description: 'Every deck you have built',
       },
-      {
-        title: 'New Deck',
-        href: '/decks/new',
-        icon: Plus,
-        description: 'Start a fresh deck and open it in the builder',
-      },
+      /* No "New Deck" entry. Owner: "No need for new deck left menu, it works
+         from my deck page." The decks page carries the button, the top bar
+         carries one too, and /decks/new is still a real route so every existing
+         link keeps working. */
       {
         title: 'Deck Generator',
         href: '/smart-builder',
@@ -173,18 +188,6 @@ export const NAV_GROUPS: NavGroup[] = [
     id: 'discover',
     label: 'Discover',
     items: [
-      {
-        title: 'Card Search',
-        href: '/cards',
-        icon: Search,
-        description: 'Search every printing with Scryfall syntax',
-      },
-      {
-        title: 'Marketplace',
-        href: '/marketplace',
-        icon: Store,
-        description: 'Prices and listings',
-      },
       {
         title: 'Tutor',
         href: '/tutor',

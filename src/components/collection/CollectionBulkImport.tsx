@@ -10,9 +10,20 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
-import { Upload, FileText, Loader2, AlertCircle } from 'lucide-react';
+import { Upload, FileText, Loader2, AlertCircle, Check } from 'lucide-react';
+import { CardGrid, CardImage, cardDetailPath } from '@/components/cards';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { scryfallAPI } from '@/lib/api/scryfall';
+
+/** A card that made it in, kept so the run can show its work. */
+interface ImportedCard {
+  id: string;
+  name: string;
+  quantity: number;
+  foil: boolean;
+  card: any;
+}
 
 export interface ImportOutcome {
   added: number;
@@ -100,6 +111,7 @@ export function CollectionImportPanel({ onImported, onCancel }: CollectionImport
   const [importText, setImportText] = useState('');
   const [importFormat, setImportFormat] = useState<'arena' | 'csv' | 'txt'>('arena');
   const [failures, setFailures] = useState<string[]>([]);
+  const [imported, setImported] = useState<ImportedCard[]>([]);
 
   const handleImport = async () => {
     if (!importText.trim()) {
@@ -129,9 +141,15 @@ export function CollectionImportPanel({ onImported, onCancel }: CollectionImport
       }
 
       setProgress({ done: 0, total: parsed.length });
+      setImported([]);
 
       let added = 0;
       const errors: string[] = [];
+      /* What actually went in, so the run can SHOW it afterwards rather than
+         asserting a number. Owner: "when import cards is pressed, it should load
+         a preview of all those cards as a confirmation - these cards have been
+         added." A count is a claim; the cards are the evidence. */
+      const landed: ImportedCard[] = [];
 
       for (const line of parsed) {
         try {
@@ -174,6 +192,13 @@ export function CollectionImportPanel({ onImported, onCancel }: CollectionImport
           }
 
           added++;
+          landed.push({
+            id: card.id,
+            name: card.name,
+            quantity: line.quantity,
+            foil: line.foil,
+            card,
+          });
         } catch (err) {
           console.error(`Error importing "${line.raw}":`, err);
           errors.push(`${line.raw} — import failed`);
@@ -183,6 +208,7 @@ export function CollectionImportPanel({ onImported, onCancel }: CollectionImport
       }
 
       setFailures(errors);
+      setImported(landed);
 
       if (added > 0) {
         showSuccess(
@@ -240,6 +266,47 @@ export function CollectionImportPanel({ onImported, onCancel }: CollectionImport
           className="min-h-[320px] border-0 bg-muted/40 font-mono text-sm"
         />
       </div>
+
+      {/* THE CARDS THAT WENT IN, shown rather than counted. Owner: "when import
+          cards is pressed, it should load a preview of all those cards as a
+          confirmation - these cards have been added."
+
+          A toast saying "Added 47 entries" asks you to take it on trust, and
+          this import silently matched nothing at all until recently, which is
+          exactly the failure a number cannot show you. Cards can. */}
+      {imported.length > 0 && (
+        <section className="mt-6">
+          <div className="mb-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <h3 className="flex items-center gap-2 text-sm font-semibold">
+              <Check className="h-4 w-4" aria-hidden="true" />
+              Added to your collection
+            </h3>
+            <span className="text-xs text-muted-foreground tabular-nums">
+              {imported.length} card{imported.length === 1 ? '' : 's'}
+            </span>
+          </div>
+          <CardGrid width={170}>
+            {imported.map(entry => (
+              <Link
+                key={entry.id}
+                to={cardDetailPath(entry.card)}
+                className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <div className="relative">
+                  <CardImage card={entry.card} size="md" className="w-full" />
+                  {(entry.quantity > 1 || entry.foil) && (
+                    <span className="absolute bottom-0 right-0 rounded-tl-md bg-background/85 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-foreground backdrop-blur">
+                      {entry.quantity > 1 ? `×${entry.quantity}` : ''}
+                      {entry.foil ? ' foil' : ''}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1.5 truncate text-xs font-medium">{entry.name}</p>
+              </Link>
+            ))}
+          </CardGrid>
+        </section>
+      )}
 
       {failures.length > 0 && (
         <div className="space-y-2 rounded-lg bg-destructive/10 p-3">

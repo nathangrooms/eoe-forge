@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -14,7 +14,9 @@ import { Upload, FileText, Loader2, AlertCircle, Check } from 'lucide-react';
 import { CardGrid, CardImage, cardDetailPath } from '@/components/cards';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/AuthProvider';
 import { resolveParsedLines } from '@/lib/decklist';
+import { StorageAPI, fileCardsIntoContainer } from '@/lib/api/storageAPI';
 
 /** A card that made it in, kept so the run can show its work. */
 interface ImportedCard {
@@ -106,12 +108,43 @@ export function parseImportLine(raw: string, format: string): ParsedLine | null 
  * a plain section the route renders.
  */
 export function CollectionImportPanel({ onImported, onCancel }: CollectionImportPanelProps) {
+  const { user } = useAuth();
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [importText, setImportText] = useState('');
   const [importFormat, setImportFormat] = useState<'arena' | 'csv' | 'txt'>('arena');
   const [failures, setFailures] = useState<string[]>([]);
   const [imported, setImported] = useState<ImportedCard[]>([]);
+
+  /* WHERE THE CARDS GO. Owner: "might want to have import collection -> deck ->
+     storage options too."
+
+     One paste, three destinations. Collection is the default because it is what
+     this page has always done and what most pastes are for. The other two exist
+     because a list of cards is a list of cards: the same paste is equally a
+     deck you were sent and a box you just sorted. */
+  const [destination, setDestination] = useState<'collection' | 'deck' | 'storage'>('collection');
+  const [targetId, setTargetId] = useState<string>('');
+  const [decks, setDecks] = useState<Array<{ id: string; name: string }>>([]);
+  const [containers, setContainers] = useState<Array<{ id: string; name: string }>>([]);
+
+  /* The pickers load only when they are asked for. Somebody importing to their
+     collection, which is most people, pays for neither list. */
+  useEffect(() => {
+    if (destination === 'deck' && decks.length === 0 && user) {
+      void supabase
+        .from('user_decks')
+        .select('id, name')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false })
+        .then(({ data }) => setDecks((data ?? []) as Array<{ id: string; name: string }>));
+    }
+    if (destination === 'storage' && containers.length === 0) {
+      void StorageAPI.listContainers()
+        .then(rows => setContainers(rows.map(c => ({ id: c.id, name: c.name }))))
+        .catch(() => setContainers([]));
+    }
+  }, [destination, decks.length, containers.length, user]);
 
   const handleImport = async () => {
     if (!importText.trim()) {
@@ -176,8 +209,13 @@ export function CollectionImportPanel({ onImported, onCancel }: CollectionImport
         }))
       );
 
-      /* And one read of what is already held, rather than one per card. */
-      const wantedIds = resolved.map(r => r.card?.id).filter(Boolean) as string[];
+      /* And one read of what is already held, rather than one per card. Only
+         needed when the collection is the target: a deck and a box merge on
+         their own side. */
+      const wantedIds =
+        destination === 'collection'
+          ? (resolved.map(r => r.card?.id).filter(Boolean) as string[])
+          : [];
       const held = new Map<string, { id: string; quantity: number; foil: number }>();
       for (let i = 0; i < wantedIds.length; i += 150) {
         const { data } = await supabase
@@ -200,6 +238,34 @@ export function CollectionImportPanel({ onImported, onCancel }: CollectionImport
 
           if (!card) {
             errors.push(`${line.raw} — no match found`);
+            continue;
+          }
+
+          /* A deck or a box takes the card straight; only the collection has
+             to merge with what is already held. */
+          if (destination === 'deck') {
+            await supabase.from('deck_cards').insert({
+              deck_id: targetId,
+              card_id: card.id,
+              card_name: card.name,
+              quantity: line.quantity,
+              is_commander: false,
+            });
+            added++;
+            landed.push({ id: card.id, name: card.name, quantity: line.quantity, foil: line.foil, card });
+            continue;
+          }
+
+          if (destination === 'storage') {
+            const filed = await fileCardsIntoContainer(targetId, [
+              { card_id: card.id, qty: line.quantity, foil: line.foil },
+            ]);
+            if (filed.failed.length > 0) {
+              errors.push(`${line.raw} — ${filed.failed[0].reason}`);
+              continue;
+            }
+            added++;
+            landed.push({ id: card.id, name: card.name, quantity: line.quantity, foil: line.foil, card });
             continue;
           }
 
@@ -277,8 +343,62 @@ export function CollectionImportPanel({ onImported, onCancel }: CollectionImport
 
   const lineCount = importText.split('\n').filter(l => l.trim()).length;
 
+  const needsTarget = destination !== 'collection';
+  const targets = destination === 'deck' ? decks : containers;
+
   return (
     <div className="space-y-4">
+      {/* WHERE IT GOES, before what it looks like. Owner: "might want to have
+          import collection -> deck -> storage options too." The same pasted
+          list is equally a collection, a deck somebody sent you, or a box you
+          have just sorted, and only the destination differs. */}
+      <div className="space-y-2">
+        <Label>Import into</Label>
+        <div className="flex flex-wrap gap-2">
+          {([
+            { id: 'collection', label: 'My collection' },
+            { id: 'deck', label: 'A deck' },
+            { id: 'storage', label: 'A storage box' },
+          ] as const).map(option => (
+            <Button
+              key={option.id}
+              type="button"
+              variant={destination === option.id ? 'default' : 'secondary'}
+              size="sm"
+              onClick={() => {
+                setDestination(option.id);
+                setTargetId('');
+              }}
+            >
+              {option.label}
+            </Button>
+          ))}
+        </div>
+        {needsTarget && (
+          <Select value={targetId} onValueChange={setTargetId}>
+            <SelectTrigger className="mt-2 border-0 bg-muted/40">
+              <SelectValue
+                placeholder={destination === 'deck' ? 'Choose a deck' : 'Choose a box'}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {targets.map(target => (
+                <SelectItem key={target.id} value={target.id}>
+                  {target.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        {needsTarget && targets.length === 0 && (
+          <p className="text-xs text-muted-foreground">
+            {destination === 'deck'
+              ? 'You have no decks yet.'
+              : 'You have no storage boxes yet.'}
+          </p>
+        )}
+      </div>
+
       <div className="space-y-2">
         <Label htmlFor="import-format">Format</Label>
         <Select
@@ -379,7 +499,12 @@ export function CollectionImportPanel({ onImported, onCancel }: CollectionImport
               Cancel
             </Button>
           )}
-          <Button onClick={handleImport} disabled={importing || !importText.trim()}>
+          <Button
+            onClick={handleImport}
+            /* A destination that needs a target and has none would write into
+               nothing, so the button waits rather than failing halfway. */
+            disabled={importing || !importText.trim() || (needsTarget && !targetId)}
+          >
             {importing ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />

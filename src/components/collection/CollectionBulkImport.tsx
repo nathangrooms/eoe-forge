@@ -14,7 +14,7 @@ import { Upload, FileText, Loader2, AlertCircle, Check } from 'lucide-react';
 import { CardGrid, CardImage, cardDetailPath } from '@/components/cards';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { scryfallAPI } from '@/lib/api/scryfall';
+import { resolveParsedLines } from '@/lib/decklist';
 
 /** A card that made it in, kept so the run can show its work. */
 interface ImportedCard {
@@ -151,30 +151,66 @@ export function CollectionImportPanel({ onImported, onCancel }: CollectionImport
          added." A count is a claim; the cards are the evidence. */
       const landed: ImportedCard[] = [];
 
-      for (const line of parsed) {
+      /* ONE QUERY FOR THE WHOLE LIST, not one per line.
+         --------------------------------------------------------------
+         This used to ask Scryfall for every line and then ask Supabase whether
+         we already held it, so a 99 card paste was around 200 round trips. That
+         is the per-row pattern behind two outages on this project, and one of
+         them was found this week as a lookup inside a loop over every card of
+         every deck: 421 requests for a single page visit.
+
+         `resolveParsedLines` is the resolver the proxy paste already uses. It
+         sends the whole list to `resolve_card_names` in one statement and comes
+         back with a printing per line, having already tried a set-and-collector
+         match, an exact name, a front face, and a trigram search for typos. It
+         is strictly better at matching than the old `!"name"` query as well as
+         being one request instead of a hundred. */
+      const resolved = await resolveParsedLines(
+        parsed.map((line, i) => ({
+          line: i + 1,
+          raw: line.raw,
+          name: line.name,
+          quantity: line.quantity,
+          section: 'main' as const,
+          setCode: line.set,
+        }))
+      );
+
+      /* And one read of what is already held, rather than one per card. */
+      const wantedIds = resolved.map(r => r.card?.id).filter(Boolean) as string[];
+      const held = new Map<string, { id: string; quantity: number; foil: number }>();
+      for (let i = 0; i < wantedIds.length; i += 150) {
+        const { data } = await supabase
+          .from('user_collections')
+          .select('id, card_id, quantity, foil')
+          .eq('user_id', user.id)
+          .in('card_id', wantedIds.slice(i, i + 150));
+        for (const row of data ?? []) {
+          held.set((row as any).card_id, {
+            id: (row as any).id,
+            quantity: (row as any).quantity ?? 0,
+            foil: (row as any).foil ?? 0,
+          });
+        }
+      }
+
+      for (const [index, line] of parsed.entries()) {
         try {
-          const query = line.set ? `!"${line.name}" set:${line.set}` : `!"${line.name}"`;
-          const results = await scryfallAPI.searchCards(query, 1);
-          const card = results.cards?.[0];
+          const card = resolved[index]?.card ?? null;
 
           if (!card) {
-            errors.push(`${line.raw} — no match on Scryfall`);
+            errors.push(`${line.raw} — no match found`);
             continue;
           }
 
-          const { data: existing } = await supabase
-            .from('user_collections')
-            .select('id, quantity, foil')
-            .eq('user_id', user.id)
-            .eq('card_id', card.id)
-            .maybeSingle();
+          const existing = held.get(card.id) ?? null;
 
           if (existing) {
             await supabase
               .from('user_collections')
               .update({
                 quantity: existing.quantity + (line.foil ? 0 : line.quantity),
-                foil: (existing.foil ?? 0) + (line.foil ? line.quantity : 0),
+                foil: existing.foil + (line.foil ? line.quantity : 0),
                 updated_at: new Date().toISOString(),
               })
               .eq('id', existing.id);
@@ -190,6 +226,14 @@ export function CollectionImportPanel({ onImported, onCancel }: CollectionImport
               price_usd: parseFloat(card.prices?.usd || '0'),
             });
           }
+
+          /* A paste can name the same card twice. Record what we just wrote so
+             the second line adds to it rather than overwriting the first. */
+          held.set(card.id, {
+            id: existing?.id ?? card.id,
+            quantity: (existing?.quantity ?? 0) + (line.foil ? 0 : line.quantity),
+            foil: (existing?.foil ?? 0) + (line.foil ? line.quantity : 0),
+          });
 
           added++;
           landed.push({

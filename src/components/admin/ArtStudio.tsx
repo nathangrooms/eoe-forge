@@ -25,32 +25,46 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2, Sparkles } from 'lucide-react';
 
-/** A shared tail so the four covers read as one set rather than four pictures. */
+/**
+ * A shared tail so the four covers read as one set rather than four pictures.
+ *
+ * The first attempt asked for "dark fantasy concept art" and got four generic
+ * gloomy interiors: a study, a hall, an amphitheatre. Atmospheric, and nothing
+ * to do with Magic. Owner: "you need to think more magic the gathering themed
+ * fantasy style" and "Style is all wrong for those images."
+ *
+ * So the tail now names the genre it actually belongs to. It describes a LOOK
+ * (painted trading card key art, rim light, saturated colour, arcane runes,
+ * motes of coloured mana) and never a source: no Wizards artwork, no named
+ * artist, no card frames, and nothing that could read as a real card.
+ */
 const HOUSE =
-  'Dark fantasy concept art, deep charcoal and warm amber light, heavy atmosphere, ' +
-  'no text, no logos, no people facing the camera, cinematic wide composition, ' +
-  'the lower third quiet and unlit so text can sit over it.';
+  'High fantasy trading card game key art, painterly digital illustration, ' +
+  'dramatic rim lighting, rich saturated colour, epic scale, glowing arcane ' +
+  'runes and drifting motes of coloured magic. No text, no logos, no readable ' +
+  'writing, no card frames, no user interface. Cinematic composition, the ' +
+  'lower third darker and quieter so a title can sit over it.';
 
 const PRESETS: ReadonlyArray<{ name: string; label: string; prompt: string }> = [
   {
     name: 'play-mode-online',
     label: 'Online',
-    prompt: `A long stone hall set for many players, lantern light on a worn table, empty chairs waiting, a sense of people about to arrive. ${HOUSE}`,
+    prompt: `A vast arcane duelling hall where rival mages gather from many worlds. A huge rune-carved stone table ringed with empty seats, shafts of coloured light through tall windows, five great banners in white, blue, black, red and green, summoned spirits and elementals waiting at the edges, the air crackling as a tournament is about to begin. ${HOUSE}`,
   },
   {
     name: 'play-mode-bots',
     label: 'Versus bots',
-    prompt: `A single lit table opposite an empty seat in shadow, one lamp above it, the room beyond dark and still. ${HOUSE}`,
+    prompt: `A lone mage faces a towering arcane construct across a circular duelling platform of carved stone, spell circles blazing beneath both of them, the golem's eyes lit with cold blue light, the hall beyond in darkness. ${HOUSE}`,
   },
   {
     name: 'play-mode-goldfish',
     label: 'Goldfish',
-    prompt: `A quiet study at night, one chair, one table, papers and a single candle, nobody else in the room. ${HOUSE}`,
+    prompt: `A solitary wizard practising alone in a high tower workshop, conjured motes of light circling in the air before them like cards held in an unseen hand, spell components and open grimoires on the bench, no opponent anywhere. ${HOUSE}`,
   },
   {
     name: 'play-mode-playtest',
     label: 'Playtest',
-    prompt: `An empty amphitheatre seen from the back row, a lit stage far below, the seats in darkness, the feeling of watching. ${HOUSE}`,
+    prompt: `A great scrying pool seen from above, two miniature armies clashing in the water below while robed figures watch from the rim in silence, light rising from the battle onto their faces. ${HOUSE}`,
   },
 ];
 

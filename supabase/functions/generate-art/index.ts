@@ -19,10 +19,16 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 const GATEWAY = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 
-/* The gateway's image-capable Gemini. If this name is wrong the gateway says so
-   plainly, and the error is returned rather than swallowed, because a silent
-   fallback to a text model would write a text file into an image bucket. */
-const IMAGE_MODEL = 'google/gemini-2.5-flash-image-preview';
+/* Both of these were probed against the live gateway and both answer.
+   Pro is the default because the owner asked for the best rather than flash,
+   and the difference in a painted illustration is not subtle. Flash stays as an
+   override for cheap iteration on a prompt before spending pro credits on it.
+
+   A wrong model name comes back as the gateway's own words rather than being
+   swallowed, because a silent fallback to a text model would write a text file
+   into an image bucket and look like a success. */
+const DEFAULT_MODEL = 'google/gemini-3-pro-image-preview';
+const CHEAP_MODEL = 'google/gemini-2.5-flash-image-preview';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -61,7 +67,7 @@ Deno.serve(async req => {
     .maybeSingle();
   if (!profile?.is_admin) return fail(403, 'Admins only. This call costs money.');
 
-  let body: { prompt?: string; name?: string; bucket?: string };
+  let body: { prompt?: string; name?: string; bucket?: string; cheap?: boolean };
   try {
     body = await req.json();
   } catch {
@@ -81,7 +87,7 @@ Deno.serve(async req => {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: IMAGE_MODEL,
+      model: body.cheap ? CHEAP_MODEL : DEFAULT_MODEL,
       messages: [{ role: 'user', content: prompt }],
       modalities: ['image', 'text'],
     }),

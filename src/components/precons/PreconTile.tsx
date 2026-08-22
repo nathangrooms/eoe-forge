@@ -136,10 +136,12 @@ function PreconTileBase({
           The wash is `identityGround`, our own derived data, NOT a blurred copy
           of the art. Scryfall's terms say plainly: do not blur, sharpen,
           desaturate or colour-shift card images. */}
-      <div
-        className="relative flex w-full shrink-0 items-center justify-center overflow-hidden bg-muted p-3"
-        style={{ aspectRatio: ART_ASPECT }}
-      >
+      {/* NO FIXED ASPECT ON THIS BAND, and that is the fix rather than a
+          preference. A landscape frame with `overflow-hidden` around a portrait
+          card cuts the bottom off it, which is the text box, which is most of
+          what a commander says. The card sets the height and the band follows.
+          Owner reported the cut four times before this. */}
+      <div className="relative flex w-full shrink-0 items-center justify-center overflow-hidden bg-muted p-4">
         <div
           aria-hidden="true"
           className="absolute inset-0"
@@ -147,25 +149,36 @@ function PreconTileBase({
         />
 
         {cardObjects.length > 0 ? (
-          <div className="relative flex h-full items-center justify-center gap-2">
+          <div className="relative flex w-full items-start justify-center gap-2">
             {cardObjects.map((card, i) => (
-              <CardImage
+              <div
                 key={leads[i]?.scryfallId ?? i}
-                card={card}
-                size="lg"
-                /* Height-led so the card fills the band and the band never cuts
-                   it. Partners sit side by side rather than fanning, because
-                   two whole cards is the promise this block now makes. */
+                /* Width-led. A card image carries its own 63:88, so giving it a
+                   width gives the band a height and nothing can be cut. Two
+                   partners share the width rather than fanning, because two
+                   WHOLE cards is what this block now promises. */
                 className={cn(
-                  'h-full w-auto shrink-0 drop-shadow-[0_10px_24px_rgba(0,0,0,0.55)]',
-                  'transition-transform duration-500 ease-out group-hover:scale-[1.03]',
-                  'motion-reduce:transition-none motion-reduce:group-hover:scale-100'
+                  'shrink-0',
+                  leads.length > 1 ? 'w-[46%]' : 'w-[64%]',
+                  'max-w-[260px]'
                 )}
-              />
+              >
+                <CardImage
+                  card={card}
+                  size="lg"
+                  className={cn(
+                    'w-full drop-shadow-[0_10px_24px_rgba(0,0,0,0.55)]',
+                    'transition-transform duration-500 ease-out group-hover:scale-[1.03]',
+                    'motion-reduce:transition-none motion-reduce:group-hover:scale-100'
+                  )}
+                />
+              </div>
             ))}
           </div>
         ) : (
-          <div className="relative h-full w-full" />
+          // Nothing to draw, but the band still needs a height or the tile
+          // collapses to its badges.
+          <div className="relative w-full" style={{ aspectRatio: '63 / 88' }} />
         )}
 
         {precon.ci.length > 0 && (

@@ -67,12 +67,26 @@ and its layer ordering, `mage.game.stack.SpellStack`, `mage.abilities.effects.Re
 and `mage.abilities.TriggeredAbilities` respectively. Where those files exist in
 `src/lib/game/`, this table applies to them on the same terms.
 
-### What was deliberately *not* taken
+### What is taken from `Mage.Sets/`, corrected 22 August 2026
 
-XMage's ~25,000 individually-scripted card classes under `Mage.Sets/` were not ported and will
-not be. Card behaviour in DeckMatrix comes from compiling Scryfall oracle text against our own
-declarative rules (`src/lib/cards/tagger.ts`, `src/lib/game/effects.ts`), not from transcribed
-card implementations.
+This section used to say XMage's individually-scripted card classes "were not ported and will
+not be". That is no longer the decision, so it is corrected here rather than left to mislead.
+
+DeckMatrix now READS those 32,168 card classes and extracts, per card, which effects it builds
+and **with which arguments**: `Armageddon` yields `DestroyAllEffect(StaticFilters.FILTER_LANDS)`
+and `WrathOfGod` yields `DestroyAllEffect(StaticFilters.FILTER_PERMANENT_CREATURES, noRegen)`.
+Ported primitives live under `src/lib/cards/xmage/`.
+
+This is a derivative work of XMage and is used under its MIT licence, with the copyright notice
+above retained. Nothing from the XMage clone is vendored into this repository; it is read in
+place from `$XMAGE_ROOT`.
+
+Scryfall remains the source of printed truth, names, costs, type lines, oracle text, legality
+and prices. XMage is the source of BEHAVIOUR. Where the two disagree the oracle text wins, and
+the disagreement is recorded.
+
+**Forge is still excluded and always will be.** It is GPL-3.0, this app ships its engine to the
+browser, and that is distribution.
 
 ### Where the port diverges, and why
 

@@ -720,28 +720,29 @@ Every argument position in every built record, deduplicated by object identity.
 
 | state | slots | share |
 |---|---|---|
-| total | 184,524 | |
-| `value` | 142,574 | 77.27% |
-| `carried` | 34,652 | 18.78% |
-| `hole` | 7,298 | 3.96% |
+| total | 184,863 | |
+| `value` | 142,624 | 77.15% |
+| `carried` | 34,939 | 18.90% |
+| `hole` | 7,300 | 3.95% |
 
-`carried` broken down by what it holds: `enum` 15,528, `text` 6,134 (display
-strings whose contents are omitted for the licence reason), `factory` 5,261,
-`self` 3,138, `construct` 2,758, `const` 951, `null` 674, `class-literal` 231,
+`carried` broken down by what it holds: `enum` 15,624, `text` 6,162 (display
+strings whose contents are omitted for the licence reason), `factory` 5,594,
+`self` 3,138, `construct` 2,760, `const` 1,033, `null` 674, `class-literal` 445,
 `card-ref` 160.
 
 The deduplication is load bearing, not tidiness. The extraction states one
 construction twice, as an argument to the ability's constructor and again in its
 own effect list, because both are true. Counting both inflates every ratio taken
-over the census. Measured: 186,362 slot positions normalised, 184,524 distinct
+over the census. Measured: 189,132 slot positions normalised, 184,863 distinct
 slots counted.
 
 ## Filters
 
 | measure | count |
 |---|---|
-| filter constructions seen | 17,197 |
-| resolved to a `CardFilter` | 14,053 (81.72%) |
+| filter constructions seen | 17,198 |
+| resolved to a `CardFilter` | 14,052 (81.71%) |
+| narrowed by the filter's OWN constructor argument | 1,829 |
 | refused, class not in the table | 373 |
 | refused, predicate not recognised | 2,771 |
 | `StaticFilters` references resolved | 6,491 of 6,878 (94.4%) |
@@ -767,17 +768,39 @@ a report on the engine.
 
 | question | cards | share |
 |---|---|---|
-| playable | 717 | 2.23% |
-| aggregatable | 4,690 | 14.58% |
-| aggregatable, magnitude unknown | 6,690 | 20.80% |
+| playable | 5,985 | 18.61% |
+| aggregatable | 4,688 | 14.57% |
+| aggregatable, magnitude unknown | 6,688 | 20.79% |
 | searchable | 29,618 | 92.07% |
-| comparable | 6,278 | 19.52% |
+| comparable | 6,276 | 19.51% |
+
+`playable` was 717 when this table was first written, against a `lowerAbility`
+that produced `Effect[]` and 7 lowerings. It now produces a whole `dsl.ts`
+`Ability` and reads 41 effects, 11 ability classes and six vocabulary tables,
+which is why the figure moved. `docs/engine/PORT-LOG.md` re-measures the before
+side under the current definition rather than comparing the two.
+
+**`searchable` is the weakest of the four and must not be quoted bare.** It asks
+only whether a card has at least one facet, and every effect contributes its own
+class name as one. 17,739 of those 29,618 cards, 59.9%, carry nothing beyond the
+effect and trigger class names, which is the fingerprint the 22 Aug settlement
+said was not enough. 4,553 cards, 14.15%, carry what the effect points at.
+Counted by `scripts/coverage/xmage-runnable.mjs`.
+
+**And `playable` is not automation.** It says every ability lowered into a
+`dsl.ts` shape. `scripts/coverage/xmage-runnable.mjs` carries that forward to the
+engine's own doors: 5,984 would not throw or be silently dropped, and 5,183
+(16.11%) reach an engine that would act on every ability. The 802 in between are
+triggered abilities the engine cannot fire, mostly because it cannot yet announce
+targets for a trigger. Nothing outside `src/lib/cards/xmage/` imports this
+module, so the number of cards the shipped app runs from these records is 0.
 
 351 cards are vacuous, having no abilities at all. They are never added to
 `playable`.
 
 A sanity check worth recording, with both denominators stated because they are
-different. `playable` is 717 of 32,168 XMage card files, 2.23%. The independently
+different. When this was written `playable` was 717 of 32,168 XMage card files,
+2.23%, under the older `Effect[]` lowering. The independently
 measured `abilityEngineOwns` figure for the existing compiled-ability bridge is
 906 of 34,088 catalogue rows, 2.66%. The two counts are over different sets and
 must not be added or subtracted, but landing in the same part of a percent from
@@ -792,12 +815,12 @@ anywhere** is the most that shared work can ever reach.
 
 | | cards | share |
 |---|---|---|
-| reachable by shared work alone | 23,009 | 71.53% |
-| needs a person | 9,159 | 28.47% |
+| reachable by shared work alone | 23,007 | 71.52% |
+| needs a person | 9,161 | 28.48% |
 
-That 28.47% is not a gap to be closed by better parsing. It is 10,025 distinct
+That 28.48% is not a gap to be closed by better parsing. It is 10,025 distinct
 Java classes that exist once each. Any plan that says "we will automate the
-catalogue" has to say what it means to do about those 9,159 cards, and the honest
+catalogue" has to say what it means to do about those 9,161 cards, and the honest
 answers are hand-write them, buy them, or leave them marked as needing a human.
 
 ## What the record adds over the oracle-text path
@@ -809,13 +832,15 @@ an XMage record. Of those:
 | | cards | share of 7,292 |
 |---|---|---|
 | the record makes structurally searchable | 6,981 | 95.74% |
-| the record gives at least one deck-builder role | 1,002 | 13.74% |
-| the record makes playable, with 7 lowerings | 184 | 2.52% |
+| the record gives at least one deck-builder role | 1,001 | 13.73% |
+| the record makes playable | 436 | 5.98% |
 
-The first row is the answer to "why are recommendations weak". The app currently
-decides what a card does by matching its wording, and for 7,292 cards the wording
-match produces nothing. Structure produces something for 95.74% of them without a
-single new rule being written per card.
+The first row is the answer to "why are recommendations weak", with the caveat
+above attached: the app currently decides what a card does by matching its
+wording, and for 7,292 cards the wording match produces nothing, while the record
+produces at least a structural class name for 95.74% of them. For most of that
+95.74% a class name is all it produces. The row that says the record understands
+those cards is the second one, at 13.73%.
 
 ## Cross-check against the extraction
 

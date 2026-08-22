@@ -36,6 +36,7 @@ import assert from 'node:assert/strict';
 import type { Ability, ActivatedAbility, CardFilter, Effect, KeywordAbility, ManaAbility, ReplacementAbility, StaticAbility, TriggeredAbility } from '../abilities/dsl.ts';
 import { assertSerialisable } from '../abilities/dsl.ts';
 import { lowerCard } from './lower.ts';
+import { abilitiesOf, invocationsInAbility } from './record.ts';
 import { fixture, PORT_FIXTURES } from './port.fixtures.generated.ts';
 
 /* ------------------------------------------------------------------ *
@@ -604,6 +605,115 @@ test('the "controlled" family keeps its controller — Garruk\'s -4 does not arm
 });
 
 /* ------------------------------------------------------------------ *
+ * A filter's OWN constructor argument
+ *
+ * `new FilterPermanent(SubType.FOREST, "Forest")` is a filter that selects
+ * Forests. The record builder used to read only the class name and the
+ * `filter.add(...)` calls, so that argument was dropped and the filter came out
+ * meaning every permanent. Every card below RAN and was WRONG, which is worse
+ * than refusing, and none of it showed in any count because the cards still
+ * lowered. 1,829 filter constructions across the corpus carry such an argument.
+ *
+ * Each test asserts the NARROWING specifically, because a test that only
+ * asserted "it lowers" passed throughout.
+ * ------------------------------------------------------------------ */
+
+test('a filter constructor argument narrows the target — Arbor Elf untaps a Forest, not a permanent', () => {
+  const ability = only('ArborElf', '{T}: Untap target Forest.') as ActivatedAbility;
+  assert.deepEqual(ability.targets?.[0].filter, { is: 'subtype', value: 'Forest' });
+  assert.deepEqual(effectsOf(ability), [{ do: 'untap', what: { sel: 'target', ref: 0 } }]);
+});
+
+test('a filter constructor argument narrows a static — Blur Sliver hastes Slivers, not the board', () => {
+  const ability = only(
+    'BlurSliver',
+    'Sliver creatures you control have haste. (They can attack and {T} as soon as they come under your control.)',
+  ) as StaticAbility;
+  assert.deepEqual(ability.affects, {
+    sel: 'all',
+    where: { is: 'and', of: [{ is: 'type', value: 'Creature' }, { is: 'subtype', value: 'Sliver' }] },
+    zone: 'battlefield',
+    controller: { who: 'you' },
+  });
+  assert.deepEqual(ability.modifications, [{ layer: 'ability', grant: ['haste'] }]);
+});
+
+test('a filter constructor argument narrows a trigger subject — Bishop of Wings does not fire on a land', () => {
+  const list = abilities(
+    'BishopOfWings',
+    'Whenever an Angel you control enters, you gain 4 life.\nWhenever an Angel you control dies, create a 1/1 white Spirit creature token with flying.',
+  ) as TriggeredAbility[];
+  assert.equal(list.length, 2);
+  for (const ability of list) {
+    assert.deepEqual(
+      (ability.event as { who: unknown }).who,
+      { sel: 'all', where: { is: 'subtype', value: 'Angel' }, zone: 'battlefield', controller: { who: 'you' } },
+      'the Angel narrowing has to survive on both triggers',
+    );
+  }
+});
+
+test('the same fix on the StaticFilters path — Battle Sliver boosts Slivers', () => {
+  // `StaticFilters.FILTER_PERMANENT_SLIVERS` is
+  // `new FilterCreaturePermanent(SubType.SLIVER, "Sliver creatures")`. That
+  // initialiser reaches `resolveFilter` as raw parse nodes rather than as
+  // extractor slots, so it is a SECOND code path and needs its own test. Nine of
+  // the 198 static filters carry such an argument.
+  const ability = only('BattleSliver', 'Sliver creatures you control get +2/+0.') as StaticAbility;
+  const where = (ability.affects as { where: CardFilter }).where;
+  assert.deepEqual(where, {
+    is: 'and',
+    of: [{ is: 'type', value: 'Creature' }, { is: 'subtype', value: 'Sliver' }],
+  });
+});
+
+test('a dynamic token count keeps its own filter — Krenko counts Goblins, not permanents', () => {
+  const ability = only(
+    'KrenkoMobBoss',
+    '{T}: Create X 1/1 red Goblin creature tokens, where X is the number of Goblins you control.',
+  ) as ActivatedAbility;
+  const [effect] = effectsOf(ability) as Array<Extract<Effect, { do: 'create-token' }>>;
+  assert.equal(effect.do, 'create-token');
+  assert.deepEqual(effect.count, {
+    v: 'count',
+    of: {
+      sel: 'all',
+      where: { is: 'subtype', value: 'Goblin' },
+      zone: 'battlefield',
+      controller: { who: 'you' },
+    },
+  });
+});
+
+test('a token count that cannot be read is refused, never assumed to be one — Storm Herd', () => {
+  // The line that made this necessary read `amount(invocation, 'amount') ?? 1`,
+  // in a file whose own argument readers forbid exactly that. Storm Herd made
+  // ONE Pegasus and counted as fully lowered. 77 cards were counted on that
+  // basis. `ControllerLifeCount` is expressible as `{v:'life'}` and is simply
+  // not in `values.ts` yet, so the honest answer today is a refusal and the fix
+  // is one table entry rather than a default.
+  const { lowered } = card(
+    'StormHerd',
+    'Create X 1/1 white Pegasus creature tokens with flying, where X is your life total.',
+  );
+  assert.equal(lowered.ok, false);
+  assert.ok(lowered.blocked.some((b) => b.result.refused.some((r) => r.why.includes('amount'))));
+});
+
+test('a token count behind a card-local filter is refused too — Hare Apparent', () => {
+  // "equal to the number of other creatures you control named Hare Apparent".
+  // The count is a `PermanentsOnBattlefieldCount` over a filter carrying a
+  // `NamePredicate`, and card names are Wizards of the Coast text the extraction
+  // omits on purpose. So the filter cannot resolve, the count cannot resolve,
+  // and the card refuses instead of making one Rabbit.
+  const { lowered } = card(
+    'HareApparent',
+    'When this creature enters, create a number of 1/1 white Rabbit creature tokens equal to the number of other creatures you control named Hare Apparent.\nA deck can have any number of cards named Hare Apparent.',
+  );
+  assert.equal(lowered.ok, false);
+});
+
+/* ------------------------------------------------------------------ *
  * The refusals that were already load bearing, still refusing
  * ------------------------------------------------------------------ */
 
@@ -700,9 +810,17 @@ test('no fixture lowers to an ability with no effects and no modifications', () 
   // The silent success this whole port is arranged against: an ability that
   // reports `ok` and changes nothing. `verify-ability-coverage.mjs` downgraded
   // 612 cards for exactly that. `xmage:InfoEffect` is the one legitimate empty
-  // result, because XMage's own `apply` is a bare `return true`, so it is
-  // allowed by name rather than by accident.
+  // result, because XMage's own `apply` is a bare `return true`.
+  //
+  // That allowance used to be stated in this comment and NOT implemented: no
+  // fixture had an InfoEffect-only ability, so nothing exercised it and the
+  // check and its own comment disagreed. Hare Apparent's second paragraph is
+  // one ("a deck can have any number of cards named Hare Apparent"), so the
+  // allowance is now written down as code, by name, against the source record.
+  // Corpus-wide there are exactly two such abilities, on Hare Apparent and
+  // Indicate, both InfoEffect and nothing else.
   for (const [cls, f] of Object.entries(PORT_FIXTURES)) {
+    const source = new Map(abilitiesOf(f.record).map((a) => [a.id, a]));
     for (const entry of lowerCard(f.record).abilities) {
       const ability = entry.ability!;
       if (ability.kind === 'keyword') continue;
@@ -711,7 +829,15 @@ test('no fixture lowers to an ability with no effects and no modifications', () 
         assert.ok(ability.modifications.length > 0, `${cls} ${entry.id}`);
         continue;
       }
-      assert.ok(effectsOf(ability).length > 0, `${cls} ${entry.id}`);
+      if (effectsOf(ability).length > 0) continue;
+      const record = source.get(entry.id);
+      // `invocationsInAbility` includes the ability class itself, which is not
+      // an effect, so it is excluded by name before the check.
+      const effects = record
+        ? invocationsInAbility(record).filter((i) => i.prim !== record.via.prim)
+        : [];
+      const infoOnly = effects.length > 0 && effects.every((i) => i.prim === 'xmage:InfoEffect');
+      assert.ok(infoOnly, `${cls} ${entry.id} lowered to nothing and is not InfoEffect`);
     }
   }
 });

@@ -597,12 +597,22 @@ comparison is ${rows[1].cumulativePlayable} to ${withEverything.playable}, both 
 ${N} records, both under the same definition.
 
 **This is not an automation number and must not be quoted as one.** It says the
-record lowers into \`dsl.ts\` shapes. Whether the reducer then RUNS those shapes
-correctly is what \`scripts/coverage/verify-ability-coverage.mjs\` measures, by
-casting real spells on a real board and downgrading anything that resolves
-silently. It downgraded 612 cards the last time it ran. Nothing in this port has
-been through it, because wiring this into \`src/lib/game/**\` belongs to another
-workflow.
+record lowers into \`dsl.ts\` shapes, and a shape is not a running card. Three
+things stand between the two, each measured rather than assumed:
+
+1. \`scripts/coverage/xmage-runnable.mjs\` takes every lowered card to the
+   engine's own doors and asks whether anything would throw, be silently
+   dropped, or reach the engine and do nothing. Of the ${withEverything.playable}
+   here it finds 5,984 that would not break and **5,183, 16.11% of the corpus,
+   where every ability would actually act**. The ~800 in between are triggered
+   abilities \`unrunnableReason\` in \`trigger-bridge.ts\` refuses, mostly because
+   nothing announces targets for a trigger yet.
+2. \`scripts/verify-ability-coverage.mjs\` goes further and casts real spells on
+   a real board, downgrading anything that resolves silently. It downgraded 612
+   cards the last time it ran. Nothing in this port has been through it.
+3. **Nothing outside \`src/lib/cards/xmage/\` imports this module.** So the number
+   of cards the shipped app plays from these records today is 0. Wiring it into
+   \`src/lib/game/**\` belongs to another workflow.
 
 ---
 

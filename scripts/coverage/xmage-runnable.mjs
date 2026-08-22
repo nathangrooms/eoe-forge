@@ -60,7 +60,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { loadRecords } from '../xmage/build-records.mjs';
-import { lowerCard } from '../../src/lib/cards/xmage/index.ts';
+import { lowerCard, facetsOf, rolesOf } from '../../src/lib/cards/xmage/index.ts';
 import { unrunnableReasons } from '../../src/lib/game/abilities/trigger-bridge.ts';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -171,6 +171,21 @@ const dropTally = new Map();
 const inertTally = new Map();
 const kindTally = new Map();
 
+/* `searchable` counts a card with at least one facet, and every effect
+ * contributes its own CLASS NAME as one. So the headline is carried largely by
+ * the thing the 22 Aug settlement called a fingerprint. Measured here so the
+ * caveat is a number rather than an opinion. */
+let searchable = 0, classNameOnly = 0, withObject = 0, withRole = 0;
+for (const record of records) {
+  const facets = facetsOf(record);
+  if (!facets.length) continue;
+  searchable += 1;
+  const keys = new Set(facets.map((f) => f.key));
+  if ([...keys].every((k) => k === 'effect' || k === 'trigger')) classNameOnly += 1;
+  if (keys.has('object')) withObject += 1;
+  if (rolesOf(record).length > 0) withRole += 1;
+}
+
 for (const record of records) {
   const lowered = lowerCard(record);
   if (!lowered.ok) continue;
@@ -218,6 +233,12 @@ for (const [k, v] of top(inertTally, 25)) console.log(`   ${String(v).padStart(6
 console.log('');
 console.log('abilities produced, by kind:');
 for (const [k, v] of top(kindTally)) console.log(`   ${String(v).padStart(6)}  ${k}`);
+console.log('');
+console.log('WHAT IS BEHIND `searchable`');
+console.log(`  searchable, at least one facet                ${searchable}  ${pct(searchable)}`);
+console.log(`  facets are ONLY the effect/trigger class name ${classNameOnly}  ${((100 * classNameOnly) / searchable).toFixed(1)}% of searchable`);
+console.log(`  carries what the effect points at             ${withObject}  ${pct(withObject)}`);
+console.log(`  carries a deck-builder role                   ${withRole}  ${pct(withRole)}`);
 
 writeFileSync(
   path.join(REPO, 'scripts', 'coverage', '.data', 'xmage-runnable.json'),
@@ -231,6 +252,7 @@ writeFileSync(
         implementedRead: 'src/lib/game/abilities/to-actions.ts runEffect switch, read at run time',
       },
       lowers, executable, runs, vacuous,
+      searchable, classNameOnly, withObject, withRole,
       wouldThrow: Object.fromEntries(throwTally),
       dropped: Object.fromEntries(dropTally),
       inert: Object.fromEntries(inertTally),

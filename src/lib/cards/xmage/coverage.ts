@@ -1,6 +1,21 @@
 /**
  * Coverage, reported as four numbers because there are four consumers.
  *
+ * Measures records derived from **XMage**, which is MIT licensed,
+ * `Copyright (c) 2010 betasteward@gmail.com`, https://github.com/magefree/mage.
+ * The XMage clone is read in place and nothing from it is vendored. Forge is
+ * GPL-3.0 and was not fetched, read or referenced.
+ *
+ * ## `searchable` is the weakest of the four and the easiest to over-read
+ *
+ * It asks only whether the card has AT LEAST ONE structural facet, and every
+ * effect contributes its own class name as one. So a card whose arguments all
+ * refused still counts, on the strength of a class name — which is what the
+ * import-based extraction already had, and what the 22 Aug settlement called a
+ * fingerprint rather than a recipe. Measured over the corpus: 29,618 cards are
+ * searchable and 17,739 of them, 59.9%, carry nothing beyond the effect and
+ * trigger class names. Quote it with that sentence attached or do not quote it.
+ *
  * ## Why one number is always wrong here
  *
  * Coverage has been overstated twice on this project. The first was 95.7%

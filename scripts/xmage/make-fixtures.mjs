@@ -96,7 +96,21 @@ const CARDS = [
   'DiregrafGhoul',
   /* planeswalker */
   'GarrukWildspeaker',
+  /* Filters narrowed by the FILTER'S OWN constructor argument. That argument
+     used to be dropped, so each of these ran with a wider set than the card
+     affects: "untap target Forest" untapped any permanent, "Sliver creatures you
+     control have haste" gave every creature haste, and "whenever an Angel you
+     control enters" fired on a land drop. Both paths into `resolveFilter` are
+     pinned: read off the card (Arbor Elf, Blur Sliver, Bishop of Wings, Krenko)
+     and read off a StaticFilters field initialiser (Battle Sliver). */
+  'ArborElf',
+  'BlurSliver',
+  'BishopOfWings',
+  'BattleSliver',
+  'KrenkoMobBoss',
   /* cards that must refuse, each for a different reason */
+  'StormHerd',
+  'HareApparent',
   'WordOfBinding',
   'AncestorsAid',
   'AcademyDrake',

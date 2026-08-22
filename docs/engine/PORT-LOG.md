@@ -56,52 +56,52 @@ the pre-port work order; `unlocked` is the measured difference the step made.
 | 603 | 603 |  | seed effects, already present before this port |
 | 162 | 765 | 3103 | keyword:Flying |
 | 0 | 765 | 1235 | keyword:Enchant |
-| 248 | 1013 | 2164 | xmage:CreateTokenEffect |
-| 0 | 1013 | 1265 | xmage:AttachEffect |
-| 58 | 1071 | 980 | keyword:Trample |
-| 233 | 1304 | 1192 | xmage:BoostTargetEffect |
-| 218 | 1522 | 1118 | xmage:GainLifeEffect |
-| 121 | 1643 | 1103 | xmage:AddCountersSourceEffect |
-| 307 | 1950 | 1101 | xmage:DestroyTargetEffect |
-| 71 | 2021 | 995 | xmage:GainAbilityTargetEffect |
-| 952 | 2973 | 4056 | keywords: the rest of the static table |
-| 202 | 3175 | 862 | xmage:BoostSourceEffect |
-| 151 | 3326 | 769 | xmage:AddCountersTargetEffect |
-| 525 | 3851 | 5867 | xmage:SimpleStaticAbility, via the modification table |
-| 95 | 3946 | 594 | xmage:EquipAbility |
-| 17 | 3963 | 553 | xmage:EntersBattlefieldTappedAbility |
-| 453 | 4416 | 1946 | mana abilities |
-| 104 | 4520 | 440 | xmage:GainAbilitySourceEffect |
-| 130 | 4650 | 427 | xmage:TapTargetEffect |
-| 74 | 4724 | 357 | xmage:BoostControlledEffect |
-| 139 | 4863 | 346 | xmage:ReturnFromGraveyardToHandTargetEffect |
-| 103 | 4966 | 323 | xmage:ExileTargetEffect |
-| 99 | 5065 | 300 | xmage:UntapTargetEffect |
-| 178 | 5243 | 492 | xmage:SearchLibraryPutInPlayEffect and SearchLibraryPutInHandEffect |
-| 46 | 5289 | 256 | xmage:ReturnFromGraveyardToBattlefieldTargetEffect |
-| 44 | 5333 | 232 | xmage:LoseLifeTargetEffect |
-| 119 | 5452 | 403 | xmage:LoseLifeSourceControllerEffect and LoseLifeOpponentsEffect |
-| 60 | 5512 | 199 | xmage:AddCountersAllEffect |
-| 44 | 5556 | 196 | xmage:DrawDiscardControllerEffect |
-| 57 | 5613 | 188 | xmage:DiscardTargetEffect |
-| 87 | 5700 | 365 | xmage:DamagePlayersEffect and DamageAllEffect |
-| 46 | 5746 | 163 | xmage:MillCardsControllerEffect |
-| 4 | 5750 | 324 | xmage:LoyaltyAbility |
-| 106 | 5856 | 171 | xmage:SimpleManaAbility |
-| 119 | 5975 | 276 | xmage:GainAbilityControlledEffect and the rest of the grant family |
-| 93 | 6068 | 188 | xmage:BoostAllEffect and the rest of the boost family |
-| 5 | 6073 | 180 | xmage:InfoEffect |
+| 224 | 989 | 2164 | xmage:CreateTokenEffect |
+| 0 | 989 | 1265 | xmage:AttachEffect |
+| 58 | 1047 | 980 | keyword:Trample |
+| 231 | 1278 | 1192 | xmage:BoostTargetEffect |
+| 218 | 1496 | 1118 | xmage:GainLifeEffect |
+| 116 | 1612 | 1103 | xmage:AddCountersSourceEffect |
+| 304 | 1916 | 1101 | xmage:DestroyTargetEffect |
+| 71 | 1987 | 995 | xmage:GainAbilityTargetEffect |
+| 945 | 2932 | 4056 | keywords: the rest of the static table |
+| 201 | 3133 | 862 | xmage:BoostSourceEffect |
+| 143 | 3276 | 769 | xmage:AddCountersTargetEffect |
+| 523 | 3799 | 5867 | xmage:SimpleStaticAbility, via the modification table |
+| 94 | 3893 | 594 | xmage:EquipAbility |
+| 17 | 3910 | 553 | xmage:EntersBattlefieldTappedAbility |
+| 452 | 4362 | 1946 | mana abilities |
+| 103 | 4465 | 440 | xmage:GainAbilitySourceEffect |
+| 130 | 4595 | 427 | xmage:TapTargetEffect |
+| 74 | 4669 | 357 | xmage:BoostControlledEffect |
+| 139 | 4808 | 346 | xmage:ReturnFromGraveyardToHandTargetEffect |
+| 103 | 4911 | 323 | xmage:ExileTargetEffect |
+| 99 | 5010 | 300 | xmage:UntapTargetEffect |
+| 178 | 5188 | 492 | xmage:SearchLibraryPutInPlayEffect and SearchLibraryPutInHandEffect |
+| 46 | 5234 | 256 | xmage:ReturnFromGraveyardToBattlefieldTargetEffect |
+| 44 | 5278 | 232 | xmage:LoseLifeTargetEffect |
+| 117 | 5395 | 403 | xmage:LoseLifeSourceControllerEffect and LoseLifeOpponentsEffect |
+| 56 | 5451 | 199 | xmage:AddCountersAllEffect |
+| 44 | 5495 | 196 | xmage:DrawDiscardControllerEffect |
+| 57 | 5552 | 188 | xmage:DiscardTargetEffect |
+| 87 | 5639 | 365 | xmage:DamagePlayersEffect and DamageAllEffect |
+| 46 | 5685 | 163 | xmage:MillCardsControllerEffect |
+| 3 | 5688 | 324 | xmage:LoyaltyAbility |
+| 106 | 5794 | 171 | xmage:SimpleManaAbility |
+| 110 | 5904 | 276 | xmage:GainAbilityControlledEffect and the rest of the grant family |
+| 77 | 5981 | 188 | xmage:BoostAllEffect and the rest of the boost family |
+| 4 | 5985 | 180 | xmage:InfoEffect |
 
 ## Where the curve flattens, and why the port stops here
 
 The curve does not fall off in the order the table is written, and saying it did
 would be fitting a story to the numbers. The pre-port work order ranks by cards
 BLOCKED, and the three biggest unlocks are grouped table steps that sit in the
-middle of it: 952 for the rest of the keyword table, 525 for the modification
-table, 453 for the mana abilities.
+middle of it: 945 for the rest of the keyword table, 523 for the modification
+table, 452 for the mana abilities.
 
 What the numbers do show is where the tail starts. The five largest steps
-account for **2485 of the 6073 cards** (40.92%). Of the 37 ranked primitive
+account for **2455 of the 5985 cards** (41.02%). Of the 37 ranked primitive
 steps, 29 return fewer than 200 cards and 18 return fewer than 100. The median
 step returns **103**.
 
@@ -146,8 +146,8 @@ one:
 | | cards | share |
 |---|---:|---:|
 | seed tables only, under THIS port's definition | 603 | 1.87% |
-| after the port | 6073 | 18.88% |
-| abilities lowered | 24915 of 60968 | 40.87% |
+| after the port | 5985 | 18.61% |
+| abilities lowered | 24752 of 60968 | 40.60% |
 | vacuous, no abilities at all, never counted as playable | 351 | 1.09% |
 
 **The before figure is 603 and not the 717 in
@@ -161,16 +161,26 @@ The old `lowerAbility` produced `Effect[]`. This one produces a whole
 LIST and its TRIGGER EVENT, and it refuses abilities carrying a Java target or
 cost adjuster. Those are all new ways to fail, so the same seven seed effects
 reach fewer cards under the stricter rule: 603 instead of 717. The honest
-comparison is 603 to 6073, both measured by this harness, both over the same
+comparison is 603 to 5985, both measured by this harness, both over the same
 32168 records, both under the same definition.
 
 **This is not an automation number and must not be quoted as one.** It says the
-record lowers into `dsl.ts` shapes. Whether the reducer then RUNS those shapes
-correctly is what `scripts/coverage/verify-ability-coverage.mjs` measures, by
-casting real spells on a real board and downgrading anything that resolves
-silently. It downgraded 612 cards the last time it ran. Nothing in this port has
-been through it, because wiring this into `src/lib/game/**` belongs to another
-workflow.
+record lowers into `dsl.ts` shapes, and a shape is not a running card. Three
+things stand between the two, each measured rather than assumed:
+
+1. `scripts/coverage/xmage-runnable.mjs` takes every lowered card to the
+   engine's own doors and asks whether anything would throw, be silently
+   dropped, or reach the engine and do nothing. Of the 5985
+   here it finds 5,984 that would not break and **5,183, 16.11% of the corpus,
+   where every ability would actually act**. The ~800 in between are triggered
+   abilities `unrunnableReason` in `trigger-bridge.ts` refuses, mostly because
+   nothing announces targets for a trigger yet.
+2. `scripts/verify-ability-coverage.mjs` goes further and casts real spells on
+   a real board, downgrading anything that resolves silently. It downgraded 612
+   cards the last time it ran. Nothing in this port has been through it.
+3. **Nothing outside `src/lib/cards/xmage/` imports this module.** So the number
+   of cards the shipped app plays from these records today is 0. Wiring it into
+   `src/lib/game/**` belongs to another workflow.
 
 ---
 

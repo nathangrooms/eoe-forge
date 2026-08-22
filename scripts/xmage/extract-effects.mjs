@@ -168,6 +168,9 @@ class Resolver {
   }
 
   resolveUncached(name) {
+    // Already fully qualified, as in `mage.filter.predicate.Predicates.or(...)`.
+    if (this.engine.classes[name]) return { fqn: name, rec: this.engine.classes[name] };
+
     const head = name.split('.')[0];
     const tail = name.split('.').slice(1).join('.');
 
@@ -664,12 +667,23 @@ class Extractor {
           return { t: 'obj', obj, resolved: argVals.every((a) => a.resolved) };
         }
       }
+      // The receiver did not resolve, but the arguments still have to be
+      // evaluated. Returning here without doing so would silently drop every
+      // `new` inside them, and the construction audit would never see it.
+      const dropped = node.args.map((a) => this.val(a));
       this.note('call-on-unresolved', node.name);
-      return { t: 'unresolved', reason: 'call-on-unresolved', method: node.name, resolved: false };
+      return {
+        t: 'unresolved', reason: 'call-on-unresolved', method: node.name,
+        args: dropped, resolved: false,
+      };
     }
 
+    const bareArgs = node.args.map((a) => this.val(a));
     this.note('bare-method-call', node.name);
-    return { t: 'unresolved', reason: 'bare-method-call', method: node.name, resolved: false };
+    return {
+      t: 'unresolved', reason: 'bare-method-call', method: node.name,
+      args: bareArgs, resolved: false,
+    };
   }
 
   /** A method called on an already-built object: `ability.addTarget(...)`. */
@@ -704,31 +718,62 @@ function pushObjs(list, argVals) {
 }
 
 /**
- * Every `new X(...)` the parser found, and how many of them sit inside a lambda
- * body or an anonymous class body that the walker deliberately treats as
- * opaque. Comparing this with the number the walker actually VISITED is the
- * extraction's own failure rate, measured per card rather than assumed.
+ * Every `new X(...)` in the constructor, and how many of them sit inside a
+ * region the walker deliberately treats as opaque. Comparing this with the
+ * number the walker actually VISITED is the extraction's own failure rate,
+ * measured per card rather than assumed.
+ *
+ * ## This used to be unable to see its own blind spot
+ *
+ * A block-bodied lambda, `ability -> { ... }`, is stored by the parser as RAW
+ * TOKENS, so the tree has no `new` nodes inside it. The old walk returned at
+ * `k === 'lambda'` without looking at those tokens, so constructions in there
+ * were counted neither in `total` nor in `opaque`, and the audit reported
+ * `newInsideOpaque: 2` while 166 constructions across 38 cards were invisible
+ * to it. "0 cards with a missed construction" was then true of a denominator
+ * that excluded the misses, which is the same shape as the two coverage
+ * overstatements this project has already made.
+ *
+ * So raw regions are now SCANNED FOR TOKENS. `new` followed by an identifier is
+ * counted into `total` and into `opaque`, and the audit's own arithmetic —
+ * `visited < total - opaque` — is unchanged. `opaque` becomes a real number
+ * instead of a rounding error, and `docs/engine/XMAGE-EXTRACTION.md` prints it,
+ * so the Saga chapters written as lambdas stop being silently absent.
  */
+function countRawNews(toks) {
+  if (!Array.isArray(toks)) return 0;
+  let n = 0;
+  for (let i = 0; i < toks.length - 1; i++) {
+    if (toks[i]?.t === 'id' && toks[i].v === 'new' && /^[A-Z]/.test(toks[i + 1]?.v ?? '')) n++;
+  }
+  return n;
+}
+
 function countNewNodes(stmts) {
   let total = 0;
   let opaque = 0;
+  const raw = (toks) => { const n = countRawNews(toks); total += n; opaque += n; };
   const walk = (n, inOpaque) => {
     if (!n || typeof n !== 'object') return;
     if (Array.isArray(n)) { for (const x of n) walk(x, inOpaque); return; }
     if (n.k === 'new') {
       total++;
       if (inOpaque) opaque++;
-      // An anonymous class body is kept as raw tokens, so anything inside it is
-      // not visible to this count either way.
+      // An anonymous class body is kept as raw tokens. Count what is in there
+      // rather than pretending the region is empty.
+      if (n.body) raw(n.body);
       for (const a of n.args) walk(a, inOpaque || !!n.body);
       return;
     }
     if (n.k === 'lambda') {
       if (n.bodyKind === 'expr') walk(n.body, true);
+      else raw(n.raw);
       return;
     }
+    if (n.k === 'opaque' || n.k === 'opaqueStmt') { raw(n.raw); return; }
     for (const key of Object.keys(n)) {
-      if (key === 'raw' || key === 'head' || key === 'type') continue;
+      if (key === 'head' || key === 'type') continue;
+      if (key === 'raw') { raw(n[key]); continue; }
       walk(n[key], inOpaque);
     }
   };
@@ -1041,7 +1086,7 @@ function extractCard(path, engine, opts) {
       const val = ex.val(e.r);
       if (lhs && lhs[0] === 'this') {
         out.fields ??= {};
-        out.fields[lhs.slice(1).join('.')] = compactValue(val);
+        out.fields[lhs.slice(1).join('.')] = compactValue(val, 0);
         return;
       }
       if (e.l.k === 'name') { ex.env.set(e.l.id, val); return; }
@@ -1189,8 +1234,12 @@ function extractCard(path, engine, opts) {
  * 5. Turning the working objects into the stored record
  * ------------------------------------------------------------------ */
 
-function compactValue(v) {
+function compactValue(v, depth = 0) {
   if (!v) return null;
+  // A filter can be handed to a predicate that is then added back to the same
+  // filter, which is a real cycle in the object graph. Depth-cap rather than
+  // recurse forever.
+  if (depth > 8) return { t: v.t ?? 'unknown', truncated: true };
   switch (v.t) {
     case 'int': case 'double': return { t: v.t, v: v.v };
     case 'bool': return { t: 'bool', v: v.v };
@@ -1206,9 +1255,9 @@ function compactValue(v) {
     case 'cardRef': return { t: 'cardRef', face: v.face };
     case 'spellRef': return { t: 'spellRef', face: v.face };
     case 'ctorParam': return { t: 'ctorParam', name: v.name };
-    case 'array': return { t: 'array', items: v.items.map(compactValue) };
-    case 'obj': return { t: 'obj', obj: compactObject(v.obj) };
-    case 'factory': return { t: 'factory', cls: v.cls, method: v.method, args: v.args.map(compactValue) };
+    case 'array': return { t: 'array', items: v.items.map((x) => compactValue(x, depth + 1)) };
+    case 'obj': return { t: 'obj', obj: compactObject(v.obj, depth) };
+    case 'factory': return { t: 'factory', cls: v.cls, method: v.method, args: v.args.map((x) => compactValue(x, depth + 1)) };
     case 'bespoke': return { t: 'bespoke', cls: v.cls, base: v.base ?? null, resolved: false };
     case 'self': return { t: 'self' };
     case 'selfField': return { t: 'selfField', field: v.field };
@@ -1235,21 +1284,21 @@ function compactObject(obj, depth = 0) {
 
   if (obj.args?.length) {
     o.args = obj.args.map((a, i) => {
-      const c = compactValue(a);
+      const c = compactValue(a, depth + 1);
       if (obj.named && obj.named[i]) c.name = obj.named[i];
       if (obj.paramTypes && obj.paramTypes[i]) c.paramType = obj.paramTypes[i];
       return c;
     });
     o.paramMatch = obj.paramMatch;
   }
-  const slot = (e, d) => (e.cls ? compactObject(e, d + 1) : { unresolved: compactValue(e.unresolved) });
+  const slot = (e, d) => (e.cls ? compactObject(e, d + 1) : { unresolved: compactValue(e.unresolved, d + 1) });
   if (obj.effects?.length) o.effects = obj.effects.map((e) => slot(e, depth));
   if (obj.targets?.length) o.targets = obj.targets.map((e) => slot(e, depth));
   if (obj.costs?.length) o.costs = obj.costs.map((e) => slot(e, depth));
   if (obj.modes?.length) o.modes = obj.modes.map((e) => slot(e, depth));
   if (obj.watchers?.length) o.watchers = obj.watchers.map((e) => slot(e, depth));
   if (obj.mods?.length) {
-    o.mods = obj.mods.map((m) => ({ m: m.m, args: m.args.map(compactValue) }));
+    o.mods = obj.mods.map((m) => ({ m: m.m, args: m.args.map((a) => compactValue(a, depth + 1)) }));
   }
   if (obj.face) o.face = obj.face;
   if (obj.source) o.source = obj.source;
@@ -1992,7 +2041,12 @@ mdTable(summary.topArgShapes.slice(0, 40).map((x) => ({ sig: x[0], count: x[1] }
   return out;
 }
 
-function argSignature(a) {
+/**
+ * A comparable shape for one argument. One level of nesting is kept, because a
+ * filter's own arguments and predicates are the difference between "creatures"
+ * and "Zombies you control", which is the whole point of this extraction.
+ */
+function argSignature(a, depth = 0) {
   if (!a) return '?';
   switch (a.t) {
     case 'int': return 'int';
@@ -2002,11 +2056,27 @@ function argSignature(a) {
     case 'text': return 'text';
     case 'enum': return `${a.enum}.${a.v}`;
     case 'const': return `${a.cls}.${a.field}`;
-    case 'obj': return a.obj.cls;
     case 'array': return 'array';
-    case 'factory': return `${a.cls}.${a.method}()`;
-    case 'bespoke': return 'BESPOKE';
+    case 'bespoke': return 'CARD_LOCAL';
+    case 'classLiteral': return `${a.cls}.class`;
+    case 'cardRef': return 'card';
+    case 'spellRef': return 'spellAbility';
     case 'unresolved': return `UNRESOLVED:${a.reason}`;
+    case 'factory': return `${a.cls}.${a.method}()`;
+    case 'obj': {
+      const o = a.obj;
+      if (depth >= 1) return o.cls;
+      const inner = [];
+      for (const x of o.args ?? []) {
+        const sg = argSignature(x, depth + 1);
+        if (sg !== 'text' && sg !== 'str') inner.push(sg);
+      }
+      for (const m of o.mods ?? []) {
+        for (const x of m.args ?? []) inner.push(`${m.m}:${argSignature(x, depth + 1)}`);
+      }
+      if (o.factory) inner.unshift(`${o.factory.on ?? ''}.${o.factory.method}()`);
+      return inner.length ? `${o.cls}[${inner.join(' ')}]` : o.cls;
+    }
     default: return a.t;
   }
 }

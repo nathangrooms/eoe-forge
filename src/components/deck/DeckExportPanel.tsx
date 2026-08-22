@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Copy, Download, Loader2 } from 'lucide-react';
+import { Copy, Download, ExternalLink, Loader2 } from 'lucide-react';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { fetchDeckCards, type DeckCardRow } from '@/lib/deck/deckCards';
 import {
@@ -34,6 +34,18 @@ import {
  * switches; `DeckImportExport`'s export half was a straight duplicate of the
  * first four. All six formats and all four switches are here now, over one row
  * type and one serialiser, and the two hand-rolled copies are gone.
+ *
+ * ## The three site links came back
+ *
+ * `DeckImportExport` also carried a row of three buttons that opened Moxfield,
+ * Archidekt and Deckstats with the list already in the URL, and the merge lost
+ * them: they were the only controls on either old page with no home on the new
+ * one. They are here, over the same three addresses.
+ *
+ * One thing did change. The old row sent whichever format the select was on, so
+ * choosing CSV or JSON and then pressing Moxfield handed a spreadsheet to a
+ * decklist parser. These always send the plain-text list, which is the one
+ * every deck site reads.
  */
 interface DeckExportPanelProps {
   deckId: string;
@@ -107,6 +119,21 @@ export function DeckExportPanel({
       showError('Copy failed', 'Your browser blocked clipboard access');
     }
   };
+
+  /* The plain-text list, whatever the select is showing. See the docblock. */
+  const plainText =
+    rows.length > 0
+      ? serializeDeck(rows, 'text', deckName, {
+          includeCommander,
+          includeSideboard,
+          /* Prices in a decklist a site is about to parse are noise at best and
+             a parse failure at worst, so they are never sent. */
+          includePrices: false,
+          groupByType: false,
+          format: deckFormat,
+          description,
+        })
+      : '';
 
   const handleDownload = () => {
     const option = DECK_EXPORT_FORMATS.find(o => o.value === format);
@@ -205,9 +232,49 @@ export function DeckExportPanel({
           Download
         </Button>
       </div>
+
+      {plainText && (
+        /* Surface and spacing, not the `border-t` the old row drew. */
+        <div className="space-y-2 rounded-lg bg-muted/30 p-4">
+          <p className="text-sm font-medium">Open this list somewhere else</p>
+          <div className="flex flex-wrap gap-2">
+            {DECK_SITES.map(site => (
+              <Button
+                key={site.label}
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  window.open(
+                    `${site.importUrl}${encodeURIComponent(plainText)}`,
+                    '_blank',
+                    'noopener,noreferrer'
+                  );
+                }}
+              >
+                <ExternalLink className="mr-2 h-4 w-4" />
+                {site.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+/**
+ * Where a decklist can be handed on to, and the address each one takes it at.
+ *
+ * These are links out with the reader's own list, which is the opposite of
+ * reading data in: nothing is fetched from any of them and nothing they publish
+ * is stored. `THIRD-PARTY-NOTICES.md` governs ingestion and none of it applies
+ * here.
+ */
+const DECK_SITES = [
+  { label: 'Moxfield', importUrl: 'https://www.moxfield.com/decks/new?import=' },
+  { label: 'Archidekt', importUrl: 'https://archidekt.com/decks/new?import=' },
+  { label: 'Deckstats', importUrl: 'https://deckstats.net/decks/new?import=' },
+];
 
 /** One switch and its label, so the four read identically. */
 function ExportSwitch({

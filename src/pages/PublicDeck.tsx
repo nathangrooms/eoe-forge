@@ -24,7 +24,7 @@ import {
 import { serializeDeck } from '@/lib/deck/deckSerialize';
 import { categorizeCard } from '@/lib/deck/cardCategories';
 import { formatLabel, usesPowerLevel } from '@/lib/deck/formats';
-import { averageManaValue } from '@/lib/deck/curve';
+import { deckAverageManaValue } from '@/lib/deck/curve';
 import type { Card as StoreCard } from '@/stores/deckStore';
 
 /**
@@ -246,7 +246,17 @@ export default function PublicDeck() {
     : deck.identity?.length
       ? deck.identity
       : deck.colors;
-  const avgMv = averageManaValue(deck.curve?.bins, deck.counts?.lands ?? 0);
+  /* THE EXACT FIGURE, FROM THE ROWS THIS PAGE ALREADY HAS.
+
+     It used to be `averageManaValue(deck.curve?.bins, ...)`, an average of
+     eight bucket midpoints out of `compute_deck_summary` — so a deck of
+     nothing but two-drops read 2.00 and a deck of nothing but one-drops read
+     0.50, and the same deck printed a different number here than on
+     `/deck/:id`, which is the owner's own deck seen by somebody else. The
+     rows are right here, carrying `cmc` per card, and one deck gets one
+     number. The bucket version stays in `curve.ts` for the surfaces that
+     genuinely only receive buckets. */
+  const avgMv = deckAverageManaValue(rows);
 
   const publicDeckMetrics: Metric[] = [
     { id: 'cards', label: 'Cards', value: stats.totalCards.toLocaleString(), raw: stats.totalCards },

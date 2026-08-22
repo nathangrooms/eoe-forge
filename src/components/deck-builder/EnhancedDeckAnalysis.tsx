@@ -49,12 +49,53 @@ import { supabase } from '@/integrations/supabase/client';
 import { CardRecommendationDisplay, type CardData } from '@/components/shared/CardRecommendationDisplay';
 import { toast } from 'sonner';
 
+/**
+ * The six things this panel can answer. Named so a caller can ask for the ones
+ * it does not already answer somewhere else.
+ */
+export type AnalysisSection =
+  | 'curve'
+  | 'lands'
+  | 'synergy'
+  | 'validation'
+  | 'suggestions'
+  | 'ai';
+
+export const ALL_ANALYSIS_SECTIONS: AnalysisSection[] = [
+  'curve',
+  'lands',
+  'synergy',
+  'validation',
+  'suggestions',
+  'ai',
+];
+
 interface EnhancedDeckAnalysisPanelProps {
   deck: DeckCard[];
   format: string;
   commander?: DeckCard;
   deckId?: string;
   deckName?: string;
+  /**
+   * Which detail sections to draw. Defaults to all six, so a caller that has
+   * nowhere else to put these questions keeps every one of them.
+   *
+   * It is a prop rather than a fork because this panel has two callers with
+   * genuinely different surroundings. `AIGeneratedDeckList` shows a deck that
+   * has never been saved and has no tabs of its own, so all six are the only
+   * place those answers exist. The deck page answers four of them itself, on
+   * its own tabs, from the decklist it is editing.
+   */
+  sections?: AnalysisSection[];
+  /**
+   * The four summary tiles above the sections.
+   *
+   * Off for a caller that already prints these figures. On the deck page every
+   * one of the four is a second reading of something one band higher: average
+   * mana value and the type counts are in the metric strip, the land count is
+   * on Mana, and format legality is the Legality tab.
+   */
+  overview?: boolean;
 }
 
 // Chart ink comes from the theme, not from Recharts' demo palette.
@@ -63,7 +104,19 @@ const COLORS = {
   secondary: 'hsl(var(--muted-foreground))',
 };
 
-export function EnhancedDeckAnalysisPanel({ deck, format, commander, deckId, deckName }: EnhancedDeckAnalysisPanelProps) {
+export function EnhancedDeckAnalysisPanel({
+  deck,
+  format,
+  commander,
+  deckId,
+  deckName,
+  sections = ALL_ANALYSIS_SECTIONS,
+  overview = true,
+}: EnhancedDeckAnalysisPanelProps) {
+  const shows = (section: AnalysisSection) => sections.includes(section);
+  /* The first section asked for, so the strip never opens on a tab that is not
+     drawn. It used to be hard-coded to `curve`. */
+  const firstSection = sections[0] ?? 'synergy';
   const [aiAnalysisFocus, setAiAnalysisFocus] = useState<string | null>(null);
   const [inlineAI, setInlineAI] = useState<{ text: string; cards: CardData[]; visualData?: VisualData }>({ text: '', cards: [] });
   const [inlineLoading, setInlineLoading] = useState(false);
@@ -173,6 +226,7 @@ const optimizations = useMemo(() => {
   return (
     <div className="space-y-6">
       {/* Overview Cards */}
+      {overview && (
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
@@ -242,26 +296,48 @@ const optimizations = useMemo(() => {
           </CardContent>
         </Card>
       </div>
+      )}
 
       {/* Detailed Analysis Tabs */}
-      <Tabs defaultValue="curve" className="w-full">
+      <Tabs defaultValue={firstSection} className="w-full">
         <div className="overflow-x-auto scrollbar-none -mx-4 px-4 md:mx-0 md:px-0">
-          <TabsList className="inline-flex w-max md:grid md:w-full md:grid-cols-6 h-auto">
-            <TabsTrigger value="curve" className="whitespace-nowrap">Mana Curve</TabsTrigger>
-            <TabsTrigger value="lands" className="whitespace-nowrap">Land Base</TabsTrigger>
-            <TabsTrigger value="synergy" className="whitespace-nowrap">Synergy</TabsTrigger>
-            <TabsTrigger value="validation" className="whitespace-nowrap">Validation</TabsTrigger>
-            <TabsTrigger value="suggestions" className="whitespace-nowrap">Suggestions</TabsTrigger>
-            <TabsTrigger value="ai" className="whitespace-nowrap">
-              <span className="flex items-center gap-1">
-                <Brain className="h-4 w-4" />
-                Analysis
-              </span>
-            </TabsTrigger>
+          <TabsList
+            className="inline-flex w-max h-auto md:grid md:w-full"
+            style={{
+              // The strip used to be `md:grid-cols-6` whatever it held, so a
+              // caller asking for three sections got three tabs across half a
+              // row of empty track.
+              gridTemplateColumns: `repeat(${sections.length}, minmax(0, 1fr))`,
+            }}
+          >
+            {shows('curve') && (
+              <TabsTrigger value="curve" className="whitespace-nowrap">Mana Curve</TabsTrigger>
+            )}
+            {shows('lands') && (
+              <TabsTrigger value="lands" className="whitespace-nowrap">Land Base</TabsTrigger>
+            )}
+            {shows('synergy') && (
+              <TabsTrigger value="synergy" className="whitespace-nowrap">Synergy</TabsTrigger>
+            )}
+            {shows('validation') && (
+              <TabsTrigger value="validation" className="whitespace-nowrap">Validation</TabsTrigger>
+            )}
+            {shows('suggestions') && (
+              <TabsTrigger value="suggestions" className="whitespace-nowrap">Suggestions</TabsTrigger>
+            )}
+            {shows('ai') && (
+              <TabsTrigger value="ai" className="whitespace-nowrap">
+                <span className="flex items-center gap-1">
+                  <Brain className="h-4 w-4" />
+                  Analysis
+                </span>
+              </TabsTrigger>
+            )}
           </TabsList>
         </div>
 
         {/* Mana Curve Tab */}
+        {shows('curve') && (
         <TabsContent value="curve" className="space-y-4">
           <Card>
             <CardHeader>
@@ -374,8 +450,10 @@ const optimizations = useMemo(() => {
             </CardContent>
           </Card>
         </TabsContent>
+        )}
 
         {/* Land Base Tab */}
+        {shows('lands') && (
         <TabsContent value="lands" className="space-y-4">
           <Card>
             <CardHeader>
@@ -490,8 +568,10 @@ const optimizations = useMemo(() => {
             </CardContent>
           </Card>
         </TabsContent>
+        )}
 
         {/* Synergy Tab */}
+        {shows('synergy') && (
         <TabsContent value="synergy" className="space-y-4">
           <Card>
             <CardHeader>
@@ -613,8 +693,10 @@ const optimizations = useMemo(() => {
             </CardContent>
           </Card>
         </TabsContent>
+        )}
 
         {/* Format Validation Tab */}
+        {shows('validation') && (
         <TabsContent value="validation" className="space-y-4">
           <Card>
             <CardHeader>
@@ -725,8 +807,10 @@ const optimizations = useMemo(() => {
             </CardContent>
           </Card>
         </TabsContent>
+        )}
 
         {/* Suggestions Tab */}
+        {shows('suggestions') && (
         <TabsContent value="suggestions" className="space-y-4">
           <Card>
             <CardHeader>
@@ -836,8 +920,10 @@ const optimizations = useMemo(() => {
             </CardContent>
           </Card>
         </TabsContent>
+        )}
 
         {/* Deck analysis Tab */}
+        {shows('ai') && (
         <TabsContent value="ai" className="h-[600px]">
           {deckId && deckName ? (
             <AIAnalysisPanel
@@ -877,6 +963,7 @@ const optimizations = useMemo(() => {
             </Card>
           )}
         </TabsContent>
+        )}
       </Tabs>
     </div>
   );

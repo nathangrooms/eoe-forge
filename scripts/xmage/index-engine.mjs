@@ -211,7 +211,20 @@ function parseParams(toks) {
   return params;
 }
 
-/** `Layer.X` / `SubLayer.Y` / `Duration.Z` named inside a constructor body. */
+/**
+ * `Layer.X` / `SubLayer.Y` / `Duration.Z` named inside a constructor body.
+ *
+ * The duration this reads is the one the constructor SUPPLIES, so it is only
+ * meaningful when the constructor chains it into `super(...)` or `this(...)`.
+ * A `Duration.` token anywhere else in the body is not a default: it is most
+ * often a COMPARISON, and reading those produced records that contradicted
+ * themselves. `CantAttackAllEffect(Duration duration, ...)` builds its rule text
+ * with `if (duration == Duration.EndOfTurn)`, so the class was recorded as
+ * "EndOfTurn" and every card passing `Duration.WhileOnBattlefield` came out with
+ * an argument saying one thing and an effect field saying the other. 426 such
+ * contradictions over 201 cards, measured. So the scan is restricted to the
+ * argument list of the constructor's own `super(` / `this(` call.
+ */
 function readLayerHints(toks, from, to) {
   let layer = null, sublayer = null, duration = null;
   for (let i = from; i < to; i++) {
@@ -219,8 +232,25 @@ function readLayerHints(toks, from, to) {
     if (t.t !== 'id' || toks[i + 1]?.v !== '.' || toks[i + 2]?.t !== 'id') continue;
     if (t.v === 'Layer' && !layer) layer = toks[i + 2].v;
     else if (t.v === 'SubLayer' && !sublayer) sublayer = toks[i + 2].v;
-    else if (t.v === 'Duration' && !duration) duration = toks[i + 2].v;
   }
+
+  // The chained constructor call, if this constructor opens with one.
+  for (let i = from; i < to; i++) {
+    const t = toks[i];
+    if (t.t !== 'id' || (t.v !== 'super' && t.v !== 'this') || toks[i + 1]?.v !== '(') continue;
+    let depth = 0;
+    let j = i + 1;
+    for (; j < to; j++) {
+      if (toks[j].v === '(') depth++;
+      else if (toks[j].v === ')') { depth--; if (depth === 0) break; }
+      else if (depth > 0 && toks[j].t === 'id' && toks[j].v === 'Duration'
+        && toks[j + 1]?.v === '.' && toks[j + 2]?.t === 'id' && !duration) {
+        duration = toks[j + 2].v;
+      }
+    }
+    break;
+  }
+
   return { layer, sublayer, duration };
 }
 

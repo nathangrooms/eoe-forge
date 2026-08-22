@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,6 +42,7 @@ import { DeckAPI } from '@/lib/api/deckAPI';
 import { scryfallAPI } from '@/lib/api/scryfall';
 import { cardImage, computeDeckStats, type DeckCardRow } from '@/lib/deck/deckCards';
 import { categorizeCard } from '@/lib/deck/cardCategories';
+import { deckAverageManaValue } from '@/lib/deck/curve';
 import { formatLabel, usesPowerLevel } from '@/lib/deck/formats';
 import { useIsFeatureEnabled } from '@/hooks/useFeatureAccess';
 import type { Card as StoreCard } from '@/stores/deckStore';
@@ -153,6 +154,41 @@ import {
  * Duplicate and Delete lived only on the deck tile's menu, on neither deck
  * page. They are in the More menu here, which is where a deck's own actions
  * belong.
+ *
+ * ## Tab, slide-over or route — the rule, so the next one is not a coin toss
+ *
+ * A thing you READ while looking at the deck is a **tab**. It answers a
+ * question about the deck in front of you and you stay where you are, so it
+ * belongs in the strip and its name is the question: Mana, Legality, Value.
+ *
+ * A thing you DO to the deck and then leave is a **slide-over**. Replace and
+ * Import are the two. Both need the decklist visible behind them, because what
+ * you are choosing is measured against what is already there, and both are over
+ * in one decision. Right-hand, never centred: a centred dialog covers the thing
+ * you are comparing against, which is the whole reason the panel is open.
+ *
+ * A thing with its own state WORTH LINKING TO is a **route**. Export (a format
+ * and four switches), Share (a public link with its own on/off), Proxies (paper
+ * size, quality, cut guides, a PDF), Test hand (a hand you want to show
+ * somebody) and the commander picker (a search you may want to come back to)
+ * are each a place, not a step. Each takes the full width, survives a reload,
+ * and gets a labelled way back.
+ *
+ * The corollary that is easy to miss: if a destination is worth linking to,
+ * then so is the tab you left. Each of those routes is handed this page's exact
+ * address in `location.state.from` and returns to it. See `useDeckReturn`.
+ *
+ * Playtest is the one thing that is none of the three. It is not this page's to
+ * draw at all: playtest is a seat at the play table with every seat botted, one
+ * of the four doors on `/play`, and CLAUDE.md's "one table, one set of logic"
+ * says a second implementation here would be the law being broken. So this page
+ * links to it with the deck already chosen. The link carries two things and
+ * only two: `mode=playtest`, which must be one of `PLAY_MODES` for `isPlayMode`
+ * to accept it and land on the right door, and `deck=<id>`, which `/play` reads
+ * straight into `setup.deckId` so the deck step opens with this deck picked.
+ * Nothing else crosses. If `/play` ever wants more — a seat count, an
+ * opponent — it names the parameter and this link adds it; this page does not
+ * guess at the table's shape.
  */
 
 interface TabDef {
@@ -216,6 +252,27 @@ const LEGACY_TABS: Record<string, { tab: string; view?: DeckCardView }> = {
   ai: { tab: 'optimiser' },
   search: { tab: 'add' },
   'import-export': { tab: 'cards' },
+};
+
+/**
+ * The two builder tabs that did not become tabs.
+ *
+ * The map above lists five of the builder's seven section names and the
+ * paragraph above it says why: a link somebody wrote by hand must not fall
+ * through into the default tab without saying anything. `proxies` and `test`
+ * were the other two, and they did exactly that, because a printing job and an
+ * opening hand became routes rather than tabs and a tab map cannot hold a
+ * route. They are named here, with the addresses they moved to, so
+ * `/deck-builder?deck=x&tab=proxies` still opens the proxy sheet.
+ *
+ * `test` is `testhand`, not `/play?mode=playtest`: the builder's Playtest tab
+ * drew seven cards and counted lands, which is what `/deck/:id/testhand` does.
+ * The whole game is a different destination and it is in the More menu under
+ * its own name.
+ */
+const LEGACY_ROUTES: Record<string, string> = {
+  proxies: 'proxies',
+  test: 'testhand',
 };
 
 export default function DeckInterface() {
@@ -400,25 +457,25 @@ export default function DeckInterface() {
    * and feeding the tile one denominator and the plot the other is what
    * produced "2.13" beside a curve captioned "avg 2.10".
    */
-  const { typeCounts, avgManaValue } = useMemo(() => {
+  const typeCounts = useMemo(() => {
     const counts: Partial<Record<CardCategory, number>> = {};
-    let nonlandCopies = 0;
-    let manaValueTotal = 0;
-
     for (const card of mainboard) {
       const category = categorizeForStats(card as never);
-      const qty = card.quantity ?? 1;
-      counts[category] = (counts[category] ?? 0) + qty;
-      if (category === 'lands') continue;
-      nonlandCopies += qty;
-      manaValueTotal += (card.cmc ?? 0) * qty;
+      counts[category] = (counts[category] ?? 0) + (card.quantity ?? 1);
     }
-
-    return {
-      typeCounts: counts,
-      avgManaValue: nonlandCopies > 0 ? manaValueTotal / nonlandCopies : 0,
-    };
+    return counts;
   }, [mainboard]);
+
+  /**
+   * And the average itself comes out of `lib/deck/curve`, not out of the loop
+   * above.
+   *
+   * It was computed here, and the same rule was computed again on the public
+   * deck page from bucket midpoints, so one deck had two averages depending on
+   * who was looking at it. One function now, over the rows, applying the rule
+   * `ManaCurve` plots to: no sideboard, no commander, no lands, once per copy.
+   */
+  const avgManaValue = useMemo(() => deckAverageManaValue(rows), [rows]);
 
   /* ---------------------------------------------------------------- routing */
 
@@ -537,6 +594,12 @@ export default function DeckInterface() {
 
   /* -------------------------------------------------------------- rendering */
 
+  /* An old section name that is a route now. Sent on before the deck is even
+     read, because there is nothing on this page to draw for it. */
+  if (id && tabParam && LEGACY_ROUTES[tabParam]) {
+    return <Navigate to={`/deck/${id}/${LEGACY_ROUTES[tabParam]}`} replace />;
+  }
+
   if (loading) {
     return (
       <StandardPageLayout title="Loading deck…" description="Fetching decklist and card data">
@@ -589,6 +652,19 @@ export default function DeckInterface() {
     : null;
 
   const commanderRoute = `/deck/${deck.id}/commander`;
+
+  /**
+   * This exact address, tab and all, handed to every destination this page
+   * sends you to so its back control can bring you here rather than to the
+   * decklist.
+   *
+   * Export, share, proxies, the test hand and the commander picker are routes
+   * because each has state worth linking to. That cuts both ways: the page they
+   * leave has state worth returning to, and the open tab is in the query
+   * string. Without this, pressing Export halfway through an optimiser pass
+   * returned you to the Cards tab with the five steps gone.
+   */
+  const leaveFrom = { state: { from: `/deck/${deck.id}${searchParams.toString() ? `?${searchParams}` : ''}` } };
 
   /** Shared body for a tab that needs a decklist before it can say anything. */
   const needsCards = (what: string) => (
@@ -665,17 +741,23 @@ export default function DeckInterface() {
       }
       description={`${formatLabel(deck.format)} · ${stats.totalCards} cards`}
       action={
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           {/* WHERE THE VISIBLE SAVE WENT.
               The optimiser carried the only visible save in the product,
               because it was the only surface whose writes went through a silent
               timer. Every edit on this page writes its own row and reports it,
               so the state belongs to the page rather than to one panel of it,
               and it now covers renaming, quantity, replace and import as well
-              as an optimiser pass. */}
+              as an optimiser pass.
+
+              Not `hidden sm:inline`. Every button beside this one hides its
+              LABEL on a narrow screen and keeps its icon, so the control is
+              still there. Hiding this hid the whole thing, and a phone was the
+              one place in the product where an edit reported nothing at all.
+              The row wraps instead. */}
           {canEdit && saveState !== 'idle' && (
             <span
-              className="hidden text-xs text-muted-foreground sm:inline"
+              className="text-xs text-muted-foreground"
               role="status"
               aria-live="polite"
             >
@@ -692,11 +774,11 @@ export default function DeckInterface() {
             <Heart className={`mr-2 h-4 w-4 ${isFavorited ? 'fill-current' : ''}`} />
             <span className="hidden sm:inline">{isFavorited ? 'Favorited' : 'Favorite'}</span>
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => navigate(`/deck/${deck.id}/share`)}>
+          <Button variant="secondary" size="sm" onClick={() => navigate(`/deck/${deck.id}/share`, leaveFrom)}>
             <Share2 className="mr-2 h-4 w-4" />
             <span className="hidden sm:inline">Share</span>
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => navigate(`/deck/${deck.id}/export`)}>
+          <Button variant="secondary" size="sm" onClick={() => navigate(`/deck/${deck.id}/export`, leaveFrom)}>
             <Download className="mr-2 h-4 w-4" />
             <span className="hidden sm:inline">Export</span>
           </Button>
@@ -716,13 +798,25 @@ export default function DeckInterface() {
                   <Upload className="mr-2 h-4 w-4" /> Import a decklist
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem onClick={() => navigate(`/deck/${deck.id}/testhand`)}>
+              <DropdownMenuItem onClick={() => navigate(`/deck/${deck.id}/testhand`, leaveFrom)}>
                 <Hand className="mr-2 h-4 w-4" /> Test hand
               </DropdownMenuItem>
+              {/* NOT REBUILT HERE, ON PURPOSE.
+                  Playtest is a seat at the play table with every seat botted —
+                  one of the four doors on `/play`, sharing that page's mat,
+                  hand, preview and log. Drawing a second one here is exactly
+                  what "one table, one set of logic" forbids.
+
+                  The link carries two parameters and the page reads both:
+                  `mode`, checked against `PLAY_MODES` by `isPlayMode`, which is
+                  what makes this land on the playtest door rather than the mode
+                  wall; and `deck`, read straight into `setup.deckId`, which is
+                  what makes the deck step open with this deck already chosen.
+                  Neither is invented here — both are `Play.tsx`'s own reads. */}
               <DropdownMenuItem onClick={() => navigate(`/play?mode=playtest&deck=${deck.id}`)}>
                 <Play className="mr-2 h-4 w-4" /> Playtest
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate(`/deck/${deck.id}/proxies`)}>
+              <DropdownMenuItem onClick={() => navigate(`/deck/${deck.id}/proxies`, leaveFrom)}>
                 <Printer className="mr-2 h-4 w-4" /> Print proxies
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -783,7 +877,7 @@ export default function DeckInterface() {
               cardCount={stats.totalCards}
               size="xl"
               eager
-              onClick={commander ? () => openCard(commander) : () => navigate(commanderRoute)}
+              onClick={commander ? () => openCard(commander) : () => navigate(commanderRoute, leaveFrom)}
             />
           </div>
 
@@ -799,7 +893,7 @@ export default function DeckInterface() {
                       commander whole rather than on the one that drew it as a
                       thumbnail. */}
                   {canEdit && isCommanderFormat && (
-                    <Button variant="secondary" size="sm" onClick={() => navigate(commanderRoute)}>
+                    <Button variant="secondary" size="sm" onClick={() => navigate(commanderRoute, leaveFrom)}>
                       <Pencil className="mr-2 h-4 w-4" />
                       {commander ? 'Change' : 'Choose commander'}
                     </Button>
@@ -1111,12 +1205,41 @@ export default function DeckInterface() {
                 format={deck.format}
               />
 
+              {/* THE THIRD SET OF TABS, CUT DOWN TO WHAT IS ONLY HERE.
+
+                  This panel carries its own six sub-tabs and its own four
+                  summary tiles, and on the merged page four of the six were
+                  answers this page already gives one click away:
+
+                    Mana Curve   the Mana tab draws `ManaCurve`, which is the
+                                 curve the metric strip's average agrees with
+                    Land Base    the Mana tab draws the source analysis and the
+                                 land fixer over the same decklist
+                    Validation   the Legality tab draws `DeckValidationPanel`
+                                 over cards that carry `legalities`. This copy
+                                 builds its input with
+                                 `legalities: { [format]: 'legal' }` — see the
+                                 `analysis` memo — so it asserts the answer and
+                                 cannot ever report a banned card. Two verdicts
+                                 that can disagree, and the one that always
+                                 says yes is the one being cut.
+                    the tiles    average mana value and the type counts are the
+                                 metric strip above; land count is on Mana;
+                                 format legality is Legality.
+
+                  Synergy, Suggestions and the focused analysis are this
+                  panel's own and are kept. `sections` is a prop rather than a
+                  second component because `AIGeneratedDeckList` mounts the
+                  same panel around a deck with no tabs at all, where all six
+                  are the only place those answers exist. */}
               <EnhancedDeckAnalysisPanel
                 deck={mainboard}
                 format={deck.format}
                 commander={analyticsCommander}
                 deckId={deck.id}
                 deckName={deck.name}
+                sections={['synergy', 'suggestions', 'ai']}
+                overview={false}
               />
 
               <BrainAnalysis
@@ -1175,15 +1298,24 @@ export default function DeckInterface() {
               commander={analyticsCommander as never}
               power={power}
               edhAnalysis={(deck.edh_analysis as unknown as EdhAnalysisData) ?? null}
-              /* NO `onSaveDeck`.
-                 It existed because applying a pass wrote the deck through a
-                 silent 500ms timer, and a save nobody can see is worse than no
-                 autosave. Every edit on this page writes its own row and
-                 reports it, and the state sits in the page header where it
-                 covers every edit rather than only this panel's. A button whose
-                 only possible outcome is "already saved" is not a save button;
-                 the thing it was there to provide — knowing the work is
-                 written — is still on screen, one band higher. */
+              /* THE VISIBLE SAVE, AND WHY IT IS THE STATE AND NOT THE BUTTON.
+
+                 The optimiser is the longest thing on this page: five steps,
+                 each with its own list, then a receipt. By the time a pass has
+                 been applied, the page header — where this page reports every
+                 save — is well off screen. So the state goes to the panel and
+                 is drawn where the work happened. That is the half of the old
+                 control that was doing the job, and it is why it could not just
+                 be left to the header.
+
+                 `onSaveDeck` is not passed, and that is a decision rather than
+                 an omission. It existed because applying a pass wrote the deck
+                 through a silent 500ms timer, so a person needed a way to make
+                 the write happen now. `useDeckEditor` writes each change as it
+                 is made, so there is no pending timer left to flush, and a
+                 button whose only possible outcome is "already saved" teaches
+                 people to distrust the report next to it. */
+              saveState={canEdit ? saveState : undefined}
               onApplyReplacements={async replacements => {
                 /* THIS LOOP ONCE LOST 14 CARDS OUT OF A REAL DECK, and the
                    three rules that stopped it are kept exactly:
@@ -1259,7 +1391,19 @@ export default function DeckInterface() {
         {activeTab === 'value' &&
           (hasCards ? (
             <div className="space-y-6">
-              <DeckBudgetTracker deckCards={mainboard} targetBudget={200} />
+              {/* `analyticsDeck`, not `mainboard`: THE COMMANDER IS A CARD YOU
+                  HAVE TO BUY.
+
+                  Every other panel on this page reads the ninety-nine, because
+                  every other panel is asking about what the deck draws and the
+                  commander is not drawn. Cost is the one question where that is
+                  wrong, and getting it wrong printed two deck values four
+                  hundred pixels apart: the tile above reads
+                  `computeDeckStats(rows)`, which counts every non-sideboard row,
+                  so a harness deck read `$888` at the top and `$877.54` here —
+                  the commander, at $10.01, being the whole difference. Same
+                  rows now, one answer. */}
+              <DeckBudgetTracker deckCards={analyticsDeck} targetBudget={200} />
               <MissingCardsPanel deckId={deck.id} deckName={deck.name} />
             </div>
           ) : (
@@ -1273,11 +1417,26 @@ export default function DeckInterface() {
             the feature flag took the primer with it. That was an accident. */}
         {activeTab === 'record' && (
           <div className="space-y-6">
-            <DeckPrimerGenerator
-              deckName={deck.name}
-              commander={commander?.card?.name || commander?.card_name}
-              cardCount={stats.totalCards}
-            />
+            {/* The primer is a control and a form and had no panel of its own,
+                so on a tab of full-width cards it read as a button somebody had
+                left behind. The surface comes from here; the name comes from
+                the component, which now carries it whether it is open or shut.
+                One heading, not two. */}
+            <Card>
+              <CardContent className="space-y-3 p-5 md:p-6">
+                {/* `strategy` is not passed, and was not passed by the builder
+                    either: nothing on this page holds a one-line strategy for a
+                    deck. `ArchetypeDetection` derives one on the Analysis tab
+                    but keeps it to itself. Lifting it out is new work, not a
+                    merge, so it is named here rather than faked. */}
+                <DeckPrimerGenerator
+                  deckId={deck.id}
+                  deckName={deck.name}
+                  commander={commander?.card?.name || commander?.card_name}
+                  cardCount={stats.totalCards}
+                />
+              </CardContent>
+            </Card>
             <EnhancedMatchTracker deckId={deck.id} deckName={deck.name} />
             {/* The tracker records games; this reads them back. Same rows, two
                 different jobs. */}

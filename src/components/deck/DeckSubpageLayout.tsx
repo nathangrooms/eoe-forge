@@ -1,7 +1,27 @@
 import { ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { StandardSectionHeader } from '@/components/ui/standardized-components';
+
+/**
+ * Where "back to deck" actually goes.
+ *
+ * The deck page keeps its open tab in the query string, so `/deck/x` and
+ * `/deck/x?tab=optimiser` are two different places to be sent back to. A back
+ * link built from the id alone drops that: press Export from the middle of an
+ * optimiser pass and you return to the decklist, having lost the five steps you
+ * had worked through.
+ *
+ * So the deck page hands its own address over in `location.state.from` and this
+ * reads it. A link typed by hand, or a bookmark, carries no state, and then the
+ * deck's own front page is the right answer and is what you get.
+ */
+export function useDeckReturn(deckId: string | undefined): string {
+  const location = useLocation();
+  const from = (location.state as { from?: unknown } | null)?.from;
+  if (typeof from === 'string' && from.startsWith('/')) return from;
+  return deckId ? `/deck/${deckId}` : '/decks';
+}
 
 interface DeckSubpageLayoutProps {
   title: ReactNode;

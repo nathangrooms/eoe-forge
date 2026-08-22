@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { DeckSubpageLayout } from '@/components/deck/DeckSubpageLayout';
+import { DeckSubpageLayout, useDeckReturn } from '@/components/deck/DeckSubpageLayout';
 import { DeckProxyGenerator } from '@/components/deck-builder/DeckProxyGenerator';
 import { useDeckRecord } from '@/components/deck/useDeckRecord';
 import { fetchDeckCards, toCardObject, type DeckCardRow } from '@/lib/deck/deckCards';
@@ -23,6 +23,8 @@ import { fetchDeckCards, toCardObject, type DeckCardRow } from '@/lib/deck/deckC
 export default function DeckProxies() {
   const { id } = useParams();
   const navigate = useNavigate();
+  /* The deck, on the tab it was open on, when that is where this came from. */
+  const backTo = useDeckReturn(id);
   const { deck, loading: deckLoading, error } = useDeckRecord(id);
 
   const [rows, setRows] = useState<DeckCardRow[]>([]);
@@ -55,7 +57,7 @@ export default function DeckProxies() {
     <DeckSubpageLayout
       title={deck ? `Proxies for “${deck.name}”` : 'Deck proxies'}
       description="Pick the cards, the paper and the guides, then print or save a PDF."
-      backTo={id ? `/deck/${id}` : '/decks'}
+      backTo={backTo}
       backLabel="Back to deck"
     >
       {loading ? (

@@ -164,9 +164,21 @@ interface AIOptimizerPanelProps {
    * deck that has not been saved yet needs the card in hand. See
    * `toReplacement`.
    */
-  /** Explicit save, so the reader is not asked to trust a silent timer. */
+  /**
+   * Flush a deferred write, for a caller that still has one.
+   *
+   * Optional, and separate from `saveState` on purpose: a caller whose every
+   * apply already writes its own row has nothing for this to send, and drawing
+   * it anyway would be a button that can only ever say "already saved".
+   */
   onSaveDeck?: () => void;
-  /** What that save is currently doing. */
+  /**
+   * What the deck's save is doing right now.
+   *
+   * Pass it whether or not you pass `onSaveDeck`. It is what puts the save on
+   * screen at the bottom of a five-step pass, where the page header that
+   * normally carries it has been scrolled away.
+   */
   saveState?: 'idle' | 'saving' | 'saved' | 'error';
   /*
    * All three may return a promise, and the auto pass awaits it.
@@ -236,7 +248,7 @@ export function AIOptimizerPanel({
   edhAnalysis,
   onApplyReplacements,
   onSaveDeck,
-  saveState = 'idle',
+  saveState,
   onAddCard,
   onRemoveCard,
 }: AIOptimizerPanelProps) {
@@ -1444,46 +1456,66 @@ export function AIOptimizerPanel({
             </Button>
           </div>
 
-          {/* WHERE THE SAVE BUTTON WENT.
+          {/* THE VISIBLE SAVE.
 
-              Applying anything from the optimiser already writes to the deck:
-              the page calls updateDeck on a 500ms timer and says nothing. So the
-              work WAS being saved and there was no way to know, which is worse
-              than no autosave, because the only safe assumption a reader can
-              make is that nothing happened. This states it, and gives an
-              explicit save for anyone who would rather press a button than
-              trust a timer. */}
-          {onSaveDeck && (
-            <div className="flex w-full items-center justify-between gap-3 border-t border-border/40 pt-4">
+              This panel carried the only visible save in the product, because
+              it was the only surface whose writes went through a silent timer.
+              The reason it had to be visible has not changed and neither has
+              the reason it has to be HERE: the five steps are long, the deck
+              page's own save state sits in the header, and after scrolling
+              through Cut and Swaps that header is off screen. A reader who has
+              just applied eleven changes should not have to scroll up to find
+              out whether they landed.
+
+              What did change is what a button could do about it. Every apply
+              now writes its own row and reports the result, so there is no
+              pending timer to flush and nothing for a press to send. A caller
+              that still owns a deferred write passes `onSaveDeck` and gets the
+              button; a caller whose writes are already immediate passes
+              `saveState` alone and gets the state without a control whose only
+              possible outcome is "already saved".
+
+              Surface and spacing, not a rule: the divider that used to be here
+              was a hairline. */}
+          {(onSaveDeck || saveState) && (
+            <div
+              className="flex w-full flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/40 px-4 py-3"
+              role="status"
+              aria-live="polite"
+            >
               <p className="text-sm text-muted-foreground">
                 {saveState === 'saving'
                   ? 'Saving changes to the deck.'
                   : saveState === 'error'
-                  ? 'That did not save. Press save to try again.'
-                  : saveState === 'saved'
-                  ? 'All changes saved to the deck.'
-                  : 'Anything you apply is written to the deck straight away.'}
+                    ? onSaveDeck
+                      ? 'That did not save. Press save to try again.'
+                      : 'That did not save. The deck was left as it was.'
+                    : saveState === 'saved'
+                      ? 'All changes saved to the deck.'
+                      : 'Anything you apply is written to the deck straight away.'}
               </p>
-              <Button
-                variant="outline"
-                onClick={onSaveDeck}
-                disabled={saveState === 'saving'}
-                className="shrink-0"
-              >
-                {saveState === 'saving' ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving
-                  </>
-                ) : saveState === 'saved' ? (
-                  <>
-                    <Check className="mr-2 h-4 w-4" />
-                    Saved
-                  </>
-                ) : (
-                  'Save deck'
-                )}
-              </Button>
+              {onSaveDeck && (
+                <Button
+                  variant="secondary"
+                  onClick={onSaveDeck}
+                  disabled={saveState === 'saving'}
+                  className="shrink-0"
+                >
+                  {saveState === 'saving' ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving
+                    </>
+                  ) : saveState === 'saved' ? (
+                    <>
+                      <Check className="mr-2 h-4 w-4" />
+                      Saved
+                    </>
+                  ) : (
+                    'Save deck'
+                  )}
+                </Button>
+              )}
             </div>
           )}
         </CardContent>

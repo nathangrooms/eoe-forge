@@ -312,13 +312,15 @@ export function useDeckEditor(deckId: string | undefined) {
       if (!deckId || !deck) return false;
       if (card.id === row.card_id) return false;
 
-      const problem = refuse(card, 1);
+      /* Swapping into a card the deck already holds stacks the copies, so the
+         copy limit is checked against the total rather than against one. */
+      const already = rows.find(r => r.card_id === card.id && !r.is_sideboard);
+      const problem = refuse(card, (already?.quantity ?? 0) + row.quantity);
       if (problem) {
         showError('Cannot swap that in', problem);
         return false;
       }
 
-      const already = rows.find(r => r.card_id === card.id && !r.is_sideboard);
       const next = already
         ? rows
             .filter(r => r.id !== row.id)
@@ -401,11 +403,13 @@ export function useDeckEditor(deckId: string | undefined) {
 
       const doomed =
         mode === 'replace' ? rows.filter(r => !r.is_commander && !r.is_sideboard) : [];
-      const kept = rows.filter(r => !doomed.includes(r));
-
-      const next = [...kept];
+      /* Copied, not mutated. `next` would otherwise hold the same row objects
+         `rows` does, so bumping a quantity here would edit the list `commit`
+         is holding as the version to put back if the write fails. */
+      const next = rows.filter(r => !doomed.includes(r)).map(r => ({ ...r }));
       for (const { card, quantity } of additions.values()) {
         const hit = next.find(r => r.card_id === card.id && !r.is_sideboard);
+        // The commander's count is one and stays one, whatever the paste says.
         if (hit) hit.quantity = hit.is_commander ? hit.quantity : hit.quantity + quantity;
         else next.push(optimisticRow(card, { quantity }));
       }
@@ -414,14 +418,21 @@ export function useDeckEditor(deckId: string | undefined) {
         next,
         async () => {
           if (doomed.length > 0) await deleteDeckCards(doomed.map(r => r.id));
+          /* The FINAL count per card, read off the list this import produced,
+             not the count the paste asked for. Appending two copies of a card
+             the deck already holds one of writes three, not two. */
+          const wanted = new Set(additions.keys());
           await upsertDeckCards(
             deckId,
-            [...additions.values()]
-              .filter(({ card }) => card.id !== commander?.card_id)
-              .map(({ card, quantity }) => ({
-                card_id: card.id,
-                card_name: card.name,
-                quantity,
+            next
+              .filter(
+                row =>
+                  wanted.has(row.card_id) && !row.is_commander && !row.is_sideboard
+              )
+              .map(row => ({
+                card_id: row.card_id,
+                card_name: row.card_name,
+                quantity: row.quantity,
                 is_commander: false,
                 is_sideboard: false,
               }))
@@ -435,7 +446,7 @@ export function useDeckEditor(deckId: string | undefined) {
 
       showSuccess('Deck imported', `${additions.size} cards`);
     },
-    [deckId, rows, commander, commit]
+    [deckId, rows, commit]
   );
 
   /* -------------------------------------------------- the deck's own record */

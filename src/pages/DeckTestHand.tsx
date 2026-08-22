@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Loader2, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { DeckSubpageLayout } from '@/components/deck/DeckSubpageLayout';
+import { DeckSubpageLayout, useDeckReturn } from '@/components/deck/DeckSubpageLayout';
 import { QuickDeckTester } from '@/components/deck-builder/QuickDeckTester';
 import { useDeckRecord } from '@/components/deck/useDeckRecord';
 import { fetchDeckCards, toCardObject, type DeckCardRow } from '@/lib/deck/deckCards';
@@ -23,6 +23,8 @@ import { fetchDeckCards, toCardObject, type DeckCardRow } from '@/lib/deck/deckC
 export default function DeckTestHand() {
   const { id } = useParams();
   const navigate = useNavigate();
+  /* The deck, on the tab it was open on, when that is where this came from. */
+  const backTo = useDeckReturn(id);
   const { deck, loading: deckLoading, error } = useDeckRecord(id);
 
   const [rows, setRows] = useState<DeckCardRow[]>([]);
@@ -56,7 +58,7 @@ export default function DeckTestHand() {
     <DeckSubpageLayout
       title={deck ? `Test hands for “${deck.name}”` : 'Test hand'}
       description="Draw an opening hand, mulligan, and see what the seven looked like."
-      backTo={id ? `/deck/${id}` : '/decks'}
+      backTo={backTo}
       backLabel="Back to deck"
       action={
         id ? (

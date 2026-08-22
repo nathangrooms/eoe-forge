@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { DeckSubpageLayout } from '@/components/deck/DeckSubpageLayout';
+import { DeckSubpageLayout, useDeckReturn } from '@/components/deck/DeckSubpageLayout';
 import { DeckExportPanel } from '@/components/deck/DeckExportPanel';
 import { useDeckRecord } from '@/components/deck/useDeckRecord';
 
@@ -13,13 +13,15 @@ import { useDeckRecord } from '@/components/deck/useDeckRecord';
 export default function DeckExport() {
   const { id } = useParams();
   const navigate = useNavigate();
+  /* The deck, on the tab it was open on, when that is where this came from. */
+  const backTo = useDeckReturn(id);
   const { deck, loading, error } = useDeckRecord(id);
 
   return (
     <DeckSubpageLayout
       title={deck ? `Export “${deck.name}”` : 'Export deck'}
       description="Choose a format, then copy the list or download it as a file."
-      backTo={id ? `/deck/${id}` : '/decks'}
+      backTo={backTo}
       backLabel="Back to deck"
     >
       {loading ? (

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { DeckSubpageLayout } from '@/components/deck/DeckSubpageLayout';
+import { useNavigate, useParams } from 'react-router-dom';
+import { DeckSubpageLayout, useDeckReturn } from '@/components/deck/DeckSubpageLayout';
 import { CommanderSelector } from '@/components/deck-builder/CommanderSelector';
 import { useDeckStore } from '@/stores/deckStore';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
@@ -30,7 +30,6 @@ import { setDeckCommander, type IncomingCard } from '@/lib/deck/deckMutations';
  */
 export default function DeckCommander() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { id } = useParams();
 
   const storeCommander = useDeckStore(state => state.commander);
@@ -53,13 +52,11 @@ export default function DeckCommander() {
   const current = rows.find(row => row.is_commander) ?? null;
 
   /* `from` carries the exact surface that sent us here, so the labelled back
-     control returns there rather than to a guessed default. */
-  const from =
-    typeof (location.state as { from?: unknown } | null)?.from === 'string'
-      ? (location.state as { from: string }).from
-      : id
-        ? `/deck/${id}`
-        : '/decks';
+     control returns there rather than to a guessed default. Shared with export,
+     share, proxies and the test hand, which all have the same problem: the deck
+     page's open tab is in its query string, and rebuilding the address from the
+     id alone throws it away. */
+  const from = useDeckReturn(id);
 
   const commit = async (card: IncomingCard) => {
     if (!id) {

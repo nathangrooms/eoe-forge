@@ -1,8 +1,8 @@
 /**
- * What "ready" actually means at an online table.
+ * What putting your deck down actually means at an online table.
  *
  * ---------------------------------------------------------------------------
- * READY IS NOT A TICK BOX
+ * A DECK IS PUT DOWN, NOT SELECTED
  * ---------------------------------------------------------------------------
  * At a real table you shuffle your own deck, put it down, and say you are
  * ready. That is what happens here, in that order:
@@ -21,13 +21,27 @@
  * its amendment of 20 Aug 2026 in full; this file is the part that runs it.
  *
  * ---------------------------------------------------------------------------
- * WHY THE SHUFFLE HAPPENS HERE AND NOT AT THE TABLE
+ * WHEN IT RUNS, AND WHY THAT MOMENT
  * ---------------------------------------------------------------------------
  * `start_online_table` refuses to start unless every seat has a deck size and
  * a `seed_commitment`. That refusal is the whole audit story: the shuffle has
  * to be fixed BEFORE the first draw, or a seat that stacked its own deck could
- * not be caught afterwards by disclosing the seed. So the commitment is made
- * when a player says they are ready, which is the last honest moment for it.
+ * not be caught afterwards by disclosing the seed.
+ *
+ * So this runs the moment a deck is CHOSEN at a table, not when Ready is
+ * pressed, and choosing a different deck runs it again and un-readies the seat.
+ * Two reasons, and both are about the room being honest:
+ *
+ *   1. what a seat publishes — the commanders face up, the library size — is
+ *      what everybody else in the lobby is looking at while they decide whether
+ *      to sit down. Holding that back until a private tick box is pressed means
+ *      the lobby shows chairs with nothing on them.
+ *   2. the guarantee that matters is "committed before the game starts", and
+ *      the database is what enforces it. Pressing Ready earlier or later does
+ *      not change that, so tying the shuffle to it only delays the information.
+ *
+ * Re-picking a deck therefore re-shuffles, which is correct: a commitment that
+ * did not match the deck being played would prove nothing.
  *
  * The disclosure step, where the seed is published at the end and the shuffle
  * re-derived, is NOT built yet. The commitment is recorded now because it has

@@ -13,6 +13,9 @@ import { ScrollToTop } from "@/components/ScrollToTop";
 import { RouteFallback, AppBootFallback } from "@/components/routing/RouteFallback";
 import { RouteBoundary, clearChunkReloadGuard } from "@/components/routing/RouteBoundary";
 import { RouteEnterMotion } from "@/components/motion/RouteEnterMotion";
+/* Not lazy: it is a redirect, and a redirect that first downloads a chunk is
+   a redirect the reader watches happen. See the file for why the route stays. */
+import { SimulateRedirect } from "@/pages/SimulateRedirect";
 
 /*
  * Every page is fetched when it is needed, not before.
@@ -70,9 +73,10 @@ const load = {
   shoppingList: () => import("./pages/Buylist"),
   proxyList: () => import("./pages/ProxyList"),
   play: () => import("./pages/Play"),
+  lobby: () => import("./pages/Lobby"),
+  tableRoom: () => import("./pages/TableRoom"),
   playmats: () => import("./pages/Playmats"),
   lifeCounter: () => import("./pages/LifeCounter"),
-  simulate: () => import("./pages/Simulate"),
   tournament: () => import("./pages/Tournament"),
   tournamentNew: () => import("./pages/TournamentNew"),
   settings: () => import("./pages/Settings"),
@@ -117,9 +121,10 @@ const Wishlist = lazy(load.wishlist);
 const ShoppingList = lazy(load.shoppingList);
 const ProxyList = lazy(load.proxyList);
 const Play = lazy(load.play);
+const Lobby = lazy(load.lobby);
+const TableRoom = lazy(load.tableRoom);
 const Playmats = lazy(load.playmats);
 const LifeCounter = lazy(load.lifeCounter);
-const Simulate = lazy(load.simulate);
 const Tournament = lazy(load.tournament);
 const TournamentNew = lazy(load.tournamentNew);
 const Settings = lazy(load.settings);
@@ -283,6 +288,20 @@ function AppContent() {
             path="/cards/:id"
             element={<PublicContentShell><CardDetailPage /></PublicContentShell>}
           />
+          {/* A table link is sent to people who may not have an account yet, so
+              it must not be swallowed by the catch-all below. The page itself
+              asks them to sign in and keeps the code in the URL while they do. */}
+          <Route
+            path="/play/t/:code"
+            element={<PublicContentShell><TableRoom /></PublicContentShell>}
+          />
+          {/* The discussion is readable without an account, which is the whole
+              point of it being a board rather than a chat. The page shows the
+              conversation and asks for an account only to post or to sit down. */}
+          <Route
+            path="/play/online"
+            element={<PublicContentShell><Lobby /></PublicContentShell>}
+          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </RouteHost>
@@ -391,10 +410,19 @@ function AppContent() {
             <Route path="/shopping" element={<ProtectedRoute><ShoppingList /></ProtectedRoute>} />
             <Route path="/proxies" element={<ProtectedRoute><ProxyList /></ProtectedRoute>} />
             <Route path="/play" element={<ProtectedRoute><Play /></ProtectedRoute>} />
+            <Route path="/play/online" element={<ProtectedRoute><Lobby /></ProtectedRoute>} />
+            <Route path="/play/t/:code" element={<ProtectedRoute><TableRoom /></ProtectedRoute>} />
             <Route path="/play/mats" element={<ProtectedRoute><Playmats /></ProtectedRoute>} />
             {/* Setup renders here, in the frame. The running board covers it. */}
             <Route path="/life" element={<ProtectedRoute><LifeCounter /></ProtectedRoute>} />
-            <Route path="/simulate" element={<ProtectedRoute><Simulate /></ProtectedRoute>} />
+            {/* Playtest folded into /play as its fourth mode. Owner: "playtest
+                can probably merge with the play page as a main option". The
+                route stays as a redirect rather than being deleted: bookmarks
+                and every `/simulate?deck=x` link the deck tiles have already
+                sent must keep working, and a dead route is a worse outcome than
+                a redirect nobody notices. `SimulateRedirect` carries the deck
+                id across, so an old link still lands on the deck it named. */}
+            <Route path="/simulate" element={<ProtectedRoute><SimulateRedirect /></ProtectedRoute>} />
             <Route path="/tournament" element={<ProtectedRoute><Tournament /></ProtectedRoute>} />
             <Route path="/tournament/new" element={<ProtectedRoute><TournamentNew /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />

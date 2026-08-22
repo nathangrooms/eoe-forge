@@ -127,6 +127,29 @@ export function entryVerdict(input: EntryInput): EntryVerdict {
 }
 
 /* -------------------------------------------------------------------------- */
+/* What to call somebody                                                      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The name to put on a seat before the player changes it.
+ *
+ * It cuts at the '@' for the same reason `safe_display_name` does in the
+ * database: `profiles.username` is world readable, two of them on this project
+ * are raw email addresses, and a lobby is exactly the surface that would
+ * publish one to every signed-in account. The database applies that rule
+ * whatever a client sends, so this exists only so the box a player is shown
+ * already holds what will actually be stored.
+ */
+export function preferredName(account: {
+  username?: string | null;
+  email?: string | null;
+}): string {
+  const raw = (account.username ?? '').trim() || (account.email ?? '').trim();
+  const cut = raw.split('@')[0].trim().slice(0, 24);
+  return cut || 'Player';
+}
+
+/* -------------------------------------------------------------------------- */
 /* What a table row says                                                      */
 /* -------------------------------------------------------------------------- */
 
@@ -226,6 +249,36 @@ export function lobbyErrorMessage(error: unknown): string {
   }
   if (raw.includes('already started')) {
     return 'That game has already started.';
+  }
+  if (raw.includes('cannot post in the discussion')) {
+    return 'Your account cannot post in the discussion. Get in touch if that looks wrong.';
+  }
+  if (raw.includes('sign in to post')) {
+    return 'Sign in to join in. Reading is open to everybody.';
+  }
+  if (raw.includes('slow down a moment')) {
+    return 'One at a time. Give it a second.';
+  }
+  if (raw.includes('a lot of messages in a minute')) {
+    return 'That is a lot of messages in a minute. Give it a moment.';
+  }
+  if (raw.includes('you already said that')) {
+    return 'You already said that.';
+  }
+  if (raw.includes('enough new topics for one hour')) {
+    return 'That is enough new topics for one hour. Reply to one instead.';
+  }
+  if (raw.includes('that discussion is closed')) {
+    return 'That discussion is closed.';
+  }
+  if (raw.includes('not there any more')) {
+    return 'That discussion is not there any more.';
+  }
+  if (raw.includes('other people have replied')) {
+    return 'Other people have replied, so this one needs a moderator.';
+  }
+  if (raw.includes('not yours to remove')) {
+    return 'That is not yours to remove.';
   }
   if (raw.toLowerCase().includes('failed to fetch') || raw.includes('NetworkError')) {
     return 'Could not reach the table. Check your connection and try again.';

@@ -18,6 +18,7 @@ import {
   entryVerdict,
   isGoingStale,
   lobbyErrorMessage,
+  preferredName,
   seatsLine,
   waitedFor,
   whyNotStartable,
@@ -101,6 +102,25 @@ test('every refusal obeys the copy rules', () => {
     assert.ok(verdict.actionLabel.length > 0);
     assert.ok(verdict.actionHref.startsWith('/'));
   }
+});
+
+/* -------------------------------------------------------------------------- */
+
+test('a name shown to the whole lobby is never an email address', () => {
+  // Two usernames on this project are raw email addresses. A lobby list and an
+  // open chat are exactly the surfaces that would publish one to every account.
+  assert.equal(preferredName({ username: 'player@example.com' }), 'player');
+  assert.equal(preferredName({ username: null, email: 'someone@example.com' }), 'someone');
+  assert.equal(preferredName({ username: 'Ali' }), 'Ali');
+  // The username wins when there is one, even with an email also present.
+  assert.equal(preferredName({ username: 'Bo', email: 'bo@example.com' }), 'Bo');
+});
+
+test('a name always comes back, and always fits on a seat', () => {
+  assert.equal(preferredName({}), 'Player');
+  assert.equal(preferredName({ username: '   ' }), 'Player');
+  // 24 is the column the database cuts at, so the box must not offer more.
+  assert.equal(preferredName({ username: 'x'.repeat(60) }).length, 24);
 });
 
 /* -------------------------------------------------------------------------- */

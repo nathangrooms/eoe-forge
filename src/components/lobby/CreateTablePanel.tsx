@@ -3,16 +3,9 @@ import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { ColorIdentity } from '@/components/ui/mana-cost';
 import { cn } from '@/lib/utils';
 import type { DeckSummary } from '@/lib/play/deckSource';
+import { DeckChoice, playableDecks } from './DeckChoice';
 
 /**
  * Opening a table, without leaving the lobby.
@@ -50,6 +43,14 @@ export interface CreateTablePanelProps {
   creating: boolean;
   error?: string | null;
   defaultName: string;
+  /**
+   * The deck already chosen at step two of the play flow.
+   *
+   * Online does not get its own deck picker: it is the third step of one flow,
+   * and the deck was chosen on the same wall every other mode uses. This is
+   * that choice arriving, so the panel opens on it rather than asking again.
+   */
+  defaultDeckId?: string | null;
   onCreate: (value: CreateTableValue) => void;
 }
 
@@ -63,17 +64,26 @@ export function CreateTablePanel({
   creating,
   error,
   defaultName,
+  defaultDeckId,
   onCreate,
 }: CreateTablePanelProps) {
-  // Only decks that can actually be played. See the note above.
-  const playable = decks.filter(deck => (deck.cardCount ?? 0) > 0);
+  // Only decks that can actually be played. `DeckChoice` filters the same way,
+  // from the same function, so the list offered and the default chosen here can
+  // never disagree.
+  const playable = playableDecks(decks);
 
   const [deckId, setDeckId] = useState<string | null>(null);
   const [maxSeats, setMaxSeats] = useState(4);
   const [visibility, setVisibility] = useState<'public' | 'link'>('public');
   const [displayName, setDisplayName] = useState(defaultName);
 
-  const chosen = deckId ?? playable[0]?.id ?? null;
+  /* The deck carried in from step two wins over "the first one", and an
+     explicit choice made here wins over both. A deck that arrived empty is not
+     in `playable`, so it cannot be the default by accident. */
+  const carried = defaultDeckId && playable.some(deck => deck.id === defaultDeckId)
+    ? defaultDeckId
+    : null;
+  const chosen = deckId ?? carried ?? playable[0]?.id ?? null;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -113,36 +123,13 @@ export function CreateTablePanel({
               Your deck
             </label>
 
-            {loadingDecks ? (
-              <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                Reading your decks
-              </p>
-            ) : playable.length === 0 ? (
-              <p className="mt-2 text-sm text-foreground">
-                None of your decks have cards in them yet. Add cards to one and it will
-                show up here.
-              </p>
-            ) : (
-              <Select value={chosen ?? undefined} onValueChange={setDeckId}>
-                <SelectTrigger id="lobby-deck" className="mt-1 h-10 bg-muted/40">
-                  <SelectValue placeholder="Choose a deck" />
-                </SelectTrigger>
-                <SelectContent>
-                  {playable.map(deck => (
-                    <SelectItem key={deck.id} value={deck.id}>
-                      <span className="flex items-center gap-2">
-                        <ColorIdentity colors={deck.colors} size="xs" />
-                        <span className="truncate">{deck.name}</span>
-                        <span className="shrink-0 text-[10px] text-muted-foreground">
-                          {deck.cardCount} cards
-                        </span>
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+            <DeckChoice
+              id="lobby-deck"
+              decks={decks}
+              loading={loadingDecks}
+              value={chosen}
+              onChange={setDeckId}
+            />
           </div>
 
           <div>

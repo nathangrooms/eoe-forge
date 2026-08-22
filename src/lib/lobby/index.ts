@@ -6,10 +6,12 @@
  * Four files, four jobs:
  *
  *   `tables.ts`    every call to the online-table RPCs, one query per screen
- *   `chat.ts`      the open discussion
+ *   `forum.ts`     the discussion, on the board and at a table both
+ *   `richText.ts`  making a stranger's words safe to draw
  *   `channel.ts`   how a screen finds out something changed, without polling
  *   `seat.ts`      what "ready" means: shuffle your own deck and commit to it
- *   `lobbyView.ts` the decisions and the copy, pure, so tests can reach them
+ *   `lobbyView.ts` the table decisions and copy, pure, so tests can reach them
+ *   `forumView.ts` the discussion decisions and copy, same rule
  *   `share.ts`     the link, which is the owner's stated way into a game
  *
  * What is deliberately NOT here: anything that draws a game. The lobby's job
@@ -20,8 +22,10 @@
 
 export * from './types.ts';
 export * from './tables.ts';
-export * from './chat.ts';
+export * from './forum.ts';
+export * from './richText.ts';
 export * from './channel.ts';
 export * from './seat.ts';
 export * from './lobbyView.ts';
+export * from './forumView.ts';
 export * from './share.ts';

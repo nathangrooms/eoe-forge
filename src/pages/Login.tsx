@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,6 +7,7 @@ import { AuthLayout } from '@/components/auth/AuthLayout';
 import { useAuth } from '@/components/AuthProvider';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
+import { returnPathFrom } from '@/lib/auth/returnPath';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -15,6 +16,16 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const { signIn } = useAuth();
   const navigate = useNavigate();
+  const [search] = useSearchParams();
+
+  /**
+   * Where to go once you are in.
+   *
+   * An online table link is sent to people who are not signed in, and landing
+   * them on the dashboard throws the invitation away: the code was only ever in
+   * that URL. So a caller may name where it wanted to be.
+   */
+  const next = returnPathFrom(search.get('next'));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +38,7 @@ export default function Login() {
         showError('Sign in failed', error.message);
       } else {
         showSuccess('Signed in', 'Welcome back to DeckMatrix.');
-        navigate('/dashboard');
+        navigate(next);
       }
     } catch {
       showError('Sign in failed', 'An unexpected error occurred. Please try again.');

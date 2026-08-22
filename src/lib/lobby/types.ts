@@ -98,13 +98,64 @@ export interface TablePeek {
   hostName: string | null;
 }
 
-/** One message in the open discussion. */
-export interface LobbyPost {
+/* -------------------------------------------------------------------------- */
+/* The discussion                                                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Where a conversation lives.
+ *
+ * `board` is the open discussion, which anybody can read including somebody
+ * with no account. `table` is one table's own talk, which only the people
+ * sitting at it can read. Same rows, same components, different policy.
+ */
+export type DiscussionScope = 'board' | 'table';
+
+/** One conversation, as the board list draws it. */
+export interface ForumTopic {
   id: number;
-  userId: string;
+  scope: DiscussionScope;
+  /** Set for a table's talk, null on the board. */
+  tableId: string | null;
+  /** A board conversation has a title. A table's talk does not need one. */
+  title: string | null;
+  authorId: string | null;
+  authorName: string;
+  /** Carried up from the first post, so the board can offer the way in. */
+  tableCode: string | null;
+  createdAt: string;
+  lastPostAt: string;
+  lastPostName: string | null;
+  postCount: number;
+  pinned: boolean;
+  locked: boolean;
+  removed: boolean;
+}
+
+/** One message. */
+export interface ForumPost {
+  id: number;
+  topicId: number;
+  scope: DiscussionScope;
+  tableId: string | null;
+  userId: string | null;
   name: string;
-  body: string;
+  /**
+   * Null when the post has been taken down. The words are deleted from the
+   * database rather than hidden, so there is nothing here to leak, and the row
+   * stays only so the reply written underneath it still makes sense.
+   */
+  body: string | null;
   /** Set when the post is about a table, so the message carries a way in. */
   tableCode: string | null;
   createdAt: string;
+  removed: boolean;
+  /** Only meaningful to somebody who moderates. Everyone else ignores it. */
+  reportCount: number;
+}
+
+/** A conversation and what has been said in it, as one read returns them. */
+export interface ForumThread {
+  topic: ForumTopic;
+  posts: ForumPost[];
 }

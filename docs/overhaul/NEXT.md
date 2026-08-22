@@ -3,32 +3,65 @@
 Owner, 21 Aug 2026. All three touch `src/components/play`, which the lobby
 workflow currently holds, so none of them can start until it releases.
 
-## 1. Bot matches, and an audit of whether both bots actually play
+## 1. THE ACCEPTANCE TEST: every card type, proven in real games
 
-> "playtest some bot matches and audit the logs to ensure that both bots are
-> utilising and casting available spell options."
+Owner, 21 Aug 2026, and this is the definition of done for the whole engine
+effort, not a nice-to-have:
 
-The instrument exists: `scripts/playtest/` plays seeded games headlessly with no
-model involved, and `analyze.ts` replays every recorded game through the real
-reducer. What it does NOT currently answer is the owner's question, which is
-about the bot's *decisions* rather than the engine's correctness.
+> "test and deeply analyse the bot history, ensuring that every spell is being
+> activated and deployed properly - including creatures, artifacts,
+> enchantments, abilities, tappable, on enter, everything, even board wipes,
+> exiles etc - it all has to work 100%"
 
-The measurement to add, per seat rather than per game, so a table where one bot
-plays well and the other passes every turn cannot average out:
+### The shape of the report
 
-- cards cast against cards that were castable with the mana available
-- activated abilities used against abilities that were activatable
-- mana left unspent at end of turn
-- turns where the seat did nothing at all
-- lands played against lands held
+A matrix, by card type and by effect category, EVERY ROW WITH A DENOMINATOR.
+"It works" is not a result; "203 of 183 chances" is. Categories, at minimum:
 
-Both seats must be reported separately. A bot that curves out while its
-opponent hoards is the failure this is looking for, and a table-level average
-hides it.
+| category | what counts as it working |
+|---|---|
+| creatures | resolved onto the battlefield, attacked, blocked, died |
+| artifacts | resolved, and any activated ability used |
+| enchantments | resolved and stayed; auras attached to something legal |
+| equipment | attached, and the creature's printed numbers CHANGED |
+| activated abilities | cost paid, on the stack, resolved |
+| tap abilities | the `{T}` genuinely paid, not paid twice by one tap |
+| enters-the-battlefield | the trigger fired and its effect landed |
+| board wipes | every legal creature actually left the battlefield |
+| exile | the card reached exile, not the graveyard |
+| counterspells | a spell on the stack was countered |
+| tokens | a real object entered and could attack and die |
+| counters | +1/+1 changed the numbers, not just a badge |
+| loyalty | plus AND minus abilities, and the planeswalker's loyalty moved |
+| commander | cast from the command zone, tax charged, damage tracked |
 
-Context: `bot.ts` says in its own header that it is "not trying to be strong, it
-is trying to be plausible". Judge it against that, not against a human. The
-question is whether it USES what it has, not whether it plays well.
+### Rules that make the report trustworthy
+
+- **Per SEAT, not per game.** A table where one bot plays well and the other
+  passes every turn averages out to "fine". Report both seats.
+- **Denominators come from opportunity, not from intent.** "Board wipes: 4 of 4"
+  means four were cast and four wiped. If none was ever cast, the row reads 0 of
+  0 and says so, because that is a gap in the test, not a pass.
+- **A zero is the headline.** If any category is still 0 with chances above 0,
+  it leads the report. Do not bury it under the categories that moved.
+- **Read the log, not just the counters.** The owner asked for the bot HISTORY
+  analysed. Pull real games and read what happened, so a category that counts as
+  working but produced nonsense is caught.
+- Compare against the recorded baseline in commit 56e982b: activations 2,262,
+  equipment 203, auras 74, loyalty 84, across 120 games.
+
+### The instrument
+
+`scripts/playtest/` already plays seeded games headlessly with no model, and
+`analyze.ts` replays them through the real reducer. Extend its catalogue rather
+than writing a second harness. `observe.ts` holds the event catalogue and the
+invariants; `silent.ts` holds the silent-card classifier and its exclusions.
+
+Also measure whether the bots USE what they hold, which is a different question
+from whether the engine works: cards cast against cards castable with available
+mana, abilities used against abilities activatable, mana unspent at end of turn,
+and turns where a seat did nothing. `bot.ts` says in its own header it aims to
+be plausible rather than strong, so judge it against that.
 
 ## 2. Visual audit of the board
 

@@ -175,7 +175,7 @@ export function CollectionDeckRecommendations({ collectionCards }: CollectionDec
   }, [loadRecommendations]);
 
   const handleViewDeck = (deckId: string) => {
-    navigate(`/deck-builder?deck=${deckId}`);
+    navigate(`/deck/${deckId}`);
   };
 
   const getOwnershipColor = (percent: number) => {

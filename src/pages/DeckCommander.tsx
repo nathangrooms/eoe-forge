@@ -1,30 +1,84 @@
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { DeckSubpageLayout } from '@/components/deck/DeckSubpageLayout';
 import { CommanderSelector } from '@/components/deck-builder/CommanderSelector';
 import { useDeckStore } from '@/stores/deckStore';
+import { showError, showSuccess } from '@/components/ui/toast-helpers';
+import { fetchDeckCards, type DeckCardRow } from '@/lib/deck/deckCards';
+import { setDeckCommander, type IncomingCard } from '@/lib/deck/deckMutations';
 
 /**
- * `/deck-builder/commander` — choosing a commander, as a destination.
+ * `/deck/:id/commander` — choosing a commander, as a destination.
  *
  * `CommanderDialog` was a 38-line shell whose only job was to put
- * `CommanderSelector` behind a `max-w-4xl max-h-[90vh]` overlay. The selector
- * commits straight to the deck store, so the picker works just as well as a
- * page — and this way the search results get the whole width, the browser back
- * button closes it, and nothing dims the builder underneath.
+ * `CommanderSelector` behind a `max-w-4xl max-h-[90vh]` overlay. As a page the
+ * search results get the whole width, the browser back button closes it, and
+ * nothing dims the deck underneath.
  *
- * The builder passes `state.from` so the labelled back control returns to the
- * exact surface that sent us here (`/deck-builder?deck=…`, `/smart-builder`, …)
- * rather than a guessed default.
+ * ## Why it moved off `/deck-builder/commander`
+ *
+ * It used to commit to the deck *store* and nothing else, which worked because
+ * the only surface that could reach it was the builder, which held that store
+ * and wrote it out on its next autosave. The builder is gone. So this route
+ * names the deck it is choosing for, writes the commander to `deck_cards`
+ * itself, and returns to where it came from.
+ *
+ * The old address still resolves here without an `:id`, and in that case the
+ * selector's own write to the store is the whole job — that is how the deck
+ * generator reaches it, and the generator's deck has never been saved. Two
+ * callers, one picker, and neither has to know about the other.
  */
 export default function DeckCommander() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { id } = useParams();
 
-  const commander = useDeckStore(state => state.commander);
+  const storeCommander = useDeckStore(state => state.commander);
+  const [rows, setRows] = useState<DeckCardRow[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    fetchDeckCards(id)
+      .then(result => {
+        if (!cancelled) setRows(result);
+      })
+      .catch(error => console.error('Could not read the deck:', error));
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  const current = rows.find(row => row.is_commander) ?? null;
+
+  /* `from` carries the exact surface that sent us here, so the labelled back
+     control returns there rather than to a guessed default. */
   const from =
     typeof (location.state as { from?: unknown } | null)?.from === 'string'
-      ? ((location.state as { from: string }).from)
-      : `/deck-builder${location.search}`;
+      ? (location.state as { from: string }).from
+      : id
+        ? `/deck/${id}`
+        : '/decks';
+
+  const commit = async (card: IncomingCard) => {
+    if (!id) {
+      navigate(from, { replace: true });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await setDeckCommander(id, current, card);
+      showSuccess('Commander set', card.name);
+      navigate(from, { replace: true });
+    } catch (error) {
+      console.error('Could not set the commander:', error);
+      showError('Could not set that commander', 'The deck was not changed.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <DeckSubpageLayout
@@ -33,10 +87,18 @@ export default function DeckCommander() {
       backTo={from}
       backLabel="Back to deck"
     >
-      <div className="rounded-xl bg-card p-4 shadow-sm md:p-5">
+      <div className="rounded-xl bg-card p-4 shadow-sm md:p-5" aria-busy={saving}>
         <CommanderSelector
-          currentCommander={commander}
-          onSelect={() => navigate(from, { replace: true })}
+          currentCommander={
+            current
+              ? {
+                  ...(current.card ?? {}),
+                  id: current.card_id,
+                  name: current.card?.name ?? current.card_name,
+                }
+              : storeCommander
+          }
+          onSelect={card => void commit(card as IncomingCard)}
         />
       </div>
     </DeckSubpageLayout>

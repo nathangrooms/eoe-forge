@@ -234,7 +234,7 @@ export default function Templates() {
       if (error) throw error;
 
       showSuccess('Deck created', `"${template.name}" is ready to build`);
-      navigate(`/deck-builder?deck=${newDeck.id}`);
+      navigate(`/deck/${newDeck.id}`);
     } catch (error) {
       console.error('Failed to create deck from template:', error);
       showError('Error', 'Could not create a deck from this template');

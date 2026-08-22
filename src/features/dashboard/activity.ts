@@ -96,7 +96,7 @@ function int(value: unknown): number | null {
 
 /** Where a row takes you when clicked. Never a dead link. */
 function hrefFor(type: string, kind: ActivityKind, entityId: string, name: string | null) {
-  if (kind === 'deck') return `/deck-builder?deck=${entityId}`;
+  if (kind === 'deck') return `/deck/${entityId}`;
   if (kind === 'card') {
     if (type === 'wishlist_added') return '/wishlist';
     if (type === 'listing_created' || type === 'sale_completed') return '/marketplace';

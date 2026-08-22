@@ -12,20 +12,34 @@ import {
   groupByCategory,
 } from '@/lib/deck/cardCategories';
 import { cardImage, type DeckCardRow } from '@/lib/deck/deckCards';
+import type { DeckCardGroup } from '@/lib/deck/deckCardGroups';
 import type { CardPlayability, ManaProfile } from '@/lib/deck/playability';
 import { PlayabilityFlag, PlayabilityMeter } from './PlayabilityMeter';
+import { DeckCardOverlay, type DeckCardEditing } from './DeckCardEditing';
 
 /**
- * Visual decklist, grouped by canonical card type.
+ * Visual decklist, grouped.
  *
  * Cards are drawn at the real Magic card ratio (5:7 — a card is 63x88mm, and
  * Scryfall's own images are 488x680). The previous 3:4 frame cropped ~5% off
  * every card, and the hover state painted an opaque scrim over the art the
  * user was trying to look at.
+ *
+ * Three things arrived here in the merge, all optional, so a caller that passes
+ * none of them gets exactly what it got before:
+ *
+ * - `groups`, so the deck can be cut by colour or mana value as well as by card
+ *   type. Omit it and the grid groups `rows` by type itself, as it always has.
+ * - `width`, from the size slider. Omit it and cards are drawn at `lg` in the
+ *   fixed responsive grid.
+ * - `editing`, the quantity / replace / remove cluster. Omit it and the cards
+ *   are just cards, which is what the public deck page wants.
  */
 
 interface DeckCardGridProps {
   rows: DeckCardRow[];
+  /** Pre-cut sections. Omit and the grid groups `rows` by card type itself. */
+  groups?: DeckCardGroup[];
   onCardClick?: (row: DeckCardRow) => void;
   /** Sections collapsed on first render. Everything else starts open. */
   collapsedByDefault?: string[];
@@ -36,6 +50,10 @@ interface DeckCardGridProps {
    */
   playabilityFor?: (row: DeckCardRow) => CardPlayability | null;
   manaProfile?: ManaProfile;
+  /** Card width in pixels, from the size slider. */
+  width?: number;
+  /** The controls that change the deck. Omit for a decklist nobody can edit. */
+  editing?: DeckCardEditing;
   /** Shown in place of the sections when `rows` is empty. */
   empty?: { title: string; body: string };
   className?: string;
@@ -43,30 +61,40 @@ interface DeckCardGridProps {
 
 export function DeckCardGrid({
   rows,
+  groups: providedGroups,
   onCardClick,
   collapsedByDefault = [],
   playabilityFor,
   manaProfile,
+  width,
+  editing,
   empty,
   className,
 }: DeckCardGridProps) {
-  const groups = useMemo(
+  const ownGroups = useMemo<DeckCardGroup[]>(
     () =>
       groupByCategory(rows, row => ({
         typeLine: row.card?.type_line,
         isCommander: row.is_commander,
         isSideboard: row.is_sideboard,
+      })).map(group => ({
+        key: group.category,
+        label: group.label,
+        category: group.category,
+        rows: group.items,
       })),
     [rows]
   );
 
+  const groups = providedGroups ?? ownGroups;
+
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set(collapsedByDefault));
 
-  const toggle = (category: string) => {
+  const toggle = (key: string) => {
     setCollapsed(prev => {
       const next = new Set(prev);
-      if (next.has(category)) next.delete(category);
-      else next.add(category);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   };
@@ -79,7 +107,7 @@ export function DeckCardGrid({
             {empty?.title ?? 'No cards in this deck yet'}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {empty?.body ?? 'Add cards in the deck builder and they will appear here.'}
+            {empty?.body ?? 'Search for cards on the Add tab and they will appear here.'}
           </p>
         </CardContent>
       </Card>
@@ -89,15 +117,15 @@ export function DeckCardGrid({
   return (
     <div className={cn('space-y-4', className)}>
       {groups.map(group => {
-        const isOpen = !collapsed.has(group.category);
-        const count = group.items.reduce((sum, row) => sum + row.quantity, 0);
+        const isOpen = !collapsed.has(group.key);
+        const count = group.rows.reduce((sum, row) => sum + row.quantity, 0);
 
         return (
-          <Card key={group.category} className="overflow-hidden">
+          <Card key={group.key} className="overflow-hidden">
             <CardHeader className="p-0">
               <button
                 type="button"
-                onClick={() => toggle(group.category)}
+                onClick={() => toggle(group.key)}
                 aria-expanded={isOpen}
                 className="flex w-full items-center gap-3 px-4 py-4 text-left transition-colors hover:bg-muted"
               >
@@ -107,10 +135,18 @@ export function DeckCardGrid({
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 )}
                 <span
-                  className={cn('h-3 w-1 rounded-full', CATEGORY_BG_CLASS[group.category])}
+                  className={cn(
+                    'h-3 w-1 rounded-full',
+                    group.category ? CATEGORY_BG_CLASS[group.category] : 'bg-muted-foreground'
+                  )}
                   aria-hidden
                 />
-                <h3 className={cn('text-lg font-semibold', CATEGORY_TEXT_CLASS[group.category])}>
+                <h3
+                  className={cn(
+                    'text-lg font-semibold',
+                    group.category ? CATEGORY_TEXT_CLASS[group.category] : undefined
+                  )}
+                >
                   {group.label}
                 </h3>
                 <Badge variant="secondary" className="text-sm tabular-nums">
@@ -121,9 +157,19 @@ export function DeckCardGrid({
 
             {isOpen && (
               <CardContent className="pt-0">
-                <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                  {group.items.map(row => (
-                    <li key={row.id}>
+                <ul
+                  className={cn(
+                    'grid gap-3',
+                    !width && 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
+                  )}
+                  style={
+                    width
+                      ? { gridTemplateColumns: `repeat(auto-fill, minmax(${width}px, 1fr))` }
+                      : undefined
+                  }
+                >
+                  {group.rows.map(row => (
+                    <li key={row.id} className="group relative">
                       {/* The shared `CardImage`: real card geometry, the
                           resolution ladder, blur-up and the flip affordance on
                           double-faced cards. The hand-rolled <img> this
@@ -139,8 +185,16 @@ export function DeckCardGrid({
                           image_url: cardImage(row, 'normal') ?? undefined,
                         }}
                         size="lg"
+                        /* `width` overrides `size` for both layout and the
+                           resolution asked for, so the slider drives the
+                           picture as well as the box. */
+                        width={width}
                         fill
                         onClick={() => onCardClick?.(row)}
+                        /* While the deck is editable the overlay is the
+                           affordance; the lift would slide the card out from
+                           under its own controls. */
+                        interactive={!editing}
                         title={row.card?.name || row.card_name}
                       >
                         {row.quantity > 1 && (
@@ -155,6 +209,14 @@ export function DeckCardGrid({
                             marking all ninety-nine would bury the signal. */}
                         <PlayabilityFlag card={playabilityFor?.(row) ?? null} />
                       </CardImage>
+
+                      {/* The commander is changed from the block above the
+                          decklist, which is where it is drawn whole. A quantity
+                          stepper on the command zone would be a control for a
+                          number that is always one. */}
+                      {editing && !row.is_commander && (
+                        <DeckCardOverlay row={row} editing={editing} />
+                      )}
 
                       {/* 13px, not 10px. The caption under a card is the one
                           place a player reads a name at a glance and the old

@@ -1,10 +1,25 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { LayoutGrid, Rows3, Search } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Copy, Grid3X3, LayoutList, Search, Type as TypeIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { showError, showSuccess } from '@/components/ui/toast-helpers';
+import {
+  FIELD,
   FilterBar,
+  FilterButton,
   ListingFrame,
   ListingSearch,
+  SURFACE,
+  SortControl,
   matchedLabel,
   resultSentence,
   useListingView,
@@ -12,6 +27,15 @@ import {
   type ListingView,
 } from '@/components/listing';
 import type { DeckCardRow } from '@/lib/deck/deckCards';
+import { serializeDeck } from '@/lib/deck/deckSerialize';
+import {
+  DECK_SORT_OPTIONS,
+  GROUP_AXIS_LABEL,
+  groupDeckRows,
+  sortDeckRows,
+  type DeckGroupAxis,
+  type DeckSortAxis,
+} from '@/lib/deck/deckCardGroups';
 import type { PlayabilityEngine } from '@/lib/deck/playability';
 import { rowToPlayabilityInput } from '@/lib/deck/playabilityView';
 import {
@@ -24,79 +48,123 @@ import {
 import { DeckCardFilters } from './DeckCardFilters';
 import { DeckCardGrid } from './DeckCardGrid';
 import { DeckCardTable } from './DeckCardTable';
+import type { DeckCardEditing } from './DeckCardEditing';
+import {
+  DECK_BUILD_VIEW_SURFACE,
+  useDeckGroupBy,
+} from '@/components/deck-builder/deck-view-prefs';
 
 /**
- * The Cards tab: the decklist and the controls that narrow it, and nothing
- * else.
+ * The decklist, and everything that changes it.
  *
- * The curve used to sit above this, on the one tab whose whole job is the card
- * list — the owner's note was blunt: "Mana curve not needs on main cards
- * page." It now lives on the Mana tab beside the source analysis it belongs
- * with. Nothing was removed to do that.
+ * ## One surface where there were two
  *
- * Visual and List were previously two separate top-level tabs showing the same
- * hundred cards. They are one tab with a view toggle here, so the tab strip
- * names questions ("what is in this deck?") rather than renderers, and both
- * renderers survive untouched.
+ * `/deck/:id` had this shell — the shared `FilterBar`, the shared
+ * `ListingFrame`, the shared count sentence, the shared empty state,
+ * castability on every card, `PriceTag`, the canonical categoriser and the view
+ * mode in the URL. `/deck-builder` had the controls — quantity, replace,
+ * remove, group by, sort, card size and a plain-text mode. Neither was a
+ * superset. The shell is the harder half to rebuild and it was already the
+ * shared vocabulary, so the controls came here.
  *
- * ## What the consistency pass changed
+ * ## The filters are closed by default
  *
- * The bar above the list is `FilterBar` now, the same object as the one above
- * My Collection and My Decks, and the results sit in `ListingFrame`. Five
- * things this page was drawing itself come from there instead: the search box,
- * which had no debounce and drew the shadcn `Input` with its hairline border;
- * the count line, which was one of six phrasings of "how many results" and now
- * reads `84 of 100 cards` from `matchedLabel`; the clear control; the view
- * toggle, which was a hand-rolled segmented control; and the surface the whole
- * band sits on.
+ * Six controls above the deck on every visit, when almost every visit is "look
+ * at my deck" rather than "narrow my deck". Owner: "dont need all those filters
+ * by default". One control opens them and carries the count, so a narrowed list
+ * is never a mystery. Behind it are the same facet rows as before, every chip
+ * computed from the deck in your hand and carrying its real count — a map of
+ * the deck rather than a query builder.
  *
- * The facets stayed exactly where they were, always open, because they are
- * computed from the deck in your hand and carry live counts. See
- * `DeckCardFilters` for that argument in full.
+ * ## Where each control applies
+ *
+ * Group by and sort drive the visual grid; the size slider belongs to the
+ * visual mode alone, through `ListingMode.sized`. The table sorts on its own
+ * column headers, which is better than an external axis picker and is why it
+ * does not get one. Text is the decklist as text, so grouping and sorting would
+ * only rearrange something you are about to paste elsewhere. A control that
+ * would do nothing is not drawn.
+ *
+ * ## The commander is not in this list
+ *
+ * It is drawn whole and large above, with its oracle text and its own Change
+ * control. Repeating it here as a thumbnail pushed the deck down a row for
+ * nothing. Owner: "dont need to show the commander row - start with creatures -
+ * we already show commander at the top". It is still in the text decklist,
+ * because a decklist without its commander is not the decklist.
  */
 
-export type DeckCardView = 'visual' | 'table';
+export type DeckCardView = 'visual' | 'table' | 'text';
 
 const CARD_MODES: ListingMode[] = [
-  { id: 'visual', label: 'Visual', icon: LayoutGrid, layout: 'rows' },
-  { id: 'table', label: 'Table', icon: Rows3, layout: 'rows' },
+  { id: 'visual', label: 'Visual', icon: Grid3X3, layout: 'rows', sized: true },
+  { id: 'table', label: 'Table', icon: LayoutList, layout: 'rows' },
+  { id: 'text', label: 'Text', icon: TypeIcon, layout: 'rows' },
 ];
 
+/**
+ * Card width on a first visit.
+ *
+ * 230, not the build surface's old 150. 230 sits in `CardImage`'s `lg` band,
+ * which is what the read-only decklist drew at and is the size this merge is
+ * meant to keep — five cards across the content band, at a size you can read a
+ * name and a mana cost off at arm's length. The owner's most repeated note
+ * across this project is that everything renders too small.
+ *
+ * A reader who has moved the slider keeps their width: `useCardSize` reads the
+ * stored value first and this is only the fallback.
+ */
+const DEFAULT_CARD_SIZE = 230;
+
 interface DeckCardsPanelProps {
+  /** What the list shows and filters. The commander is not among these. */
   rows: DeckCardRow[];
+  /** Carried into the text decklist only, so an export is a whole deck. */
+  commanderRow?: DeckCardRow | null;
+  deckName: string;
   onCardClick?: (row: DeckCardRow) => void;
   /** Memoised castability for this decklist. */
   engine: PlayabilityEngine;
   view: DeckCardView;
   onViewChange: (next: DeckCardView) => void;
+  /** Quantity, replace and remove. Omit for a decklist nobody can change. */
+  editing?: DeckCardEditing;
 }
 
 export function DeckCardsPanel({
   rows,
+  commanderRow,
+  deckName,
   onCardClick,
   engine,
   view,
   onViewChange,
+  editing,
 }: DeckCardsPanelProps) {
   const [filters, setFilters] = useState<DeckCardFilterState>(EMPTY_DECK_CARD_FILTERS);
+  const [facetsOpen, setFacetsOpen] = useState(false);
+  const [groupBy, setGroupBy] = useDeckGroupBy();
 
   /*
-   * The mode is the page's, not the vocabulary's.
+   * The mode is the page's; everything else is remembered.
    *
    * `?view=table` is in the URL on this page, deliberately: an old `?tab=list`
    * link still has to land on the table it used to open, and a decklist you
    * send somebody should arrive the way you were reading it. `useListingView`
    * remembers a mode in `localStorage`, which is the right home for a
-   * preference and the wrong home for a place. So the hook supplies everything
-   * else and the two mode fields are overridden with the URL-backed pair the
-   * page already owns.
-   *
-   * No `surface`, because nothing else here is worth persisting: this page has
-   * no card-size slider (`DeckCardGrid` lays itself out by card type) and no
-   * pager (cutting a hundred-card decklist into pages would hide half of the
-   * deck from the person reading it).
+   * preference and the wrong home for a place. So the hook supplies the sort
+   * axis, the direction and the card width — under the key the build surface
+   * has always written, so nobody's choice resets — and the two mode fields are
+   * overridden with the URL-backed pair the page owns.
    */
-  const base = useListingView({ modes: CARD_MODES });
+  const base = useListingView({
+    surface: DECK_BUILD_VIEW_SURFACE,
+    modes: CARD_MODES,
+    defaultMode: 'visual',
+    defaultSortKey: 'cmc',
+    defaultSortDir: 'asc',
+    defaultSize: DEFAULT_CARD_SIZE,
+  });
   const listView: ListingView = useMemo(
     () => ({
       ...base,
@@ -139,14 +207,24 @@ export function DeckCardsPanel({
     [rows, filters, playabilityFor]
   );
 
+  const sorted = useMemo(
+    () => sortDeckRows(filtered, base.sortKey as DeckSortAxis, base.sortDir),
+    [filtered, base.sortKey, base.sortDir]
+  );
+
+  const groups = useMemo(
+    () => groupDeckRows(sorted, groupBy as DeckGroupAxis),
+    [sorted, groupBy]
+  );
+
   const total = rows.reduce((sum, row) => sum + (row.quantity || 1), 0);
   const shown = filtered.reduce((sum, row) => sum + (row.quantity || 1), 0);
   const narrowed = isFilterActive(filters);
 
   /*
-   * How many facets are on, so the bar's clear control appears exactly when
-   * something is narrowing the list. The search box counts as one, which is
-   * what it counts as on every other surface.
+   * How many facets are on, so the trigger carries a count and the bar's clear
+   * control appears exactly when something is narrowing the list. The search
+   * box counts as one, which is what it counts as on every other surface.
    */
   const activeCount =
     (filters.search.trim() ? 1 : 0) +
@@ -163,6 +241,26 @@ export function DeckCardsPanel({
     []
   );
 
+  /**
+   * The decklist as text, from `serializeDeck` — the one serialiser every
+   * export surface uses. The build surface wrote its own, which was two
+   * plain-text decklists for one deck and exactly the duplicate this merge
+   * exists to remove.
+   */
+  const decklistText = useMemo(
+    () => serializeDeck(commanderRow ? [commanderRow, ...filtered] : filtered, 'text', deckName),
+    [commanderRow, filtered, deckName]
+  );
+
+  const copyDecklist = () => {
+    navigator.clipboard
+      ?.writeText(decklistText)
+      .then(() => showSuccess('Copied', 'Decklist copied to the clipboard'))
+      .catch(() => showError('Copy failed', 'Your browser blocked clipboard access'));
+  };
+
+  const arranging = view === 'visual';
+
   return (
     <div className="space-y-4">
       <FilterBar
@@ -177,33 +275,78 @@ export function DeckCardsPanel({
             label="Search cards in this deck"
           />
         }
-        facets={<DeckCardFilters facets={facets} state={filters} onChange={setFilters} />}
+        presets={
+          arranging ? (
+            /* Grouping is this surface's own control and no other listing has
+               one, so it is passed in rather than built into the bar. */
+            <Select value={groupBy} onValueChange={value => setGroupBy(value as DeckGroupAxis)}>
+              <SelectTrigger className={cn(FIELD, 'h-9 w-[150px]')} aria-label="Group by">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className={SURFACE}>
+                {(Object.keys(GROUP_AXIS_LABEL) as DeckGroupAxis[]).map(axis => (
+                  <SelectItem key={axis} value={axis}>
+                    {GROUP_AXIS_LABEL[axis]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : undefined
+        }
+        filters={
+          <FilterButton
+            count={activeCount}
+            label={facetsOpen ? 'Hide filters' : 'Filters'}
+            aria-expanded={facetsOpen}
+            onClick={() => setFacetsOpen(open => !open)}
+          />
+        }
+        sort={
+          arranging ? (
+            <SortControl
+              options={DECK_SORT_OPTIONS}
+              value={base.sortKey}
+              onValueChange={base.setSortKey}
+              dir={base.sortDir}
+              onToggleDir={base.toggleSortDir}
+              label="Sort cards by"
+            />
+          ) : undefined
+        }
+        facets={
+          facetsOpen ? (
+            <DeckCardFilters facets={facets} state={filters} onChange={setFilters} />
+          ) : undefined
+        }
       />
 
       <ListingFrame
         view={listView}
-        count={filtered.length}
-        /* `84 of 100 cards`, and only `100 cards` when nothing is narrowed.
-           The same sentence every listing in the product uses. */
+        /* Text mode has one body whatever the row count is, so it must not fall
+           through to the empty state while the deck still has cards in it. */
+        count={view === 'text' ? (filtered.length > 0 ? 1 : 0) : filtered.length}
         summary={resultSentence([matchedLabel(shown, total, 'card')])}
         empty={{
           title: narrowed ? 'No cards match these filters' : 'No cards in this deck yet',
           description: narrowed
             ? 'Clear a filter above to widen the list.'
-            : 'Add cards in the deck builder and they will appear here.',
+            : 'Search on the Add tab and the cards land here.',
           icon: Search,
           onClearFilters: narrowed ? clearEverything : undefined,
         }}
       >
         {view === 'visual' ? (
           <DeckCardGrid
-            rows={filtered}
+            rows={sorted}
+            groups={groups}
             onCardClick={onCardClick}
             collapsedByDefault={['lands']}
             playabilityFor={playabilityFor}
             manaProfile={engine.profile}
+            width={listView.size}
+            editing={editing}
           />
-        ) : (
+        ) : view === 'table' ? (
           <Card>
             <CardContent className="p-0">
               <DeckCardTable
@@ -211,9 +354,25 @@ export function DeckCardsPanel({
                 onCardClick={onCardClick}
                 playabilityFor={playabilityFor}
                 manaProfile={engine.profile}
+                editing={editing}
               />
             </CardContent>
           </Card>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex justify-end">
+              <Button variant="secondary" size="sm" onClick={copyDecklist}>
+                <Copy className="mr-2 h-4 w-4" />
+                Copy decklist
+              </Button>
+            </div>
+            <Textarea
+              readOnly
+              value={decklistText}
+              className="min-h-[420px] font-mono text-xs"
+              aria-label="Plain-text decklist"
+            />
+          </div>
         )}
       </ListingFrame>
     </div>

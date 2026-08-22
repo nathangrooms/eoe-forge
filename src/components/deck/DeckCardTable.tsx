@@ -16,6 +16,7 @@ import { CATEGORY_LABEL, categorizeCard } from '@/lib/deck/cardCategories';
 import type { DeckCardRow } from '@/lib/deck/deckCards';
 import type { CardPlayability, ManaProfile } from '@/lib/deck/playability';
 import { PlayabilityMeter } from './PlayabilityMeter';
+import { DeckRowActions, QuantityInput, type DeckCardEditing } from './DeckCardEditing';
 import { describeGapsShort, formatAmount, readAmount, totalPrices } from '@/lib/pricing';
 
 /**
@@ -102,6 +103,14 @@ interface DeckCardTableProps {
   playabilityFor?: (row: DeckCardRow) => CardPlayability | null;
   /** Required alongside `playabilityFor`; the tooltip explains from it. */
   manaProfile?: ManaProfile;
+  /**
+   * The controls that change the deck: a typed quantity in the Qty cell, and
+   * replace / remove revealed on hover at the end of the row.
+   *
+   * Optional, the same way `playabilityFor` is. The public deck page passes
+   * neither and the table renders exactly as it did before the merge.
+   */
+  editing?: DeckCardEditing;
   /** Shown when `rows` is empty. The filtered list wants a different sentence. */
   emptyMessage?: string;
   className?: string;
@@ -112,6 +121,7 @@ export function DeckCardTable({
   onCardClick,
   playabilityFor,
   manaProfile,
+  editing,
   emptyMessage = 'No cards in this section.',
   className,
 }: DeckCardTableProps) {
@@ -258,6 +268,11 @@ export function DeckCardTable({
                 </TableHead>
               );
             })}
+            {editing && (
+              <TableHead className="w-20">
+                <span className="sr-only">Card actions</span>
+              </TableHead>
+            )}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -277,7 +292,17 @@ export function DeckCardTable({
                 )}
                 onClick={() => onCardClick?.(row)}
               >
-                <TableCell className="text-right tabular-nums">{row.quantity}</TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {/* The commander's count is always one, so it stays a figure
+                      rather than becoming a stepper for a number that cannot
+                      move. Changing the commander is done from the block above
+                      the decklist. */}
+                  {editing && !row.is_commander ? (
+                    <QuantityInput row={row} editing={editing} className="h-7 w-14 px-1 text-center" />
+                  ) : (
+                    row.quantity
+                  )}
+                </TableCell>
                 <TableCell>
                   <div className="flex items-center justify-between gap-3">
                     <span className="font-medium">{row.card?.name || row.card_name}</span>
@@ -341,6 +366,11 @@ export function DeckCardTable({
                     </span>
                   )}
                 </TableCell>
+                {editing && (
+                  <TableCell>
+                    {row.is_commander ? null : <DeckRowActions row={row} editing={editing} />}
+                  </TableCell>
+                )}
               </TableRow>
             );
           })}
@@ -369,6 +399,7 @@ export function DeckCardTable({
                 </span>
               )}
             </TableCell>
+            {editing && <TableCell />}
           </TableRow>
         </TableBody>
       </Table>

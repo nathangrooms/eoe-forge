@@ -84,6 +84,25 @@ function toStored(power: DeckPower): StoredDeckPower {
   };
 }
 
+/**
+ * The two columns a cached score writes, without the read that precedes them in
+ * `persistDeckPower`.
+ *
+ * That function reads `edh_analysis` first so the scraper's own keys survive
+ * the merge, which costs a request every time the score moves. A page that
+ * already holds the column — the deck page loads it with the deck — can merge
+ * locally and write once. Same two columns, same shape, one request.
+ */
+export function deckPowerRecord(power: DeckPower): {
+  power_level: number;
+  deckmatrix: StoredDeckPower;
+} {
+  return {
+    power_level: Math.max(1, Math.min(10, Math.round(power.score))),
+    deckmatrix: toStored(power),
+  };
+}
+
 /** What a stored score has instead of a computed cut list: nothing. */
 const EMPTY_READOUT: CastabilityReadout = {
   averagePct: null,

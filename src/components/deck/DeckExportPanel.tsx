@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Copy, Download, Loader2 } from 'lucide-react';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { fetchDeckCards, type DeckCardRow } from '@/lib/deck/deckCards';
@@ -24,17 +25,38 @@ import {
  * This was `DeckExportDialog` — a `max-w-2xl` overlay holding a format select
  * and a scrolling textarea. `/deck/:id/export` now owns it, so the serialized
  * list gets the whole column, the URL is shareable, and Back leaves it.
+ *
+ * ## The merge
+ *
+ * There were three exporters. This one reads the deck from the database, so it
+ * is right whatever any page is holding, and it had plain text, Arena, Magic
+ * Online and CSV. `EnhancedDeckExport` had JSON, Moxfield and the four content
+ * switches; `DeckImportExport`'s export half was a straight duplicate of the
+ * first four. All six formats and all four switches are here now, over one row
+ * type and one serialiser, and the two hand-rolled copies are gone.
  */
 interface DeckExportPanelProps {
   deckId: string;
   deckName: string;
+  /** Written into the formats that carry a comment header. */
+  format?: string;
+  description?: string | null;
 }
 
-export function DeckExportPanel({ deckId, deckName }: DeckExportPanelProps) {
+export function DeckExportPanel({
+  deckId,
+  deckName,
+  format: deckFormat,
+  description,
+}: DeckExportPanelProps) {
   const [rows, setRows] = useState<DeckCardRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [format, setFormat] = useState<DeckExportFormat>('text');
+  const [includeCommander, setIncludeCommander] = useState(true);
+  const [includeSideboard, setIncludeSideboard] = useState(true);
+  const [includePrices, setIncludePrices] = useState(false);
+  const [groupByType, setGroupByType] = useState(false);
 
   useEffect(() => {
     if (!deckId) return;
@@ -59,7 +81,23 @@ export function DeckExportPanel({ deckId, deckName }: DeckExportPanelProps) {
     };
   }, [deckId]);
 
-  const text = rows.length > 0 ? serializeDeck(rows, format, deckName) : '';
+  const hasSideboard = rows.some(row => row.is_sideboard);
+  const hasCommander = rows.some(row => row.is_commander);
+  /* Grouping is a text layout, so the switch is only offered where it does
+     something. A control that would be ignored is not drawn. */
+  const canGroup = format === 'text' || format === 'moxfield';
+
+  const text =
+    rows.length > 0
+      ? serializeDeck(rows, format, deckName, {
+          includeCommander,
+          includeSideboard,
+          includePrices,
+          groupByType: canGroup && groupByType,
+          format: deckFormat,
+          description,
+        })
+      : '';
 
   const handleCopy = async () => {
     try {
@@ -72,9 +110,7 @@ export function DeckExportPanel({ deckId, deckName }: DeckExportPanelProps) {
 
   const handleDownload = () => {
     const option = DECK_EXPORT_FORMATS.find(o => o.value === format);
-    const blob = new Blob([text], {
-      type: format === 'csv' ? 'text/csv' : 'text/plain',
-    });
+    const blob = new Blob([text], { type: option?.mime ?? 'text/plain' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
@@ -99,6 +135,42 @@ export function DeckExportPanel({ deckId, deckName }: DeckExportPanelProps) {
             ))}
           </SelectContent>
         </Select>
+      </div>
+
+      {/* The four content switches, from the exporter that had them. Each one
+          is offered only where the deck gives it something to do: a deck with
+          no sideboard is not asked whether to include one. */}
+      <div className="flex flex-wrap gap-x-8 gap-y-3">
+        {hasCommander && (
+          <ExportSwitch
+            id="export-commander"
+            label="Include commander"
+            checked={includeCommander}
+            onCheckedChange={setIncludeCommander}
+          />
+        )}
+        {hasSideboard && (
+          <ExportSwitch
+            id="export-sideboard"
+            label="Include sideboard"
+            checked={includeSideboard}
+            onCheckedChange={setIncludeSideboard}
+          />
+        )}
+        <ExportSwitch
+          id="export-prices"
+          label="Include prices"
+          checked={includePrices}
+          onCheckedChange={setIncludePrices}
+        />
+        {canGroup && (
+          <ExportSwitch
+            id="export-group"
+            label="Group by type"
+            checked={groupByType}
+            onCheckedChange={setGroupByType}
+          />
+        )}
       </div>
 
       {loading ? (
@@ -133,6 +205,28 @@ export function DeckExportPanel({ deckId, deckName }: DeckExportPanelProps) {
           Download
         </Button>
       </div>
+    </div>
+  );
+}
+
+/** One switch and its label, so the four read identically. */
+function ExportSwitch({
+  id,
+  label,
+  checked,
+  onCheckedChange,
+}: {
+  id: string;
+  label: string;
+  checked: boolean;
+  onCheckedChange: (next: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <Switch id={id} checked={checked} onCheckedChange={onCheckedChange} />
+      <Label htmlFor={id} className="text-sm font-normal">
+        {label}
+      </Label>
     </div>
   );
 }

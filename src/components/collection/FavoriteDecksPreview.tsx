@@ -175,7 +175,7 @@ export function FavoriteDecksPreview() {
       navigate(
         entry.local
           ? `/builder?loadLocal=${entry.summary.id}`
-          : `/builder?loadDeck=${entry.summary.id}`
+          : `/deck/${entry.summary.id}`
       );
     } catch (error) {
       console.error('Error loading deck:', error);

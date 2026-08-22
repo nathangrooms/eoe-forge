@@ -484,7 +484,7 @@ export default function Precons() {
         );
       }
       toast.success(`Loaded "${selected.name}" with ${resolvedRows.length} cards`);
-      navigate(`/deck-builder?deck=${created.id}`);
+      navigate(`/deck/${created.id}`);
     } catch (error) {
       console.error('[precons] save failed', error);
       toast.error('Failed to load that list into your decks');

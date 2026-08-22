@@ -46,6 +46,22 @@ import { COVER_ASPECT, PLAY_MODES, type PlayModeId } from './playModes';
 /** Covers that are not there. Remembered so the 404 happens once per tab. */
 const missingCovers = new Set<string>();
 
+/**
+ * `fetchpriority`, lowercase, spread onto the img.
+ *
+ * This is React 18.3.1. `fetchPriority` in camelCase is a React 19 prop; on 18
+ * it still reaches the DOM lowercased — measured, the attribute reads back as
+ * `fetchpriority="high"` and the browser honours it — but on the way React logs
+ *
+ *   Warning: React does not recognize the `fetchPriority` prop on a DOM element
+ *
+ * through `console.error`, on every load of this page. A console error that is
+ * not an error is how everybody learns to stop reading the console, which is
+ * how a real one gets missed. Spelling it lowercase is what the warning itself
+ * asks for, and it is a plain pass-through attribute either way.
+ */
+const priority = (eager: boolean) => ({ fetchpriority: eager ? 'high' : 'auto' });
+
 function Cover({
   src,
   fallback,
@@ -56,13 +72,18 @@ function Cover({
   fallback: { style: string; tint: string };
   alt: string;
   /**
-   * The two doors above the fold are fetched straight away.
+   * A door above the fold is fetched straight away.
    *
    * They were all four `loading="lazy"`, which is right for a picture further
    * down a page and wrong for the picture that IS the page: the reader is
-   * looking at the top two doors while the browser waits to be told they
-   * matter. The bottom two stay lazy, because on a 800px window they are not
-   * on screen until somebody scrolls.
+   * looking at the doors while the browser waits to be told they matter.
+   *
+   * It used to be the first two, because the wall was two columns and the
+   * second row began at y=601 in an 800px window. The wall is one row now, so
+   * "the two above the fold" is all four of them: measured on 22 Aug 2026,
+   * every door sits at y=248 and is 164px tall at 1280 x 800 and 253px tall at
+   * 1920 x 1080. Doors three and four were still lazy and still auto priority,
+   * on screen, for a reason that had stopped being true.
    */
   eager: boolean;
 }) {
@@ -86,7 +107,7 @@ function Cover({
           src={src}
           alt={alt}
           loading={eager ? 'eager' : 'lazy'}
-          fetchPriority={eager ? 'high' : 'auto'}
+          {...priority(eager)}
           decoding="async"
           className="absolute inset-0 h-full w-full object-cover"
           onError={() => {
@@ -122,7 +143,7 @@ export function ModeWall({ value, onChoose, live }: ModeWallProps) {
      across quarters the width and therefore quarters the height. */
   return (
     <div className="grid w-full gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      {PLAY_MODES.map((mode, index) => {
+      {PLAY_MODES.map(mode => {
         const active = value === mode.id;
         const liveLine = live?.[mode.id] ?? null;
 
@@ -138,7 +159,8 @@ export function ModeWall({ value, onChoose, live }: ModeWallProps) {
             )}
             style={{ aspectRatio: COVER_ASPECT }}
           >
-            <Cover src={mode.cover} fallback={mode.fallback} alt="" eager={index < 2} />
+            {/* All four, because all four are on screen. See `Cover`. */}
+            <Cover src={mode.cover} fallback={mode.fallback} alt="" eager />
 
             {/* The darkening, and only in the band the cover already darkened
                 for it. Above 42% of the height the picture is untouched. */}

@@ -27,11 +27,11 @@ import { CommanderWall } from '@/components/ai-builder/CommanderWall';
  * URL, no browser Back, and covered the deck list it was launched from. It is a
  * destination — you go there, you fill it in, you leave — so it is a route.
  *
- * The rail's builder entry cannot simply link to `/deck-builder`: that route
- * bounces to `/decks` whenever there is no `?deck=` parameter, so a control
- * labelled "Deck Builder" reliably landed the user on the deck *list*. A deck
- * has to exist before the builder has anything to open, so this page creates
- * one and then navigates to `/deck-builder?deck=<id>`.
+ * The rail's builder entry cannot simply link to a deck page: a deck has to
+ * exist before there is anything to open. So this page creates one and then
+ * navigates to `/deck/<id>`, which is where a deck is now both read and built.
+ * (It used to navigate to `/deck-builder?deck=<id>`, the second of the two
+ * pages one deck had; that address is a redirect to this one now.)
  *
  * Layout: this is the first thing anyone does in the product, and it used to be
  * a 1024px ribbon down the middle of the screen whose right-hand half stayed
@@ -178,7 +178,7 @@ export function NewDeck() {
       showSuccess('Deck created', `"${deckName}" is ready to build`);
       // `replace`: Back from the builder should return to the deck list, not to
       // a half-filled form for a deck that already exists.
-      navigate(`/deck-builder?deck=${newDeck.id}`, { replace: true });
+      navigate(`/deck/${newDeck.id}`, { replace: true });
     } catch (error) {
       console.error('Error creating deck:', error);
       showError('Could not create deck', 'Something went wrong. Please try again.');

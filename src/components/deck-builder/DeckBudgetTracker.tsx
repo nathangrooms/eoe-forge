@@ -12,6 +12,24 @@ interface DeckBudgetTrackerProps {
   targetBudget?: number;
 }
 
+/**
+ * COPIES COUNT.
+ *
+ * Every figure in this panel used to be built from `parseFloat(card.prices.usd)`
+ * summed once per *distinct* card, with no `quantity` anywhere in the file. For
+ * a singleton Commander deck the only error was basic lands, which are cheap,
+ * so it had been almost right for the format the product is mostly used for and
+ * badly wrong for anything with four-ofs. The error was inherited by
+ * `top5Percent`, `percentUsed`, `remaining`, the over-budget test and the
+ * rarity roll-up.
+ *
+ * It also meant the Value tab's total and the "Est. value" tile at the top of
+ * the same page were two different numbers for one deck. They agree now.
+ */
+function copiesOf(card: { quantity?: number }): number {
+  return Math.max(1, Math.floor(card.quantity ?? 1));
+}
+
 export function DeckBudgetTracker({ deckCards, targetBudget = 100 }: DeckBudgetTrackerProps) {
   const [budgetLimit, setBudgetLimit] = useState(targetBudget);
 
@@ -19,14 +37,17 @@ export function DeckBudgetTracker({ deckCards, targetBudget = 100 }: DeckBudgetT
     // Calculate total deck value
     const totalValue = deckCards.reduce((sum, card) => {
       const price = parseFloat(card.prices?.usd || '0');
-      return sum + price;
+      return sum + (Number.isNaN(price) ? 0 : price) * copiesOf(card);
     }, 0);
 
-    // Find most expensive cards
+    // Find the most expensive stacks — a playset of a $12 card outranks one $30
+    // card in what it costs to assemble, which is the question this asks.
     const sortedByPrice = [...deckCards]
       .map(card => ({
         name: card.name,
-        price: parseFloat(card.prices?.usd || '0'),
+        copies: copiesOf(card),
+        unitPrice: parseFloat(card.prices?.usd || '0') || 0,
+        price: (parseFloat(card.prices?.usd || '0') || 0) * copiesOf(card),
         rarity: card.rarity,
       }))
       .filter(c => c.price > 0)
@@ -40,7 +61,7 @@ export function DeckBudgetTracker({ deckCards, targetBudget = 100 }: DeckBudgetT
     const byRarity = deckCards.reduce((acc, card) => {
       const rarity = card.rarity || 'common';
       const price = parseFloat(card.prices?.usd || '0');
-      acc[rarity] = (acc[rarity] || 0) + price;
+      acc[rarity] = (acc[rarity] || 0) + (Number.isNaN(price) ? 0 : price) * copiesOf(card);
       return acc;
     }, {} as Record<string, number>);
 
@@ -184,7 +205,10 @@ export function DeckBudgetTracker({ deckCards, targetBudget = 100 }: DeckBudgetT
               <div key={idx} className="flex items-center justify-between text-sm p-2 rounded bg-muted/50">
                 <div className="flex items-center gap-2 flex-1 min-w-0">
                   <span className="text-muted-foreground w-5">{idx + 1}.</span>
-                  <span className="truncate">{card.name}</span>
+                  <span className="truncate">
+                    {card.copies > 1 ? `${card.copies}x ` : ''}
+                    {card.name}
+                  </span>
                   <Badge variant="outline" className={`text-xs ${getRarityColor(card.rarity)}`}>
                     {card.rarity}
                   </Badge>

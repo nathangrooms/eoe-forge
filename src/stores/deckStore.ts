@@ -138,14 +138,20 @@ export const useDeckStore = create<DeckState>()(
           };
           
           console.log('addCard (existing): new quantity:', existingCard.quantity + quantityToAdd, 'totalCards after:', newState.totalCards);
-          
-          // Auto-save if we have a current deck ID
-          if (state.currentDeckId) {
-            setTimeout(() => {
-              get().updateDeck(state.currentDeckId!);
-            }, 500); // Debounce auto-save
-          }
-          
+
+          /*
+           * NO SAVE HERE.
+           *
+           * The comment eleven lines below has said "auto-save removed to
+           * prevent race conditions, the parent component handles auto-save"
+           * since it was written, and it was true of the *new card* branch
+           * only. This branch still scheduled a save of its own, so adding a
+           * copy of a card the deck already held fired this timer *and* the
+           * owning page's, and each one rewrote every row in the deck.
+           *
+           * One save owner. This store no longer starts timers.
+           */
+
           return newState;
         } else {
           // Add new card with its quantity
@@ -727,7 +733,18 @@ export const useDeckStore = create<DeckState>()(
               format: state.format,
               colors: state.colors,
               // See saveDeck: power_level is never written from the store.
-              description: `${state.format} deck with ${state.totalCards} cards`,
+              /*
+               * `description` IS NOT WRITTEN HERE.
+               *
+               * This used to write `'<format> deck with <n> cards'` on every
+               * save. The deck page renders that column as the deck's own
+               * prose, under the commander, and nothing else could write it —
+               * so every deck that had ever been opened for editing had had
+               * whatever the owner wrote replaced with a sentence describing
+               * its own card count, and the page presented that as theirs.
+               * The deck page owns the field now and only writes it when
+               * somebody edits it.
+               */
             })
             .eq('id', deckId)
             .eq('user_id', user.id);
@@ -740,7 +757,7 @@ export const useDeckStore = create<DeckState>()(
           // Get current cards in database to compute delta
           const { data: existingCards } = await supabase
             .from('deck_cards')
-            .select('id, card_id')
+            .select('id, card_id, is_sideboard')
             .eq('deck_id', deckId);
 
           // Build set of card IDs we want to keep
@@ -749,8 +766,34 @@ export const useDeckStore = create<DeckState>()(
             currentCardIds.add(state.commander.id);
           }
 
+          /*
+           * SIDEBOARD ROWS ARE NOT THIS STORE'S TO TOUCH.
+           *
+           * `loadDeck` pushes every non-commander row into one flat array and
+           * `Card` has no `is_sideboard` field, so a deck with a sideboard was
+           * loaded as one maindeck and then written back as one maindeck: the
+           * sideboard was deleted here as "no longer in the deck", and any card
+           * that appeared in both was upserted with `is_sideboard: false`. The
+           * database, the exporters, the deck page and the missing-cards list
+           * all handle a sideboard correctly, which is what made this the
+           * dangerous half of the asymmetry rather than merely the incomplete
+           * one.
+           *
+           * Sideboard rows are excluded from the delete set and from the
+           * conflict target below, so a sideboard survives a save by a surface
+           * that cannot see it.
+           */
+          const sideboardCardIds = new Set(
+            (existingCards ?? [])
+              .filter((row: { is_sideboard?: boolean }) => row.is_sideboard)
+              .map((row: { card_id: string }) => row.card_id)
+          );
+
           // Delete only cards that are no longer in the deck
-          const cardsToDelete = existingCards?.filter(ec => !currentCardIds.has(ec.card_id)) || [];
+          const cardsToDelete =
+            existingCards?.filter(
+              ec => !currentCardIds.has(ec.card_id) && !sideboardCardIds.has(ec.card_id)
+            ) || [];
           if (cardsToDelete.length > 0) {
             const { error: deleteError } = await supabase
               .from('deck_cards')
@@ -795,18 +838,25 @@ export const useDeckStore = create<DeckState>()(
               return acc;
             }, [] as Card[]);
 
-            const cardUpserts = uniqueCards.map(card => ({
-              deck_id: deckId,
-              card_id: card.id,
-              card_name: card.name,
-              quantity: card.quantity,
-              is_commander: false,
-              is_sideboard: false
-            }));
+            const cardUpserts = uniqueCards
+              // A card this store is holding that is a sideboard row in the
+              // database is a row it loaded without the flag. Writing it back
+              // would clear the flag, so it is left alone.
+              .filter(card => !sideboardCardIds.has(card.id))
+              .map(card => ({
+                deck_id: deckId,
+                card_id: card.id,
+                card_name: card.name,
+                quantity: card.quantity,
+                is_commander: false,
+                is_sideboard: false
+              }));
 
-            const { error: cardsError } = await supabase
-              .from('deck_cards')
-              .upsert(cardUpserts, { onConflict: 'deck_id,card_id', ignoreDuplicates: false });
+            const { error: cardsError } = cardUpserts.length
+              ? await supabase
+                  .from('deck_cards')
+                  .upsert(cardUpserts, { onConflict: 'deck_id,card_id', ignoreDuplicates: false })
+              : { error: null };
 
             if (cardsError) {
               console.error('Error saving cards:', cardsError);

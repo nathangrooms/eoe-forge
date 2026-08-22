@@ -44,7 +44,7 @@ function HomeFooter() {
     {
       heading: 'Build',
       links: [
-        { label: 'Deck builder', to: '/deck-builder' },
+        { label: 'Deck builder', to: '/decks' },
         { label: 'Collection', to: '/collection' },
         { label: 'Storage', to: '/collection/storage' },
         { label: 'Card search', to: '/cards' },

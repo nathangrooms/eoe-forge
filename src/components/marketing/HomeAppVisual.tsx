@@ -64,7 +64,7 @@ export function HomeAppVisual() {
 
       <div className="mt-8 text-center sm:mt-10">
         <Button asChild size="lg">
-          <Link to="/deck-builder">
+          <Link to="/decks">
             Open the builder
             <ArrowRight className="ml-2 h-4 w-4" />
           </Link>

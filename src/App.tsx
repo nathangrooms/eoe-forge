@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider, useAuth } from "@/components/AuthProvider";
 import { TopNavigation } from "@/components/navigation/TopNavigation";
@@ -58,13 +58,13 @@ const load = {
   decks: () => import("./pages/Decks"),
   newDeck: () => import("./pages/NewDeck"),
   precons: () => import("./pages/Precons"),
-  deckBuilder: () => import("./pages/DeckBuilder"),
+  deckBuilderRedirect: () => import("./pages/DeckBuilderRedirect"),
   deckCommander: () => import("./pages/DeckCommander"),
   deckInterface: () => import("./pages/DeckInterface"),
-  deckAnalysis: () => import("./pages/DeckAnalysis"),
   deckExport: () => import("./pages/DeckExport"),
   deckShare: () => import("./pages/DeckShare"),
-  deckMissingCards: () => import("./pages/DeckMissingCards"),
+  deckProxies: () => import("./pages/DeckProxies"),
+  deckTestHand: () => import("./pages/DeckTestHand"),
   aiBuilder: () => import("./pages/AIBuilder"),
   tutor: () => import("./pages/Tutor"),
   templates: () => import("./pages/Templates"),
@@ -106,13 +106,13 @@ const CameraScan = lazy(load.cameraScan);
 const Decks = lazy(load.decks);
 const NewDeck = lazy(load.newDeck);
 const Precons = lazy(load.precons);
-const DeckBuilder = lazy(load.deckBuilder);
+const DeckBuilderRedirect = lazy(load.deckBuilderRedirect);
 const DeckCommander = lazy(load.deckCommander);
 const DeckInterface = lazy(load.deckInterface);
-const DeckAnalysis = lazy(load.deckAnalysis);
 const DeckExport = lazy(load.deckExport);
 const DeckShare = lazy(load.deckShare);
-const DeckMissingCards = lazy(load.deckMissingCards);
+const DeckProxies = lazy(load.deckProxies);
+const DeckTestHand = lazy(load.deckTestHand);
 const AIBuilder = lazy(load.aiBuilder);
 const Tutor = lazy(load.tutor);
 const Templates = lazy(load.templates);
@@ -222,6 +222,21 @@ function RouteHost({ children }: { children: React.ReactNode }) {
       </Suspense>
     </RouteBoundary>
   );
+}
+
+/**
+ * An old deck sub-route, folded into a tab of the deck page.
+ *
+ * `/deck/:id/analysis` was a third analysis surface with five sub-tabs of its
+ * own, every one of which is answered on the deck page from a source the deck
+ * page computes itself. `/deck/:id/missing` mounted the same
+ * `MissingCardsPanel` the Value tab draws. Both are links the deck tile's menu
+ * has been handing out, so both redirect rather than 404.
+ */
+function DeckTabRedirect({ tab }: { tab: string }) {
+  const { id } = useParams();
+  if (!id) return <Navigate to="/decks" replace />;
+  return <Navigate to={`/deck/${id}?tab=${tab}`} replace />;
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -382,18 +397,47 @@ function AppContent() {
             <Route path="/decks" element={<ProtectedRoute><Decks /></ProtectedRoute>} />
             <Route path="/decks/new" element={<ProtectedRoute><NewDeck /></ProtectedRoute>} />
             <Route path="/precons" element={<ProtectedRoute><Precons /></ProtectedRoute>} />
-            <Route path="/deck-builder" element={<ProtectedRoute><DeckBuilder /></ProtectedRoute>} />
-            {/* The commander picker was a dialog over the builder; it is a destination now. */}
+            {/* ONE DECK PAGE.
+
+                `/deck/:id` read a deck and `/deck-builder?deck=` edited the same
+                deck, with two headers, two metric treatments and two sets of
+                tabs. Owner: "we want both systems to be consistent with each
+                other, rather than being two entirely different ones." They are
+                one page, and `/deck/:id` is canonical because it names the deck
+                rather than the tool.
+
+                Every old address below is a redirect rather than a deletion.
+                `/deck-builder?deck=` is what the deck tile's Edit button, the
+                dashboard, the collection's recommendations, the activity feed,
+                templates, precons and every create-a-deck flow have been
+                sending people to; it is in bookmarks and in anything already
+                shared. A dead route is a worse outcome than a redirect nobody
+                notices, and that rule is written down in this project. */}
+            <Route path="/deck-builder" element={<ProtectedRoute><DeckBuilderRedirect /></ProtectedRoute>} />
+            {/* The commander picker was a dialog over the builder; it is a destination now.
+                Without an :id it commits to the deck store, which is how the deck
+                generator reaches it — that deck has never been saved. */}
             <Route path="/deck-builder/commander" element={<ProtectedRoute><DeckCommander /></ProtectedRoute>} />
             <Route path="/deck/:id" element={<ProtectedRoute><DeckInterface /></ProtectedRoute>} />
-            {/* Deck sub-destinations that used to be dialogs and drawers over /decks. */}
-            <Route path="/deck/:id/analysis" element={<ProtectedRoute><DeckAnalysis /></ProtectedRoute>} />
+            <Route path="/deck/:id/commander" element={<ProtectedRoute><DeckCommander /></ProtectedRoute>} />
+            {/* Deck sub-destinations: places you link to, come back to, or print
+                from. Export and share were dialogs over /decks; proxies and the
+                test hand were tabs on the builder, and a print job with paper
+                size and cut guides wants a URL of its own. */}
             <Route path="/deck/:id/export" element={<ProtectedRoute><DeckExport /></ProtectedRoute>} />
             <Route path="/deck/:id/share" element={<ProtectedRoute><DeckShare /></ProtectedRoute>} />
-            <Route path="/deck/:id/missing" element={<ProtectedRoute><DeckMissingCards /></ProtectedRoute>} />
+            <Route path="/deck/:id/proxies" element={<ProtectedRoute><DeckProxies /></ProtectedRoute>} />
+            <Route path="/deck/:id/testhand" element={<ProtectedRoute><DeckTestHand /></ProtectedRoute>} />
+            {/* A third analysis surface and a fourth mounting of the missing-cards
+                list. Every panel on both is on the deck page, so both are tabs of
+                it now. The one thing `/deck/:id/analysis` had that nothing else
+                did — the share alongside each type count — moved into the type
+                breakdown before this became a redirect. */}
+            <Route path="/deck/:id/analysis" element={<DeckTabRedirect tab="analysis" />} />
+            <Route path="/deck/:id/missing" element={<DeckTabRedirect tab="value" />} />
             {/* /builder was a static mockup (hardcoded zeroes, dead buttons) and the
                 third deck-builder surface. Redirected to the one that works. */}
-            <Route path="/builder" element={<Navigate to="/deck-builder" replace />} />
+            <Route path="/builder" element={<Navigate to="/decks" replace />} />
             <Route path="/smart-builder" element={<ProtectedRoute><AIBuilder /></ProtectedRoute>} />
             <Route path="/tutor" element={<ProtectedRoute><Tutor /></ProtectedRoute>} />
             {/* MTG Brain became Tutor. Links to /brain are out there in saved

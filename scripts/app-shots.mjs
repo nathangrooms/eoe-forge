@@ -338,7 +338,6 @@ import { LeftNavigation } from '../components/navigation/LeftNavigation';
 import Tournament from '../pages/Tournament';
 import LifeCounter from '../pages/LifeCounter';
 import DeckInterface from '../pages/DeckInterface';
-import DeckBuilder from '../pages/DeckBuilder';
 import Collection from '../pages/Collection';
 import CardDetail from '../pages/CardDetail';
 import Play from '../pages/Play';
@@ -384,7 +383,6 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="/life" element={<LifeCounter />} />
                 <Route path="/play" element={<Play />} />
                 <Route path="/deck/:id" element={<DeckInterface />} />
-                <Route path="/deck-builder" element={<DeckBuilder />} />
                 <Route path="/collection" element={<Collection />} />
                 <Route path="/cards/:id" element={<CardDetail />} />
                 <Route path="*" element={<Collection />} />
@@ -427,15 +425,17 @@ const SCENES = [
     caption: 'A collection with its cards, its value and what each copy is worth.',
   },
   {
+    /* There is no separate builder any more: `/deck-builder` and `/deck/:id`
+       were two views of one object and are one page. This shot keeps its key
+       and its framing — the tab strip with the grid under it — so the picture
+       set does not lose the decklist, and it is taken on the merged page. */
     key: 'deck-builder',
-    route: `/deck-builder?deck=${DECK_ID}`,
+    route: `/deck/${DECK_ID}`,
     chrome: true,
     ready: deck.name,
     settle: 3000,
-    /* The stats band is the top of this page and the CARDS are the point of it,
-       so the shot is framed on the tab bar with the grid under it. */
     anchor: { text: 'Cards', offset: -84 },
-    caption: 'The deck builder holding a real 100-card Commander list, grouped, counted and priced.',
+    caption: 'One deck page: a real 100-card Commander list, grouped, counted, priced and editable in place.',
   },
   {
     key: 'deck',

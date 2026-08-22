@@ -65,6 +65,10 @@ export function DeckQuickStats({
   const completionPct = Math.min((displayCards / targetCards) * 100, 100);
 
   const presentTypes = CATEGORY_ORDER.filter(c => c !== 'commanders' && (typeCounts[c] ?? 0) > 0);
+  /* The denominator for the shares below: the buckets themselves, so they sum
+     to 100. `totalCards` would not, on a deck holding a card the categoriser
+     files nowhere. */
+  const countedCards = presentTypes.reduce((sum, c) => sum + (typeCounts[c] ?? 0), 0);
 
   const metrics: Metric[] = [
     {
@@ -151,11 +155,25 @@ export function DeckQuickStats({
           <div className="flex flex-wrap gap-x-5 gap-y-2">
             {presentTypes.map(c => {
               const Icon = CATEGORY_CONFIG[c].icon;
+              const count = typeCounts[c] ?? 0;
               return (
                 <div key={c} className="flex items-center gap-2">
                   <Icon className={cn('h-4 w-4', CATEGORY_CONFIG[c].color)} />
-                  <span className="text-sm font-semibold tabular-nums">{typeCounts[c]}</span>
+                  <span className="text-sm font-semibold tabular-nums">{count}</span>
                   <span className="text-xs text-muted-foreground">{CATEGORY_CONFIG[c].label}</span>
+                  {/* The share, carried across from `/deck/:id/analysis` before
+                      that route became a redirect. It was the one thing on that
+                      page that existed nowhere else: this row printed counts
+                      and its bars printed `12 · 12%`. One breakdown now, and it
+                      says both. The counts come from `cardCategories`, which
+                      files each card in exactly one bucket — the SQL the old
+                      page read used overlapping `LIKE` tests that could sum
+                      past the size of the deck. */}
+                  {countedCards > 0 && (
+                    <span className="text-xs tabular-nums text-muted-foreground/70">
+                      {((count / countedCards) * 100).toFixed(0)}%
+                    </span>
+                  )}
                 </div>
               );
             })}

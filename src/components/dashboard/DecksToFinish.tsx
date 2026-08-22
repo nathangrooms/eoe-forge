@@ -77,7 +77,7 @@ export function DecksToFinish({ className, decks, loading, error }: DecksToFinis
            rather than borrowing art from somewhere else. */
         const to =
           deck.work.issue === 'empty' || deck.work.issue === 'no-commander'
-            ? `/deck-builder?deck=${deck.id}`
+            ? `/deck/${deck.id}`
             : `/deck/${deck.id}`;
 
         return (

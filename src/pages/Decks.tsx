@@ -281,7 +281,7 @@ export default function Decks() {
       }
 
       showSuccess('Deck created', `"${name}" is ready`);
-      if (newDeck) navigate(`/deck-builder?deck=${newDeck.id}`);
+      if (newDeck) navigate(`/deck/${newDeck.id}`);
     } catch (error) {
       console.error('Error creating deck:', error);
       showError('Error', 'Failed to create deck');
@@ -507,11 +507,11 @@ export default function Decks() {
                     rescoring={scoring.has(deckSummary.id)}
                     onRescore={() => rescore(deckSummary.id, deckSummary.format)}
                     onOpen={() => navigate(`/deck/${deckSummary.id}`)}
-                    onEdit={() => navigate(`/deck-builder?deck=${deckSummary.id}`)}
+                    onEdit={() => navigate(`/deck/${deckSummary.id}`)}
                     onDuplicate={() => duplicateDeck(deckSummary)}
                     onDelete={() => deleteDeck(deckSummary)}
-                    onAnalysis={() => navigate(`/deck/${deckSummary.id}/analysis`)}
-                    onMissingCards={() => navigate(`/deck/${deckSummary.id}/missing`)}
+                    onAnalysis={() => navigate(`/deck/${deckSummary.id}?tab=analysis`)}
+                    onMissingCards={() => navigate(`/deck/${deckSummary.id}?tab=value`)}
                     onShare={() => navigate(`/deck/${deckSummary.id}/share`)}
                     onExport={() => navigate(`/deck/${deckSummary.id}/export`)}
                     onFavoriteChange={loadDeckSummaries}

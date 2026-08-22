@@ -268,7 +268,7 @@ export function CardAddToDeckPanel({
                 <div className="rounded-lg bg-muted/30 p-4">
                   <p className="text-sm text-foreground">You have no decks yet.</p>
                   <Button asChild variant="secondary" size="sm" className="mt-3">
-                    <Link to="/deck-builder">Start a new deck</Link>
+                    <Link to="/decks/new">Start a new deck</Link>
                   </Button>
                 </div>
               ) : (

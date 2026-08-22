@@ -243,7 +243,7 @@ export function HomeBuilderPreview() {
 
       <div className="mt-10 text-center">
         <Button asChild size="lg">
-          <Link to="/deck-builder">
+          <Link to="/decks">
             Open the builder
             <ArrowRight className="ml-2 h-4 w-4" />
           </Link>

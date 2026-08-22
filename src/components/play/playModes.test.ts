@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 
 import {
   COVER_ASPECT,
+  COVER_BASE,
   PLAY_MODES,
   coverPathFor,
   isPlayMode,
@@ -39,7 +40,7 @@ test('every door says what the mode IS, in one or two lines', () => {
 test('no em-dashes anywhere in the copy', () => {
   const emdash = /[—–]/;
   for (const mode of PLAY_MODES) {
-    const all = [mode.eyebrow, mode.title, mode.meta, mode.developing ?? '', ...mode.lines];
+    const all = [mode.eyebrow, mode.title, mode.meta, ...mode.lines];
     for (const piece of all) {
       assert.ok(!emdash.test(piece), `${mode.id}: "${piece}" holds a dash`);
     }
@@ -56,25 +57,29 @@ test('the metadata line is a real fact, and it names seats or what is needed', (
   for (const mode of PLAY_MODES) assert.equal(mode.meta, facts[mode.id]);
 });
 
-test('online says what is still being built, and the other three claim nothing', () => {
-  const online = modeOf('online');
-  assert.ok(online.developing);
-  assert.match(online.developing as string, /still being built/);
-  for (const id of ['bots', 'goldfish', 'playtest']) {
-    assert.equal(modeOf(id).developing, null);
-  }
+test('a cover is one asset per mode at a known path and a known shape', () => {
+  /* The covers decode 1376 x 768, checked on 22 Aug 2026 by reading the JPEG
+     frame header of all four. The door is cut to that, not to 16/9, because
+     the 0.8% between the two ratios is the only thing `object-cover` would
+     have had to throw away and the brief is that nothing is cropped. */
+  assert.equal(COVER_ASPECT, '1376 / 768');
+  assert.equal(
+    coverPathFor('online'),
+    'https://udnaflcohfyljrsgqggy.supabase.co/storage/v1/object/public/art/play-mode-online.png'
+  );
+  for (const mode of PLAY_MODES) assert.equal(mode.cover, coverPathFor(mode.id));
 });
 
-test('a cover is one asset per mode at a known path and a known shape', () => {
-  assert.equal(COVER_ASPECT, '3 / 4');
-  assert.equal(coverPathFor('online'), '/covers/play/online.webp');
-  for (const mode of PLAY_MODES) assert.equal(mode.cover, coverPathFor(mode.id));
+test('the door is cut to the picture, so object-cover crops nothing', () => {
+  const [w, h] = COVER_ASPECT.split('/').map(part => Number(part.trim()));
+  assert.equal(w, 1376);
+  assert.equal(h, 768);
 });
 
 test('no cover points at card art, which the licence forbids darkening', () => {
   for (const mode of PLAY_MODES) {
     assert.ok(!/scryfall|gatherer|cards\//i.test(mode.cover), mode.id);
-    assert.ok(mode.cover.startsWith('/covers/play/'), mode.id);
+    assert.ok(mode.cover.startsWith(`${COVER_BASE}/play-mode-`), mode.id);
   }
 });
 

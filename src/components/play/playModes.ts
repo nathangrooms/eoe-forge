@@ -23,17 +23,30 @@
  * game are the two failures this screen is replacing.
  *
  * ---------------------------------------------------------------------------
- * THE COVERS DO NOT EXIST YET, AND THE PAGE SHIPS WITHOUT THEM
+ * THE COVERS EXIST, AND THE DOOR IS CUT TO THE PICTURE
  * ---------------------------------------------------------------------------
- * `cover` is one asset per mode at a fixed path and a fixed shape:
+ * `cover` is one asset per mode in the PUBLIC `art` bucket on Supabase:
  *
- *     public/covers/play/<id>.webp        3 : 4 portrait, 1200 x 1600
+ *     .../storage/v1/object/public/art/play-mode-<id>.png
  *
- * Nothing is committed there yet. Every door falls back to the procedural
- * playmat surface, which is CSS gradients (`matStyles.ts`), draws at any size,
- * downloads nothing and carries no licence. `fallback` gives each mode its own
- * surface and its own colour so four doors with no artwork are still four
- * different doors rather than four identical rectangles.
+ * Checked on 22 Aug 2026, not assumed: all four answer 200, all four are
+ * `content-type: image/jpeg` under a `.png` name, which browsers decide from
+ * the header rather than the extension, and all four decode 1376 x 768.
+ *
+ * That is a ratio of 1.7917, which is NOT 16/9 (1.7778). The difference is
+ * small and it is exactly the difference that gets cropped away, so
+ * `COVER_ASPECT` is the picture's own ratio written as a fraction. The door is
+ * cut to the cover, so `object-cover` has nothing to throw away in either
+ * direction and no part of any of the four is lost. They were drawn wide
+ * precisely so nothing has to be cropped.
+ *
+ * They carry a deliberate dark lower third for type to sit in, so the title
+ * goes THERE. There is no wash over the whole picture.
+ *
+ * The procedural playmat surface stays underneath as the fallback, which is CSS
+ * gradients (`matStyles.ts`), draws at any size, downloads nothing and carries
+ * no licence. `fallback` gives each mode its own surface and its own colour so
+ * a door whose picture fails to load is still a different door.
  *
  * NEVER point `cover` at Scryfall card art. A cover has to be darkened for
  * type to sit on it, and Scryfall's guidelines forbid modifying card images.
@@ -60,20 +73,24 @@ export interface PlayModeDoor {
   cover: string;
   /** The procedural surface drawn until then. */
   fallback: { style: string; tint: string };
-  /**
-   * What is not finished, in plain words, or null when everything on the door
-   * works. Shown on the door itself, because a dropped game should be
-   * disappointing rather than surprising.
-   */
-  developing: string | null;
 }
 
-/** The shape every cover is cut to. Width over height. */
-export const COVER_ASPECT = '3 / 4';
+/**
+ * The shape every door is cut to: the covers' own pixel ratio, 1376 x 768.
+ *
+ * Written as the two real numbers rather than reduced or rounded to 16/9, so
+ * that a reader can see it is the picture's shape and not a shape the picture
+ * is being made to fit. `object-cover` into this box crops nothing.
+ */
+export const COVER_ASPECT = '1376 / 768';
 
-/** Where the owner drops artwork. One file per mode, this exact name. */
+/** Where the four covers live. Public bucket, no signing, no expiry. */
+export const COVER_BASE =
+  'https://udnaflcohfyljrsgqggy.supabase.co/storage/v1/object/public/art';
+
+/** The cover for a mode. JPEG bytes under a .png name, served with the right type. */
 export function coverPathFor(id: PlayModeId): string {
-  return `/covers/play/${id}.webp`;
+  return `${COVER_BASE}/play-mode-${id}.png`;
 }
 
 /**
@@ -93,22 +110,19 @@ export const PLAY_MODES: readonly PlayModeDoor[] = [
     action: 'Enter',
     cover: coverPathFor('online'),
     fallback: { style: 'slate', tint: 'U' },
-    developing:
-      'You can open a table, take a seat, agree on decks and talk. Playing the game across the connection is the piece still being built.',
   },
   {
     id: 'bots',
     eyebrow: 'You against the rules',
     title: 'Versus bots',
     lines: [
-      'You play your deck. The rules engine plays theirs.',
+      'You play your deck. The computer plays theirs.',
       'It blocks, it holds up answers and it swings back, and you choose how hard it pushes.',
     ],
     meta: '2 to 4 seats. One of them is yours.',
     action: 'Enter',
     cover: coverPathFor('bots'),
     fallback: { style: 'leather', tint: 'R' },
-    developing: null,
   },
   {
     id: 'goldfish',
@@ -122,7 +136,6 @@ export const PLAY_MODES: readonly PlayModeDoor[] = [
     action: 'Enter',
     cover: coverPathFor('goldfish'),
     fallback: { style: 'felt', tint: 'G' },
-    developing: null,
   },
   {
     id: 'playtest',
@@ -130,13 +143,12 @@ export const PLAY_MODES: readonly PlayModeDoor[] = [
     title: 'Playtest',
     lines: [
       'Two to four of your own decks play each other while you watch.',
-      'Every seat is played for you, on the same rules engine, at whatever speed you set.',
+      'Every seat is played for you, at whatever speed you set.',
     ],
     meta: '2 to 4 seats. None of them are yours.',
     action: 'Enter',
     cover: coverPathFor('playtest'),
     fallback: { style: 'carbon', tint: 'B' },
-    developing: null,
   },
 ];
 

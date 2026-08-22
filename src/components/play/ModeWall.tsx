@@ -9,26 +9,30 @@
  * form controls.
  *
  * ---------------------------------------------------------------------------
- * THERE IS NO ARTWORK YET AND THIS SHIPS ANYWAY
+ * THE ARTWORK IS REAL NOW, AND THE DOOR IS CUT TO IT
  * ---------------------------------------------------------------------------
- * A cover is one asset per mode at `/covers/play/<id>.webp`, cut 3:4. Until one
- * is dropped in, the door is the procedural playmat: the same CSS surface the
- * game is played on, drawn at whatever size the door happens to be, with each
- * mode carrying its own weave and its own colour so the four are told apart.
- * That is a deliberate look rather than a hole, because it may be what ships
- * for a while, and it is the one atmospheric field in this product that owes
- * nothing to anybody's licence.
+ * Four covers live in the public `art` bucket. They decode 1376 x 768 and the
+ * door's aspect ratio is those two numbers, so `object-cover` crops nothing off
+ * any edge. They were drawn wide precisely so nothing has to be.
  *
- * A missing cover is remembered for the life of the tab, so four 404s happen
- * once rather than on every visit to the step.
+ * Two doors across rather than four, for the same reason. Four 16:9 doors on a
+ * 1920 page are 460px wide and 258px tall, which is a thumbnail strip. Two
+ * across gives each cover about 940 x 525 and lets the picture be the thing you
+ * see first, which is what a door is for.
+ *
+ * The procedural playmat surface is still painted underneath, so a cover that
+ * fails to load reveals a finished surface rather than a hole, and a failure is
+ * remembered for the life of the tab so one 404 does not become one per visit.
  *
  * ---------------------------------------------------------------------------
- * WHY THE SCRIM IS TWO GRADIENTS AND NOT ONE FLAT WASH
+ * ONE GRADIENT, IN THE BOTTOM THIRD, AND NOTHING OVER THE PICTURE
  * ---------------------------------------------------------------------------
- * Type sits low on this card, so the darkening has to be low too. A flat wash
- * heavy enough to carry a caption also flattens the picture it is carrying. Two
- * stacked gradients put the weight under the words and leave the top two thirds
- * of the image alone, which is what makes it a cover rather than a grey panel.
+ * These covers were drawn with a dark lower third for type to sit in, so the
+ * type sits there and the darkening stops where that band stops. The version
+ * before this one also laid a second gradient DOWN from the top, which was
+ * insurance against artwork that did not exist. It exists, it does not need
+ * insuring, and washing the top of a picture somebody drew for this screen is
+ * the opposite of showing it.
  */
 
 import { useState } from 'react';
@@ -46,10 +50,21 @@ function Cover({
   src,
   fallback,
   alt,
+  eager,
 }: {
   src: string;
   fallback: { style: string; tint: string };
   alt: string;
+  /**
+   * The two doors above the fold are fetched straight away.
+   *
+   * They were all four `loading="lazy"`, which is right for a picture further
+   * down a page and wrong for the picture that IS the page: the reader is
+   * looking at the top two doors while the browser waits to be told they
+   * matter. The bottom two stay lazy, because on a 800px window they are not
+   * on screen until somebody scrolls.
+   */
+  eager: boolean;
 }) {
   const [failed, setFailed] = useState(() => missingCovers.has(src));
 
@@ -70,7 +85,8 @@ function Cover({
         <img
           src={src}
           alt={alt}
-          loading="lazy"
+          loading={eager ? 'eager' : 'lazy'}
+          fetchPriority={eager ? 'high' : 'auto'}
           decoding="async"
           className="absolute inset-0 h-full w-full object-cover"
           onError={() => {
@@ -96,9 +112,17 @@ export interface ModeWallProps {
 }
 
 export function ModeWall({ value, onChoose, live }: ModeWallProps) {
+  /* NO "STILL BEING BUILT" BADGE. Owner: "Still being built can just go, it's
+     gonna be ready soon anyway." It was also the one thing on these cards that
+     did not fit once they went to four across, running 43px into the title.
+
+     ONE ROW, not a 2x2. Owner: "all modes one line not 2 they are massive."
+     At two columns a 16:9 door is around 500px tall, so the four of them stacked
+     a thousand pixels of artwork above the thing you came here to press. Four
+     across quarters the width and therefore quarters the height. */
   return (
-    <div className="grid w-full gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      {PLAY_MODES.map(mode => {
+    <div className="grid w-full gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {PLAY_MODES.map((mode, index) => {
         const active = value === mode.id;
         const liveLine = live?.[mode.id] ?? null;
 
@@ -114,16 +138,16 @@ export function ModeWall({ value, onChoose, live }: ModeWallProps) {
             )}
             style={{ aspectRatio: COVER_ASPECT }}
           >
-            <Cover src={mode.cover} fallback={mode.fallback} alt="" />
+            <Cover src={mode.cover} fallback={mode.fallback} alt="" eager={index < 2} />
 
-            {/* The darkening. Weighted low, so the picture keeps its top. */}
+            {/* The darkening, and only in the band the cover already darkened
+                for it. Above 42% of the height the picture is untouched. */}
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0"
+              className="pointer-events-none absolute inset-x-0 bottom-0 top-[42%]"
               style={{
                 backgroundImage:
-                  'linear-gradient(to top, hsl(0 0% 3% / 0.94) 0%, hsl(0 0% 3% / 0.74) 34%, hsl(0 0% 3% / 0.18) 62%, transparent 100%),' +
-                  'linear-gradient(to bottom, hsl(0 0% 3% / 0.45) 0%, transparent 38%)',
+                  'linear-gradient(to top, hsl(0 0% 3% / 0.9) 0%, hsl(0 0% 3% / 0.62) 40%, transparent 100%)',
               }}
             />
 
@@ -136,25 +160,12 @@ export function ModeWall({ value, onChoose, live }: ModeWallProps) {
               )}
             />
 
-            {/* What is not finished, said at the TOP of the door rather than in
-                the description. Down there it pushed one card's title out of
-                line with the other three, and four doors whose titles do not
-                agree on a baseline stop reading as a set. */}
-            {mode.developing && (
-              <span className="absolute inset-x-5 top-5 rounded-lg bg-black/55 px-2.5 py-2 text-[0.7rem] leading-snug text-white/85">
-                <span className="block font-semibold uppercase tracking-[0.16em] text-white/70">
-                  Still being built
-                </span>
-                <span className="mt-0.5 block">{mode.developing}</span>
-              </span>
-            )}
-
             <span className="relative flex min-w-0 flex-col gap-2">
               <span className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-white/60">
                 {mode.eyebrow}
               </span>
 
-              <span className="text-2xl font-bold uppercase leading-none tracking-tight text-white lg:text-3xl">
+              <span className="text-2xl font-bold uppercase leading-none tracking-tight text-white lg:text-3xl xl:text-xl 2xl:text-2xl">
                 {mode.title}
               </span>
 

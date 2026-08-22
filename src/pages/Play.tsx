@@ -77,10 +77,12 @@ import {
 
 import { PlayHUD, type PlayViewId } from '@/components/play/PlayHUD';
 import { ModeWall } from '@/components/play/ModeWall';
+import { FriendsRail } from '@/components/play/FriendsRail';
+import { presenceDoing } from '@/components/play/presenceWords';
 import { DeckStep } from '@/components/play/DeckStep';
 import { SeatStep } from '@/components/play/SeatStep';
 import { GoldfishStudy } from '@/components/play/GoldfishStudy';
-import { ChoiceTrail, StepFooter, StepTitle } from '@/components/play/StepChrome';
+import { StepBar, StepTitle } from '@/components/play/StepChrome';
 import {
   breadcrumbFor,
   forwardLabelFor,
@@ -111,12 +113,18 @@ import { StackStrip } from '@/components/play/StackStrip';
 import { ZoneTravelLayer } from '@/components/play/ZoneTravelLayer';
 import { GameMenu } from '@/components/play/GameMenu';
 import { useCastSpotlight, useLifeDeltas } from '@/components/play/useTableMotion';
-import { canReachCombat, controlsFlow, decisionFor, flowActions } from '@/components/play/turnFlow';
+import {
+  canReachCombat,
+  controlsFlow,
+  decisionFor,
+  flowActions,
+  type OpeningStop,
+} from '@/components/play/turnFlow';
 import { defaultSeatingFor } from '@/components/play/seatingDefaults';
 
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { listOpenTables } from '@/lib/lobby';
+import { keepPresence, listOpenTables, tablePath } from '@/lib/lobby';
 import { usePlayGame } from '@/hooks/usePlayGame';
 import { resolveDeckDetailed } from '@/lib/play/deckSource';
 import {
@@ -381,6 +389,26 @@ export default function Play() {
       : openTables.data.length === 0
         ? 'No tables waiting right now'
         : `${openTables.data.length} table${openTables.data.length === 1 ? '' : 's'} waiting`;
+
+  /* ---------------------------------------------------------------------- */
+  /* Saying you are around                                                  */
+  /* ---------------------------------------------------------------------- */
+
+  /*
+   * One row, overwritten, every 90 seconds, and ONLY while this tab is being
+   * looked at. See `src/lib/lobby/presence.ts` for why this is a write rather
+   * than a Realtime presence channel: presence on a shared channel would tell
+   * every signed-in account who else is online, and no policy could stop it.
+   *
+   * It writes nothing at all when the reader has "when I am around" turned off,
+   * so that switch costs the database as well as the interface.
+   */
+  const doing = presenceDoing(table ? 'playing' : step, mode);
+  useEffect(() => {
+    if (!user) return;
+    return keepPresence({ doing });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, doing]);
 
   /* The deck that is actually chosen, once the list has arrived: whatever the
      URL asked for if this mode can deal it, else the first one that can be
@@ -836,8 +864,21 @@ export default function Play() {
     if (!state) return;
     if (state.status !== 'playing') return;
     if (state.activePlayerId !== HUMAN_SEAT) return;
+    /*
+     * Not while the opening hand is unanswered.
+     *
+     * The reducer starts turn one under the mulligan bar, so every other test
+     * here passes and this one is the only thing standing between END TURN and
+     * a latch that the sweeping effect below refuses to service. Setting it
+     * there froze the control on "Ending…" until the hand was kept, and then
+     * spent turn one the instant it was. Measured; `turnFlow.ts` has the run.
+     *
+     * The HUD does not offer END TURN in this state any more. This is the same
+     * refusal at the handler, so no other caller can reintroduce it.
+     */
+    if (opening !== null) return;
     setEndingTurn(state.turn);
-  }, [state]);
+  }, [state, opening]);
 
   /**
    * Declare one creature from the preview.
@@ -944,7 +985,14 @@ export default function Play() {
 
     // Nothing at all moves until the opening hand is settled. Not the walk, not
     // the bots (held in `usePlayGame` above), not the first untap.
-    if (opening !== null) return;
+    //
+    // A latched END TURN is dropped rather than queued. It cannot be set from
+    // the HUD any more, but a latch that survived the mulligan would fire the
+    // moment the hand was kept and spend turn one, which is what it did.
+    if (opening !== null) {
+      if (endingTurn !== null) setEndingTurn(null);
+      return;
+    }
 
     if (state.status !== 'playing') {
       if (endingTurn !== null) setEndingTurn(null);
@@ -1014,6 +1062,30 @@ export default function Play() {
     },
     [view, state, viewSeatId]
   );
+
+  /**
+   * The big control, when the game is waiting for this seat and END TURN is not
+   * what it wants.
+   *
+   * Measured on 22 Aug 2026: at the declare-blockers stop the top-right button
+   * read "PLARGG AND NASSARI'S TURN" and was disabled, while the game was
+   * waiting for the reader to block. It now says what is owed and goes where
+   * that decision is made. Blocking and declaring attackers happen on the
+   * combat surface, which is the one genuinely different view; everything else
+   * is owed on the table itself.
+   */
+  const handleDecision = useCallback(() => {
+    if (!decision) return;
+    if (decision === 'attackers' && canAttack) {
+      handleAttack();
+      return;
+    }
+    if (decision === 'attackers' || decision === 'blockers') {
+      changeView('combat');
+      return;
+    }
+    changeView('table');
+  }, [decision, canAttack, handleAttack, changeView]);
 
   /* ---------------------------------------------------------------------- */
   /* Render                                                                 */
@@ -1137,25 +1209,88 @@ export default function Play() {
         }
       >
         <div className="w-full space-y-4">
-          <ChoiceTrail
-            crumbs={trail}
-            current={step}
-            onJump={next => {
-              setStudying(false);
-              setStep(next);
-            }}
-          />
+          {/* Everything about moving, at the TOP, on every step. Back, the
+              choices so far and the way on used to be a bar at the bottom of
+              steps one and two and a control 1470px down on step three. See
+              the header of `StepChrome.tsx`. */}
+          {!studying && (
+            <StepBar
+              crumbs={trail}
+              current={step}
+              onJump={next => {
+                setStudying(false);
+                setStep(next);
+              }}
+              backLabel={
+                step === 'deck' ? 'Change mode' : step === 'table' ? 'Change deck' : undefined
+              }
+              onBack={step === 'mode' ? undefined : goBack}
+              forwardLabel={forwardLabelFor(step, mode)}
+              onForward={step === 'table' ? undefined : goForward}
+              forwardDisabled={Boolean(blocked) || starting}
+              note={blocked}
+              extra={
+                /* Goldfish asks two questions with two different measurements:
+                   how the deck plays, and how it opens. Playing it is the
+                   control in the header; the opening hand study is this, and it
+                   is the tab that used to live on `/simulate`. Neither half was
+                   dropped in the merge. */
+                step === 'table' && mode === 'goldfish' ? (
+                  <Button
+                    variant="secondary"
+                    onClick={() => setStudying(true)}
+                    disabled={!setup.deckId}
+                    /* Shown and disabled rather than hidden. A control that
+                       vanishes leaves the reader wondering whether the feature
+                       exists; one that says what it needs does not. */
+                    title={
+                      setup.deckId
+                        ? undefined
+                        : 'The study samples a real list, so it needs one of your own decks rather than a seeded one.'
+                    }
+                  >
+                    Study opening hands
+                  </Button>
+                ) : null
+              }
+            />
+          )}
 
           {step === 'mode' && (
-            <ModeWall
-              value={mode}
-              live={{ online: onlineLive }}
-              onChoose={next => {
-                setMode(next);
-                setArmedSeat(1);
-                setStep('deck');
-              }}
-            />
+            <>
+              <ModeWall
+                value={mode}
+                live={{ online: onlineLive }}
+                onChoose={next => {
+                  setMode(next);
+                  setArmedSeat(1);
+                  setStep('deck');
+                }}
+              />
+
+              {/* The friends list, on the first screen of the play section,
+                  which is where the owner went looking for one and did not find
+                  it. Under the doors rather than over them: four full bleed
+                  doors are what somebody came here to press.
+
+                  It carries the two facts that change what you do next, and
+                  both are actionable without leaving: somebody is waiting for
+                  your answer, and somebody you know is on right now. The rest
+                  of the friends list is in the lobby, one press away, and it is
+                  the same components reading the same one query. */}
+              <FriendsRail
+                userId={user?.id}
+                signedIn={Boolean(user)}
+                onOpenLobby={() =>
+                  navigate(
+                    setup.deckId
+                      ? `/play/online?deck=${encodeURIComponent(setup.deckId)}`
+                      : '/play/online'
+                  )
+                }
+                onOpenTable={code => navigate(tablePath(code))}
+              />
+            </>
           )}
 
           {step === 'deck' && mode && (
@@ -1204,42 +1339,6 @@ export default function Play() {
             />
           )}
 
-          {!studying && (
-            <StepFooter
-              backLabel={
-                step === 'deck' ? 'Change mode' : step === 'table' ? 'Change deck' : undefined
-              }
-              onBack={step === 'mode' ? undefined : goBack}
-              forwardLabel={forwardLabelFor(step, mode)}
-              onForward={step === 'table' ? undefined : goForward}
-              forwardDisabled={Boolean(blocked) || starting}
-              note={blocked ?? (step === 'table' && mode ? modeOf(mode).developing : null)}
-              extra={
-                /* Goldfish asks two questions with two different measurements:
-                   how the deck plays, and how it opens. Playing it is the
-                   control in the header; the opening hand study is this, and it
-                   is the tab that used to live on `/simulate`. Neither half was
-                   dropped in the merge. */
-                step === 'table' && mode === 'goldfish' ? (
-                  <Button
-                    variant="secondary"
-                    onClick={() => setStudying(true)}
-                    disabled={!setup.deckId}
-                    /* Shown and disabled rather than hidden. A control that
-                       vanishes leaves the reader wondering whether the feature
-                       exists; one that says what it needs does not. */
-                    title={
-                      setup.deckId
-                        ? undefined
-                        : 'The study samples a real list, so it needs one of your own decks rather than a seeded one.'
-                    }
-                  >
-                    Study opening hands
-                  </Button>
-                ) : null
-              }
-            />
-          )}
         </div>
         {/*
           There is deliberately NO overlay here.
@@ -1313,6 +1412,20 @@ export default function Play() {
         state.players.find(p => p.id === HUMAN_SEAT)?.zones.hand.length ?? 0
       )
     : 0;
+  /*
+   * What the HUD is told about the opening hand.
+   *
+   * The reducer has already begun turn one underneath the mulligan bar, so the
+   * HUD cannot work this out for itself: without being told, it read "your
+   * turn, nothing owed" and offered a live END TURN over a hand nobody had kept.
+   * `turnFlow.ts` records what pressing it did.
+   */
+  const openingStop: OpeningStop | null = opening
+    ? bottoming
+      ? 'bottom'
+      : 'keep-or-mulligan'
+    : null;
+  const openingReady = !opening || !bottoming || opening.chosen.length === openingOwed;
   const seatVariants = seatingVariants(state.players.length).map(layout => layout.variant);
 
   return (
@@ -1636,6 +1749,10 @@ export default function Play() {
           viewSeatId={viewSeatId}
           onViewSeat={handleFocusSeat}
           decision={decision}
+          onDecision={handleDecision}
+          opening={openingStop}
+          onOpening={bottoming ? handleConfirmBottom : handleKeep}
+          openingReady={openingReady}
           onAdvance={handleAdvance}
           onEndTurn={handleEndTurn}
           ending={endingTurn !== null}

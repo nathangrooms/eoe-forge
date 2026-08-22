@@ -62,7 +62,7 @@
  * added to it cannot be missing from four other doors.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, RefreshCw } from 'lucide-react';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
@@ -70,6 +70,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { Button } from '@/components/ui/button';
 
 import { EntryGate } from '@/components/lobby/EntryGate';
+import { FriendsPanel } from '@/components/lobby/FriendsPanel';
 import { OpenTables } from '@/components/lobby/OpenTables';
 import { JoinByCode } from '@/components/lobby/JoinByCode';
 import { DiscussionZone } from '@/components/lobby/DiscussionZone';
@@ -79,14 +80,16 @@ import {
 } from '@/components/lobby/CreateTablePanel';
 import { useLobbyFeed } from '@/components/lobby/useLobbyFeed';
 
-import { ChoiceTrail, StepFooter, StepTitle } from '@/components/play/StepChrome';
+import { StepBar, StepTitle } from '@/components/play/StepChrome';
 import { breadcrumbFor, headingFor } from '@/components/play/playFlow';
 import { modeOf } from '@/components/play/playModes';
 import { usePlayDecks } from '@/components/play/usePlayDecks';
+import { presenceDoing } from '@/components/play/presenceWords';
 
 import {
   createTable,
   entryVerdict,
+  keepPresence,
   lobbyErrorMessage,
   preferredName,
   setVisibility,
@@ -152,9 +155,36 @@ export default function Lobby() {
     setParams(next);
   };
 
+  /* Which room is open lives in the URL for the same reason a topic does: back
+     and forward work, and a room can be sent to somebody. A slug that is not a
+     slug is dropped rather than passed to the database. */
+  const openRoomSlug = useMemo(() => {
+    const raw = (params.get('room') ?? '').trim().toLowerCase();
+    return /^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/.test(raw) ? raw : null;
+  }, [params]);
+
+  const openRoom = (slug: string) => {
+    const next = new URLSearchParams(params);
+    next.set('room', slug);
+    next.delete('topic');
+    setParams(next);
+  };
+
   /* A post like "room for one more" should carry the way in, and the table it
      means is the one you are sitting at. */
   const myTable = useMemo(() => feed.tables.find(table => table.seated) ?? null, [feed.tables]);
+
+  /* Saying you are around, one row, every 90 seconds, and only while this tab
+     is being looked at. A friend who is in the lobby is the single most useful
+     thing a friends list can tell somebody, so the phrase says so. It writes
+     nothing when the reader has that switch off. */
+  useEffect(() => {
+    if (!user) return;
+    return keepPresence({
+      doing: presenceDoing('lobby', 'online'),
+      tableCode: myTable?.code ?? null,
+    });
+  }, [user, myTable?.code]);
 
   const openTable = (code: string) => navigate(tablePath(code));
 
@@ -224,11 +254,13 @@ export default function Lobby() {
       }
     >
       <div className="w-full space-y-6">
-        {/* The same breadcrumb the other three modes carry, so this reads as the
-            third step of one flow rather than a different screen. Signed out
-            there is no flow to be in, and no deck, so it is not drawn. */}
+        {/* The same bar the other three modes carry, at the top, so this reads
+            as the third step of one flow rather than a different screen. There
+            is no forward control: the way on is a table, and a table is a
+            destination with its own address. Signed out there is no flow to be
+            in, and no deck, so it is not drawn. */}
         {user && (
-          <ChoiceTrail
+          <StepBar
             crumbs={breadcrumbFor({
               mode: 'online',
               deckName: carriedDeck?.name ?? null,
@@ -239,20 +271,19 @@ export default function Lobby() {
               if (step === 'mode') navigate('/play');
               else backToDeck();
             }}
+            backLabel="Change deck"
+            onBack={backToDeck}
+            note={
+              carriedDeck
+                ? `Sitting down with ${carriedDeck.name}.`
+                : 'Pick a deck at step two and the table opens on it.'
+            }
           />
         )}
         {/* The tables. Signed out, this half is replaced by what it is for. */}
         {user ? (
           <>
             {verdictKnown && 'title' in verdict && <EntryGate verdict={verdict} />}
-
-            {/* What is not finished, said before anybody opens a table rather
-                than after they press start. The same sentence the mode wall
-                carries, from the same place, so the two cannot drift. */}
-            <p className="w-full rounded-xl bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">Still being built. </span>
-              {modeOf('online').developing}
-            </p>
 
             <div className="grid w-full gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
               <div className="min-w-0 space-y-4">
@@ -314,8 +345,25 @@ export default function Lobby() {
           </section>
         )}
 
-        {/* The discussion. Full width, and the same component for everybody who
-            can see this page, signed in or not. */}
+        {/* People first, then talking. The friends list is the same component
+            and the same one query the strip on `/play` uses, so arriving here
+            from step one re-reads nothing and holds one connection either way.
+
+            The table you are sitting at is passed in, so inviting a friend goes
+            through the lobby's own tables and their existing share links rather
+            than being a second way to start a game. */}
+        <FriendsPanel
+          userId={user?.id}
+          signedIn={Boolean(user)}
+          myTableId={myTable?.id ?? null}
+          myTableCode={myTable?.code ?? null}
+          myTableIsWaiting={Boolean(myTable)}
+          onOpenTable={openTable}
+        />
+
+        {/* The room people talk in, and the conversations that stay under it.
+            Full width, and the same component for everybody who can see this
+            page, signed in or not. */}
         <DiscussionZone
           signedIn={Boolean(user)}
           myUserId={user?.id}
@@ -324,22 +372,10 @@ export default function Lobby() {
           myTableCode={myTable?.code ?? null}
           openTopicId={openTopicId}
           onOpenTopic={openTopic}
+          roomSlug={openRoomSlug}
+          onOpenRoom={openRoom}
         />
 
-        {/* Back bottom left, exactly as every other step has it. There is no
-            forward control here: the way on is a table, and a table is a
-            destination with its own address. */}
-        {user && (
-          <StepFooter
-            backLabel="Change deck"
-            onBack={backToDeck}
-            note={
-              carriedDeck
-                ? `Sitting down with ${carriedDeck.name}.`
-                : 'Pick a deck at step two and the table opens on it.'
-            }
-          />
-        )}
       </div>
 
       <CreateTablePanel

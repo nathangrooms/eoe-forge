@@ -63,6 +63,7 @@ import { cn } from '@/lib/utils';
 import { EntryGate } from '@/components/lobby/EntryGate';
 import { TableTalk } from '@/components/lobby/TableTalk';
 import { ShareLink } from '@/components/lobby/ShareLink';
+import { InviteFriends } from '@/components/lobby/InviteFriends';
 import { TableSeats } from '@/components/lobby/TableSeats';
 import { DeckChoice, playableDecks } from '@/components/lobby/DeckChoice';
 import {
@@ -78,13 +79,14 @@ import { modeOf } from '@/components/play/playModes';
 import {
   entryVerdict,
   joinTable,
+  keepPresence,
   leaveTable,
   lobbyErrorMessage,
   newPublicSeed,
   normaliseCode,
   peekTable,
-  prepareSeat,
   preferredName,
+  prepareSeat,
   setSeat,
   setVisibility,
   startTable,
@@ -133,6 +135,19 @@ export default function TableRoom() {
     () => room?.seats.find(seat => seat.userId === user?.id) ?? null,
     [room, user?.id]
   );
+
+  /* Saying you are around, and saying WHERE, so a friend looking at their list
+     sees "At table K7QRTM" and can come and join it. One row, overwritten,
+     every 90 seconds, and only while this tab is being looked at. It writes
+     nothing when the reader has that switch off.
+
+     Only while actually sitting down. Standing in the doorway reading somebody
+     else's table is not being at it, and telling friends otherwise would send
+     them somewhere you are not. */
+  useEffect(() => {
+    if (!user || !mySeat) return;
+    return keepPresence({ doing: 'at a table', tableCode: code });
+  }, [user, mySeat, code]);
 
   const verdict = entryVerdict({ signedIn: Boolean(user), decks: decks.data ?? [] });
   /* `in` rather than `verdict.ok`: this project compiles with
@@ -388,23 +403,7 @@ export default function TableRoom() {
         <div className="min-w-0 space-y-4">
         {status !== 'lobby' && <GameUnderWay status={status} />}
 
-        {/* What is not finished, said BEFORE the Start button rather than on the
-            screen you land on after pressing it.
-
-            A table link is sent to people who have never seen /play or the
-            lobby, and this page is where Start actually is, so the lobby
-            carrying the sentence was not enough: an invited player could sit
-            down, ready up and start a game without once being told that the
-            game itself is not built. Same sentence, same source as the mode
-            wall and the lobby, so the three cannot drift apart. */}
-        {status === 'lobby' && (
-          <p className="w-full rounded-xl bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">Still being built. </span>
-            {modeOf('online').developing}
-          </p>
-        )}
-
-        {/* The chairs. Always the same component, whether you are in one or not. */}
+                {/* The chairs. Always the same component, whether you are in one or not. */}
         {room ? (
           <TableSeats room={room} meUserId={user?.id} />
         ) : (
@@ -470,6 +469,19 @@ export default function TableRoom() {
 
         {/* The link is the point, and it belongs to everybody at the table. */}
         {mySeat && status === 'lobby' && <ShareLink code={code} link={link} />}
+
+        {/* The same offer twice, on purpose. The link is for somebody who is not
+            on DeckMatrix; this is for somebody who is. Both land on this exact
+            screen at `/play/t/<code>`, so there is one joining rule and not
+            two. */}
+        {mySeat && tableId && (
+          <InviteFriends
+            userId={user?.id}
+            tableId={tableId}
+            tableCode={code}
+            waiting={status === 'lobby'}
+          />
+        )}
 
         {roomLoading && !room && (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">

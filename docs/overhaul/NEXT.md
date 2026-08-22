@@ -63,22 +63,61 @@ mana, abilities used against abilities activatable, mana unspent at end of turn,
 and turns where a seat did nothing. `bot.ts` says in its own header it aims to
 be plausible rather than strong, so judge it against that.
 
-## 2. Visual audit of the board
+## 2. Visual audit of the whole play system
 
-> "when we have +tokens they are tiny, plus enchantment/artifact area is tiny,
-> some people play full artifact decks."
+Owner named two faults and then asked for the sweep: "visual audit of play
+system".
+
+### The two already reported
 
 - **Counters are too small to read.** A +1/+1 counter changes what a creature
-  does in combat, so it has to be legible at the size a card is actually drawn
-  on a four-seat table, not just on a one-on-one board.
-- **The noncreature row does not scale.** It is sized as if artifacts and
+  does in combat, so it must be legible at the size a card is actually drawn on
+  a FOUR-seat table, not just one-on-one.
+- **The noncreature row does not scale.** It is sized as though artifacts and
   enchantments are a side attraction. Affinity, Lattice and enchantress decks
-  put twenty permanents there, and the row should give ground to whichever side
-  of the board is actually being used rather than splitting fixed.
+  put twenty permanents there. The row should give ground to whichever side of
+  the board is being used rather than splitting fixed.
 
-Measure before changing: draw a real board with a full artifact deck at 1280 and
-1920, count how many permanents fit before it clips, and report the numbers.
-The board already had a clipping complaint once.
+### The sweep
+
+Drive real games and photograph them. Every check at 1280 AND 1920, and at two
+and four seats, because the board has had a clipping complaint before and the
+four-seat case is where things break:
+
+- nothing clips at any seat count, including the support row and the fanned hand
+- tapped cards do not shift their neighbours (a layout-shift complaint already)
+- combat is legible: who is attacking whom, and what is blocking what
+- the stack is visible and readable when several things are on it
+- counters, keywords, damage and summoning sickness all readable at real size
+- the log says what happened without being opened
+- reduced motion: still usable, genuinely still
+- one screenshot per state, kept, so the next change can be compared against it
+
+`scripts/play-*-shots.mjs` and `scripts/measure-overflow.mjs` already exist.
+Extend them rather than starting again.
+
+### Generated art for the game modes
+
+Owner: "You can use gemini pro 3.5 to generate images for the game modes if you
+want, could be cool."
+
+Worth doing, with two caveats stated up front.
+
+**I cannot generate images.** There is no image tool in this environment. This
+needs either the owner generating them, or a script against an API key the
+project holds. Say which before planning around it.
+
+**Where generated art fits, and where it does not.** It fits the playmat
+`image` slot, which already exists in `matStyles.ts` and is unset on every
+built-in style: composited above the ground and below the weave, so the mat
+still reads as a mat. It does NOT go anywhere near card art, which is Scryfall's
+and cannot be modified at all.
+
+And one judgement the owner should make rather than me: they have already said
+"people in magic community hate AI", which is why MTG Brain became Tutor. An
+abstract or textural playmat is a long way from a fake card, but if it ships it
+should not be advertised as generated, and it must not imitate Wizards' art
+style or any real artist.
 
 ## 3. Playmats are not reachable from play
 

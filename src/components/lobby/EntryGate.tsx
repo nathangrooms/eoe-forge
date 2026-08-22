@@ -18,7 +18,13 @@ import type { EntryVerdict } from '@/lib/lobby';
  * for the sentence and the button.
  */
 export function EntryGate({ verdict }: { verdict: EntryVerdict }) {
-  if (verdict.ok) return null;
+  /* `in` rather than `if (verdict.ok)`, and it is not a style choice.
+     This project compiles with `strict: false` and `strictNullChecks: false`
+     (tsconfig.app.json:18, tsconfig.json:17), and without those TypeScript does
+     not narrow a union on a boolean literal discriminant. The `ok` check reads
+     better and does not compile. `in` narrows in either mode, and it tests the
+     property actually being rendered. */
+  if (!('title' in verdict)) return null;
 
   return (
     <section className="rounded-xl bg-muted/40 p-6">

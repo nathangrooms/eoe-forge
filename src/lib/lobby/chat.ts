@@ -65,7 +65,7 @@ export async function postLobbyMessage(
   displayName?: string | null,
   tableCode?: string | null
 ): Promise<LobbyPost> {
-  const { data, error } = await supabase.rpc('post_lobby_message' as never, {
+  const { data, error } = await supabase.rpc('post_lobby_message' as any, {
     p_body: body,
     p_display_name: displayName ?? null,
     p_table_code: tableCode ?? null,

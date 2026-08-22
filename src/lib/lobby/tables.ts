@@ -94,7 +94,7 @@ export async function listOpenTables(): Promise<OpenTable[]> {
  * Leave and the screen catching up.
  */
 export async function readRoom(tableId: string): Promise<TableRoom | null> {
-  const { data, error } = await supabase.rpc('online_table_room' as never, {
+  const { data, error } = await supabase.rpc('online_table_room' as any, {
     p_table: tableId,
   });
   if (error) throw error;
@@ -103,7 +103,7 @@ export async function readRoom(tableId: string): Promise<TableRoom | null> {
 
 /** What somebody holding a link sees before they commit to sitting down. */
 export async function peekTable(code: string): Promise<TablePeek | null> {
-  const { data, error } = await supabase.rpc('peek_online_table' as never, {
+  const { data, error } = await supabase.rpc('peek_online_table' as any, {
     p_code: code,
   });
   if (error) throw error;
@@ -156,7 +156,7 @@ export async function createTable(
   details: SeatDetails,
   options: { format?: string; maxSeats?: number } = {}
 ): Promise<{ id: string; code: string }> {
-  const { data, error } = await supabase.rpc('create_online_table' as never, {
+  const { data, error } = await supabase.rpc('create_online_table' as any, {
     p_display_name: details.displayName,
     p_format: options.format ?? 'commander',
     p_deck_id: details.deckId ?? null,
@@ -184,7 +184,7 @@ export async function joinTable(
   code: string,
   details: SeatDetails
 ): Promise<{ id: string; code: string; status: string }> {
-  const { data, error } = await supabase.rpc('join_online_table' as never, {
+  const { data, error } = await supabase.rpc('join_online_table' as any, {
     p_code: code,
     p_display_name: details.displayName,
     p_deck_id: details.deckId ?? null,
@@ -204,7 +204,7 @@ export async function setSeat(
   tableId: string,
   details: Partial<SeatDetails> & { ready?: boolean }
 ): Promise<void> {
-  const { error } = await supabase.rpc('set_online_seat' as never, {
+  const { error } = await supabase.rpc('set_online_seat' as any, {
     p_table: tableId,
     p_display_name: details.displayName ?? null,
     p_deck_id: details.deckId ?? null,
@@ -229,7 +229,7 @@ export async function setSeat(
  * `leave_online_table`; this is one call either way.
  */
 export async function leaveTable(tableId: string): Promise<void> {
-  const { error } = await supabase.rpc('leave_online_table' as never, {
+  const { error } = await supabase.rpc('leave_online_table' as any, {
     p_table: tableId,
   });
   if (error) throw error;
@@ -240,7 +240,7 @@ export async function setVisibility(
   tableId: string,
   visibility: 'public' | 'link'
 ): Promise<void> {
-  const { error } = await supabase.rpc('set_online_table_visibility' as never, {
+  const { error } = await supabase.rpc('set_online_table_visibility' as any, {
     p_table: tableId,
     p_visibility: visibility,
   });
@@ -255,7 +255,7 @@ export async function setVisibility(
  * shuffle came from its own secret seed and was committed to before this point.
  */
 export async function startTable(tableId: string, publicSeed: number): Promise<void> {
-  const { error } = await supabase.rpc('start_online_table' as never, {
+  const { error } = await supabase.rpc('start_online_table' as any, {
     p_table: tableId,
     p_public_seed: publicSeed,
   });

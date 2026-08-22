@@ -198,13 +198,42 @@ XMage vocabulary workflow is editing right now. Two agents rewriting one
 compiler is how a merge conflict eats an evening. It belongs to whoever owns
 that file next.
 
-## Coverage, stated plainly
+## Coverage, stated plainly, and a correction
 
-**59.26%** of distinct card texts are automated: 19,578 of 33,037, counted from
-`scripts/coverage/.data/dsl-coverage.latest.json` as records with
-`automated: true`. The baseline in the same folder is 58.77%.
+There are TWO coverage numbers in this repo and they differ by a factor of six.
+Quoting the wrong one is how this project has overstated itself before, so both
+are named here with what each actually counts.
 
-That is not 100% and nothing here should be read as saying it is. Coverage on
-this project has been overstated before, when a "95.7%" figure turned out to be
-a 12,000 row slice of 34,088 cards against a real automated figure of 2.66%. The
-number above is the whole corpus, counted the same way twice.
+**9.70%** is the one that answers "does the card work in a game". 3,148 of
+32,469, from `scripts/verify-ability-coverage.mjs`. That script does not read a
+field: it casts real spells through the real reducer on a real board and
+DOWNGRADES anything that resolves silently. Seventy three cards were downgraded
+on the run above for exactly that. This is the number to quote.
+
+**59.26%** is `dsl-coverage.latest.json`, and it is a much weaker claim than it
+sounds. Its `automated` flag is `hasAutomatedAbility()`, meaning AT LEAST ONE
+ability on the card compiled to something runnable. A card with three abilities
+where one compiles counts. It measures the compiler, not the game.
+
+An earlier draft of this document quoted 59.26% as the headline. That was wrong
+in the flattering direction and is corrected here. The same mistake has been
+made on this project before, when a "95.7%" figure turned out to be a 12,000 row
+slice of 34,088 cards against a real automated figure of 2.66%.
+
+### The direction is good
+
+9.70% is up from **4.31%** at the start of the XMage vocabulary work. It roughly
+doubled in one pass, and the reason is worth recording because it was not a
+parsing problem:
+
+- `src/lib/game/abilities/primitives/` was eight tested modules with a registry
+  and an exhaustiveness guard, and **nothing outside the folder imported any of
+  it**. It implemented the verbs `to-actions.ts` names and never resolved.
+- `compiledAbilityActions` returned `[]` for any stack object with no
+  `abilityId`, and a spell cast from hand has none. **Lightning Bolt resolved,
+  went to the graveyard, and dealt no damage.** The compiler was right, the
+  runner would have run it, the suite was green, and nobody called the one with
+  the other.
+
+Both are CLAUDE.md's "green tests do not mean a player can reach it", one level
+up: green tests do not mean anything CALLS the thing they cover.

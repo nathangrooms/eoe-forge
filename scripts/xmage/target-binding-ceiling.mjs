@@ -2,6 +2,14 @@
 /**
  * How many cards CANNOT be scored as working, whatever the port does to them.
  *
+ * ANSWERED AND CLOSED, 23 Aug 2026. The loop this script measures is gone.
+ * `needsTargetBinding` was deleted: `behaviour-probe.ts` now binds a targeted
+ * ability through `chooseTargetsFor`, lets `bot.ts` aim it, and runs the
+ * effects, so a targeted spell that works is scored as working. 756 cards moved
+ * from SILENT to AUTOMATED on that alone. The ceiling below is therefore a
+ * record of a refusal that no longer exists, kept because it is what the
+ * measurement looked like before. See docs/engine/PROBE-TRUTH.md section 7.
+ *
  * Derived from XMage, which is MIT licensed, Copyright (c) 2010
  * betasteward@gmail.com, https://github.com/magefree/mage. The clone is read in
  * place and nothing from it is vendored into this repository. Forge is GPL-3.0

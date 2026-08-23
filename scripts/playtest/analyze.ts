@@ -463,6 +463,10 @@ export function foldAnalyses(runId: string, games: readonly GameAnalysis[]): Run
 
   const cards = new Map<string, CardSighting>();
   const activated = new Set<string>();
+  /* Every distinct state difference each card was ever credited with, for the
+     DM_ALL_SIGHTINGS dump. Collected here rather than on the sighting because
+     `CardSighting` is the report's shape and every earlier report JSON has it. */
+  const allFootprints = new Map<string, string[]>();
 
   for (const game of games) {
     if (!game.replayOk) {
@@ -499,6 +503,12 @@ export function foldAnalyses(runId: string, games: readonly GameAnalysis[]): Run
       run.severityTotals[verdict.severity] = (run.severityTotals[verdict.severity] ?? 0) + 1;
       const moment = (run.momentTotals[verdict.moment] ??= {});
       moment[verdict.verdict] = (moment[verdict.verdict] ?? 0) + 1;
+
+      if (process.env.DM_ALL_SIGHTINGS === '1') {
+        const seen = allFootprints.get(verdict.cardName) ?? [];
+        for (const f of verdict.footprint ?? []) if (!seen.includes(f)) seen.push(f);
+        allFootprints.set(verdict.cardName, seen);
+      }
 
       let sighting = cards.get(verdict.cardName);
       if (!sighting) {
@@ -554,6 +564,64 @@ export function foldAnalyses(runId: string, games: readonly GameAnalysis[]): Run
   // to scry: a card seen twice that cannot be answered outranks a card seen
   // eight times that wasted its controller's turn.
   const severityRank: Record<string, number> = { high: 2, normal: 1, none: 0 };
+
+  /*
+   * EVERY SIGHTING, not only the silent ones. Added 23 Aug 2026 behind
+   * DM_ALL_SIGHTINGS=1, and it changes no figure in the report and no line of
+   * the markdown.
+   *
+   * `run.cards` is filtered to `silent > 0` two lines down, which is right for
+   * a report about what the game does NOT do. It makes this file unable to
+   * answer the opposite question: the static probe says a card is refused, and
+   * a real game says it acted, so which is right. That comparison needs the
+   * cards that WORKED as much as the ones that did not, and those are dropped
+   * here and nowhere else.
+   *
+   * Written to its own file rather than into `run` so the report JSON keeps
+   * exactly the shape every earlier run wrote and two reports stay diffable.
+   */
+  if (process.env.DM_ALL_SIGHTINGS === '1') {
+    fs.mkdirSync(REPORT_DIR, { recursive: true });
+    const dest = path.join(REPORT_DIR, `sightings-${runId.replace(/[^\w.+-]/g, '_')}.json`);
+    fs.writeFileSync(
+      dest,
+      JSON.stringify(
+        {
+          runId: run.runId,
+          gamesAnalysed: run.gamesAnalysed,
+          distinctCardsResolved: cards.size,
+          sightings: [...cards.values()].map(c => ({
+            name: c.name,
+            resolutions: c.resolutions,
+            silent: c.silent,
+            verdicts: c.verdicts,
+            worst: c.worst,
+            moment: c.moment,
+            mechanic: c.mechanic,
+            engineLevel: c.engineLevel,
+            /*
+             * WHAT ACTUALLY MOVED, and this is the field that stops "acted"
+             * from being read as "the card worked".
+             *
+             * `acted` means the resolution left a state difference that was
+             * not bookkeeping. It does NOT mean the card's printed text ran.
+             * A card whose main paragraph the compiler cannot read, sitting on
+             * a body that entered tapped, is `acted` on the strength of the
+             * tapped flag alone. Comparing that against a probe which grades
+             * EVERY paragraph would credit the engine with work it did not do,
+             * so the footprint travels with the row and the comparison has to
+             * look at it.
+             */
+            footprint: allFootprints.get(c.name) ?? [],
+          })),
+        },
+        null,
+        1
+      )
+    );
+    console.log(`wrote ${dest}  (${cards.size} distinct cards that resolved)`);
+  }
+
   run.cards = [...cards.values()]
     .filter(card => card.silent > 0)
     .sort(

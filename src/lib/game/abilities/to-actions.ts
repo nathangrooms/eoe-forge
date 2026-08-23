@@ -155,6 +155,28 @@ export interface RunOptions {
    * the same failure as guessing one.
    */
   modes?: Record<string, readonly number[]>;
+  /**
+   * Answer every `{do:'may'}` in this run with YES, instead of deferring it.
+   *
+   * OFF IN THE GAME AND IT MUST STAY OFF. A game that took "you may" for the
+   * player would sacrifice their creature for them. The only caller that sets
+   * it is `behaviour-probe.ts`, which is not playing a game: it is asking
+   * whether a card CAN do the thing it says, and a card whose whole body sits
+   * behind a "you may" answers that question only if somebody says yes.
+   *
+   * THE BIAS THIS BUYS, stated here so it travels with the switch rather than
+   * living in a report nobody opens: yes is not the neutral answer. Answering
+   * no would make every optional ability read as broken; answering yes makes a
+   * card whose only content is optional read as working, which is a claim about
+   * the card's effects and NOT a claim that anybody can be asked.
+   *
+   * That sentence used to end "and `verify-ability-coverage.mjs` still refuses
+   * the card for it", which was NOT TRUE and was worth 41 cards in the passing
+   * total. Nothing downstream was refusing them. `probeBehaviour` now refuses a
+   * card whose effects only ran because this switch was on, so the claim above
+   * is one the code makes rather than one a comment asserts.
+   */
+  answerMayYes?: boolean;
 }
 
 interface RunScope {
@@ -851,6 +873,14 @@ function runEffect(effect: Effect, ctx: AbilityContext, scope: RunScope): void {
 
     case 'may': {
       // Never taken automatically: "you may" is the player's word, not ours.
+      //
+      // The one exception is a measuring run that set `answerMayYes`, and the
+      // exception says so out loud at the moment it is taken rather than in a
+      // comment somewhere else. See `RunOptions.answerMayYes` for the bias.
+      if (scope.options.answerMayYes) {
+        for (const inner of effect.effects) runEffect(inner, ctx, scope);
+        break;
+      }
       const [playerId] = resolvePlayers(effect.who, ctx);
       scope.deferred.push(`${nameOf(state, playerId)} may: ${effect.text}`);
       break;

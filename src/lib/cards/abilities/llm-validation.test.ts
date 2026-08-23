@@ -20,6 +20,7 @@ import { validateAbilities, validateEffects, ACCEPTED_TAGS } from './validate.ts
 import { renderAbilities, renderEffect } from './render.ts';
 import { roundTrip, checkVerbatim, semanticTokens } from './roundtrip.ts';
 import { acceptModelResult, readNeeds } from './llm-accept.ts';
+import { probeBehaviour } from '../../game/abilities/behaviour-probe.ts';
 import { advancePatch, batched, batchedByBudget, completionPatch, failurePatch, resumeFrom } from './llm-run-state.ts';
 import { DSL_GRAMMAR, SYSTEM_PROMPT } from './llm-prompt.ts';
 import { oracleHash } from './normalize.ts';
@@ -240,11 +241,156 @@ test('a model-supplied id and confidence are overwritten, never trusted', () => 
  * Behaviour — accepted is not the same as automated
  * ------------------------------------------------------------------ */
 
-test('a targeted spell is accepted but is NOT automatable, because nothing binds the target', () => {
+/*
+ * THIS TEST USED TO ASSERT THE OPPOSITE, and it was right to until 23 Aug 2026.
+ *
+ * It read "a targeted spell is accepted but is NOT automatable, because nothing
+ * binds the target", and that was a true sentence about the engine on the day
+ * it was written: `behaviour-probe.ts` reported `deferred` for any ability that
+ * announced a target, before running a single one of its effects.
+ *
+ * `chooseTargetsFor` owns target legality for all three ways a target is
+ * announced now, and the probe binds through it and lets `bot.ts` aim. So a
+ * Bolt is aimed and it burns something, and the old assertion had become a
+ * claim about a refusal rather than about the engine. The bar is unchanged:
+ * actions have to come out and nothing may be deferred. The test below this one
+ * is the other half, and it is the one that matters — binding a target must not
+ * become a way of passing.
+ */
+test('a targeted spell IS automatable, because the target is bound the way a bot binds it', () => {
   const outcome = acceptModelResult(BOLT, boltAnswer());
   assert.equal(outcome.accepted, true);
-  assert.equal(outcome.automatable, false);
-  assert.equal(outcome.detail.behaviour?.outcome, 'deferred');
+  assert.equal(outcome.automatable, true);
+  assert.equal(outcome.detail.behaviour?.outcome, 'ran');
+  // And it says who aimed it, so the row can be audited rather than trusted.
+  assert.ok(
+    (outcome.detail.behaviour?.answered ?? []).some(line => line.includes('chooseTargetsFor')),
+    JSON.stringify(outcome.detail.behaviour)
+  );
+});
+
+test('a bound target is not a way of passing: an ability that then does nothing is SILENT', () => {
+  // A target IS found and bound here — the probe board has three creatures on
+  // it and the bot aims at one. The ability still produces no action, because
+  // every permanent on that board is already untapped, so the probe REJECTS it.
+  // That is a harder verdict than the `deferred` the same ability would have
+  // been let off with when any announced target failed the card outright.
+  const verdict = probeBehaviour([
+    {
+      id: 'a0',
+      kind: 'spell',
+      text: 'Untap target creature.',
+      confidence: 'approximate',
+      targets: [{ ref: 0, what: 'creature', min: 1, max: 1, prompt: 'Choose target creature' }],
+      effects: [{ do: 'untap', what: { sel: 'target', ref: 0 } }],
+    },
+  ] as never);
+  assert.equal(verdict.outcome, 'silent');
+  assert.equal(verdict.ok, false);
+  assert.equal(verdict.actions, 0);
+  assert.ok(verdict.answered.some(line => line.includes('target(s) bound')), JSON.stringify(verdict));
+});
+
+/*
+ * The two tests below are the guard on the failure this whole probe can only
+ * have in one direction. Both abilities RUN and both produce a real action, and
+ * both are refused anyway, because the only reason they ran is that the probe
+ * answered a question nothing in the product offers. Delete either assertion and
+ * 66 cards walk back into the passing total on no evidence.
+ */
+test('a "you may" the probe answered for is NOT a pass, however well the body ran', () => {
+  const verdict = probeBehaviour([
+    {
+      id: 'a0',
+      kind: 'triggered',
+      text: 'When this creature enters, you may draw a card.',
+      confidence: 'approximate',
+      trigger: { on: 'enters', who: { sel: 'self' } },
+      effects: [
+        {
+          do: 'may',
+          who: { who: 'you' },
+          text: 'draw a card',
+          effects: [{ do: 'draw', who: { who: 'you' }, count: 1 }],
+        },
+      ],
+    },
+  ] as never);
+  // The body really ran. That is the point: the actions are evidence about the
+  // effects, and they are still not evidence that anybody can be asked.
+  assert.equal(verdict.actions, 1);
+  assert.equal(verdict.outcome, 'deferred');
+  assert.ok(
+    verdict.answered.some(line => line.includes('"you may" was answered YES')),
+    JSON.stringify(verdict)
+  );
+  assert.ok(
+    verdict.deferred.some(line => line.includes('a question nobody else can')),
+    JSON.stringify(verdict)
+  );
+});
+
+test('a mode botChoice picked is NOT a pass while no surface draws a mode', () => {
+  const verdict = probeBehaviour([
+    {
+      id: 'a0',
+      kind: 'spell',
+      text: 'Choose one: draw a card; or you gain 2 life.',
+      confidence: 'approximate',
+      effects: [
+        {
+          do: 'choose-mode',
+          min: 1,
+          max: 1,
+          modes: [
+            { text: 'Draw a card.', effects: [{ do: 'draw', who: { who: 'you' }, count: 1 }] },
+            { text: 'You gain 2 life.', effects: [{ do: 'gain-life', who: { who: 'you' }, amount: 2 }] },
+          ],
+        },
+      ],
+    },
+  ] as never);
+  assert.equal(verdict.actions, 1);
+  assert.equal(verdict.outcome, 'deferred');
+  assert.ok(
+    verdict.answered.some(line => line.includes('botChoice answered the mode')),
+    JSON.stringify(verdict)
+  );
+  assert.ok(
+    verdict.deferred.some(line => line.includes('no shipped surface draws')),
+    JSON.stringify(verdict)
+  );
+});
+
+test('a clause that is a translated XMage body producing nothing is NOT a pass', () => {
+  /*
+   * Depressurize, by hand: "Target creature gets -3/-0 until end of turn. Then
+   * if that creature's power is 0 or less, destroy it." The pump is DSL, the
+   * "then" half is a translated body. On a board of 2/2s the destroy is exactly
+   * what should happen, and the body produces no action and gives no reason.
+   *
+   * The pump alone would carry the card to `ran` without this rule, which is
+   * how 8 cards reached AUTOMATED on half of themselves.
+   */
+  const verdict = probeBehaviour([
+    {
+      id: 'a0',
+      kind: 'spell',
+      text: 'Target creature gets -3/-0 until end of turn. Then if that creature’s power is 0 or less, destroy it.',
+      confidence: 'approximate',
+      targets: [{ ref: 0, what: 'creature', min: 1, max: 1, prompt: 'creature' }],
+      effects: [
+        { do: 'pump', what: { sel: 'target', ref: 0 }, power: -3, toughness: 0, duration: 'end-of-turn' },
+        { do: 'xmage-body', key: 'Depressurize::DepressurizeTargetEffect', card: 'Depressurize', effect: 'DepressurizeTargetEffect' },
+      ],
+    },
+  ] as never);
+  assert.equal(verdict.actions, 1, 'the pump still runs, and one action is the whole point');
+  assert.equal(verdict.outcome, 'deferred');
+  assert.ok(
+    verdict.deferred.some(line => line.includes('translated XMage body produced no action')),
+    JSON.stringify(verdict)
+  );
 });
 
 test('an untargeted effect the engine really performs is automatable', () => {

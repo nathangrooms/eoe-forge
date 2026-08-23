@@ -246,6 +246,10 @@ export function acceptModelResult(card: AbilityCard, raw: unknown): AcceptOutcom
     actions: behaviour.actions,
     deferred: behaviour.deferred.slice(0, 6),
     error: behaviour.error,
+    // What the probe answered on this card's behalf, and what it could not aim.
+    // A reviewer reading `automatable: true` is owed both.
+    answered: behaviour.answered.slice(0, 6),
+    unbound: behaviour.unbound.slice(0, 6),
   };
   if (!behaviour.ok) {
     return fail(base, 'behaviour', { behaviour: behaviourDetail }, unparsed, needs);

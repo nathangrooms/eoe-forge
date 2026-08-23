@@ -780,8 +780,30 @@ function botTriggerTarget(
   trigger: PendingTrigger,
   choice: PendingChoice
 ): StackTarget | null {
+  return botTargetForEffects(state, playerId, trigger.dsl?.effects ?? [], choice);
+}
+
+/**
+ * The same pick, taken from an EFFECT LIST rather than from a pending trigger.
+ *
+ * `botTriggerTarget` above is now one line and calls this, so there is one
+ * implementation of "which legal target does a bot take" rather than two that
+ * can drift. The split exists because `behaviour-probe.ts` has to aim an
+ * ability that is on no stack: it holds the compiled effects and there is no
+ * `PendingTrigger` to hand it. A probe that answered with a rule of its own
+ * would be measuring its own rule, which is the one thing it must not do.
+ *
+ * Direction is read off the effects by `punishesItsTarget`, exactly as before,
+ * and declining is still not an option here for the CR 603.3d reason above.
+ */
+export function botTargetForEffects(
+  state: GameState,
+  playerId: PlayerId,
+  effects: readonly Effect[],
+  choice: PendingChoice
+): StackTarget | null {
   if (choice.kind !== 'target') return null;
-  const harmful = trigger.dsl ? punishesItsTarget(trigger.dsl.effects) : false;
+  const harmful = punishesItsTarget(effects);
   return (
     aimByDirection(state, playerId, harmful, choice) ??
     // The other direction, because a legal target must be chosen.
@@ -1192,8 +1214,12 @@ type AbilityCandidate = ReturnType<typeof activatablePermanents>[number]['option
  * direction for a mistake this file cannot avoid making one way or the other.
  *
  * A cost choice is declined outright, for the reason `willingToPay` gives.
+ *
+ * Exported so `behaviour-probe.ts` answers a mode and an activated ability's
+ * target with THIS function and not with one of its own. If the probe answered
+ * differently from the game, its number would be about the probe.
  */
-function botChoice(
+export function botChoice(
   state: GameState,
   playerId: PlayerId,
   source: CardInstance,

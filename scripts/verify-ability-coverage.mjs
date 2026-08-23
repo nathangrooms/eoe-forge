@@ -43,6 +43,8 @@ import { probeBehaviour, probeEffects } from '../src/lib/game/abilities/behaviou
 import { addCard, applyActions, createGame } from '../src/lib/game/rules.ts';
 import { castSpellAction } from '../src/lib/game/stack.ts';
 import { activationsFor, planActivation } from '../src/lib/game/activate.ts';
+import { makeContext } from '../src/lib/game/abilities/context.ts';
+import { runEffects } from '../src/lib/game/abilities/to-actions.ts';
 import { triggerAwaitingTargets } from '../src/lib/game/announce.ts';
 import { powerIn } from '../src/lib/game/characteristics.ts';
 
@@ -248,11 +250,19 @@ function decisionIn(effects) {
  * Two known limits of the method, both of which UNDERSTATE coverage, which is
  * the direction to be wrong in:
  *
- *   - `counter` needs a spell on the stack and an announced stack target. The
- *     probe board has neither, so `counter` will read unresolved here even
- *     though `counterTargetSpell` fires correctly when a target was announced.
  *   - a verb is graded on one representative effect. A verb that resolves for
  *     the shape below and defers for some other shape reads as resolved.
+ *
+ * ONE LIMIT WAS REMOVED, 23 Aug 2026, and it was a fact about the BOARD:
+ *
+ *   - `counter` needs a spell on the stack and an announced stack target. The
+ *     probe board has neither, so `counter` read unresolved here and every card
+ *     carrying one was graded dead, on this script's own admission. That is not
+ *     a measurement of the verb, it is a measurement of a board with no stack.
+ *     `measureCounterWithAStack` below asks the SAME interpreter the same
+ *     question on a board that has a real spell on the stack with that stack
+ *     object announced as the target. The bar is unchanged: an action has to
+ *     come out or the verb stays in NEVER_RESOLVED.
  */
 const VERB_PROBES = {
   pump: [{ do: 'pump', what: { sel: 'self' }, power: 1, toughness: 1, duration: 'end-of-turn' }],
@@ -749,6 +759,48 @@ const PROMPT_BASIS = (() => {
     : `every decision on the card is one of: ${asked.join(', ')}`;
 })();
 
+/*
+ * `counter`, PUT TO THE SAME INTERPRETER ON A BOARD THAT HAS A STACK.
+ *
+ * The verb probe above runs on `behaviour-probe.ts`'s board, which has no spell
+ * on it, so `{do:'counter', what:{sel:'target'}}` can only defer and every card
+ * carrying a counterspell was graded dead. That was a board fact reported as a
+ * verb fact, and this script's own comment said so and left it.
+ *
+ * So: cast a real Shock from the other seat through the real reducer, take the
+ * stack object it produced, announce it as the target, and run the identical
+ * effect through the identical `runEffects`. Nothing is relaxed — the verb
+ * still has to produce an action, and if it does not it stays refused.
+ */
+function measureCounterWithAStack() {
+  try {
+    let state = createGame({
+      mode: 'full', format: 'commander', seed: 11,
+      players: [{ id: 'p1', name: 'One' }, { id: 'p2', name: 'Two' }],
+    });
+    state = { ...state, status: 'playing', step: 'precombat_main' };
+    state = addCard(state, {
+      instanceId: 'victim', cardId: 'victim', name: 'Shock', ownerId: 'p2',
+      typeLine: 'Instant', oracleText: 'Shock deals 2 damage to any target.',
+    }, 'hand');
+    state = addCard(state, {
+      instanceId: 'src', cardId: 'src', name: 'Probe Source', ownerId: 'p1',
+      typeLine: 'Creature — Human', power: '2', toughness: '2',
+    }, 'battlefield');
+    state = applyActions(state, [castSpellAction('p2', 'victim', { resolvesTo: 'graveyard' })]);
+    const object = (state.stack ?? [])[0];
+    if (!object) return { ok: false, detail: 'nothing reached the stack, so the question could not be put' };
+    const ctx = makeContext(state, 'src', 'p1', { targets: [{ kind: 'stack', stackId: object.stackId }] });
+    const run = runEffects(VERB_PROBES.counter, ctx, { at: 0, cause: 'probe', idPrefix: 'probe:0' });
+    return run.actions.length > 0
+      ? { ok: true, detail: `resolves (${run.actions.length} action(s)) once a spell is on the stack and announced` }
+      : { ok: false, detail: `still deferred with a spell on the stack: ${run.deferred[0] ?? 'no reason given'}` };
+  } catch (err) {
+    return { ok: false, detail: `threw: ${err.message}` };
+  }
+}
+const COUNTER_WITH_A_STACK = measureCounterWithAStack();
+
 const NEVER_RESOLVED = new Set();
 const VERB_PROBE_RESULT = {};
 for (const [verb, effects] of Object.entries(VERB_PROBES)) {
@@ -756,6 +808,11 @@ for (const [verb, effects] of Object.entries(VERB_PROBES)) {
   VERB_PROBE_RESULT[verb] = probed;
   if (probed.actions === 0) NEVER_RESOLVED.add(verb);
 }
+/*
+ * The one verb whose board was the problem. Asked again, above, and removed
+ * from the dead list only if the answer came back with actions in it.
+ */
+if (COUNTER_WITH_A_STACK.ok) NEVER_RESOLVED.delete('counter');
 
 function neverResolvedVerb(effects) {
   for (const e of effects ?? []) {
@@ -1153,10 +1210,31 @@ for (const card of pool) {
     u: result.unparsed.length,
     m: perAbility.filter(v => v.s === 'manual').length,
     k: result.abilities.length,
+    /*
+     * `dec` added 23 Aug 2026, behind DM_CARD_DUMP like every other key on this
+     * row, and it changes no verdict and no printed figure.
+     *
+     * `d` already lets a SILENT card name the dead consumer that blocks it. A
+     * PROMPTABLE card could name nothing at all, so any ranking of PROMPTABLE
+     * had to be WRITTEN DOWN rather than read off a run, which is the one
+     * defect this whole file exists to remove.
+     *
+     * `asked` rides along per decision because "a may nobody offers" and "a
+     * target the engine does offer and a surface does draw" are different
+     * pieces of work, and a ranking that lumped them would point a month of
+     * effort at the wrong one.
+     */
+    dec: perAbility.filter(v => v.s === 'decision').map(v => `${v.why}${v.asked === true ? ' [asked]' : ''}`),
   });
 
   if (mine === 'AUTOMATED' || mine === 'PROMPTABLE' || mine === 'PROMPTED') {
-    toProbe.push({ name: card.name, verdict: mine, abilities: result.abilities, oracle: card.oracle_text ?? '' });
+    toProbe.push({
+      oracleId: card.oracle_id,
+      name: card.name,
+      verdict: mine,
+      abilities: result.abilities,
+      oracle: card.oracle_text ?? '',
+    });
   }
 
   // PROMPTED is carved out of PROMPTABLE, so the name list still holds both.
@@ -1204,16 +1282,79 @@ const probeThrew = [];
 let probeSilent = 0;
 const probeSilentNames = [];
 
+/*
+ * THE PROBE IS NOW BINDING ON PROMPTED TOO, on the IDENTICAL terms. 23 Aug 2026.
+ *
+ * The line here used to read `if (e.verdict !== 'AUTOMATED') continue;`. Every
+ * PROMPTED card was put through the probe, its outcome was counted into the
+ * report a few pages down, and then the result was thrown away — so 1,601 cards
+ * counted as passing without one piece of behavioural evidence, while an
+ * AUTOMATED card next to them was downgraded for the same outcome.
+ *
+ * That is not a second bar, it is the same bar applied to a bucket it was being
+ * skipped for, and it can only lower the number. A PROMPTED card whose abilities
+ * throw, or that still defers with its targets bound and its modes answered, is
+ * SILENT for exactly the reason an AUTOMATED one is.
+ *
+ * A `silent` PROBE IS NOW A DOWNGRADE TOO, for both buckets, and it had to
+ * become one the moment targets were bound.
+ *
+ * `probeBehaviour` has always returned `ok: false` for `silent` and called it
+ * "the prohibited state the whole design exists to prevent: an ability that
+ * resolves to nothing while telling nobody". This script counted those cards,
+ * printed them, priced them on its last line, and kept them AUTOMATED anyway.
+ *
+ * That was survivable while every targeted ability was refused before it ran.
+ * It is not survivable now: a card whose targets bind and whose effects then
+ * produce NOTHING would move from refused to AUTOMATED on strictly less
+ * evidence than it had before. Measured on the first run with binding on and
+ * this off: Tome Scour, Swallowing Plague and Dogpile all became AUTOMATED with
+ * zero actions to their name. A card must be refused unless it demonstrably
+ * works, so silence is refused.
+ */
+const promptedDowngradedNames = new Set();
+let promptedDowngraded = 0;
+let promptedProbeSilent = 0;
+
+// Per-card probe evidence, keyed by oracle id, so a card whose verdict moved
+// can be shown WHAT it was given and WHAT it did rather than asserted about.
+const probeEvidence = new Map();
+const probeAnswered = new Map();
+const probeUnbound = new Map();
+
 for (const e of toProbe) {
   let v;
   try { v = probeBehaviour(e.abilities); }
-  catch (err) { v = { outcome: 'threw', actions: 0, deferred: [], error: err.message }; }
+  catch (err) { v = { outcome: 'threw', actions: 0, deferred: [], error: err.message, answered: [], unbound: [] }; }
   bump(probeOut, `${e.verdict}/${v.outcome}`);
-  if (e.verdict !== 'AUTOMATED') continue;
-  if (v.outcome === 'threw') { downgraded++; if (probeThrew.length < 20) probeThrew.push(`${e.name} :: ${v.error ?? ''}`); }
-  else if (v.outcome === 'deferred') { downgraded++; for (const d of v.deferred) bump(probeDeferred, d.slice(0, 90)); }
-  else if (v.outcome === 'silent') { probeSilent++; if (probeSilentNames.length < 30) probeSilentNames.push(e.name); }
-  if (v.outcome === 'threw' || v.outcome === 'deferred') downgradedNames.add(e.name);
+  probeEvidence.set(e.oracleId, {
+    outcome: v.outcome,
+    actions: v.actions,
+    answered: (v.answered ?? []).slice(0, 6),
+    unbound: (v.unbound ?? []).slice(0, 4),
+    deferred: (v.deferred ?? []).slice(0, 4),
+    error: v.error ?? null,
+  });
+
+  for (const line of new Set((v.answered ?? []).map(a => a.replace(/^[^:]*: /, '')))) bump(probeAnswered, line.slice(0, 80));
+  for (const line of new Set((v.unbound ?? []).map(a => a.replace(/^[^:]*: /, '')))) bump(probeUnbound, line.slice(0, 80));
+
+  if (e.verdict === 'AUTOMATED') {
+    if (v.outcome === 'threw') { downgraded++; if (probeThrew.length < 20) probeThrew.push(`${e.name} :: ${v.error ?? ''}`); }
+    else if (v.outcome === 'deferred') { downgraded++; for (const d of v.deferred) bump(probeDeferred, d.slice(0, 90)); }
+    else if (v.outcome === 'silent') { downgraded++; probeSilent++; if (probeSilentNames.length < 30) probeSilentNames.push(e.name); }
+    if (v.outcome !== 'ran') downgradedNames.add(e.name);
+    continue;
+  }
+
+  if (e.verdict === 'PROMPTED') {
+    if (v.outcome !== 'ran') {
+      promptedDowngraded++;
+      promptedDowngradedNames.add(e.name);
+      if (v.outcome === 'silent') promptedProbeSilent++;
+      for (const d of v.deferred) bump(probeDeferred, `PROMPTED: ${d.slice(0, 80)}`);
+    }
+  }
 }
 
 /* ------------------------------------------------------------------ *
@@ -1223,12 +1364,14 @@ for (const e of toProbe) {
 const N = pool.length;
 const preAutomated = verdicts.get('AUTOMATED') ?? 0;
 const promptable = verdicts.get('PROMPTABLE') ?? 0;
-const prompted = verdicts.get('PROMPTED') ?? 0;
+const prePrompted = verdicts.get('PROMPTED') ?? 0;
 const noText = verdicts.get('NO-TEXT') ?? 0;
 const preSilent = verdicts.get('SILENT') ?? 0;
 
 const automated = preAutomated - downgraded;
-const silent = preSilent + downgraded;
+// PROMPTED loses the same cards AUTOMATED loses, for the same outcomes.
+const prompted = prePrompted - promptedDowngraded;
+const silent = preSilent + downgraded + promptedDowngraded;
 
 const L = [];
 const say = s => { L.push(s); console.log(s); };
@@ -1272,6 +1415,7 @@ say(`  ${'mode drawn'.padEnd(16)} ${MODE_DRAWN_BY_A_SURFACE ? 'a shipped surface
 say(`  ${'target asked'.padEnd(16)} ${TARGET_PROBE.detail}`);
 say(`  ${'trigger asked'.padEnd(16)} ${TRIGGER_TARGET_PROBE.detail}`);
 say(`  ${'trigger drawn'.padEnd(16)} ${TRIGGER_TARGET_DRAWN_BY_A_SURFACE ? 'a shipped surface draws a waiting trigger and hands an answer back' : 'NO shipped surface draws one, so the drain would halt with nobody to ask'}`);
+say(`  ${'counter+stack'.padEnd(16)} ${COUNTER_WITH_A_STACK.detail}`);
 say('');
 say('--- THE THREE METRICS, my rule (an unplaceable paragraph fails the card) ---');
 say(`AUTOMATED   ${String(automated).padStart(6)}  ${pct(automated, N)}%   (${preAutomated} before the probe, ${downgraded} downgraded)`);
@@ -1333,15 +1477,25 @@ for (const [k, v] of top(deadWhy, 20)) say(`  ${String(v).padStart(6)}  ${k}`);
 say('');
 say('--- PROBE ---');
 for (const [k, v] of top(probeOut, 10)) say(`  ${String(v).padStart(6)}  ${k}`);
-say(`downgraded ${downgraded};  silent-on-probe-board (NOT downgraded) ${probeSilent}`);
+say(`AUTOMATED downgraded ${downgraded}, of which produced nothing at all ${probeSilent}`);
+say(`PROMPTED  downgraded ${promptedDowngraded}, of which produced nothing at all ${promptedProbeSilent}`);
 for (const s of probeThrew) say(`  threw: ${s}`);
 for (const [k, v] of top(probeDeferred, 12)) say(`  defer ${String(v).padStart(5)}  ${k}`);
 say('');
-say(`If every probe-silent card were also downgraded, AUTOMATED would be ${automated - probeSilent} (${pct(automated - probeSilent, N)}%).`);
+say('--- WHAT THE PROBE ANSWERED, and who answered it ---');
+say('(a card that passes because somebody was answered for is a different fact');
+say(' from a card that passes because the engine did it unaided, so both print)');
+for (const [k, v] of top(probeAnswered, 10)) say(`  ${String(v).padStart(6)}  ${k}`);
+say('cards whose announced targets the probe board could NOT supply:');
+for (const [k, v] of top(probeUnbound, 10)) say(`  ${String(v).padStart(6)}  ${k}`);
+say('');
+say(`Silence is a REFUSAL: ${probeSilent} AUTOMATED and ${promptedProbeSilent} PROMPTED cards produced no action and`);
+say(`no deferral, and every one of them is counted SILENT above. Were they accepted instead,`);
+say(`AUTOMATED would read ${automated + probeSilent} (${pct(automated + probeSilent, N)}%) and PROMPTED ${prompted + promptedProbeSilent} (${pct(prompted + promptedProbeSilent, N)}%).`);
 
 writeFileSync(OUT, JSON.stringify({
   pool: { rows: all.length, distinctOracleIds: oracleIds.size, duplicateOracleId, pool: N, poolOracleIds: poolOracleIds.size, drop: Object.fromEntries(drop) },
-  metrics: { automated, prompted, silent, noText, promptable, preProbeAutomated: preAutomated, downgraded, probeSilent },
+  metrics: { automated, prompted, silent, noText, promptable, preProbeAutomated: preAutomated, downgraded, probeSilent, preProbePrompted: prePrompted, promptedDowngraded, promptedProbeSilent },
   theirs: { automated: theirAuto, promptable: theirPromptable, silent: theirSilent },
   defects: {
     consumedButNoAbility, consumedButNoAbilitySamples,
@@ -1374,6 +1528,14 @@ if (cardDump) {
   let moved = 0;
   for (const row of cardDump) {
     if (row.v === 'AUTOMATED' && downgradedNames.has(row.n)) { row.v = 'SILENT'; moved++; }
+    else if (row.v === 'PROMPTED' && promptedDowngradedNames.has(row.n)) { row.v = 'SILENT'; moved++; }
+    /*
+     * The probe's own evidence, per card, so a verdict that moved between two
+     * runs of this script can be read alongside WHAT the card was given and
+     * WHAT it did. Without it a diff of two dumps is two lists of names.
+     */
+    const ev = probeEvidence.get(row.o);
+    if (ev) { row.p = ev.outcome; row.pa = ev.actions; row.an = ev.answered; row.ub = ev.unbound; row.df = ev.deferred; }
   }
   const tally = new Map();
   const bySource = new Map();

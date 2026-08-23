@@ -316,9 +316,26 @@ export default function PublicDeck() {
                     </>
                   )}
                   <span aria-hidden>·</span>
-                  <span>{deck.counts.total} cards</span>
+                  {/* `stats`, not `deck.counts.total`. Both are on this page,
+                      forty pixels apart: this line read the RPC's own count and
+                      the tile below counts the rows the page is drawing, and
+                      the two are the disagreement `ONE-DECK-PAGE.md` section 11
+                      item 2 has open. Until that is settled, one page says one
+                      number, and it is the one that matches the list under it. */}
+                  <span>{stats.totalCards} cards</span>
                   <span aria-hidden>·</span>
-                  <span>${stats.totalValueUSD.toFixed(2)}</span>
+                  {/* A dash, never $0.00, and never a second spelling of the
+                      figure in the tile below. Measured on a deck the harness
+                      served with no priced rows: this line printed `$0.00`
+                      while the Value tile eight hundred pixels down printed
+                      `—`, which is the rule the tile carries in a comment and
+                      this line was written before. Two decimals against the
+                      tile's none was the same split: `$887.55` here and `$888`
+                      there. A shared deck is the first thing many people ever
+                      see of this product. */}
+                  <span>
+                    {stats.totalValueUSD > 0 ? `$${stats.totalValueUSD.toFixed(0)}` : '—'}
+                  </span>
                   <span aria-hidden>·</span>
                   <span>
                     {viewCount} view{viewCount === 1 ? '' : 's'}

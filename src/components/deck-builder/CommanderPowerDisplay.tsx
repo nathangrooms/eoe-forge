@@ -1,30 +1,44 @@
 import { cn } from '@/lib/utils';
 import { Crown } from 'lucide-react';
-import { PowerScore } from '@/components/deck/PowerScore';
 import { SUBSCORE_LABELS, type DeckPower, type SubscoreKey } from '@/lib/deck/power';
 
 /**
- * The commander-facing power readout.
+ * The four axes a commander player asks about.
  *
- * Restored and rewritten. The old version took a bare `powerLevel: number` and
- * an optional `metrics` object that every caller built by multiplying that one
- * number — `powerLevel * 0.9`, `* 1.1`, `* 0.8`, `* 1.2` — and labelled the
- * results Speed, Interaction, Resilience and Combo Potential. Four invented
- * figures presented as measurements. It also coloured itself with raw
- * `text-red-600` / `orange` / `yellow` / `green`, which the monochrome palette
- * does not allow.
+ * Restored and rewritten once already. The version before that took a bare
+ * `powerLevel: number` and an optional `metrics` object that every caller built
+ * by multiplying that one number — `powerLevel * 0.9`, `* 1.1`, `* 0.8`,
+ * `* 1.2` — and labelled the results Speed, Interaction, Resilience and Combo
+ * Potential. Four invented figures presented as measurements. It also coloured
+ * itself with raw `text-red-600` / `orange` / `yellow` / `green`, which the
+ * monochrome palette does not allow.
  *
- * It now takes the canonical {@link DeckPower} and shows the four axes a
- * commander player actually asks about, straight from the engine's subscores,
- * plus the two diagnostics that drive the engine's own penalties: tutor count
- * and game changers.
+ * It takes the canonical {@link DeckPower} and reads the four axes straight off
+ * the engine's own subscores.
+ *
+ * ## TWO THINGS LEFT THIS FILE, BOTH BECAUSE THEY WERE ALREADY ON THE PAGE
+ *
+ * **The score itself.** This panel mounted `PowerScore variant="compact"` at
+ * the top of its body. Both of its callers draw `PowerScore variant="expanded"`
+ * higher up the same screen — `DeckInterface`'s EDH tab and
+ * `AIGeneratedDeckList` — so a deck's power was rendered twice at two sizes
+ * from one object. The expanded one is the canonical readout and carries the
+ * bracket, the ten subscores and their evidence; this one added nothing to it.
+ *
+ * **Tutors and game changers.** Two hand-rolled 18px tiles here. They are
+ * figures about the deck, so they belong in the tab's `MetricRow` with the
+ * other figures about the deck — and there `DeckEdhPanel` can do something this
+ * panel never could, which is name the cards behind them. The engine has
+ * carried `gameChangers.list` and `tutors.list` all along and the adapter
+ * reduced both to integers. It does not any more; see `NamedCard` in
+ * `powerAdapter`.
+ *
+ * What is left is the part that was only ever here.
  */
 
 interface CommanderPowerDisplayProps {
   power: DeckPower | null;
   commanderName?: string;
-  onRescore?: () => void;
-  rescoring?: boolean;
   className?: string;
 }
 
@@ -86,25 +100,13 @@ function axisValue(power: DeckPower, key: SubscoreKey): number | null {
   return power.subscores?.[key] ?? null;
 }
 
-function Diagnostic({ label, value, note }: { label: string; value: string; note: string }) {
-  return (
-    <div className="rounded-lg bg-background/60 p-3 shadow-sm">
-      <p className="text-lg font-bold leading-none tabular-nums">{value}</p>
-      <p className="mt-1.5 text-[0.7rem] font-medium leading-none text-muted-foreground">{label}</p>
-      <p className="mt-1 text-[0.62rem] leading-tight text-muted-foreground">{note}</p>
-    </div>
-  );
-}
-
 export function CommanderPowerDisplay({
   power,
   commanderName,
-  onRescore,
-  rescoring,
   className,
 }: CommanderPowerDisplayProps) {
   return (
-    <div className={cn('space-y-3 rounded-xl bg-muted/30 p-4 shadow-sm', className)}>
+    <div className={cn('space-y-4 rounded-xl bg-muted/30 p-4 shadow-sm', className)}>
       <div>
         <h3 className="flex items-center gap-2 text-sm font-bold">
           <Crown className="h-4 w-4" />
@@ -112,42 +114,21 @@ export function CommanderPowerDisplay({
         </h3>
         <p className="mt-0.5 text-xs text-muted-foreground">
           {commanderName
-            ? `How ${commanderName} scores against the rest of a four-player pod.`
-            : 'How this deck scores against the rest of a four-player pod.'}
+            ? `The four axes that decide how ${commanderName} plays out against a four-player pod.`
+            : 'The four axes that decide how this deck plays out against a four-player pod.'}
         </p>
       </div>
 
-      <PowerScore power={power} variant="compact" onRescore={onRescore} rescoring={rescoring} />
-
-      {power && (
-        <>
-          <div className="space-y-2.5">
-            {COMMANDER_AXES.map(key => (
-              <Axis key={key} k={key} value={axisValue(power, key)} muted={power.stale} />
-            ))}
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <Diagnostic
-              label="Tutors"
-              value={String(power.diagnostics?.tutorCount ?? 0)}
-              note={
-                power.diagnostics?.noTutors
-                  ? 'Too few for a deck at this level, so the score is marked down'
-                  : 'Enough to make the game plan repeatable'
-              }
-            />
-            <Diagnostic
-              label="Game changers"
-              value={String(power.diagnostics?.gameChangerCount ?? 0)}
-              note={
-                power.diagnostics?.noGameChangers
-                  ? 'No standout finishers, so the score is marked down'
-                  : 'Cards that can end a game on their own'
-              }
-            />
-          </div>
-        </>
+      {power ? (
+        <div className="space-y-2.5">
+          {COMMANDER_AXES.map(key => (
+            <Axis key={key} k={key} value={axisValue(power, key)} muted={power.stale} />
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          This deck has not been scored yet, so there is nothing to break down.
+        </p>
       )}
     </div>
   );

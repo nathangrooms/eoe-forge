@@ -129,7 +129,14 @@ function Stat({
 }) {
   const body = (
     <>
-      <span className="flex items-center justify-center gap-1 text-xl font-bold leading-none tabular-nums text-foreground sm:text-2xl">
+      {/* `font-semibold`, not `font-bold`. Measured on `/decks` at 1280 and at
+          1920: the summary row above these tiles draws its figures at 24px/600
+          and these drew the same 24px at 700, four hundred pixels apart on the
+          one page the owner compared the deck page against. Same size, one
+          weight off, which is exactly the drift `CONSISTENCY.md` Q3.1 counts:
+          it names `text-2xl font-semibold tabular-nums` as the figure and calls
+          out the other 24px BOLD row in the product as the odd one. */}
+      <span className="flex items-center justify-center gap-1 text-xl font-semibold leading-none tabular-nums text-foreground sm:text-2xl">
         {value}
       </span>
       <span className="mt-1.5 block text-[0.6rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground">

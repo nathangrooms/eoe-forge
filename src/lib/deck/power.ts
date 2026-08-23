@@ -153,9 +153,22 @@ export function deckPowerFromStored(
     evidence: raw.evidence ?? [],
     castability: raw.castability ?? EMPTY_READOUT,
     cuts: [],
-    diagnostics:
-      raw.diagnostics ??
-      ({ tutorCount: 0, gameChangerCount: 0, noTutors: false, noGameChangers: false } as const),
+    /* The three named lists in `DeckPowerDiagnostics` were added after v2
+       shipped, so a stored score written before them carries the counts and not
+       the names. Empty arrays rather than absent keys, so a renderer can test
+       `.length` without first asking whether the field exists — and an empty
+       list beside a count of three reads as "not recorded", which is exactly
+       what it is. */
+    diagnostics: {
+      tutorCount: 0,
+      gameChangerCount: 0,
+      noTutors: false,
+      noGameChangers: false,
+      gameChangerList: [],
+      tutorList: [],
+      comboList: [],
+      ...(raw.diagnostics ?? {}),
+    },
     drivers: raw.drivers ?? [],
     drags: raw.drags ?? [],
     legality: raw.legality ?? { ok: true, issues: [] },

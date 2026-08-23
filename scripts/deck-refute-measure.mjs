@@ -109,7 +109,36 @@ const PATCH = `
       return json(ids.map(id => ({ ...SUMMARY, id })));
     }
     if (url.includes('/rest/v1/rpc/compute_deck_summary')) {
-      return json({ ...SUMMARY, id: body.deck_id || DECK_ID });
+      /* \`/p/:slug\` builds its decklist out of THIS RPC's \`cards\` array rather
+         than reading \`deck_cards\`, so a summary without one renders the
+         public page's "no cards" empty state under a header that says the deck
+         has ninety-nine. The rows are read back through the shim so the public
+         page and the owner's page are looking at the same hundred cards. */
+      let cards = [];
+      try {
+        const res = await inner.call(
+          window,
+          'https://udnaflcohfyljrsgqggy.supabase.co/rest/v1/deck_cards?select=*&deck_id=eq.' + DECK_ID
+        );
+        const rows = await res.json();
+        cards = (Array.isArray(rows) ? rows : []).map(r => ({
+          card_id: r.card_id,
+          card_name: r.card_name,
+          quantity: r.quantity,
+          is_commander: r.is_commander,
+          is_sideboard: r.is_sideboard,
+          name: r.card_name,
+          mana_cost: null,
+          cmc: 3,
+          type_line: 'Creature',
+          colors: ['G'],
+          color_identity: ['G'],
+          prices: { usd: '8.87' },
+          rarity: 'rare',
+          tags: [],
+        }));
+      } catch { /* an empty list is still a measurable page */ }
+      return json({ ...SUMMARY, id: body.deck_id || DECK_ID, cards });
     }
     if (url.includes('/rest/v1/rpc/get_public_deck')) {
       return json({ id: DECK_ID, view_count: 42, published_at: '2026-02-01T00:00:00+00:00' });

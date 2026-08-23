@@ -418,21 +418,41 @@ function battlefieldFacade(scope: XmageScope, defaultControllerId?: PlayerId): X
   const all = (): CardInstance[] =>
     Object.values(scope.working.cards).filter(card => card.zone === 'battlefield');
 
-  const select = (filter?: XFilter, controllerId?: PlayerId, sourceId?: InstanceId): XPermanent[] => {
+  /**
+   * XMage draws a line here that costs a card its meaning if it is missed.
+   *
+   * `getActivePermanents(filter, sourcePlayerId, …)` and `count(…)` treat that
+   * player id as a RANGE anchor: the permanents visible to that player. In
+   * Commander the range is everyone, so the id changes nothing but the
+   * predicate context.
+   *
+   * `getAllActivePermanents(filter, controllerId, …)` and `countAll(…)` treat
+   * it as OWNERSHIP: only permanents that player controls. Reading it as
+   * context alone made Elspeth Tirel gain life for the opponent's creatures
+   * too, because `StaticFilters.creature()` carries no controller predicate for
+   * the context to bind to. Found by running a translated body on a real board.
+   */
+  const select = (
+    filter?: XFilter,
+    playerId?: PlayerId,
+    sourceId?: InstanceId,
+    restrictToController = false
+  ): XPermanent[] => {
     const ctx: PredicateContext = {
-      controllerId: controllerId ?? defaultControllerId,
+      controllerId: playerId ?? defaultControllerId,
       sourceId,
     };
     return all()
+      .filter(card => (restrictToController && playerId ? card.controllerId === playerId : true))
       .filter(card => (filter ? filter.match(scope.working, card, ctx) : true))
       .map(card => objectFacade(scope, card.instanceId));
   };
 
   return {
     getActivePermanents: (filter, controllerId, sourceId) => select(filter, controllerId, sourceId),
-    getAllActivePermanents: (filter, controllerId) => select(filter, controllerId),
+    getAllActivePermanents: (filter, controllerId) => select(filter, controllerId, undefined, true),
     count: (filter, controllerId, sourceId) => select(filter, controllerId, sourceId).length,
-    countAll: (filter, controllerId) => select(filter, controllerId).length,
+    countAll: (filter, controllerId) => select(filter, controllerId, undefined, true).length,
     contains: instanceId => scope.working.cards[instanceId]?.zone === 'battlefield',
   };
 }
@@ -457,42 +477,65 @@ export interface XPlayer {
   getBattlefieldIds(): InstanceId[];
 
   /** `Player#moveCards` — rank 8, 1,852 calls across 1,543 card files. */
-  moveCards(cards: XCards | XCard | InstanceId[] | InstanceId, toZone: Zone): boolean;
-  moveCardsToExile(cards: XCards | XCard | InstanceId[] | InstanceId): boolean;
-  putCardsOnBottomOfLibrary(cards: XCards | XCard | InstanceId[] | InstanceId): boolean;
-  putCardsOnTopOfLibrary(cards: XCards | XCard | InstanceId[] | InstanceId): boolean;
+  moveCards(cards: XCardsInput, toZone: Zone): boolean;
+  moveCardsToExile(cards: XCardsInput): boolean;
+  putCardsOnBottomOfLibrary(cards: XCardsInput): boolean;
+  putCardsOnTopOfLibrary(cards: XCardsInput): boolean;
 
   drawCards(count: number): number;
   damage(amount: number, sourceId?: InstanceId, infect?: boolean): number;
   gainLife(amount: number): number;
   loseLife(amount: number): number;
   shuffleLibrary(): boolean;
-  revealCards(name: string, cards: XCards | InstanceId[]): boolean;
+  revealCards(name: string, cards: XCardsInput): boolean;
 
   /* Decisions. These raise a question rather than guessing. */
   /** `Player#chooseUse` — rank 24, 845 calls. The "you may" and the "unless pays". */
   chooseUse(message: string): boolean;
   /** `Player#choose` — rank 15, 1,198 calls. */
-  choose(prompt: string, from: XCards | InstanceId[], min?: number, max?: number): InstanceId[];
-  chooseTarget(prompt: string, from: XCards | InstanceId[], min?: number, max?: number): InstanceId[];
+  choose(prompt: string, from: XCardsInput, min?: number, max?: number): InstanceId[];
+  chooseTarget(prompt: string, from: XCardsInput, min?: number, max?: number): InstanceId[];
   discard(count: number): InstanceId[];
   searchLibrary(prompt: string, filter?: XFilter, max?: number): InstanceId[];
 }
 
-function idsFrom(input: XCards | XCard | InstanceId[] | InstanceId | undefined): InstanceId[] {
+/**
+ * Whatever a body has in hand, as instance ids.
+ *
+ * An array of CARDS used to fall through the `Array.isArray` branch and be
+ * filtered down to nothing, so `player.moveCards(creatures, 'graveyard')` moved
+ * zero cards and reported success. XMage passes `Set<Permanent>` here
+ * constantly — `battlefield.getActivePermanents(filter, id, game)` returns
+ * exactly that — so the array branch has to read an id off each element rather
+ * than keep only the ones that were already strings. A silent no-op is the
+ * failure mode this project has been bitten by most.
+ */
+function idsFrom(
+  input: XCards | XCard | ReadonlyArray<XCard | InstanceId> | InstanceId | undefined
+): InstanceId[] {
   if (!input) return [];
   if (typeof input === 'string') return [input];
-  if (Array.isArray(input)) return input.filter(id => typeof id === 'string');
+  if (Array.isArray(input)) {
+    const out: InstanceId[] = [];
+    for (const item of input as ReadonlyArray<XCard | InstanceId>) {
+      if (typeof item === 'string') out.push(item);
+      else if (item && typeof item.getId === 'function') out.push(item.getId());
+    }
+    return out;
+  }
   if (typeof (input as XCards).ids === 'function') return (input as XCards).ids();
   if (typeof (input as XCard).getId === 'function') return [(input as XCard).getId()];
   return [];
 }
 
+/** What every card-moving method on `Player` accepts. */
+export type XCardsInput = XCards | XCard | ReadonlyArray<XCard | InstanceId> | InstanceId;
+
 function playerFacade(scope: XmageScope, playerId: PlayerId): XPlayer {
   const read = () => scope.working.players.find(p => p.id === playerId);
   const zone = (name: Zone): InstanceId[] => read()?.zones?.[name] ?? [];
 
-  const move = (input: XCards | XCard | InstanceId[] | InstanceId, to: Zone, position?: 'top' | 'bottom'): boolean => {
+  const move = (input: XCardsInput, to: Zone, position?: 'top' | 'bottom'): boolean => {
     const ids = idsFrom(input);
     let moved = false;
     for (const id of ids) {

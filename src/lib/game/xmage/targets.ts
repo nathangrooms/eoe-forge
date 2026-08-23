@@ -66,11 +66,27 @@ export function fixedPlayerTarget(playerId: PlayerId | undefined): XTargetPointe
   };
 }
 
+/**
+ * The id of a target whatever KIND of target it is.
+ *
+ * XMage has one id space: a `UUID` is a permanent or a player and the body
+ * decides which by what it asks for. `game.getPlayer(getTargetPointer()
+ * .getFirst(game, source))` is how a card that targets a player reads its
+ * target, and it is written exactly like the permanent case.
+ *
+ * Returning only card ids made every one of those bodies find nothing and do
+ * nothing quietly — Hidetsugu's Second Rite resolved and dealt no damage.
+ * `InstanceId` and `PlayerId` are both `string`, so one id space is what this
+ * engine already has; the split was in this file, not in the data.
+ */
+const idOf = (target: StackTarget): string =>
+  target.kind === 'player' ? target.playerId : target.instanceId;
+
 function pointerOverTargets(targets: readonly StackTarget[]): XTargetPointer {
   return {
-    getFirst: () => targets.find(t => t.kind === 'card')?.instanceId,
+    getFirst: () => (targets.length ? idOf(targets[0]) : undefined),
     getFirstPlayer: () => targets.find(t => t.kind === 'player')?.playerId,
-    getTargets: () => targets.filter(t => t.kind === 'card').map(t => t.instanceId),
+    getTargets: () => targets.map(idOf),
   };
 }
 
@@ -224,7 +240,7 @@ export function makeAbility(scope: XmageScope, options: XAbilityOptions): XAbili
     getId: () => options.abilityId ?? 'a0',
     getSourceId: () => options.sourceId,
     getControllerId: () => options.controllerId,
-    getFirstTarget: () => targets.find(t => t.kind === 'card')?.instanceId,
+    getFirstTarget: () => (targets.length ? idOf(targets[0]) : undefined),
     getFirstTargetPlayer: () => targets.find(t => t.kind === 'player')?.playerId,
     getTargets: () => makeTargets(slots),
     getStackTargets: () => targets,

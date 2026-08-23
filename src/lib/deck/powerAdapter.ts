@@ -174,11 +174,41 @@ export function bracketForScore(score: number): DeckBracket {
 /** Every subscore is 0–100, or null where it does not apply. One scale. */
 export type DeckPowerSubscores = Record<SubscoreKey, number>;
 
+/**
+ * One card the engine named, and why.
+ *
+ * The three lists below were counts here and lists in the engine. `PowerResult`
+ * has carried `gameChangers.list`, `combos` and `tutors.list` — every one of
+ * them a card name out of `src/engine/power/catalogs.ts` — since the engine was
+ * written, and this adapter reduced all three to integers. So the EDH tab could
+ * print "3 game changers" and had no way to say which three, on a page whose
+ * whole argument is that a measurement you cannot see the working of is a
+ * black box.
+ */
+export interface NamedCard {
+  name: string;
+  /** The words a player would use. `with Demonic Consultation`, `fast`. */
+  why: string;
+}
+
 export interface DeckPowerDiagnostics {
   tutorCount: number;
   gameChangerCount: number;
   noTutors: boolean;
   noGameChangers: boolean;
+  /**
+   * The cards behind the two counts above, and the two-card combos the deck
+   * holds both halves of.
+   *
+   * Optional because a score read back out of `user_decks.edh_analysis` that
+   * was written before these existed has no such key, and an absent list must
+   * read as "not recorded" rather than as "none". `deckPowerFromStored` fills
+   * them with empty arrays; a freshly computed score always carries them.
+   */
+  gameChangerList?: NamedCard[];
+  tutorList?: NamedCard[];
+  /** Named two-card combos, with the total mana value of the pair. */
+  comboList?: Array<{ name: string; totalMv: number }>;
 }
 
 /** The single typed result. Nothing else in the app describes a power score. */
@@ -583,6 +613,18 @@ export function computeDeckPower(
       gameChangerCount: power.gameChangers.count,
       noTutors: power.flags.noTutors,
       noGameChangers: power.flags.noGameChangers,
+      /* The names, not just the counts. See `NamedCard`. The engine's own
+         `reason` and `quality` strings are carried through rather than
+         reworded, so what the EDH tab prints is the measurement. */
+      gameChangerList: power.gameChangers.list.map(entry => ({
+        name: entry.name,
+        why: entry.reason,
+      })),
+      tutorList: power.tutors.list.map(entry => ({
+        name: entry.name,
+        why: `${entry.quality} · ${entry.mv} mana`,
+      })),
+      comboList: power.combos,
     },
     // The drivers and drags ARE the subscores' own sentences, so what a player
     // reads as a summary is literally the measurement, not a phrasing of it.

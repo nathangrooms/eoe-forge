@@ -34,6 +34,39 @@ export interface DeckCardDetail {
   keywords: string[];
   /** Role tags from `public.derive_card_tags`. Read by archetype detection. */
   tags: string[];
+  /**
+   * Four columns the catalogue has always carried and no deck surface read.
+   *
+   * They are on the same row as everything above, so they cost no request:
+   * `CARD_COLUMNS` is one projection inside the one join `fetchDeckCards`
+   * already makes. Each answers a question a deck tab was asking and getting
+   * wrong, or not asking because it had no way to.
+   *
+   * - `oracle_id` makes every other printing of a card joinable, which is how
+   *   the Value tab can say what the deck costs at the cheapest printing rather
+   *   than only at the one this row points at, and how the price record finds a
+   *   history written against a different printing of the same card.
+   * - `edhrec_rank` is how often the card is actually played. The card page and
+   *   the commander wall both print it and no deck surface did.
+   * - `is_reserved` is the one fact that changes a buying decision: a
+   *   reserved-list card is not going to be reprinted cheaper.
+   * - `produced_mana` is which colours a source makes, per printing. The
+   *   castability engine derives its own answer; this is what lets the Mana tab
+   *   name the lands behind a colour count instead of only counting them.
+   *
+   * Optional, and that is not laziness. `fetchDeckCards` and `fetchCardsByIds`
+   * always fill them, because they select them. Four other places in the
+   * product build this shape by hand out of a payload that has no such
+   * columns — a precon list from `precon-api`, the optimistic row
+   * `deckMutations` writes before the catalogue answers, the public deck page's
+   * RPC projection — and for those the honest value is "we do not know", which
+   * is `undefined`, not `null` standing in for "this card has no oracle id".
+   * Read them with a `??` and the two cases collapse correctly anyway.
+   */
+  oracle_id?: string | null;
+  edhrec_rank?: number | null;
+  is_reserved?: boolean;
+  produced_mana?: string[];
 }
 
 export interface DeckCardRow {
@@ -48,7 +81,7 @@ export interface DeckCardRow {
 }
 
 const CARD_COLUMNS =
-  'name, type_line, mana_cost, cmc, colors, color_identity, image_uris, prices, oracle_text, power, toughness, rarity, set_code, legalities, is_legendary, keywords, tags';
+  'name, type_line, mana_cost, cmc, colors, color_identity, image_uris, prices, oracle_text, power, toughness, rarity, set_code, legalities, is_legendary, keywords, tags, oracle_id, edhrec_rank, is_reserved, produced_mana';
 
 /**
  * Scryfall serves images at a deterministic path keyed on the card id, so a
@@ -95,6 +128,16 @@ function normalizeDetail(raw: any): DeckCardDetail | null {
     is_legendary: Boolean(raw.is_legendary),
     keywords: raw.keywords ?? [],
     tags: raw.tags ?? [],
+    oracle_id: raw.oracle_id ?? null,
+    /* `numeric` and `integer` both arrive as numbers here, but a null rank is a
+       card the sync has not reached rather than the most-played card in Magic,
+       so it stays null instead of becoming 0. */
+    edhrec_rank:
+      raw.edhrec_rank === null || raw.edhrec_rank === undefined
+        ? null
+        : Number(raw.edhrec_rank),
+    is_reserved: Boolean(raw.is_reserved),
+    produced_mana: raw.produced_mana ?? [],
   };
 }
 
@@ -222,7 +265,10 @@ export function toEngineCards(rows: DeckCardRow[]): EngineCard[] {
     .filter(row => !row.is_sideboard)
     .map(row => ({
       id: row.card_id,
-      oracle_id: row.card_id,
+      /* The real oracle id when the printing has synced. It used to be the
+         printing id, which made every printing of one card a different card to
+         anything deduping on this field. */
+      oracle_id: row.card?.oracle_id ?? row.card_id,
       name: row.card?.name || row.card_name,
       mana_cost: row.card?.mana_cost || '',
       cmc: row.card?.cmc ?? 0,

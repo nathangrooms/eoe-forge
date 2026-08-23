@@ -218,7 +218,15 @@ export function CommanderFallback({
               {wantsCommander && onClick && (
                 <p className="inline-flex items-center gap-1 text-[0.7rem] font-medium text-muted-foreground transition-colors group-hover:text-foreground motion-reduce:transition-none">
                   <Sparkles className="h-3 w-3" />
-                  Choose one in the builder
+                  {/* NOT "in the builder". The builder was deleted by the merge
+                      that made one deck page, so this line named a destination
+                      that no longer exists — on `/decks`, on `/deck/:id` and in
+                      the collection's favourites, which is every place a deck
+                      without a commander is drawn. The three callers send you
+                      to two different places (the deck page, and the picker at
+                      `/deck/:id/commander`), so the line says what happens
+                      rather than where it happens. */}
+                  Choose a commander
                 </p>
               )}
             </>

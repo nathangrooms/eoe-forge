@@ -56,6 +56,17 @@ export function toAnalyticsCards(rows: DeckCardRow[]): StoreCard[] {
           mechanics: row.card?.keywords ?? [],
           // Archetype detection counts role tags and nothing else.
           tags: row.card?.tags ?? [],
+          /* Carried because the row already holds them. A panel that wants to
+             say "reserved list", "the 200th most played card in Commander" or
+             "this land makes blue" should not go back to the database for a
+             column that came down with the deck. See `DeckCardDetail`. */
+          oracle_id: row.card?.oracle_id ?? undefined,
+          edhrec_rank: row.card?.edhrec_rank ?? undefined,
+          is_reserved: row.card?.is_reserved ?? false,
+          produced_mana: row.card?.produced_mana ?? [],
+          /* The printing id, kept apart from `id` for the surfaces that draw
+             the card: `CardImage` falls back to a Scryfall path built from it. */
+          card_id: row.card_id,
         }) as unknown as StoreCard
     );
 }

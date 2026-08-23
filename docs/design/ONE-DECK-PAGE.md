@@ -851,7 +851,15 @@ from:
 ### Routes that become redirects
 
 - `/deck-builder?deck=x` to `/deck/x`
-- `/deck-builder/commander` to `/deck/:id/commander`
+- ~~`/deck-builder/commander` to `/deck/:id/commander`~~ — **it did not become
+  one, and it should not.** `DECK-PAGE-AUDIT.md` finding B filed the missing
+  redirect as a leftover that would rot. Read again on 23 Aug: `App.tsx` mounts
+  `DeckCommander` on both addresses, the page reads its own `:id`, and the
+  id-less address is the picker the **deck generator** opens through
+  `VisualDeckView` — for a deck that has never been saved and so has no id to
+  name. `DeckCommander.tsx` documents that path and commits to the store alone
+  when `:id` is absent. Two callers, one picker. Redirecting it would break the
+  generator. Finding B is closed as correct-as-built, not as work owed.
 - `/deck/:id/analysis` to `/deck/:id?tab=analysis`, after the type percentage
   bars are carried across
 - `/deck/:id/missing` to `/deck/:id?tab=value`

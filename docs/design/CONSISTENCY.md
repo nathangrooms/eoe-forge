@@ -160,10 +160,20 @@ Each of these would lose something real if it conformed.
    **not** genuine is that they carry a whole second filter system to get them
    (see Q3.6).
 
-9. **Deck detail keeps its filters inline and always open.** The facets there
-   are computed from the deck in hand and carry live counts (`Creature 30`,
-   `2 mana 18`). They are a map of the deck, not a query builder, and hiding a
-   map behind a button defeats it.
+9. **Deck detail keeps its own facets, computed from the deck in hand.** They
+   carry live counts (`Creatures 98`, `Lands 1`) and are a map of the deck
+   rather than a query builder, so they are not the shared card sheet.
+
+   > **Overruled on the "always open" half, 23 Aug 2026.** This entry used to
+   > end "and hiding a map behind a button defeats it". The merge closed them
+   > by default on the owner's own instruction — *"dont need all those filters
+   > by default"* — and `DeckCardsPanel.tsx` carries the reasoning: almost
+   > every visit is "look at my deck" rather than "narrow my deck", and one
+   > labelled control carrying the active count means a narrowed list is never
+   > a mystery. Measured on the built page, the facet rows behind that control
+   > are the same rows, with the same live counts. Left here rather than
+   > deleted so the next pass does not read the old sentence and open them
+   > back up.
 
 10. **`DeckSubpageLayout` stays separate from `StandardPageLayout`.** A deck
     sub-destination replaces the breadcrumb with a named back link to the exact

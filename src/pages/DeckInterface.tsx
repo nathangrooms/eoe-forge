@@ -34,7 +34,8 @@ import {
   mainboardOf,
   toAnalyticsCards,
 } from '@/components/deck/deckAnalyticsCards';
-import { ManaSourcesPanel } from '@/components/deck/ManaSourcesPanel';
+import { DeckManaPanel } from '@/components/deck/DeckManaPanel';
+import { DeckEdhPanel } from '@/components/deck/DeckEdhPanel';
 import { EmptyState, PageTabs } from '@/components/listing';
 import { CommanderHero } from '@/components/deck/CommanderHero';
 import { createPlayabilityEngine } from '@/lib/deck/playability';
@@ -45,6 +46,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { DeckAPI } from '@/lib/api/deckAPI';
 import { cardImage, computeDeckStats, type DeckCardRow } from '@/lib/deck/deckCards';
+import {
+  EMPTY_DECK_CARD_FILTERS,
+  type DeckCardFilterState,
+  type ManaValueFacet,
+} from '@/lib/deck/deckCardFilters';
 import { deckAverageManaValue } from '@/lib/deck/curve';
 import { formatLabel, usesPowerLevel } from '@/lib/deck/formats';
 import type { Card as StoreCard } from '@/stores/deckStore';
@@ -54,15 +60,10 @@ import type { Card as StoreCard } from '@/stores/deckStore';
    `useDeckEditor`. Nothing was taken off either page to do it. */
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
 import { DeckQuickStats } from '@/components/deck-builder/DeckQuickStats';
-import { ManaCurve } from '@/components/deck-builder/ManaCurve';
-import { CommanderPowerDisplay } from '@/components/deck-builder/CommanderPowerDisplay';
-import { PowerSliderCoaching } from '@/components/deck-builder/PowerSliderCoaching';
-import { LandEnhancerUX } from '@/components/deck-builder/LandEnhancerUX';
 import { ArchetypeDetection } from '@/components/deck-builder/ArchetypeDetection';
 import { EnhancedDeckAnalysisPanel } from '@/components/deck-builder/EnhancedDeckAnalysis';
 import { BrainAnalysis } from '@/components/deck-builder/BrainAnalysis';
-import { DeckValidationPanel } from '@/components/deck-builder/DeckValidationPanel';
-import { DeckCompatibilityChecker } from '@/components/deck-builder/DeckCompatibilityChecker';
+import { DeckLegalityPanel } from '@/components/deck/DeckLegalityPanel';
 import { DeckBudgetTracker } from '@/components/deck-builder/DeckBudgetTracker';
 import { MissingCardsPanel } from '@/components/deck-builder/MissingCardsPanel';
 import { DeckPrimerGenerator } from '@/components/deck-builder/DeckPrimerGenerator';
@@ -313,6 +314,24 @@ export default function DeckInterface() {
   const [importing, setImporting] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
+  /**
+   * THE DECKLIST FILTER, HELD HERE BECAUSE IT HAS TWO AUTHORS.
+   *
+   * `DeckCardsPanel` held this and that was right while it was the only thing
+   * that could narrow the list. The Mana tab's curve is the second author: a
+   * press on the 4-drop bar means "show me those cards", and the answer is to
+   * set `manaValues` and move to the Cards tab. Two authors in two components
+   * means the state belongs to the thing that contains both.
+   *
+   * The census called this the cheapest item on its list that turns a read-only
+   * tab into a tool, and it was cheap because both halves already existed:
+   * `DeckCardFilterState.manaValues` takes exactly the bin ids `ManaCurve`
+   * plots, and the Cards tab's facet chips already carry their counts. Nothing
+   * joined them.
+   */
+  const [cardFilters, setCardFilters] = useState<DeckCardFilterState>(EMPTY_DECK_CARD_FILTERS);
+  const [cardFacetsOpen, setCardFacetsOpen] = useState(false);
+
   const canEdit = Boolean(deck && user && deck.user_id === user.id);
 
   useEffect(() => {
@@ -495,6 +514,23 @@ export default function DeckInterface() {
       });
     },
     [setSearchParams]
+  );
+
+  /**
+   * A bar on the Mana tab's curve, answered on the Cards tab.
+   *
+   * Everything else the filter holds is left alone, so a reader who had already
+   * narrowed to creatures and then presses the 3-drop bar gets their creatures
+   * at three rather than a filter that silently reset. The facet rows open, or
+   * the list comes back short with nothing on screen saying why.
+   */
+  const showManaValue = useCallback(
+    (bin: ManaValueFacet) => {
+      setCardFilters(prev => ({ ...prev, manaValues: [bin] }));
+      setCardFacetsOpen(true);
+      setActiveTab('cards');
+    },
+    [setActiveTab]
   );
 
   /* ---------------------------------------------------------------- actions */
@@ -1090,6 +1126,10 @@ export default function DeckInterface() {
             view={cardView}
             onViewChange={setCardView}
             editing={editing}
+            filters={cardFilters}
+            onFiltersChange={setCardFilters}
+            facetsOpen={cardFacetsOpen}
+            onFacetsOpenChange={setCardFacetsOpen}
           />
         )}
 
@@ -1126,20 +1166,31 @@ export default function DeckInterface() {
           </div>
         )}
 
-        {/* Everything about producing mana, in one place. */}
+        {/* Everything about producing mana, in one place, with controls.
+
+            This was three panels stacked with nothing between them and, counted
+            by the census, ZERO buttons and zero inputs across all three. It also
+            drew the source count twice from two different rules — see the note
+            in `LandEnhancerUX`, which is where the wrong one lived.
+
+            `DeckManaPanel` is the same three panels behind one `FilterBar` and
+            one `MetricRow`, with the curve wired to the decklist filter. The
+            public deck page mounts the identical component so the two cannot
+            drift. */}
         {activeTab === 'mana' &&
           (hasCards ? (
-            <div className="space-y-6">
-              <Card>
-                <CardContent className="p-5 md:p-6">
-                  <ManaCurve cards={mainboard} height={200} />
-                </CardContent>
-              </Card>
-
-              <ManaSourcesPanel profile={playabilityEngine.profile} result={playability} />
-
-              <LandEnhancerUX entries={powerEntries} power={power} identity={identity} />
-            </div>
+            <DeckManaPanel
+              curveCards={mainboard}
+              rows={listRows}
+              profile={playabilityEngine.profile}
+              playability={playability}
+              powerEntries={powerEntries}
+              power={power}
+              identity={identity}
+              onCardClick={openCard}
+              onReplace={canEdit ? row => setReplacing(row) : undefined}
+              onSelectManaValue={showManaValue}
+            />
           ) : (
             needsCards('this deck’s mana analysed')
           ))}
@@ -1149,38 +1200,39 @@ export default function DeckInterface() {
             be run from here now. The read-only copy of that panel had a Refresh
             button that navigated to the builder, which is the exact fork this
             merge exists to remove. */}
+        {/* EDH: the canonical score with its working, the cards behind every
+            count, the bracket definitions, and the edhpowerlevel.com second
+            opinion at the foot.
+
+            The colour-identity check deliberately stays on Legality rather than
+            being mirrored here. A colour-identity violation is a legality
+            question, and drawing the same panel under two tabs is the
+            duplication this page exists to remove. */}
         {activeTab === 'edh' &&
           (hasCards && power ? (
-            <div className="space-y-6">
-              {showPower && <PowerScore power={power} variant="expanded" />}
-
-              {showPower && (
-                <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-                  <CommanderPowerDisplay
-                    power={power}
+            <DeckEdhPanel
+              power={power}
+              powerEntries={powerEntries}
+              rows={rows}
+              commanderName={commander?.card?.name || commander?.card_name}
+              format={deck.format}
+              deckId={deck.id}
+              userId={user?.id}
+              onCardClick={openCard}
+              secondOpinion={
+                isCommanderFormat ? (
+                  <EdhPowerCheck
+                    deckId={deck.id}
+                    rows={rows}
                     commanderName={commander?.card?.name || commander?.card_name}
+                    power={power}
+                    cached={(deck.edh_analysis as unknown as EdhAnalysisData) ?? null}
+                    cachedHash={deck.edh_cards_hash}
+                    onCached={editor.setEdhAnalysis}
                   />
-                  <PowerSliderCoaching power={power} entries={powerEntries} format={deck.format} />
-                </div>
-              )}
-
-              {/* `DeckCompatibilityChecker` deliberately stays on Legality
-                  rather than being mirrored here. A colour-identity violation
-                  is a legality question, and rendering the same panel under two
-                  tabs is the duplication this exists to remove. */}
-
-              {isCommanderFormat && (
-                <EdhPowerCheck
-                  deckId={deck.id}
-                  rows={rows}
-                  commanderName={commander?.card?.name || commander?.card_name}
-                  power={power}
-                  cached={(deck.edh_analysis as unknown as EdhAnalysisData) ?? null}
-                  cachedHash={deck.edh_cards_hash}
-                  onCached={editor.setEdhAnalysis}
-                />
-              )}
-            </div>
+                ) : undefined
+              }
+            />
           ) : (
             needsCards('this deck’s Commander power')
           ))}
@@ -1255,36 +1307,35 @@ export default function DeckInterface() {
             needsCards('this deck analysed')
           ))}
 
+        {/* ONE LEGALITY PANEL, AND IT ANSWERS EVERY FORMAT.
+
+            This was `DeckValidationPanel` above `DeckCompatibilityChecker`:
+            two panels, twenty border classes, no import from
+            `@/components/listing` at all, and two different words for one
+            verdict ("Legal" in one, "Compatible" in the other). Neither drew a
+            card. One of them could remove an offender and the other, six
+            inches away, could only name one.
+
+            `DeckLegalityPanel` is both, over the deck rows rather than over a
+            store projection — which is what lets every offending card carry
+            Remove and Replace — and it reads all twenty-three format keys off
+            `cards.legalities` instead of the one the deck happens to be saved
+            as. Nothing the two panels could report is unreachable: the
+            colour-identity check is a fault type on the same list, and
+            `DeckValidator`'s deck-building advice is under its own heading at
+            the foot of the panel, worded as advice rather than as a rule. */}
         {activeTab === 'legality' &&
           (hasCards ? (
-            <div className="space-y-6">
-              <DeckValidationPanel
-                cards={mainboard as never}
-                format={deck.format}
-                commander={analyticsCommander as never}
-              />
-              {isCommanderFormat && analyticsCommander && (
-                <DeckCompatibilityChecker
-                  cards={mainboard as never}
-                  commander={analyticsCommander as never}
-                  format={deck.format}
-                  /* NAMING A PROBLEM AND BEING ABLE TO FIX IT.
-                     The read-only page mounted this without a remove handler,
-                     so it could tell you a card broke your commander's colour
-                     identity and then leave you to go somewhere else to take it
-                     out. That is the whole argument for this merge in one
-                     component. */
-                  onRemoveCard={
-                    canEdit
-                      ? cardId => {
-                          const row = rows.find(r => r.card_id === cardId);
-                          if (row) void editor.deleteAll(row);
-                        }
-                      : undefined
-                  }
-                />
-              )}
-            </div>
+            <DeckLegalityPanel
+              rows={listRows}
+              commanderRow={commander}
+              format={deck.format}
+              analyticsCards={mainboard}
+              analyticsCommander={analyticsCommander}
+              onCardClick={openCard}
+              onRemove={canEdit ? row => void editor.deleteAll(row) : undefined}
+              onReplace={canEdit ? row => setReplacing(row) : undefined}
+            />
           ) : (
             needsCards('legality checks')
           ))}

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -129,6 +129,31 @@ interface DeckCardsPanelProps {
   onViewChange: (next: DeckCardView) => void;
   /** Quantity, replace and remove. Omit for a decklist nobody can change. */
   editing?: DeckCardEditing;
+  /**
+   * The filter state, held by the page.
+   *
+   * ## Why this stopped being local state
+   *
+   * It was local, and that was right while this panel was the only thing that
+   * could narrow the list. The Mana tab's curve is a second author now:
+   * pressing the 4-drop bar means "show me those cards", and the only honest
+   * way to answer it is to set `manaValues` here and switch tabs. State with
+   * two authors in two different components has to be held by something that
+   * contains both, which is the page. The same shape and the same reason as
+   * `view`, which lives in the URL because a link is its second author.
+   *
+   * Everything this panel narrows by is still in this one object and the page
+   * does nothing with it except hold it and hand it back.
+   */
+  filters: DeckCardFilterState;
+  onFiltersChange: (next: DeckCardFilterState) => void;
+  /**
+   * Whether the facet rows are open, for the same reason. Arriving from the
+   * curve with a mana value already on has to show the chip that says so, or
+   * the list is short and nothing on screen explains why.
+   */
+  facetsOpen: boolean;
+  onFacetsOpenChange: (open: boolean) => void;
 }
 
 export function DeckCardsPanel({
@@ -140,9 +165,11 @@ export function DeckCardsPanel({
   view,
   onViewChange,
   editing,
+  filters,
+  onFiltersChange: setFilters,
+  facetsOpen,
+  onFacetsOpenChange: setFacetsOpen,
 }: DeckCardsPanelProps) {
-  const [filters, setFilters] = useState<DeckCardFilterState>(EMPTY_DECK_CARD_FILTERS);
-  const [facetsOpen, setFacetsOpen] = useState(false);
   const [groupBy, setGroupBy] = useDeckGroupBy();
 
   /*
@@ -235,10 +262,18 @@ export function DeckCardsPanel({
     filters.prices.length +
     filters.playability.length;
 
-  const clearEverything = useCallback(() => setFilters(EMPTY_DECK_CARD_FILTERS), []);
+  const clearEverything = useCallback(() => setFilters(EMPTY_DECK_CARD_FILTERS), [setFilters]);
+  /* `ListingSearch` keys its debounce timer on this callback, so its identity
+     matters: a fresh closure on every render would restart the timer forever
+     and the box would never commit, which is the failure that file's own
+     comment warns about. This one changes when `filters` changes, and `filters`
+     only changes at the moment a commit lands — by which point the timer has
+     already fired and the effect's `draft === committed` guard returns early.
+     Typing does not touch `filters`, so the timer is never restarted mid-word.
+     The page's `onFiltersChange` is memoised for the same reason. */
   const commitSearch = useCallback(
-    (next: string | undefined) => setFilters(prev => ({ ...prev, search: next ?? '' })),
-    []
+    (next: string | undefined) => setFilters({ ...filters, search: next ?? '' }),
+    [filters, setFilters]
   );
 
   /**
@@ -298,7 +333,7 @@ export function DeckCardsPanel({
             count={activeCount}
             label={facetsOpen ? 'Hide filters' : 'Filters'}
             aria-expanded={facetsOpen}
-            onClick={() => setFacetsOpen(open => !open)}
+            onClick={() => setFacetsOpen(!facetsOpen)}
           />
         }
         sort={

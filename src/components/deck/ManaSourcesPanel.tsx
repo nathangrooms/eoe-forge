@@ -1,8 +1,13 @@
+import { useMemo, useState } from 'react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { ManaPip } from '@/components/ui/mana-cost';
-import { MetricRow } from '@/components/listing';
+import { CardGrid } from '@/components/cards';
 import { cn } from '@/lib/utils';
+import type { DeckCardRow } from '@/lib/deck/deckCards';
 import type { DeckPlayability, ManaProfile } from '@/lib/deck/playability';
+import { COLOUR_BIT, type ManaColour } from '@/lib/deck/playability';
 import {
   colourSourceReadout,
   describePlayability,
@@ -13,39 +18,109 @@ import {
 } from '@/lib/deck/playabilityView';
 import { PlayabilityMeter } from './PlayabilityMeter';
 import { PlayabilityLegend } from './DeckCardFilters';
+import { DeckCardTile } from './DeckCardTile';
 
 /**
  * The deck's mana base, read out of the castability engine.
  *
  * Every figure on this panel is computed from the decklist by
- * `src/engine/playability/castability.ts` — source counts are real copies, the average
- * is by construction the mean of the column on the Cards tab, and nothing here
- * is a target, a grade or a recommended land count. There is no "you should
- * run 38 lands" line because that number cannot be derived from this deck, and
- * design law 7 rules out printing one anyway.
+ * `src/engine/playability/castability.ts` — source counts are real copies, the
+ * average is by construction the mean of the column on the Cards tab, and
+ * nothing here is a target, a grade or a recommended land count. There is no
+ * "you should run 38 lands" line because that number cannot be derived from
+ * this deck, and design law 7 rules out printing one anyway.
  *
- * The "hardest to cast" list is the actionable half: it prints the same
- * explanation the meter's tooltip carries, in full, without needing a hover —
- * "only 6 blue sources for {U}{U} on turn 2" is a to-do, "58%" is trivia.
+ * ## Two things changed when the Mana tab was rebuilt
+ *
+ * **The four castability figures moved up to the tab.** They were a `MetricRow`
+ * here, which was right, and then `LandEnhancerUX` drew four more figures below
+ * them in its own 20px tile treatment, so one tab carried two metric rows in
+ * two sizes. One row per tab, at the top, is the rhythm My Decks and My
+ * Collection both keep. Nothing was dropped: the average, the median, the count
+ * under the threshold and the source count are all in the row `DeckManaPanel`
+ * draws, at the size every other figure in the product gets.
+ *
+ * **Both lists draw cards now.** "Hardest to cast" is the one list on this page
+ * a player works through card by card, and it printed eight names. The sources
+ * behind a colour count were not shown at all — the panel said "12 blue
+ * sources" and anybody wanting to know which twelve had to go back to the
+ * decklist and work it out. Owner: *"visual is always better"*. `rows` is
+ * optional, so the public deck page, which holds the same profile and the same
+ * result, gets the same panel and the same cards.
  */
 
 interface ManaSourcesPanelProps {
   profile: ManaProfile;
   result: DeckPlayability;
+  /**
+   * The decklist, so a source or a hard-to-cast card can be drawn as a card.
+   * Omit and both lists fall back to names, which is what this drew before.
+   */
+  rows?: DeckCardRow[];
+  onCardClick?: (row: DeckCardRow) => void;
+  /** Offered on a hard-to-cast card. Omit for a deck nobody can change. */
+  onReplace?: (row: DeckCardRow) => void;
+  /** Card width in px, from the tab's size slider. */
+  cardWidth?: number;
   className?: string;
 }
 
-export function ManaSourcesPanel({ profile, result, className }: ManaSourcesPanelProps) {
+export function ManaSourcesPanel({
+  profile,
+  result,
+  rows,
+  onCardClick,
+  onReplace,
+  cardWidth,
+  className,
+}: ManaSourcesPanelProps) {
   const colours = colourSourceReadout(profile);
   const worst = hardestToCast(result, 8);
   const worstTotal = hardToCastCount(result);
   const maxSources = Math.max(1, ...colours.map(c => c.sources));
+
+  /* Which colour's sources are open. One at a time, deliberately: five colours
+     of lands open at once is the decklist again, and the decklist is one tab
+     away and better at being itself. */
+  const [openColour, setOpenColour] = useState<ManaColour | null>(null);
 
   /* Counted off the rows themselves rather than as `skippedCount - landCount`.
      Those two are weighted differently — `landCount` only counts lands that
      actually make mana, so a Maze of Ith is skipped as a land but never enters
      `landCount`, and the subtraction would report a phantom unsynced card. */
   const unsolved = result.cards.filter(c => c.skipped === 'no-mana-cost').length;
+
+  /**
+   * Deck rows by lower-cased name, so a card the engine named can be drawn.
+   *
+   * The engine works on `PlayabilityCardInput`, which carries a name and a cost
+   * and no image, because it is pure and has never needed one. Matching back by
+   * name is the join, and it is the same key `useCollectionOwnership` uses for
+   * the same reason. A name that does not match draws the tile with no art
+   * rather than drawing the wrong card.
+   */
+  const rowByName = useMemo(() => {
+    const map = new Map<string, DeckCardRow>();
+    for (const row of rows ?? []) {
+      map.set((row.card?.name || row.card_name).trim().toLowerCase(), row);
+    }
+    return map;
+  }, [rows]);
+
+  const lookup = (name: string) => rowByName.get(name.trim().toLowerCase());
+
+  /** The sources that make one colour, folded to one entry per card name. */
+  const sourcesFor = (colour: ManaColour) => {
+    const bit = COLOUR_BIT[colour];
+    const counts = new Map<string, number>();
+    for (const source of profile.sources) {
+      if ((source.colourMask & bit) === 0) continue;
+      counts.set(source.name, (counts.get(source.name) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .map(([name, copies]) => ({ name, copies, row: lookup(name) }))
+      .sort((a, b) => b.copies - a.copies || a.name.localeCompare(b.name));
+  };
 
   return (
     <div className={cn('space-y-6', className)}>
@@ -71,55 +146,6 @@ export function ManaSourcesPanel({ profile, result, className }: ManaSourcesPane
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/*
-            The four figures were a local `Stat`: `bg-muted/40`, an uppercase
-            letterspaced label, and `text-2xl font-bold` where every figure the
-            shared row draws is `font-semibold`. It was the Mana tab's own idea
-            of a metric, which is the drift `MetricRow` exists to end, and this
-            is the tab the audit named as the one that reads least finished.
-
-            Nothing was dropped: `label` is the label, `value` the value, and
-            the `hint` line is `subtext`, which is the slot it was already
-            imitating. `on="card"` because this sits inside a raised `Card`.
-          */}
-          <MetricRow
-            on="card"
-            columns={4}
-            metrics={[
-              {
-                id: 'average',
-                label: 'Average',
-                value: result.averagePct === null ? '—' : `${result.averagePct.toFixed(1)}%`,
-                raw: result.averagePct ?? undefined,
-                subtext: `across ${result.scoredCount} scored ${result.scoredCount === 1 ? 'card' : 'cards'}`,
-              },
-              {
-                id: 'median',
-                label: 'Median',
-                value: result.medianPct === null ? '—' : `${result.medianPct.toFixed(1)}%`,
-                raw: result.medianPct ?? undefined,
-                /* Not "half the deck": the median is taken over the scored
-                   spells only. On a 49-card deck with 32 lands that is 17 cards,
-                   and "half the deck is above 99.7%" was simply false. */
-                subtext: 'half the scored spells are above this',
-              },
-              {
-                id: 'below',
-                label: `Under ${result.threshold}%`,
-                value: String(result.belowThresholdCount),
-                raw: result.belowThresholdCount,
-                subtext: 'more often stuck in hand than cast on curve',
-              },
-              {
-                id: 'sources',
-                label: 'Mana sources',
-                value: String(profile.sources.length),
-                raw: profile.sources.length,
-                subtext: `${profile.landCount} lands · ${profile.rockCount} rocks · ${profile.dorkCount} dorks`,
-              },
-            ]}
-          />
-
           <PlayabilityLegend />
 
           {result.anyApproximate && (
@@ -137,35 +163,89 @@ export function ManaSourcesPanel({ profile, result, className }: ManaSourcesPane
           <p className="text-sm text-muted-foreground">
             Copies in the {profile.librarySize}-card library that can produce each colour. A dual
             land counts once for every colour it makes, which is what happens at the table.
+            {rows ? ' Open a colour to see which cards they are.' : ''}
           </p>
         </CardHeader>
         <CardContent>
           {colours.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              This deck produces no coloured mana.
-            </p>
+            <p className="text-sm text-muted-foreground">This deck produces no coloured mana.</p>
           ) : (
             <ul className="space-y-3">
-              {colours.map(colour => (
-                <li key={colour.colour} className="flex items-center gap-4">
-                  <ManaPip symbol={colour.colour} size="lg" />
-                  <span className="w-24 shrink-0 text-sm capitalize text-muted-foreground">
-                    {colour.name}
-                  </span>
-                  <span className="relative h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
-                    <span
-                      className="absolute inset-y-0 left-0 rounded-full bg-foreground/70"
-                      style={{ width: `${(colour.sources / maxSources) * 100}%` }}
-                    />
-                  </span>
-                  <span className="w-32 shrink-0 text-right text-sm tabular-nums">
-                    <span className="text-base font-semibold">{colour.sources}</span>
-                    <span className="ml-1.5 text-muted-foreground">
-                      {(colour.share * 100).toFixed(0)}%
+              {colours.map(colour => {
+                const open = openColour === colour.colour;
+                const bar = (
+                  <>
+                    <ManaPip symbol={colour.colour} size="lg" />
+                    <span className="w-24 shrink-0 text-left text-sm capitalize text-muted-foreground">
+                      {colour.name}
                     </span>
-                  </span>
-                </li>
-              ))}
+                    <span className="relative h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
+                      <span
+                        className="absolute inset-y-0 left-0 rounded-full bg-foreground/70"
+                        style={{ width: `${(colour.sources / maxSources) * 100}%` }}
+                      />
+                    </span>
+                    <span className="w-32 shrink-0 text-right text-sm tabular-nums">
+                      <span className="text-base font-semibold">{colour.sources}</span>
+                      <span className="ml-1.5 text-muted-foreground">
+                        {(colour.share * 100).toFixed(0)}%
+                      </span>
+                    </span>
+                  </>
+                );
+
+                return (
+                  <li key={colour.colour}>
+                    {rows ? (
+                      <button
+                        type="button"
+                        onClick={() => setOpenColour(open ? null : colour.colour)}
+                        aria-expanded={open}
+                        className="flex w-full items-center gap-4 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+                      >
+                        {open ? (
+                          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        )}
+                        {bar}
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-4">{bar}</div>
+                    )}
+
+                    {rows && open && (
+                      <div className="mt-3">
+                        <CardGrid width={cardWidth ?? 180}>
+                          {sourcesFor(colour.colour).map(source => (
+                            <DeckCardTile
+                              key={source.name}
+                              card={{
+                                ...(source.row?.card ?? {}),
+                                id: source.row?.card_id,
+                                name: source.name,
+                                image_uris: source.row?.card?.image_uris ?? null,
+                                mana_cost: source.row?.card?.mana_cost ?? null,
+                              }}
+                              width={cardWidth ?? 180}
+                              onClick={
+                                onCardClick && source.row
+                                  ? () => onCardClick(source.row as DeckCardRow)
+                                  : undefined
+                              }
+                              caption={
+                                source.copies > 1
+                                  ? `${source.copies} copies · makes ${colour.name.toLowerCase()}`
+                                  : `makes ${colour.name.toLowerCase()}`
+                              }
+                            />
+                          ))}
+                        </CardGrid>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </CardContent>
@@ -191,6 +271,65 @@ export function ManaSourcesPanel({ profile, result, className }: ManaSourcesPane
                 ? `Nothing in this deck falls below ${HARD_TO_CAST_CEILING}% on curve — this mana base serves every spell it has.`
                 : 'No card in this deck has a castability figure yet.'}
             </p>
+          ) : rows ? (
+            /* THE CARDS, LARGE.
+               This was eight rows of a name and its derivation. It is the one
+               list on the page a player works through card by card, and it was
+               the one list on the page that did not show a card. The
+               derivation is still printed rather than hidden behind a hover,
+               for the reason it always was: making somebody mouse over eight
+               rows to find out why is the same mistake as the bare percentage
+               the scrape used to print. */
+            <CardGrid width={cardWidth ?? 200}>
+              {worst.map(card => {
+                const explanation = describePlayability(card, profile);
+                const band = card.pct === null ? null : playabilityBand(card.pct);
+                const row = lookup(card.name);
+                return (
+                  <DeckCardTile
+                    key={`${card.name}-${card.turn}`}
+                    card={{
+                      ...(row?.card ?? {}),
+                      id: row?.card_id,
+                      name: card.name,
+                      image_uris: row?.card?.image_uris ?? null,
+                      mana_cost: row?.card?.mana_cost ?? null,
+                    }}
+                    width={cardWidth ?? 200}
+                    onClick={onCardClick && row ? () => onCardClick(row) : undefined}
+                    caption={
+                      <span className="flex items-center gap-2">
+                        <PlayabilityMeter card={card} profile={profile} />
+                        {band && <span>{band.label}</span>}
+                      </span>
+                    }
+                    detail={
+                      explanation && explanation.reasons.length > 0 ? (
+                        <ul className="space-y-0.5">
+                          {explanation.reasons.map(reason => (
+                            <li key={reason}>{reason}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        explanation?.cost
+                      )
+                    }
+                    actions={
+                      onReplace && row ? (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => onReplace(row)}
+                        >
+                          Replace
+                        </Button>
+                      ) : undefined
+                    }
+                  />
+                );
+              })}
+            </CardGrid>
           ) : (
             <ul className="space-y-2">
               {worst.map(card => {
@@ -202,9 +341,7 @@ export function ManaSourcesPanel({ profile, result, className }: ManaSourcesPane
                       <div className="min-w-0 flex-1">
                         <p className="text-base font-medium">{card.name}</p>
                         {explanation && (
-                          <p className="mt-0.5 text-sm text-muted-foreground">
-                            {explanation.cost}
-                          </p>
+                          <p className="mt-0.5 text-sm text-muted-foreground">{explanation.cost}</p>
                         )}
                       </div>
                       <div className="flex shrink-0 items-center gap-4">
@@ -214,15 +351,13 @@ export function ManaSourcesPanel({ profile, result, className }: ManaSourcesPane
                         )}
                       </div>
                     </div>
-                    {/* The derivation, printed rather than hidden behind a
-                        hover. This list is the one place a player comes to fix
-                        their mana base, so making them mouse over eight rows to
-                        find out why would be the same mistake as the bare
-                        percentage the scrape used to print. */}
                     {explanation && explanation.reasons.length > 0 && (
                       <ul className="mt-2 space-y-1">
                         {explanation.reasons.map(reason => (
-                          <li key={reason} className="text-sm leading-relaxed text-muted-foreground">
+                          <li
+                            key={reason}
+                            className="text-sm leading-relaxed text-muted-foreground"
+                          >
                             {reason}
                           </li>
                         ))}

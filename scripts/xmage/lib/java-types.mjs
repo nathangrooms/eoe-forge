@@ -45,6 +45,28 @@ const PREFER = [
   'mage.filter.', 'mage.counters.', 'mage.constants.', 'mage.',
 ];
 
+/**
+ * A NESTED type is a worse answer than a top-level one with the same simple
+ * name, and `api-surface-typed.mjs` does not make that distinction.
+ *
+ * It costs something real. `Library` exists twice in XMage:
+ * `mage.players.Library`, which is what `player.getLibrary()` returns, and
+ * `mage.game.ZoneChangeInfo.Library`, a nested helper nothing in a card body
+ * touches. Package preference alone picks the nested one, because
+ * `mage.game.` outranks `mage.players.`. That is why the published work order
+ * in `docs/engine/RUNTIME-API.md` names its two biggest open rows
+ * `ZoneChangeInfo.Library#getTopCards` and `#getFromTop`: the COUNTS are right
+ * and the CLASS NAME is wrong. The function to write is `Library#getTopCards`
+ * on the player's library.
+ *
+ * `scripts/xmage/translate-check.mjs` measures how many rows this moves so the
+ * difference is a number rather than an assertion.
+ */
+const isNested = fqn => {
+  const parts = fqn.split('.');
+  return parts.length > 2 && /^[A-Z]/.test(parts[parts.length - 2]);
+};
+
 export const simpleToFqn = new Map();
 for (const [simple, list] of Object.entries(engine.bySimple)) {
   if (list.length === 1) { simpleToFqn.set(simple, list[0]); continue; }
@@ -52,11 +74,28 @@ for (const [simple, list] of Object.entries(engine.bySimple)) {
   let bestRank = 1e9;
   for (const fqn of list) {
     const rank = PREFER.findIndex(p => fqn.startsWith(p));
-    const r = rank === -1 ? 500 + fqn.length : rank * 100 + fqn.length;
+    let r = rank === -1 ? 500 + fqn.length : rank * 100 + fqn.length;
+    if (isNested(fqn)) r += 10_000;
     if (r < bestRank) { bestRank = r; best = fqn; }
   }
   simpleToFqn.set(simple, best);
 }
+
+/**
+ * Methods the engine index missed, because the class extends a java.util type
+ * and the indexer records only what a file DECLARES. `Targets extends
+ * ArrayList<Target>`, so `targets.get(1)` has no declaration anywhere in XMage
+ * and the chain that would find it stops at the standard library. Without this
+ * the type is lost mid chain and everything after it reads as unresolved.
+ */
+const PATCH = {
+  'mage.target.Targets': {
+    get: { ret: 'Target', arity: 1 },
+    size: { ret: 'int', arity: 0 },
+    isEmpty: { ret: 'boolean', arity: 0 },
+    add: { ret: 'boolean', arity: 1 },
+  },
+};
 
 const methodCache = new Map();
 function methodsOf(fqn) {
@@ -68,6 +107,8 @@ function methodsOf(fqn) {
     if (!ms) continue;
     for (const [name, sig] of Object.entries(ms)) if (!out.has(name)) out.set(name, { ...sig, owner: c });
   }
+  const patch = PATCH[fqn];
+  if (patch) for (const [name, sig] of Object.entries(patch)) if (!out.has(name)) out.set(name, { ...sig, owner: fqn });
   methodCache.set(fqn, out);
   return out;
 }

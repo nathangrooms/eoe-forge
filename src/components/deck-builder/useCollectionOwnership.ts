@@ -10,6 +10,27 @@ export interface OwnershipSummary {
   missingNames: string[];
   requiredCopies: number;
   ownedPct: number;
+  /**
+   * Copies owned of every card in the collection, keyed by lower-cased name.
+   *
+   * ## Why the raw map is returned as well as the roll-up
+   *
+   * The census counted three separate reads of `user_collections` on one deck
+   * page load: this hook, `MissingCardsPanel` when the Value tab opens, and a
+   * third when you press Mark as Owned. None of them is a per-row loop, so none
+   * breaks the standing rule — but they are three reads of one table for one
+   * page, and the first two want the same rows.
+   *
+   * The reason the second one existed is that this hook only ever returned
+   * percentages. A panel that has to say "you own 3 of the 4 Lightning Bolts,
+   * so there is one to buy at $2.50" cannot get there from `ownedPct`, so it
+   * went and asked again. This is the answer it was asking for, and the Value
+   * tab now reads it instead of querying.
+   *
+   * Empty rather than absent when nothing is owned, so a consumer can look a
+   * card up without first asking whether the map exists.
+   */
+  ownedByName: Map<string, number>;
 }
 
 interface DeckCardLike {
@@ -80,6 +101,7 @@ export function useCollectionOwnership(cards: DeckCardLike[], userId?: string | 
           missingNames,
           requiredCopies,
           ownedPct: requiredCopies > 0 ? (ownedCopies / requiredCopies) * 100 : 0,
+          ownedByName: owned,
         });
       } catch {
         if (!cancelled) setSummary(null);

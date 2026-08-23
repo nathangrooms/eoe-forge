@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, ChevronDown } from 'lucide-react';
+import { MetricRow } from '@/components/listing';
 import {
   DECK_BRACKETS,
   SUBSCORE_DESCRIPTIONS,
@@ -468,24 +469,6 @@ function orderedEvidence(power: DeckPower): Subscore[] {
   );
 }
 
-function SimulationTile({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-}) {
-  return (
-    <div className="rounded-lg bg-muted/40 p-3 shadow-sm">
-      <p className="text-xl font-bold tabular-nums leading-none">{value}</p>
-      <p className="mt-1.5 text-[0.7rem] font-medium leading-none text-muted-foreground">{label}</p>
-      {hint && <p className="mt-1 text-[0.62rem] leading-tight text-muted-foreground">{hint}</p>}
-    </div>
-  );
-}
-
 /**
  * The deck page readout: the number, the bracket, the nine weighted subscores
  * and the seeded-simulation figures. The breakdown is the point — a score you
@@ -571,28 +554,48 @@ function ExpandedPower({
         <p className="mb-2 text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           Can you cast your own deck
         </p>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <SimulationTile
-            label="Average castable"
-            value={cast.averagePct === null ? EMDASH : `${num(cast.averagePct)}%`}
-            hint={`Across ${cast.scoredCount} cards with a cost`}
-          />
-          <SimulationTile
-            label="Hard to cast"
-            value={String(cast.hardToCastCount)}
-            hint={`Under ${cast.threshold}% on the turn they cost`}
-          />
-          <SimulationTile
-            label="Keepable sevens"
-            value={cast.keepable7Pct === null ? EMDASH : `${num(cast.keepable7Pct)}%`}
-            hint="Two to five lands in your opener"
-          />
-          <SimulationTile
-            label="Turn-one colour"
-            value={cast.turnOneColourPct === null ? EMDASH : `${num(cast.turnOneColourPct)}%`}
-            hint={`Average mana value ${num(cast.avgManaValue, 2)}`}
-          />
-        </div>
+        {/* The shared tile, not a local one.
+            These four were a `SimulationTile`: `text-xl font-bold` on an 11px
+            label, which is a fifth metric treatment for the same kind of fact
+            and one of the six the consistency audit counted. `MetricRow` at
+            `on="card"` is the recessed variant for a row inside a panel that is
+            already raised, and it draws the figure at the size every other
+            figure in the product gets. The hints are `subtext`, which is the
+            slot this was imitating. */}
+        <MetricRow
+          on="card"
+          columns={4}
+          metrics={[
+            {
+              id: 'average',
+              label: 'Average castable',
+              value: cast.averagePct === null ? EMDASH : `${num(cast.averagePct)}%`,
+              raw: cast.averagePct ?? undefined,
+              subtext: `across ${cast.scoredCount} cards with a cost`,
+            },
+            {
+              id: 'hard',
+              label: 'Hard to cast',
+              value: String(cast.hardToCastCount),
+              raw: cast.hardToCastCount,
+              subtext: `under ${cast.threshold}% on the turn they cost`,
+            },
+            {
+              id: 'keepable',
+              label: 'Keepable sevens',
+              value: cast.keepable7Pct === null ? EMDASH : `${num(cast.keepable7Pct)}%`,
+              raw: cast.keepable7Pct ?? undefined,
+              subtext: 'two to five lands in your opener',
+            },
+            {
+              id: 'turn-one',
+              label: 'Turn-one colour',
+              value: cast.turnOneColourPct === null ? EMDASH : `${num(cast.turnOneColourPct)}%`,
+              raw: cast.turnOneColourPct ?? undefined,
+              subtext: `average mana value ${num(cast.avgManaValue, 2)}`,
+            },
+          ]}
+        />
 
         {/*
           `approximate` is set when the solver ran out of states on some card

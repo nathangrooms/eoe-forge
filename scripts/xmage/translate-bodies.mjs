@@ -248,7 +248,10 @@ function applyMethods(toks, open, close) {
     if (params.length !== 2) continue;
     if (params[0].type !== 'Game' || params[1].type !== 'Ability') continue;
     const bodyClose = skipBalanced(toks, parenClose, '{', '}');
-    out.push({ params, open: parenClose, close: bodyClose - 1 });
+    // `sigOpen` is the '(' of the signature: the parameters have to be inside
+    // the region the type environment is built from, or `game` and `source`
+    // have no type and every call on them reads as unresolved.
+    out.push({ params, sigOpen: i + 1, open: parenClose, close: bodyClose - 1 });
     i = bodyClose - 1;
   }
   return out;
@@ -278,7 +281,12 @@ const stats = {
   blockedBodies: 0,
   parseFailures: 0,
   callsInEmitted: 0,
+  /** Bodies kept, but with something lost. See `degradations` for what. */
+  degradedBodies: 0,
 };
+
+/** What was lost in a body that still emitted. Reported, never folded away. */
+const degradations = new Map();
 
 const emitted = [];   // { card, cls, superName, path, ts }
 
@@ -341,7 +349,7 @@ for (const path of files) {
         fields,
         fieldValues,
         toks,
-        lo: m.open,
+        lo: m.sigOpen,
         hi: m.close,
       });
 
@@ -353,6 +361,10 @@ for (const path of files) {
 
       stats.emittedBodies++;
       stats.callsInEmitted += result.calls;
+      if (result.degraded.length) {
+        stats.degradedBodies++;
+        for (const d of result.degraded) degradations.set(d, (degradations.get(d) ?? 0) + 1);
+      }
       fileEmitted = true;
       emitted.push({
         card: cardCls,
@@ -413,10 +425,12 @@ import {
   controlledByPredicate,
   makeFilter,
   namePredicate,
+  subTypePredicate,
+  superTypePredicate,
   ownedByPredicate,
   tappedPredicate,
 } from './filters.ts';
-import { fixedTarget, fixedTargets, makeTarget } from './targets.ts';
+import { CardUtil, fixedTarget, makeTarget } from './targets.ts';
 
 /** One translated body, with where in XMage it came from. */
 export interface TranslatedBody {
@@ -428,6 +442,17 @@ export interface TranslatedBody {
   base: string;
   /** Path inside the XMage clone. Read in place; nothing vendored. */
   source: string;
+  /**
+   * True when the whole body is a bare return of true or false.
+   *
+   * These are real overrides and they translate perfectly, and they are worth
+   * nothing on their own: the class is an AsThoughEffect or a
+   * ContinuousEffect whose behaviour lives in a different method. Half of
+   * what is in this file is one of these, so the flag is on the record rather
+   * than in a document, and no caller can mistake one for behaviour by
+   * accident.
+   */
+  trivial: boolean;
   run: XmageBody;
 }
 `;
@@ -435,11 +460,14 @@ export interface TranslatedBody {
 function emitFile(list) {
   const parts = [HEADER, '\nexport const TRANSLATED_BODIES: Record<string, TranslatedBody> = {\n'];
   for (const b of list) {
-    parts.push(`  ${JSON.stringify(b.cls)}: {\n`);
+    // Keyed `Card::EffectClass`. An effect class name alone is not unique
+    // across 32,168 files, and a duplicate key silently overwrites a body.
+    parts.push(`  ${JSON.stringify(`${b.card}::${b.cls}`)}: {\n`);
     parts.push(`    card: ${JSON.stringify(b.card)},\n`);
     parts.push(`    effect: ${JSON.stringify(b.cls)},\n`);
     parts.push(`    base: ${JSON.stringify(b.superName)},\n`);
     parts.push(`    source: ${JSON.stringify(b.path)},\n`);
+    parts.push(`    trivial: ${isTrivial(b.ts)},\n`);
     parts.push(`    run: (game: XGame, source: XAbility): boolean => {\n`);
     parts.push(b.ts ? b.ts + '\n' : '');
     parts.push(`      return true;\n`);
@@ -447,12 +475,28 @@ function emitFile(list) {
     parts.push(`  },\n`);
   }
   parts.push('};\n\n');
-  parts.push(`/** How many bodies this file carries. Read off the object, not typed. */
-export function translatedBodyCount(): number {
-  return Object.keys(TRANSLATED_BODIES).length;
+  parts.push(`/**
+ * How many bodies this file carries, and how many of them do anything. Both
+ * read off the object rather than typed, so neither can drift from the file.
+ */
+export function translatedBodyCount(): { total: number; substantive: number } {
+  const all = Object.values(TRANSLATED_BODIES);
+  return { total: all.length, substantive: all.filter(b => !b.trivial).length };
 }
 `);
   return parts.join('');
+}
+
+/**
+ * A body whose whole content is a bare return of true or false.
+ *
+ * Half of what translates is one of these: a required override on an
+ * `AsThoughEffect` or a `ContinuousEffect` whose real behaviour lives in
+ * another method. They are faithful translations and they do nothing, so the
+ * record carries the flag and the report counts them apart from the rest.
+ */
+function isTrivial(ts) {
+  return /^\s*return (true|false);\s*$/.test(ts ?? '');
 }
 
 /** Which body each line of the emitted file belongs to. */
@@ -569,6 +613,7 @@ function report(list = emitted) {
       note: 'Blocked counts are FIRST blocker per body: a body stops at the first thing it cannot map, so these are the things to implement next, not a total of everything missing.',
     },
     stats,
+    degradations: [...degradations.entries()].map(([kind, count]) => ({ kind, count })),
     blockedByKind: [...byKind.entries()].sort((a, b) => b[1] - a[1]).map(([kind, bodies]) => ({ kind, bodies })),
     blocked: ranked,
     emittedCards: [...new Set(list.map(b => b.card))].sort(),
@@ -588,6 +633,10 @@ function report(list = emitted) {
   console.log('bodies blocked                     : ' + stats.blockedBodies.toLocaleString());
   if (stats.typecheckDropped !== undefined) {
     console.log('  of which dropped by tsc          : ' + stats.typecheckDropped.toLocaleString());
+  }
+  console.log('bodies kept but degraded            : ' + stats.degradedBodies.toLocaleString());
+  for (const [kind, count] of degradations) {
+    console.log('    ' + String(count).padStart(5) + '  ' + kind + ' (occurrences, not bodies)');
   }
   console.log('');
   console.log('BLOCKED BY KIND:');

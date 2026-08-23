@@ -411,7 +411,23 @@ export interface MatStyle {
   image?: string;
 }
 
-export type MatStyleId = 'cloth' | 'felt' | 'leather' | 'slate' | 'carbon' | 'plain';
+export type MatStyleId =
+  | 'cloth'
+  | 'felt'
+  | 'leather'
+  | 'slate'
+  | 'carbon'
+  | 'plain'
+  /* The painted mats. Everything above is a MATERIAL, drawn in CSS because a
+     weave should be sharp at any size and weigh nothing. These are ARTWORK, and
+     artwork is a picture, so they are images. Both belong in the picker for the
+     same reason a real player owns both a plain black mat and a printed one. */
+  | 'plains'
+  | 'island'
+  | 'swamp'
+  | 'mountain'
+  | 'forest'
+  | 'arcane';
 
 /**
  * The plate for one style.
@@ -424,6 +440,37 @@ const plate =
   (mark: string, edgeLight: number, edgeDark: number) =>
   (s: number): MatLayer[] =>
     s <= 0 ? [] : [emblem(mark), boundEdge(+(edgeLight * s).toFixed(3), +(edgeDark * s).toFixed(3))];
+
+/* ------------------------------------------------------------------ *
+ * The painted mats
+ *
+ * Generated rather than taken from card art, for the reason at the top of this
+ * file: Scryfall's `art_crop` is 626 x 457 against mats up to 1912 wide, and
+ * their guidelines forbid the desaturation a readable mat needs. These were
+ * drawn to be mats from the start, which means dark, low contrast, and EMPTY IN
+ * THE MIDDLE, because that is where the cards go. A beautiful mat you cannot
+ * play on is a failed mat.
+ *
+ * They are cropped by `cover`. That is not the Scryfall no-cropping rule, which
+ * is about card images; this is a background nobody is being asked to read.
+ * ------------------------------------------------------------------ */
+
+const ART_BASE = 'https://udnaflcohfyljrsgqggy.supabase.co/storage/v1/object/public/art';
+
+/** One painted mat, placed to cover whatever shape the seat turns out to be. */
+const painted = (slug: string): ((strength: number) => MatLayer[]) => {
+  const layer: MatLayer = {
+    image: `url(${ART_BASE}/mat-${slug}.png)`,
+    size: 'cover',
+    position: 'center',
+    repeat: 'no-repeat',
+  };
+  /* Strength is how much surface the tone allows, and the board backdrop asks
+     for less than a seat does. A picture cannot be drawn at partial strength
+     the way a gradient can, so at the faintest setting it is simply absent
+     rather than smeared over the board behind every seat. */
+  return strength => (strength <= 0.35 ? [] : [layer]);
+};
 
 export const MAT_STYLES: Record<MatStyleId, MatStyle> = {
   cloth: {
@@ -475,6 +522,49 @@ export const MAT_STYLES: Record<MatStyleId, MatStyle> = {
     note: 'No texture at all. Just the table and its light.',
     texture: () => [],
     mottle: SOFT_MOTTLE,
+  },
+
+  plains: {
+    id: 'plains',
+    name: 'Plains',
+    note: 'A wide plain at dusk. Painted.',
+    texture: painted('plains'),
+    mottle: SOFT_MOTTLE,
+  },
+  island: {
+    id: 'island',
+    name: 'Island',
+    note: 'A drowned library under a storm. Painted.',
+    texture: painted('island'),
+    mottle: COOL_MOTTLE,
+  },
+  swamp: {
+    id: 'swamp',
+    name: 'Swamp',
+    note: 'Black water and broken tombs. Painted.',
+    texture: painted('swamp'),
+    mottle: WIDE_MOTTLE,
+  },
+  mountain: {
+    id: 'mountain',
+    name: 'Mountain',
+    note: 'A cooled crater, embers in the cracks. Painted.',
+    texture: painted('mountain'),
+    mottle: WIDE_MOTTLE,
+  },
+  forest: {
+    id: 'forest',
+    name: 'Forest',
+    note: 'The forest floor at last light. Painted.',
+    texture: painted('forest'),
+    mottle: SOFT_MOTTLE,
+  },
+  arcane: {
+    id: 'arcane',
+    name: 'Arcane',
+    note: 'A ritual floor seen from above. Painted.',
+    texture: painted('arcane'),
+    mottle: COOL_MOTTLE,
   },
 };
 

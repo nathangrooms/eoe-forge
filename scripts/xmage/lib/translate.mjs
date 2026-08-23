@@ -259,9 +259,6 @@ export const METHODS = {
   'Predicates#and': M('and', 'all'),
   'Predicates#or': M('or', 'all'),
   'Predicates#not': M('not', [0]),
-  'CardType#getPredicate': M('getPredicate', []),
-  'SubType#getPredicate': M('getPredicate', []),
-  'SuperType#getPredicate': M('getPredicate', []),
 
   /* ---- Ability, Target, TargetPointer ---- */
   'Ability#getSourceId': M('getSourceId', []),
@@ -333,10 +330,9 @@ export const METHODS = {
   'Combat#getDefenderId': M('getDefenderId', []),
 
   /* ---- CardUtil ---- */
-  'CardUtil#getExileZoneId': [
-    { arity: 2, ...M('getExileZoneId', [1]) },
-    { arity: 3, ...M('getExileZoneId', [1, 2]) },
-  ],
+  // `CardUtil#getSourceCostsTag(Game, Ability, String, T)` reads the VALUE
+  // stored under a tag; ours builds the KEY. Same name, different function, so
+  // there is deliberately no entry and 107 bodies block on it.
   'CardUtil#overflowInc': M('overflowInc', [0, 1]),
 
   /* ---- Choice ---- */
@@ -385,6 +381,63 @@ export const REWRITES = {
   // game.addEffect(effect, source) — our addEffect takes our own ContinuousEffect
   'Game#addEffect': [{ arity: 2, emit: (recv, a) => `${recv}.addEffect(${a[0]})` }],
 
+  // `CardUtil.getExileZoneId(Game, Ability)` and `(Game, Ability, int offset)`
+  // name the exile zone a source owns; ours takes the source id directly. The
+  // third overload at the same arity takes an object id and a zone change
+  // counter, so `when` reads the second argument's type rather than guessing.
+  'CardUtil#getExileZoneId': [
+    { arity: 2, emit: (recv, a) => `CardUtil.getExileZoneId(source.getSourceId())` },
+    {
+      arity: 3,
+      when: (types) => String(types[1] ?? '').endsWith('Ability'),
+      emit: (recv, a) => `CardUtil.getExileZoneId(source.getSourceId(), ${a[2]})`,
+    },
+    { arity: 3, emit: (recv, a) => `CardUtil.getExileZoneId(${a[1]}, ${a[2]})` },
+  ],
+
+  /*
+   * Last known information. XMage asks three different objects for "the
+   * permanent, or what it was just before it left". This engine answers all
+   * three from one place, `Game#getPermanentOrLKIBattlefield`, which reads the
+   * board the run STARTED from rather than a remembered copy.
+   */
+  'Ability#getSourcePermanentOrLKI': [
+    { arity: 1, emit: () => `game.getPermanentOrLKIBattlefield(source.getSourceId())` },
+  ],
+  'TargetPointer#getFirstTargetPermanentOrLKI': [
+    { arity: 2, emit: recv => `game.getPermanentOrLKIBattlefield(${recv}.getFirst())` },
+  ],
+  // `getLastKnownInformation(UUID, Zone)`; only the battlefield form has a
+  // counterpart, so the graveyard and exile forms block rather than answering
+  // from the wrong pile.
+  'Game#getLastKnownInformation': [
+    {
+      arity: 2,
+      when: (types, nodes) => nodes[1]?.k === 'field' && nodes[1].obj?.k === 'name'
+        && nodes[1].obj.id === 'Zone' && nodes[1].name === 'BATTLEFIELD',
+      emit: (recv, a) => `game.getPermanentOrLKIBattlefield(${a[0]})`,
+    },
+  ],
+
+  /*
+   * `Cards#getCards(FilterCard, Game)` and `Cards#count(FilterCard, Game)` are
+   * NON-destructive in XMage, and our `retain` mutates, so the receiver is
+   * copied first. Passing the filter through and mutating would quietly empty
+   * a player's hand object mid body.
+   */
+  'Cards#getCards': [
+    { arity: 2, emit: (recv, a) => `makeCards(game.xmageScope(), ${recv}.ids()).retain(${a[0]}).getCards()` },
+  ],
+  'Cards#count': [
+    { arity: 2, emit: (recv, a) => `makeCards(game.xmageScope(), ${recv}.ids()).retain(${a[0]}).size()` },
+  ],
+
+  // A type constant is a string here, so `getPredicate()` on it BUILDS the
+  // predicate rather than reading one off an object.
+  'CardType#getPredicate': [{ arity: 0, emit: recv => `cardTypePredicate(${recv})` }],
+  'SubType#getPredicate': [{ arity: 0, emit: recv => `subTypePredicate(${recv})` }],
+  'SuperType#getPredicate': [{ arity: 0, emit: recv => `superTypePredicate(${recv})` }],
+
   // An Effect's own value bag. XMage hangs it off the effect and reads it back
   // in the same resolution; this engine keeps a run-local one on the scope,
   // reachable through `GameState`. A key written by an EARLIER resolution is
@@ -402,6 +455,41 @@ export const REWRITES = {
  * `null` means "this constructor has no counterpart", which blocks and is
  * counted, exactly like a missing method.
  */
+/**
+ * Build one of our `Target`s from an XMage target constructor's arguments,
+ * choosing each argument by TYPE rather than position. See the note on `NEW`.
+ *
+ * `a` is the translated argument list, carrying `.types` (the Java type of each
+ * argument), `.nodes` (the parse nodes) and `.zoneArg`.
+ */
+function target(a, defaultFilter, zone, zoneExpr, wrapFilter, forceNotTarget) {
+  const simpleOf = t => String(t == null ? '' : t).split('.').pop();
+  const isFilter = t => /^Filter/.test(simpleOf(t));
+  const isInt = t => ['int', 'long', 'Integer'].includes(simpleOf(t));
+  const isBool = t => ['boolean', 'Boolean'].includes(simpleOf(t));
+
+  let filter = null;
+  const ints = [];
+  let notTarget = false;
+  for (let i = 0; i < a.types.length; i++) {
+    if (filter === null && isFilter(a.types[i])) { filter = a[i]; continue; }
+    if (isInt(a.types[i])) { ints.push(a[i]); continue; }
+    if (isBool(a.types[i]) && a.nodes[i].k === 'lit' && a.nodes[i].v === 'true') notTarget = true;
+  }
+
+  let chosen = filter == null ? defaultFilter : filter;
+  if (wrapFilter) chosen = wrapFilter(chosen);
+  const parts = ['filter: ' + chosen];
+  // `TargetX(int n)` means exactly n; `TargetX(int min, int max, …)` is a range.
+  if (ints.length >= 2) parts.push('min: ' + ints[0], 'max: ' + ints[1]);
+  else if (ints.length === 1) parts.push('min: ' + ints[0], 'max: ' + ints[0]);
+  const z = zoneExpr != null ? zoneExpr : (zone ? JSON.stringify(zone) : null);
+  if (z) parts.push('zone: ' + z);
+
+  const built = 'makeTarget(game.xmageScope(), { ' + parts.join(', ') + ' })';
+  return (notTarget || forceNotTarget) ? built + '.withNotTarget(true)' : built;
+}
+
 export const NEW = {
   // Filters. XMage's constructor argument is its own display wording, which is
   // WotC rules text; ours takes a name we chose, so the argument is dropped.
@@ -433,27 +521,51 @@ export const NEW = {
   // they block and are counted.
   ChoiceColor: () => `makeChoice(game.xmageScope(), COLOR_CHOICES)`,
 
-  // Targets. XMage's constructors carry a filter and a count; ours takes an
-  // options object. The zone is what the class NAME says, which is why each of
-  // these is a separate row rather than one generic mapping.
-  TargetPermanent: args => `makeTarget(game.xmageScope(), { filter: ${args[0] ?? "makeFilter('permanent')"} })`,
-  TargetCreaturePermanent: args => `makeTarget(game.xmageScope(), { filter: ${args[0] ?? 'StaticFilters.creature()'} })`,
-  TargetControlledCreaturePermanent: args => `makeTarget(game.xmageScope(), { filter: ${args[0] ?? 'StaticFilters.creatureYouControl()'} })`,
-  TargetControlledPermanent: args => `makeTarget(game.xmageScope(), { filter: ${args[0] ?? "makeFilter('permanent you control')"} })`,
-  TargetCardInHand: args => `makeTarget(game.xmageScope(), { zone: 'hand', filter: ${args[0] ?? 'StaticFilters.card()'} })`,
-  TargetCardInYourGraveyard: args => `makeTarget(game.xmageScope(), { zone: 'graveyard', filter: ${args[0] ?? 'StaticFilters.card()'} })`,
-  TargetCardInGraveyard: args => `makeTarget(game.xmageScope(), { zone: 'graveyard', filter: ${args[0] ?? 'StaticFilters.card()'} })`,
-  TargetCardInLibrary: args => `makeTarget(game.xmageScope(), { zone: 'library', filter: ${args[args.length - 1] ?? 'StaticFilters.card()'} })`,
+  /*
+   * Targets. XMage's constructors are overloaded on POSITION —
+   * `TargetPermanent(FilterPermanent)`, `(int numTargets)`,
+   * `(int min, int max, FilterPermanent, boolean notTarget)` — so reading
+   * argument 0 as the filter is wrong more often than it is right. It showed up
+   * as 29 bodies emitting `makeTarget(scope, { filter: 0 })`, where the 0 was a
+   * minimum count.
+   *
+   * `target()` picks each argument BY ITS TYPE instead: the filter is the one
+   * whose type is a filter, the counts are the integers, `notTarget` is the
+   * boolean. The zone comes from the class NAME, which is the only thing
+   * position cannot tell you.
+   */
+  TargetPermanent: a => target(a, "makeFilter('permanent')"),
+  TargetCreaturePermanent: a => target(a, 'StaticFilters.creature()'),
+  TargetControlledCreaturePermanent: a => target(a, 'StaticFilters.creatureYouControl()'),
+  TargetControlledPermanent: a => target(a, "makeFilter('permanent you control', [controlledByPredicate()])"),
+  TargetOpponentsCreaturePermanent: a => target(a, 'StaticFilters.creatureOpponentControls()'),
+  TargetCardInHand: a => target(a, 'StaticFilters.card()', 'hand'),
+  TargetCardInYourGraveyard: a => target(a, 'StaticFilters.card()', 'graveyard'),
+  TargetCardInGraveyard: a => target(a, 'StaticFilters.card()', 'graveyard'),
+  TargetCardInOpponentsGraveyard: a => target(a, 'StaticFilters.card()', 'graveyard'),
+  TargetCardInLibrary: a => target(a, 'StaticFilters.card()', 'library'),
+  TargetCardInExile: a => target(a, 'StaticFilters.card()', 'exile'),
 
-  // `TargetSacrifice(int count, FilterControlledPermanent)` and the 1-arg form.
-  TargetSacrifice: args => args.length > 1
-    ? `makeTarget(game.xmageScope(), { filter: ${args[1]}, min: ${args[0]}, max: ${args[0]} })`
-    : `makeTarget(game.xmageScope(), { filter: ${args[0] ?? "makeFilter('permanent you control')"} })`,
-  // `TargetCard(FilterCard, Zone)` / `(int, FilterCard, Zone)`. The zone is the
-  // LAST argument and it decides which pile the target is chosen from.
-  TargetCard: args => args.length >= 2
-    ? `makeTarget(game.xmageScope(), { zone: ${args[args.length - 1]}, filter: ${args[args.length - 2]} })`
-    : `makeTarget(game.xmageScope(), { filter: ${args[0] ?? 'StaticFilters.card()'} })`,
+  /*
+   * `TargetSacrifice` is NOT just a target with the filter you passed it. Its
+   * own constructor calls `makeFilter`, which adds "you control" and
+   * "can be sacrificed" to whatever you gave it, and passes `notTarget = true`.
+   * Read straight, `new TargetSacrifice(StaticFilters.FILTER_PERMANENT_CREATURE)`
+   * translates to "any creature", and Doomgape would let you sacrifice an
+   * opponent's creature. Found by reading Doomgape's Java beside its
+   * TypeScript, which is what the sample read is for.
+   *
+   * "Can be sacrificed" is not added: it excludes permanents under a "can't be
+   * sacrificed" effect, and this engine models no such effect, so there is
+   * nothing for the predicate to exclude. "You control" is the half that
+   * changes which permanents a player may pick, and it is added.
+   */
+  TargetSacrifice: a => target(
+    a, "makeFilter('permanent you control')", null, null,
+    f => `${f}.add(controlledByPredicate())`, true
+  ),
+  // `TargetCard` carries its zone as a real argument rather than in its name.
+  TargetCard: a => target(a, 'StaticFilters.card()', null, a.zoneArg),
 
   // Predicates that our `filters.ts` already has under our own names.
   ControllerIdPredicate: args => `controlledByPredicate(${args[0] ?? 'undefined'})`,
@@ -464,7 +576,6 @@ export const NEW = {
 
   // Target pointers.
   FixedTarget: args => `fixedTarget(${args[0] ?? 'undefined'})`,
-  FixedTargets: args => `fixedTargets(${args[0] ?? '[]'})`,
 
   // Plain java.util, which becomes TypeScript.
   ArrayList: args => (args.length && !/^\d+$/.test(args[0]) ? `[...${args[0]}]` : `[]`),
@@ -650,21 +761,45 @@ const TS_RESERVED = new Set([
 
 const safeName = n => (TS_RESERVED.has(n) ? `${n}_` : n);
 
-/** Java integer literal suffixes are not TypeScript. */
-function literal(node) {
-  if (node.type === 'str') return JSON.stringify(node.v.slice(1, -1).replace(/\\(.)/g, (m, c) =>
-    c === 'n' ? '\n' : c === 't' ? '\t' : c === '"' ? '"' : c === "'" ? "'" : c === '\\' ? '\\\\' : m));
-  if (node.type === 'char') return JSON.stringify(node.v.slice(1, -1));
-  if (node.type === 'bool' || node.type === 'null') return node.v;
-  return node.v.replace(/[lLfFdD]$/, '');
-}
-
 class Blocked extends Error {
   constructor(kind, detail) {
     super(`${kind}:${detail}`);
     this.kind = kind;
     this.detail = detail;
   }
+}
+
+/**
+ * A string literal that is WORDING rather than data.
+ *
+ * CLAUDE.md forbids copying XMage's display strings. Checking only the argument
+ * positions that reach a player is not enough, because a body can bind the text
+ * to a local first: Blazing Salvo writes
+ * `String message = "Have Blazing Salvo do 5 damage to you?"` and then passes
+ * `message`, so the wording lands in the generated file through the
+ * DECLARATION. That is exactly how it got in, and reading the generated file is
+ * how it was found.
+ *
+ * The test is therefore on the literal itself, and it is deliberately blunt: a
+ * space, or more than 24 characters, means wording. Every string this engine
+ * uses as DATA is a single token — a zone, a counter name, a subtype, a
+ * value-bag key — so the rule costs little and can be checked by grep over the
+ * generated file rather than believed.
+ */
+function isWording(text) {
+  return /\s/.test(text) || text.length > 24;
+}
+
+/** Java integer literal suffixes are not TypeScript. */
+function literal(node) {
+  if (node.type === 'str' || node.type === 'char') {
+    const text = node.v.slice(1, -1).replace(/\\(.)/g, (m, c) =>
+      c === 'n' ? '\n' : c === 't' ? '\t' : c === '"' ? '"' : c === "'" ? "'" : c === '\\' ? '\\\\' : m);
+    if (isWording(text)) return null;   // the caller substitutes and records it
+    return JSON.stringify(text);
+  }
+  if (node.type === 'bool' || node.type === 'null') return node.v;
+  return node.v.replace(/[lLfFdD]$/, '');
 }
 
 /**
@@ -696,6 +831,14 @@ export function translateBody(opts) {
   let calls = 0;
   let mapped = 0;
   const usedHelpers = new Set();
+  /** Places the translation kept the body but lost something. Counted, not hidden. */
+  const degraded = [];
+  /**
+   * Every `Root#method` the walk actually reached. `translate-check.mjs` diffs
+   * this against every call the Java body CONTAINS, so an argument the
+   * translator skipped is a measured number rather than an assumption.
+   */
+  const visited = [];
 
   const fail = (kind, detail) => { throw new Blocked(kind, detail); };
 
@@ -774,15 +917,39 @@ export function translateBody(opts) {
 
   /* ---------------- expressions ---------------- */
 
-  function pickOverload(entry, arity) {
+  function pickOverload(entry, arity, argTypes, nodes) {
     if (!entry) return null;
     if (!Array.isArray(entry)) return entry;
-    return entry.find(e => e.arity === arity) ?? null;
+    return entry.find(e => e.arity === arity && (!e.when || e.when(argTypes, nodes))) ?? null;
   }
+
+  /**
+   * A class name used as a call receiver. XMage's static holders that this port
+   * spells the same way pass through; anything else is a class the translator
+   * has no counterpart for and blocks by name.
+   */
+  const STATIC_RECEIVERS = new Set(['CardUtil', 'Predicates', 'CardType', 'SubType', 'SuperType', 'StaticFilters']);
 
   function expr(node) {
     switch (node.k) {
-      case 'lit': return literal(node);
+      case 'lit': {
+        const text = literal(node);
+        if (text !== null) return text;
+        /*
+         * Wording, replaced by an empty string rather than copied and rather
+         * than blocking the body.
+         *
+         * Blocking cost 34 bodies for nothing AND masked the work order:
+         * 389 bodies reported "display string" as their first blocker when the
+         * thing actually standing in their way was a missing method further
+         * down. Substituting keeps XMage's words out of the file, keeps the
+         * body, and leaves the mechanical effect untouched — what is lost is
+         * the SENTENCE in the log, not the rules text of the card. The caller
+         * supplies wording from Scryfall.
+         */
+        degraded.push('display-string');
+        return "''";
+      }
       case 'paren': return `(${expr(node.e)})`;
       case 'cast': return cast(node);
       case 'name': return nameRef(node.id);
@@ -877,6 +1044,7 @@ export function translateBody(opts) {
     // the same reason, so the inherited field is dropped too.
     if (id === 'outcome' && !fields.has(id)) return "''";
     if (fields.has(id)) return fieldRefByName(id);
+    if (STATIC_RECEIVERS.has(id)) return id;
     if (/^[A-Z]/.test(id)) fail('class-reference', id);
     fail('free-name', id);
   }
@@ -918,16 +1086,16 @@ export function translateBody(opts) {
       const c = COUNTERS[name];
       return c === undefined ? undefined : `CounterType.of(${JSON.stringify(c)})`;
     }
-    if (owner === 'CardType') {
-      if (!CARD_TYPES.has(name)) return undefined;
-      usedHelpers.add('CardType');
-      return `CardType.${name}`;
-    }
-    if (owner === 'SuperType') {
-      if (name === 'LEGENDARY' || name === 'BASIC') { usedHelpers.add('SuperType'); return `SuperType.${name}`; }
-      return undefined;
-    }
-    if (owner === 'SubType') { usedHelpers.add('SubType'); return `SubType.of(${JSON.stringify(name.toLowerCase())})`; }
+    /*
+     * `CardType.CREATURE`, `SubType.GOBLIN` and `SuperType.LEGENDARY` become the
+     * plain string this engine spells a type with, NOT a predicate object.
+     * XMage bodies use them both ways — `permanent.hasSubtype(SubType.GOBLIN)`
+     * wants the name and `SubType.GOBLIN.getPredicate()` wants a predicate — and
+     * only the string can serve both. `getPredicate()` on a string is a rewrite.
+     */
+    if (owner === 'CardType') return CARD_TYPES.has(name) ? JSON.stringify(name.toLowerCase()) : undefined;
+    if (owner === 'SuperType') return JSON.stringify(name.toLowerCase());
+    if (owner === 'SubType') return JSON.stringify(name.toLowerCase());
     if (owner === 'StaticFilters') {
       const f = STATIC_FILTERS[name];
       if (f) { usedHelpers.add('StaticFilters'); return f; }
@@ -942,9 +1110,53 @@ export function translateBody(opts) {
     calls++;
     const info = keyOf(node);
     if (!info) fail('unresolved-receiver', `.${node.name}()`);
+    visited.push(info.key);
 
-    const args = node.args.map(expr);
+    /*
+     * Arguments are translated LAZILY, only the ones actually passed on.
+     *
+     * XMage's signatures carry three things this engine does not want: the
+     * `Game` and the `Ability` (both already in scope) and a display message
+     * (Wizards rules text, which is not ours to copy). Translating a dropped
+     * argument only to throw it away turned every card whose prompt says
+     * `"Have " + permanent.getLogName() + " gain reach?"` into a body blocked on
+     * string concatenation. Nothing was wrong with those cards.
+     */
+    const cache = [];
+    const argAt = i => (cache[i] !== undefined ? cache[i] : (cache[i] = expr(node.args[i])));
+    const args = new Proxy([], {
+      get: (_, prop) => {
+        if (prop === 'length') return node.args.length;
+        const i = Number(prop);
+        return Number.isInteger(i) && i >= 0 && i < node.args.length ? argAt(i) : undefined;
+      },
+    });
+    const argTypes = node.args.map(typeOf);
     const arity = node.args.length;
+
+    /*
+     * No XMage DISPLAY string reaches the generated file. CLAUDE.md forbids
+     * copying XMage's display strings, and a body like The Horus Heresy's
+     * `game.informPlayers(player.getLogName() + " chooses " + …)` copies one
+     * straight through, because both halves of that `+` really are strings and
+     * nothing else would stop it.
+     *
+     * The rule is applied where the string is DISPLAYED rather than to string
+     * literals in general: a value-bag key such as `setValue("exiled" + id, …)`
+     * is data, not wording, and blocking it would cost bodies for nothing. A
+     * prompt never reaches here at all, because the translator does not
+     * translate an argument it is not going to pass on.
+     */
+    // `stream().…​.collect(Collectors.toList())` is how Java spells "and now
+    // give me the array back". In TypeScript the array was never left, so the
+    // whole call is the receiver. `toSet()` additionally de-duplicates, and it
+    // has to, or a card counting distinct things counts them twice.
+    if (info.native === 'Stream#collect' && arity === 1) {
+      const a0 = node.args[0];
+      const collector = a0?.k === 'call' && a0.obj?.k === 'name' && a0.obj.id === 'Collectors' ? a0.name : null;
+      if (collector === 'toList' || collector === 'toUnmodifiableList') { mapped++; return receiver(node); }
+      if (collector === 'toSet' || collector === 'toUnmodifiableSet') { mapped++; return `[...new Set(${receiver(node)})]`; }
+    }
 
     // java.util becomes syntax.
     if (info.native) {
@@ -955,10 +1167,10 @@ export function translateBody(opts) {
       return n(receiver(node), args);
     }
 
-    const rw = pickOverload(REWRITES[info.key], arity);
+    const rw = pickOverload(REWRITES[info.key], arity, argTypes, node.args);
     if (rw) { mapped++; return rw.emit(receiver(node), args); }
 
-    const spec = pickOverload(METHODS[info.key], arity);
+    const spec = pickOverload(METHODS[info.key], arity, argTypes, node.args);
     if (!spec) {
       // The distinction the report is built on: a method the runtime HAS but
       // whose argument list this table does not describe is a different job
@@ -974,8 +1186,8 @@ export function translateBody(opts) {
       if (t === 'source') { out.push('source'); continue; }
       if (t === 'undefined') { out.push('undefined'); continue; }
       if (spec.lit && spec.lit[t] !== undefined) { out.push(spec.lit[t]); continue; }
-      if (args[t] === undefined) fail('arity', `${info.key}/${arity}`);
-      out.push(args[t]);
+      if (t >= arity) fail('arity', `${info.key}/${arity}`);
+      out.push(argAt(t));
     }
     if (spec.fixed) out.unshift(...spec.fixed);
 
@@ -999,11 +1211,15 @@ export function translateBody(opts) {
     const simple = node.type.name.split('.').pop();
     const build = NEW[simple];
     if (!build) fail('new', simple);
-    const args = node.args.map(expr);
-    if (simple === 'TargetPermanent' || simple.startsWith('Target') || simple === 'CardsImpl') {
-      usedHelpers.add('scope');
-    }
-    return build(args);
+    const list = node.args.map(expr);
+    // A `Zone` argument cannot be told from any other string by type, because
+    // this engine spells a zone AS a string, so it is found by its constant.
+    const zoneIdx = node.args.findIndex(n =>
+      n.k === 'field' && n.obj && n.obj.k === 'name' && n.obj.id === 'Zone');
+    list.types = node.args.map(typeOf);
+    list.nodes = node.args;
+    list.zoneArg = zoneIdx >= 0 ? list[zoneIdx] : null;
+    return build(list);
   }
 
   /* ---------------- statements ---------------- */
@@ -1157,5 +1373,5 @@ export function translateBody(opts) {
     return { ok: false, blocked: [{ kind: 'internal', detail: String(e.message).slice(0, 80) }], calls, mapped };
   }
 
-  return { ok: true, ts, blocked, calls, mapped, helpers: [...usedHelpers] };
+  return { ok: true, ts, blocked, calls, mapped, visited, degraded, helpers: [...usedHelpers] };
 }

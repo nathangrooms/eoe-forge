@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { FIELD, MetricRow } from '@/components/listing';
+import { EmptyState, FIELD, MetricRow } from '@/components/listing';
 import { cn } from '@/lib/utils';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -219,6 +219,27 @@ export function DeckSharePanel({
           </div>
         )}
       </div>
+
+      {/* THE OFF STATE HAD NOTHING IN IT.
+
+          Measured on the built page at 1280 and again at 1920: a deck that has
+          never been shared drew one switch and then seven hundred pixels of
+          empty page. It was the emptiest surface in the whole deck set, and it
+          is the one page whose entire subject is something you have not done
+          yet, so the empty half is the half most people see.
+
+          Not a promise and not a spinner: the three things turning the switch
+          on actually produces, named. Every other deck sub-destination already
+          answers its own off state through this same shared `EmptyState` — the
+          optimiser when the flag is off, the test hand when the deck is empty
+          — so this is the vocabulary rather than a new idea. */}
+      {!enabled && !confirmingDisable && (
+        <EmptyState
+          icon={Link2}
+          title="This deck is private"
+          description="Turn the switch on and you get a link anyone can open, a QR code for the table, and a count of how many people have looked."
+        />
+      )}
 
       {enabled && shareUrl && (
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">

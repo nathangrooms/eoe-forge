@@ -851,6 +851,19 @@ export interface XGame {
   emittedActions(): readonly GameAction[];
   /** The working board. An escape hatch for a body that needs a real read. */
   rawState(): GameState;
+  /**
+   * The run's scope, so a translated body can build a `Target`, a `Cards` or a
+   * `Choice`.
+   *
+   * XMage has no such method: its constructors reach the game through a static
+   * context this engine deliberately does not have, and every one of those
+   * objects needs the scope to read the board or raise a question. The name is
+   * one XMage never uses, which is what keeps it out of the coverage join in
+   * `runtime-coverage.mjs`. It is plumbing for the translator, not an
+   * implementation of an XMage function, and counting it as one would overstate
+   * the port.
+   */
+  xmageScope(): XmageScope;
 }
 
 export function makeGame(scope: XmageScope, defaultControllerId?: PlayerId): XGame {
@@ -930,6 +943,7 @@ export function makeGame(scope: XmageScope, defaultControllerId?: PlayerId): XGa
     },
     emittedActions: () => scope.actions,
     rawState: () => scope.working,
+    xmageScope: () => scope,
   };
 }
 

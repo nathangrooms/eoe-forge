@@ -95,9 +95,13 @@ function localClasses(toks, cardCls) {
   return out;
 }
 
-/** Field names declared directly in a class body, so a body cannot use one silently. */
+/**
+ * Field names declared directly in a class body, with the declared type and any
+ * initialiser expression. A body cannot use a field silently: either its value
+ * is known here or the body blocks on it.
+ */
 function classFields(toks, open, close) {
-  const names = new Set();
+  const fields = new Map();   // name -> { type, init }
   let depth = 0;
   for (let i = open; i < close; i++) {
     const v = toks[i].v;
@@ -110,9 +114,113 @@ function classFields(toks, open, close) {
     const after = toks[rt.end];
     if (after?.t !== 'id') continue;
     const next = toks[rt.end + 1]?.v;
-    if (next === '=' || next === ';' || next === ',') { names.add(after.v); i = rt.end; }
+    if (next !== '=' && next !== ';' && next !== ',') continue;
+
+    let init = null;
+    if (next === '=') {
+      // `private static final FilterCard filter = new FilterCreatureCard();`
+      let end = rt.end + 2;
+      let d = 0;
+      while (end < close) {
+        const t = toks[end].v;
+        if (t === '(' || t === '[' || t === '{') d++;
+        else if (t === ')' || t === ']' || t === '}') d--;
+        else if (t === ';' && d === 0) break;
+        end++;
+      }
+      const slice = toks.slice(rt.end + 2, end);
+      slice.push({ t: 'eof', v: '', p: 0, line: 0 });
+      try { init = new JavaParser(slice).parseExpression(); } catch { init = null; }
+      i = end;
+    } else {
+      i = rt.end;
+    }
+    if (!fields.has(after.v)) fields.set(after.v, { type: rt.text, init });
   }
-  return names;
+  return fields;
+}
+
+/**
+ * What a card-local effect's fields are actually SET TO, by reading the one
+ * place the card constructs it.
+ *
+ * XMage writes `class FooEffect extends OneShotEffect { private final
+ * FilterPermanent filter; FooEffect(FilterPermanent filter) { this.filter =
+ * filter; } }` and then, in the card, `new FooEffect(StaticFilters.FILTER_LAND)`.
+ * The field IS a constant; it just takes two hops to see it. Following those
+ * hops is ordinary constant propagation over the tree, and it is the single
+ * biggest thing standing between a body and a translation: 328 bodies stopped
+ * on an unknown `filter` before this existed.
+ *
+ * It refuses to guess in the two cases where guessing would be wrong: more than
+ * one construction site with DIFFERENT arguments (the field is genuinely not a
+ * constant), and a constructor that computes rather than assigns.
+ */
+function inlineConstructorArgs(toks, cls, fields) {
+  const bound = new Map();   // field name -> expression node
+
+  // Declaration initialisers are already the value.
+  for (const [name, f] of fields) if (f.init) bound.set(name, f.init);
+
+  // `this.field = param;` inside a constructor whose parameter list we can read.
+  const assignments = [];    // { field, paramIndex }
+  let params = null;
+  for (let i = cls.open; i < cls.close; i++) {
+    if (toks[i].t !== 'id' || toks[i].v !== cls.name) continue;
+    if (toks[i + 1]?.v !== '(') continue;
+    const pClose = skipBalanced(toks, i + 1, '(', ')');
+    if (toks[pClose]?.v !== '{') continue;
+
+    const ps = [];
+    let k = i + 2;
+    while (k < pClose - 1) {
+      if (toks[k].v === 'final') { k++; continue; }
+      const rt = readType(toks, k);
+      if (!rt || toks[rt.end]?.t !== 'id') break;
+      ps.push({ type: rt.text, name: toks[rt.end].v });
+      k = rt.end + 1;
+      if (toks[k]?.v === ',') k++; else break;
+    }
+    // The copy constructor takes the effect itself. It carries no new values.
+    if (ps.length === 1 && ps[0].type === cls.name) { i = skipBalanced(toks, pClose, '{', '}') - 1; continue; }
+    const bClose = skipBalanced(toks, pClose, '{', '}');
+
+    for (let j = pClose; j < bClose; j++) {
+      if (toks[j].v !== 'this' || toks[j + 1]?.v !== '.' || toks[j + 2]?.t !== 'id') continue;
+      if (toks[j + 3]?.v !== '=') continue;
+      if (toks[j + 4]?.t !== 'id' || toks[j + 5]?.v !== ';') continue;   // only a bare parameter
+      const idx = ps.findIndex(p => p.name === toks[j + 4].v);
+      if (idx === -1) continue;
+      assignments.push({ field: toks[j + 2].v, paramIndex: idx });
+    }
+    params = ps;
+    i = bClose - 1;
+  }
+
+  if (!assignments.length) return bound;
+
+  // Every `new <cls>(...)` in the file. The card constructs its own effect, so
+  // the site is in the same file and no cross-file resolution is needed.
+  const sites = [];
+  for (let i = 0; i < toks.length - 2; i++) {
+    if (toks[i].v !== 'new' || toks[i + 1]?.v !== cls.name || toks[i + 2]?.v !== '(') continue;
+    const close = skipBalanced(toks, i + 2, '(', ')');
+    const slice = toks.slice(i + 1, close);
+    slice.push({ t: 'eof', v: '', p: 0, line: 0 });
+    try {
+      const p = new JavaParser([{ t: 'id', v: 'new', p: 0, line: 0 }, ...slice]);
+      const node = p.parseExpression();
+      if (node.k === 'new') sites.push(node.args);
+    } catch { /* an unparsable site means no binding, which blocks rather than guesses */ }
+    i = close - 1;
+  }
+  if (sites.length !== 1) return bound;   // ambiguous or absent: do not guess
+
+  for (const a of assignments) {
+    const arg = sites[0][a.paramIndex];
+    if (arg && !bound.has(a.field)) bound.set(a.field, arg);
+  }
+  return bound;
 }
 
 /**
@@ -204,6 +312,7 @@ for (const path of files) {
     if (!methods.length) continue;
     fileHadApply = true;
     const fields = classFields(toks, cls.open, cls.close);
+    const fieldValues = inlineConstructorArgs(toks, cls, fields);
     const selfType = resolveTypeText(cls.superName, imports, pkg);
 
     for (const m of methods) {
@@ -230,6 +339,7 @@ for (const path of files) {
         gameVar: m.params[0].name,
         sourceVar: m.params[1].name,
         fields,
+        fieldValues,
         toks,
         lo: m.open,
         hi: m.close,
@@ -291,7 +401,7 @@ const HEADER = `/**
 import type { XGame } from './objects.ts';
 import type { XAbility } from './targets.ts';
 import type { XmageBody } from './index.ts';
-import { CounterType, makeCards, makeToken } from './objects.ts';
+import { COLOR_CHOICES, CounterType, makeCards, makeChoice, makeToken } from './objects.ts';
 import {
   CardType,
   Predicates,
@@ -302,6 +412,9 @@ import {
   cardTypePredicate,
   controlledByPredicate,
   makeFilter,
+  namePredicate,
+  ownedByPredicate,
+  tappedPredicate,
 } from './filters.ts';
 import { fixedTarget, fixedTargets, makeTarget } from './targets.ts';
 

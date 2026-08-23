@@ -424,29 +424,36 @@ export const NEW = {
   FilterNonlandCard: () => `makeFilter('nonland card', [Predicates.not(cardTypePredicate('land'))])`,
 
   // Cards. `new CardsImpl()` and `new CardsImpl(card)`.
-  CardsImpl: args => (args.length ? `makeCards(xscope, [])` : `makeCards(xscope, [])`),
+  CardsImpl: args => (args.length
+    ? `makeCards(game.xmageScope(), []).add(${args[0]})`
+    : `makeCards(game.xmageScope(), [])`),
+
+  // `new ChoiceColor()` picks one of the five. XMage's other Choice subclasses
+  // fill their option list from a static table this engine does not carry, so
+  // they block and are counted.
+  ChoiceColor: () => `makeChoice(game.xmageScope(), COLOR_CHOICES)`,
 
   // Targets. XMage's constructors carry a filter and a count; ours takes an
   // options object. The zone is what the class NAME says, which is why each of
   // these is a separate row rather than one generic mapping.
-  TargetPermanent: args => `makeTarget(xscope, { filter: ${args[0] ?? "makeFilter('permanent')"} })`,
-  TargetCreaturePermanent: args => `makeTarget(xscope, { filter: ${args[0] ?? 'StaticFilters.creature()'} })`,
-  TargetControlledCreaturePermanent: args => `makeTarget(xscope, { filter: ${args[0] ?? 'StaticFilters.creatureYouControl()'} })`,
-  TargetControlledPermanent: args => `makeTarget(xscope, { filter: ${args[0] ?? "makeFilter('permanent you control')"} })`,
-  TargetCardInHand: args => `makeTarget(xscope, { zone: 'hand', filter: ${args[0] ?? 'StaticFilters.card()'} })`,
-  TargetCardInYourGraveyard: args => `makeTarget(xscope, { zone: 'graveyard', filter: ${args[0] ?? 'StaticFilters.card()'} })`,
-  TargetCardInGraveyard: args => `makeTarget(xscope, { zone: 'graveyard', filter: ${args[0] ?? 'StaticFilters.card()'} })`,
-  TargetCardInLibrary: args => `makeTarget(xscope, { zone: 'library', filter: ${args[args.length - 1] ?? 'StaticFilters.card()'} })`,
+  TargetPermanent: args => `makeTarget(game.xmageScope(), { filter: ${args[0] ?? "makeFilter('permanent')"} })`,
+  TargetCreaturePermanent: args => `makeTarget(game.xmageScope(), { filter: ${args[0] ?? 'StaticFilters.creature()'} })`,
+  TargetControlledCreaturePermanent: args => `makeTarget(game.xmageScope(), { filter: ${args[0] ?? 'StaticFilters.creatureYouControl()'} })`,
+  TargetControlledPermanent: args => `makeTarget(game.xmageScope(), { filter: ${args[0] ?? "makeFilter('permanent you control')"} })`,
+  TargetCardInHand: args => `makeTarget(game.xmageScope(), { zone: 'hand', filter: ${args[0] ?? 'StaticFilters.card()'} })`,
+  TargetCardInYourGraveyard: args => `makeTarget(game.xmageScope(), { zone: 'graveyard', filter: ${args[0] ?? 'StaticFilters.card()'} })`,
+  TargetCardInGraveyard: args => `makeTarget(game.xmageScope(), { zone: 'graveyard', filter: ${args[0] ?? 'StaticFilters.card()'} })`,
+  TargetCardInLibrary: args => `makeTarget(game.xmageScope(), { zone: 'library', filter: ${args[args.length - 1] ?? 'StaticFilters.card()'} })`,
 
   // `TargetSacrifice(int count, FilterControlledPermanent)` and the 1-arg form.
   TargetSacrifice: args => args.length > 1
-    ? `makeTarget(xscope, { filter: ${args[1]}, min: ${args[0]}, max: ${args[0]} })`
-    : `makeTarget(xscope, { filter: ${args[0] ?? "makeFilter('permanent you control')"} })`,
+    ? `makeTarget(game.xmageScope(), { filter: ${args[1]}, min: ${args[0]}, max: ${args[0]} })`
+    : `makeTarget(game.xmageScope(), { filter: ${args[0] ?? "makeFilter('permanent you control')"} })`,
   // `TargetCard(FilterCard, Zone)` / `(int, FilterCard, Zone)`. The zone is the
   // LAST argument and it decides which pile the target is chosen from.
   TargetCard: args => args.length >= 2
-    ? `makeTarget(xscope, { zone: ${args[args.length - 1]}, filter: ${args[args.length - 2]} })`
-    : `makeTarget(xscope, { filter: ${args[0] ?? 'StaticFilters.card()'} })`,
+    ? `makeTarget(game.xmageScope(), { zone: ${args[args.length - 1]}, filter: ${args[args.length - 2]} })`
+    : `makeTarget(game.xmageScope(), { filter: ${args[0] ?? 'StaticFilters.card()'} })`,
 
   // Predicates that our `filters.ts` already has under our own names.
   ControllerIdPredicate: args => `controlledByPredicate(${args[0] ?? 'undefined'})`,
@@ -674,7 +681,12 @@ class Blocked extends Error {
  * @returns { ok, ts, blocked: [{kind, detail}], calls, mappedCalls }
  */
 export function translateBody(opts) {
-  const { stmts, params, imports, pkg, selfType, gameVar, sourceVar, fields, toks, lo, hi } = opts;
+  const {
+    stmts, params, imports, pkg, selfType, gameVar, sourceVar,
+    fields, fieldValues, toks, lo, hi,
+  } = opts;
+  /** Guard against `private final Foo foo = foo;` style self reference. */
+  const inlining = new Set();
 
   const blocked = [];
   const env = collectEnv(toks, lo, hi, imports, pkg);
@@ -704,12 +716,16 @@ export function translateBody(opts) {
         const n = node.id;
         if (locals.has(n)) return locals.get(n);
         if (env.has(n)) return env.get(n);
+        if (fields?.has(n)) return resolveTypeText(fields.get(n).type, imports, pkg);
         if (imports[n]) return imports[n];
         if (engine.classes[`${pkg}.${n}`]) return `${pkg}.${n}`;
         if (simpleToFqn.has(n)) return simpleToFqn.get(n);
         return /^[A-Z]/.test(n) ? n : null;
       }
       case 'field': {
+        if (node.obj.k === 'this' || node.obj.k === 'super') {
+          return fields?.has(node.name) ? resolveTypeText(fields.get(node.name).type, imports, pkg) : null;
+        }
         const owner = typeOf(node.obj);
         return owner ? fieldType(owner, node.name, imports, pkg) : null;
       }
@@ -860,9 +876,23 @@ export function translateBody(opts) {
     // engine has no counterpart, and every `Outcome.*` constant is dropped for
     // the same reason, so the inherited field is dropped too.
     if (id === 'outcome' && !fields.has(id)) return "''";
-    if (fields.has(id)) fail('field', id);
+    if (fields.has(id)) return fieldRefByName(id);
     if (/^[A-Z]/.test(id)) fail('class-reference', id);
     fail('free-name', id);
+  }
+
+  /**
+   * A field of the card-local effect. Its value came from the one place the card
+   * constructs the effect, so it is inlined here as the expression the card
+   * wrote. When no value could be followed, the body blocks on the field BY
+   * NAME rather than emitting something that reads an undefined variable.
+   */
+  function fieldRefByName(id) {
+    const node = fieldValues?.get(id);
+    if (!node) fail('field', id);
+    if (inlining.has(id)) fail('field-cycle', id);
+    inlining.add(id);
+    try { return `(${expr(node)})`; } finally { inlining.delete(id); }
   }
 
   function fieldRef(node) {
@@ -873,7 +903,11 @@ export function translateBody(opts) {
       if (c !== undefined) return c;
       fail('constant', `${owner}.${node.name}`);
     }
-    if (node.obj.k === 'name' && node.obj.id === 'this') fail('field', node.name);
+    if (node.obj.k === 'this' || node.obj.k === 'super') {
+      if (fields.has(node.name)) return fieldRefByName(node.name);
+      if (node.name === 'outcome') return "''";
+      fail('field', node.name);
+    }
     fail('field-access', node.name);
   }
 

@@ -21,6 +21,7 @@
  * actions and confusing them silently invalidates a test.
  */
 
+import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GameCardView } from './GameCardView';
@@ -68,7 +69,31 @@ export function ZonePanel({
   if (!player) return null;
 
   const isMine = playerId === viewerPlayerId;
-  const hidden = (zone === 'library' || zone === 'hand') && !isMine;
+
+  /* YOUR OWN LIBRARY IS HIDDEN FROM YOU TOO, until you say you are searching it.
+     ------------------------------------------------------------------------
+     This used to read `&& !isMine`, so a library was concealed from opponents
+     and wide open to its owner. The panel even said "Looking here is a search",
+     which is an honest admission that it treated every peek as a tutor without
+     ever making anyone declare one.
+
+     Knowing your next ten draws is not a UI detail, it is information the rules
+     do not give you, and a player who glances once cannot un-know it. Owner:
+     "if you click it, it shows entire deck ... dont want to see every card
+     then".
+
+     Searching stays possible, because "search your library" is a real thing
+     cards ask you to do. It is now a DECLARED action rather than the default
+     view, and the log records it, so the other seat can see a search happened.
+     A hand is unconditional: nobody looks at their opponent's hand, and you can
+     already see your own. */
+  const [searching, setSearching] = useState(false);
+  useEffect(() => setSearching(false), [zone, playerId]);
+
+  const isLibrary = zone === 'library';
+  const hidden = isLibrary
+    ? !isMine || !searching
+    : zone === 'hand' && !isMine;
   const cards: CardInstance[] = player.zones[zone].map(id => state.cards[id]).filter(Boolean);
 
   return (
@@ -109,11 +134,26 @@ export function ZonePanel({
 
       <p className="shrink-0 px-3 pb-2 text-[10px] leading-tight text-muted-foreground">
         {hidden
-          ? 'Hidden zone. You can see the count, not the cards.'
-          : zone === 'library'
-            ? `${cards.length} cards, top of the library first. Looking here is a search.`
+          ? isLibrary && isMine
+            ? `${cards.length} cards. Face down, like the real thing.`
+            : 'Hidden zone. You can see the count, not the cards.'
+          : isLibrary
+            ? `${cards.length} cards, top first. You are searching, and the table has been told.`
             : `${cards.length} card${cards.length === 1 ? '' : 's'}. Click one to preview it.`}
       </p>
+
+      {/* The declared search. Only your own library, and only one way in. */}
+      {isLibrary && isMine && (
+        <div className="shrink-0 px-3 pb-2">
+          <button
+            type="button"
+            onClick={() => setSearching(value => !value)}
+            className="rounded-md bg-foreground/[0.07] px-2.5 py-1.5 text-[11px] font-medium text-foreground transition-colors hover:bg-foreground/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {searching ? 'Stop searching' : 'Search your library'}
+          </button>
+        </div>
+      )}
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
         {hidden ? (

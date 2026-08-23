@@ -210,10 +210,21 @@ export interface GameCardViewProps {
  * pile tile and a 300px hand card without a second layout, exactly as
  * `CardBack` does.
  *
- * Measured caveat, stated plainly: across a real game at two widths every card
- * on screen painted real Scryfall art and this face was drawn zero times. It is
- * reachable when the card database is unreachable, which is what the audit
- * harnesses do on purpose, and it is the face a playtest falls back to.
+ * WHO ACTUALLY GETS THIS FACE, re-measured 23 Aug 2026 and it is not what the
+ * line here used to say. That line read "across a real game at two widths every
+ * card on screen painted real Scryfall art and this face was drawn zero times",
+ * which was true of the board it was measured on and is not true of a board
+ * with tokens on it. Driven to turn 21 of a four seat bot game, 42 permanents
+ * down, at 1920, 1680 and 1280: 44 card views, 41 of them painting Scryfall
+ * art, and 3 of them drawn by this face at 75 x 104.5. All three were Food
+ * tokens off a Gilded Goose. A token has no printing and therefore no
+ * `imageUrl`, so this is its permanent face rather than a loading state, and
+ * "Food" in a title bar over an empty art well is what the player is given for
+ * a permanent they have to be able to find and sacrifice.
+ *
+ * The other two ways in are unchanged: a card whose art has not decoded yet,
+ * and a card database that cannot be reached, which is what the audit harnesses
+ * arrange on purpose.
  */
 function TypographicFace({
   card,

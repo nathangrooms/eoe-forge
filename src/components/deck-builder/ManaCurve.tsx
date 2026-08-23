@@ -167,10 +167,10 @@ export function ManaCurve({
           const selected = selectedBin === BINS[i];
           const title =
             bin.total > 0
-              ? `${BINS[i]} MV — ${bin.total} ${bin.total === 1 ? 'card' : 'cards'}\n` +
+              ? `${BINS[i]} mana value: ${bin.total} ${bin.total === 1 ? 'card' : 'cards'}\n` +
                 segments.map(t => `${CATEGORY_CONFIG[t].label}: ${bin.byType[t]}`).join('\n') +
                 (onSelectBin ? '\nShow these in the decklist' : '')
-              : `${BINS[i]} MV — none`;
+              : `${BINS[i]} mana value: none`;
 
           const plot = (
             <>

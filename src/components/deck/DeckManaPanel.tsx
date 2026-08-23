@@ -14,6 +14,8 @@ import { LandEnhancerUX } from '@/components/deck-builder/LandEnhancerUX';
 import type { DeckCardRow } from '@/lib/deck/deckCards';
 import type { DeckPlayability, ManaProfile } from '@/lib/deck/playability';
 import type { DeckPower, PowerDeckEntry } from '@/lib/deck/power';
+import { ManaCurveAnalyzer } from '@/lib/magic/mana-curve';
+import { LandBaseCalculator } from '@/lib/magic/land-base';
 import { ManaSourcesPanel } from './ManaSourcesPanel';
 
 /**
@@ -87,6 +89,8 @@ interface CurveCard {
 export interface DeckManaPanelProps {
   /** The ninety-nine, as the analysis panels see them. Drives the curve. */
   curveCards: CurveCard[];
+  /** The deck's format, which is what the curve and land ideals are read against. */
+  format: string;
   /** The decklist rows, so every figure on this tab can show its cards. */
   rows: DeckCardRow[];
   profile: ManaProfile;
@@ -107,6 +111,7 @@ export interface DeckManaPanelProps {
 
 export function DeckManaPanel({
   curveCards,
+  format,
   rows,
   profile,
   playability,
@@ -147,6 +152,46 @@ export function DeckManaPanel({
 
   const landPct =
     profile.librarySize > 0 ? (profile.landCount / profile.librarySize) * 100 : 0;
+
+  /**
+   * The deterministic fixes, from the two libraries that already compute them.
+   *
+   * Both were reachable only through `EnhancedDeckAnalysisPanel`'s Suggestions
+   * sub-tab on the Analysis tab, which is a strange place for "add two more
+   * two-drops" to live. Neither call is expensive and neither is a model: the
+   * curve is compared against `ManaCurveAnalyzer`'s ideal for the format and
+   * the mana base against what this deck's own costs demand.
+   *
+   * `format` is not asked for by either of them in a way that changes what is
+   * SAID here — both fall back to the standard ideal for an unknown one — but
+   * it is passed because it changes the numbers, and passing the wrong one
+   * silently would be worse than not passing it at all.
+   */
+  const fixes = useMemo(() => {
+    const cards = curveCards as unknown as Parameters<typeof ManaCurveAnalyzer.analyze>[0];
+    try {
+      const curve = ManaCurveAnalyzer.analyze(cards, format);
+      const lands = LandBaseCalculator.calculate(cards, format, 'optimal');
+      const swaps = ManaCurveAnalyzer.generateOptimizationSuggestions(curve);
+      return {
+        curve: [
+          ...curve.optimality.suggestions,
+          /* No em-dash: the copy rules forbid one and this string is read by a
+             player, not by another developer. */
+          ...swaps.swapSuggestions.map(
+            s =>
+              `${s.reason}. Take out ${s.remove.count} at ${s.remove.cmc} mana and put in ${s.add.count} at ${s.add.cmc}.`
+          ),
+        ].slice(0, 4),
+        lands: lands.improvements.slice(0, 4),
+      };
+    } catch (error) {
+      // A library that cannot read this deck says nothing rather than throwing
+      // the tab away. The figures above it are computed elsewhere and stand.
+      console.warn('Could not derive mana fixes for this deck:', error);
+      return { curve: [] as string[], lands: [] as string[] };
+    }
+  }, [curveCards, format]);
 
   return (
     <div className="space-y-6">
@@ -262,9 +307,63 @@ export function DeckManaPanel({
         power={power}
         identity={identity}
         rows={rows}
+        /* The engine's count, so the shortfall line under each colour is
+           measured against the same number the section above prints. That panel
+           used to count its own, from a regex over oracle text that saw lands
+           and missed rocks, and the two disagreed on the same tab. */
+        sourcesByColour={profile.sourcesByColour}
         onCardClick={onCardClick}
         cardWidth={view.size}
       />
+
+      {/* WHAT WOULD FIX IT.
+          These two lists were on the Analysis tab, inside a nested tab strip,
+          under a heading called Suggestions — where "add two more two-drops"
+          and "you are three blue sources short" sat next to archetype
+          detection. They are answers to mana questions, so they are on the
+          mana tab. Both are deterministic: `ManaCurveAnalyzer` compares this
+          curve against the format's ideal and `LandBaseCalculator` compares the
+          land count and colour sources against what the costs demand. Neither
+          asks a model anything. */}
+      {(fixes.curve.length > 0 || fixes.lands.length > 0) && (
+        <Card>
+          <CardContent className="space-y-4 p-5 md:p-6">
+            <div>
+              <h3 className="text-lg font-semibold">What would fix this</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Counted off this decklist against what a deck of this size in this format
+                usually runs. Nothing here is a model’s opinion.
+              </p>
+            </div>
+
+            {fixes.curve.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  The curve
+                </h4>
+                {fixes.curve.map(line => (
+                  <p key={line} className="rounded-lg bg-muted/40 p-3 text-sm">
+                    {line}
+                  </p>
+                ))}
+              </div>
+            )}
+
+            {fixes.lands.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  The mana base
+                </h4>
+                {fixes.lands.map(line => (
+                  <p key={line} className="rounded-lg bg-muted/40 p-3 text-sm">
+                    {line}
+                  </p>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -1,148 +1,138 @@
-import { useState, useEffect } from 'react';
-import { EmptyState, FacetChip, FilterBar, ListingSearch } from '@/components/listing';
-import { readAmount } from '@/lib/pricing';
-import { fetchCardsByIds, type DeckCardDetail } from '@/lib/deck/deckCards';
-import { Card } from '@/components/ui/card';
+import { useCallback, useMemo, useState } from 'react';
+import { Grid3X3, Package, Plus, Printer, ShoppingCart, Loader2, Heart } from 'lucide-react';
+import {
+  EmptyState,
+  FacetChip,
+  FilterBar,
+  ListingFrame,
+  ListingSearch,
+  matchedLabel,
+  resultSentence,
+  useListingView,
+  type ListingMode,
+} from '@/components/listing';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { CardImage } from '@/components/cards';
-import { Plus, Heart, DollarSign, Package, Printer, ShoppingCart, Loader2 } from 'lucide-react';
 import { AddToListButton } from '@/components/shopping';
 import { showListItemCount, useCardLists, type ListKind } from '@/lib/shopping';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
-
-interface MissingCard {
-  card_id: string;
-  card_name: string;
-  quantity: number;
-  /** USD for all the copies still needed, or null when we have no price. */
-  estimated_price?: number | null;
-  rarity?: string;
-  type_line?: string;
-  set_name?: string;
-  image_uri?: string;
-}
-
-interface MissingCardsPanelProps {
-  deckId: string;
-  deckName: string;
-}
+import type { DeckCardRow } from '@/lib/deck/deckCards';
+import type { DeckValueLine } from '@/lib/deck/deckValue';
+import { DeckCardTile, TileBadge } from '@/components/deck/DeckCardTile';
 
 /**
- * The deck's shopping list, on its own page.
+ * The cards this deck is short of, and every way to close the gap.
  *
- * This was `MissingCardsDrawer` — an 80vh drawer over the deck list. A list you
- * work through, price up and buy from is a destination, so it lives at
- * `/deck/:id/missing` with a real URL and no overlay.
+ * ## TWO THINGS CHANGED AND BOTH WERE COUNTED BY THE CENSUS
+ *
+ * **It stopped querying.** This panel ran its own
+ * `deck_cards` read and its own `user_collections` read when the Value tab
+ * opened, while `useCollectionOwnership` had already loaded the same collection
+ * on page load and `useDeckEditor` had already loaded the same deck rows. Three
+ * reads of one table on one page, none of them a loop, none of them shared.
+ * It now takes the shortfall as `lines` — `deckValueLines` does the arithmetic
+ * once, off data the page already holds — so opening this tab costs **zero**
+ * further requests.
+ *
+ * The knock-on is that the figures cannot disagree any more. This panel priced
+ * the shortfall from its own `fetchCardsByIds` call while the tile at the top of
+ * the page priced the deck from the rows `useDeckEditor` loaded, which is two
+ * reads of the catalogue for one deck and two chances to differ.
+ *
+ * **The cards are cards.** They were drawn in a 16-pixel-wide box beside a row
+ * of text. This is a shopping list a player works through card by card, and it
+ * was the smallest card art anywhere in the product. `ListingFrame` at the size
+ * slider's width, the same shell the decklist uses.
+ *
+ * Every control that was here is still here: search, the three price bands, per
+ * card shopping list, proxy list, wishlist and Mark as Owned, and the two bulk
+ * actions.
  */
-export function MissingCardsPanel({ deckId, deckName }: MissingCardsPanelProps) {
-  const [missingCards, setMissingCards] = useState<MissingCard[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filter, setFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
+
+const MISSING_MODES: ListingMode[] = [
+  { id: 'grid', label: 'Cards', icon: Grid3X3, layout: 'grid' },
+];
+
+const DEFAULT_CARD_SIZE = 200;
+
+type Band = 'all' | 'high' | 'medium' | 'low';
+
+const BAND_LABEL: Record<Band, string> = {
+  all: 'All',
+  high: '$10+',
+  medium: '$2 – $10',
+  low: 'Under $2',
+};
+
+interface MissingCardsPanelProps {
+  /**
+   * Every line of the deck, priced and with ownership already applied.
+   * The ones with `needed > 0` are what this panel is about.
+   */
+  lines: DeckValueLine[];
+  deckId: string;
+  deckName: string;
+  onCardClick?: (row: DeckCardRow) => void;
+  /**
+   * Called after Mark as Owned writes, so the page can re-read ownership. The
+   * panel does not hold its own copy of the collection any more, so it cannot
+   * quietly drop a row and pretend the deck changed.
+   */
+  onOwnershipChanged?: () => void;
+}
+
+export function MissingCardsPanel({
+  lines,
+  deckId,
+  deckName,
+  onCardClick,
+  onOwnershipChanged,
+}: MissingCardsPanelProps) {
+  const [search, setSearch] = useState('');
+  const [band, setBand] = useState<Band>('all');
   const [addingAll, setAddingAll] = useState<ListKind | null>(null);
+  const [marking, setMarking] = useState<string | null>(null);
   const addMany = useCardLists(state => state.addMany);
 
-  useEffect(() => {
-    if (deckId) {
-      loadMissingCards();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deckId]);
+  const view = useListingView({
+    surface: 'deckmatrix.deck.missing.view',
+    modes: MISSING_MODES,
+    defaultSize: DEFAULT_CARD_SIZE,
+  });
 
-  const loadMissingCards = async () => {
-    setLoading(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+  const missing = useMemo(
+    () =>
+      lines
+        .filter(line => line.needed > 0)
+        // Unpriced cards sort last rather than pretending to be the cheapest.
+        .sort((a, b) => (b.neededCost ?? -1) - (a.neededCost ?? -1)),
+    [lines]
+  );
 
-      // Get deck cards that are not in user's collection
-      const { data: deckCards, error: deckError } = await supabase
-        .from('deck_cards')
-        .select('card_id, card_name, quantity')
-        .eq('deck_id', deckId)
-        .eq('is_sideboard', false);
+  const filtered = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    return missing.filter(line => {
+      if (needle && !line.name.toLowerCase().includes(needle)) return false;
+      if (band === 'all') return true;
+      /* An unpriced card belongs in no price band. It used to land in "under
+         $2", which is a guess dressed up as a filter result. */
+      const price = line.neededCost;
+      if (price == null) return false;
+      if (band === 'high') return price >= 10;
+      if (band === 'medium') return price >= 2 && price < 10;
+      return price < 2;
+    });
+  }, [missing, search, band]);
 
-      if (deckError) throw deckError;
+  const totalCost = missing.reduce((sum, line) => sum + (line.neededCost ?? 0), 0);
+  const unpriced = missing.filter(line => line.neededCost == null).length;
 
-      if (!deckCards || deckCards.length === 0) {
-        setMissingCards([]);
-        return;
-      }
-
-      // Get user's collection
-      const { data: userCards, error: collectionError } = await supabase
-        .from('user_collections')
-        .select('card_id, quantity')
-        .eq('user_id', session.user.id);
-
-      if (collectionError) throw collectionError;
-
-      // Create a map of owned cards
-      const ownedCardsMap = new Map<string, number>();
-      userCards?.forEach(card => {
-        ownedCardsMap.set(card.card_id, card.quantity);
-      });
-
-      // Which rows are short, and by how many.
-      const shortfall = deckCards
-        .map(deckCard => ({
-          deckCard,
-          needed: Math.max(0, deckCard.quantity - (ownedCardsMap.get(deckCard.card_id) || 0)),
-        }))
-        .filter(row => row.needed > 0);
-
-      /*
-       * ONE query for every card on the list, not one per card.
-       *
-       * This used to sit inside the loop below: `from('cards').eq('id', …)`
-       * once per missing row, awaited in sequence. A hundred-card commander
-       * deck on a fresh account is a hundred round trips to draw one panel,
-       * and a lookup inside a loop over a deck's cards is the exact shape that
-       * has taken this database down. `fetchCardsByIds` is the house helper
-       * for this and chunks at 100 so the URL stays inside its limit.
-       */
-      let details: Map<string, DeckCardDetail>;
-      try {
-        details = await fetchCardsByIds(shortfall.map(row => row.deckCard.card_id));
-      } catch (cardError) {
-        // A failed catalogue read and "no card has a price" look identical on
-        // screen otherwise, which is how a broken query stays broken.
-        console.error('Error loading card details for missing cards:', cardError);
-        details = new Map();
-      }
-
-      const missing: MissingCard[] = shortfall.map(({ deckCard, needed }) => {
-        const cardDetails = details.get(deckCard.card_id);
-
-        /* null, not 0, when we have no price. A missing price used to be
-           added to the buy total as zero, which told a player the deck was
-           cheaper to finish than it is. */
-        const unit = readAmount(cardDetails?.prices?.usd);
-        const estimatedPrice = unit == null ? null : unit * needed;
-
-        const imageUris = cardDetails?.image_uris;
-        return {
-          card_id: deckCard.card_id,
-          card_name: deckCard.card_name,
-          quantity: needed,
-          estimated_price: estimatedPrice,
-          rarity: cardDetails?.rarity ?? undefined,
-          type_line: cardDetails?.type_line ?? undefined,
-          image_uri: imageUris?.normal || imageUris?.large,
-        };
-      });
-
-      // Unpriced cards sort last rather than pretending to be the cheapest.
-      setMissingCards(missing.sort((a, b) => (b.estimated_price ?? -1) - (a.estimated_price ?? -1)));
-    } catch (error) {
-      console.error('Error loading missing cards:', error);
-      showError('Error', 'Failed to load missing cards');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const activeCount = (search.trim() ? 1 : 0) + (band === 'all' ? 0 : 1);
+  const clearEverything = useCallback(() => {
+    setSearch('');
+    setBand('all');
+  }, []);
+  const commitSearch = useCallback((next: string | undefined) => setSearch(next ?? ''), []);
 
   /**
    * Every missing card onto one of the lists in one press, and in one request.
@@ -154,12 +144,12 @@ export function MissingCardsPanel({ deckId, deckName }: MissingCardsPanelProps) 
    * list rather than writing a second row for it.
    *
    * It used to be a `for` loop of one `card_list_add` per card, which made a
-   * fifty card shortfall fifty round trips. That is the shape that has taken
-   * this project down twice, so it goes through `card_list_add_many` now: one
+   * fifty-card shortfall fifty round trips. That is the shape that has taken
+   * this project down twice, so it goes through `card_list_add_many`: one
    * statement whatever the size of the deck.
    */
   const addAll = async (kind: ListKind) => {
-    if (missingCards.length === 0) return;
+    if (missing.length === 0) return;
     setAddingAll(kind);
     try {
       await addMany({
@@ -168,15 +158,15 @@ export function MissingCardsPanel({ deckId, deckName }: MissingCardsPanelProps) 
         // Kept so that when the parcel arrives weeks later, filing already
         // knows which deck was waiting on it.
         sourceDeckId: deckId,
-        items: missingCards.map(card => ({
-          card_id: card.card_id,
-          card_name: card.card_name,
-          quantity: card.quantity,
+        items: missing.map(line => ({
+          card_id: line.row.card_id,
+          card_name: line.name,
+          quantity: line.needed,
         })),
       });
       showSuccess(
         kind === 'proxy' ? 'On your proxy list' : 'On your shopping list',
-        `${showListItemCount(missingCards.length)} from “${deckName}”.`
+        `${showListItemCount(missing.length)} from “${deckName}”.`
       );
     } catch (error: any) {
       showError('Could not add them all', error?.message ?? 'Please try again.');
@@ -185,289 +175,237 @@ export function MissingCardsPanel({ deckId, deckName }: MissingCardsPanelProps) 
     }
   };
 
-  const addToWishlist = async (card: MissingCard) => {
+  const addToWishlist = async (line: DeckValueLine) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) return;
 
-      const { error } = await supabase
-        .from('wishlist')
-        .upsert({
+      const { error } = await supabase.from('wishlist').upsert(
+        {
           user_id: session.user.id,
-          card_id: card.card_id,
-          card_name: card.card_name,
-          quantity: card.quantity,
-          priority: 'medium'
-        }, {
-          onConflict: 'user_id,card_id'
-        });
-
+          card_id: line.row.card_id,
+          card_name: line.name,
+          quantity: line.needed,
+          priority: 'medium',
+        },
+        { onConflict: 'user_id,card_id' }
+      );
       if (error) throw error;
-
-      showSuccess('Added to Wishlist', `${card.card_name} added to your wishlist`);
-    } catch (error) {
-      console.error('Error adding to wishlist:', error);
-      showError('Error', 'Failed to add card to wishlist');
+      showSuccess('On your wishlist', line.name);
+    } catch (error: any) {
+      showError('Could not add to your wishlist', error?.message ?? 'Please try again.');
     }
   };
 
-  const addToCollection = async (card: MissingCard) => {
+  const markAsOwned = async (line: DeckValueLine) => {
+    setMarking(line.row.card_id);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) return;
 
-      const { error } = await supabase
-        .from('user_collections')
-        .upsert({
+      const { error } = await supabase.from('user_collections').upsert(
+        {
           user_id: session.user.id,
-          card_id: card.card_id,
-          card_name: card.card_name,
-          quantity: card.quantity,
-          set_code: 'unknown', // Would need to determine set
-          condition: 'near_mint'
-        }, {
-          onConflict: 'user_id,card_id'
-        });
-
+          card_id: line.row.card_id,
+          card_name: line.name,
+          quantity: line.copies,
+          set_code: line.row.card?.set_code ?? 'unknown',
+          condition: 'near_mint',
+        },
+        { onConflict: 'user_id,card_id' }
+      );
       if (error) throw error;
 
-      showSuccess('Added to Collection', `${card.card_name} added to your collection`);
-
-      // Remove from missing cards list
-      setMissingCards(prev => prev.filter(c => c.card_id !== card.card_id));
-    } catch (error) {
-      console.error('Error adding to collection:', error);
-      showError('Error', 'Failed to add card to collection');
+      showSuccess('In your collection', line.name);
+      /* The page re-reads ownership and this list shortens because the deck's
+         shortfall genuinely changed. It used to splice the row out of its own
+         local copy, which made the list agree with nothing else on the page. */
+      onOwnershipChanged?.();
+    } catch (error: any) {
+      showError('Could not add to your collection', error?.message ?? 'Please try again.');
+    } finally {
+      setMarking(null);
     }
   };
-
-  const filteredCards = missingCards.filter(card => {
-    const matchesSearch = card.card_name.toLowerCase().includes(searchQuery.toLowerCase());
-
-    if (!matchesSearch) return false;
-
-    if (filter === 'all') return true;
-
-    // An unpriced card belongs in no price band. It used to land in "under $2",
-    // which is a guess dressed as a filter result.
-    const price = card.estimated_price;
-    if (price == null) return false;
-    switch (filter) {
-      case 'high': return price >= 10;
-      case 'medium': return price >= 2 && price < 10;
-      case 'low': return price < 2;
-      default: return true;
-    }
-  });
-
-  const totalValue = missingCards.reduce((sum, card) => sum + (card.estimated_price ?? 0), 0);
-  const unpricedCount = missingCards.filter(card => card.estimated_price == null).length;
 
   return (
     <div className="space-y-4">
-      {/* Totals */}
-      <div className="flex flex-wrap items-center gap-4 rounded-xl bg-card p-4 shadow-sm">
-        <div>
-          <div className="text-2xl font-semibold tabular-nums">{missingCards.length}</div>
-          <div className="text-xs text-muted-foreground">cards missing from “{deckName}”</div>
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-lg font-semibold">
+            {missing.length === 0
+              ? 'You own every card in this deck'
+              : `${missing.length} ${missing.length === 1 ? 'card' : 'cards'} to find`}
+          </h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Measured against your collection by card name, so any printing counts.
+            {missing.length > 0 && (
+              <>
+                {' '}
+                ${totalCost.toFixed(2)} to finish.
+                {unpriced > 0 &&
+                  ` ${unpriced} of them ${
+                    unpriced === 1 ? 'has' : 'have'
+                  } no price on record, so the real cost is higher.`}
+              </>
+            )}
+          </p>
         </div>
-        <div className="rounded-lg bg-muted/40 px-3 py-2 text-sm">
-          <div className="flex items-center gap-1">
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-            <span className="font-medium tabular-nums">{totalValue.toFixed(2)}</span>
-            <span className="text-muted-foreground">estimated</span>
+
+        {missing.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Proxy the whole shortfall, because playing the deck before
+                paying for it is why a player is looking at this list at all. */}
+            <Button
+              variant="secondary"
+              className="gap-2"
+              onClick={() => addAll('proxy')}
+              disabled={addingAll !== null}
+            >
+              {addingAll === 'proxy' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Printer className="h-4 w-4" />
+              )}
+              Proxy them all
+            </Button>
+            <Button className="gap-2" onClick={() => addAll('shopping')} disabled={addingAll !== null}>
+              {addingAll === 'shopping' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ShoppingCart className="h-4 w-4" />
+              )}
+              Add them all to my shopping list
+            </Button>
           </div>
-          {unpricedCount > 0 && (
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {unpricedCount === 1
-                ? '1 card here has no price, so the real cost is higher.'
-                : `${unpricedCount} cards here have no price, so the real cost is higher.`}
-            </p>
-          )}
-        </div>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          {/* Proxy the whole shortfall, because playing the deck before paying
-              for it is why a player is looking at this list at all. */}
-          <Button
-            variant="secondary"
-            className="gap-2"
-            onClick={() => addAll('proxy')}
-            disabled={addingAll !== null || missingCards.length === 0}
-          >
-            {addingAll === 'proxy' ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Printer className="h-4 w-4" />
-            )}
-            Proxy them all
-          </Button>
-          <Button
-            className="gap-2"
-            onClick={() => addAll('shopping')}
-            disabled={addingAll !== null || missingCards.length === 0}
-          >
-            {addingAll === 'shopping' ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <ShoppingCart className="h-4 w-4" />
-            )}
-            Add them all to my shopping list
-          </Button>
-        </div>
+        )}
       </div>
 
-      {/*
-        Search and the price bands, as one band.
-
-        The field had no debounce, so every keystroke re-filtered the list —
-        one of the four surfaces the consistency audit counted doing that.
-        `ListingSearch` commits on the shared 250ms, and Enter commits at once
-        for somebody who has finished typing. The price bands are this panel's
-        own facets and stay exactly as they are, as `FacetChip`s in the slot
-        `FilterBar` has for a page's own narrowing controls.
-      */}
-      <FilterBar
-        search={
-          <ListingSearch
-            value={searchQuery}
-            onCommit={next => setSearchQuery(next ?? '')}
-            placeholder="Name or type"
-            label="Search the cards you are missing"
-          />
-        }
-        facets={(['all', 'high', 'medium', 'low'] as const).map(f => (
-          <FacetChip key={f} selected={filter === f} onClick={() => setFilter(f)}>
-            {f === 'all' ? 'All' : `$${f === 'high' ? '10+' : f === 'medium' ? '2-10' : '<2'}`}
-          </FacetChip>
-        ))}
-        activeCount={(searchQuery ? 1 : 0) + (filter === 'all' ? 0 : 1)}
-        onClear={() => {
-          setSearchQuery('');
-          setFilter('all');
-        }}
-      />
-
-      {/* Missing Cards List */}
-      {loading ? (
-        <div
-          className="h-64 animate-pulse rounded-lg bg-muted/30 motion-reduce:animate-none"
-          role="status"
-          aria-label="Working out what this deck is missing"
-        />
-      ) : filteredCards.length === 0 ? (
-        /* Two different situations and they were sharing one panel and one
-           heading. Nothing matching a search is a filter result and offers a
-           way to clear it; owning the whole deck is an achievement and says so
-           without an exclamation mark. */
-        searchQuery || filter !== 'all' ? (
-          <EmptyState
-            title="Nothing matches"
-            description="No card you are missing matches this search and this price band."
-            onClearFilters={() => {
-              setSearchQuery('');
-              setFilter('all');
-            }}
-          />
-        ) : (
-          <EmptyState
-            icon={Package}
-            title="You own every card in this deck"
-            description="Nothing here is missing from your collection."
-          />
-        )
-      ) : (
-        <div className="space-y-3">
-          {filteredCards.map((card) => (
-            <Card key={card.card_id} className="p-4">
-              <div className="flex items-start gap-4">
-                <div className="w-16 flex-shrink-0">
-                  <CardImage
-                    card={{
-                      name: card.card_name,
-                      image_uris: card.image_uri
-                        ? { normal: card.image_uri, large: card.image_uri }
-                        : undefined,
-                    }}
-                    size="sm"
-                    fill
-                    hideFlip
-                  />
-                </div>
-
-                {/* Card Details */}
-                <div className="min-w-0 flex-1">
-                  <div className="mb-2 flex items-start justify-between">
-                    <div className="min-w-0">
-                      <h4 className="truncate font-medium">{card.card_name}</h4>
-                      <p className="truncate text-sm text-muted-foreground">
-                        {card.type_line}
-                      </p>
-                    </div>
-                    <div className="ml-2 flex-shrink-0 text-right">
-                      <div className="text-sm font-medium">
-                        Need {card.quantity}
-                      </div>
-                      <div className="text-sm tabular-nums text-muted-foreground">
-                        {card.estimated_price == null
-                          ? 'No price'
-                          : `$${card.estimated_price.toFixed(2)}`}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      {card.rarity && (
-                        <Badge variant="secondary" className="capitalize">
-                          {card.rarity}
-                        </Badge>
-                      )}
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      {/* The same button as the card page and card search, so
-                          the action reads the same wherever it is taken. Proxy
-                          sits beside shopping because this is the exact list
-                          somebody proxies: the cards the deck needs and you do
-                          not own yet. */}
-                      <AddToListButton
-                        card={{ id: card.card_id, name: card.card_name }}
-                        kind="shopping"
-                        quantity={card.quantity}
-                        source="deck"
-                        deckId={deckId}
-                      />
-                      <AddToListButton
-                        card={{ id: card.card_id, name: card.card_name }}
-                        kind="proxy"
-                        quantity={card.quantity}
-                        source="deck"
-                        deckId={deckId}
-                      />
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => addToWishlist(card)}
-                      >
-                        <Heart className="mr-1 h-3 w-3" />
-                        Wishlist
-                      </Button>
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => addToCollection(card)}
-                      >
-                        <Plus className="mr-1 h-3 w-3" />
-                        Mark as Owned
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Card>
+      {missing.length > 0 && (
+        <FilterBar
+          view={view}
+          activeCount={activeCount}
+          onClear={clearEverything}
+          search={
+            <ListingSearch
+              value={search}
+              onCommit={commitSearch}
+              placeholder="Name"
+              label="Search the cards you are missing"
+            />
+          }
+          facets={(['all', 'high', 'medium', 'low'] as const).map(option => (
+            <FacetChip key={option} selected={band === option} onClick={() => setBand(option)}>
+              {BAND_LABEL[option]}
+            </FacetChip>
           ))}
-        </div>
+        />
       )}
+
+      <ListingFrame
+        view={view}
+        count={filtered.length}
+        summary={
+          missing.length === 0
+            ? undefined
+            : resultSentence([
+                matchedLabel(filtered.length, missing.length, 'card'),
+                { value: `$${totalCost.toFixed(2)}`, label: 'to finish' },
+              ])
+        }
+        empty={
+          missing.length === 0
+            ? {
+                icon: Package,
+                title: 'You own every card in this deck',
+                description: 'Nothing here is missing from your collection.',
+              }
+            : {
+                title: 'Nothing matches',
+                description: 'No card you are missing matches this search and this price band.',
+                onClearFilters: clearEverything,
+              }
+        }
+      >
+        {filtered.map(line => (
+          <DeckCardTile
+            key={line.row.id}
+            card={{
+              ...(line.row.card ?? {}),
+              id: line.row.card_id,
+              name: line.name,
+              image_uris: line.row.card?.image_uris ?? null,
+              mana_cost: line.row.card?.mana_cost ?? null,
+            }}
+            width={view.size}
+            onClick={onCardClick ? () => onCardClick(line.row) : undefined}
+            badge={line.needed > 1 ? <TileBadge>need {line.needed}</TileBadge> : undefined}
+            caption={
+              <span className="tabular-nums">
+                {line.neededCost == null
+                  ? 'No price on record'
+                  : `$${line.neededCost.toFixed(2)} for ${line.needed} ${
+                      line.needed === 1 ? 'copy' : 'copies'
+                    }`}
+                {line.owned > 0 && ` · you own ${line.owned}`}
+              </span>
+            }
+            detail={
+              line.reserved
+                ? 'Reserved list, so it will not be reprinted cheaper.'
+                : line.cheapestUnit !== null &&
+                    line.unit !== null &&
+                    line.cheapestUnit < line.unit * 0.75
+                  ? `Cheapest printing $${line.cheapestUnit.toFixed(2)}, of ${line.printings}.`
+                  : undefined
+            }
+            actions={
+              <>
+                <AddToListButton
+                  card={{ id: line.row.card_id, name: line.name }}
+                  kind="shopping"
+                  quantity={line.needed}
+                  source="deck"
+                  deckId={deckId}
+                />
+                <AddToListButton
+                  card={{ id: line.row.card_id, name: line.name }}
+                  kind="proxy"
+                  quantity={line.needed}
+                  source="deck"
+                  deckId={deckId}
+                />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => addToWishlist(line)}
+                >
+                  <Heart className="mr-1 h-3 w-3" />
+                  Wishlist
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  disabled={marking === line.row.card_id}
+                  onClick={() => markAsOwned(line)}
+                >
+                  {marking === line.row.card_id ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <Plus className="mr-1 h-3 w-3" />
+                  )}
+                  Own it
+                </Button>
+              </>
+            }
+          />
+        ))}
+      </ListingFrame>
     </div>
   );
 }

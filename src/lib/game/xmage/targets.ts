@@ -29,7 +29,7 @@
 
 import type { InstanceId, PlayerId, StackTarget } from '../types.ts';
 import type { XmageScope } from './runtime.ts';
-import { askForCards, askFromList } from './runtime.ts';
+import { askForCards, askFromList, deferHere } from './runtime.ts';
 import type { XFilter, PredicateContext } from './filters.ts';
 import type { XGame, XMageObject, XPermanent } from './objects.ts';
 
@@ -82,11 +82,53 @@ export function fixedPlayerTarget(playerId: PlayerId | undefined): XTargetPointe
 const idOf = (target: StackTarget): string =>
   target.kind === 'player' ? target.playerId : target.instanceId;
 
-function pointerOverTargets(targets: readonly StackTarget[]): XTargetPointer {
+/**
+ * The line said out loud when a body reads the object its ability is about and
+ * nothing bound one.
+ *
+ * ## Why this exists, and the three cards that made it
+ *
+ * XMage's triggered abilities rebind the target pointer while the trigger is
+ * being DETECTED: "whenever a player casts a nonblack spell" pins the pointer to
+ * the caster, "whenever this deals combat damage to a player" pins it to the
+ * damaged player, "at the beginning of each opponent's upkeep" pins it to the
+ * upkeep player. That rebinding lives in the trigger class, which is a different
+ * Java file from the effect, so it is not part of the body this project
+ * translates. This engine binds the pointer from ANNOUNCED targets and a trigger
+ * announces none, so the read comes back empty.
+ *
+ * Soot Imp, Rackling and Dimir Cutpurse all fail on exactly that, and Dimir
+ * Cutpurse is the dangerous shape: its body reads the pointer for the discard,
+ * gets nothing, then draws a card anyway and returns true. Half the card ran and
+ * nothing anywhere said the other half did not. That is the failure `CLAUDE.md`
+ * names, and no caller can see it from the outside, because actions DID come
+ * out.
+ *
+ * So the read itself reports. This adds no behaviour and guesses no binding: it
+ * cannot turn a silent card into a working one, only into a card that says what
+ * it did not do. Binding the pointer to the trigger's player would be a guess
+ * about which object each trigger class pinned, and a wrong guess produces a
+ * card that runs and is wrong, which is worse.
+ */
+const UNBOUND =
+  'the object this card is about was never bound, so the part of the card that reads it did nothing';
+
+function pointerOverTargets(
+  scope: XmageScope,
+  targets: readonly StackTarget[]
+): XTargetPointer {
+  const report = (): undefined => {
+    deferHere(scope, UNBOUND);
+    return undefined;
+  };
   return {
-    getFirst: () => (targets.length ? idOf(targets[0]) : undefined),
-    getFirstPlayer: () => targets.find(t => t.kind === 'player')?.playerId,
-    getTargets: () => targets.map(idOf),
+    getFirst: () => (targets.length ? idOf(targets[0]) : report()),
+    getFirstPlayer: () =>
+      targets.find(t => t.kind === 'player')?.playerId ?? (targets.length ? undefined : report()),
+    getTargets: () => {
+      if (targets.length === 0) report();
+      return targets.map(idOf);
+    },
   };
 }
 
@@ -234,7 +276,7 @@ export interface XAbilityOptions {
 export function makeAbility(scope: XmageScope, options: XAbilityOptions): XAbility {
   const targets = options.targets ?? [];
   const slots = options.targetSlots ?? [];
-  let pointer: XTargetPointer = pointerOverTargets(targets);
+  let pointer: XTargetPointer = pointerOverTargets(scope, targets);
 
   const ability: XAbility = {
     getId: () => options.abilityId ?? 'a0',

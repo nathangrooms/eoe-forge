@@ -617,6 +617,25 @@ export function SeatMat({
      abbreviation on a 117px tile is a habit from a 116px column. */
   const pileLabel = (long: string, short: string) => (piles.tileWidth >= 92 ? long : short);
 
+  /*
+   * THE PILES RECEDE WITH THE BOARD.
+   *
+   * Measured on 23 Aug 2026, real bot game, Giant Growth asking "Choose a
+   * creature": seven card views inside the two seats, three lit as legal at
+   * opacity 1 and two receded to 0.34, and TWO left at opacity 1 with no
+   * transform at all. Both were commanders sitting in a command-zone tile,
+   * which is drawn by `GameCardView` like everything else but was never handed
+   * `aiming`, so the one claim the whole gesture rests on ("exactly a handful
+   * of cards are the only thing the eye lands on") was false by two cards on
+   * every question, on every board.
+   *
+   * `receded` and never `legal`: a card in a pile is not answered by pressing
+   * the tile. `boardTargets` splits the engine's list into what is drawn on a
+   * mat and what is not, and `AimLayer` owns the control for the half that is
+   * not, which is where a legal graveyard card is pressed.
+   */
+  const pileAim = aim ? ('receded' as const) : null;
+
   const pileColumn = (
     <aside
       className="grid h-full shrink-0 content-start justify-center gap-1 py-1"
@@ -656,7 +675,7 @@ export function SeatMat({
         onClick={onOpenZone ? () => onOpenZone(player.id, 'graveyard') : undefined}
       >
         {graveyardTop ? (
-          <GameCardView card={graveyardTop} width={tileCardWidth} ignoreTapped />
+          <GameCardView card={graveyardTop} width={tileCardWidth} ignoreTapped aiming={pileAim} />
         ) : (
           <EmptyWell width={tileCardWidth} />
         )}
@@ -675,7 +694,7 @@ export function SeatMat({
              `saturate-0` before this, over a Scryfall image, which the licence
              forbids and this project has been pulled up for twice. */
           <span className="block opacity-60">
-            <GameCardView card={exileTop} width={tileCardWidth} ignoreTapped />
+            <GameCardView card={exileTop} width={tileCardWidth} ignoreTapped aiming={pileAim} />
           </span>
         ) : (
           <EmptyWell width={tileCardWidth} />
@@ -701,7 +720,7 @@ export function SeatMat({
         }
       >
         {commandTop ? (
-          <GameCardView card={commandTop} width={tileCardWidth} ignoreTapped />
+          <GameCardView card={commandTop} width={tileCardWidth} ignoreTapped aiming={pileAim} />
         ) : (
           <EmptyWell width={tileCardWidth} />
         )}

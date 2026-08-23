@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,8 +34,44 @@ import {
   mainboardOf,
   toAnalyticsCards,
 } from '@/components/deck/deckAnalyticsCards';
-import { DeckManaPanel } from '@/components/deck/DeckManaPanel';
-import { DeckEdhPanel } from '@/components/deck/DeckEdhPanel';
+/**
+ * SEVEN OF THE EIGHT TABS ARRIVE WHEN THEY ARE OPENED.
+ *
+ * Cards is the default tab and is drawn on every visit, so it is imported
+ * normally. The other seven are not: opening a deck to look at the decklist
+ * should not download the pricing library, the synergy tables, the castability
+ * readouts and the match roll-up as well.
+ *
+ * Measured on the built bundle. Rebuilding the eight tabs took `DeckInterface`
+ * from **87.79 kB (27.75 kB gzipped)** to **132.30 kB (41.42 kB)**, which is
+ * what a page with eight rebuilt tabs statically imported costs. Splitting the
+ * seven takes the first load back down and moves the rest behind the press of
+ * the tab that needs it. The figures for both are in `docs/design/DECK-TABS.md`.
+ *
+ * The same rule `CardPriceHistory` already applies to recharts, one level up:
+ * do not make somebody wait for a thing they have not asked to see.
+ */
+const DeckAddPanel = lazy(() =>
+  import('@/components/deck/DeckAddPanel').then(m => ({ default: m.DeckAddPanel }))
+);
+const DeckManaPanel = lazy(() =>
+  import('@/components/deck/DeckManaPanel').then(m => ({ default: m.DeckManaPanel }))
+);
+const DeckEdhPanel = lazy(() =>
+  import('@/components/deck/DeckEdhPanel').then(m => ({ default: m.DeckEdhPanel }))
+);
+const DeckAnalysisPanel = lazy(() =>
+  import('@/components/deck/DeckAnalysisPanel').then(m => ({ default: m.DeckAnalysisPanel }))
+);
+const DeckLegalityPanel = lazy(() =>
+  import('@/components/deck/DeckLegalityPanel').then(m => ({ default: m.DeckLegalityPanel }))
+);
+const DeckValuePanel = lazy(() =>
+  import('@/components/deck/DeckValuePanel').then(m => ({ default: m.DeckValuePanel }))
+);
+const DeckRecordPanel = lazy(() =>
+  import('@/components/deck/DeckRecordPanel').then(m => ({ default: m.DeckRecordPanel }))
+);
 import { EmptyState, PageTabs } from '@/components/listing';
 import { CommanderHero } from '@/components/deck/CommanderHero';
 import { createPlayabilityEngine } from '@/lib/deck/playability';
@@ -58,17 +94,7 @@ import type { Card as StoreCard } from '@/stores/deckStore';
 /* Everything the builder could do arrives here as the same components it
    mounted, against the same decklist, with the writes routed through
    `useDeckEditor`. Nothing was taken off either page to do it. */
-import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
 import { DeckQuickStats } from '@/components/deck-builder/DeckQuickStats';
-import { ArchetypeDetection } from '@/components/deck-builder/ArchetypeDetection';
-import { EnhancedDeckAnalysisPanel } from '@/components/deck-builder/EnhancedDeckAnalysis';
-import { BrainAnalysis } from '@/components/deck-builder/BrainAnalysis';
-import { DeckLegalityPanel } from '@/components/deck/DeckLegalityPanel';
-import { DeckBudgetTracker } from '@/components/deck-builder/DeckBudgetTracker';
-import { MissingCardsPanel } from '@/components/deck-builder/MissingCardsPanel';
-import { DeckPrimerGenerator } from '@/components/deck-builder/DeckPrimerGenerator';
-import { EnhancedMatchTracker } from '@/components/deck-builder/EnhancedMatchTracker';
-import { DeckNotesPanel } from '@/components/deck-builder/DeckNotesPanel';
 import { useCollectionOwnership } from '@/components/deck-builder/useCollectionOwnership';
 import type { EdhAnalysisData } from '@/components/deck-builder/EdhAnalysisPanel';
 import {
@@ -191,6 +217,32 @@ import {
  * opponent — it names the parameter and this link adds it; this page does not
  * guess at the table's shape.
  */
+
+/**
+ * What a tab looks like while it is arriving.
+ *
+ * Shaped like the tabs themselves — a metric row, then a panel — rather than a
+ * spinner, so nothing on screen moves when the real one lands. The tab strip
+ * sits directly above this and a fallback of a different height would make
+ * every tab switch a jump.
+ */
+function TabLoading() {
+  return (
+    <div className="space-y-6" aria-busy="true">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        {[0, 1, 2, 3, 4, 5].map(i => (
+          <Card key={i}>
+            <CardContent className="space-y-2 p-4">
+              <div className="h-3 w-2/3 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+              <div className="h-6 w-16 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <div className="h-64 animate-pulse rounded-lg bg-muted/30 motion-reduce:animate-none" />
+    </div>
+  );
+}
 
 interface TabDef {
   id: string;
@@ -431,10 +483,11 @@ export default function DeckInterface() {
         .map(row => ({ name: row.card?.name || row.card_name, quantity: row.quantity })),
     [rows]
   );
-  const { ownership, loading: ownershipLoading } = useCollectionOwnership(
-    ownershipCards,
-    user?.id
-  );
+  const {
+    ownership,
+    loading: ownershipLoading,
+    refresh: refreshOwnership,
+  } = useCollectionOwnership(ownershipCards, user?.id);
 
   /**
    * Category counts and average mana value, over the ninety-nine and through
@@ -1115,7 +1168,11 @@ export default function DeckInterface() {
         label="Deck sections"
       />
 
+      {/* One boundary round the seven, with a body-shaped placeholder rather
+          than a spinner: the tab strip above it must not move while a panel
+          arrives, and every one of these tabs opens on a metric row. */}
       <div className="mt-5">
+        <Suspense fallback={<TabLoading />}>
         {activeTab === 'cards' && (
           <DeckCardsPanel
             rows={listRows}
@@ -1141,29 +1198,17 @@ export default function DeckInterface() {
           on purpose. Do not "fix" it back.
         */}
         {activeTab === 'add' && canEdit && (
-          <div className="space-y-4">
-            <Card className="p-4">
-              <p className="text-sm font-medium">Adding cards to {deck.name}</p>
-              <p className="text-xs text-muted-foreground">
-                {formatLabel(deck.format)} · {stats.totalCards} cards
-                {commander
-                  ? ` · colour identity of ${commander.card?.name || commander.card_name}`
-                  : ''}
-              </p>
-            </Card>
-            <EnhancedUniversalCardSearch
-              mode="pick"
-              onCardAdd={card => void editor.addCard(card)}
-              placeholder={`Search cards for ${deck.name}`}
-              showFilters
-              showAddButton
-              showWishlistButton={false}
-              showViewModes
-              /* The bucket the builder's mount has always written its card size
-                 under, so nobody's chosen size resets. */
-              sizeKey="dm.card-size.deck-builder"
-            />
-          </div>
+          <DeckAddPanel
+            deckName={deck.name}
+            format={deck.format}
+            rows={rows}
+            commanderName={commander?.card?.name || commander?.card_name}
+            identity={identity}
+            manaProfile={playabilityEngine.profile}
+            ownedByName={ownership?.ownedByName}
+            onAdd={card => void editor.addCard(card)}
+            totalCards={stats.totalCards}
+          />
         )}
 
         {/* Everything about producing mana, in one place, with controls.
@@ -1181,6 +1226,7 @@ export default function DeckInterface() {
           (hasCards ? (
             <DeckManaPanel
               curveCards={mainboard}
+              format={deck.format}
               rows={listRows}
               profile={playabilityEngine.profile}
               playability={playability}
@@ -1237,72 +1283,35 @@ export default function DeckInterface() {
             needsCards('this deck’s Commander power')
           ))}
 
-        {/* What is on Analysis is the format-agnostic half: what kind of deck
-            this is and how it behaves. */}
+        {/* ONE ANALYSIS TAB, AND ONE CHAT.
+
+            This was `ArchetypeDetection`, then `EnhancedDeckAnalysisPanel` cut
+            to two sections behind ITS OWN tab strip, then `BrainAnalysis`. A
+            tab strip inside a tab, and three routes to the same edge function
+            on one screen: `BrainAnalysis` plus a one-shot call behind a button
+            in each of the two sections.
+
+            `DeckAnalysisPanel` is the same content without the nesting. The
+            synergy read comes from `SynergyEngine` directly, which is what lets
+            the real `rarity` and the real `legalities` through instead of the
+            stamped ones that panel builds; the pairs and the mechanic clusters
+            are drawn as cards; and the curve and land-base halves of what was
+            the Suggestions section are on the Mana tab, beside the things they
+            are about. `EnhancedDeckAnalysisPanel` itself is untouched and still
+            mounts with all six sections from `AIGeneratedDeckList`. */}
         {activeTab === 'analysis' &&
           (hasCards && power ? (
-            <div className="space-y-6">
-              <ArchetypeDetection
-                deckCards={mainboard}
-                commander={analyticsCommander}
-                format={deck.format}
-              />
-
-              {/* THE THIRD SET OF TABS, CUT DOWN TO WHAT IS ONLY HERE.
-
-                  This panel carried its own six sub-tabs and its own four
-                  summary tiles, and on the merged page four of the six were
-                  answers this page already gives one click away:
-
-                    Mana Curve   the Mana tab draws `ManaCurve`, which is the
-                                 curve the metric strip's average agrees with
-                    Land Base    the Mana tab draws the source analysis and the
-                                 land fixer over the same decklist
-                    Validation   the Legality tab draws `DeckValidationPanel`
-                                 over cards that carry `legalities`. This copy
-                                 builds its input with
-                                 `legalities: { [format]: 'legal' }` — see the
-                                 `analysis` memo — so it asserts the answer and
-                                 cannot ever report a banned card. Two verdicts
-                                 that can disagree, and the one that always
-                                 says yes is the one being cut.
-                    the tiles    average mana value and the type counts are the
-                                 metric strip above; land count is on Mana;
-                                 format legality is Legality.
-
-                  Synergy and Suggestions are this panel's own and are kept.
-                  `sections` is a prop rather than a second component because
-                  `AIGeneratedDeckList` mounts the same panel around a deck
-                  with no tabs at all, where every section is the only place
-                  those answers exist.
-
-                  THE SIXTH SECTION IS GONE FROM THE COMPONENT, NOT JUST FROM
-                  HERE. `ai` mounted `AIAnalysisPanel`, a second chat box
-                  against the same `mtg-brain` function as the `BrainAnalysis`
-                  directly below this one — two boxes, one tab, one function,
-                  two different briefs. It also printed
-                  `POWER: 0.0/10 (undefined, bracket undefined)` on every deck,
-                  because the panel was briefed with a hard-coded
-                  `power: { score: 0 }`. One chat now, and it is the one that is
-                  handed the canonical score. */}
-              <EnhancedDeckAnalysisPanel
-                deck={mainboard}
-                format={deck.format}
-                commander={analyticsCommander}
-                deckId={deck.id}
-                deckName={deck.name}
-                sections={['synergy', 'suggestions']}
-                overview={false}
-              />
-
-              <BrainAnalysis
-                deck={mainboard}
-                commander={analyticsCommander}
-                powerScore={power}
-                deckId={deck.id}
-                format={deck.format}
-              />
-            </div>
+            <DeckAnalysisPanel
+              mainboard={mainboard}
+              commander={analyticsCommander}
+              format={deck.format}
+              deckId={deck.id}
+              deckName={deck.name}
+              power={power}
+              rows={listRows}
+              onCardClick={openCard}
+              onArchetype={canEdit ? name => void editor.setArchetype(name) : undefined}
+            />
           ) : (
             needsCards('this deck analysed')
           ))}
@@ -1340,71 +1349,61 @@ export default function DeckInterface() {
             needsCards('legality checks')
           ))}
 
+        {/* `rows` and `analyticsDeck`, not `mainboard`: THE COMMANDER IS A CARD
+            YOU HAVE TO BUY.
+
+            Every other panel on this page reads the ninety-nine, because every
+            other panel is asking about what the deck draws and the commander is
+            not drawn. Cost is the one question where that is wrong, and getting
+            it wrong printed two deck values four hundred pixels apart: the tile
+            above reads `computeDeckStats(rows)`, which counts every
+            non-sideboard row, so a harness deck read `$888` at the top and
+            `$877.54` here — the commander, at $10.01, being the whole
+            difference. Same rows now, one answer.
+
+            `ownership.ownedByName` rather than a query of its own. The
+            collection is loaded once on page load and the Value tab used to
+            read it a second time; the census counted three reads of
+            `user_collections` on one deck page and this removes one of them. */}
         {activeTab === 'value' &&
           (hasCards ? (
-            <div className="space-y-6">
-              {/* `analyticsDeck`, not `mainboard`: THE COMMANDER IS A CARD YOU
-                  HAVE TO BUY.
-
-                  Every other panel on this page reads the ninety-nine, because
-                  every other panel is asking about what the deck draws and the
-                  commander is not drawn. Cost is the one question where that is
-                  wrong, and getting it wrong printed two deck values four
-                  hundred pixels apart: the tile above reads
-                  `computeDeckStats(rows)`, which counts every non-sideboard row,
-                  so a harness deck read `$888` at the top and `$877.54` here —
-                  the commander, at $10.01, being the whole difference. Same
-                  rows now, one answer. */}
-              <DeckBudgetTracker deckCards={analyticsDeck} targetBudget={200} />
-              <MissingCardsPanel deckId={deck.id} deckName={deck.name} />
-            </div>
+            <DeckValuePanel
+              rows={rows}
+              ownedByName={ownership?.ownedByName}
+              ownershipLoading={ownershipLoading}
+              deckId={deck.id}
+              deckName={deck.name}
+              analyticsCards={analyticsDeck}
+              onCardClick={openCard}
+              onOwnershipChanged={refreshOwnership}
+            />
           ) : (
             needsCards('what this deck is worth')
           ))}
 
-        {/* Record: the things a human writes about a deck. Primer and Matches
-            were two tabs on the read-only page and the bottom of a very long
-            Analysis tab on the builder. Same components, one home. On the
-            builder the primer lived inside the Optimizer tab, so turning off
-            the feature flag took the primer with it. That was an accident. */}
-        {activeTab === 'record' && (
-          <div className="space-y-6">
-            {/* The primer is a control and a form and had no panel of its own,
-                so on a tab of full-width cards it read as a button somebody had
-                left behind. The surface comes from here; the name comes from
-                the component, which now carries it whether it is open or shut.
-                One heading, not two. */}
-            <Card>
-              <CardContent className="space-y-3 p-5 md:p-6">
-                {/* `strategy` is not passed, and was not passed by the builder
-                    either: nothing on this page holds a one-line strategy for a
-                    deck. `ArchetypeDetection` derives one on the Analysis tab
-                    but keeps it to itself. Lifting it out is new work, not a
-                    merge, so it is named here rather than faked. */}
-                <DeckPrimerGenerator
-                  deckId={deck.id}
-                  deckName={deck.name}
-                  commander={commander?.card?.name || commander?.card_name}
-                  cardCount={stats.totalCards}
-                />
-              </CardContent>
-            </Card>
-            {/* ONE PANEL, ONE QUERY, ONE WIN RATE.
+        {/* RECORD: the things a human writes about a deck, and what the deck
+            has actually done.
 
-                This was `EnhancedMatchTracker` with `MatchAnalytics` directly
-                under it. Each ran its own
-                `deck_matches.select('*').eq('deck_id', …)` and each computed
-                the same total, wins, losses, draws and win rate from it — two
-                reads of one set of rows on one tab. They also drifted: logging
-                a match reloaded the tracker only, so the panel beneath it kept
-                printing the old win rate until the page was reloaded. The
-                per-opponent breakdown and the form figures came across into
-                the tracker, which is the half that holds the form and the
-                list. */}
-            <EnhancedMatchTracker deckId={deck.id} deckName={deck.name} />
-            <DeckNotesPanel deckId={deck.id} />
-          </div>
+            Primer and Matches were two tabs on the read-only page and the
+            bottom of a very long Analysis tab on the builder. Same components,
+            one home. `DeckRecordPanel` owns the one `deck_matches` read and the
+            roll-up, so the tab's figures and the panel below them cannot
+            disagree; it adds the twelve-month timeline `played_at` always
+            supported and had no drawing of, and it reads
+            `user_decks.share_view_count`, which was a column nothing in the
+            product looked at. */}
+        {activeTab === 'record' && (
+          <DeckRecordPanel
+            deckId={deck.id}
+            deckName={deck.name}
+            commanderName={commander?.card?.name || commander?.card_name}
+            cardCount={stats.totalCards}
+            archetype={deck.archetype}
+            shareViews={deck.share_view_count}
+            shared={Boolean(deck.public_enabled && deck.public_slug)}
+          />
         )}
+        </Suspense>
       </div>
 
       {/* Right-hand slide-overs, never centred dialogs. Both keep the deck on

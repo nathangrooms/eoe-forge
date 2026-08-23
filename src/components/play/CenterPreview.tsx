@@ -362,7 +362,7 @@ export function CenterPreview({
     // `advisoryKeywords`, the card's own "Enchant creature" line, and the
     // "does not enforce" note built from the keyword.
     if (trimmed.toLowerCase() === 'enchant') return true;
-    if (/^enchant[^a-z]/i.test(trimmed) && /does not enforce/i.test(trimmed)) return true;
+    if (/^enchant\b/i.test(trimmed) && /does not enforce/i.test(trimmed)) return true;
     return trimmed === enchantClause;
   };
 

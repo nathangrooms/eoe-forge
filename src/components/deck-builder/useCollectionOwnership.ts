@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface OwnershipSummary {
@@ -49,6 +49,12 @@ interface DeckCardLike {
 export function useCollectionOwnership(cards: DeckCardLike[], userId?: string | null) {
   const [summary, setSummary] = useState<OwnershipSummary | null>(null);
   const [loading, setLoading] = useState(false);
+  /* Bumped by `refresh`, and read by the effect below, which is how a write
+     somewhere else on the page — Mark as Owned on the Value tab — makes this
+     read again. Without it that button used to splice a row out of a local copy
+     the Value tab kept, and the page's ownership figures went on reporting the
+     old collection until a reload. */
+  const [generation, setGeneration] = useState(0);
 
   // Recompute only when the multiset of card names/quantities changes.
   const signature = cards
@@ -114,7 +120,10 @@ export function useCollectionOwnership(cards: DeckCardLike[], userId?: string | 
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signature, userId]);
+  }, [signature, userId, generation]);
 
-  return { ownership: summary, loading };
+  /** Read the collection again. For a surface that has just written to it. */
+  const refresh = useCallback(() => setGeneration(n => n + 1), []);
+
+  return { ownership: summary, loading, refresh };
 }

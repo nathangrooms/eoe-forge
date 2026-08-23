@@ -52,6 +52,14 @@ import { tokenize, readImports, readPackage, JavaParser } from './lib/java-parse
 import { skipBalanced, readType } from './index-engine-methods.mjs';
 import { resolveKeys, resolveTypeText } from './lib/java-types.mjs';
 import { translateBody } from './lib/translate.mjs';
+// The SAME finder the generator uses, imported rather than copied: a checker
+// with its own copy silently measured a build that no longer existed.
+import {
+  applyMethods,
+  classFields,
+  inlineConstructorArgs,
+  localClasses,
+} from './lib/find-bodies.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '../..');
@@ -62,142 +70,6 @@ const CARDS = join(XMAGE_ROOT, 'Mage.Sets/src/mage/cards');
 
 const argv = process.argv.slice(2);
 const SAMPLE = argv.includes('--sample') ? Number(argv[argv.indexOf('--sample') + 1]) : 30;
-
-/* -------------------------------------------------------------------------- */
-/* The same body finder the generator uses                                    */
-/* -------------------------------------------------------------------------- */
-
-function localClasses(toks, cardCls) {
-  const out = [];
-  for (let i = 0; i < toks.length - 3; i++) {
-    if (toks[i].t !== 'id' || toks[i].v !== 'class' || toks[i - 1]?.v === '.') continue;
-    if (toks[i + 1]?.t !== 'id' || toks[i + 1].v === cardCls) continue;
-    if (toks[i + 2]?.v !== 'extends') continue;
-    const sup = readType(toks, i + 3);
-    if (!sup) continue;
-    let j = sup.end;
-    while (j < toks.length && toks[j].v !== '{') {
-      if (toks[j].v === '(') { j = skipBalanced(toks, j, '(', ')'); continue; }
-      j++;
-    }
-    if (toks[j]?.v !== '{') continue;
-    const close = skipBalanced(toks, j, '{', '}');
-    out.push({ name: toks[i + 1].v, superName: sup.text, open: j, close: close - 1 });
-    i = close - 1;
-  }
-  return out;
-}
-
-function classFields(toks, open, close) {
-  const fields = new Map();
-  let depth = 0;
-  for (let i = open; i < close; i++) {
-    const v = toks[i].v;
-    if (v === '{') { depth++; continue; }
-    if (v === '}') { depth--; continue; }
-    if (depth !== 1 || toks[i].t !== 'id') continue;
-    const rt = readType(toks, i);
-    if (!rt) continue;
-    const after = toks[rt.end];
-    if (after?.t !== 'id') continue;
-    const next = toks[rt.end + 1]?.v;
-    if (next !== '=' && next !== ';' && next !== ',') continue;
-    let init = null;
-    if (next === '=') {
-      let end = rt.end + 2;
-      let d = 0;
-      while (end < close) {
-        const t = toks[end].v;
-        if (t === '(' || t === '[' || t === '{') d++;
-        else if (t === ')' || t === ']' || t === '}') d--;
-        else if (t === ';' && d === 0) break;
-        end++;
-      }
-      const slice = toks.slice(rt.end + 2, end);
-      slice.push({ t: 'eof', v: '', p: 0, line: 0 });
-      try { init = new JavaParser(slice).parseExpression(); } catch { init = null; }
-      i = end;
-    } else i = rt.end;
-    if (!fields.has(after.v)) fields.set(after.v, { type: rt.text, init });
-  }
-  return fields;
-}
-
-function inlineConstructorArgs(toks, cls, fields) {
-  const bound = new Map();
-  for (const [name, f] of fields) if (f.init) bound.set(name, f.init);
-  const assignments = [];
-  for (let i = cls.open; i < cls.close; i++) {
-    if (toks[i].t !== 'id' || toks[i].v !== cls.name || toks[i + 1]?.v !== '(') continue;
-    const pClose = skipBalanced(toks, i + 1, '(', ')');
-    if (toks[pClose]?.v !== '{') continue;
-    const ps = [];
-    let k = i + 2;
-    while (k < pClose - 1) {
-      if (toks[k].v === 'final') { k++; continue; }
-      const rt = readType(toks, k);
-      if (!rt || toks[rt.end]?.t !== 'id') break;
-      ps.push({ type: rt.text, name: toks[rt.end].v });
-      k = rt.end + 1;
-      if (toks[k]?.v === ',') k++; else break;
-    }
-    if (ps.length === 1 && ps[0].type === cls.name) { i = skipBalanced(toks, pClose, '{', '}') - 1; continue; }
-    const bClose = skipBalanced(toks, pClose, '{', '}');
-    for (let j = pClose; j < bClose; j++) {
-      if (toks[j].v !== 'this' || toks[j + 1]?.v !== '.' || toks[j + 2]?.t !== 'id') continue;
-      if (toks[j + 3]?.v !== '=' || toks[j + 4]?.t !== 'id' || toks[j + 5]?.v !== ';') continue;
-      const idx = ps.findIndex(p => p.name === toks[j + 4].v);
-      if (idx !== -1) assignments.push({ field: toks[j + 2].v, paramIndex: idx });
-    }
-    i = bClose - 1;
-  }
-  if (!assignments.length) return bound;
-  const sites = [];
-  for (let i = 0; i < toks.length - 2; i++) {
-    if (toks[i].v !== 'new' || toks[i + 1]?.v !== cls.name || toks[i + 2]?.v !== '(') continue;
-    const close = skipBalanced(toks, i + 2, '(', ')');
-    const slice = toks.slice(i + 1, close);
-    slice.push({ t: 'eof', v: '', p: 0, line: 0 });
-    try {
-      const node = new JavaParser([{ t: 'id', v: 'new', p: 0, line: 0 }, ...slice]).parseExpression();
-      if (node.k === 'new') sites.push(node.args);
-    } catch { /* unparsable site: no binding, which blocks rather than guesses */ }
-    i = close - 1;
-  }
-  if (sites.length !== 1) return bound;
-  for (const a of assignments) {
-    const arg = sites[0][a.paramIndex];
-    if (arg && !bound.has(a.field)) bound.set(a.field, arg);
-  }
-  return bound;
-}
-
-function applyMethods(toks, open, close) {
-  const out = [];
-  for (let i = open; i < close; i++) {
-    if (toks[i].t !== 'id' || toks[i].v !== 'apply' || toks[i + 1]?.v !== '(') continue;
-    const parenClose = skipBalanced(toks, i + 1, '(', ')');
-    if (toks[parenClose]?.v !== '{') continue;
-    const params = [];
-    let k = i + 2;
-    while (k < parenClose - 1) {
-      if (toks[k].v === 'final') { k++; continue; }
-      const rt = readType(toks, k);
-      if (!rt || toks[rt.end]?.t !== 'id') break;
-      params.push({ type: rt.text, name: toks[rt.end].v });
-      k = rt.end + 1;
-      if (toks[k]?.v === ',') k++; else break;
-    }
-    if (params.length !== 2 || params[0].type !== 'Game' || params[1].type !== 'Ability') continue;
-    const bodyClose = skipBalanced(toks, parenClose, '{', '}');
-    // `sigOpen` is the '(' of the signature: the parameters have to be inside
-    // the region the type environment is built from, or `game` and `source`
-    // have no type and every call on them reads as unresolved.
-    out.push({ params, sigOpen: i + 1, open: parenClose, close: bodyClose - 1 });
-    i = bodyClose - 1;
-  }
-  return out;
-}
 
 /* -------------------------------------------------------------------------- */
 /* Walk everything once                                                       */
@@ -460,7 +332,8 @@ for (const m of moved.slice(0, 8)) {
 }
 console.log('');
 console.log('CHECK 2 — calls inside arguments the translation does not pass on');
-console.log('  emitted bodies                   : ' + emittedBodies.toLocaleString());
+console.log('  bodies that translate            : ' + emittedBodies.toLocaleString()
+  + '   (phase one, before the generator drops the ones tsc rejects)');
 console.log('  calls those bodies contain       : ' + containedCalls.toLocaleString());
 console.log('  calls the translation reached    : ' + reachedCalls.toLocaleString());
 console.log('  calls dropped with an argument   : ' + droppedTotal.toLocaleString()

@@ -370,6 +370,12 @@ export function renderEffect(effect: Effect): string {
       ]);
     case 'may': return `${renderPlayer(effect.who)} may ${renderEffects(effect.effects)}`;
     case 'manual': return effect.text;
+    /* There is nothing to render. The body is imperative Java translated by
+     * machine and it carries no words of its own, so what comes back names the
+     * XMage class and says plainly that this is a pointer. Inventing a sentence
+     * here would be this file guessing at behaviour it cannot read, and
+     * `roundtrip.ts` compares what this returns against the printed card. */
+    case 'xmage-body': return `[xmage body ${effect.key}]`;
     default: return assertNever(effect);
   }
 }

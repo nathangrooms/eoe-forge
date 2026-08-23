@@ -72,6 +72,18 @@ export interface DeckEditorRecord {
   public_slug: string | null;
   edh_analysis: Record<string, unknown> | null;
   edh_cards_hash: string | null;
+  /** What kind of deck this is, as the Analysis tab last measured it. */
+  archetype: string | null;
+  /**
+   * How many times the public link has been opened.
+   *
+   * A column since the table was created and, per the census, read by nothing
+   * in `src/`: the Share page could not tell you whether anybody had looked.
+   * It rides along on the record this page already loads, so reading it costs
+   * nothing, and the Record tab is where "what do I know about this deck"
+   * belongs.
+   */
+  share_view_count: number | null;
 }
 
 export type DeckSaveState = 'idle' | 'saving' | 'saved' | 'error';
@@ -144,7 +156,7 @@ export function useDeckEditor(deckId: string | undefined) {
       const { data, error } = await supabase
         .from('user_decks')
         .select(
-          'id, user_id, name, format, colors, description, public_enabled, public_slug, edh_analysis, edh_cards_hash'
+          'id, user_id, name, format, colors, description, public_enabled, public_slug, edh_analysis, edh_cards_hash, archetype, share_view_count'
         )
         .eq('id', deckId)
         .maybeSingle();
@@ -170,6 +182,8 @@ export function useDeckEditor(deckId: string | undefined) {
             ? (record.edh_analysis as Record<string, unknown>)
             : null,
         edh_cards_hash: (record.edh_cards_hash as string) ?? null,
+        archetype: (record.archetype as string) ?? null,
+        share_view_count: (record.share_view_count as number) ?? null,
       });
       setRows(await fetchDeckCards(deckId));
     } catch (error) {
@@ -717,6 +731,38 @@ export function useDeckEditor(deckId: string | undefined) {
     []
   );
 
+  /**
+   * The detected archetype, written once when it changes.
+   *
+   * `user_decks.archetype` is a column nothing has ever written, so the
+   * Analysis tab re-derived a ranked archetype on every visit and discarded it.
+   * Guarded on equality because `ArchetypeDetection` reports its answer on
+   * every mount, and an unguarded write here would be one request per visit to
+   * a tab for a value that had not moved.
+   *
+   * Not routed through `persistRecord`'s debounce: this fires at most once per
+   * decklist change, from a tab a reader has to open, and coalescing it with
+   * the power cache would make a rare write wait on a frequent one.
+   */
+  const setArchetype = useCallback(
+    async (archetype: string | null) => {
+      if (!deckId || !deck) return;
+      if ((deck.archetype ?? null) === archetype) return;
+      setDeck({ ...deck, archetype });
+      try {
+        /* `touch: false`. Reading the Analysis tab is not editing the deck, and
+           `updated_at` is what orders My Decks by "recently edited". A deck
+           should not jump to the top of the list because somebody looked at
+           it. */
+        await saveDeckRecord(deckId, { archetype }, { touch: false });
+      } catch (error) {
+        console.error('Archetype save failed', error);
+        setDeck(deck);
+      }
+    },
+    [deckId, deck]
+  );
+
   /** The scrape's cached read, kept here so the EDH tab can refresh it. */
   const setEdhAnalysis = useCallback(
     (analysis: Record<string, unknown> | null, hash?: string) => {
@@ -745,6 +791,7 @@ export function useDeckEditor(deckId: string | undefined) {
     importCards,
     rename,
     setDescription,
+    setArchetype,
     persistRecord,
     setEdhAnalysis,
     copyLimitFor,

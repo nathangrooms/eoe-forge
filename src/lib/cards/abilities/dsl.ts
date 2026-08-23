@@ -374,7 +374,28 @@ export type Effect =
   | { do: 'choose-mode'; min: ValueExpr; max: ValueExpr; modes: Array<{ text: string; effects: Effect[] }> }
   | { do: 'may'; who: PlayerSelector; text: string; effects: Effect[] }
   /* honesty */
-  | { do: 'manual'; text: string; hint?: string };
+  | { do: 'manual'; text: string; hint?: string }
+  /*
+   * A card whose effect XMage wrote as its OWN Java class, translated by
+   * machine and executed by `src/lib/game/xmage/`.
+   *
+   * `key` names one entry in `TRANSLATED_BODIES`, spelled
+   * `XMageCardClass::XMageEffectClass`. It is a POINTER, not a description:
+   * this member carries no verb, no selector and no amount, so nothing reading
+   * the DSL can say what the card does from the record alone.
+   *
+   * That is the honest shape, because the body genuinely is imperative Java and
+   * a declarative description of it was never extracted. What it costs, stated
+   * here rather than discovered later: `render.ts` cannot put this into words,
+   * `roundtrip.ts` cannot check it against oracle text, and the deck-building,
+   * recommendation and optimisation consumers `CARD-SEMANTICS.md` names get
+   * nothing out of it. It answers the RESOLUTION question and no other. A card
+   * carrying one of these is a quarter solved.
+   *
+   * `card` and `effect` are the two halves of `key`, carried separately so a
+   * reader and a grep do not have to split it. The runtime reads `key`.
+   */
+  | { do: 'xmage-body'; key: string; card: string; effect: string };
 
 /* ------------------------------------------------------------------ *
  * E8 — what restricted mana may be spent on (CR 106.6)

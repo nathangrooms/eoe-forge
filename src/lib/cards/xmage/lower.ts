@@ -796,6 +796,73 @@ export const REFUSED_EFFECTS: Record<PrimId, string> = {
 };
 
 /* ------------------------------------------------------------------ *
+ * Card-local effect classes, filled by a machine translation
+ * ------------------------------------------------------------------ */
+
+/**
+ * Lowerings for the effect classes XMage's card files declare THEMSELVES.
+ *
+ * ## Why these are built rather than written
+ *
+ * Every other lowering in this file is one function that buys every card using
+ * that engine class. A card-local class is used by exactly one card, so there is
+ * no shared lowering to write: there are 7,931 separate Java bodies, and reading
+ * them one at a time is the job `CLAUDE.md` says the port must not do.
+ *
+ * `scripts/xmage/translate-bodies.mjs` translates those bodies by machine into
+ * `src/lib/game/xmage/bodies.generated.ts`. This turns each translated body into
+ * a `{do:'xmage-body'}` pointer at it. The lowering is generic; the DATA — which
+ * bodies exist — is passed in.
+ *
+ * ## Why the key set is a parameter and not an import
+ *
+ * The translated bodies live in `src/lib/game/`, and they have to: they call a
+ * runtime facade that reads a `GameState`. This file is in `src/lib/cards/` and
+ * is imported BY the game layer. Importing back the other way would make the
+ * card compiler depend on the game engine, which is a direction nothing else in
+ * this project takes.
+ *
+ * So the key set arrives as an argument. `scripts/xmage/emit-lowered.mjs` reads
+ * the generated file and passes it in, once, offline. The shipped app reads only
+ * the result.
+ *
+ * ## The class-name check is not paranoia
+ *
+ * A `PrimId` is `local:AbattoirGhoulEffect` — the effect class alone, with no
+ * card on it. `TRANSLATED_BODIES` is keyed `AbattoirGhoul::AbattoirGhoulEffect`,
+ * card included. Two different cards CAN declare an effect class with the same
+ * name, and lowering one card to the other card's body would be the worst
+ * failure available here: a card that runs and is someone else's. So the key is
+ * rebuilt from this record's own `provenance.xmageClass` and a miss REFUSES
+ * rather than falling back to a name match.
+ */
+export function xmageBodyLowerings(keys: Iterable<string>): Record<PrimId, Lowering> {
+  const byKey = new Set<string>(keys);
+
+  // Which effect class names appear at all, so the table has an entry to find.
+  // The entry still checks the whole key, so an effect name shared by two cards
+  // gets one table row and each card is decided on its own.
+  const effectNames = new Set<string>();
+  for (const key of byKey) {
+    const cut = key.indexOf('::');
+    if (cut > 0) effectNames.add(key.slice(cut + 2));
+  }
+
+  const table: Record<PrimId, Lowering> = {};
+  for (const effectName of effectNames) {
+    const prim: PrimId = `local:${effectName}`;
+    table[prim] = (_invocation, ctx) => {
+      const cls = ctx.record.provenance?.xmageClass;
+      if (!cls) return null;
+      const key = `${cls}::${effectName}`;
+      if (!byKey.has(key)) return null;
+      return [{ do: 'xmage-body', key, card: cls, effect: effectName }];
+    };
+  }
+  return table;
+}
+
+/* ------------------------------------------------------------------ *
  * Ability classes that carry their own semantics
  *
  * Most abilities are a shell around effects, costs and targets the record

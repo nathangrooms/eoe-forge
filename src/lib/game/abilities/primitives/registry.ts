@@ -119,7 +119,23 @@ export type PlayerChoiceDo =
    */
   | 'unless-pays';
 
-type Uncovered = Exclude<AnyEffectDo, HandledDo | AlreadyGoodDo | PlayerChoiceDo>;
+/**
+ * The one verb that is not a verb.
+ *
+ * `{do:'xmage-body'}` is a POINTER at a machine-translated Java body, and the
+ * body runs in `src/lib/game/xmage/` against its own facade rather than through
+ * anything in this folder. It is listed on its own rather than folded into
+ * `AlreadyGoodDo` because that name promises `to-actions.ts` turns the verb
+ * into the right actions, and here `to-actions.ts` only forwards: what comes
+ * out is decided by a translated body this project did not write by hand and
+ * cannot inspect from the DSL.
+ *
+ * No primitive will ever handle it. A primitive takes an effect that DESCRIBES
+ * something; this one describes nothing.
+ */
+export type ForeignBodyDo = 'xmage-body';
+
+type Uncovered = Exclude<AnyEffectDo, HandledDo | AlreadyGoodDo | PlayerChoiceDo | ForeignBodyDo>;
 
 /** Resolves to `true` only when `T` is `never`. Anything else is uninhabited. */
 type AssertNever<T> = [T] extends [never] ? true : { ERROR_unhandled_effect_verb: T };

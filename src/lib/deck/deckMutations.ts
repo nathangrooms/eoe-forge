@@ -212,6 +212,16 @@ export interface DeckRecordPatch {
   description?: string;
   colors?: string[];
   format?: string;
+  /**
+   * What kind of deck this is, as `ArchetypeDetection` measured it.
+   *
+   * `user_decks.archetype` has been a column since the table was created and
+   * the census found nothing in `src/` that ever wrote it, so the Analysis tab
+   * computed a ranked archetype with a confidence figure on every visit and
+   * threw it away. `null` clears it, which is the right answer for a deck that
+   * has been rebuilt out of its old shape.
+   */
+  archetype?: string | null;
 }
 
 /**

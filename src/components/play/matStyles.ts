@@ -457,19 +457,43 @@ const plate =
 
 const ART_BASE = 'https://udnaflcohfyljrsgqggy.supabase.co/storage/v1/object/public/art';
 
-/** One painted mat, placed to cover whatever shape the seat turns out to be. */
-const painted = (slug: string): ((strength: number) => MatLayer[]) => {
+/**
+ * One painted mat, placed to cover whatever shape the seat turns out to be.
+ *
+ * `dim` is a black scrim over the picture, and it is not a style choice. The
+ * centre of each mat was measured in a canvas, sampling the middle third where
+ * the cards actually sit, and the six came back a long way apart:
+ *
+ *     mountain 17.9    arcane 28.0    swamp 31.4
+ *     forest   37.3    island 48.4    plains 62.5      (out of 255)
+ *
+ * The material mats in this file measure 38.69 and 41.04, so four of the six
+ * already sat in the same band and two did not. Plains at 62.5 is half again as
+ * bright as anything else in the app, and a bright mat costs contrast against a
+ * card's own frame, which is the one thing a mat must never do.
+ *
+ * So the two bright ones are dimmed to land in the same band rather than being
+ * left as the odd ones out. The numbers are what they measured, not what looked
+ * about right.
+ */
+const painted = (slug: string, dim = 0): ((strength: number) => MatLayer[]) => {
   const layer: MatLayer = {
     image: `url(${ART_BASE}/mat-${slug}.png)`,
     size: 'cover',
     position: 'center',
     repeat: 'no-repeat',
   };
+  const scrim: MatLayer | null =
+    dim > 0
+      ? {
+          image: `linear-gradient(hsl(0 0% 0% / ${dim}), hsl(0 0% 0% / ${dim}))`,
+        }
+      : null;
   /* Strength is how much surface the tone allows, and the board backdrop asks
      for less than a seat does. A picture cannot be drawn at partial strength
      the way a gradient can, so at the faintest setting it is simply absent
      rather than smeared over the board behind every seat. */
-  return strength => (strength <= 0.35 ? [] : [layer]);
+  return strength => (strength <= 0.35 ? [] : scrim ? [scrim, layer] : [layer]);
 };
 
 export const MAT_STYLES: Record<MatStyleId, MatStyle> = {
@@ -528,14 +552,14 @@ export const MAT_STYLES: Record<MatStyleId, MatStyle> = {
     id: 'plains',
     name: 'Plains',
     note: 'A wide plain at dusk. Painted.',
-    texture: painted('plains'),
+    texture: painted('plains', 0.36),
     mottle: SOFT_MOTTLE,
   },
   island: {
     id: 'island',
     name: 'Island',
     note: 'A drowned library under a storm. Painted.',
-    texture: painted('island'),
+    texture: painted('island', 0.17),
     mottle: COOL_MOTTLE,
   },
   swamp: {

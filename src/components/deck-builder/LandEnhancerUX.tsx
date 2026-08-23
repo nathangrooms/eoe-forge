@@ -57,6 +57,22 @@ interface LandEnhancerUXProps {
    * and they fall back to a list of names.
    */
   rows?: DeckCardRow[];
+  /**
+   * Sources per colour, from `ManaProfile.sourcesByColour`.
+   *
+   * THE SHORTFALL LINE NEEDS A SOURCE COUNT AND THIS FILE MUST NOT COUNT ONE.
+   * It used to, with a regex over lower-cased oracle text that saw lands only
+   * and missed every mana rock, and that count disagreed with the engine's four
+   * inches above it on the same tab. The count is now the engine's, handed in,
+   * and the shortfall it feeds is the one thing this panel derives from it that
+   * `ManaSourcesPanel` does not: how far the sources are from what this deck's
+   * own pips ask for.
+   *
+   * Omit it and the shortfall is not drawn, which is the honest outcome for a
+   * caller that has no mana profile. A number invented to fill the gap would
+   * put back exactly the disagreement this removed.
+   */
+  sourcesByColour?: Partial<Record<string, number>>;
   onCardClick?: (row: DeckCardRow) => void;
   /** Card width in px, from the tab's size slider. */
   cardWidth?: number;
@@ -123,6 +139,7 @@ export function LandEnhancerUX({
   power,
   identity,
   rows,
+  sourcesByColour,
   onCardClick,
   cardWidth,
   className,
@@ -233,27 +250,47 @@ export function LandEnhancerUX({
               Coloured pips this deck’s own costs ask for, counted once per copy. A colour with
               a lot of demand and few sources is where a mana base breaks.
             </p>
-            <ul className="space-y-2.5">
+            <ul className="space-y-3">
               {colors.map(color => {
                 const pips = stats.pipsByColor[color] ?? 0;
+                const sources = sourcesByColour?.[color];
+                /**
+                 * The community rule of thumb for a Commander mana base:
+                 * roughly 13 to 14 sources of a colour for a single pip on
+                 * curve, scaled by how much this deck actually asks for.
+                 * Reported as a shortfall and never as a grade, because the
+                 * deck's own pip demand is what decides what "enough" means.
+                 */
+                const wanted = pips === 0 ? 0 : Math.min(20, 10 + Math.round(pips / 4));
+                const short =
+                  sources === undefined ? null : Math.max(0, wanted - sources);
                 return (
-                  <li key={color} className="flex items-center gap-3">
-                    <ManaPip symbol={color} size="lg" />
-                    <span className="w-24 shrink-0 text-sm text-muted-foreground">
-                      {COLOR_NAME[color]}
-                    </span>
-                    <span className="relative h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
-                      <span
-                        className="absolute inset-y-0 left-0 rounded-full bg-foreground/70"
-                        style={{ width: `${(pips / maxPips) * 100}%` }}
-                      />
-                    </span>
-                    <span className="w-24 shrink-0 text-right text-sm tabular-nums">
-                      <span className="text-base font-semibold">{pips}</span>
-                      <span className="ml-1.5 text-muted-foreground">
-                        pip{pips === 1 ? '' : 's'}
+                  <li key={color}>
+                    <div className="flex items-center gap-3">
+                      <ManaPip symbol={color} size="lg" />
+                      <span className="w-24 shrink-0 text-sm text-muted-foreground">
+                        {COLOR_NAME[color]}
                       </span>
-                    </span>
+                      <span className="relative h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
+                        <span
+                          className="absolute inset-y-0 left-0 rounded-full bg-foreground/70"
+                          style={{ width: `${(pips / maxPips) * 100}%` }}
+                        />
+                      </span>
+                      <span className="w-24 shrink-0 text-right text-sm tabular-nums">
+                        <span className="text-base font-semibold">{pips}</span>
+                        <span className="ml-1.5 text-muted-foreground">
+                          pip{pips === 1 ? '' : 's'}
+                        </span>
+                      </span>
+                    </div>
+                    {short !== null && short > 0 && (
+                      <p className="ml-11 mt-1 text-xs text-muted-foreground">
+                        {sources} {COLOR_NAME[color].toLowerCase()} source
+                        {sources === 1 ? '' : 's'} for that. About {short} more would match what
+                        this deck asks for.
+                      </p>
+                    )}
                   </li>
                 );
               })}

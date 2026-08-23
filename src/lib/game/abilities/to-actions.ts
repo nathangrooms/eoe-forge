@@ -64,6 +64,21 @@ import { damageToPermanent } from './primitives/damage.ts';
 import { returnFromForced, searchLibraryForced } from './primitives/zones.ts';
 import { counterTargetSpell } from './primitives/stack.ts';
 import { addManaToActions } from './primitives/mana.ts';
+/*
+ * The translated XMage bodies, and the one function that runs one.
+ *
+ * `{do:'xmage-body'}` is the only member of the effect union whose behaviour is
+ * not written in this repository by hand: it points at a body
+ * `scripts/xmage/translate-bodies.mjs` produced from XMage's Java. The import
+ * is direct rather than a registry the app fills in, because a registry can be
+ * empty at the moment a card resolves and this cannot: if the key is missing,
+ * the file and the record disagree, and the case below says so.
+ *
+ * XMage is MIT, Copyright (c) 2010 betasteward@gmail.com,
+ * https://github.com/magefree/mage.
+ */
+import { TRANSLATED_BODIES } from '../xmage/bodies.generated.ts';
+import { runXmageEffect, type XmageRun } from '../xmage/index.ts';
 
 /* -------------------------------------------------------------------------- */
 /* Result                                                                     */
@@ -874,6 +889,89 @@ function runEffect(effect: Effect, ctx: AbilityContext, scope: RunScope): void {
     case 'manual':
       scope.deferred.push(effect.hint ? `${effect.text} (${effect.hint})` : effect.text);
       break;
+
+    /* --- a machine-translated XMage body --- */
+
+    case 'xmage-body': {
+      const body = TRANSLATED_BODIES[effect.key];
+      if (!body) {
+        // The record named a body this build does not carry. Said out loud
+        // rather than skipped: a missing key is a generator and a bundle that
+        // disagree, and the card would otherwise resolve to nothing in silence.
+        scope.deferred.push(
+          `this card's effect is a translated XMage body and this build does not carry it (${effect.key})`
+        );
+        break;
+      }
+      if (body.trivial) {
+        // `TranslatedBody.trivial` means the whole body is `return true` or
+        // `return false`. Those are real overrides on an AsThoughEffect or a
+        // ContinuousEffect whose behaviour lives in a DIFFERENT method that was
+        // never translated. Running one produces nothing and would look like a
+        // card that resolved. Generation already refuses to emit these; this is
+        // the second bar, at the point of use, because the first one lives in a
+        // script and this one ships.
+        scope.deferred.push(
+          `this card's XMage body is an override with no behaviour in it (${effect.key})`
+        );
+        break;
+      }
+
+      let run: XmageRun;
+      try {
+        run = runXmageEffect(
+          state,
+          {
+            sourceId: ctx.sourceId,
+            controllerId: ctx.controllerId,
+            targets: ctx.targets,
+            x: ctx.x,
+            idPrefix: `${scope.options.idPrefix}-x${scope.counter.value++}`,
+            at: scope.options.at ?? 0,
+            ...(scope.options.cause ? { cause: scope.options.cause } : {}),
+          },
+          body.run
+        );
+      } catch (error) {
+        // A translated body is machine-written and can reach a facade that
+        // refuses. That is a bug in the translation or in the facade and it is
+        // reported as one, but it must not take the whole resolution down with
+        // it: the other effects of this ability still run, and the log says what
+        // happened here.
+        scope.deferred.push(
+          `this card's translated XMage body failed (${effect.key}): ${(error as Error)?.message ?? String(error)}`
+        );
+        break;
+      }
+
+      for (const line of run.deferred) scope.deferred.push(line);
+
+      if (!run.ok) {
+        // The body stopped on a question and returned nothing. `runXmageEffect`
+        // guarantees the action list is empty, so there is nothing half-done to
+        // fold. The question is named; answering it is a decision protocol that
+        // does not reach this function yet.
+        const asked = run.pending[0]?.prompt;
+        scope.deferred.push(
+          asked
+            ? `this card asks a question the engine cannot answer here: ${asked}`
+            : `this card's translated XMage body stopped on a decision (${effect.key})`
+        );
+        break;
+      }
+
+      for (const action of run.actions) scope.out.push(action);
+
+      if (run.applied && run.actions.length === 0 && run.deferred.length === 0) {
+        // The body said it applied and changed nothing. That is the silent card
+        // this project has now shipped twice, and it is named here rather than
+        // counted as automation.
+        scope.deferred.push(
+          `this card's translated XMage body reported success and changed nothing (${effect.key})`
+        );
+      }
+      break;
+    }
 
     default:
       // Not `assertNever`'s job alone: `tsconfig.app.json` sets `strict: false`,

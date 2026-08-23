@@ -45,8 +45,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { loadRecords } from './build-records.mjs';
-import { lowerCard } from '../../src/lib/cards/xmage/lower.ts';
+import { LOWERINGS, lowerCard, xmageBodyLowerings } from '../../src/lib/cards/xmage/lower.ts';
 import { hasManualEffect, effectsOf } from '../../src/lib/cards/abilities/dsl.ts';
+import { TRANSLATED_BODIES } from '../../src/lib/game/xmage/bodies.generated.ts';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '..', '..');
@@ -79,6 +80,50 @@ const stats = {
   abilities: 0,
 };
 
+/* ------------------------------------------------------------------ *
+ * The card-local bodies, joined in here and nowhere else
+ * ------------------------------------------------------------------ */
+
+/**
+ * `TRANSLATED_BODIES` lives in `src/lib/game/`, because a translated body calls
+ * a runtime facade that reads a `GameState`. `lower.ts` lives in
+ * `src/lib/cards/` and is imported BY the game layer, so it cannot import back.
+ *
+ * This script is the only place the two meet. It runs offline, under node, where
+ * importing both is free, and what ships is the RESULT: a `{do:'xmage-body'}`
+ * pointer in `lowered.generated.ts` and the body itself in the file it already
+ * lived in. No new module edge in the app.
+ *
+ * ## Only the substantive half is offered
+ *
+ * Half of `TRANSLATED_BODIES` is `trivial: true` — a body that is nothing but
+ * `return true;` or `return false;`. Those are required overrides on an
+ * `AsThoughEffect` or a `ContinuousEffect` whose real behaviour lives in a
+ * different method that was never translated. They translate perfectly and they
+ * are worth nothing, and a card lowered to one would RESOLVE and do nothing,
+ * which is the failure this whole port keeps making. They are excluded here, and
+ * `to-actions.ts` refuses them a second time at the point of use.
+ */
+const bodyKeys = Object.entries(TRANSLATED_BODIES)
+  .filter(([, body]) => !body.trivial)
+  .map(([key]) => key);
+
+const LOWERINGS_WITH_BODIES = { ...LOWERINGS, ...xmageBodyLowerings(bodyKeys) };
+
+stats.translatedBodiesAvailable = Object.keys(TRANSLATED_BODIES).length;
+stats.translatedBodiesSubstantive = bodyKeys.length;
+stats.cardsUsingABody = 0;
+stats.bodyPointers = 0;
+
+/** Every `{do:'xmage-body'}` anywhere in these abilities, at any depth. */
+function countBodyPointers(value) {
+  if (Array.isArray(value)) return value.reduce((n, v) => n + countBodyPointers(v), 0);
+  if (!value || typeof value !== 'object') return 0;
+  let n = value.do === 'xmage-body' ? 1 : 0;
+  for (const v of Object.values(value)) n += countBodyPointers(v);
+  return n;
+}
+
 const { records, meta } = await loadRecords();
 
 /** oracle id -> lowered abilities. */
@@ -97,7 +142,7 @@ for (const record of records) {
     continue;
   }
 
-  const lowered = lowerCard(record);
+  const lowered = lowerCard(record, LOWERINGS_WITH_BODIES);
 
   // ALL OR NOTHING, the same bar `lowerCard` and PORT-LOG.md already use. A
   // card whose second ability did not lower is a card that would run half of
@@ -138,6 +183,17 @@ for (const record of records) {
   }
   seen.add(record.oracleId);
 
+  // Counted by walking the whole ability, not `effectsOf`. `effectsOf` returns
+  // an ability's TOP-LEVEL effects, and a pointer can sit inside a mode or an
+  // `if`. The first version of this counter used `effectsOf` and reported 173
+  // where the file held 176, which is a header disagreeing with the data
+  // underneath it.
+  const pointers = countBodyPointers(abilities);
+  if (pointers > 0) {
+    stats.cardsUsingABody++;
+    stats.bodyPointers += pointers;
+  }
+
   table[record.oracleId] = abilities;
   stats.emitted++;
   stats.abilities += abilities.length;
@@ -171,6 +227,14 @@ const file = `/**
  *   two XMage classes, one card    ${String(stats.duplicateOracleId).padStart(6)}
  *   EMITTED                        ${String(stats.emitted).padStart(6)}  (${stats.abilities} abilities)
  *
+ * Of the emitted cards, ${stats.cardsUsingABody} carry at least one
+ * \`{do:'xmage-body'}\` pointer (${stats.bodyPointers} pointers in total) at a
+ * machine-translated XMage body in \`src/lib/game/xmage/bodies.generated.ts\`.
+ * ${stats.translatedBodiesSubstantive} substantive bodies were offered, out of
+ * ${stats.translatedBodiesAvailable} translated. A pointer answers the
+ * RESOLUTION question only: it carries no verb, so the deck-building,
+ * recommendation and optimisation consumers get nothing from it.
+ *
  * XMage commit: ${meta.commit}
  * Built: ${new Date().toISOString()}
  */
@@ -194,5 +258,7 @@ console.log('  no abilities at all     ', stats.vacuous);
 console.log('  lowered to a manual mark', stats.manualEffect);
 console.log('  two classes, one card   ', stats.duplicateOracleId);
 console.log('EMITTED                   ', stats.emitted, `(${stats.abilities} abilities)`);
+console.log('  bodies offered          ', stats.translatedBodiesSubstantive, `(of ${stats.translatedBodiesAvailable} translated)`);
+console.log('  cards using one         ', stats.cardsUsingABody, `(${stats.bodyPointers} pointers)`);
 console.log('bytes                     ', size, `(${(size / 1024 / 1024).toFixed(2)} MB)`);
 console.log('wrote', OUT);

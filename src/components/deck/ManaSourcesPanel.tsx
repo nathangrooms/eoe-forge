@@ -134,7 +134,7 @@ export function ManaSourcesPanel({
               defect as printing a number it cannot derive. */}
           <p className="text-sm text-muted-foreground">
             The joint probability that, on the play, you have drawn enough of the right sources
-            by the turn a card costs — solved from this decklist, not estimated. Lands carry no
+            by the turn a card costs. Solved from this decklist, not estimated. Lands carry no
             figure: you do not cast them.
             {unsolved > 0 && (
               <>
@@ -268,7 +268,7 @@ export function ManaSourcesPanel({
           {worst.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               {result.scoredCount > 0
-                ? `Nothing in this deck falls below ${HARD_TO_CAST_CEILING}% on curve — this mana base serves every spell it has.`
+                ? `Nothing in this deck falls below ${HARD_TO_CAST_CEILING}% on curve. This mana base serves every spell it has.`
                 : 'No card in this deck has a castability figure yet.'}
             </p>
           ) : rows ? (

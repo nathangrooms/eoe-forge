@@ -481,7 +481,16 @@ export function PlayTable({
     stage === 'attackers'
       ? declared.length > 0
         ? 'Press another sword to add it to the swing, or attack.'
-        : 'Press the sword on a creature to send it in. Greyed-out creatures cannot attack.'
+        : /* "Greyed-out" until 23 Aug 2026, and by then nothing on the board was
+             grey. The grey-out came off every card in the Scryfall pass, which
+             `GameCardView` records in full: `saturate-0 brightness-[0.52]` over
+             a card image is the thing this project has been pulled up for
+             twice, and opacity replaced it. So the bar was pointing at a colour
+             the board no longer draws. `combatUi` still returns `dimmed: true`
+             for a creature that cannot swing and `GameCardView` still renders
+             that at opacity 0.5, so the signal is there; only the word for it
+             was wrong. */
+          'Press the sword on a creature to send it in. Dimmed creatures cannot attack.'
       : !canBlockAtAll
         ? 'You have nothing that can block this. Let it through.'
         : armedCard

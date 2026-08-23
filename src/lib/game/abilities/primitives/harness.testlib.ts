@@ -40,6 +40,7 @@ export interface CatalogueRow {
   oracle_text: string | null;
   keywords: string[] | null;
   mana_cost: string | null;
+  cmc?: number;
   power: string | null;
   toughness: string | null;
 }
@@ -121,6 +122,18 @@ export function board(placements: readonly Placement[], playerCount = 2): GameSt
       power: place.power ?? row.power ?? undefined,
       toughness: place.toughness ?? row.toughness ?? undefined,
       manaCost: row.mana_cost ?? undefined,
+      /*
+       * Mana value, from the row.
+       *
+       * It was missing, and the omission was invisible: `CardInstance.cmc` is
+       * optional, every reader spells it `card.cmc ?? 0`, and a board built
+       * here therefore said every card cost nothing. `setup.ts` fills it on the
+       * real path, so a test could assert a mana-value effect, read 0, and pass
+       * while the same card behaved differently in a game. Feed the Swarm found
+       * it: "you lose life equal to that permanent's mana value" charged
+       * nothing for a Grizzly Bears.
+       */
+      cmc: typeof row.cmc === 'number' ? row.cmc : undefined,
     };
     state = addCard(state, partial, place.zone ?? 'battlefield');
     if (place.tapped || place.damage || place.counters) {

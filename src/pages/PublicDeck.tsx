@@ -4,7 +4,10 @@ import { Helmet } from 'react-helmet';
 import { getPublicDeck, trackShareEvent, type PublicDeckData } from '@/lib/api/shareAPI';
 import { PowerScore, PowerScoreBadge } from '@/components/deck/PowerScore';
 import { PowerSliderCoaching } from '@/components/deck-builder/PowerSliderCoaching';
-import { LandEnhancerUX } from '@/components/deck-builder/LandEnhancerUX';
+import { DeckManaPanel } from '@/components/deck/DeckManaPanel';
+import { mainboardOf, toAnalyticsCards } from '@/components/deck/deckAnalyticsCards';
+import { createPlayabilityEngine } from '@/lib/deck/playability';
+import { rowToPlayabilityInput, rowsToPlayabilityInputs } from '@/lib/deck/playabilityView';
 import {
   computeDeckPower,
   entriesFromDeckRows,
@@ -18,7 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState, MetricRow, PageTabs, type Metric } from '@/components/listing';
 import { ColorIdentity } from '@/components/ui/mana-cost';
-import { Copy, Download, ExternalLink, Eye, LayoutGrid, Loader2, Rows3 } from 'lucide-react';
+import { Copy, Download, Droplets, ExternalLink, Eye, LayoutGrid, Loader2, Rows3 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useOpenCard } from '@/components/cards';
 import {
@@ -90,7 +93,7 @@ export default function PublicDeck() {
   /* Which rendering of the decklist is showing. Local state rather than the
      URL: a shared deck link is a link to the deck, and adding a view parameter
      to it would mean the same deck arrives at two addresses. */
-  const [listView, setListView] = useState<'visual' | 'list'>('visual');
+  const [listView, setListView] = useState<'visual' | 'list' | 'mana'>('visual');
 
   /* Clicking a card goes to `/cards/:id`, the same as everywhere else in the
      product. The card page is public, so a visitor following a shared decklist
@@ -174,6 +177,39 @@ export default function PublicDeck() {
    * `color_identity`.
    */
   const powerEntries = useMemo<PowerDeckEntry[]>(() => entriesFromDeckRows(rows), [rows]);
+
+  /**
+   * THE SAME MANA ANALYSIS THE OWNER SEES, ON THE PAGE SOMEBODY ELSE SEES.
+   *
+   * This page is the sixth renderer of one decklist and the standing rule is
+   * that it must not drift from the other five. It already draws the list
+   * through `DeckCardGrid` and `DeckCardTable`, the same two components
+   * `/deck/:id` uses. Mana was the one place it kept a partial copy: it mounted
+   * `LandEnhancerUX` on its own, so when that panel's duplicate
+   * source-per-colour block was removed - because `ManaSourcesPanel` counts the
+   * same thing correctly one section above it on the deck page - this page
+   * would have lost the count with nothing to put it back.
+   *
+   * So it mounts `DeckManaPanel`, which is that whole tab. Read-only: no
+   * `onReplace`, and no `onSelectManaValue`, because there is no editable
+   * decklist here for a curve bar to narrow. The engine is pure, so none of
+   * this costs a request.
+   *
+   * Nothing here is a second implementation. The castability engine is the one
+   * in `src/engine`, and it is a thing neither Moxfield nor Archidekt puts on a
+   * shared deck at all.
+   */
+  const playabilityEngine = useMemo(
+    () => createPlayabilityEngine(rowsToPlayabilityInputs(rows)),
+    [rows]
+  );
+  const playability = useMemo(() => playabilityEngine.deck(), [playabilityEngine]);
+  const mainboard = useMemo(() => mainboardOf(toAnalyticsCards(rows)), [rows]);
+  const playabilityFor = useMemo(
+    () => (row: DeckCardRow) =>
+      row.is_sideboard ? null : playabilityEngine.card(rowToPlayabilityInput(row)),
+    [playabilityEngine]
+  );
 
   const power = useMemo<DeckPower | null>(
     () => computeDeckPower(powerEntries, { format: data?.deck?.format ?? 'commander' }),
@@ -271,6 +307,17 @@ export default function PublicDeck() {
          a rendered zero is always invented. */
       value: stats.totalValueUSD > 0 ? `$${stats.totalValueUSD.toFixed(0)}` : '—',
       raw: stats.totalValueUSD,
+    },
+    {
+      /* The castability read: the figure this product has and the other deck
+         sites do not, on the page most likely to be the first thing somebody
+         ever sees of it. Solved from the decklist by the same engine the
+         owner's page uses, so the two cannot print different numbers. */
+      id: 'playability',
+      label: 'Playability',
+      value: playability.averagePct === null ? '—' : `${playability.averagePct.toFixed(0)}%`,
+      raw: playability.averagePct ?? undefined,
+      meter: playability.averagePct ?? undefined,
     },
   ];
 
@@ -383,7 +430,7 @@ export default function PublicDeck() {
                     is a metric". A shared deck is the first thing a lot of
                     people ever see of DeckMatrix, so it is the last place the
                     numbers should be smaller than they are everywhere else. */}
-                <MetricRow metrics={publicDeckMetrics} columns={3} />
+                <MetricRow metrics={publicDeckMetrics} columns={2} />
 
                 {/* THE THREE PANELS, DIRECTLY.
 
@@ -410,19 +457,16 @@ export default function PublicDeck() {
                 {usesPowerLevel(deck.format) && power && (
                   <PowerScore power={power} variant="expanded" />
                 )}
+                {/* The land readout moved into the Mana tab beside the source
+                    counts it belongs next to. It was mounted here on its own,
+                    which is how this page ended up with the only copy of a
+                    figure the deck page counts twice as well. */}
                 {power && (
-                  <>
-                    <PowerSliderCoaching
-                      power={power}
-                      entries={powerEntries}
-                      format={deck.format}
-                    />
-                    <LandEnhancerUX
-                      entries={powerEntries}
-                      power={power}
-                      identity={identity}
-                    />
-                  </>
+                  <PowerSliderCoaching
+                    power={power}
+                    entries={powerEntries}
+                    format={deck.format}
+                  />
                 )}
               </aside>
 
@@ -434,19 +478,48 @@ export default function PublicDeck() {
                   tabs={[
                     { id: 'visual', label: 'Visual', icon: LayoutGrid },
                     { id: 'list', label: 'List', icon: Rows3 },
+                    { id: 'mana', label: 'Mana', icon: Droplets },
                   ]}
                   value={listView}
-                  onChange={id => setListView(id as 'visual' | 'list')}
+                  onChange={id => setListView(id as 'visual' | 'list' | 'mana')}
                   label="Decklist view"
                 />
                 {listView === 'visual' ? (
-                  <DeckCardGrid rows={rows} collapsedByDefault={['lands']} onCardClick={openCard} />
-                ) : (
+                  /* Castability on a shared deck's cards, the same meter the
+                     owner sees. The grid has taken these two optional props
+                     since the merge and this page simply never passed them, so
+                     a shared deck drew the one column the product has that
+                     nobody else does as a blank. */
+                  <DeckCardGrid
+                    rows={rows}
+                    collapsedByDefault={['lands']}
+                    onCardClick={openCard}
+                    playabilityFor={playabilityFor}
+                    manaProfile={playabilityEngine.profile}
+                  />
+                ) : listView === 'list' ? (
                   <Card>
                     <CardContent className="p-0">
-                      <DeckCardTable rows={rows} onCardClick={openCard} />
+                      <DeckCardTable
+                        rows={rows}
+                        onCardClick={openCard}
+                        playabilityFor={playabilityFor}
+                        manaProfile={playabilityEngine.profile}
+                      />
                     </CardContent>
                   </Card>
+                ) : (
+                  <DeckManaPanel
+                    curveCards={mainboard}
+                    format={deck.format}
+                    rows={rows.filter(row => !row.is_commander)}
+                    profile={playabilityEngine.profile}
+                    playability={playability}
+                    powerEntries={powerEntries}
+                    power={power}
+                    identity={identity}
+                    onCardClick={openCard}
+                  />
                 )}
               </div>
             </div>

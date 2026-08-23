@@ -109,6 +109,22 @@ export interface XmageRun {
    * `actions` is EMPTY — nothing half-done is ever returned.
    */
   ok: boolean;
+  /**
+   * What the body ITSELF returned. XMage's `OneShotEffect.apply` returns false
+   * to mean "this effect did nothing" — no legal target, the player was gone,
+   * the condition was not met — and that is a legitimate outcome, not a bug.
+   *
+   * It is carried out separately from `ok` because the two say different
+   * things and the difference is the one this project keeps getting wrong. `ok`
+   * is about whether the RUN completed; this is about whether the CARD did
+   * anything. A run with `ok: true`, `applied: true` and an empty action list
+   * is a body that claims it did something and changed nothing, which is the
+   * silent card CLAUDE.md names, and only this field can tell it apart from a
+   * body that correctly declined.
+   *
+   * False when the run stopped on a question, because nothing was applied.
+   */
+  applied: boolean;
   actions: GameAction[];
   /** Things the engine declined to do and said so. One `NOTE` per entry. */
   deferred: string[];
@@ -359,17 +375,26 @@ export function runBody(
   scope: XmageScope,
   body: () => boolean
 ): XmageRun {
+  let applied = false;
   try {
-    body();
+    applied = body() !== false;
   } catch (error) {
     if (error instanceof XmageDecisionNeeded) {
       // Nothing partial. The caller answers and the body runs again from the top.
-      return { ok: false, actions: [], deferred: scope.deferred, continuous: [], pending: [error.choice] };
+      return {
+        ok: false,
+        applied: false,
+        actions: [],
+        deferred: scope.deferred,
+        continuous: [],
+        pending: [error.choice],
+      };
     }
     throw error;
   }
   return {
     ok: true,
+    applied,
     actions: scope.actions,
     deferred: scope.deferred,
     continuous: scope.continuous,

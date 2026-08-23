@@ -513,9 +513,9 @@ export function DeckLegalityPanel({
             <div>
               <h3 className="text-lg font-semibold">What else this deck is short of</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                None of this makes the deck illegal. It is counted off the decklist —
-                lands, removal, ramp, card draw and win conditions against what a deck of
-                this size in this format usually carries.
+                None of this makes the deck illegal. It is counted off the decklist: lands,
+                removal, ramp, card draw and win conditions, against what a deck of this size
+                in this format usually carries.
               </p>
             </div>
 

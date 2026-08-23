@@ -1,17 +1,59 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Check, Lightbulb, Target, Zap } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { CardGrid } from '@/components/cards';
 import { tagEnrichment } from '@/lib/cards/tag-signal';
 import { shellForArchetype } from '@/lib/deck/archetypeShells';
 import { bandForScore, bandLabel, formatPowerScore, powerTextClass } from '@/lib/deck/power';
+import type { DeckCardRow } from '@/lib/deck/deckCards';
+import { DeckCardTile } from '@/components/deck/DeckCardTile';
+
+/**
+ * What kind of deck this is, counted rather than guessed.
+ *
+ * Role tags on the cards in the deck are counted, and any theme the deck is at
+ * least twice as concentrated in as the whole catalogue is named. No model, no
+ * prose, and no archetype claimed for a deck that is a random pile.
+ *
+ * ## Three things changed when the Analysis tab was rebuilt
+ *
+ * **The key cards are cards.** `keyCards` is a list of names and this panel
+ * printed them as bullet points, which is exactly the question a player has
+ * when a box says "Aristocrats, 78%": *which cards made you say that*. Owner:
+ * *"visual is always better"*. `rows` is optional, so a caller with no decklist
+ * behind the names still gets the panel, without the art.
+ *
+ * **The confidence figure says what it is a percentage of.** It printed a bare
+ * number with no denominator and a label reading "Strong Match" underneath,
+ * which is a second opinion about the first opinion. It is enrichment against
+ * the catalogue's own tag density, and the panel now says so in the words the
+ * calculation itself uses.
+ *
+ * **The answer is persisted.** `user_decks.archetype` is a column and the
+ * census found nothing in `src/` that ever writes it, so this panel computed a
+ * ranked archetype with a confidence figure on every visit and threw it away.
+ * `onDetected` hands the primary match to the page, which writes it once, and
+ * My Decks can then group and filter on something that costs nothing to read.
+ */
 
 interface ArchetypeDetectionProps {
   deckCards: any[];
   commander?: any;
   format: string;
+  /** The decklist, so a key card can be drawn as a card. */
+  rows?: DeckCardRow[];
+  onCardClick?: (row: DeckCardRow) => void;
+  /** Card width in px, from the tab's size slider. */
+  cardWidth?: number;
+  /**
+   * The primary match, once it is known. The page persists it.
+   *
+   * `null` when nothing is concentrated enough to name, which is a real answer
+   * and has to be storable: a deck that used to be Aristocrats and has been
+   * rebuilt into a pile should stop claiming to be Aristocrats.
+   */
+  onDetected?: (archetype: { name: string; confidence: number } | null) => void;
 }
 
 interface ArchetypeMatch {
@@ -22,7 +64,15 @@ interface ArchetypeMatch {
   keyCards: string[];
 }
 
-export function ArchetypeDetection({ deckCards, commander, format }: ArchetypeDetectionProps) {
+export function ArchetypeDetection({
+  deckCards,
+  commander,
+  format,
+  rows,
+  onCardClick,
+  cardWidth,
+  onDetected,
+}: ArchetypeDetectionProps) {
   const [archetypes, setArchetypes] = useState<ArchetypeMatch[]>([]);
 
   useEffect(() => {
@@ -324,6 +374,14 @@ export function ArchetypeDetection({ deckCards, commander, format }: ArchetypeDe
     [deckCards]
   );
 
+  const rowByName = useMemo(() => {
+    const map = new Map<string, DeckCardRow>();
+    for (const row of rows ?? []) {
+      map.set((row.card?.name || row.card_name).trim().toLowerCase(), row);
+    }
+    return map;
+  }, [rows]);
+
   /**
    * The shell behind the primary match.
    *
@@ -335,95 +393,117 @@ export function ArchetypeDetection({ deckCards, commander, format }: ArchetypeDe
    */
   const shell = archetypes.length > 0 ? shellForArchetype(archetypes[0].name) : undefined;
 
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 70) return 'text-foreground';
-    if (confidence >= 50) return 'text-foreground';
-    return 'text-foreground';
-  };
-
-  const getConfidenceLabel = (confidence: number) => {
-    if (confidence >= 70) return 'Strong Match';
-    if (confidence >= 50) return 'Good Match';
-    return 'Partial Match';
-  };
+  /**
+   * Tell the page what was detected, once per answer.
+   *
+   * Reported upward rather than written from here: this panel has no database
+   * client, and whether the reader is allowed to write to this deck is the
+   * page's question, not a detection panel's. The listener is held in a ref so
+   * a caller that hands in a fresh closure every render does not turn one
+   * detection into a write per frame.
+   */
+  const primary = archetypes[0] ?? null;
+  const reportRef = useRef(onDetected);
+  reportRef.current = onDetected;
+  const primaryName = primary?.name ?? null;
+  const primaryConfidence = primary ? Math.round(primary.confidence) : null;
+  useEffect(() => {
+    reportRef.current?.(
+      primaryName && primaryConfidence !== null
+        ? { name: primaryName, confidence: primaryConfidence }
+        : null
+    );
+  }, [primaryName, primaryConfidence]);
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Target className="h-5 w-5 text-primary" />
-          Archetype Detection
-        </CardTitle>
-        <CardDescription>
-          Counts the role tags on the cards in this deck and reports any theme the deck
-          is at least twice as concentrated in as the card catalogue. No model, no guesswork.
-        </CardDescription>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg">What kind of deck this is</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Counts the role tags on the cards in this deck and names any theme the deck is at
+          least twice as concentrated in as the card catalogue. The figure beside each name is
+          how far past that floor it goes: twice the catalogue&rsquo;s own density reads 50,
+          three times reads 100. No model, no guesswork.
+        </p>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-6">
         {archetypes.length === 0 ? (
-          <Alert>
-            <Lightbulb className="h-4 w-4" />
-            <AlertDescription>
-              {deckCards.length < 20
-                ? `Only ${deckCards.length} card${deckCards.length === 1 ? '' : 's'} here — too few to read a strategy from.`
-                : 'No theme in this deck is concentrated enough to name. Every role tag it carries ' +
-                  'appears at close to the rate a random pile of cards would have, so claiming an ' +
-                  'archetype would be inventing one.'}
-            </AlertDescription>
-          </Alert>
+          <p className="rounded-lg bg-muted/40 p-4 text-sm text-muted-foreground">
+            {deckCards.length < 20
+              ? `Only ${deckCards.length} card${deckCards.length === 1 ? '' : 's'} here, too few to read a strategy from.`
+              : 'No theme in this deck is concentrated enough to name. Every role tag it carries appears at close to the rate a random pile of cards would have, so claiming an archetype would be inventing one.'}
+          </p>
         ) : (
           archetypes.map((archetype, idx) => (
-            <div key={idx} className="space-y-3 rounded-lg bg-muted/20 p-4 shadow-lg shadow-black/20">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-semibold text-lg">{archetype.name}</h3>
+            <div key={archetype.name} className="space-y-4 rounded-lg bg-muted/30 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="flex flex-wrap items-baseline gap-2 text-lg font-semibold">
+                    {archetype.name}
                     {idx === 0 && (
-                      <Badge variant="default" className="text-xs">
-                        <Zap className="h-3 w-3 mr-1" />
-                        Primary
-                      </Badge>
+                      <span className="text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                        primary
+                      </span>
                     )}
-                  </div>
-                  <p className="text-sm text-muted-foreground">{archetype.primaryStrategy}</p>
+                  </h3>
+                  <p className="mt-0.5 text-sm text-muted-foreground">
+                    {archetype.primaryStrategy}
+                  </p>
                 </div>
-                <div className="text-right">
-                  <div className={`text-2xl font-bold ${getConfidenceColor(archetype.confidence)}`}>
-                    {Math.round(archetype.confidence)}%
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {getConfidenceLabel(archetype.confidence)}
-                  </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-2xl font-semibold leading-none tabular-nums">
+                    {Math.round(archetype.confidence)}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">past the floor</p>
                 </div>
               </div>
 
               {archetype.secondaryStrategies.length > 0 && (
-                <div>
-                  <div className="text-xs font-medium text-muted-foreground mb-2">Sub-themes:</div>
-                  <div className="flex flex-wrap gap-1">
-                    {archetype.secondaryStrategies.map((strategy, sIdx) => (
-                      <Badge key={sIdx} variant="outline" className="text-xs">
-                        {strategy}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
+                <p className="text-sm text-muted-foreground">
+                  Also doing: {archetype.secondaryStrategies.join(' · ')}
+                </p>
               )}
 
+              {/* THE CARDS THAT MADE IT SAY THAT.
+                  This was a bulleted list of names under a heading reading "Key
+                  Cards". It is the one question a reader has when a panel names
+                  an archetype, and it was the one answer drawn as text. */}
               {archetype.keyCards.length > 0 && (
-                <div>
-                  <div className="text-xs font-medium text-muted-foreground mb-2">Key Cards:</div>
-                  <div className="text-sm space-y-1">
-                    {archetype.keyCards.map((card, cIdx) => (
-                      <div key={cIdx} className="text-muted-foreground">• {card}</div>
-                    ))}
-                  </div>
+                <div className="space-y-2">
+                  <h4 className="text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    The cards that say so
+                  </h4>
+                  {rows ? (
+                    <CardGrid width={cardWidth ?? 180}>
+                      {archetype.keyCards.map(name => {
+                        const row = rowByName.get(name.trim().toLowerCase());
+                        return (
+                          <DeckCardTile
+                            key={name}
+                            card={{
+                              ...(row?.card ?? {}),
+                              id: row?.card_id,
+                              name,
+                              image_uris: row?.card?.image_uris ?? null,
+                              mana_cost: row?.card?.mana_cost ?? null,
+                            }}
+                            width={cardWidth ?? 180}
+                            onClick={onCardClick && row ? () => onCardClick(row) : undefined}
+                          />
+                        );
+                      })}
+                    </CardGrid>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      {archetype.keyCards.join(' · ')}
+                    </p>
+                  )}
                 </div>
               )}
 
               {/* What the shell is made of, for the primary match only.
                   Target power is where a well-built version of this shell
-                  lands. It is not a reading of this deck and is labelled so —
+                  lands. It is not a reading of this deck and is labelled so:
                   the deck's own score is on the EDH tab, on the same scale. */}
               {idx === 0 && shell && (
                 <div className="space-y-3 rounded-lg bg-background/60 p-3">
@@ -436,13 +516,19 @@ export function ArchetypeDetection({ deckCards, commander, format }: ArchetypeDe
                       <span
                         className={cn(
                           'font-semibold tabular-nums',
-                          powerTextClass(bandForScore((shell.targetPower.min + shell.targetPower.max) / 2))
+                          powerTextClass(
+                            bandForScore((shell.targetPower.min + shell.targetPower.max) / 2)
+                          )
                         )}
                       >
-                        {formatPowerScore(shell.targetPower.min)}–
+                        {formatPowerScore(shell.targetPower.min)} to{' '}
                         {formatPowerScore(shell.targetPower.max)}
                       </span>{' '}
-                      ({bandLabel(bandForScore((shell.targetPower.min + shell.targetPower.max) / 2))})
+                      (
+                      {bandLabel(
+                        bandForScore((shell.targetPower.min + shell.targetPower.max) / 2)
+                      )}
+                      )
                     </p>
                   </div>
 
@@ -450,7 +536,7 @@ export function ArchetypeDetection({ deckCards, commander, format }: ArchetypeDe
                     {shell.packages.map(pkg => (
                       <div key={pkg.name} className="rounded-lg bg-muted/30 p-3">
                         <p className="text-sm font-semibold">{pkg.name}</p>
-                        <p className="mt-1 text-[0.7rem] leading-snug text-muted-foreground">
+                        <p className="mt-1 text-xs leading-snug text-muted-foreground">
                           {pkg.blurb}
                         </p>
                         <ul className="mt-2 space-y-0.5 text-xs">
@@ -482,3 +568,5 @@ export function ArchetypeDetection({ deckCards, commander, format }: ArchetypeDe
     </Card>
   );
 }
+
+export default ArchetypeDetection;

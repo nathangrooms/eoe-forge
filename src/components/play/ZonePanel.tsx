@@ -66,8 +66,6 @@ export function ZonePanel({
   className,
 }: ZonePanelProps) {
   const player = state.players.find(p => p.id === playerId);
-  if (!player) return null;
-
   const isMine = playerId === viewerPlayerId;
 
   /* YOUR OWN LIBRARY IS HIDDEN FROM YOU TOO, until you say you are searching it.
@@ -89,6 +87,19 @@ export function ZonePanel({
      already see your own. */
   const [searching, setSearching] = useState(false);
   useEffect(() => setSearching(false), [zone, playerId]);
+
+  /*
+   * BELOW THE HOOKS, and that is the whole of this fix.
+   *
+   * This was `if (!player) return null` on the line the lookup sits on, three
+   * lines above `useState`. A seat that leaves the game leaves `state.players`,
+   * so a rail left open on a dead player's graveyard went from a render with
+   * two hooks to a render with none, and React answers that by throwing
+   * "Rendered fewer hooks than expected" and unmounting the tree, which here is
+   * the whole table rather than the panel. Nothing else about the component
+   * changes: the same render is refused one step later, where it is free.
+   */
+  if (!player) return null;
 
   const isLibrary = zone === 'library';
   const hidden = isLibrary

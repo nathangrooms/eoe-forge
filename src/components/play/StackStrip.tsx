@@ -60,6 +60,9 @@ import { GameCardView } from './GameCardView';
 import { ManaCost } from '@/components/ui/mana-cost';
 import type { CardInstance, GameState, PlayerId, ResponseOption, StackObject } from '@/lib/game';
 
+/** How many objects are drawn as cards before the rest becomes a count. */
+const STACK_SHOWN = 5;
+
 export interface StackStripProps {
   state: GameState;
   viewerPlayerId: PlayerId;
@@ -149,7 +152,10 @@ export function StackStrip({
         art, the frame and the layer engine's stat line, and neither of them is
         a rectangle with a name in it.
       */}
-      <div className="relative flex items-end gap-2">
+      {/* Centred, because the headline above is a sentence and the row below it
+          is usually one card: left-aligned, a single spell sat in the corner of
+          a strip that was two thirds empty. */}
+      <div className="relative flex items-end justify-center gap-2">
         {/* Five is what fits: 108 + four at 56 plus the gaps is about 390 of
             the strip's 672. A deeper stack says how much deeper rather than
             running off the end, because a scroll bar inside the table is the

@@ -99,7 +99,8 @@ describe('the shape of the whole problem: chooseUse, then draw', () => {
       run.actions.map(a => a.type),
       ['DRAW']
     );
-    assert.equal(run.actions[0].playerId, 'p1');
+    const draw = run.actions[0];
+    assert.equal(draw.type === 'DRAW' && draw.playerId, 'p1');
   });
 
   it('draws nothing when the opponent pays', () => {

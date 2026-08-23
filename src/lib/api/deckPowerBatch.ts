@@ -62,10 +62,29 @@ const WRITE_CHUNK = 100;
  *
  * `persist` exists for the same reason it exists on `scoreDeckById`: a caller
  * that only wants a number should not write one.
+ *
+ * ## Batching the QUERIES must not batch the WORK
+ *
+ * The reads are one request for the whole pass. The scoring is not: each deck
+ * is a 10,000 iteration simulation, and this yields to the event loop before
+ * each one, exactly as the per-deck loop it replaces did. Twelve simulations
+ * back to back is a third of a second of blocked main thread on a page that is
+ * still drawing.
+ *
+ * `onScoring` and `onScored` are how a list keeps showing ONE deck being scored
+ * at a time. Measured on `/decks` with 25 decks: the old loop lit at most two
+ * tiles saying "Scoring…" at once, and a version without these callbacks lit
+ * twelve. That is a change to what the screen looks like, which is not on offer.
  */
 export async function scoreDecksInBatch(
   decks: DeckToScore[],
-  options: { persist?: boolean } = {}
+  options: {
+    persist?: boolean;
+    /** This deck's turn has come. Called before its simulation runs. */
+    onScoring?: (deckId: string) => void;
+    /** This deck's number is ready, before the batch write. */
+    onScored?: (deckId: string, power: DeckPower) => void;
+  } = {}
 ): Promise<Map<string, DeckPower>> {
   const scores = new Map<string, DeckPower>();
   if (decks.length === 0) return scores;
@@ -127,10 +146,17 @@ export async function scoreDecksInBatch(
     const rows = byDeck.get(deck.id);
     if (!rows || rows.length === 0) continue;
 
+    options.onScoring?.(deck.id);
+    /* Yield before the simulation, so the grid can paint this deck's spinner
+       and stay interactive. The per-deck loop this replaces yielded between
+       decks; batching the queries is not a licence to stop. */
+    await new Promise(resolve => setTimeout(resolve, 0));
+
     try {
       const power = computeDeckPower(entriesFromDeckRows(rows), { format: deck.format });
       if (!power) continue;
       scores.set(deck.id, power);
+      options.onScored?.(deck.id, power);
 
       /* `deckPowerRecord` is the shape `persistDeckPower` writes, without the
          read that precedes it there. Written for exactly this: a caller that

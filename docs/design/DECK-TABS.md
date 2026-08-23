@@ -54,7 +54,7 @@ are reached by the runner and not by the app. That leaves **six dead files**.
 | `EdhPowerCheck.tsx` | The edhpowerlevel.com second opinion and the Calculate/Refresh control | `DeckInterface` (EDH tab) |
 | `ImportDeckPanel.tsx` | Right-hand import slide-over, one `resolve_card_names` call for the whole paste | `DeckInterface` |
 | `ManaSourcesPanel.tsx` | Mana tab. Source counts per colour, castability roll-up, hardest to cast list | `DeckInterface` |
-| `PlayabilityMeter.tsx` | One card's castability as a bar plus tooltip. Em dash for lands, never a zero | `DeckCardGrid`, `DeckCardTable`, `ManaSourcesPanel` |
+| `PlayabilityMeter.tsx` | One card's castability as a bar plus tooltip. A dash for lands, never a zero | `DeckCardGrid`, `DeckCardTable`, `ManaSourcesPanel` |
 | `PowerScore.tsx` | The only way a power score is ever drawn. `compact` and `expanded` variants plus `PowerScoreBadge` | eleven importers across deck, collection, play and tutor |
 | `ReplaceCardPanel.tsx` | Right-hand swap slide-over in `mode="pick"` | `DeckInterface` |
 | `deckAnalyticsCards.ts` | `toAnalyticsCards`, `analyticsCommanderOf`, `mainboardOf`. The one mapping from deck rows to the store shape the old builder panels expect | `DeckInterface`, `DeckOptimise` |
@@ -219,7 +219,7 @@ Different inputs, different questions, one shared tile. Nothing to merge.
 `DeckTile` is live and `ModernDeckTile` is dead. `DeckTile` wins on every axis
 that matters: it uses `CommanderHero`, so the commander is drawn through
 `CardImage` at `large` and inherits the real card geometry, and it carries one
-border class against `ModernDeckTile`'s 25 and no raw hues against its fourteen.
+border class against `ModernDeckTile`'s 25 and no raw hues against its 31.
 
 **What `ModernDeckTile` has that `DeckTile` does not:** a curve sparkline, an
 average mana value readout, and a legality badge. The first two were removed

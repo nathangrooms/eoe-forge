@@ -325,7 +325,19 @@ export function DeckCardsPanel({
         /* Text mode has one body whatever the row count is, so it must not fall
            through to the empty state while the deck still has cards in it. */
         count={view === 'text' ? (filtered.length > 0 ? 1 : 0) : filtered.length}
-        summary={resultSentence([matchedLabel(shown, total, 'card')])}
+        /* TWO SENTENCES ABOUT ONE DECK THAT DID NOT ADD UP.
+           The tab strip a few pixels above reads `Cards 100`: that is
+           `computeDeckStats`, every non-sideboard row, commander included,
+           because the deck has a hundred cards in it. This line read `99
+           cards`, because `listRows` filters the commander out — it is drawn
+           whole in the hero instead of sitting in the list. Both are right
+           about different questions, so nothing is re-derived here. The card
+           that is missing from the list is named, and 99 + 1 is visibly the
+           100 above. */
+        summary={resultSentence([
+          matchedLabel(shown, total, 'card'),
+          commanderRow ? { value: '1', label: 'commander, drawn above' } : null,
+        ])}
         empty={{
           title: narrowed ? 'No cards match these filters' : 'No cards in this deck yet',
           description: narrowed

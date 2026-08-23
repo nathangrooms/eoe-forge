@@ -115,21 +115,47 @@ export function useDeckPowerBackfill(
     for (const id of ids) attempted.current.add(id);
 
     let stopped = false;
-    markScoringMany(ids, true);
 
     (async () => {
       try {
         // Yield first, so the grid draws before the simulations start.
         await new Promise(resolve => setTimeout(resolve, 0));
-        if (stopped || cancelled.current) return;
+        if (stopped || cancelled.current) {
+          /* Nothing was scored, so nothing was attempted. A claim left standing
+             here strands these decks unscored for the rest of the session,
+             because the pass that would have retried them skips anything
+             `attempted` already holds. */
+          for (const id of ids) attempted.current.delete(id);
+          return;
+        }
 
-        const scores = await scoreDecksInBatch(
-          pending.map(deck => ({ id: deck.id, format: deck.format }))
+        /* One deck spinning at a time, the way it looked before the reads were
+           batched. Marking the whole pass at once was measured on `/decks` with
+           25 decks as twelve tiles saying "Scoring…" together where the old
+           loop showed at most two. The QUERIES are batched; the picture is not
+           allowed to change. */
+        await scoreDecksInBatch(
+          pending.map(deck => ({ id: deck.id, format: deck.format })),
+          {
+            onScoring: deckId => {
+              if (!cancelled.current) markScoring(deckId, true);
+            },
+            /* Gated on UNMOUNT only, exactly like `rescore`. Not on `stopped`:
+               delivering a score changes `decks`, which re-runs this effect,
+               which runs the cleanup and sets `stopped` — so a pass that
+               checked it would hand back its first deck and silently drop the
+               other eleven. Measured on `/decks` with 25 decks: the header read
+               "3 scored" instead of "25 scored", and the tiles that lost their
+               score were already marked attempted, so nothing retried them. */
+            onScored: (deckId, power) => {
+              if (cancelled.current) return;
+              markScoring(deckId, false);
+              onScoredRef.current(deckId, power);
+            },
+          }
         );
-
-        if (stopped || cancelled.current) return;
-        for (const [deckId, power] of scores) onScoredRef.current(deckId, power);
       } finally {
+        /* A deck whose score never landed must not spin for ever. */
         if (!cancelled.current) markScoringMany(ids, false);
       }
     })();
@@ -137,7 +163,7 @@ export function useDeckPowerBackfill(
     return () => {
       stopped = true;
     };
-  }, [decks, markScoringMany]);
+  }, [decks, markScoring, markScoringMany]);
 
   return { scoring, rescore };
 }

@@ -1625,7 +1625,11 @@ export function AIOptimizerPanel({
                 want to know which card is the weakest. Both are always
                 available now. */}
             <div className="-mx-1 overflow-x-auto px-1 pb-1">
-              <TabsList className="inline-flex h-auto w-auto min-w-full gap-1 p-1">
+              {/* `justify-start`, because `TabsList` centres by default and a numbered
+                    sequence that starts in the middle of the band does not read as
+                    one. Every other tab strip in the product begins at the left
+                    edge, and step 1 should be where the eye already is. */}
+                <TabsList className="inline-flex h-auto w-auto min-w-full justify-start gap-1 p-1">
                 {steps.map((step, i) => {
                   const count =
                     step.value === 'additions'

@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { EmptyState, FIELD, MetricRow } from '@/components/listing';
+import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,6 +27,30 @@ interface EnhancedMatchTrackerProps {
   deckId: string;
   deckName: string;
 }
+
+/**
+ * A deck's games: recorded, listed and read back. One panel.
+ *
+ * `MatchAnalytics` used to sit directly under this component on the Record tab
+ * and it is now folded in. Both ran their own
+ * `deck_matches.select('*').eq('deck_id', …)` and both derived total, wins,
+ * losses, draws and a win rate from it with identical arithmetic, so one tab
+ * made two reads of one set of rows and printed the same figure twice. Worse,
+ * recording a match called `loadMatches()` here only — the panel below had no
+ * way to hear about it and kept its old win rate until the page was reloaded.
+ *
+ * What came across: the per-opponent breakdown, the last-ten form and the
+ * current-month form. What did not, and why:
+ *
+ * - **Its three sub-tabs.** A tab strip inside a tab, for three short sections
+ *   that fit on the page one under the other.
+ * - **The "Best Matchup" line.** It printed `opponentStats[0]`, and that list
+ *   is sorted by number of games played, so the label said best and the figure
+ *   was the opponent you have faced most. The breakdown below prints every
+ *   matchup with its own win rate, which answers it without the wrong label.
+ * - **"Improving Form" and "Active Month".** Both were a sentence restating a
+ *   number that is now a tile in the row above them.
+ */
 
 export function EnhancedMatchTracker({ deckId, deckName }: EnhancedMatchTrackerProps) {
   const [matches, setMatches] = useState<Match[]>([]);
@@ -95,12 +120,58 @@ export function EnhancedMatchTracker({ deckId, deckName }: EnhancedMatchTrackerP
     }
   };
 
-  const stats = {
-    total: matches.length,
-    wins: matches.filter(m => m.result === 'win').length,
-    losses: matches.filter(m => m.result === 'loss').length,
-    draws: matches.filter(m => m.result === 'draw').length,
-  };
+  const stats = useMemo(() => {
+    const total = matches.length;
+    const wins = matches.filter(m => m.result === 'win').length;
+
+    /* Sorted newest first by the query, so the first ten rows are the last ten
+       games. */
+    const recent = matches.slice(0, 10);
+    const recentWins = recent.filter(m => m.result === 'win').length;
+
+    /* A calendar month IN THIS YEAR.
+       This read `new Date(m.played_at).getMonth() === new Date().getMonth()`
+       with no year test, so a game played last August counted towards this
+       August and the figure grew by twelve months of games every time the
+       calendar came round. */
+    const now = new Date();
+    const thisMonth = matches.filter(m => {
+      const played = new Date(m.played_at);
+      return played.getMonth() === now.getMonth() && played.getFullYear() === now.getFullYear();
+    });
+    const monthWins = thisMonth.filter(m => m.result === 'win').length;
+
+    /* Per opponent commander. `deck_matches.opponent_commander` is free text,
+       so this groups on exactly what was typed. */
+    const byOpponent = new Map<string, { wins: number; losses: number; draws: number; total: number }>();
+    for (const match of matches) {
+      const key = match.opponent_commander?.trim() || match.opponent_deck_name?.trim() || 'Unrecorded';
+      const bucket = byOpponent.get(key) ?? { wins: 0, losses: 0, draws: 0, total: 0 };
+      bucket.total += 1;
+      if (match.result === 'win') bucket.wins += 1;
+      if (match.result === 'loss') bucket.losses += 1;
+      if (match.result === 'draw') bucket.draws += 1;
+      byOpponent.set(key, bucket);
+    }
+
+    return {
+      total,
+      wins,
+      losses: matches.filter(m => m.result === 'loss').length,
+      draws: matches.filter(m => m.result === 'draw').length,
+      recentCount: recent.length,
+      recentWinRate: recent.length > 0 ? (recentWins / recent.length) * 100 : null,
+      monthCount: thisMonth.length,
+      monthWinRate: thisMonth.length > 0 ? (monthWins / thisMonth.length) * 100 : null,
+      opponents: Array.from(byOpponent.entries())
+        .map(([commander, record]) => ({
+          commander,
+          ...record,
+          winRate: (record.wins / record.total) * 100,
+        }))
+        .sort((a, b) => b.total - a.total),
+    };
+  }, [matches]);
 
   const winRate = stats.total > 0 ? ((stats.wins / stats.total) * 100).toFixed(1) : '0';
 
@@ -225,10 +296,14 @@ export function EnhancedMatchTracker({ deckId, deckName }: EnhancedMatchTrackerP
 
             The one real reading is the win rate, and it stays the last tile
             with its denominator under it rather than being coloured.
+
+            Six tiles, not four. The last two are the form figures the panel
+            below this one used to draw in its own tile treatment, three
+            different sizes of number on one tab.
           */}
           <MetricRow
             on="card"
-            columns={4}
+            columns={6}
             className="mb-6"
             metrics={[
               {
@@ -243,6 +318,11 @@ export function EnhancedMatchTracker({ deckId, deckName }: EnhancedMatchTrackerP
                 label: 'Losses',
                 value: stats.losses.toLocaleString(),
                 raw: stats.losses,
+                /* Draws have no tile of their own because most decks have
+                   none, and a row of six with a permanent 0 in it is a worse
+                   row. The panel that was folded in here printed them as a
+                   third progress bar, also only when there were any. */
+                subtext: stats.draws > 0 ? `${stats.draws} drawn` : undefined,
               },
               {
                 id: 'rate',
@@ -252,6 +332,26 @@ export function EnhancedMatchTracker({ deckId, deckName }: EnhancedMatchTrackerP
                 value: stats.total > 0 ? `${winRate}%` : '—',
                 raw: stats.total > 0 ? Number(winRate) : undefined,
                 subtext: stats.total > 0 ? `${stats.wins} of ${stats.total}` : 'no matches yet',
+              },
+              {
+                id: 'recent',
+                label: 'Recent form',
+                value: stats.recentWinRate === null ? '—' : `${stats.recentWinRate.toFixed(0)}%`,
+                raw: stats.recentWinRate ?? undefined,
+                subtext:
+                  stats.recentCount > 0
+                    ? `last ${stats.recentCount} game${stats.recentCount === 1 ? '' : 's'}`
+                    : 'no matches yet',
+              },
+              {
+                id: 'month',
+                label: 'This month',
+                value: stats.monthWinRate === null ? '—' : `${stats.monthWinRate.toFixed(0)}%`,
+                raw: stats.monthWinRate ?? undefined,
+                subtext:
+                  stats.monthCount > 0
+                    ? `${stats.monthCount} match${stats.monthCount === 1 ? '' : 'es'}`
+                    : 'none yet',
               },
             ]}
           />
@@ -305,6 +405,37 @@ export function EnhancedMatchTracker({ deckId, deckName }: EnhancedMatchTrackerP
                       <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{match.notes}</p>
                     )}
                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Who you have played, and how it went.
+              Same rows as the list above, grouped — no second query and no
+              second win rate. Sorted by games played, which is the order that
+              puts your real meta at the top; each line carries its own rate
+              rather than one line claiming to be the best matchup. */}
+          {!loading && stats.opponents.length > 0 && (
+            <div className="mt-6 space-y-3">
+              <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                By opponent
+              </h3>
+              {stats.opponents.map(opponent => (
+                <div key={opponent.commander} className="rounded-lg bg-muted/30 p-3">
+                  <div className="mb-2 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate font-medium">{opponent.commander}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {opponent.total} match{opponent.total === 1 ? '' : 'es'} ·{' '}
+                        {opponent.wins}W / {opponent.losses}L
+                        {opponent.draws > 0 ? ` / ${opponent.draws}D` : ''}
+                      </div>
+                    </div>
+                    <Badge variant="secondary" className="border-0 tabular-nums">
+                      {opponent.winRate.toFixed(0)}%
+                    </Badge>
+                  </div>
+                  <Progress value={opponent.winRate} className="h-2" />
                 </div>
               ))}
             </div>

@@ -1,9 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Lightbulb, Target, Zap } from 'lucide-react';
+import { Check, Lightbulb, Target, Zap } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { tagEnrichment } from '@/lib/cards/tag-signal';
+import { shellForArchetype } from '@/lib/deck/archetypeShells';
+import { bandForScore, bandLabel, formatPowerScore, powerTextClass } from '@/lib/deck/power';
 
 interface ArchetypeDetectionProps {
   deckCards: any[];
@@ -314,6 +317,24 @@ export function ArchetypeDetection({ deckCards, commander, format }: ArchetypeDe
     setArchetypes(matches.slice(0, 3));
   };
 
+  /* Names already in the deck, folded once, so the shell below can say which
+     packages you are missing without testing every card against every name. */
+  const heldNames = useMemo(
+    () => new Set(deckCards.map(card => String(card.name || '').trim().toLowerCase())),
+    [deckCards]
+  );
+
+  /**
+   * The shell behind the primary match.
+   *
+   * Detection names an archetype and then had nothing to offer about it. The
+   * catalogue of what each shell is built out of was in `ArchetypeLibrary`, a
+   * component with no importer, so the two halves of this answer sat in the
+   * same directory and never met. The catalogue is data now
+   * (`@/lib/deck/archetypeShells`) and this is where it is read.
+   */
+  const shell = archetypes.length > 0 ? shellForArchetype(archetypes[0].name) : undefined;
+
   const getConfidenceColor = (confidence: number) => {
     if (confidence >= 70) return 'text-foreground';
     if (confidence >= 50) return 'text-foreground';
@@ -395,6 +416,61 @@ export function ArchetypeDetection({ deckCards, commander, format }: ArchetypeDe
                   <div className="text-sm space-y-1">
                     {archetype.keyCards.map((card, cIdx) => (
                       <div key={cIdx} className="text-muted-foreground">• {card}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* What the shell is made of, for the primary match only.
+                  Target power is where a well-built version of this shell
+                  lands. It is not a reading of this deck and is labelled so —
+                  the deck's own score is on the EDH tab, on the same scale. */}
+              {idx === 0 && shell && (
+                <div className="space-y-3 rounded-lg bg-background/60 p-3">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <h4 className="text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                      What a well-built {shell.name} holds
+                    </h4>
+                    <p className="text-xs text-muted-foreground">
+                      Built well, this shell lands{' '}
+                      <span
+                        className={cn(
+                          'font-semibold tabular-nums',
+                          powerTextClass(bandForScore((shell.targetPower.min + shell.targetPower.max) / 2))
+                        )}
+                      >
+                        {formatPowerScore(shell.targetPower.min)}–
+                        {formatPowerScore(shell.targetPower.max)}
+                      </span>{' '}
+                      ({bandLabel(bandForScore((shell.targetPower.min + shell.targetPower.max) / 2))})
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                    {shell.packages.map(pkg => (
+                      <div key={pkg.name} className="rounded-lg bg-muted/30 p-3">
+                        <p className="text-sm font-semibold">{pkg.name}</p>
+                        <p className="mt-1 text-[0.7rem] leading-snug text-muted-foreground">
+                          {pkg.blurb}
+                        </p>
+                        <ul className="mt-2 space-y-0.5 text-xs">
+                          {pkg.cards.map(card => {
+                            const held = heldNames.has(card.trim().toLowerCase());
+                            return (
+                              <li
+                                key={card}
+                                className={cn(
+                                  'flex items-center gap-1.5 truncate',
+                                  held ? 'text-foreground' : 'text-muted-foreground'
+                                )}
+                              >
+                                {held && <Check className="h-3 w-3 flex-shrink-0" aria-hidden />}
+                                <span className="truncate">{card}</span>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
                     ))}
                   </div>
                 </div>

@@ -27,7 +27,6 @@ const CurveComparisonBars = lazy(() => import('./CurveComparisonBars'));
 const ChartSkeleton = <Skeleton className="h-64 w-full" />;
 import { 
   TrendingUp, 
-  Zap, 
   Target, 
   Brain, 
   MapPin, 
@@ -42,7 +41,6 @@ import { LandBaseCalculator } from '@/lib/magic/land-base';
 import { SynergyEngine } from '@/lib/magic/synergy';
 import { FormatValidator, ALL_FORMATS } from '@/lib/magic/formats';
 import { Card as DeckCard } from '@/stores/deckStore';
-import { AIAnalysisPanel } from './AIAnalysisPanel';
 import { AIVisualDisplay, type VisualData } from '@/components/shared/AIVisualDisplay';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from '@/integrations/supabase/client';
@@ -50,16 +48,27 @@ import { CardRecommendationDisplay, type CardData } from '@/components/shared/Ca
 import { toast } from 'sonner';
 
 /**
- * The six things this panel can answer. Named so a caller can ask for the ones
+ * The five things this panel can answer. Named so a caller can ask for the ones
  * it does not already answer somewhere else.
+ *
+ * There used to be a sixth, `ai`, and it mounted `AIAnalysisPanel` — a second
+ * chat box against the same `mtg-brain` function that `BrainAnalysis` talks to,
+ * inside a sub-tab, on a tab that already drew `BrainAnalysis` below it. That
+ * panel is deleted and this section with it; `BrainAnalysis` is the deck's one
+ * chat and carries everything the other one had. The only caller that ever
+ * asked for all six was `AIGeneratedDeckList`, which passes no `deckId`, and
+ * with no id the section rendered "Save your deck first to analyse it" and
+ * nothing else.
+ *
+ * The per-section `Deck analysis` buttons below are unaffected: they are a
+ * one-shot question about the section you are looking at, not a conversation.
  */
 export type AnalysisSection =
   | 'curve'
   | 'lands'
   | 'synergy'
   | 'validation'
-  | 'suggestions'
-  | 'ai';
+  | 'suggestions';
 
 export const ALL_ANALYSIS_SECTIONS: AnalysisSection[] = [
   'curve',
@@ -67,7 +76,6 @@ export const ALL_ANALYSIS_SECTIONS: AnalysisSection[] = [
   'synergy',
   'validation',
   'suggestions',
-  'ai',
 ];
 
 interface EnhancedDeckAnalysisPanelProps {
@@ -77,13 +85,13 @@ interface EnhancedDeckAnalysisPanelProps {
   deckId?: string;
   deckName?: string;
   /**
-   * Which detail sections to draw. Defaults to all six, so a caller that has
+   * Which detail sections to draw. Defaults to all five, so a caller that has
    * nowhere else to put these questions keeps every one of them.
    *
    * It is a prop rather than a fork because this panel has two callers with
    * genuinely different surroundings. `AIGeneratedDeckList` shows a deck that
-   * has never been saved and has no tabs of its own, so all six are the only
-   * place those answers exist. The deck page answers four of them itself, on
+   * has never been saved and has no tabs of its own, so all five are the only
+   * place those answers exist. The deck page answers three of them itself, on
    * its own tabs, from the decklist it is editing.
    */
   sections?: AnalysisSection[];
@@ -121,6 +129,19 @@ export function EnhancedDeckAnalysisPanel({
   const [inlineAI, setInlineAI] = useState<{ text: string; cards: CardData[]; visualData?: VisualData }>({ text: '', cards: [] });
   const [inlineLoading, setInlineLoading] = useState(false);
 
+  /**
+   * Copies, not rows.
+   *
+   * `deck.length` is the number of `deck_cards` rows. On a singleton Commander
+   * deck that is the card count by accident; on a 60-card Standard deck built
+   * out of four-ofs it is about 24, and every figure derived from it was told
+   * the deck had 24 cards while the metric strip on the same page said 60.
+   */
+  const totalCopies = useMemo(
+    () => deck.reduce((sum, card) => sum + (card.quantity || 1), 0),
+    [deck]
+  );
+
   const analysis = useMemo(() => {
     // Convert deck format for analysis libraries
     const analysisCards = deck.map(card => ({
@@ -132,7 +153,19 @@ export function EnhancedDeckAnalysisPanel({
       color_identity: card.color_identity || [],
       keywords: card.keywords || [],
       legalities: { [format]: 'legal' as const },
-      rarity: 'common' as const,
+      /* The card's real rarity, when it has one.
+         This read `rarity: 'common' as const` and stamped it over every card
+         before `SynergyEngine` and `LandBaseCalculator` saw them, so a deck of
+         mythics was analysed as a deck of commons. `toAnalyticsCards` has
+         carried the real rarity through since the merge; nothing had to be
+         fetched to fix this, only stopped from being overwritten.
+
+         `legalities` above is still asserted, and it is why the `validation`
+         section is not among the sections `/deck/:id` asks for: it says every
+         card is legal in the chosen format, so it can never report a ban. The
+         Legality tab answers that question over cards that carry the real
+         `legalities` blob. */
+      rarity: (card.rarity as 'common' | 'uncommon' | 'rare' | 'mythic' | 'special' | 'bonus') || 'common',
       quantity: card.quantity || 1
     }));
 
@@ -204,7 +237,7 @@ const optimizations = useMemo(() => {
           format, 
           commander: commander ? { name: commander.name, type_line: commander.type_line, colors: commander.colors } : undefined,
           cards: deckCards,
-          counts: { total: deck.length + (commander ? 1 : 0) },
+          counts: { total: totalCopies + (commander ? 1 : 0) },
           curve: curveBins,
           mana: { sources: manaSources }
         },
@@ -221,7 +254,7 @@ const optimizations = useMemo(() => {
         visualData: data.visualData || undefined
       });
     }).finally(() => setInlineLoading(false));
-  }, [aiAnalysisFocus, deckId, deckName, format, deck.length, commander]);
+  }, [aiAnalysisFocus, deckId, deckName, format, totalCopies, commander]);
 
   return (
     <div className="space-y-6">
@@ -324,14 +357,6 @@ const optimizations = useMemo(() => {
             )}
             {shows('suggestions') && (
               <TabsTrigger value="suggestions" className="whitespace-nowrap">Suggestions</TabsTrigger>
-            )}
-            {shows('ai') && (
-              <TabsTrigger value="ai" className="whitespace-nowrap">
-                <span className="flex items-center gap-1">
-                  <Brain className="h-4 w-4" />
-                  Analysis
-                </span>
-              </TabsTrigger>
             )}
           </TabsList>
         </div>
@@ -922,48 +947,6 @@ const optimizations = useMemo(() => {
         </TabsContent>
         )}
 
-        {/* Deck analysis Tab */}
-        {shows('ai') && (
-        <TabsContent value="ai" className="h-[600px]">
-          {deckId && deckName ? (
-            <AIAnalysisPanel
-              deckId={deckId}
-              deckName={deckName}
-              deckFormat={format}
-              deckSummary={{
-                power: { score: 0 },
-                counts: { total: deck.length + (commander ? 1 : 0) },
-                commander: commander ? { 
-                  name: commander.name, 
-                  type_line: commander.type_line, 
-                  colors: commander.colors 
-                } : undefined,
-                cards: deck.map(card => ({
-                  card_name: card.name,
-                  quantity: card.quantity || 1,
-                  is_commander: commander?.name === card.name,
-                  card_data: {
-                    mana_cost: card.mana_cost,
-                    cmc: card.cmc,
-                    type_line: card.type_line,
-                    colors: card.colors
-                  }
-                }))
-              }}
-            />
-          ) : (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <Sparkles className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-semibold mb-2">Deck analysis Unavailable</h3>
-                <p className="text-sm text-muted-foreground">
-                  Save your deck first to analyse it
-                </p>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-        )}
       </Tabs>
     </div>
   );

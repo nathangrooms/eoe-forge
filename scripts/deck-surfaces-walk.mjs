@@ -213,7 +213,12 @@ async function walkRoute(browser, route) {
  */
 async function walkReturnTrip(browser) {
   const { page, errors } = await openPage(browser);
-  await page.goto(`http://127.0.0.1:${PORT}/deck/${DECK}?tab=optimiser`, {
+  /* Analysis, not the optimiser. The optimiser is a route now and has no header
+     of its own to press Export from, so the trip that still needs proving is
+     the other direction: leaving a tab for a sub page has to bring you back to
+     THAT TAB. Optimise is the sub page this checks it with, because it is the
+     one a reader is most likely to reach from the middle of something else. */
+  await page.goto(`http://127.0.0.1:${PORT}/deck/${DECK}?tab=analysis`, {
     waitUntil: 'networkidle2',
     timeout: 90000,
   });
@@ -221,7 +226,7 @@ async function walkReturnTrip(browser) {
   await sleep(SETTLE);
   const pressed = await page.evaluate(() => {
     const button = [...document.querySelectorAll('button')].find(b =>
-      /^export$/i.test((b.textContent || '').trim())
+      /^optimise$/i.test((b.textContent || '').trim())
     );
     if (!button) return false;
     button.click();
@@ -270,9 +275,12 @@ async function walkMoreMenu(browser) {
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
   });
 
+  /* Eight. `optimiser` is not here because it is no longer a tab — it is in
+     ROUTES below, walked under both of its old spellings so the redirects are
+     proven rather than assumed. */
   const TABS = [
     'cards', 'add', 'mana', 'edh', 'analysis',
-    'legality', 'optimiser', 'value', 'record',
+    'legality', 'value', 'record',
   ];
   const ROUTES = [
     /* The optimiser is a route now, and both of its old tab spellings redirect
@@ -328,7 +336,7 @@ async function walkMoreMenu(browser) {
       (keep, run) => keep.filter(h => run.headings.includes(h)),
       tabResults[0].headings
     );
-    console.log(`\nshared by all nine tabs (the page shell): ${shell.join(' · ')}`);
+    console.log(`\nshared by all eight tabs (the page shell): ${shell.join(' · ')}`);
   }
 
   console.log(`\n=== ROUTES ===`);
@@ -346,7 +354,7 @@ async function walkMoreMenu(browser) {
   console.log(`\n=== RETURN TRIP ===`);
   const returnTrip = await safe('return trip', () => walkReturnTrip(browser));
   if (returnTrip) {
-    console.log(`pressed Export from ?tab=optimiser: ${returnTrip.pressed}`);
+    console.log(`pressed Optimise from ?tab=analysis: ${returnTrip.pressed}`);
     console.log(`landed on: ${returnTrip.url}`);
     console.log(`back link href: ${returnTrip.back}`);
     for (const e of returnTrip.errors) console.log(`   !! ${e}`);

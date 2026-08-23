@@ -67,7 +67,6 @@ import { DeckBudgetTracker } from '@/components/deck-builder/DeckBudgetTracker';
 import { MissingCardsPanel } from '@/components/deck-builder/MissingCardsPanel';
 import { DeckPrimerGenerator } from '@/components/deck-builder/DeckPrimerGenerator';
 import { EnhancedMatchTracker } from '@/components/deck-builder/EnhancedMatchTracker';
-import { MatchAnalytics } from '@/components/deck-builder/MatchAnalytics';
 import { DeckNotesPanel } from '@/components/deck-builder/DeckNotesPanel';
 import { useCollectionOwnership } from '@/components/deck-builder/useCollectionOwnership';
 import type { EdhAnalysisData } from '@/components/deck-builder/EdhAnalysisPanel';
@@ -1199,7 +1198,7 @@ export default function DeckInterface() {
 
               {/* THE THIRD SET OF TABS, CUT DOWN TO WHAT IS ONLY HERE.
 
-                  This panel carries its own six sub-tabs and its own four
+                  This panel carried its own six sub-tabs and its own four
                   summary tiles, and on the merged page four of the six were
                   answers this page already gives one click away:
 
@@ -1219,18 +1218,28 @@ export default function DeckInterface() {
                                  metric strip above; land count is on Mana;
                                  format legality is Legality.
 
-                  Synergy, Suggestions and the focused analysis are this
-                  panel's own and are kept. `sections` is a prop rather than a
-                  second component because `AIGeneratedDeckList` mounts the
-                  same panel around a deck with no tabs at all, where all six
-                  are the only place those answers exist. */}
+                  Synergy and Suggestions are this panel's own and are kept.
+                  `sections` is a prop rather than a second component because
+                  `AIGeneratedDeckList` mounts the same panel around a deck
+                  with no tabs at all, where every section is the only place
+                  those answers exist.
+
+                  THE SIXTH SECTION IS GONE FROM THE COMPONENT, NOT JUST FROM
+                  HERE. `ai` mounted `AIAnalysisPanel`, a second chat box
+                  against the same `mtg-brain` function as the `BrainAnalysis`
+                  directly below this one — two boxes, one tab, one function,
+                  two different briefs. It also printed
+                  `POWER: 0.0/10 (undefined, bracket undefined)` on every deck,
+                  because the panel was briefed with a hard-coded
+                  `power: { score: 0 }`. One chat now, and it is the one that is
+                  handed the canonical score. */}
               <EnhancedDeckAnalysisPanel
                 deck={mainboard}
                 format={deck.format}
                 commander={analyticsCommander}
                 deckId={deck.id}
                 deckName={deck.name}
-                sections={['synergy', 'suggestions', 'ai']}
+                sections={['synergy', 'suggestions']}
                 overview={false}
               />
 
@@ -1329,10 +1338,19 @@ export default function DeckInterface() {
                 />
               </CardContent>
             </Card>
+            {/* ONE PANEL, ONE QUERY, ONE WIN RATE.
+
+                This was `EnhancedMatchTracker` with `MatchAnalytics` directly
+                under it. Each ran its own
+                `deck_matches.select('*').eq('deck_id', …)` and each computed
+                the same total, wins, losses, draws and win rate from it — two
+                reads of one set of rows on one tab. They also drifted: logging
+                a match reloaded the tracker only, so the panel beneath it kept
+                printing the old win rate until the page was reloaded. The
+                per-opponent breakdown and the form figures came across into
+                the tracker, which is the half that holds the form and the
+                list. */}
             <EnhancedMatchTracker deckId={deck.id} deckName={deck.name} />
-            {/* The tracker records games; this reads them back. Same rows, two
-                different jobs. */}
-            <MatchAnalytics deckId={deck.id} deckName={deck.name} />
             <DeckNotesPanel deckId={deck.id} />
           </div>
         )}

@@ -221,7 +221,15 @@ export function PlayHUD({
       : decision
         ? DECISION_LABEL[decision]
         : botThinking
-          ? `${active?.name ?? 'Opponent'} is thinking…`
+          ? /* The viewer's own seat is named "You", so `${name} is thinking`
+               printed "You is thinking…". Measured off a 1920 screenshot of a
+               real game rather than deduced. It happens whenever the seat this
+               device is watching through is being played for you, which is
+               every turn of `/simulate` and any table where the viewer's own
+               seat is a bot. */
+            myTurn
+            ? 'Thinking…'
+            : `${active?.name ?? 'Opponent'} is thinking…`
           : myTurn
             ? STEP_LABELS[state.step]
             : `${active?.name ?? 'Opponent'}'s turn`;

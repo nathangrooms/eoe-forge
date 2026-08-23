@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { addCardsByName, type CollectionAddByName } from '@/lib/api/collectionBatch';
 import { uniqueCards, cardPrintings } from '@/lib/cards/cardQuery';
 import { fetchPrintingSpreads } from '@/lib/cards/printings';
 import { valueOwned } from '@/lib/pricing/printings';
@@ -422,44 +423,49 @@ export class CollectionAPI {
         warnings: []
       };
 
+      /* ONE PASS FOR THE WHOLE PASTE, not five requests a line.
+         --------------------------------------------------------------
+         This parsed a line, looked the card up, and called `addCard`, which
+         itself did an `auth.getUser()` round trip plus its own read and write.
+         Measured at roughly five requests per line, so a hundred card list was
+         around five hundred.
+
+         `addCardsByName` is the batched version and it already exists; calling
+         it is better than writing a second copy of the same batching here. It
+         merges duplicate names before writing, which the old loop did by
+         accident and which has to keep being true.
+
+         Parsing stays here because it is this class's job and it costs nothing.
+         The LINE NUMBER is carried alongside each entry so an error still says
+         which line failed, which is the only thing the per-line loop was
+         genuinely better at. */
+      const parsed: Array<{ line: number; entry: CollectionAddByName }> = [];
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line || line.startsWith('//') || line.startsWith('#')) continue;
 
-        try {
-          const parseResult = this.parseImportLine(line, format);
-          if (!parseResult) {
-            result.errors.push(`Line ${i + 1}: Could not parse line`);
-            continue;
-          }
+        const parseResult = this.parseImportLine(line, format);
+        if (!parseResult) {
+          result.errors.push(`Line ${i + 1}: Could not parse line`);
+          continue;
+        }
 
-          const { cardName, quantity, foil, setCode } = parseResult;
+        const { cardName, quantity, foil, setCode } = parseResult;
+        parsed.push({
+          line: i + 1,
+          entry: { name: cardName, setCode, quantity, foil: foil ? quantity : 0 },
+        });
+      }
 
-          // Same rule as the single add: a set code names a printing, a bare
-          // name names a card and gets the cheapest printing of it.
-          let cardQuery = setCode
-            ? cardPrintings().select('*').ilike('name', cardName).eq('set_code', setCode)
-            : uniqueCards().select('*').ilike('name', cardName);
-
-          const { data: cards } = await cardQuery.limit(1);
-          
-          if (!cards || cards.length === 0) {
-            result.errors.push(`Line ${i + 1}: Card "${cardName}" not found`);
-            continue;
-          }
-
-          const card = cards[0];
-          const addResult = await this.addCard(card.id, quantity, foil);
-          
-          if (addResult.error) {
-            result.errors.push(`Line ${i + 1}: ${addResult.error}`);
+      if (parsed.length > 0) {
+        const added = await addCardsByName(parsed.map(row => row.entry));
+        added.forEach((outcome, index) => {
+          if (outcome.error) {
+            result.errors.push(`Line ${parsed[index].line}: ${outcome.error}`);
           } else {
             result.added++;
           }
-
-        } catch (error) {
-          result.errors.push(`Line ${i + 1}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
+        });
       }
 
       return { data: result };
@@ -506,21 +512,50 @@ export class CollectionAPI {
         return { error: 'User not authenticated' };
       }
 
-      for (const itemId of itemIds) {
-        const { data: existing } = await supabase
-          .from('user_collections')
-          .select('quantity')
-          .eq('id', itemId)
-          .eq('user_id', user.id)
-          .single();
+      /* ONE READ AND ONE WRITE PER CHUNK, not two requests per row.
+         --------------------------------------------------------------
+         This read the quantity and then wrote it back, once per id, so
+         selecting fifty rows and pressing plus was a hundred round trips.
+         `bulkDelete` directly below has always used a single `.in()`, which is
+         the same shape this needed and did not have.
 
-        if (existing) {
-          const newQuantity = Math.max(0, existing.quantity + delta);
-          await supabase
+         Chunked because a list of ids goes into the URL, and an unbounded `.in()`
+         is its own outage. 150 matches `CollectionBulkImport`, which is the
+         reference for this pattern in the codebase.
+
+         The `user_id` guard is kept on both halves. RLS would refuse another
+         user's row anyway, and a filter that agrees with the policy means the
+         query returns nothing rather than erroring. */
+      const CHUNK = 150;
+      for (let i = 0; i < itemIds.length; i += CHUNK) {
+        const slice = itemIds.slice(i, i + CHUNK);
+
+        const { data: rows, error: readError } = await supabase
+          .from('user_collections')
+          .select('id, quantity')
+          .in('id', slice)
+          .eq('user_id', user.id);
+        if (readError) return { error: readError.message };
+        if (!rows || rows.length === 0) continue;
+
+        /* Grouped by the quantity they LAND on, so rows moving to the same
+           number share one update. A selection is usually a handful of distinct
+           quantities however many rows it holds. */
+        const byNewQuantity = new Map<number, string[]>();
+        for (const row of rows) {
+          const next = Math.max(0, (row.quantity ?? 0) + delta);
+          const ids = byNewQuantity.get(next);
+          if (ids) ids.push(row.id);
+          else byNewQuantity.set(next, [row.id]);
+        }
+
+        for (const [quantity, ids] of byNewQuantity) {
+          const { error: writeError } = await supabase
             .from('user_collections')
-            .update({ quantity: newQuantity })
-            .eq('id', itemId)
+            .update({ quantity })
+            .in('id', ids)
             .eq('user_id', user.id);
+          if (writeError) return { error: writeError.message };
         }
       }
 

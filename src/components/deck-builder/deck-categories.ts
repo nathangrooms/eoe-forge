@@ -1,24 +1,34 @@
 import { Users, Mountain, Sparkles, Scroll, Shield, Gem, Swords, Crown, Boxes, Flame } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { categorizeCard as classify } from '@/lib/deck/cardCategories';
 
 /**
- * One classifier for the whole deck builder.
+ * The deck builder's icons, labels and type colours.
  *
- * There used to be four independent type-line switches (page header stats, the
- * card grid, the add-card handler and the store's loader) which disagreed with
- * each other: an artifact land counted as a Land in the header and as an
- * Artifact in the grid directly beneath it, and a freshly added Sol Ring moved
- * from "Other" to "Artifacts" on reload. Everything now imports this.
+ * ## This file no longer decides what a card is
  *
- * Precedence is explicit and documented:
- *   Commander  — the card occupying the command zone
- *   Land       — beats Artifact (Seat of the Synod is a land you play as a land)
- *   Battle     — a permanent type of its own
- *   Planeswalker
- *   Creature   — beats Artifact/Enchantment (Solemn Simulacrum is a creature)
- *   Instant / Sorcery
- *   Artifact / Enchantment
- *   Other      — Kindred-only, schemes, and anything unrecognised
+ * It used to. Its header said "one classifier for the whole deck builder" and
+ * `@/lib/deck/cardCategories` says "the single canonical card categoriser for
+ * the deck surfaces", and both were live on `/deck/:id` at the same time:
+ * `DeckInterface`'s type counts came through here while `DeckCardGrid`,
+ * `DeckCardTable`, `deckAnalyticsCards` and `curve.ts` went through that one.
+ * Two files, each documented as the last word, one page.
+ *
+ * They also disagreed. Same first four tests — commander, land, battle,
+ * planeswalker, creature — and then:
+ *
+ *     cardCategories.ts   … artifact, enchantment, instant, sorcery
+ *     this file           … instant, sorcery, artifact, enchantment
+ *
+ * No printed card has a front face that is both an artifact-or-enchantment and
+ * an instant-or-sorcery, so nothing on screen was wrong today — which is
+ * exactly the moment to fix it, rather than the day a set prints the card that
+ * settles it. `categorizeCard` here calls the canonical one now, so there is
+ * one cascade and one answer.
+ *
+ * What is still this file's own job: the icon, the singular and plural label
+ * and the `--type-*` classes for each bucket, plus the copy-limit rules below.
+ * None of that is duplicated anywhere and seven modules import it.
  */
 export type CardCategory =
   | 'commanders'
@@ -76,24 +86,20 @@ interface ClassifiableCard {
   category?: string;
 }
 
+/**
+ * One cascade, in `@/lib/deck/cardCategories`. This is the object-shaped door
+ * onto it, because the builder's callers hold a card and the canonical one
+ * takes a type line.
+ *
+ * `sideboard` is the one bucket the canonical categoriser has and this
+ * vocabulary does not, and it is only ever returned when the caller asks for
+ * it. This door never asks, so it cannot come back.
+ */
 export function categorizeCard(card: ClassifiableCard): CardCategory {
-  if (card?.is_commander || card?.category === 'commanders') return 'commanders';
-
-  const t = (card?.type_line || '').toLowerCase();
-  if (!t) return 'other';
-
-  // Only the front face matters for grouping a double-faced card.
-  const front = t.split('//')[0];
-
-  if (front.includes('land')) return 'lands';
-  if (front.includes('battle')) return 'battles';
-  if (front.includes('planeswalker')) return 'planeswalkers';
-  if (front.includes('creature')) return 'creatures';
-  if (front.includes('instant')) return 'instants';
-  if (front.includes('sorcery')) return 'sorceries';
-  if (front.includes('artifact')) return 'artifacts';
-  if (front.includes('enchantment')) return 'enchantments';
-  return 'other';
+  if (card?.category === 'commanders') return 'commanders';
+  return classify(card?.type_line, {
+    isCommander: Boolean(card?.is_commander),
+  }) as CardCategory;
 }
 
 export function isLand(card: ClassifiableCard): boolean {

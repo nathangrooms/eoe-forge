@@ -21,9 +21,12 @@ import assert from 'node:assert/strict';
 import { CARD_RATIO, MIN_BOARD_CARD, fitRowCardWidth } from './boardMetrics.ts';
 import {
   MAX_ROW_GAP,
+  PILE_COLUMNS,
+  PILE_ROWS,
   ROW_PADDING,
   identityBandHeight,
   layoutRow,
+  pileGrid,
   railWidth,
   rowGap,
   rowSpan,
@@ -359,6 +362,62 @@ test('the rail is sized by the tiles it has to stack, not by width alone', () =>
   assert.ok(railWidth(948, 369) <= 224);
   assert.ok(railWidth(628, 264) < railWidth(948, 369), 'a shorter seat gets a narrower rail');
   assert.ok(railWidth(300, 200) >= 52, 'and it never disappears');
+});
+
+test('the four piles are laid two across, and the card inside one is readable', () => {
+  /*
+   * Owner, on a screenshot: *"THE ZONES ARE POSTAGE STAMPS ... at a size where
+   * the art is unreadable."* Measured before this change, two seats, real
+   * `/play`: four tiles of 116 x 72 at 1920 with a 44px card in each, and 94 x
+   * 49 with a 28px card at 1280. `MIN_BOARD_CARD` is 62 and exists because
+   * below it the art stops reading, so both were under the floor every other
+   * card on the board is held to.
+   *
+   * The cause was the SHAPE, not the number. Four card-shaped tiles stacked
+   * down a 369px mat get a quarter of its height each whatever the rail is
+   * allowed to be wide, so the fix is two columns rather than a bigger cap.
+   */
+  for (const [width, height] of [
+    [1904, 401],
+    [1264, 288],
+    [948, 369],
+  ]) {
+    const grid = pileGrid(width, height);
+    assert.ok(
+      grid.cardWidth >= MIN_BOARD_CARD,
+      `a ${grid.cardWidth}px pile card on a ${width}x${height} mat is under the readable floor`
+    );
+    assert.equal(grid.rail, grid.tileWidth * PILE_COLUMNS + 6, 'the rail is its two columns');
+    assert.ok(grid.tileWidth >= grid.cardWidth, 'a tile holds its card');
+    assert.ok(grid.tileHeight * PILE_ROWS <= height, 'and two rows of them fit the mat');
+  }
+});
+
+test('the rail never takes more than a quarter of the mat', () => {
+  /* The two rows are the board; the piles are the furniture beside it. The
+     widening is paid for out of the dead row width the same measurement found
+     — 991px of a 1548px creature row — and this is the cap that stops it being
+     paid for out of live row width instead. */
+  for (const [width, height] of [
+    [1904, 401],
+    [1264, 288],
+    [948, 369],
+    [628, 264],
+    [420, 200],
+  ]) {
+    assert.ok(
+      railWidth(width, height) <= Math.max(102, width * 0.25),
+      `rail ${railWidth(width, height)} of a ${width}px mat`
+    );
+  }
+});
+
+test('the pile grid reads the mat and nothing else', () => {
+  /* Same rule as everything else in this file: a card arriving in a graveyard
+     may not move the board. `pileGrid(matWidth, matHeight)` with no third
+     argument is the strongest form that guarantee can take. */
+  assert.equal(pileGrid.length, 2, 'pileGrid(matWidth, matHeight)');
+  assert.equal(railWidth.length, 2, 'railWidth(matWidth, matHeight)');
 });
 
 test('the identity band is small enough that the rows keep most of the mat', () => {

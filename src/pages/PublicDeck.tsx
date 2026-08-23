@@ -2,9 +2,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { getPublicDeck, trackShareEvent, type PublicDeckData } from '@/lib/api/shareAPI';
-import { ComprehensiveAnalytics } from '@/components/deck-builder/ComprehensiveAnalytics';
-import { PowerScoreBadge } from '@/components/deck/PowerScore';
-import { computeDeckPower, entriesFromDeckRows, type DeckPower } from '@/lib/deck/power';
+import { PowerScore, PowerScoreBadge } from '@/components/deck/PowerScore';
+import { PowerSliderCoaching } from '@/components/deck-builder/PowerSliderCoaching';
+import { LandEnhancerUX } from '@/components/deck-builder/LandEnhancerUX';
+import {
+  computeDeckPower,
+  entriesFromDeckRows,
+  type DeckPower,
+  type PowerDeckEntry,
+} from '@/lib/deck/power';
 import { DeckCardGrid } from '@/components/deck/DeckCardGrid';
 import { DeckCardTable } from '@/components/deck/DeckCardTable';
 import { Card, CardContent } from '@/components/ui/card';
@@ -22,10 +28,8 @@ import {
   type DeckCardRow,
 } from '@/lib/deck/deckCards';
 import { serializeDeck } from '@/lib/deck/deckSerialize';
-import { categorizeCard } from '@/lib/deck/cardCategories';
 import { formatLabel, usesPowerLevel } from '@/lib/deck/formats';
 import { deckAverageManaValue } from '@/lib/deck/curve';
-import type { Card as StoreCard } from '@/stores/deckStore';
 
 /**
  * Public, read-only deck page.
@@ -144,42 +148,36 @@ export default function PublicDeck() {
 
   const stats = useMemo(() => computeDeckStats(rows), [rows]);
 
-  const analyticsDeck = useMemo<StoreCard[]>(
-    () =>
-      rows
-        .filter(row => !row.is_sideboard)
-        .map(row => ({
-          id: row.card_id,
-          name: row.card?.name || row.card_name,
-          cmc: row.card?.cmc ?? 0,
-          type_line: row.card?.type_line || '',
-          colors: row.card?.colors ?? [],
-          color_identity: row.card?.color_identity ?? [],
-          oracle_text: row.card?.oracle_text ?? '',
-          mana_cost: row.card?.mana_cost ?? undefined,
-          quantity: row.quantity,
-          category: categorizeCard(row.card?.type_line, {
-            isCommander: row.is_commander,
-          }) as StoreCard['category'],
-          mechanics: row.card?.keywords ?? [],
-        })),
-    [rows]
-  );
-
-  const analyticsCommander = useMemo(
-    () => analyticsDeck.find(card => card.category === 'commanders'),
-    [analyticsDeck]
-  );
+  /* A THIRD COPY OF THE ROW MAPPING, GONE.
+     There was an `analyticsDeck` memo here that mapped the rows into the
+     builder's store shape and an `analyticsCommander` beside it, and their only
+     reader was `ComprehensiveAnalytics`. `deckAnalyticsCards.ts` is the one
+     mapping for that shape and this was a partial hand-rolled copy of it —
+     partial being the problem: it carried no `legalities`, no `rarity` and no
+     `prices`, so the score computed from it was computed from less than this
+     page had loaded. The panels below take `PowerDeckEntry`s built from the
+     rows directly, so nothing needs the store shape any more. */
 
   /**
    * Scored from the shared decklist, not from the summary's stored number. A
    * public page has no write access, so it can never refresh a stale stored
    * score — computing it here is the only way the visitor sees the same figure
    * the owner sees.
+   *
+   * ONE SCORE ON THIS PAGE. It used to be two: this one, drawn in the header
+   * badge, and a second one inside `ComprehensiveAnalytics`, which built its
+   * own entries from `analyticsDeck` and called `computeDeckPower` again. Same
+   * deck, two conversions, two calls, and the badge at the top and the score
+   * in the sidebar could differ by whatever the conversions disagreed about.
+   * `entriesFromDeckRows` reads the rows this page actually loaded, so it is
+   * the one that keeps the card's real `legalities`, `rarity` and
+   * `color_identity`.
    */
+  const powerEntries = useMemo<PowerDeckEntry[]>(() => entriesFromDeckRows(rows), [rows]);
+
   const power = useMemo<DeckPower | null>(
-    () => computeDeckPower(entriesFromDeckRows(rows), { format: data?.deck?.format ?? 'commander' }),
-    [rows, data?.deck?.format]
+    () => computeDeckPower(powerEntries, { format: data?.deck?.format ?? 'commander' }),
+    [powerEntries, data?.deck?.format]
   );
 
   const handleCopyList = async () => {
@@ -370,15 +368,45 @@ export default function PublicDeck() {
                     numbers should be smaller than they are everywhere else. */}
                 <MetricRow metrics={publicDeckMetrics} columns={3} />
 
-                {/* Read-only: the visitor is not the owner, so nothing is
-                    persisted from this page. */}
-                <ComprehensiveAnalytics
-                  deck={analyticsDeck}
-                  format={deck.format}
-                  commander={analyticsCommander}
-                  deckId={deck.id}
-                  persist={false}
-                />
+                {/* THE THREE PANELS, DIRECTLY.
+
+                    This was `ComprehensiveAnalytics`, a component whose whole
+                    body was a four-tab strip over `PowerScore`,
+                    `PowerSliderCoaching`, `LandEnhancerUX` and
+                    `BrainAnalysis`. It held no analysis of its own — the deck
+                    page mounts the same three panels directly, one under the
+                    other, and this page now does the same. A tab strip whose
+                    only job is to be a tab strip is not a component.
+
+                    Its fourth tab is deliberately not here. `BrainAnalysis` is
+                    a chat box against an edge function, and this is the page
+                    people who do not have an account see: a read-only deck
+                    somebody shared. A visitor cannot change this deck, so
+                    coaching it is not their job, and the model calls were
+                    being made on behalf of an account that never opened the
+                    page. The coaching slider and the land panel stay because
+                    they explain the score that is already on screen.
+
+                    Read-only: nothing is persisted from this page. The wrapper
+                    took a `persist` prop for exactly this and there is nothing
+                    left to switch off. */}
+                {usesPowerLevel(deck.format) && power && (
+                  <PowerScore power={power} variant="expanded" />
+                )}
+                {power && (
+                  <>
+                    <PowerSliderCoaching
+                      power={power}
+                      entries={powerEntries}
+                      format={deck.format}
+                    />
+                    <LandEnhancerUX
+                      entries={powerEntries}
+                      power={power}
+                      identity={identity}
+                    />
+                  </>
+                )}
               </aside>
 
               <div className="space-y-4">

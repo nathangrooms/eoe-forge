@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { Card as EngineCard } from '@/lib/deckbuilder/types';
-import { categorizeCard } from './cardCategories';
+import { deckAverageManaValue } from './curve';
 
 /**
  * Deck card loading with real card metadata.
@@ -152,7 +152,10 @@ export async function fetchCardsByIds(
 export interface DeckStats {
   totalCards: number;
   uniqueCards: number;
-  /** Average mana value excluding lands — the community convention. */
+  /**
+   * Average mana value, over the ninety-nine. Lands and the commander are both
+   * out — see the note in `computeDeckStats`.
+   */
   avgManaValue: number;
   totalValueUSD: number;
   /** Rows whose printing is not present in the local card table. */
@@ -161,8 +164,6 @@ export interface DeckStats {
 
 export function computeDeckStats(rows: DeckCardRow[]): DeckStats {
   let totalCards = 0;
-  let nonLandCards = 0;
-  let manaValueTotal = 0;
   let totalValueUSD = 0;
   let missingMetadata = 0;
 
@@ -175,16 +176,6 @@ export function computeDeckStats(rows: DeckCardRow[]): DeckStats {
       continue;
     }
 
-    // Front face only, through the one categoriser. A plain
-    // `.includes('land')` counted every modal double-faced spell with a land
-    // on the back as a land, which is what made this page's average mana
-    // value disagree with the builder's for the same deck.
-    const isLand = categorizeCard(row.card.type_line) === 'lands';
-    if (!isLand) {
-      nonLandCards += row.quantity;
-      manaValueTotal += row.card.cmc * row.quantity;
-    }
-
     const usd = parseFloat(row.card.prices?.usd ?? '');
     if (!Number.isNaN(usd)) totalValueUSD += usd * row.quantity;
   }
@@ -192,7 +183,30 @@ export function computeDeckStats(rows: DeckCardRow[]): DeckStats {
   return {
     totalCards,
     uniqueCards: rows.filter(r => !r.is_sideboard).length,
-    avgManaValue: nonLandCards > 0 ? manaValueTotal / nonLandCards : 0,
+    /**
+     * THE COMMANDER IS NOT IN THE AVERAGE, AND THIS FIELD USED TO PUT IT THERE.
+     *
+     * This was a local loop that skipped lands and counted everything else,
+     * including the commander row — so on a Commander deck it returned a
+     * different number from the four other implementations of this figure,
+     * every one of which excludes the commander:
+     *
+     *     deckAverageManaValue      (lib/deck/curve.ts)      the metric strip
+     *     ManaCurve's local avgCmc                           the Mana tab header
+     *     castability.avgManaValue  (engine/power/score.ts)  PowerScore, the AI brief
+     *     ManaCurveAnalyzer         (lib/magic/mana-curve.ts)
+     *
+     * Those four are right and this was wrong. The commander is available in
+     * every game whatever you draw, so counting it says nothing about what the
+     * deck draws, which is the only question an average mana value answers.
+     *
+     * It was not a harmless field either. `PreconDeckView` prints it as
+     * "Avg MV", so a precon read one number and the same list on `/deck/:id`
+     * read another. It calls the canonical function now and there is one
+     * answer. Do not reimplement this loop: `deckAverageManaValue` takes
+     * anything with `quantity`, `is_commander`, `is_sideboard` and a `card`.
+     */
+    avgManaValue: deckAverageManaValue(rows),
     totalValueUSD,
     missingMetadata,
   };

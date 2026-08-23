@@ -648,6 +648,47 @@ and let C mark the pending state rather than start a second timer. What to
 measure once it is one: the number of `deck_cards` requests for one optimiser
 apply, before and after.
 
+### That measurement, taken 23 Aug 2026, and the bug it found
+
+`scripts/optimiser-apply-measure.mjs`, on the built bundle, driving the real
+controls against a stateful PostgREST stand-in with Scryfall left real. Applying
+**nine swaps in one press**:
+
+| | before | after |
+|---|---|---|
+| Supabase requests | **28** (9 POST, 9 DELETE, 9 GET `user_collections`, 1 PATCH) | **4** (1 POST of 9 rows, 1 DELETE of 9 rows, 1 GET `deck_cards`, 1 PATCH) |
+| landed in `deck_cards` | 9 of 9 | 9 of 9 |
+| landed **on screen** | **1 of 9** | **9 of 9** |
+| auto optimise receipt | "**16 cards did not move**" | "9 cards out", **0** did not move |
+
+One swap is 4 requests before and after, so nothing about the single case moved.
+
+**The owner's "apply 9 swaps does nothing" was half fixed and half misread.**
+`ConfirmBar` had already dealt with the confirmation asking its question below
+the fold, and that half holds: measured, the confirmation lands at 880px inside
+a 1000px viewport. The other half was never a confirmation problem at all.
+
+The deck page applied a list by looping it and calling a single-card edit per
+row, awaiting each one. Every call in that loop is the same closure over the
+same decklist, because React does not re-render while the loop is running, so
+each iteration computed its result from the deck as it was **before the first
+swap**. The last write won and the eight before it were painted over. The deck
+really was rewritten; the page went on drawing the deck you already had, which
+from a chair is indistinguishable from nothing having happened.
+
+The auto pass had it worse, because its receipt is a diff of the decklist it can
+see. It applied nine changes and then reported sixteen cards that "did not
+move", beside an **Undo all of it** that would have reversed the one change it
+could see and left the other eight in place permanently.
+
+The fix is `useDeckEditor.applyReplacements`: resolve every incoming card first,
+work the whole batch out against one snapshot that moves as it goes, then two
+writes and a read back — so the decklist on screen when it finishes IS
+`deck_cards` rather than a second opinion about it. The arithmetic lives in
+`src/components/deck/replacementPlan.ts` with eleven tests in
+`replacementPlan.test.ts`, the first of which is the fault above stated as a
+ratchet.
+
 ---
 
 ## 10. The merged page
@@ -694,7 +735,7 @@ title  <deck name + pencil>        [Favourite] [Share] [Export] [More v]
 
 ### The tabs
 
-Nine, in this order, all in the URL:
+Eight, in this order, all in the URL:
 
 | Tab | Question | Contents |
 |---|---|---|
@@ -704,18 +745,62 @@ Nine, in this order, all in the URL:
 | **EDH** | how strong is it | `PowerScore expanded`, `CommanderPowerDisplay`, `PowerSliderCoaching`, the edhpowerlevel strip and `EdhAnalysisPanel` with a working refresh |
 | **Analysis** | how does it play | `ArchetypeDetection`, `EnhancedDeckAnalysisPanel`, `BrainAnalysis`, plus the type percentage bars rescued from `/deck/:id/analysis` |
 | **Legality** | is it legal | `DeckValidationPanel` with real legalities, `DeckCompatibilityChecker` with its remove handler wired |
-| **Optimiser** | what should I change | `AIOptimizerPanel`, feature flagged. Hidden, not disabled. |
 | **Value** | what does it cost | `DeckBudgetTracker` with the quantity fix, `MissingCardsPanel` |
 | **Record** | what do I know about it | `DeckPrimerGenerator`, `EnhancedMatchTracker`, `MatchAnalytics`, `DeckNotesPanel` |
 
-Nine tabs is one more than the view page has now and two more than the builder.
 Primer and Matches are folded into **Record** because they are the same kind of
-thing, notes a human writes about a deck, and folding them is what keeps the
-strip at nine. If nine will not sit on one line at 1600px, the next fold is
-Legality into Analysis, not a second row.
+thing, notes a human writes about a deck. If eight will not sit on one line at
+1600px, the next fold is Legality into Analysis, not a second row.
 
-The Optimiser stays a tab rather than becoming a slide over. It is five numbered
-steps over card art with a save of its own, and it needs the width.
+### CORRECTION, 23 Aug 2026: the Optimiser is not a tab
+
+This section used to read *"The Optimiser stays a tab rather than becoming a
+slide over. It is five numbered steps over card art with a save of its own, and
+it needs the width."* The first half was wrong and the second half is the reason
+why. It is **`/deck/:id/optimise`** now, and the header carries an **Optimise**
+control beside Share and Export.
+
+It was the seventh tab, then the third, and the position was never the problem.
+Measured on the built bundle at 1600 x 1000:
+
+| | before | after |
+|---|---|---|
+| links to it anywhere in `src/` | **0** (a grep for `tab=optimiser` found two comments and no hrefs) | 2: the deck header, and My Decks' tile menu |
+| where the only door sat | the tab strip, which starts at **y=904** in a 1000px viewport | the header **Optimise** button at **y=122**, above the fold |
+| what the door cost to reach | open a deck, scroll past the commander block, read nine tabs | one press |
+
+Three arguments, in the order they matter:
+
+1. **A tab strip is hostile to it.** A pass calls an edge function and takes
+   about twenty-five seconds to produce. Every one of the other eight tabs
+   unmounts the panel and throws that pass away, so the optimiser sat with eight
+   controls directly above it that silently destroyed its work. On a route,
+   leaving is a deliberate navigation with a labelled way back.
+2. **The design law already decides this.** A destination gets a route with a
+   real URL and a visible back control. This is a destination on every test: an
+   edge function call, five numbered steps with five sub tabs of their own, a
+   confirmation flow, and a receipt with an undo. The swaps step alone measured
+   a **7,938px** page.
+3. **The merge drew this line in the same place.** Printing proxies and drawing
+   an opening hand became routes rather than tabs, and both are smaller jobs.
+
+`?tab=optimiser` and the older `?tab=ai` redirect to it, through the same
+`LEGACY_ROUTES` map that already carries `proxies` and `test`. Walked and
+confirmed in `scripts/deck-surfaces-walk.mjs`.
+
+**Nothing was lost.** `scripts/deck-control-census.mjs`, before against after:
+the deck page went from **371 distinct controls to 369**, the new route draws
+**3**, and the diff is one line out and two in:
+
+```
+- tab :: OptimiserWhat to change
++ a :: Back to deck
++ button :: Optimise
+```
+
+The two controls the Optimiser tab actually owned, `Optimise deck` and
+`Use my collection`, are both on the route. The other twenty it was credited
+with were the deck page's own header and tab strip.
 
 ### The Cards tab, in detail
 

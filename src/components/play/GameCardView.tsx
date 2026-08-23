@@ -190,7 +190,31 @@ export interface GameCardViewProps {
   entering?: boolean;
 }
 
-/** A card with no art: still a card, not a placeholder. */
+/**
+ * A card whose art has not arrived: still a CARD, and it has to look like one.
+ *
+ * Owner, on a screenshot: *"A blank rectangle where a card should be is the
+ * thing that most makes software look unfinished."* That particular rectangle
+ * was `StackStrip`, which never asked for a card at all and now draws one. This
+ * is the other way an empty box can happen — a real card view with no
+ * `imageUrl` — and it deserved the same answer.
+ *
+ * It was a flat `bg-card` panel with the name at the top and the type line at
+ * the bottom, which is a form field with a card's proportions. What it is now
+ * is the FRAME of a Magic card with the illustration missing: a title bar with
+ * the cost in it, an art well drawn in the card back's own material so the gap
+ * reads as "the picture has not loaded" rather than as "this is not a card", a
+ * type bar, and the power box in the corner it lives in.
+ *
+ * Everything is a percentage of the card, so the same component serves a 44px
+ * pile tile and a 300px hand card without a second layout, exactly as
+ * `CardBack` does.
+ *
+ * Measured caveat, stated plainly: across a real game at two widths every card
+ * on screen painted real Scryfall art and this face was drawn zero times. It is
+ * reachable when the card database is unreachable, which is what the audit
+ * harnesses do on purpose, and it is the face a playtest falls back to.
+ */
 function TypographicFace({
   card,
   size,
@@ -204,20 +228,38 @@ function TypographicFace({
 
   return (
     <div
-      className="flex h-full w-full flex-col justify-between bg-card p-1.5"
+      className="relative flex h-full w-full flex-col bg-[hsl(30_8%_11%)] p-[3.5%]"
       style={{ borderRadius: CARD_RADIUS }}
     >
-      <div className="min-w-0">
-        <p className={cn('truncate font-medium text-foreground', NAME_TEXT[size])}>{card.name}</p>
-        {!compact && card.manaCost && <ManaCost cost={card.manaCost} size="xs" className="mt-1" />}
+      {/* The title bar. A card's name and its cost share one line at the top,
+          and that shape alone is most of what makes a card recognisable at a
+          glance across a table. */}
+      <div className="flex min-w-0 items-center gap-1 rounded-[3px] bg-[hsl(30_10%_17%)] px-1 py-[2px] shadow-[inset_0_0_0_1px_hsl(40_20%_70%/0.1)]">
+        <p className={cn('min-w-0 flex-1 truncate font-medium text-foreground', NAME_TEXT[size])}>
+          {card.name}
+        </p>
+        {!compact && card.manaCost && <ManaCost cost={card.manaCost} size="xs" className="shrink-0" />}
       </div>
+
+      {/* The art well, in the card back's own material so it reads as a picture
+          that has not arrived rather than as a hole. */}
+      <div
+        className="mt-[3%] w-full shrink-0 rounded-[2px] bg-[radial-gradient(80%_110%_at_50%_35%,hsl(30_12%_20%),hsl(28_10%_9%))] shadow-[inset_0_0_0_1px_hsl(40_20%_70%/0.08)]"
+        style={{ height: '46%' }}
+      />
+
+      {/* The type bar, in the same material as the title bar. */}
       {!compact && (
-        <p className="truncate text-[9px] leading-tight text-muted-foreground">{card.typeLine}</p>
+        <div className="mt-[3%] min-w-0 rounded-[3px] bg-[hsl(30_10%_17%)] px-1 py-[1px] shadow-[inset_0_0_0_1px_hsl(40_20%_70%/0.1)]">
+          <p className="truncate text-[9px] leading-tight text-muted-foreground">{card.typeLine}</p>
+        </div>
       )}
+
+      {/* The power box, in the corner it lives in on every printed card. */}
       {stats && (
         <p
           className={cn(
-            'self-end font-semibold text-foreground',
+            'absolute bottom-[3%] right-[4%] rounded-[3px] bg-[hsl(30_10%_17%)] px-1 font-semibold text-foreground shadow-[inset_0_0_0_1px_hsl(40_20%_70%/0.12)]',
             compact ? 'text-[9px]' : 'text-xs'
           )}
         >

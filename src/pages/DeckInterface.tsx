@@ -248,7 +248,6 @@ interface TabDef {
   id: string;
   label: string;
   icon: typeof LayoutGrid;
-  hint: string;
 }
 
 /**
@@ -287,15 +286,30 @@ interface TabDef {
  * colour-identity legality, so offering the tab would be offering an empty
  * room. Add is conditional on the deck being yours.
  */
+/*
+ * NO HINTS, and that is the whole change.
+ *
+ * Every tab carried one: "Cards - The decklist", "Value - Cost and gaps". Two
+ * things were wrong with that.
+ *
+ * `PageTabs` switches to a two-line column layout the moment ANY tab has a
+ * hint, so eight hints turned a normal h-9 strip into eight tall stacked pills.
+ * Owner: "all those tabs look weird as an example". That is what they were
+ * looking at.
+ *
+ * And the hints were the pattern already struck off the homepage twice: a label
+ * followed by a translation of itself, written for somebody who does not know
+ * what a decklist is. Anyone reading a deck page knows. Say Cards.
+ */
 const TAB_DEFS: TabDef[] = [
-  { id: 'cards', label: 'Cards', icon: LayoutGrid, hint: 'The decklist' },
-  { id: 'add', label: 'Add', icon: Plus, hint: 'Search and add' },
-  { id: 'mana', label: 'Mana', icon: Droplets, hint: 'Curve and sources' },
-  { id: 'edh', label: 'EDH', icon: Crown, hint: 'Commander power' },
-  { id: 'analysis', label: 'Analysis', icon: BarChart3, hint: 'How it plays' },
-  { id: 'legality', label: 'Legality', icon: Gavel, hint: 'Format rules' },
-  { id: 'value', label: 'Value', icon: Wallet, hint: 'Cost and gaps' },
-  { id: 'record', label: 'Record', icon: ScrollText, hint: 'Primer and matches' },
+  { id: 'cards', label: 'Cards', icon: LayoutGrid },
+  { id: 'add', label: 'Add', icon: Plus },
+  { id: 'mana', label: 'Mana', icon: Droplets },
+  { id: 'edh', label: 'EDH', icon: Crown },
+  { id: 'analysis', label: 'Analysis', icon: BarChart3 },
+  { id: 'legality', label: 'Legality', icon: Gavel },
+  { id: 'value', label: 'Value', icon: Wallet },
+  { id: 'record', label: 'Record', icon: ScrollText },
 ];
 
 /**

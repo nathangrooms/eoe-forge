@@ -8,6 +8,13 @@ control-by-control inventory and the nothing-lost contract. This one answers a
 different question: what is in the box, what is in the box twice, and how far
 each of the eight tabs is from being the best version of itself.
 
+> **This census has been acted on.** `DECK-TABS-REBUILT.md` is what the rebuild
+> did with it, tab by tab, with the request counts, the control and card counts
+> and the bundle sizes measured before and after. Section 7 below is the list it
+> worked from; read the two together before changing a deck tab, because
+> anything section 7 calls missing may since have been built, moved or
+> deliberately left alone with a reason written down.
+
 ---
 
 ## 0. Method, and what this is not

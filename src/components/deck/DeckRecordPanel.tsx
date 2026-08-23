@@ -131,7 +131,11 @@ export function DeckRecordPanel({
                has not played. */
             value: stats.winRate === null ? '—' : `${stats.winRate.toFixed(1)}%`,
             raw: stats.winRate ?? undefined,
-            meter: stats.winRate ?? undefined,
+            /* No meter here or on the form tile beside it. Matches, wins,
+               losses and a view count have no denominator, and `MetricRow`
+               reserves the bar's line for the whole row as soon as one tile
+               asks for it — so four of these six would draw an empty track,
+               which on a raised tile reads as a bar at a hundred per cent. */
             subtext: stats.total > 0 ? `${stats.wins} of ${stats.total}` : 'no matches yet',
           },
           {
@@ -139,7 +143,6 @@ export function DeckRecordPanel({
             label: 'Recent form',
             value: stats.recentWinRate === null ? '—' : `${stats.recentWinRate.toFixed(0)}%`,
             raw: stats.recentWinRate ?? undefined,
-            meter: stats.recentWinRate ?? undefined,
             subtext:
               stats.recentCount > 0
                 ? `last ${stats.recentCount} game${stats.recentCount === 1 ? '' : 's'}`

@@ -10,9 +10,16 @@ import {
   MetricRow,
   matchedLabel,
   resultSentence,
-  useListingView,
   type ListingMode,
 } from '@/components/listing';
+/* `useListingView` from its own module rather than through the folder's
+   barrel, and this is not style. `@/components/listing/index.ts` re-exports the
+   hook, the hook imports `@/components/cards`, and `CardDetail` in there imports
+   the listing barrel back: two barrels in a cycle. Rollup reports it as
+   "will end up in different chunks ... will likely lead to broken execution
+   order", and this file is a lazily loaded chunk, which is exactly the case it
+   is warning about. Everything else still comes from the barrel. */
+import { useListingView } from '@/components/listing/useListingView';
 import { cn } from '@/lib/utils';
 import { DeckValidator, type ValidationWarning } from '@/lib/deckbuilder/validation-warnings';
 import type { Card as StoreCard } from '@/stores/deckStore';
@@ -254,10 +261,6 @@ export function DeckLegalityPanel({
             value: String(legalCount),
             raw: legalCount,
             suffix: `/${verdicts.length}`,
-            /* A fraction of a real denominator, so the bar is a length rather
-               than a decoration. `Metric.meter` is only for figures that
-               genuinely have one. */
-            meter: verdicts.length > 0 ? (legalCount / verdicts.length) * 100 : 0,
             subtext: 'of the formats the catalogue tracks',
           },
         ]}

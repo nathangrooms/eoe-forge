@@ -126,6 +126,17 @@ export function DeckValuePanel({
      which is the whole reason it takes one. */
   const ownershipKnown = Boolean(ownedByName) && !ownershipLoading;
 
+  /**
+   * "Still reading" and "read, and there is nothing" are different facts.
+   *
+   * `spreads` is null until the query answers and a Map afterwards, empty or
+   * not. Testing only `cheapestTotal === null` folded the two together, so a
+   * deck whose cards have no printing spread on record drew `MetricRow`'s
+   * loading bar for ever under a caption saying it was reading. A tile that is
+   * permanently loading is a worse answer than a dash.
+   */
+  const spreadsRead = spreads !== null;
+
   return (
     <div className="space-y-6">
       <MetricRow
@@ -146,10 +157,17 @@ export function DeckValuePanel({
             label: 'You already own',
             value: ownershipKnown ? `$${summary.ownedValue.toFixed(2)}` : null,
             raw: summary.ownedValue,
-            meter:
-              summary.total > 0 ? (summary.ownedValue / summary.total) * 100 : 0,
+            /* No meter, and no tile in this row has one. `MetricRow` reserves
+               the bar's line for every tile as soon as one asks, and an empty
+               track reads as a full bar. A deck value, a cheapest-printing
+               total and a reserved-list total have no denominator between them,
+               so the fraction is said in words instead. */
             subtext: ownershipKnown
-              ? `${summary.ownedCopies} of ${summary.ownedCopies + summary.neededCopies} copies`
+              ? `${summary.ownedCopies} of ${summary.ownedCopies + summary.neededCopies} copies, ${
+                  summary.total > 0
+                    ? Math.round((summary.ownedValue / summary.total) * 100)
+                    : 0
+                }% of the value`
               : 'checking your collection',
           },
           {
@@ -168,12 +186,18 @@ export function DeckValuePanel({
             id: 'cheapest',
             label: 'At the cheapest printing',
             value:
-              summary.cheapestTotal === null ? null : `$${summary.cheapestTotal.toFixed(2)}`,
+              summary.cheapestTotal !== null
+                ? `$${summary.cheapestTotal.toFixed(2)}`
+                : spreadsRead
+                  ? '—'
+                  : null,
             raw: summary.cheapestTotal ?? undefined,
             subtext:
-              summary.savingAtCheapest === null
-                ? 'reading the other printings'
-                : summary.savingAtCheapest > 0
+              summary.cheapestTotal === null
+                ? spreadsRead
+                  ? 'no other printings on record'
+                  : 'reading the other printings'
+                : summary.savingAtCheapest && summary.savingAtCheapest > 0
                   ? `saves $${summary.savingAtCheapest.toFixed(2)}`
                   : 'already the cheapest',
           },

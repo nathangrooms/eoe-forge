@@ -469,17 +469,37 @@ export function EdhAnalysisPanel({ data, isLoading, needsRefresh, onRefresh }: E
               <MetricRow
                 columns={5}
                 metrics={[
+                  /* Every tile in this row carries a bar or none of them does.
+                     `MetricRow` reserves the bar's line for the whole row as
+                     soon as one tile asks for it, and an empty track on a
+                     raised tile reads as a bar at a hundred per cent — so these
+                     two were drawing "100%" beside three real probabilities.
+                     Both are a real share of the same real total. */
                   {
                     id: 'lands',
                     label: 'Lands',
                     value: String(landAnalysis.landCount),
                     raw: landAnalysis.landCount,
+                    meter:
+                      landAnalysis.landCount + landAnalysis.nonLandCount > 0
+                        ? (landAnalysis.landCount /
+                            (landAnalysis.landCount + landAnalysis.nonLandCount)) *
+                          100
+                        : 0,
+                    subtext: 'of the deck',
                   },
                   {
                     id: 'nonlands',
                     label: 'Non-lands',
                     value: String(landAnalysis.nonLandCount),
                     raw: landAnalysis.nonLandCount,
+                    meter:
+                      landAnalysis.landCount + landAnalysis.nonLandCount > 0
+                        ? (landAnalysis.nonLandCount /
+                            (landAnalysis.landCount + landAnalysis.nonLandCount)) *
+                          100
+                        : 0,
+                    subtext: 'of the deck',
                   },
                   {
                     id: 'screw',

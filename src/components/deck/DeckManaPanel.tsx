@@ -5,9 +5,16 @@ import {
   FacetChip,
   FilterBar,
   MetricRow,
-  useListingView,
   type ListingMode,
 } from '@/components/listing';
+/* `useListingView` from its own module rather than through the folder's
+   barrel, and this is not style. `@/components/listing/index.ts` re-exports the
+   hook, the hook imports `@/components/cards`, and `CardDetail` in there imports
+   the listing barrel back: two barrels in a cycle. Rollup reports it as
+   "will end up in different chunks ... will likely lead to broken execution
+   order", and this file is a lazily loaded chunk, which is exactly the case it
+   is warning about. Everything else still comes from the barrel. */
+import { useListingView } from '@/components/listing/useListingView';
 import { ManaPip } from '@/components/ui/mana-cost';
 import { ManaCurve, type CurveBasis, type CurveBin } from '@/components/deck-builder/ManaCurve';
 import { LandEnhancerUX } from '@/components/deck-builder/LandEnhancerUX';
@@ -150,8 +157,8 @@ export function DeckManaPanel({
     setColours([]);
   }, []);
 
-  const landPct =
-    profile.librarySize > 0 ? (profile.landCount / profile.librarySize) * 100 : 0;
+  const sourceShare =
+    profile.librarySize > 0 ? (profile.sources.length / profile.librarySize) * 100 : 0;
 
   /**
    * The deterministic fixes, from the two libraries that already compute them.
@@ -228,6 +235,16 @@ export function DeckManaPanel({
             label: `Under ${playability.threshold}%`,
             value: String(playability.belowThresholdCount),
             raw: playability.belowThresholdCount,
+            /* EVERY TILE IN THIS ROW CARRIES A METER OR NONE OF THEM DOES.
+               `MetricRow` reserves the bar's line for the whole row as soon as
+               one tile asks for it, and an empty track on a raised tile reads
+               as a bar at a hundred per cent. So this is a real fraction of a
+               real denominator: how much of what could be scored comes in under
+               the threshold. */
+            meter:
+              playability.scoredCount > 0
+                ? (playability.belowThresholdCount / playability.scoredCount) * 100
+                : 0,
             subtext: 'more often stuck in hand than cast on curve',
           },
           {
@@ -235,8 +252,15 @@ export function DeckManaPanel({
             label: 'Mana sources',
             value: String(profile.sources.length),
             raw: profile.sources.length,
-            meter: landPct,
-            subtext: `${profile.landCount} lands · ${profile.rockCount} rocks · ${profile.dorkCount} dorks`,
+            /* Share of the library that makes mana, which is what the figure is
+               a count of. It was the LAND share, which is a different fraction
+               of a different thing sitting under a source count. */
+            meter: sourceShare,
+            /* "that make mana", said out loud. `ManaProfile.landCount` counts
+               lands that actually produce, so a Maze of Ith is a land on the
+               panel below and is not one here. Two questions, and the labels
+               have to say which is which or the tab prints two land counts. */
+            subtext: `${profile.landCount} lands · ${profile.rockCount} rocks · ${profile.dorkCount} dorks that make mana`,
           },
         ]}
       />

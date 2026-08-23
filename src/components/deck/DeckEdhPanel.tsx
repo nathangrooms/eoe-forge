@@ -6,9 +6,16 @@ import {
   FacetChip,
   FilterBar,
   MetricRow,
-  useListingView,
   type ListingMode,
 } from '@/components/listing';
+/* `useListingView` from its own module rather than through the folder's
+   barrel, and this is not style. `@/components/listing/index.ts` re-exports the
+   hook, the hook imports `@/components/cards`, and `CardDetail` in there imports
+   the listing barrel back: two barrels in a cycle. Rollup reports it as
+   "will end up in different chunks ... will likely lead to broken execution
+   order", and this file is a lazily loaded chunk, which is exactly the case it
+   is warning about. Everything else still comes from the barrel. */
+import { useListingView } from '@/components/listing/useListingView';
 import { cn } from '@/lib/utils';
 import { PowerScore } from '@/components/deck/PowerScore';
 import { CommanderPowerDisplay } from '@/components/deck-builder/CommanderPowerDisplay';
@@ -201,9 +208,12 @@ export function DeckEdhPanel({
             raw: power?.score,
             suffix: '/10',
             subtext: power ? bandShortLabel(power.band) : 'not scored yet',
-            /* A bar under a figure with a real denominator. Ten is the scale's
-               own top, not a target somebody picked. */
-            meter: power ? (power.score / 10) * 100 : 0,
+            /* NO METER, and the rest of this row has none either. `MetricRow`
+               reserves the bar's line for every tile as soon as one asks for
+               it, and an empty track reads as a full bar: a bracket, a game
+               changer count and a rank have no denominator to be a fraction of,
+               so five of these six would have been drawing a bar that means
+               nothing. The `/10` suffix says the scale. */
           },
           {
             id: 'bracket',

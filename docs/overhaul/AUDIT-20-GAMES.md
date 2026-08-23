@@ -294,3 +294,20 @@ parsing problem:
 
 Both are CLAUDE.md's "green tests do not mean a player can reach it", one level
 up: green tests do not mean anything CALLS the thing they cover.
+
+## The "1 stalled" that is not a stall (23 Aug)
+
+A later run reported 19 of 20 finishing, against the 20 of 20 recorded above,
+and seed 9018 was the odd one out. It is not a deadlock and nothing is frozen.
+
+`runner.ts` caps a game at 80 turns and reports anything past it as stalled.
+Seed 9018 used to finish on turn 76, which is four turns of headroom. Since then
+bots have learned to cast instants and sorceries and every spell goes through
+the stack, so the same game legitimately takes longer and crosses the cap.
+
+    --max-turns 80   turn-cap
+    --max-turns 200  1 finished, 0 stalled, 2,683 actions
+
+So "stalled" in this harness means "hit the cap", not "froze", and the cap was
+tuned against a simpler bot. Worth knowing before somebody spends an afternoon
+hunting a deadlock that is not there.

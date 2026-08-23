@@ -123,6 +123,7 @@ function nameOf(row: DeckCardRow): string {
 const LABEL_OVERRIDE: Record<string, string> = {
   paupercommander: 'Pauper EDH',
   standardbrawl: 'Standard Brawl',
+  competitivebrawl: 'Competitive Brawl',
   historicbrawl: 'Historic Brawl',
   oldschool: 'Old School',
   premodern: 'Premodern',
@@ -131,6 +132,7 @@ const LABEL_OVERRIDE: Record<string, string> = {
   penny: 'Penny Dreadful',
   future: 'Future Standard',
   oathbreaker: 'Oathbreaker',
+  tlr: 'TLR',
 };
 
 export function formatKeyLabel(key: string): string {

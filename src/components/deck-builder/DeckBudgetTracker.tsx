@@ -195,6 +195,12 @@ export function DeckBudgetTracker({
               value: `${analysis.isOverBudget ? '−' : ''}$${Math.abs(analysis.remaining).toFixed(2)}`,
               raw: analysis.remaining,
               emphasis: analysis.isOverBudget,
+              /* A bar on every tile in this row or on none of them: `MetricRow`
+                 reserves the line for the whole row as soon as one asks, and an
+                 empty track reads as a full bar. This one is how much of the
+                 budget is still unspent, which is the complement of the tile
+                 beside it and a real fraction of a real number. */
+              meter: Math.max(0, Math.min(100, 100 - analysis.percentUsed)),
               subtext: analysis.isOverBudget ? 'more than the budget' : 'still within it',
             },
             {

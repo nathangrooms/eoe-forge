@@ -204,9 +204,19 @@ export function LandEnhancerUX({
           metrics={[
             {
               id: 'lands',
-              label: 'Lands',
+              /* "in the deck", because the row above this panel prints a
+                 different land count on purpose: `ManaProfile.landCount` counts
+                 lands that actually make mana and this counts lands. A Maze of
+                 Ith is in this figure and not in that one, and a tab that
+                 printed two numbers both labelled "Lands" would be the exact
+                 defect this panel's header note is about. */
+              label: 'Lands in the deck',
               value: String(stats.landCount),
               raw: stats.landCount,
+              /* Every tile in this row carries a bar, because two of them are
+                 probabilities and `MetricRow` reserves the line for the whole
+                 row as soon as one asks. Both of these are real fractions. */
+              meter: landPct,
               subtext: `${landPct.toFixed(0)}% of the deck`,
             },
             {
@@ -214,6 +224,7 @@ export function LandEnhancerUX({
               label: 'Enter tapped',
               value: String(tappedCount),
               raw: tappedCount,
+              meter: (tappedCount / stats.landCount) * 100,
               subtext: `${((tappedCount / stats.landCount) * 100).toFixed(0)}% of the lands`,
             },
             {

@@ -8,9 +8,16 @@ import {
   FacetChip,
   FilterBar,
   MetricRow,
-  useListingView,
   type ListingMode,
 } from '@/components/listing';
+/* `useListingView` from its own module rather than through the folder's
+   barrel, and this is not style. `@/components/listing/index.ts` re-exports the
+   hook, the hook imports `@/components/cards`, and `CardDetail` in there imports
+   the listing barrel back: two barrels in a cycle. Rollup reports it as
+   "will end up in different chunks ... will likely lead to broken execution
+   order", and this file is a lazily loaded chunk, which is exactly the case it
+   is warning about. Everything else still comes from the barrel. */
+import { useListingView } from '@/components/listing/useListingView';
 import { showError } from '@/components/ui/toast-helpers';
 /* The light half, statically: counting what the deck holds against the declared
    targets is drawn on open and needs no scorer. The ranking half arrives with

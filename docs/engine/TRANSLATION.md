@@ -591,7 +591,8 @@ and probes it.
 | swapped, and the probe board ran it clean | 22 |
 | swapped, and it said out loud what it did not do | 136 |
 | swapped, and still silent | 3 |
-| not swapped: the oracle-text compiler already understands the card | 15 |
+| not swapped: the oracle-text compiler already understands the card | 14 |
+| not swapped: text on a face the engine does not play (Alive // Well) | 1 |
 
 99 of the 136 defer because the probe board binds no targets, which is the
 probe's limit and not the card's. **64 defer on one thing**, below.

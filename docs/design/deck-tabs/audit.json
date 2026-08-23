@@ -1,0 +1,74 @@
+[
+  {
+    "tab": "cards",
+    "height": 9369,
+    "hairlines": 0,
+    "controls": 518,
+    "cardImages": 198,
+    "bigFigures": 6,
+    "errors": []
+  },
+  {
+    "tab": "add",
+    "height": 1900,
+    "hairlines": 0,
+    "controls": 33,
+    "cardImages": 2,
+    "bigFigures": 12,
+    "errors": []
+  },
+  {
+    "tab": "mana",
+    "height": 4259,
+    "hairlines": 0,
+    "controls": 45,
+    "cardImages": 18,
+    "bigFigures": 14,
+    "errors": []
+  },
+  {
+    "tab": "edh",
+    "height": 4083,
+    "hairlines": 1,
+    "controls": 34,
+    "cardImages": 4,
+    "bigFigures": 25,
+    "errors": []
+  },
+  {
+    "tab": "analysis",
+    "height": 5160,
+    "hairlines": 0,
+    "controls": 38,
+    "cardImages": 20,
+    "bigFigures": 11,
+    "errors": []
+  },
+  {
+    "tab": "legality",
+    "height": 8554,
+    "hairlines": 0,
+    "controls": 169,
+    "cardImages": 128,
+    "bigFigures": 10,
+    "errors": []
+  },
+  {
+    "tab": "value",
+    "height": 10612,
+    "hairlines": 1,
+    "controls": 429,
+    "cardImages": 212,
+    "bigFigures": 19,
+    "errors": []
+  },
+  {
+    "tab": "record",
+    "height": 2491,
+    "hairlines": 0,
+    "controls": 22,
+    "cardImages": 2,
+    "bigFigures": 13,
+    "errors": []
+  }
+]

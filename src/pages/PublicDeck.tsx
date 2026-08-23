@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { getPublicDeck, trackShareEvent, type PublicDeckData } from '@/lib/api/shareAPI';
 import { PowerScore, PowerScoreBadge } from '@/components/deck/PowerScore';
 import { PowerSliderCoaching } from '@/components/deck-builder/PowerSliderCoaching';
-import { DeckManaPanel } from '@/components/deck/DeckManaPanel';
 import { mainboardOf, toAnalyticsCards } from '@/components/deck/deckAnalyticsCards';
 import { createPlayabilityEngine } from '@/lib/deck/playability';
 import { rowToPlayabilityInput, rowsToPlayabilityInputs } from '@/lib/deck/playabilityView';
@@ -33,6 +32,18 @@ import {
 import { serializeDeck } from '@/lib/deck/deckSerialize';
 import { formatLabel, usesPowerLevel } from '@/lib/deck/formats';
 import { deckAverageManaValue } from '@/lib/deck/curve';
+
+/**
+ * The mana tab arrives when it is opened.
+ *
+ * Same rule and the same measurement as `DeckInterface`: this panel is 20 kB on
+ * its own and a shared deck link opens on the decklist. Importing it normally
+ * put every one of those bytes into the first thing a person without an account
+ * ever downloads of this product, for a tab most of them will not press.
+ */
+const DeckManaPanel = lazy(() =>
+  import('@/components/deck/DeckManaPanel').then(m => ({ default: m.DeckManaPanel }))
+);
 
 /**
  * Public, read-only deck page.
@@ -317,7 +328,10 @@ export default function PublicDeck() {
       label: 'Playability',
       value: playability.averagePct === null ? '—' : `${playability.averagePct.toFixed(0)}%`,
       raw: playability.averagePct ?? undefined,
-      meter: playability.averagePct ?? undefined,
+      /* No meter: a card count, an average mana value and a deck value have no
+         denominator, and `MetricRow` reserves the bar's line for the whole row
+         the moment one tile asks for it. An empty track on a raised tile reads
+         as a full bar. */
     },
   ];
 
@@ -509,17 +523,26 @@ export default function PublicDeck() {
                     </CardContent>
                   </Card>
                 ) : (
-                  <DeckManaPanel
-                    curveCards={mainboard}
-                    format={deck.format}
-                    rows={rows.filter(row => !row.is_commander)}
-                    profile={playabilityEngine.profile}
-                    playability={playability}
-                    powerEntries={powerEntries}
-                    power={power}
-                    identity={identity}
-                    onCardClick={openCard}
-                  />
+                  <Suspense
+                    fallback={
+                      <div
+                        className="h-96 animate-pulse rounded-lg bg-muted/30 motion-reduce:animate-none"
+                        aria-busy="true"
+                      />
+                    }
+                  >
+                    <DeckManaPanel
+                      curveCards={mainboard}
+                      format={deck.format}
+                      rows={rows.filter(row => !row.is_commander)}
+                      profile={playabilityEngine.profile}
+                      playability={playability}
+                      powerEntries={powerEntries}
+                      power={power}
+                      identity={identity}
+                      onCardClick={openCard}
+                    />
+                  </Suspense>
                 )}
               </div>
             </div>

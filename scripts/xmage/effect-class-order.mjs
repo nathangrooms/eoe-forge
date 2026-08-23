@@ -182,7 +182,7 @@ writeFileSync(
       order,
       soloAll: [...soloBy.entries()].map(([prim, s]) => ({ prim, solo: s.size })).sort((a, b) => b.solo - a.solo),
       blockedAll: [...blockedBy.entries()].map(([prim, s]) => ({ prim, blocked: s.size })).sort((a, b) => b.blocked - a.blocked),
-      cards: uniq.map((c) => ({ key: c.key, oracleId: c.oracleId, ok: c.ok, missing: c.missing })),
+      cards: uniq.map((c) => ({ key: c.key, oracleId: c.oracleId, ok: c.ok, vacuous: c.vacuous, missing: c.missing })),
     },
     null,
     1,

@@ -62,6 +62,7 @@
 import type {
   Ability,
   ActivatedAbility,
+  Condition,
   Cost,
   Duration,
   Effect,
@@ -87,6 +88,7 @@ import {
   arg,
 } from './record.ts';
 import { grantedKeywordFrom, lowerKeywordAbility } from './keywords.ts';
+import { lowerCondition } from './conditions.ts';
 import { lowerTrigger } from './triggers.ts';
 import { lowerTargets } from './targets.ts';
 import { lowerCosts } from './costs.ts';
@@ -120,6 +122,28 @@ export interface LowerContext {
    * meant the ability's first target would point the bounce at the spell.
    */
   targets: Invocation[];
+  /**
+   * The table being lowered against, so a DECORATOR can lower what it wraps.
+   *
+   * `ConditionalOneShotEffect` is one XMage class in front of any other one-shot
+   * effect in the corpus, so its lowering has to reach the table it is itself an
+   * entry in. Passing the table rather than importing `LOWERINGS` is what keeps
+   * `xmageBodyLowerings`' extra entries reachable from inside a decorator: the
+   * shipped compiler runs against a merged table, and a decorator that closed
+   * over `LOWERINGS` would silently refuse every card whose inner effect is a
+   * translated body.
+   */
+  table: Record<PrimId, Lowering>;
+  /**
+   * Where a decorator says what refused INSIDE it.
+   *
+   * A `Lowering` that returns null is reported against its own primitive, which
+   * is right for a leaf and wrong for a decorator: it would park
+   * `ConditionalOneShotEffect` at the head of the work order for ever and hide
+   * the class that is genuinely missing. Same reasoning, same shape, as
+   * `Blame` in `modifications.ts`.
+   */
+  blame?: { missing: PrimId[]; refused: Array<{ prim: PrimId; why: string }> };
 }
 
 /**
@@ -305,7 +329,134 @@ function targetIsPlayer(ctx: LowerContext, index = 0): boolean {
  * adding the entries one at a time.
  * ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ *
+ * Decorator plumbing
+ *
+ * Three small functions, used only by the conditional decorators, kept here
+ * rather than inside them so the two entries read as the rule they express and
+ * not as recursion machinery.
+ * ------------------------------------------------------------------ */
+
+/** Every slot a chained call such as `.addEffect(x)` contributed. */
+function modArgs(invocation: Invocation, name: string): Slot[] {
+  const out: Slot[] = [];
+  for (const m of invocation.mods ?? []) {
+    if (m.m === name) out.push(...(m.args ?? []));
+  }
+  return out;
+}
+
+/**
+ * A list of nested effect slots, lowered through the SAME table.
+ *
+ * Returns `null` if any one of them refuses, which is the all-or-nothing rule
+ * this file's header states, applied one level down. `undefined` slots are
+ * skipped rather than refused: a constructor argument XMage did not pass is an
+ * absent branch, not a hole.
+ */
+function lowerNested(slots: Array<Slot | undefined>, ctx: LowerContext): Effect[] | null {
+  const out: Effect[] = [];
+  for (const slot of slots) {
+    if (!slot) continue;
+    if (slot.value?.k !== 'invoke') {
+      if (slot.hole?.localName) ctx.blame?.missing.push(`local:${slot.hole.localName}`);
+      ctx.blame?.refused.push({
+        prim: slot.hole?.localName ? `local:${slot.hole.localName}` : 'dsl:nested-effect',
+        why: 'the effect inside a conditional is not an invocation this record resolved',
+      });
+      return null;
+    }
+    const inner = slot.value.invocation;
+    const why = REFUSED_EFFECTS[inner.prim];
+    if (why) {
+      ctx.blame?.missing.push(inner.prim);
+      ctx.blame?.refused.push({ prim: inner.prim, why });
+      return null;
+    }
+    const lowering = ctx.table[inner.prim];
+    if (!lowering) {
+      ctx.blame?.missing.push(inner.prim);
+      return null;
+    }
+    const produced = lowering(inner, ctx);
+    if (produced === null) {
+      ctx.blame?.refused.push({ prim: inner.prim, why: describeUnresolved(inner) });
+      return null;
+    }
+    out.push(...produced);
+  }
+  return out;
+}
+
+/** The condition on a decorator, reporting what is missing when there is none. */
+function lowerConditionInto(slot: Slot | undefined, ctx: LowerContext, outer: PrimId): Condition | null {
+  const lowered = lowerCondition(slot);
+  if (lowered.ok) return lowered.condition;
+  if (lowered.missing) ctx.blame?.missing.push(lowered.missing);
+  ctx.blame?.refused.push({ prim: lowered.missing ?? outer, why: lowered.why ?? 'condition did not lower' });
+  return null;
+}
+
 export const LOWERINGS: Record<PrimId, Lowering> = {
+  /* ---------------- the conditional decorators ---------------- *
+   *
+   * `ConditionalOneShotEffect` is 637 cards and `ConditionalContinuousEffect`
+   * is 811, ranks 3 and 1 of `docs/engine/EFFECT-CLASS-ORDER.md`. Neither is an
+   * effect: each is one XMage class standing in front of any OTHER effect in
+   * the corpus, with a `Condition` deciding whether it happens.
+   *
+   * Both refuse when either half refuses, and the reason is the one this whole
+   * file is arranged around. Dropping the condition gives a card that RUNS and
+   * is WRONG — Bottomless Vault adding a storage counter while UNTAPPED, Fated
+   * Conflagration scrying on an opponent's turn — and a card that runs and is
+   * wrong says nothing, while a card that refuses is reported out loud.
+   * -------------------------------------------------------------- */
+
+  'xmage:ConditionalOneShotEffect': (invocation, ctx) => {
+    const condition = lowerConditionInto(arg(invocation, 'condition'), ctx, invocation.prim);
+    if (!condition) return null;
+
+    // `effect` and `otherwiseEffect` are constructor arguments; `addEffect` and
+    // `addOtherwiseEffect` are chained calls that add more of each. Reading only
+    // the constructor would drop the added ones and run half the card.
+    const thenSlots = [arg(invocation, 'effect'), ...modArgs(invocation, 'addEffect')];
+    const elseSlots = [arg(invocation, 'otherwiseEffect'), ...modArgs(invocation, 'addOtherwiseEffect')];
+
+    const then = lowerNested(thenSlots, ctx);
+    if (then === null) return null;
+    const otherwise = lowerNested(elseSlots, ctx);
+    if (otherwise === null) return null;
+
+    // XMage's `apply` returns true with nothing done when the chosen branch is
+    // empty, so an empty `then` is legal there. Here it is a lowering that
+    // produced no effects, which is the silent-success failure, so it refuses.
+    if (then.length === 0 && otherwise.length === 0) return null;
+
+    const effect: Effect = { do: 'if', condition, then };
+    if (otherwise.length > 0) (effect as { else?: Effect[] }).else = otherwise;
+    return [effect];
+  },
+
+  /**
+   * The same decorator around a CONTINUOUS effect, reached from a resolving
+   * ability: "until end of turn, this creature gets +2/+0 if you control a
+   * Mountain". 77 of the 811 cards using this class hold it in a spell,
+   * activated or triggered ability rather than a static one.
+   *
+   * `modifications.ts` owns the static reading, where the condition becomes
+   * `StaticAbility.condition` and is re-checked as the board changes. Here the
+   * condition is checked ONCE, when the ability resolves, which is what
+   * `{do:'if'}` does and what a resolving ability means.
+   */
+  'xmage:ConditionalContinuousEffect': (invocation, ctx) => {
+    if (arg(invocation, 'otherwiseEffect')) return null;
+    const condition = lowerConditionInto(arg(invocation, 'condition'), ctx, invocation.prim);
+    if (!condition) return null;
+    const then = lowerNested([arg(invocation, 'effect')], ctx);
+    if (then === null || then.length === 0) return null;
+    return [{ do: 'if', condition, then }];
+  },
+
   /* ---------------- tokens: 2,164 cards blocked ---------------- */
 
   /**
@@ -716,6 +867,148 @@ export const LOWERINGS: Record<PrimId, Lowering> = {
     ];
   },
 
+  /* ---------------- the "…Source" family ---------------- *
+   *
+   * The same verbs as the target family, aimed at `{sel:'self'}`. They were
+   * missing for no reason other than nobody having written them: every one is a
+   * two-line entry, and together they are 137 movable cards on the ranked work
+   * order. Grouped here so the symmetry is visible, because a reader who sees
+   * `UntapTargetEffect` and not `UntapSourceEffect` will assume the second was
+   * refused for a reason.
+   * ------------------------------------------------------ */
+
+  /** 136 cards. Untaps itself. No arguments at all: the class IS the effect. */
+  'xmage:UntapSourceEffect': () => [{ do: 'untap', what: { sel: 'self' } }],
+  /** Its mirror, for the same reason. */
+  'xmage:TapSourceEffect': () => [{ do: 'tap', what: { sel: 'self' } }],
+
+  /**
+   * 148 cards. Returns itself to its owner's hand.
+   *
+   * `returnFromNextZone` is XMage's answer to a source that has ALREADY changed
+   * zone by the time the effect resolves — it chases the card one zone-change
+   * forward. `move-zone` reads the instance the selector resolves to now, so a
+   * card asking for that behaviour is refused rather than returning whatever is
+   * at the old id.
+   */
+  'xmage:ReturnToHandSourceEffect': (invocation) => {
+    if (bool(invocation, 'returnFromNextZone')) return null;
+    return [{ do: 'move-zone', what: { sel: 'self' }, to: 'hand' }];
+  },
+
+  /** 84 cards. Recursion from the graveyard, `{sel:'self'}` again. */
+  'xmage:ReturnSourceFromGraveyardToHandEffect': () => [
+    { do: 'move-zone', what: { sel: 'self' }, to: 'hand' },
+  ],
+
+  /* ---------------- the "…Target" family, filled in ---------------- */
+
+  /**
+   * 137 cards. Puts the target on top of, or on the bottom of, its owner's
+   * library.
+   *
+   * `onTop` is the whole card and it is a REQUIRED constructor argument in
+   * every overload, so an absent one is a hole and not a default. Defaulting it
+   * would turn Banishing Stroke's bottom-of-library exile-equivalent into a
+   * tuck on top, which is the difference between removing a commander and
+   * handing it back next turn.
+   */
+  'xmage:PutOnLibraryTargetEffect': (invocation, ctx) => {
+    const what = targetRef(ctx);
+    const onTop = bool(invocation, 'onTop');
+    if (!what || onTop === undefined) return null;
+    return [{ do: 'move-zone', what, to: 'library', position: onTop ? 'top' : 'bottom' }];
+  },
+
+  /**
+   * 138 cards. The target PLAYER draws.
+   *
+   * `optional` and `upTo` are both a decision the controller makes, and neither
+   * has anywhere to go: "draw up to three cards" is not "draw three". Refused
+   * rather than made mandatory, which is the same call
+   * `DrawDiscardControllerEffect` next door already makes.
+   */
+  'xmage:DrawCardTargetEffect': (invocation, ctx) => {
+    if (bool(invocation, 'optional') || bool(invocation, 'upTo')) return null;
+    const who = targetPlayerRef(ctx);
+    const n = amount(invocation, 'amount');
+    if (!who || n === undefined || !targetIsPlayer(ctx)) return null;
+    return [{ do: 'draw', who, count: n }];
+  },
+
+  /** 136 cards. The target player mills. */
+  'xmage:MillCardsTargetEffect': (invocation, ctx) => {
+    const who = targetPlayerRef(ctx);
+    const n = amount(invocation, 'numberCards');
+    if (!who || n === undefined || !targetIsPlayer(ctx)) return null;
+    return [{ do: 'mill', who, count: n }];
+  },
+
+  /* ---------------- two targets pointed at each other ---------------- */
+
+  /**
+   * 68 cards. "Target creature you control fights target creature you don't
+   * control": each deals damage equal to its power to the other, at the same
+   * time.
+   *
+   * Two `{do:'damage'}` effects and not one, because there is no fight member
+   * and there does not need to be: `{v:'power'}` reads the power at resolution,
+   * which is when `Permanent.fight` reads it too. The two are written in the
+   * order XMage applies them so a log reads the same way round.
+   *
+   * The lethal-both-ways case is correct by construction and worth stating:
+   * both damages are dealt before state-based actions run, so a 2/2 fighting a
+   * 2/2 kills both, exactly as `fight` does.
+   */
+  'xmage:FightTargetsEffect': (_invocation, ctx) => {
+    const first = targetRef(ctx, 0);
+    const second = targetRef(ctx, 1);
+    // One target means XMage read the other off a target pointer set by the
+    // ability that made this effect. The record does not carry that pointer, so
+    // there is no second creature to name and the effect refuses.
+    if (!first || !second) return null;
+    return [
+      { do: 'damage', to: second, amount: { v: 'power', of: first } },
+      { do: 'damage', to: first, amount: { v: 'power', of: second } },
+    ];
+  },
+
+  /**
+   * 66 cards. One-way fight: the first target deals damage equal to its power
+   * to the second, and takes none back.
+   *
+   * `firstTargetName` is display text only, checked in `getText`, so it is read
+   * and discarded. `multiplier` is not: Animist's Might deals TWICE its power,
+   * and dropping it halves five cards silently.
+   */
+  'xmage:DamageWithPowerFromOneToAnotherTargetEffect': (invocation, ctx) => {
+    const dealer = targetRef(ctx, 0);
+    if (!dealer) return null;
+    // The second target may be a creature or a player: XMage tries the
+    // permanent first and falls back to the player, so both are legal here.
+    const to = targetIsPlayer(ctx, 1) ? targetPlayerRef(ctx, 1) : targetRef(ctx, 1);
+    if (!to) return null;
+    const multiplier = int(invocation, 'multiplier');
+    const power: ValueExpr = { v: 'power', of: dealer };
+    const amountExpr: ValueExpr =
+      multiplier === undefined || multiplier === 1 ? power : { v: 'mul', of: [power, multiplier] };
+    return [{ do: 'damage', to, amount: amountExpr }];
+  },
+
+  /* ---------------- energy ---------------- */
+
+  /**
+   * 121 cards. Energy is a counter on the PLAYER, not on a permanent, which is
+   * why this is `{do:'player-counter'}` and not `{do:'add-counters'}`. The two
+   * live in different places in the state and a card that put energy on itself
+   * would be uncountable and unspendable.
+   */
+  'xmage:GetEnergyCountersControllerEffect': (invocation) => {
+    const count = amount(invocation, 'value');
+    if (count === undefined) return null;
+    return [{ do: 'player-counter', who: { who: 'you' }, counter: 'energy', count }];
+  },
+
   /* ---------------- the stack and the table ---------------- */
 
   'xmage:ReturnToHandTargetEffect': (_invocation, ctx) => {
@@ -783,8 +1076,10 @@ export const REFUSED_EFFECTS: Record<PrimId, string> = {
   'xmage:SurveilEffect': '186 cards. Same.',
   'xmage:DoIfCostPaid':
     '580 cards. Needs `{do:"do-if-cost-paid"}`, proposed in the same section. `{do:"unless-pays"}` is the OPPOSITE polarity: it asks somebody else and runs the effects on refusal. Reusing it would resolve every one of these cards backwards.',
-  'xmage:ConditionalOneShotEffect':
-    '602 cards. Needs the condition table: 167 distinct condition classes appear across the corpus, 49 of them shared. `{do:"if"}` exists; the mapping from an XMage `Condition` to a `dsl.ts` one does not.',
+  'xmage:InvestigateEffect':
+    '115 cards. Creates a Clue, and a Clue is "{2}, Sacrifice this artifact: Draw a card" — the sacrifice ability is the whole token. `tokens.generated.ts` records it as `otherAbilities: ["ClueAbility"]`, which `CreateTokenEffect` already refuses by name. Emitting the token without it puts a blank artifact on the battlefield that the deck builder would count as card draw. Same call, same reason, written out here so this class stops reading as work nobody got to.',
+  'xmage:AmassEffect':
+    '55 cards. "Put N +1/+1 counters on an Army you control. If you don\'t control one, create a 0/0 Army first." The counters go on ONE Army the controller picks, and a selector over "Armies you control" puts them on every one. That is right on the board everybody actually has and wrong on the board the rule is written for, and a card that is right most of the time is the shape this port refuses.',
   'xmage:CreateDelayedTriggeredAbilityEffect':
     '301 cards. Creates a trigger that fires later. `dsl.ts` abilities belong to cards, so a delayed one has nowhere to live.',
   'xmage:ExileUntilSourceLeavesEffect':
@@ -1361,6 +1656,23 @@ function lowerStatic(ability: AbilityRecord): LowerResult {
       ],
     );
   }
+  // "As long as …", from `ConditionalContinuousEffect`. One `StaticAbility`
+  // carries ONE condition, so two sets gated on different conditions cannot be
+  // one ability, and they refuse for the same reason two different `affects` do:
+  // merging them would apply each modification under both conditions.
+  const conditions = lowered.sets.map((s) => JSON.stringify(s.condition ?? null));
+  if (new Set(conditions).size > 1) {
+    return fail(
+      [ability.via.prim],
+      [
+        {
+          prim: ability.via.prim,
+          why: 'one static ability whose effects are gated on different conditions; splitting it into two abilities is not modelled',
+        },
+      ],
+    );
+  }
+
   const zone = arg(ability.via, 'zone')?.value;
   const result: StaticAbility = {
     id: ability.id,
@@ -1370,6 +1682,7 @@ function lowerStatic(ability: AbilityRecord): LowerResult {
     affects: first.affects,
     modifications: lowered.sets.flatMap((s) => s.modifications),
   };
+  if (first.condition) result.condition = first.condition;
   if (zone?.k === 'zone') result.activeZones = [zone.zone];
   return { ok: true, ability: result, effects: [], missing: [], refused: [] };
 }
@@ -1398,9 +1711,17 @@ function lowerResolving(
         missing.push(invocation.prim);
         continue;
       }
-      const produced = lowering(invocation, { ability, record, targets });
+      // A fresh blame per invocation, so a decorator that refuses names what
+      // refused inside it and a leaf that refuses still reports itself.
+      const blame = { missing: [] as PrimId[], refused: [] as Array<{ prim: PrimId; why: string }> };
+      const produced = lowering(invocation, { ability, record, targets, table, blame });
       if (produced === null) {
-        refused.push({ prim: invocation.prim, why: describeUnresolved(invocation) });
+        if (blame.missing.length > 0 || blame.refused.length > 0) {
+          missing.push(...blame.missing);
+          refused.push(...blame.refused);
+        } else {
+          refused.push({ prim: invocation.prim, why: describeUnresolved(invocation) });
+        }
         continue;
       }
       out.push(...produced);
@@ -1477,18 +1798,37 @@ function lowerResolving(
    *
    * Refusing is the safe half and the one this file already applies to costs
    * for the same reason: a card that does nothing is `silent-noted`, which the
-   * app says out loud, while a card that runs the wrong half says nothing. When
-   * the condition table exists this becomes a lowering rather than a refusal,
-   * and the ability comes back with a real `condition`.
+   * app says out loud, while a card that runs the wrong half says nothing.
+   *
+   * THE CONDITION TABLE NOW EXISTS, so this is a lowering. `conditions.ts` is
+   * the mapping the paragraph above says did not exist, and an intervening if
+   * it can read becomes `ability.condition`, which `dslConditionHolds` in
+   * `trigger-bridge.ts` already gates on. One it cannot read still refuses, and
+   * `conditions.ts` names which condition class that was, so the refusal is a
+   * countable unit of work instead of a dead end.
    */
+  let interveningIf: Condition | undefined;
   if (ability.interveningIf) {
-    refused.push({
-      prim: ability.via.prim,
-      why:
-        ability.interveningIf.value === undefined
-          ? 'intervening if condition did not resolve'
-          : 'intervening if condition has no dsl.ts equivalent to lower into',
-    });
+    const lowered = lowerCondition(ability.interveningIf);
+    if (lowered.ok && (ability.kind === 'spell' || ability.kind === 'mana')) {
+      // `TriggeredAbility` and `ActivatedAbility` have a `condition`;
+      // `SpellAbility` and `ManaAbility` do not. Same shape of gap as the
+      // additional cost above, so it is reported the same way: `dsl:` for a
+      // hole in the ability shape, never `xmage:` for a table entry that exists.
+      missing.push(`dsl:${ability.kind === 'spell' ? 'SpellAbility' : 'ManaAbility'}.condition`);
+      refused.push({
+        prim: ability.via.prim,
+        why: 'the ability has an intervening if and this ability shape has no condition to carry it',
+      });
+    } else if (lowered.ok) {
+      interveningIf = lowered.condition;
+    } else {
+      if (lowered.missing) missing.push(lowered.missing);
+      refused.push({
+        prim: lowered.missing ?? ability.via.prim,
+        why: lowered.why ?? 'intervening if condition did not lower',
+      });
+    }
   }
 
   let trigger: ReturnType<typeof lowerTrigger> | null = null;
@@ -1603,16 +1943,17 @@ function lowerResolving(
     const lowered: TriggeredAbility = { ...base, kind: 'triggered', event: trigger.event, effects };
     if (targets.length > 0) lowered.targets = targets;
     if (trigger.optional) lowered.optional = true;
-    /* No `interveningIf` marker is set here any more, and the line that set one
-     * is gone rather than commented out. An ability carrying an intervening if
-     * is refused above, so this point is unreachable for one; and the marker was
-     * a boolean no consumer in `src/lib/game` ever read, which is what made the
-     * dropped condition invisible. If it comes back it comes back as
-     * `condition`, the field the engine actually gates on. */
+    /* The intervening if comes back as `condition`, the field the engine
+     * actually gates on: `dslConditionHolds` in `trigger-bridge.ts` reads it and
+     * returns true when it is absent. It is never the old boolean marker again.
+     * That marker was read by nothing in `src/lib/game`, which is precisely what
+     * made a dropped condition invisible for as long as it was. */
+    if (interveningIf) lowered.condition = interveningIf;
     return { ok: true, ability: lowered, effects, missing: [], refused: [] };
   }
   if (ability.kind === 'activated') {
     const lowered: ActivatedAbility = { ...base, kind: 'activated', costs, effects };
+    if (interveningIf) lowered.condition = interveningIf;
     if (targets.length > 0) lowered.targets = targets;
     if (ability.via.prim === 'xmage:LoyaltyAbility') {
       lowered.isLoyalty = true;

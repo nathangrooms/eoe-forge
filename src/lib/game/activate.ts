@@ -681,6 +681,37 @@ function payOneCost(ctx: CostContext, cost: Cost, index: number): CostResult {
     case 'discard': {
       const count = amount(cost.count);
       if (count === 0) return paid([]);
+
+      /*
+       * "Discard this card" is not a choice, and offering it as one is worse
+       * than not offering it at all.
+       *
+       * Without this branch `{sel:'self'}` fell through to the general case,
+       * which offers the WHOLE HAND and asks the player to pick. That is a
+       * different cost: cycling would have let a player pay by pitching
+       * anything, and the card they meant to cycle would still be in hand. The
+       * discard cost of every keyword printed as "Discard this card" is this
+       * card, named, with nothing to answer.
+       *
+       * Refused rather than guessed when the card is not in hand: a cost that
+       * cannot be paid is a refusal, and paying it from the battlefield would
+       * be inventing a move.
+       */
+      if (cost.what?.sel === 'self') {
+        if (card.zone !== 'hand') {
+          return { actions: [], tapIds: [], reason: `${card.name} is not in your hand to discard.` };
+        }
+        return paid([
+          {
+            type: 'MOVE_ZONE' as const,
+            instanceId: card.instanceId,
+            to: 'graveyard' as const,
+            at,
+            cause: `Discarded for ${card.name}`,
+          },
+        ]);
+      }
+
       const abilityCtx = makeContext(state, card.instanceId, playerId, { x: ctx.x });
       const candidates = player.zones.hand.filter(id => {
         if (!cost.what || cost.what.sel !== 'all') return true;
@@ -819,6 +850,28 @@ export interface TargetResult {
   targets: StackTarget[];
   reason: string;
   pending: PendingChoice[];
+  /**
+   * At least one required target is one that NO answer can supply.
+   *
+   * `reason` alone cannot be read this way, and reading it that way is what
+   * hung a table. It holds the FIRST problem found across every spec, and the
+   * problems are not the same kind of thing: "choose a target first" is a
+   * question, "there is nothing this could target" is a verdict. When one spec
+   * asks a question and another has no candidates at all, `reason` carries the
+   * verdict while `pending` carries the question, so a caller that tests
+   * `pending.length === 0` to mean "settled or dead" reads neither and waits
+   * for an answer that cannot change the outcome.
+   *
+   * Measured rather than theoretical. Energy Chamber's upkeep trigger names an
+   * artifact creature in one mode and a noncreature artifact in the other. On a
+   * board with no artifact creature the second spec had three candidates and
+   * the first had none, so the trigger asked forever and every seat's bot
+   * returned null. Playtest seed 9001, `no-legal-move` at turn 43 upkeep.
+   *
+   * Only the two unanswerable cases set it. A target SUPPLIED and found illegal
+   * does NOT: a different answer fixes that one, so it stays a question.
+   */
+  blocked: boolean;
 }
 
 /**
@@ -879,6 +932,8 @@ export function chooseTargetsFor(
   const out: StackTarget[] = [];
   const pending: PendingChoice[] = [];
   let reason = '';
+  // See `TargetResult.blocked`. Set by the two branches no answer can move.
+  let blocked = false;
 
   for (const spec of specs) {
     if (spec.min > 1) {
@@ -889,6 +944,7 @@ export function chooseTargetsFor(
        * wrong board. Refusing names the gap; announcing one would hide it.
        */
       reason = reason || `This needs ${spec.min} targets at once, which the engine cannot announce yet.`;
+      blocked = true;
       continue;
     }
 
@@ -911,6 +967,7 @@ export function chooseTargetsFor(
     if (total === 0) {
       // CR 601.2c — an ability with no legal target cannot be activated at all.
       reason = reason || `There is nothing this could target: ${spec.prompt}.`;
+      blocked = true;
       continue;
     }
 
@@ -945,7 +1002,7 @@ export function chooseTargetsFor(
     reason = `The engine could not line this ability's targets up in order.`;
   }
 
-  return { targets: out, reason, pending };
+  return { targets: out, reason, pending, blocked };
 }
 
 /** A card as a target, with CR 400.7's zone snapshot taken now. */

@@ -14,7 +14,9 @@
 
 import { getCard, getPlayer } from './rules.ts';
 import { announceCommanderCast, taxForCard } from './commander.ts';
+import { costAdjustmentFor } from './abilities/statics.ts';
 import {
+  adjustGeneric,
   castingCostOf,
   isLand,
   manaSourcesFor,
@@ -68,9 +70,9 @@ export interface CastPlan {
  * `castingCostOf`, not `card.manaCost`: a card whose printed cost string never
  * loaded is charged its mana value instead of nothing. See `mana.ts`.
  */
-function costWithTax(card: CardInstance, tax: number): string {
+function costWithTax(card: CardInstance, tax: number, adjust = 0): string {
   const base = castingCostOf(card);
-  return tax > 0 ? `{${tax}}${base}` : base;
+  return adjustGeneric(base, tax + adjust);
 }
 
 export interface CastOptions {
@@ -209,9 +211,25 @@ export function planCastFromHand(
     }
   }
 
+  /*
+   * COST MODIFIERS, WIRED. `costAdjustmentFor` has existed and been tested in
+   * `abilities/statics.ts` since it was written and, until this line, had no
+   * caller anywhere: every "spells you cast cost {1} less" and every "costs {1}
+   * more" on the table was collected, matched against the spell, totalled, and
+   * thrown away. 146 cards in the corpus have no other rules text, so the
+   * engine was reading them and doing nothing.
+   *
+   * It goes through `costWithTax` rather than beside it because commander tax
+   * and a Thorn of Amethyst are the same arithmetic on the same generic
+   * component, and two places that both edit a cost string is how they end up
+   * disagreeing. `adjustGeneric` clamps at the generic actually printed, so a
+   * table full of reducers makes a spell free and never negative.
+   */
+  const adjust = costAdjustmentFor(state, instanceId, playerId);
+
   const payment = options.ignoreMana
     ? { ok: true, tapIds: [], spend: [], required: 0, available: 0, reason: '' }
-    : planPayment(costWithTax(card, tax), manaSourcesFor(state, playerId));
+    : planPayment(costWithTax(card, tax, adjust), manaSourcesFor(state, playerId));
 
   if (!payment.ok) {
     return { ...fail(payment.reason, payment), tax, destination };

@@ -753,21 +753,158 @@ test('Dockside Extortionist still refuses, in the token COUNT and nowhere else',
   assert.equal(lowered.ok, false);
 });
 
-test('Battle of Wits still refuses on an intervening if, with a reason and no missing primitive', () => {
+test('Battle of Wits still refuses on its intervening if, and now NAMES the condition', () => {
   // "At the beginning of your upkeep, if you have 200 or more cards in your
   //  library, you win the game."
   //
-  // CR 603.4: the condition is checked twice and the record cannot resolve it,
-  // so the ability must not run. `missing` is empty on purpose, because there is
-  // no shared primitive to write; `refused` carries the reason so the card does
-  // not read as `playable: false, blockedBy: []`, which looks like a bug.
+  // CR 603.4: the condition is checked twice, so the ability must not run
+  // unless it holds. It still refuses, and that half has not changed.
+  //
+  // WHAT CHANGED, and why this assertion is stronger than the one it replaces.
+  //
+  // This used to assert `missing` was EMPTY, on the reasoning that an
+  // intervening if had no shared primitive to write. That reasoning held only
+  // while `conditions.ts` did not exist: every intervening if refused together,
+  // so there was nothing to tell them apart. Now the readable ones lower and the
+  // rest name the class that blocked them. This card's blocker is a `Condition`
+  // its own XMage file declares, which is one card's work, and `local:` is how
+  // this port spells one card's work everywhere else.
+  //
+  // A blocked card with an EMPTY missing set is the attribution hole
+  // `docs/engine/EFFECT-CLASS-ORDER.md` had to correct in its first pass: 2,264
+  // cards were blocked by nothing nameable and got swept into whichever class
+  // was measured first. One fewer of those is the point of this assertion.
   const { lowered } = card(
     'BattleOfWits',
     'At the beginning of your upkeep, if you have 200 or more cards in your library, you win the game.',
   );
   assert.equal(lowered.ok, false);
-  assert.deepEqual(lowered.blocked[0].result.missing, []);
-  assert.ok(lowered.blocked[0].result.refused.some((r) => r.why.includes('intervening if')));
+  assert.deepEqual(lowered.blocked[0].result.missing, ['local:BattleOfWitsCondition']);
+  assert.ok(lowered.blocked[0].result.refused.some((r) => r.why.includes('declares itself')));
+});
+
+/* ------------------------------------------------------------------ *
+ * Conditions
+ *
+ * Four cards, one for each place a condition can land, plus one that must
+ * refuse. A condition that is dropped rather than refused is the worst failure
+ * this port has: the ability RUNS with its gate removed, so it changes the
+ * board and nothing reports anything. Every test here checks the gate is
+ * present, not merely that the card lowered.
+ * ------------------------------------------------------------------ */
+
+test('xmage:ConditionalContinuousEffect, static — Anurid Barkripper', () => {
+  // "Threshold — This creature gets +2/+2 as long as there are seven or more
+  //  cards in your graveyard."
+  const ability = only(
+    'AnuridBarkripper',
+    'Threshold — This creature gets +2/+2 as long as there are seven or more cards in your graveyard.',
+  ) as StaticAbility;
+  assert.equal(ability.kind, 'static');
+  assert.deepEqual(ability.modifications, [{ layer: 'pt-modify', power: 2, toughness: 2 }]);
+  // The whole point of the test. `statics.ts` re-checks `condition` every time
+  // the layers are rebuilt, so a Barkripper with an empty graveyard is simply
+  // not in the anthem list rather than being in it and inert.
+  assert.deepEqual(ability.condition, {
+    if: 'value',
+    a: { v: 'cards-in', zone: 'graveyard', of: { who: 'you' } },
+    cmp: 'gte',
+    b: 7,
+  });
+});
+
+test('the condition survives a non-battlefield active zone — Anger', () => {
+  // "Haste
+  //  As long as this card is in your graveyard and you control a Mountain,
+  //  creatures you control have haste."
+  //
+  // Two things at once, and both have been wrong before in this file. The
+  // condition is the Mountain, and the GRAVEYARD half is `activeZones`, not
+  // part of the condition. Folding one into the other gives an Anger that grants
+  // haste from the battlefield, which is a card that runs and is wrong.
+  const list = abilities(
+    'Anger',
+    'Haste\nAs long as this card is in your graveyard and you control a Mountain, creatures you control have haste.',
+  );
+  const stat = list.find((a) => a.kind === 'static') as StaticAbility;
+  assert.ok(stat, 'Anger lowered without a static ability');
+  assert.deepEqual(stat.activeZones, ['graveyard']);
+  assert.deepEqual(stat.condition, {
+    if: 'count',
+    of: {
+      sel: 'all',
+      where: { is: 'subtype', value: 'Mountain' },
+      zone: 'battlefield',
+      controller: { who: 'you' },
+    },
+    cmp: 'gt',
+    value: 0,
+  });
+  // `PermanentsOnTheBattlefieldCondition`'s one-argument constructor means "YOU
+  // control", not "there is". Reading it the other way switches Anger on for
+  // every board with a Mountain anywhere on it.
+  assert.deepEqual((stat.condition as { of: { controller: unknown } }).of.controller, { who: 'you' });
+});
+
+test('xmage:ConditionalOneShotEffect, resolving — Galvanic Blast', () => {
+  // "Galvanic Blast deals 2 damage to any target.
+  //  Metalcraft — Galvanic Blast deals 4 damage instead if you control three or
+  //  more artifacts."
+  const list = abilities(
+    'GalvanicBlast',
+    'Galvanic Blast deals 2 damage to any target.\nMetalcraft — Galvanic Blast deals 4 damage instead if you control three or more artifacts.',
+  );
+  const effects = list.flatMap(effectsOf);
+  const gate = effects.find((e) => e.do === 'if');
+  assert.ok(gate, `no {do:'if'} in ${JSON.stringify(effects)}`);
+  assert.deepEqual((gate as { condition: unknown }).condition, {
+    if: 'controls',
+    who: { who: 'you' },
+    what: { is: 'type', value: 'Artifact' },
+    cmp: 'gte',
+    value: 3,
+  });
+});
+
+test('an intervening if that lowers becomes ability.condition — Felidar Sovereign', () => {
+  // "Vigilance … Lifelink … At the beginning of your upkeep, if you have 40 or
+  //  more life, you win the game."
+  //
+  // `condition` and not a boolean marker, because `dslConditionHolds` in
+  // `trigger-bridge.ts` gates on that field and reads nothing else. The old
+  // `interveningIf: true` marker was read by no consumer in `src/lib/game`,
+  // which is exactly how a dropped condition stayed invisible.
+  const list = abilities(
+    'FelidarSovereign',
+    "Vigilance (Attacking doesn't cause this creature to tap.)\nLifelink (Damage dealt by this creature also causes you to gain that much life.)\nAt the beginning of your upkeep, if you have 40 or more life, you win the game.",
+  );
+  const trigger = list.find((a) => a.kind === 'triggered') as TriggeredAbility;
+  assert.ok(trigger, 'Felidar Sovereign lowered without a triggered ability');
+  assert.deepEqual(trigger.condition, {
+    if: 'value',
+    a: { v: 'life', of: { who: 'you' } },
+    cmp: 'gte',
+    b: 40,
+  });
+});
+
+test('a condition with no entry REFUSES the card and names itself — Blink of an Eye', () => {
+  // "Kicker {1}{U} … Return target nonland permanent to its owner's hand. If
+  //  this spell was kicked, draw a card."
+  //
+  // The refusal is the test. `KickedCondition` has no entry because kicker is
+  // not modelled at all, so nothing ever records that the extra cost was paid.
+  // Lowering it anyway gives a Blink of an Eye that draws a card every time, for
+  // free, and says nothing about it.
+  const { lowered } = card(
+    'BlinkOfAnEye',
+    "Kicker {1}{U} (You may pay an additional {1}{U} as you cast this spell.)\nReturn target nonland permanent to its owner's hand. If this spell was kicked, draw a card.",
+  );
+  assert.equal(lowered.ok, false);
+  assert.ok(
+    lowered.blocked.some((b) => b.result.missing.includes('condition:KickedCondition')),
+    `expected condition:KickedCondition in ${JSON.stringify(lowered.blocked.map((b) => b.result.missing))}`,
+  );
 });
 
 test('Cultivate still refuses, and the reason is one named effect class', () => {
@@ -840,4 +977,120 @@ test('no fixture lowers to an ability with no effects and no modifications', () 
       assert.ok(infoOnly, `${cls} ${entry.id} lowered to nothing and is not InfoEffect`);
     }
   }
+});
+
+/* ------------------------------------------------------------------ *
+ * The "…Source" family and the two-target effects
+ *
+ * These entries were absent for no reason anybody had written down: their
+ * "…Target" siblings were all present, so a reader could reasonably assume the
+ * source versions had been refused deliberately. They had not. Each is pinned
+ * here so the pair stays a pair.
+ * ------------------------------------------------------------------ */
+
+test('xmage:UntapSourceEffect — Blistercoil Weird', () => {
+  // "Whenever you cast an instant or sorcery spell, this creature gets +1/+1
+  //  until end of turn. Untap it."
+  //
+  // `{sel:'self'}`, not `{sel:'target'}`. The card announces no target, so a
+  // lowering that reached for `targetRef` would produce a ref the ability does
+  // not carry, which `danglingTargetRef` refuses before the card ships.
+  const ability = only(
+    'BlistercoilWeird',
+    'Whenever you cast an instant or sorcery spell, this creature gets +1/+1 until end of turn. Untap it.',
+  );
+  const effects = effectsOf(ability);
+  assert.deepEqual(
+    effects.find((e) => e.do === 'untap'),
+    { do: 'untap', what: { sel: 'self' } },
+  );
+});
+
+test('xmage:PutOnLibraryTargetEffect — Academy Ruins, and `onTop` is the whole card', () => {
+  // "{T}: Add {C}.
+  //  {1}{U}, {T}: Put target artifact card from your graveyard on top of your library."
+  //
+  // `onTop` decides between tucking a card where its owner draws it next and
+  // burying it at the bottom. It is a required constructor argument in every
+  // XMage overload, so this lowering treats an absent one as a hole rather than
+  // defaulting it, and the assertion below is what stops a default creeping in.
+  const list = abilities(
+    'AcademyRuins',
+    '{T}: Add {C}.\n{1}{U}, {T}: Put target artifact card from your graveyard on top of your library.',
+  );
+  const move = list.flatMap(effectsOf).find((e) => e.do === 'move-zone');
+  assert.deepEqual(move, {
+    do: 'move-zone',
+    what: { sel: 'target', ref: 0 },
+    to: 'library',
+    position: 'top',
+  });
+});
+
+test('xmage:FightTargetsEffect — Epic Confrontation deals BOTH damages', () => {
+  // "Target creature you control gets +1/+2 until end of turn. It fights target
+  //  creature you don't control. (Each deals damage equal to its power to the
+  //  other.)"
+  //
+  // A fight is two damages, not one. Lowering only the first half gives a card
+  // that kills the opponent's creature and never loses yours, which is a
+  // strictly better card than the one printed and would never be reported.
+  //
+  // The power is read as `{v:'power'}` and not baked in, because the pump on
+  // the same card changes it: Epic Confrontation's +1/+2 has to be on the
+  // creature before the fight is measured, and a number captured at compile
+  // time would fight at the printed power.
+  const ability = only(
+    'EpicConfrontation',
+    "Target creature you control gets +1/+2 until end of turn. It fights target creature you don't control. (Each deals damage equal to its power to the other.)",
+  );
+  const damages = effectsOf(ability).filter((e) => e.do === 'damage');
+  assert.equal(damages.length, 2, `expected two damages, got ${JSON.stringify(damages)}`);
+  assert.deepEqual(damages[0], {
+    do: 'damage',
+    to: { sel: 'target', ref: 1 },
+    amount: { v: 'power', of: { sel: 'target', ref: 0 } },
+  });
+  assert.deepEqual(damages[1], {
+    do: 'damage',
+    to: { sel: 'target', ref: 0 },
+    amount: { v: 'power', of: { sel: 'target', ref: 1 } },
+  });
+});
+
+test('xmage:DamageWithPowerFromOneToAnotherTargetEffect — Animist\'s Might keeps the multiplier', () => {
+  // "… Target creature you control deals damage equal to TWICE its power to
+  //  target creature or planeswalker you don't control."
+  //
+  // One damage, not two: this is the one-way fight. The multiplier is the half
+  // that is invisible once wrong — the card still resolves, still kills things,
+  // and does half the damage it says.
+  const list = abilities(
+    'AnimistsMight',
+    "This spell costs {2} less to cast if it targets a legendary creature you control.\nTarget creature you control deals damage equal to twice its power to target creature or planeswalker you don't control.",
+  );
+  const damages = list.flatMap(effectsOf).filter((e) => e.do === 'damage');
+  assert.equal(damages.length, 1);
+  assert.deepEqual(damages[0], {
+    do: 'damage',
+    to: { sel: 'target', ref: 1 },
+    amount: { v: 'mul', of: [{ v: 'power', of: { sel: 'target', ref: 0 } }, 2] },
+  });
+});
+
+test('xmage:GetEnergyCountersControllerEffect — energy is a PLAYER counter', () => {
+  // "Search your library for a basic land card, reveal it, put it into your
+  //  hand, then shuffle. You get {E}{E} (two energy counters)."
+  //
+  // `{do:'player-counter'}` and not `{do:'add-counters'}`. Energy lives on the
+  // player, and energy put on a permanent would be uncountable and unspendable
+  // by everything that reads it.
+  const ability = only(
+    'AttuneWithAether',
+    'Search your library for a basic land card, reveal it, put it into your hand, then shuffle. You get {E}{E} (two energy counters).',
+  );
+  assert.deepEqual(
+    effectsOf(ability).find((e) => e.do === 'player-counter'),
+    { do: 'player-counter', who: { who: 'you' }, counter: 'energy', count: 2 },
+  );
 });

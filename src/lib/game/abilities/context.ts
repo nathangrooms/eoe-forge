@@ -643,6 +643,15 @@ export function evalCondition(condition: Condition, ctx: AbilityContext): boolea
       return compare(count, condition.cmp, evalValue(condition.value, ctx));
     }
 
+    case 'matches':
+      // "At least one", which for `{sel:'self'}` and `{sel:'attached'}` is one
+      // object or none. A source that has left the battlefield resolves to
+      // nothing and the condition is false, which is the answer XMage gives
+      // when its own `getPermanent` returns null.
+      return resolveSelector(condition.of, ctx).some(id =>
+        matchesFilter(condition.what, id, ctx)
+      );
+
     case 'step':
       return condition.is.includes(ctx.state.step as never);
 

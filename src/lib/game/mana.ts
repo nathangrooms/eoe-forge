@@ -133,6 +133,55 @@ export function parseCost(cost: string | null | undefined): ParsedCost {
 }
 
 /**
+ * Move a cost's GENERIC component by `delta` and give the string back.
+ *
+ * Cost reduction in Magic reduces the generic part and never a coloured pip
+ * (CR 601.2f), so {2}{U}{U} reduced by 3 is {U}{U} and not free. Increases add
+ * generic, which is how commander tax and every "costs {1} more" effect work.
+ *
+ * Done on the SYMBOLS rather than by rebuilding from `ParsedCost`, because
+ * `parseCost` folds {S}, hybrids and anything unrecognised into its generic
+ * count, and re-emitting from that total would quietly turn a snow pip into a
+ * plain {1} and a hybrid into a colour the caster may not be able to make.
+ * Only the plain numeric symbols are touched here; every other symbol is
+ * carried through exactly as written.
+ *
+ * `delta` clamps at the numeric generic actually present: a {1}-costing spell
+ * with three reducers on the table is free, never negative.
+ */
+export function adjustGeneric(cost: string | null | undefined, delta: number): string {
+  const base = cost ?? '';
+  if (delta === 0) return base;
+
+  const symbols = Array.from(base.matchAll(/\{([^}]+)\}/g)).map(m => m[1]);
+  const numericTotal = symbols
+    .filter(s => /^\d+$/.test(s))
+    .reduce((sum, s) => sum + Number(s), 0);
+
+  if (delta > 0) {
+    // An increase never has to find room: it rides in front as its own symbol.
+    return `{${delta}}${base}`;
+  }
+
+  let left = Math.min(-delta, numericTotal);
+  if (left === 0) return base;
+
+  const out: string[] = [];
+  for (const s of symbols) {
+    if (left > 0 && /^\d+$/.test(s)) {
+      const value = Number(s);
+      const take = Math.min(left, value);
+      left -= take;
+      const remaining = value - take;
+      if (remaining > 0) out.push(`{${remaining}}`);
+      continue;
+    }
+    out.push(`{${s}}`);
+  }
+  return out.join('');
+}
+
+/**
  * The cost string this card is actually charged.
  *
  * Normally that is the printed `manaCost`. It is not always there: Scryfall

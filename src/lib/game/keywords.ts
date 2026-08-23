@@ -75,7 +75,6 @@ export type EngineKeyword = (typeof ENGINE_KEYWORDS)[number];
  * truthfully: every one of these needs the player to resolve it by hand.
  */
 export const ADVISORY_KEYWORDS = [
-  'flash',
   'ward',
   'prowess',
   'exalted',
@@ -118,9 +117,70 @@ export const ADVISORY_KEYWORDS = [
   'wither',
 ] as const;
 
-/** Every keyword a player may flag by hand, engine-backed ones first. */
+/**
+ * Keywords the engine ENFORCES, but which are a property of the printed card
+ * rather than a flag a player puts on a permanent.
+ *
+ * `ENGINE_KEYWORDS` above is two lists wearing one name: the keywords the
+ * engine enforces, AND the keywords the manual flag menu offers. For combat
+ * keywords those are the same list, so nobody noticed. "Enchant creature" is
+ * not: it is enforced, and flagging it onto a bear would be meaningless.
+ *
+ * Keeping it out of `ENGINE_KEYWORDS` keeps it out of `FLAGGABLE_KEYWORDS`.
+ * Putting it here makes `keywordSupport` tell the truth about it.
+ *
+ * ENCHANT IS ENFORCED IN THREE PLACES, all live in the real game loop:
+ *
+ *   `attach.ts::illegalHostReason`  refuses a host the Enchant line excludes,
+ *                                   and `legalHostsFor` filters the choices the
+ *                                   cast path and the bot are offered.
+ *   `sba.ts::illegalAuraReason`     CR 704.5m — an Aura on something it cannot
+ *                                   legally enchant is put into its owner's
+ *                                   graveyard. Called from `sba.ts:494`.
+ *   `moves.ts`                      refuses the cast outright when nothing on
+ *                                   the board could be enchanted.
+ *
+ * All three read the subject out of the Enchant line via `sba.ts::enchantSubject`.
+ *
+ * This entry was added because the coverage probe graded every Aura SILENT. A
+ * card is SILENT when ANY of its abilities is dead, so "Enchant creature" being
+ * called advisory buried the "Enchanted creature gets +2/+1" line sitting right
+ * under it, which runs. That is a measurement reading the engine wrong, not the
+ * engine missing a rule.
+ */
+export const ENFORCED_CARD_KEYWORDS = ['enchant', 'flash'] as const;
+
+/*
+ * FLASH IS ENFORCED, and it sat on the advisory list for the whole of this
+ * project's life. `respond.ts::castTiming` is the gate every cast goes through,
+ * and its FIRST branch is `isInstantSpeed(card)`, which is an instant OR
+ * anything with flash. A card with flash may be cast on somebody else's turn
+ * and with something on the stack; a card without it is refused with a written
+ * sentence. `bot.ts` reads the same predicate to decide what it can hold up.
+ *
+ * Flash is still FLAGGABLE, because flagging it by hand is meaningful:
+ * `hasKeyword` is exactly what `isInstantSpeed` asks, so the flag really does
+ * make that card castable at instant speed. It is listed here rather than moved
+ * into `ENGINE_KEYWORDS` because that list is the set `combat.ts` applies, and
+ * flash never reaches combat.
+ *
+ * Found by grepping all 47 advisory keywords for a live reader in
+ * `src/lib/game/**` and `src/components/play/**`. Flash was the only hit. The
+ * other 46 are correctly advisory, and this entry is not an opening to add them.
+ */
+
+/**
+ * Every keyword a player may flag by hand, engine-backed ones first.
+ *
+ * `flash` is drawn from `ENFORCED_CARD_KEYWORDS` rather than from
+ * `ADVISORY_KEYWORDS` where it used to live, so the menu still offers it and
+ * `keywordSupport` still calls it enforced. `enchant` is deliberately NOT here:
+ * it is a property of a printed Aura, and flagging it onto a bear would mean
+ * nothing.
+ */
 export const FLAGGABLE_KEYWORDS: readonly string[] = [
   ...ENGINE_KEYWORDS,
+  'flash',
   ...ADVISORY_KEYWORDS,
 ];
 
@@ -128,6 +188,7 @@ export type KeywordSupport = 'engine' | 'advisory';
 
 const ENGINE_SET = new Set<string>(ENGINE_KEYWORDS);
 const ADVISORY_SET = new Set<string>(ADVISORY_KEYWORDS);
+const ENFORCED_CARD_SET = new Set<string>(ENFORCED_CARD_KEYWORDS);
 
 export function normalizeKeyword(keyword: string): string {
   return keyword.trim().toLowerCase();
@@ -141,6 +202,7 @@ export function normalizeKeyword(keyword: string): string {
 export function keywordSupport(keyword: string): KeywordSupport {
   const key = normalizeKeyword(keyword);
   if (ENGINE_SET.has(key)) return 'engine';
+  if (ENFORCED_CARD_SET.has(key)) return 'engine';
   if (ADVISORY_SET.has(key)) return 'advisory';
   // Protection is parameterised: "protection from red" is still protection.
   if (key.startsWith('protection')) return 'engine';

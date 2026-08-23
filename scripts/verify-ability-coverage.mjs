@@ -36,7 +36,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { compileWithTrace, assertClausesAccounted } from '../src/lib/cards/abilities/compiler.ts';
-import { hasManualEffect, effectsOf } from '../src/lib/cards/abilities/dsl.ts';
+import { hasManualEffect, effectsOf, watchQueriesIn } from '../src/lib/cards/abilities/dsl.ts';
 import { unrunnableReason } from '../src/lib/game/abilities/trigger-bridge.ts';
 import { keywordSupport } from '../src/lib/game/keywords.ts';
 import { probeBehaviour, probeEffects } from '../src/lib/game/abilities/behaviour-probe.ts';
@@ -122,8 +122,13 @@ const poolOracleIds = new Set(pool.map(c => c.oracle_id));
  *   hasRestriction         statics.ts:441 (def); callers combat.ts:123, 141, 161
  *                          for 'cant-attack' and 'cant-block' ONLY. Every other
  *                          restriction rule is collected and never read. -> dead
- *   costAdjustmentFor      statics.ts:498 (def). No caller outside its own
- *                          tests. -> dead
+ *   costAdjustmentFor      statics.ts:619 (def), moves.ts (call, in the cast
+ *                          path). WAS "no caller outside its own tests"; a
+ *                          caller was written 23 Aug 2026 and `mana.test.ts`
+ *                          holds a spell that is refused without a reducer on
+ *                          the table and paid for with one. -> live, EXCEPT a
+ *                          delta that needs turn history, which
+ *                          `costAdjustmentFor` still skips on purpose.
  *   intrinsicReplacements  intrinsic.ts:78; handles enters-tapped and
  *                          enters-with-counters with a plain positive number.
  *                          Everything else falls through. -> dead
@@ -815,7 +820,27 @@ function abilityVerdict(ability, ownsTriggers, scryfallKeywords, STRICT_GRANTS) 
     case 'static': {
       if (decision) return { s: 'decision', why: `static contains ${decision}` };
       for (const m of ability.modifications ?? []) {
-        if (m.layer === 'cost-modify') return { s: 'dead', why: 'cost-modify: costAdjustmentFor has no caller' };
+        /*
+         * `cost-modify` was graded dead outright, on a comment that said
+         * `costAdjustmentFor` had no caller. That was true when it was written
+         * and stopped being true on 23 Aug 2026, when `moves.ts` started calling
+         * it in the cast path.
+         *
+         * It is NOT graded live outright either, because one case is still
+         * skipped by the consumer rather than by this script: `statics.ts` sets
+         * `needsHistory` when the delta reads turn history the engine does not
+         * keep, and `costAdjustmentFor` drops those mods so the spell stays at
+         * its printed cost. The predicate below is the SAME expression
+         * `statics.ts:419` uses, so the two cannot drift apart silently.
+         */
+        if (m.layer === 'cost-modify') {
+          const needsHistory =
+            watchQueriesIn([{ do: 'gain-life', who: { who: 'you' }, amount: m.delta }]).length > 0;
+          if (needsHistory) {
+            return { s: 'dead', why: 'cost-modify: the delta reads turn history, so costAdjustmentFor skips it' };
+          }
+          continue;
+        }
         if (m.layer === 'restriction') {
           const rule = m.rule?.rule;
           if (!RESTRICTIONS_COMBAT_READS.has(rule)) return { s: 'dead', why: `restriction "${rule}": collected, never read` };
@@ -953,6 +978,26 @@ const automatedSamples = [];
  */
 const allAutomatedNames = [];
 const allPromptableNames = [];
+/*
+ * Every card's FINAL verdict keyed by oracle id, written to its own file when
+ * DM_CARD_DUMP=1. Added 23 Aug 2026 for the same reason DM_NAME_LIST was: a
+ * second measurement needs to INTERSECT with this one row by row, and two
+ * percentages that share no rows cannot be intersected. `coverage` rides along
+ * because `lowered.ts`'s precedence rule turns on it. `source` rides along for
+ * a sharper reason: the coverage in `result` is the POST-swap value, and
+ * `compileWithTrace` recomputes it from the swapped ability list with an empty
+ * unparsed list, so a card the XMage record actually spoke for usually reports
+ * 'full' — the exact opposite of the pre-swap value the rule tested. Reading
+ * whether the port fired off `coverage` therefore reads it backwards.
+ * `result.source` is 'xmage' on precisely the cards that were swapped and
+ * 'compiler' on every other, so it is the only honest discriminator.
+ * `f` is the third bar `xmageSwapFor` enforces: a card with any paragraph on a
+ * face other than the front is never swapped, because the engine does not play
+ * a back face. A plan that counted those cards as unlockable would be counting
+ * cards the precedence rule refuses by construction.
+ * Off by default; the sample and every printed figure are untouched.
+ */
+const cardDump = process.env.DM_CARD_DUMP === '1' ? [] : null;
 const toProbe = [];
 
 const DECISION_TEXT = /\byou may\b|\bchoose\b|\bup to\b|\bmay pay\b|\bof your choice\b|\bdivided as you choose\b/i;
@@ -982,7 +1027,11 @@ for (const card of pool) {
   if (owns) ownedByBridge++;
 
   const paragraphs = trace.normalized.paragraphs;
-  if (paragraphs.length === 0) { bump(verdicts, 'NO-TEXT'); continue; }
+  if (paragraphs.length === 0) {
+    bump(verdicts, 'NO-TEXT');
+    if (cardDump) cardDump.push({ o: card.oracle_id, n: card.name, v: 'NO-TEXT', c: result.coverage, s: result.source, f: false });
+    continue;
+  }
 
   // Per-ability verdicts.
   // Two passes over the same abilities. `lenient` is their rule, kept so the
@@ -1087,6 +1136,24 @@ for (const card of pool) {
 
   bump(verdicts, mine);
   bump(verdicts, `THEIRS:${theirs}`);
+  /*
+   * `d`, `u`, `m`, `k` added 23 Aug 2026, still behind DM_CARD_DUMP and still
+   * changing no printed figure. The class ranking asks which EFFECT CLASS
+   * blocks a card. This asks the other half: for a card that reads SILENT even
+   * though the compiler understood it, which dead CONSUMER blocks it. Ranking
+   * that needs the same closure the class order uses, so the per-card SET of
+   * dead reasons has to leave this loop. `u` and `m` ride along because a card
+   * carrying unparsed text or a {do:manual} marker is not reachable by fixing a
+   * consumer at all, and lumping those in would overstate every consumer.
+   */
+  if (cardDump) cardDump.push({
+    o: card.oracle_id, n: card.name, v: mine, c: result.coverage, s: result.source,
+    f: paragraphs.some(p => p.face > 0),
+    d: [...new Set(perAbility.filter(v => v.s === 'dead').map(v => v.why))],
+    u: result.unparsed.length,
+    m: perAbility.filter(v => v.s === 'manual').length,
+    k: result.abilities.length,
+  });
 
   if (mine === 'AUTOMATED' || mine === 'PROMPTABLE' || mine === 'PROMPTED') {
     toProbe.push({ name: card.name, verdict: mine, abilities: result.abilities, oracle: card.oracle_text ?? '' });
@@ -1295,6 +1362,26 @@ writeFileSync(OUT, JSON.stringify({
 }, null, 2));
 
 console.log(`\nwrote ${OUT}`);
+
+/*
+ * The per-card dump, written AFTER the probe so the verdict in it is the FINAL
+ * one. An AUTOMATED card the probe downgraded is written as SILENT here,
+ * because that is what a player would see, and a file that disagreed with the
+ * AUTOMATED line above would be a third number nobody asked for.
+ */
+if (cardDump) {
+  const DUMP = join(ROOT, 'scratch', 'verify-card-verdicts.json');
+  let moved = 0;
+  for (const row of cardDump) {
+    if (row.v === 'AUTOMATED' && downgradedNames.has(row.n)) { row.v = 'SILENT'; moved++; }
+  }
+  const tally = new Map();
+  const bySource = new Map();
+  for (const row of cardDump) { bump(tally, row.v); bump(bySource, `${row.s}/${row.v}`); }
+  writeFileSync(DUMP, JSON.stringify({ generatedAt: new Date().toISOString(), pool: N, downgradedApplied: moved, tally: Object.fromEntries(tally), bySource: Object.fromEntries(bySource), cards: cardDump }));
+  console.log(`wrote ${DUMP}  (${cardDump.length} cards, ${moved} downgraded to SILENT, tally ${JSON.stringify(Object.fromEntries(tally))})`);
+  console.log(`  by source: ${JSON.stringify(Object.fromEntries(bySource))}`);
+}
 
 /*
  * The full name lists, for intersecting this measurement with another one.

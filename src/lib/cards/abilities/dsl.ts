@@ -286,6 +286,32 @@ export type Condition =
   | { if: 'count'; of: Selector; cmp: Cmp; value: ValueExpr }
   | { if: 'value'; a: ValueExpr; cmp: Cmp; b: ValueExpr }
   | { if: 'controls'; who: PlayerSelector; what: CardFilter; cmp: Cmp; value: ValueExpr }
+  /**
+   * "Is THIS PARTICULAR object a certain way": the source is tapped, the
+   * enchanted creature is black, the equipped creature is a Human.
+   *
+   * ## Why this is a condition and not a filter on the selector
+   *
+   * The obvious spelling is `{sel:'self', where:{is:'tapped'}}`. It was not
+   * taken, and the reason is where selectors are read rather than what they
+   * mean. `{sel:'self'}` is also the `affects` of a static ability and the
+   * `what` of an effect, and those are resolved by `layers.ts` and `statics.ts`
+   * on their own paths, not by `resolveSelector`. A `where` those two did not
+   * implement would be silently ignored on exactly the abilities that are
+   * hardest to notice being wrong, which is the "runs and is wrong" failure the
+   * port refuses everywhere else.
+   *
+   * As a `Condition` it has one evaluator, `evalCondition`, and no second path
+   * to fall through. `{if:'count'}` cannot stand in: it counts a set, and there
+   * is no `CardFilter` member meaning "is the source", so "the source is
+   * tapped" has no spelling in terms of a set.
+   *
+   * Holds when AT LEAST ONE object `of` resolves to matches `what`. For
+   * `{sel:'self'}` and `{sel:'attached'}` that is one object or none, so the
+   * "at least one" reading and the "the one" reading agree; for a set it reads
+   * as "any", which is what every XMage condition of this shape asks.
+   */
+  | { if: 'matches'; of: Selector; what: CardFilter }
   | { if: 'step'; is: Step[] }
   | { if: 'your-turn' }
   | { if: 'first-time-this-turn'; key: string }

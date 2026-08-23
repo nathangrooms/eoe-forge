@@ -290,6 +290,11 @@ function classify(para: Paragraph, shape: CardShape, idAt: number): Classified |
         abilities.push(...attachment);
         continue;
       }
+      const cycling = cyclingAbility(k, raw, () => id(abilities.length));
+      if (cycling) {
+        abilities.push(...cycling);
+        continue;
+      }
       const a: Ability = {
         kind: 'keyword', id: id(abilities.length), text: raw, confidence: 'exact', keyword: k.keyword,
       };
@@ -539,6 +544,65 @@ function attachmentAbilities(
       costs,
       timing: 'sorcery',
       effects: [{ do: 'attach', what: { sel: 'self' }, to: { sel: 'none' } }],
+    },
+  ];
+}
+
+/* ------------------------------------------------------------------ *
+ * Cycling — the same trick as equip, from the hand instead
+ * ------------------------------------------------------------------ */
+
+/**
+ * CR 702.29a: "Cycling [cost]" means "[cost], Discard this card: Draw a card."
+ * Activated only from hand, and at instant speed.
+ *
+ * ## Why this is here
+ *
+ * Exactly the failure `ATTACH_KEYWORDS` above was written to fix, one zone
+ * over. `parseKeywordLine` read "Cycling {2}" and produced
+ * `{kind:'keyword', keyword:'cycling', parameter:'{2}'}` — a label with no
+ * cost, no effect and nothing able to press it. The coverage probe measured
+ * 125 cards whose ONLY unreached clause was that label.
+ *
+ * `activate.ts` already reads `activeZones` (`activeZonesOf`, defaulting to
+ * battlefield), and it already pays a `discard` cost. The one thing it did not
+ * do was discard THIS card without asking, which `{pay:'discard',
+ * what:{sel:'self'}}` now means there. So this expansion needs no new engine
+ * concept, in the same way equip's needed none.
+ *
+ * ## What is deliberately NOT expanded
+ *
+ * Only bare "Cycling {cost}". Typecycling — "Plainscycling {2}", "Landcycling
+ * {1}{G}" and the rest — searches a library instead of drawing, and its keyword
+ * is not in `KEYWORDS` at all, so those lines fall through to `unparsed` where
+ * they already were. Guessing "draw a card" for them would be worse than
+ * leaving them unread, because the player would press a button that did the
+ * wrong thing. Same bargain, and the same reason, as "Equip legendary creature
+ * {3}".
+ *
+ * Timing is NOT 'sorcery'. Cycling is an activated ability with no timing
+ * restriction, so it defaults to instant speed, which is what `activate.ts`
+ * treats an absent `timing` as.
+ */
+function cyclingAbility(
+  hit: { keyword: string; parameter?: string },
+  raw: string,
+  nextId: () => string
+): Ability[] | null {
+  if (hit.keyword !== 'cycling' || !hit.parameter) return null;
+
+  const manaCosts = parseCosts(hit.parameter);
+  if (!manaCosts) return null;
+
+  return [
+    {
+      kind: 'activated',
+      id: nextId(),
+      text: raw,
+      confidence: 'exact',
+      costs: [...manaCosts, { pay: 'discard', what: { sel: 'self' }, count: 1 }],
+      activeZones: ['hand'],
+      effects: [{ do: 'draw', who: { who: 'you' }, count: 1 }],
     },
   ];
 }

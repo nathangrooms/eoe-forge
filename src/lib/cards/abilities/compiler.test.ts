@@ -27,7 +27,13 @@ import type { Ability, Effect } from './dsl.ts';
 import { KEYWORDS, parseObject, parseKeywordList, parseDuration } from './grammar.ts';
 // A test file is a leaf, so it may import from `game` even though the compiler
 // may not. This is the drift check between the two keyword lists.
-import { ENGINE_KEYWORDS, ADVISORY_KEYWORDS } from '../../game/keywords.ts';
+import {
+  ENGINE_KEYWORDS,
+  ADVISORY_KEYWORDS,
+  ENFORCED_CARD_KEYWORDS,
+  FLAGGABLE_KEYWORDS,
+  keywordSupport,
+} from '../../game/keywords.ts';
 
 /* ------------------------------------------------------------------ *
  * Helpers
@@ -525,8 +531,60 @@ test('ability ids are stable and unique within a card', () => {
 
 test('keyword vocabularies have not drifted from game/keywords.ts', () => {
   const known = new Set(KEYWORDS);
-  const missing = [...ENGINE_KEYWORDS, ...ADVISORY_KEYWORDS].filter((k) => !known.has(k));
+  const missing = [
+    ...ENGINE_KEYWORDS,
+    ...ADVISORY_KEYWORDS,
+    ...ENFORCED_CARD_KEYWORDS,
+  ].filter((k) => !known.has(k));
   assert.deepEqual(missing, [], `compiler does not recognise: ${missing.join(', ')}`);
+});
+
+test('a keyword is called enforced only where a live reader enforces it', () => {
+  /*
+   * `keywordSupport` decides whether a keyword ability is a rule or a badge,
+   * and the coverage probe turns that answer into a card's whole verdict: ANY
+   * dead ability makes the card SILENT. Two keywords were on the wrong side of
+   * it, and both were burying real rules text sitting on the line underneath.
+   *
+   *   enchant  attach.ts::illegalHostReason, sba.ts::illegalAuraReason (704.5m),
+   *            and moves.ts all refuse on it.
+   *   flash    respond.ts::castTiming branches on isInstantSpeed, which is an
+   *            instant OR anything with flash.
+   *
+   * This test is here so neither can be quietly demoted again, and so nothing
+   * else is quietly PROMOTED: every one of the other 46 was grepped for a live
+   * reader in src/lib/game and src/components/play, and none has one.
+   */
+  assert.equal(keywordSupport('enchant'), 'engine', 'attach.ts and sba.ts enforce it');
+  assert.equal(keywordSupport('flash'), 'engine', 'respond.ts::castTiming enforces it');
+  assert.equal(keywordSupport('Enchant'), 'engine', 'and it is case insensitive');
+
+  for (const advisory of ADVISORY_KEYWORDS) {
+    assert.equal(
+      keywordSupport(advisory),
+      'advisory',
+      `${advisory} has no live reader and must not be claimed as enforced`
+    );
+  }
+
+  // "protection from everything" is on the advisory list ON PURPOSE, and the
+  // explicit listing beats the `startsWith('protection')` fallback below it.
+  // `hasProtectionFrom` answers a named quality; "everything" is not one, so
+  // claiming it as enforced would be the exact silent no-op this test exists
+  // to prevent.
+  assert.equal(keywordSupport('protection from red'), 'engine');
+  assert.equal(keywordSupport('protection from everything'), 'advisory');
+
+  assert.equal(keywordSupport('cycling'), 'advisory', 'compiled as a keyword line, nothing runs it');
+  assert.equal(keywordSupport('nonsense'), 'advisory', 'an unknown keyword is never silently supported');
+});
+
+test('flash stays flaggable and enchant does not', () => {
+  // Flagging flash by hand is meaningful: `hasKeyword` is what `isInstantSpeed`
+  // reads. Flagging "enchant" onto a bear is not, so it is enforced without
+  // being offered.
+  assert.ok(FLAGGABLE_KEYWORDS.includes('flash'));
+  assert.ok(!FLAGGABLE_KEYWORDS.includes('enchant'));
 });
 
 test('every rule regex compiles and stays lowercase-only', () => {

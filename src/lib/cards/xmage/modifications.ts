@@ -39,10 +39,18 @@
  * size.
  */
 
-import type { CardFilter, Modification, PlayerSelector, Selector, ValueExpr } from '../abilities/dsl.ts';
+import type {
+  CardFilter,
+  Condition,
+  Modification,
+  PlayerSelector,
+  Selector,
+  ValueExpr,
+} from '../abilities/dsl.ts';
 import { type Invocation, arg } from './record.ts';
 import { lowerValueSlot } from './values.ts';
 import { grantedKeywordFrom } from './keywords.ts';
+import { lowerCondition } from './conditions.ts';
 
 const SELF: Selector = { sel: 'self' };
 const ATTACHED: Selector = { sel: 'attached' };
@@ -81,9 +89,30 @@ function excludeSource(invocation: Invocation, sel: Selector): Selector {
 export interface ModificationSet {
   affects: Selector;
   modifications: Modification[];
+  /**
+   * "As long as …". Set only by `ConditionalContinuousEffect`, and carried up
+   * to `StaticAbility.condition`, which `statics.ts` re-checks every time the
+   * layers are rebuilt: an anthem that has switched itself off is not in the
+   * list rather than being in it and inert.
+   */
+  condition?: Condition;
 }
 
-export type ModificationRule = (invocation: Invocation) => ModificationSet | null;
+/**
+ * Where a rule that refuses says WHAT refused, when that is not itself.
+ *
+ * `ConditionalContinuousEffect` is a decorator, so a card blocked by it is
+ * usually blocked by the effect or the condition inside it. Reporting the
+ * decorator would put it back at the head of the work order for ever and hide
+ * the class that is actually missing, which is exactly the mis-attribution
+ * `docs/engine/EFFECT-CLASS-ORDER.md` had to correct in its first pass.
+ */
+export interface Blame {
+  missing: string[];
+  refused: Array<{ prim: string; why: string }>;
+}
+
+export type ModificationRule = (invocation: Invocation, blame?: Blame) => ModificationSet | null;
 
 function boost(invocation: Invocation, affects: Selector | null): ModificationSet | null {
   if (!affects) return null;
@@ -221,6 +250,59 @@ export const MODIFICATION_RULES: Record<string, ModificationRule> = {
       ],
     };
   },
+  /**
+   * 811 cards, the head of `docs/engine/EFFECT-CLASS-ORDER.md`.
+   *
+   * A decorator: it wraps ANOTHER continuous effect and gates it on a
+   * condition. So the rule is recursive over this same table, and the condition
+   * comes from `conditions.ts`.
+   *
+   * ## Both halves refuse together
+   *
+   * If the inner effect has no rule, or the condition has no entry, this
+   * returns null and the card refuses. That is the only safe direction and it
+   * is worth naming why: dropping the condition gives an ability that is always
+   * on, and Ashnod's Battle Gear pumping while UNTAPPED is a card that RUNS and
+   * is WRONG rather than a card that does nothing. `lower.ts`'s own rule.
+   *
+   * ## `otherwiseEffect` refuses
+   *
+   * XMage's four-argument constructor takes a second continuous effect applied
+   * when the condition is false. `StaticAbility` carries one `condition` and
+   * one modification list with no else branch, so an "otherwise" would either
+   * be dropped or applied unconditionally. Both are wrong, so it refuses.
+   */
+  'xmage:ConditionalContinuousEffect': (invocation, blame) => {
+    if (arg(invocation, 'otherwiseEffect')) return null;
+    const inner = arg(invocation, 'effect');
+    if (inner?.value?.k !== 'invoke') return null;
+    const innerPrim = inner.value.invocation.prim;
+    const why = REFUSED_MODIFICATIONS[innerPrim];
+    if (why) {
+      blame?.missing.push(innerPrim);
+      blame?.refused.push({ prim: innerPrim, why });
+      return null;
+    }
+    const rule = MODIFICATION_RULES[innerPrim];
+    if (!rule) {
+      blame?.missing.push(innerPrim);
+      return null;
+    }
+    const produced = rule(inner.value.invocation, blame);
+    if (!produced) return null;
+    // A nested conditional would need two conditions on one ability. `{if:'and'}`
+    // could express it, but the record has not produced one, so it refuses
+    // rather than carrying untested code.
+    if (produced.condition) return null;
+    const condition = lowerCondition(arg(invocation, 'condition'));
+    if (!condition.ok) {
+      if (condition.missing) blame?.missing.push(condition.missing);
+      blame?.refused.push({ prim: condition.missing ?? innerPrim, why: condition.why ?? 'condition did not lower' });
+      return null;
+    }
+    return { ...produced, condition: condition.condition };
+  },
+
   'xmage:SpellCostReductionSourceEffect': (invocation) => {
     const amount = lowerValueSlot(arg(invocation, 'amount'));
     if (amount === null || typeof amount !== 'number') return null;
@@ -237,8 +319,6 @@ export const MODIFICATION_RULES: Record<string, ModificationRule> = {
  * Continuous effects deliberately left out, with the reason. Counts are cards.
  */
 export const REFUSED_MODIFICATIONS: Record<string, string> = {
-  'xmage:ConditionalContinuousEffect':
-    '811 cards. Wraps another continuous effect in a condition, and 167 distinct condition classes stand behind it. `StaticAbility.condition` exists; the condition table does not yet, and a conditional effect applied unconditionally is a card that is always on.',
   'xmage:RegenerateSourceEffect':
     '177 cards. Regeneration is a replacement shield the reducer does not model. `dsl.ts` has no member for it, and a destroy that quietly does not happen is worse than a card that refuses.',
   'xmage:BecomesCreatureSourceEffect':
@@ -275,9 +355,17 @@ export function lowerModifications(effects: readonly Invocation[]): {
       missing.push(invocation.prim);
       continue;
     }
-    const produced = rule(invocation);
+    const blame: Blame = { missing: [], refused: [] };
+    const produced = rule(invocation, blame);
     if (produced === null) {
-      refused.push({ prim: invocation.prim, why: 'arguments did not resolve into a modification' });
+      // A decorator names what refused inside it. Without this the work order
+      // would rank the decorator and not the class that is actually missing.
+      if (blame.missing.length > 0 || blame.refused.length > 0) {
+        missing.push(...blame.missing);
+        refused.push(...blame.refused);
+      } else {
+        refused.push({ prim: invocation.prim, why: 'arguments did not resolve into a modification' });
+      }
       continue;
     }
     sets.push(produced);

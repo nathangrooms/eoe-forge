@@ -218,6 +218,8 @@ export function renderCondition(condition: Condition): string {
       return `${renderValue(condition.a)} is ${renderCmp(condition.cmp)} ${renderValue(condition.b)}`;
     case 'controls':
       return `${renderPlayer(condition.who)} controls ${renderCmp(condition.cmp)} ${renderValue(condition.value)} ${renderFilter(condition.what)}`;
+    case 'matches':
+      return `${renderSelector(condition.of)} is ${renderFilter(condition.what)}`;
     case 'step': return `during ${condition.is.map(renderStep).join(' or ')}`;
     case 'your-turn': return 'it is your turn';
     case 'first-time-this-turn': return 'this is the first time this turn';

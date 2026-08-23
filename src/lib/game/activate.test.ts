@@ -23,6 +23,7 @@ import assert from 'node:assert/strict';
 import { addCard, applyAction, applyActions, createGame } from './rules.ts';
 import {
   abilityUsesThisTurn,
+  activatablePermanents,
   activationsFor,
   planActivation,
   planActivationWith,
@@ -913,4 +914,100 @@ test('a planeswalker enters with its printed loyalty, so a minus ability is affo
   const minus = activationsFor(state, 'p1', cardOf(state, 'chandra')).find(o => /^[−-]3/.test(o.text));
   assert.ok(minus, 'the minus ability compiles');
   assert.ok(minus.ok || minus.pending.length > 0, `a printed minus must be reachable: ${minus.reason}`);
+});
+
+/* ------------------------------------------------------------------ *
+ * Cycling — an activated ability that lives in the hand
+ * ------------------------------------------------------------------ */
+
+test('cycling is offered from hand, discards THIS card, and draws', () => {
+  // Yoked Plowbeast, verbatim. It was a keyword badge until the compiler
+  // started expanding CR 702.29a into the ability it is shorthand for.
+  let state = game([
+    {
+      id: 'beast',
+      name: 'Yoked Plowbeast',
+      typeLine: 'Creature — Beast',
+      oracleText: 'Cycling {2} ({2}, Discard this card: Draw a card.)',
+      power: '2',
+      toughness: '5',
+      zone: 'hand',
+    },
+    {
+      id: 'decoy',
+      name: 'Something Else',
+      typeLine: 'Creature — Bear',
+      oracleText: '',
+      zone: 'hand',
+    },
+  ]);
+  state = withLands(state, 'p1', 3);
+
+  const option = only(state, 'p1', 'beast');
+  const handBefore = state.players.find(p => p.id === 'p1')?.zones.hand.length ?? 0;
+
+  state = applyActions(state, option.actions);
+
+  assert.equal(cardOf(state, 'beast')?.zone, 'graveyard', 'the card cycled is the card discarded');
+  assert.equal(cardOf(state, 'decoy')?.zone, 'hand', 'and nothing else was pitched for it');
+
+  state = resolveTop(state);
+
+  const handAfter = state.players.find(p => p.id === 'p1')?.zones.hand.length ?? 0;
+  // Out: the cycled card. In: the drawn card. The decoy never moved.
+  assert.equal(handAfter, handBefore, 'one card left the hand and one arrived');
+  assert.equal(stackHeight(state), 0);
+});
+
+test('cycling is refused, with a sentence, once the card is on the battlefield', () => {
+  // `activeZones: ['hand']`. `activationsFor` reports every ability with its
+  // plan attached rather than hiding refusals — that is the contract
+  // `activatablePermanents` filters on — so the assertion is that the plan is
+  // NOT ok and says why, and that the board-level control leaves it out.
+  let state = game([
+    {
+      id: 'beast',
+      name: 'Yoked Plowbeast',
+      typeLine: 'Creature — Beast',
+      oracleText: 'Cycling {2} ({2}, Discard this card: Draw a card.)',
+      power: '2',
+      toughness: '5',
+    },
+  ]);
+  state = withLands(state, 'p1', 3);
+
+  const [option] = activationsFor(state, 'p1', cardOf(state, 'beast'));
+  assert.equal(option.ok, false, 'a creature already in play has nothing to cycle');
+  assert.match(option.reason, /hand/);
+
+  assert.deepEqual(
+    activatablePermanents(state, 'p1').map(entry => entry.card.name),
+    [],
+    'and the board control does not draw a button for it'
+  );
+});
+
+test('cycling is instant speed, so it survives a stack and somebody else\'s turn', () => {
+  // CR 702.29a prints no timing restriction, so the ability defaults to instant
+  // speed. `timing: 'sorcery'` here would have made it unpressable on exactly
+  // the turns a player cycles.
+  let state = game([
+    {
+      id: 'beast',
+      name: 'Yoked Plowbeast',
+      typeLine: 'Creature — Beast',
+      oracleText: 'Cycling {2} ({2}, Discard this card: Draw a card.)',
+      power: '2',
+      toughness: '5',
+      zone: 'hand',
+    },
+  ]);
+  state = withLands(state, 'p1', 3);
+  state = { ...state, activePlayerId: 'p2', step: 'upkeep' };
+
+  assert.equal(
+    activationsFor(state, 'p1', cardOf(state, 'beast')).length,
+    1,
+    'cycling on the opponent\'s upkeep is legal Magic'
+  );
 });

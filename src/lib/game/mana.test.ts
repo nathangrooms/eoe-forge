@@ -30,7 +30,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { addCard, createGame } from './rules.ts';
-import { castingCostOf, manaSourcesFor, parseCost, planPayment } from './mana.ts';
+import { adjustGeneric, castingCostOf, manaSourcesFor, parseCost, planPayment } from './mana.ts';
 import { planCastFromHand } from './moves.ts';
 import type { CardInstance, GameState, PlayerId, Zone } from './types.ts';
 
@@ -280,4 +280,86 @@ test('four bears and two lands do not cast a five-drop', () => {
 
   assert.equal(manaSourcesFor(state, ME).length, 2, 'two Forests, and nothing else taps');
   assert.equal(planCastFromHand(state, ME, 'dino').ok, false);
+});
+
+/* -------------------------------------------------------------------------- */
+/* 5. Cost modifiers, which until now were computed and thrown away           */
+/* -------------------------------------------------------------------------- */
+
+test('adjustGeneric moves the generic component and never a coloured pip', () => {
+  assert.equal(adjustGeneric('{2}{U}{U}', -3), '{U}{U}', 'a reduction stops at the pips');
+  assert.equal(adjustGeneric('{2}{U}{U}', -1), '{1}{U}{U}');
+  assert.equal(adjustGeneric('{2}{U}{U}', 1), '{1}{2}{U}{U}', 'an increase rides in front');
+  assert.equal(adjustGeneric('{U}{U}', -2), '{U}{U}', 'nothing generic to take');
+  assert.equal(adjustGeneric('{3}', -5), '', 'clamped at free, never negative');
+  assert.equal(adjustGeneric('{X}{2}{R}', -1), '{X}{1}{R}', 'X is left alone');
+  assert.equal(adjustGeneric('{2}{U}{U}', 0), '{2}{U}{U}', 'no delta, same string back');
+  assert.equal(adjustGeneric('{2}{S}{G}', -2), '{S}{G}', 'snow is a symbol, not two generic');
+  assert.equal(adjustGeneric('{1}{2/W}', -1), '{2/W}', 'a hybrid is carried through whole');
+});
+
+test('a cost reducer on the battlefield actually makes the spell cheaper', () => {
+  // `costAdjustmentFor` was written, tested and never called. Ruby Medallion
+  // matched the spell, totalled -1, and the caster paid full price anyway.
+  // This is the test that would have failed before `moves.ts` called it.
+  let state = table();
+  for (let i = 0; i < 3; i++) state = forest(state, `land${i}`);
+  state = put(state, 'hand', {
+    instanceId: 'dino',
+    name: 'Alpha Tyrranax',
+    typeLine: 'Creature — Dinosaur',
+    manaCost: '{3}{G}',
+    cmc: 4,
+    colorIdentity: ['G'],
+    oracleText: '',
+  });
+
+  assert.equal(
+    planCastFromHand(state, ME, 'dino').ok,
+    false,
+    'three Forests, a four-drop: refused while nothing discounts it'
+  );
+
+  state = put(state, 'battlefield', {
+    instanceId: 'medallion',
+    name: 'Emerald Medallion',
+    typeLine: 'Artifact',
+    manaCost: '{2}',
+    cmc: 2,
+    oracleText: 'Green spells you cast cost {1} less to cast.',
+  });
+
+  const plan = planCastFromHand(state, ME, 'dino');
+  assert.equal(plan.ok, true, 'with the medallion out, the same three Forests pay for it');
+});
+
+test('a whole-table tax makes a spell cost more, and it is charged', () => {
+  let state = table();
+  for (let i = 0; i < 2; i++) state = forest(state, `land${i}`);
+  state = put(state, 'hand', {
+    instanceId: 'bear',
+    name: 'Grizzly Bears',
+    typeLine: 'Creature — Bear',
+    manaCost: '{1}{G}',
+    cmc: 2,
+    colorIdentity: ['G'],
+    oracleText: '',
+  });
+
+  assert.equal(planCastFromHand(state, ME, 'bear').ok, true, 'two Forests, a two-drop');
+
+  state = put(state, 'battlefield', {
+    instanceId: 'sphere',
+    name: 'Sphere of Resistance',
+    typeLine: 'Artifact',
+    manaCost: '{2}',
+    cmc: 2,
+    oracleText: 'Spells cost {1} more to cast.',
+  });
+
+  assert.equal(
+    planCastFromHand(state, ME, 'bear').ok,
+    false,
+    'the tax is real: the same two Forests no longer cover it'
+  );
 });

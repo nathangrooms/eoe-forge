@@ -108,7 +108,25 @@ const CARDS = [
   'BishopOfWings',
   'BattleSliver',
   'KrenkoMobBoss',
+  /* Conditions: the three places one can land, one recognisable card each.
+     Anger's is a static condition read from the GRAVEYARD, Anurid Barkripper's
+     is a threshold on itself, Galvanic Blast's is a resolving `{do:'if'}`, and
+     Felidar Sovereign's is an intervening if on a triggered ability. */
+  'Anger',
+  'AnuridBarkripper',
+  'GalvanicBlast',
+  'FelidarSovereign',
+  /* The "…Source" family and the two-target effects. Epic Confrontation is the
+     one worth naming: a fight is TWO damages that both happen, and Animist's
+     Might is the one-way version with a multiplier that used to have nowhere to
+     go. Academy Ruins pins the `onTop` flag, which is the whole card. */
+  'EpicConfrontation',
+  'AnimistsMight',
+  'AcademyRuins',
+  'AttuneWithAether',
+  'BlistercoilWeird',
   /* cards that must refuse, each for a different reason */
+  'BlinkOfAnEye',
   'StormHerd',
   'HareApparent',
   'WordOfBinding',

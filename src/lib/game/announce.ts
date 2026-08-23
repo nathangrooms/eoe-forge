@@ -185,10 +185,19 @@ export function planTriggerTargets(
    * removed from the stack. That is the same sentence CR 601.2c gives a spell,
    * and `chooseTargetsFor` writes it once for both; the difference is what
    * happens next, because a spell is never cast and a trigger has already
-   * triggered. `impossible` is that difference, and it is read off whether
-   * anything is still being ASKED rather than off the wording.
+   * triggered. `impossible` is that difference.
+   *
+   * `aim.blocked` is the first half and it used to be missing, which hung a
+   * table. "Nothing is being asked" is only the same question as "no answer
+   * would help" when the ability names ONE target. With two, one spec can be
+   * asking while the other has no candidates at all, and then the drain waits
+   * on a question whose answer changes nothing. Energy Chamber did exactly
+   * that: playtest seed 9001 stopped at turn 43 upkeep with every bot returning
+   * null. The second half is kept because it is still the honest reading for a
+   * refusal `blocked` does not name, such as an announcement whose refs could
+   * not be lined up in order.
    */
-  return { ...aim, impossible: !!aim.reason && aim.pending.length === 0 };
+  return { ...aim, impossible: aim.blocked || (!!aim.reason && aim.pending.length === 0) };
 }
 
 /* -------------------------------------------------------------------------- */

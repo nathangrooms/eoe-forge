@@ -266,3 +266,68 @@ test('the bot answers even when only its own board is legal, because a trigger h
   const after = applyActions(state, move.actions);
   assert.equal(pendingTriggersOf(after).length, 0, 'the queue drained');
 });
+
+/* ------------------------------------------------------------------ *
+ * A trigger that is asking AND dead at the same time
+ * ------------------------------------------------------------------ */
+
+test('a trigger with one answerable target and one that has no candidates does not wait', () => {
+  /*
+   * THE STALL THIS TEST EXISTS FOR. Playtest seed 9001, four seats, commander:
+   * `no-legal-move` at turn 43 upkeep with two seats still alive and every bot
+   * returning null. Nothing was wrong with the board. Energy Chamber's upkeep
+   * trigger names an artifact creature in its first mode and a noncreature
+   * artifact in its second, and the board held three of the second and none of
+   * the first.
+   *
+   * `planTriggerTargets` therefore reported one PENDING choice (the artifacts)
+   * and, from the other spec, a reason. `impossible` was read off
+   * `pending.length === 0`, so it was false, so the drain waited. Answering the
+   * pending half could never settle the dead half, `answerTriggerTargets`
+   * returned null every time, and `nextBotMove` returns null for every seat
+   * while a trigger waits. The table stopped for good.
+   *
+   * Wording from Scryfall, through the cached bulk file.
+   */
+  let state = board();
+  state = addCard(
+    state,
+    {
+      instanceId: 'chamber',
+      cardId: 'chamber',
+      name: 'Energy Chamber',
+      ownerId: 'p1',
+      typeLine: 'Artifact',
+      oracleText:
+        'At the beginning of your upkeep, choose one —\n' +
+        '• Put a +1/+1 counter on target artifact creature.\n' +
+        '• Put a charge counter on target noncreature artifact.',
+    },
+    'battlefield'
+  );
+  // Three noncreature artifacts, so the SECOND mode has candidates...
+  for (const id of ['rock1', 'rock2', 'rock3']) {
+    state = addCard(
+      state,
+      { instanceId: id, cardId: id, name: 'Mana Rock', ownerId: 'p1', typeLine: 'Artifact' },
+      'battlefield'
+    );
+  }
+  // ...and not one artifact creature, so the FIRST mode has none.
+
+  // Into the controller's own upkeep, which is the step the ability names.
+  state = applyActions({ ...state, step: 'untap', activePlayerId: 'p1', priorityPlayerId: 'p1' }, [
+    { type: 'ADVANCE_STEP' },
+  ]);
+  assert.equal(state.step, 'upkeep');
+
+  assert.equal(
+    pendingTriggersOf(state).length,
+    0,
+    'the trigger must not still be sitting on the queue: nothing that could be answered would free it'
+  );
+  assert.ok(
+    state.log.some(entry => /Energy Chamber/.test(entry.message) && /nothing legal/.test(entry.message)),
+    'and it must say out loud that it did nothing, rather than vanishing'
+  );
+});

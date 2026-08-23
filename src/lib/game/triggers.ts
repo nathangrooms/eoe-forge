@@ -979,6 +979,23 @@ function settleTargets(
   if (triggerTargetSpecs(trigger).length === 0) return { wait: false, trigger };
 
   const aim = planTriggerTargets(state, trigger);
+  /*
+   * IMPOSSIBLE IS CHECKED BEFORE PENDING, and the order is the whole point.
+   *
+   * A trigger may be asking one question and be dead on a different target at
+   * the same time — one mode naming an artifact creature that is not on the
+   * board, the other naming an artifact that is. Waiting on the answerable half
+   * is waiting for an answer that cannot change the outcome, and because
+   * `announce.ts` halts the drain and `bot.ts` returns null for every seat while
+   * a trigger waits, the table stops for the rest of the game. Playtest seed
+   * 9001 stalled that way at turn 43 upkeep, `no-legal-move`, both living seats
+   * returning null.
+   *
+   * So a plan no answer can complete resolves NOW, with no target announced,
+   * and `resolveTriggerActions` prints CR 603.3d's sentence. The ability doing
+   * nothing out loud is the correct outcome; the game stopping is not.
+   */
+  if (aim.impossible) return { wait: false, trigger: { ...trigger, targets: [] } };
   if (aim.pending.length > 0) return { wait: true, trigger };
   // Either settled outright, or impossible. Both resolve; `resolveTriggerActions`
   // and `everyTargetIsGone` between them say which happened.

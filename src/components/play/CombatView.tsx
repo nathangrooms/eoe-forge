@@ -51,6 +51,12 @@ import { ViewerHand } from './ViewerHand';
 import { useLiveSession } from './liveSession';
 import { combatStageFor } from './combatUi';
 import { defaultSeatingFor } from './seatingDefaults';
+import {
+  BOARD_CARD_DEFAULT,
+  HAND_CARD_DEFAULT,
+  HUD_INSET,
+  handMetrics,
+} from './tableMetrics';
 import type { CardInstance, GameState, PlayerId } from '@/lib/game';
 
 export type CombatMode = 'declare-attackers' | 'declare-blockers' | 'watch';
@@ -86,30 +92,20 @@ export function combatIsLive(state: GameState, viewerPlayerId: PlayerId): boolea
 }
 
 /* -------------------------------------------------------------------------- */
-/* Measurements, mirrored from Play.tsx                                       */
+/* Measurements — the shared ones, no longer a copy                           */
 /* -------------------------------------------------------------------------- */
-
-/** A real card is 63 × 88 mm: height = width ÷ this. */
-const CARD_RATIO = 0.7176;
-/** `Play.tsx`'s defaults, under the same `useCardSize` keys it stores them at. */
-const BOARD_CARD_DEFAULT = 200;
-const HAND_CARD_DEFAULT = 300;
-/** `Play.tsx`'s `HUD_INSET`. */
-const HUD_INSET = 56;
-
-/**
- * `Play.tsx`'s `handMetrics`, for the un-focused (whole-table) case.
- *
- * Duplicated on purpose, and only until that page can be edited. If this
+/*
+ * These were a private `CARD_RATIO`, `HUD_INSET` and `handMetrics` in this
+ * file, duplicated deliberately and with a note saying that if the copy ever
  * measured the hand differently the fan would resize the instant combat opened
- * and every mat would re-fit its cards around it — which is the takeover the
- * owner reported, arriving by another route.
+ * and every mat would re-fit its cards around it.
+ *
+ * That is precisely what would have happened this session. The shared
+ * `handMetrics` now reserves a docked band rather than a whole upright card, so
+ * a copy left behind would have laid one hand out two ways on two views of the
+ * same table. `tableMetrics.ts` exists so that cannot happen, and this file was
+ * the last caller not using it.
  */
-function handMetrics(viewportHeight: number, ceiling: number) {
-  const height = Math.max(480, viewportHeight);
-  const cardWidth = Math.round(Math.min(ceiling, Math.max(96, height * 0.25 * CARD_RATIO)));
-  return { cardWidth, inset: Math.round(cardWidth / CARD_RATIO) };
-}
 
 export function CombatView({
   state,
@@ -129,7 +125,8 @@ export function CombatView({
   const [handCardWidth] = useCardSize('play-hand', HAND_CARD_DEFAULT);
 
   const viewportHeight = typeof window === 'undefined' ? 900 : window.innerHeight;
-  const hand = handMetrics(viewportHeight, handCardWidth);
+  /* `false` is the whole-table case, which is what combat is drawn on. */
+  const hand = handMetrics(viewportHeight, handCardWidth, false);
 
   const attackerIds = useMemo(
     () => state.combat.attackers.map(d => d.attackerId),
@@ -173,7 +170,7 @@ export function CombatView({
         {/* Your hand, held over the near edge of the table, exactly as it is on
             the table view. Clicking a card opens the preview; it never plays it. */}
         <ViewerHand
-          className="absolute inset-x-0 bottom-2 z-30"
+          className="absolute inset-x-0 bottom-0 z-30"
           state={state}
           viewerPlayerId={viewerPlayerId}
           cardWidth={hand.cardWidth}

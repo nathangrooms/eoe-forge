@@ -261,8 +261,10 @@ function ZoneTile({
     </>
   );
 
+  /* The same printed bed the two rows carry, at the mana row's weight, so the
+     piles read as areas printed on the mat rather than as widgets on top of it. */
   const shell = cn(
-    'relative flex shrink-0 items-center justify-center overflow-hidden rounded-lg bg-foreground/[0.045]'
+    'relative flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-foreground/[0.07]'
   );
 
   if (!onClick) {
@@ -290,12 +292,19 @@ function ZoneTile({
   );
 }
 
-/** An empty pile still reads as a place a pile goes. */
+/**
+ * An empty pile still reads as a place a pile goes.
+ *
+ * `bg-black/25` before this, which was a fair choice on a 44px tile and reads
+ * as a hole punched in the mat at 108px. An empty zone on a real mat is a
+ * printed outline on the cloth, so this is a shallow inset instead: dark enough
+ * to be a recess, light enough that the grain still comes through it.
+ */
 function EmptyWell({ width }: { width: number }) {
   return (
     <span
       aria-hidden="true"
-      className="block rounded-[6%/4%] bg-black/25 shadow-inner"
+      className="block rounded-[6%/4%] bg-black/15 shadow-[inset_0_1px_2px_hsl(0_0%_0%/0.35),inset_0_0_0_1px_hsl(0_0%_100%/0.04)]"
       style={{ width, height: width / CARD_RATIO }}
     />
   );

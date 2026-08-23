@@ -274,3 +274,85 @@ export async function addCardsByName(
 
   return results;
 }
+
+/**
+ * Change the quantity of many collection rows in a fixed number of requests.
+ *
+ * ## Why this exists
+ *
+ * `CollectionAPI.bulkUpdateQuantity` (`src/server/routes/collection.ts:509`)
+ * reads one row and writes one row PER SELECTED ID. Measured in a browser on
+ * `/collection` with "Select all 100 matching" and Quantity, add 1: **206
+ * requests for one press** — 102 reads, 100 writes, 2 auth round trips. It
+ * grows with the selection, and the selection control on that page is a button
+ * that says "Select all N matching".
+ *
+ * `bulkDelete` sits directly beneath it in the same class and does the right
+ * thing with a single `.in()`. Same file, same shape available, not used.
+ *
+ * ## The shape
+ *
+ * One read of the picked rows per 150 ids, one upsert per 200 rows. The
+ * arithmetic is the arithmetic the single-row path did: clamp at zero, never
+ * below, and a row that is not the caller's is not touched — the read is scoped
+ * by `user_id`, so an id that is not theirs simply does not come back, which is
+ * what `.eq('user_id', ...)` on the old read achieved one row at a time.
+ */
+export async function bulkUpdateQuantity(
+  rowIds: string[],
+  delta: number
+): Promise<{ updated: number; error: string | null }> {
+  if (rowIds.length === 0 || delta === 0) return { updated: 0, error: null };
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) return { updated: 0, error: 'User not authenticated' };
+  const userId = session.user.id;
+
+  /* Every column a row needs to be a valid row on its own: an upsert is the
+     only way to give each row its OWN new quantity in one statement, and an
+     upsert sends whole rows. */
+  interface Row {
+    id: string;
+    user_id: string;
+    card_id: string;
+    card_name: string;
+    set_code: string;
+    quantity: number;
+    foil: number;
+    condition: string;
+    price_usd: number | null;
+  }
+  const rows: Row[] = [];
+
+  for (const slice of chunked([...new Set(rowIds)], CHUNK)) {
+    const { data, error } = await supabase
+      .from('user_collections')
+      .select('id, user_id, card_id, card_name, set_code, quantity, foil, condition, price_usd')
+      .eq('user_id', userId)
+      .in('id', slice);
+
+    if (error) return { updated: 0, error: error.message };
+    rows.push(...((data ?? []) as Row[]));
+  }
+
+  if (rows.length === 0) return { updated: 0, error: null };
+
+  const next = rows.map(row => ({
+    ...row,
+    // The clamp the single-row path applied, unchanged.
+    quantity: Math.max(0, (row.quantity ?? 0) + delta),
+  }));
+
+  let updated = 0;
+  for (const slice of chunked(next, WRITE_CHUNK)) {
+    const { error } = await supabase
+      .from('user_collections')
+      .upsert(slice, { onConflict: 'id' });
+    if (error) return { updated, error: error.message };
+    updated += slice.length;
+  }
+
+  return { updated, error: null };
+}

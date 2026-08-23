@@ -275,6 +275,12 @@ async function walkMoreMenu(browser) {
     'legality', 'optimiser', 'value', 'record',
   ];
   const ROUTES = [
+    /* The optimiser is a route now, and both of its old tab spellings redirect
+       here. Walked as three entries so a redirect that stops redirecting shows
+       up as a page with the wrong headings rather than as nothing at all. */
+    '/deck/DECK/optimise',
+    '/deck/DECK?tab=optimiser',
+    '/deck/DECK?tab=ai',
     '/deck/DECK/export',
     '/deck/DECK/share',
     '/deck/DECK/proxies',

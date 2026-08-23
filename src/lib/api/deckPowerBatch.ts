@@ -44,6 +44,16 @@ export interface DeckToScore {
 const ID_CHUNK = 100;
 
 /**
+ * Decks per `persist_deck_power_batch` call.
+ *
+ * The function REFUSES more than 200 and raises rather than truncating, so an
+ * unchunked payload would lose the whole write, not part of it. The deck list
+ * only ever asks for twelve at a time; this is here so the next caller is not
+ * the one that finds out.
+ */
+const WRITE_CHUNK = 100;
+
+/**
  * Score a batch of decks from their real decklists, and persist the results in
  * one write.
  *
@@ -141,13 +151,15 @@ export async function scoreDecksInBatch(
   /* ------------------------------------------------------- one write, once */
 
   if (options.persist !== false && toWrite.length > 0) {
-    const { error } = await supabase.rpc('persist_deck_power_batch' as any, {
-      p_scores: toWrite,
-    } as any);
+    for (let i = 0; i < toWrite.length; i += WRITE_CHUNK) {
+      const { error } = await supabase.rpc('persist_deck_power_batch' as any, {
+        p_scores: toWrite.slice(i, i + WRITE_CHUNK),
+      } as any);
 
-    /* A failed cache write must never break the surface that computed the
-       score — the numbers are already correct in the Map being returned. */
-    if (error) console.warn('Could not persist deck power:', error);
+      /* A failed cache write must never break the surface that computed the
+         score — the numbers are already correct in the Map being returned. */
+      if (error) console.warn('Could not persist deck power:', error);
+    }
   }
 
   return scores;

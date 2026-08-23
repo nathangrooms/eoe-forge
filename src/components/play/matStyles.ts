@@ -106,37 +106,70 @@ function svgUrl(markup: string): string {
     .replace(/\)/g, '%29')}")`;
 }
 
-/** `rotate(a x y)` without the parentheses `url()` cannot hold. */
-const rotate = (deg: number) => `rotate%28${deg} 8 8%29`;
-
 /* -------------------------------------------------------------------------- */
 /* The weave                                                                  */
 /* -------------------------------------------------------------------------- */
 
 /**
- * A woven tile: broken threads, offset row to row, the way cloth is made.
+ * The GRAIN of a material: fractal noise, dark and light, in one tile.
  *
- * `pitch` is the tile in px, so the weave is the same size on a 948px quadrant
- * and on a 1904px table — which is what stops it beating against the card edges
- * on a wide screen. `dark` and `light` are the two passes, and their alphas are
- * roughly three times what the crossed gradients carried, which is the
- * difference between a surface you can measure and one you cannot.
+ * This is the layer that decides whether a surface reads as a material or as a
+ * fill, and it is the one that was missing. A first attempt drew literal
+ * threads as short strokes in a 16px tile and painted it at a 9px pitch; the
+ * downscale turned every 2px stroke into a 1.1px antialiased smear and the
+ * measured amplitude went DOWN, from 6.56 to 5.08. A thread you have to draw
+ * thinner than a pixel is not a thread.
+ *
+ * `feTurbulence` has no such problem: it is evaluated at the device's own
+ * resolution, so the grain is per-pixel however large the tile is drawn, and
+ * `stitchTiles` makes it repeat without a seam.
+ *
+ * It is deliberately NEUTRAL in mean. The noise is centred on 0.5, and the two
+ * rects split it: the black one takes alpha `R - 0.5`, so it darkens only the
+ * half of the field above the midpoint, and the white one takes `0.5 - R`
+ * scaled, so it lightens only the half below. A single grey rect would have
+ * been simpler and would have lifted a 45-level mat toward mid grey, which is
+ * how "add some texture" turns a dark table into a pale one.
+ *
+ * @param pitch    Tile size in px. Larger repeats less obviously; the noise
+ *                 itself is not scaled by it, only the repeat period is.
+ * @param freq     `baseFrequency`: how fine the grain is.
+ * @param dark     Peak alpha of the dark speckle.
+ * @param light    Peak alpha of the light speckle.
  */
-function twill(pitch: number, dark: number, light: number, angle: number): MatLayer {
+function grain(pitch: number, freq: number, dark: number, light: number): MatLayer {
   const markup = `
-    <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'>
-      <g transform='${rotate(angle)}' stroke-linecap='square'>
-        <path d='M0 2h7M8 6h7M0 10h7M8 14h7' stroke='%23000' stroke-opacity='${dark}' stroke-width='2'/>
-        <path d='M8 0h7M0 4h7M8 8h7M0 12h7' stroke='%23fff' stroke-opacity='${light}' stroke-width='1'/>
-      </g>
+    <svg xmlns='http://www.w3.org/2000/svg' width='${pitch}' height='${pitch}'>
+      <filter id='g' x='0' y='0' width='100%' height='100%' color-interpolation-filters='sRGB'>
+        <feTurbulence type='fractalNoise' baseFrequency='${freq}' numOctaves='3' stitchTiles='stitch'/>
+        <feColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ${dark} 0 0 0 ${(
+          -dark * 0.5
+        ).toFixed(3)}'/>
+      </filter>
+      <filter id='l' x='0' y='0' width='100%' height='100%' color-interpolation-filters='sRGB'>
+        <feTurbulence type='fractalNoise' baseFrequency='${freq}' numOctaves='3' stitchTiles='stitch'/>
+        <feColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 ${(-light).toFixed(
+          3
+        )} 0 0 0 ${(light * 0.5).toFixed(3)}'/>
+      </filter>
+      <rect width='${pitch}' height='${pitch}' filter='url(#g)'/>
+      <rect width='${pitch}' height='${pitch}' filter='url(#l)'/>
     </svg>`;
   return { image: svgUrl(markup), size: `${pitch}px ${pitch}px`, repeat: 'repeat' };
 }
 
-/** A twill: a bright pass and a heavier dark pass crossing at right angles. */
+/**
+ * A twill: the grain of the cloth, and the diagonal the threads run in.
+ *
+ * The direction stays a pair of crossed gradients, which is what a gradient is
+ * genuinely good at — a continuous rule at an exact angle and an exact pitch,
+ * sharp at any size. What it was never able to do is the grain, and that is now
+ * the layer above it.
+ */
 const clothTexture = (s: number): MatLayer[] => [
-  twill(9, +(0.34 * s).toFixed(3), +(0.07 * s).toFixed(3), 45),
-  g(`repeating-linear-gradient(-45deg, hsl(0 0% 0% / ${0.07 * s}) 0 1px, transparent 1px 11px)`),
+  grain(160, 0.9, +(1.05 * s).toFixed(3), +(0.72 * s).toFixed(3)),
+  g(`repeating-linear-gradient(45deg, hsl(0 0% 100% / ${0.03 * s}) 0 1px, transparent 1px 7px)`),
+  g(`repeating-linear-gradient(-45deg, hsl(0 0% 0% / ${0.2 * s}) 0 2px, transparent 2px 7px)`),
 ];
 
 /**
@@ -144,9 +177,11 @@ const clothTexture = (s: number): MatLayer[] => [
  * each other read as fibre rather than as a pattern, which one grid never does.
  */
 const feltTexture = (s: number): MatLayer[] => [
-  twill(6, +(0.2 * s).toFixed(3), +(0.05 * s).toFixed(3), 0),
-  g(`repeating-linear-gradient(0deg, hsl(0 0% 100% / ${0.03 * s}) 0 1px, transparent 1px 3px)`),
-  g(`repeating-linear-gradient(90deg, hsl(0 0% 0% / ${0.11 * s}) 0 1px, transparent 1px 4px)`),
+  /* Finer and softer than cloth: a higher base frequency is a shorter fibre,
+     and felt is short fibre pressed flat. */
+  grain(140, 1.5, +(0.85 * s).toFixed(3), +(0.58 * s).toFixed(3)),
+  g(`repeating-linear-gradient(0deg, hsl(0 0% 100% / ${0.02 * s}) 0 1px, transparent 1px 3px)`),
+  g(`repeating-linear-gradient(90deg, hsl(0 0% 0% / ${0.07 * s}) 0 1px, transparent 1px 4px)`),
 ];
 
 /**
@@ -154,10 +189,12 @@ const feltTexture = (s: number): MatLayer[] => [
  * and wide soft radials at odd positions, so nothing lines up with anything.
  */
 const leatherTexture = (s: number): MatLayer[] => [
+  /* Coarse and low: hide is a large irregular grain, not a fine one. */
+  grain(200, 0.42, +(1.1 * s).toFixed(3), +(0.66 * s).toFixed(3)),
   {
     image: svgUrl(`
       <svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'>
-        <g fill='none' stroke='%23000' stroke-opacity='${(0.26 * s).toFixed(3)}' stroke-width='1.1'>
+        <g fill='none' stroke='#000' stroke-opacity='${(0.26 * s).toFixed(3)}' stroke-width='1.1'>
           <path d='M4 22c18 9 30-6 48 2s28 14 46 6'/>
           <path d='M-4 56c22-11 34 8 54 1s30-12 48-3'/>
           <path d='M2 88c20 7 28-8 47-2s30 13 49 4'/>
@@ -165,7 +202,7 @@ const leatherTexture = (s: number): MatLayer[] => [
           <path d='M62 -2c7 18-6 28 2 46s9 32 1 48'/>
           <path d='M98 2c5 21-9 29 0 47s11 31 3 47'/>
         </g>
-        <g fill='none' stroke='%23fff' stroke-opacity='${(0.05 * s).toFixed(3)}' stroke-width='0.8'>
+        <g fill='none' stroke='#fff' stroke-opacity='${(0.05 * s).toFixed(3)}' stroke-width='0.8'>
           <path d='M4 24c18 9 30-6 48 2s28 14 46 6'/>
           <path d='M20 4c6 20-8 30 1 48s10 30 2 46'/>
         </g>
@@ -179,14 +216,17 @@ const leatherTexture = (s: number): MatLayer[] => [
 
 /** Stone: matte, cool, and coarse enough to sit quietly under a busy board. */
 const slateTexture = (s: number): MatLayer[] => [
+  /* Stone is grain all the way down: the finest of the six, and the one with
+     no direction to it at all. */
+  grain(150, 1.9, +(0.98 * s).toFixed(3), +(0.66 * s).toFixed(3)),
   {
     image: svgUrl(`
       <svg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'>
         <g stroke-linecap='round'>
           <path d='M2 9h13M22 4h19M46 12h12M6 25h21M33 21h9M48 28h9M3 41h11M19 45h17M42 38h15M8 55h18M31 52h10M46 57h11'
-            stroke='%23000' stroke-opacity='${(0.24 * s).toFixed(3)}' stroke-width='1.4'/>
+            stroke='#000' stroke-opacity='${(0.24 * s).toFixed(3)}' stroke-width='1.4'/>
           <path d='M4 11h11M24 6h16M6 27h18M35 23h7M5 43h9M21 47h13M10 57h15'
-            stroke='%23fff' stroke-opacity='${(0.045 * s).toFixed(3)}' stroke-width='0.9'/>
+            stroke='#fff' stroke-opacity='${(0.045 * s).toFixed(3)}' stroke-width='0.9'/>
         </g>
       </svg>`),
     size: '48px 48px',
@@ -196,12 +236,15 @@ const slateTexture = (s: number): MatLayer[] => [
 
 /** A tight technical weave. The one that does not pretend to be a material. */
 const carbonTexture = (s: number): MatLayer[] => [
+  /* The lightest grain of the six. Carbon is the one surface that is meant to
+     read as manufactured rather than as a material. */
+  grain(120, 1.2, +(0.6 * s).toFixed(3), +(0.4 * s).toFixed(3)),
   {
     image: svgUrl(`
       <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'>
-        <rect width='8' height='8' fill='%23fff' fill-opacity='${(0.05 * s).toFixed(3)}'/>
-        <rect x='8' y='8' width='8' height='8' fill='%23fff' fill-opacity='${(0.05 * s).toFixed(3)}'/>
-        <g stroke='%23000' stroke-opacity='${(0.3 * s).toFixed(3)}' stroke-width='1'>
+        <rect width='8' height='8' fill='#fff' fill-opacity='${(0.05 * s).toFixed(3)}'/>
+        <rect x='8' y='8' width='8' height='8' fill='#fff' fill-opacity='${(0.05 * s).toFixed(3)}'/>
+        <g stroke='#000' stroke-opacity='${(0.3 * s).toFixed(3)}' stroke-width='1'>
           <path d='M0 0l8 8M8 8l8 8M8 0l-8 8M16 8l-8 8'/>
         </g>
       </svg>`),
@@ -265,8 +308,8 @@ function emblem(markup: string): MatLayer {
 const boundEdge = (light: number, dark: number): MatLayer => ({
   image: svgUrl(`
     <svg xmlns='http://www.w3.org/2000/svg' width='400' height='200' viewBox='0 0 400 200' preserveAspectRatio='none'>
-      <rect x='5' y='5' width='390' height='190' rx='6' fill='none' stroke='%23fff' stroke-opacity='${light}' stroke-width='1.5'/>
-      <rect x='9' y='9' width='382' height='182' rx='4' fill='none' stroke='%23000' stroke-opacity='${dark}' stroke-width='1'/>
+      <rect x='5' y='5' width='390' height='190' rx='6' fill='none' stroke='#fff' stroke-opacity='${light}' stroke-width='1.5'/>
+      <rect x='9' y='9' width='382' height='182' rx='4' fill='none' stroke='#000' stroke-opacity='${dark}' stroke-width='1'/>
     </svg>`),
   size: '100% 100%',
   position: 'center',
@@ -275,20 +318,20 @@ const boundEdge = (light: number, dark: number): MatLayer => ({
 
 /** Twelve points off two rings: the plainest of the six, and the default. */
 const CLOTH_EMBLEM = `
-  <g fill='none' stroke='%23fff' stroke-opacity='0.055'>
+  <g fill='none' stroke='#fff' stroke-opacity='0.075'>
     <circle cx='200' cy='200' r='150' stroke-width='2.5'/>
     <circle cx='200' cy='200' r='118' stroke-width='1.2'/>
     <circle cx='200' cy='200' r='54' stroke-width='1.6'/>
     <path d='M200 26v58M200 316v58M26 200h58M316 200h58' stroke-width='2'/>
     <path d='M77 77l41 41M323 77l-41 41M77 323l41-41M323 323l-41-41' stroke-width='1.2'/>
   </g>
-  <g fill='%23fff' fill-opacity='0.028'>
+  <g fill='#fff' fill-opacity='0.038'>
     <path d='M200 60l30 110 110 30-110 30-30 110-30-110-110-30 110-30z'/>
   </g>`;
 
 /** A rosette: twelve petals, the softest of the six. */
 const FELT_EMBLEM = `
-  <g fill='none' stroke='%23fff' stroke-opacity='0.045' stroke-width='1.6'>
+  <g fill='none' stroke='#fff' stroke-opacity='0.062' stroke-width='1.6'>
     <circle cx='200' cy='200' r='152'/>
     <circle cx='200' cy='200' r='92'/>
     ${Array.from({ length: 12 }, (_, i) => {
@@ -302,20 +345,20 @@ const FELT_EMBLEM = `
 
 /** Tooled scrollwork, the way a leather mat is stamped. */
 const LEATHER_EMBLEM = `
-  <g fill='none' stroke='%23fff' stroke-opacity='0.05' stroke-width='2.2' stroke-linecap='round'>
+  <g fill='none' stroke='#fff' stroke-opacity='0.07' stroke-width='2.2' stroke-linecap='round'>
     <circle cx='200' cy='200' r='148'/>
     <path d='M200 66c-46 26-46 68 0 94s46 68 0 94'/>
     <path d='M200 66c46 26 46 68 0 94s-46 68 0 94'/>
     <path d='M66 200c26-46 68-46 94 0s68 46 94 0'/>
     <path d='M66 200c26 46 68 46 94 0s68-46 94 0'/>
   </g>
-  <g fill='none' stroke='%23000' stroke-opacity='0.07' stroke-width='1.2'>
+  <g fill='none' stroke='#000' stroke-opacity='0.07' stroke-width='1.2'>
     <circle cx='200' cy='200' r='156'/>
   </g>`;
 
 /** A carved ring, twenty-four ticks and a hexagon inside it. */
 const SLATE_EMBLEM = `
-  <g fill='none' stroke='%23fff' stroke-opacity='0.05'>
+  <g fill='none' stroke='#fff' stroke-opacity='0.07'>
     <circle cx='200' cy='200' r='150' stroke-width='2'/>
     <circle cx='200' cy='200' r='134' stroke-width='1'/>
     <path d='M200 62l119.5 69v138L200 338 80.5 269V131z' stroke-width='1.6'/>
@@ -332,7 +375,7 @@ const SLATE_EMBLEM = `
 
 /** A hex lattice. The one that does not pretend to be a material. */
 const CARBON_EMBLEM = `
-  <g fill='none' stroke='%23fff' stroke-opacity='0.05' stroke-width='1.6'>
+  <g fill='none' stroke='#fff' stroke-opacity='0.07' stroke-width='1.6'>
     <path d='M200 54l126.5 73v146L200 346 73.5 273V127z'/>
     <path d='M200 106l81.5 47v94L200 294l-81.5-47v-94z'/>
     <path d='M200 158l36.5 21v42L200 242l-36.5-21v-42z'/>

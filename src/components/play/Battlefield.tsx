@@ -338,7 +338,7 @@ export function ZoneBlock({
     return (
       <div
         className={cn(
-          'relative flex shrink-0 overflow-hidden rounded-lg bg-foreground/[0.045]',
+          'relative flex shrink-0 overflow-hidden rounded-xl bg-foreground/[0.05]',
           spine ? 'items-start justify-center pt-2' : 'items-start justify-start px-2 pt-0.5',
           className
         )}
@@ -375,7 +375,7 @@ export function ZoneBlock({
   return (
     <div
       className={cn(
-        'relative flex shrink-0 flex-col items-start overflow-visible rounded-lg bg-foreground/[0.045] pt-3.5',
+        'relative flex shrink-0 flex-col items-start overflow-visible rounded-xl bg-foreground/[0.05] pt-3.5',
         className
       )}
       /*

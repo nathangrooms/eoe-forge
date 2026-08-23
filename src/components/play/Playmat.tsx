@@ -236,15 +236,19 @@ export const Playmat = memo(function Playmat({
     },
     ...mat.texture(settings.weave),
     ...mat.mottle,
-    /* The tint sits under the texture, so the weave reads on top of it — the
-       way a dye sits in cloth rather than on it. */
-    ...(tint ? [{ image: tint }] : []),
     /* The printed plate: the emblem in the middle of the mat and the bound
-       edge, drawn by us in SVG. Under the tint and the weave, so the seat's own
-       colour dyes it and the cloth reads across it, which is the order a real
-       mat is made in. A photograph the reader uploaded covers it, because a
-       photograph is already the whole surface. */
+       edge, drawn by us in SVG.
+
+       ABOVE the tint and below the weave, which is the order a mat is really
+       made in: cloth is dyed and then printed, not printed and then dyed. It
+       was under the tint on the first attempt and a 5% mark under a 16 to 24%
+       colour wash and a vignette could not be seen at all. A photograph the
+       reader uploaded covers it, because a photograph is already the whole
+       surface. */
     ...(picture ? [] : mat.art?.(settings.weave) ?? []),
+    /* The tint sits under the weave, so the cloth reads on top of it — the way
+       a dye sits in cloth rather than on it. */
+    ...(tint ? [{ image: tint }] : []),
     /* A style carrying a commissioned photograph. Unset on every built-in one;
        see the licensing note in `matStyles.ts`. */
     ...(mat.image ? [{ image: mat.image, size: 'cover', position: 'center', repeat: 'no-repeat' }] : []),

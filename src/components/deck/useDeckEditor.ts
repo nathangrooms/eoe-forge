@@ -15,6 +15,7 @@ import {
 } from '@/lib/deck/deckMutations';
 import { maxCopiesFor } from '@/components/deck-builder/deck-categories';
 import { scryfallAPI } from '@/lib/api/scryfall';
+import { planReplacements } from './replacementPlan';
 import type { DeckPower } from '@/lib/deck/power';
 
 /**
@@ -603,50 +604,12 @@ export function useDeckEditor(deckId: string | undefined) {
 
       /* ---- 2. the whole change, worked out against one moving snapshot ---- */
 
-      const nameOf = (row: DeckCardRow) => row.card?.name ?? row.card_name;
-      /* Copied, not aliased. Quantities are edited in place below, and `rows`
-         is the list `commit` holds as the version to put back. */
-      let next = rows.map(row => ({ ...row }));
-      const doomed = new Map<string, DeckCardRow>();
-      const touched = new Set<string>();
-      const refused: string[] = [];
+      const { next, doomedIds, upserts, refused } = planReplacements(rows, resolved, {
+        refuse,
+        newRow: (card, quantity) => optimisticRow(card, { quantity }),
+      });
 
-      for (const { remove, card } of resolved) {
-        const outgoing = remove
-          ? next.find(row => nameOf(row) === remove && !row.is_commander && !row.is_sideboard)
-          : undefined;
-
-        if (!card) {
-          if (outgoing) {
-            doomed.set(outgoing.id, outgoing);
-            next = next.filter(row => row !== outgoing);
-          }
-          continue;
-        }
-
-        // Swapping a card for itself is not a change, and treating it as one
-        // would delete the row it is also about to write.
-        if (outgoing && outgoing.card_id === card.id) continue;
-
-        const already = next.find(row => row.card_id === card.id && !row.is_sideboard);
-        const wanted = (already?.quantity ?? 0) + (outgoing?.quantity ?? 1);
-
-        const problem = refuse(card, wanted);
-        if (problem) {
-          refused.push(problem);
-          continue;
-        }
-
-        if (outgoing) {
-          doomed.set(outgoing.id, outgoing);
-          next = next.filter(row => row !== outgoing);
-        }
-        if (already) already.quantity = wanted;
-        else next.push(optimisticRow(card, { quantity: wanted }));
-        touched.add(card.id);
-      }
-
-      if (doomed.size === 0 && touched.size === 0) {
+      if (doomedIds.length === 0 && upserts.length === 0) {
         report(refused, unresolved);
         // Nothing could be done at all, so the caller must not report success.
         if (refused.length > 0 || unresolved.length > 0) {
@@ -654,24 +617,6 @@ export function useDeckEditor(deckId: string | undefined) {
         }
         return;
       }
-
-      /* A card is only deleted if it is not also in the finished deck. Two
-         replacements can trade the same card out and back in, and a delete
-         issued after the upsert would take the row the upsert just wrote. */
-      const survivors = new Set(next.map(row => row.card_id));
-      const doomedIds = [...doomed.values()]
-        .filter(row => !survivors.has(row.card_id))
-        .map(row => row.id);
-
-      const upserts = next
-        .filter(row => touched.has(row.card_id) && !row.is_commander && !row.is_sideboard)
-        .map(row => ({
-          card_id: row.card_id,
-          card_name: row.card_name,
-          quantity: row.quantity,
-          is_commander: false,
-          is_sideboard: false,
-        }));
 
       const ok = await commit(
         next,

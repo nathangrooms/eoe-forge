@@ -28,13 +28,37 @@
  *
  * Into the mat, in the table's own material, in the band the combat strip uses:
  * no dialog, no backdrop, no dimming, nothing covered.
+ *
+ * ---------------------------------------------------------------------------
+ * A SPELL ON THE STACK IS A CARD, AND THIS IS WHERE THE GREY BOX WAS
+ * ---------------------------------------------------------------------------
+ * Owner, on a screenshot: *"A CARD ON THE STACK RENDERS AS AN EMPTY GREY BOX
+ * with its name in small text. A blank rectangle where a card should be is the
+ * thing that most makes software look unfinished."*
+ *
+ * That was measured to this file and to nothing else. Across a whole real game
+ * at two widths, 41 of 41 card views on the board painted real art and 0 were
+ * placeholders; this strip measured 219.8 x 101 with **0 `<img>` and 0 card
+ * views in it**, drawing the spell as a 195.8 x 24.5 text row — 4,797 px — at
+ * the same moment the same card was on screen 700px below it at 257px wide. It
+ * was not failing to load a picture. It never asked for one.
+ *
+ * A spell on the stack is a card in a zone, and `StackObject.cardInstanceId`
+ * has always pointed at it. An ability is not a card, so an ability shows the
+ * PERMANENT it came off — `sourceInstanceId`, which is what a player looks at
+ * to work out what is about to happen — and says which of the two it is in
+ * words. When the engine gives neither, the honest answer is a card back rather
+ * than an empty rectangle: something is on the stack and we cannot show you
+ * what.
  */
 
 import { Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Playmat } from './Playmat';
+import { CardBack } from './CardBack';
+import { GameCardView } from './GameCardView';
 import { ManaCost } from '@/components/ui/mana-cost';
-import type { GameState, PlayerId, ResponseOption, StackObject } from '@/lib/game';
+import type { CardInstance, GameState, PlayerId, ResponseOption, StackObject } from '@/lib/game';
 
 export interface StackStripProps {
   state: GameState;
@@ -64,6 +88,20 @@ export function StackStrip({
   if (stack.length === 0) return null;
 
   const topFirst = stack.slice().reverse();
+
+  /*
+   * The card an object on the stack IS, or the permanent it came off.
+   *
+   * `cardInstanceId` for a spell, because the spell is the card. For an ability
+   * there is no card — CR 113.3 — so this falls back to the source permanent,
+   * which is what a player looks at to work out what is about to happen to
+   * them. `cardFor` returning null is not a rendering failure and is not drawn
+   * as an empty box; it is a card back, which says what is true.
+   */
+  const cardFor = (object: StackObject): CardInstance | null =>
+    state.cards[object.cardInstanceId ?? object.sourceInstanceId ?? ''] ?? null;
+  const isSpell = (object: StackObject) => Boolean(object.cardInstanceId);
+
   const nameOf = (playerId: PlayerId) =>
     playerId === viewerPlayerId
       ? 'You'
@@ -101,27 +139,69 @@ export function StackStrip({
         <span className="min-w-0 flex-1 truncate text-[11px] text-foreground">{headline}</span>
       </div>
 
-      {/* Top first: the next thing to resolve reads first. */}
-      <div className="relative flex flex-col gap-0.5">
-        {topFirst.map((object, index) => (
-          <div
-            key={object.stackId}
-            className={cn(
-              'flex items-baseline gap-2 rounded-lg px-2 py-1',
-              index === 0 ? 'bg-foreground/[0.12]' : 'bg-foreground/[0.05]'
-            )}
-          >
-            <span className="w-14 shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">
-              {index === 0 ? 'Next' : `+${index}`}
-            </span>
-            <span className="min-w-0 flex-1 truncate text-xs font-semibold text-foreground">
-              {object.name}
-            </span>
-            <span className="shrink-0 text-[11px] text-muted-foreground">
-              {nameOf(object.controllerId)}
-            </span>
-          </div>
-        ))}
+      {/*
+        Top first: the next thing to resolve reads first, and it is drawn as
+        the CARD it is.
+
+        The next object gets a card you can actually read at 108px; everything
+        under it gets a 56px one, because the stack under the top is context
+        rather than the decision. Both are real card views, so both carry the
+        art, the frame and the layer engine's stat line, and neither of them is
+        a rectangle with a name in it.
+      */}
+      <div className="relative flex items-end gap-2">
+        {/* Five is what fits: 108 + four at 56 plus the gaps is about 390 of
+            the strip's 672. A deeper stack says how much deeper rather than
+            running off the end, because a scroll bar inside the table is the
+            one thing this surface may never grow. */}
+        {topFirst.slice(0, STACK_SHOWN).map((object, index) => {
+          const card = cardFor(object);
+          const width = index === 0 ? 108 : 56;
+          const kind = isSpell(object) ? 'spell' : 'ability';
+          const label = `${object.name}, ${kind} cast by ${nameOf(object.controllerId)}`;
+
+          return (
+            <div
+              key={object.stackId}
+              className={cn(
+                'flex min-w-0 shrink-0 flex-col items-center gap-1 rounded-xl px-2 pb-1 pt-1',
+                index === 0 ? 'bg-foreground/[0.12]' : 'bg-foreground/[0.05]'
+              )}
+              title={label}
+            >
+              <span className="text-[9px] uppercase tracking-[0.14em] text-muted-foreground">
+                {index === 0 ? 'Next' : `+${index}`}
+              </span>
+              {card ? (
+                <GameCardView card={card} width={width} ignoreTapped title={label} />
+              ) : (
+                /* Nothing to show and we say so, rather than drawing a hole.
+                   An object with neither a card nor a source is a triggered
+                   ability the engine raised from a rule rather than from a
+                   permanent. */
+                <CardBack width={width} title={label} />
+              )}
+              <span
+                className="max-w-full truncate text-[10px] font-semibold text-foreground"
+                style={{ width }}
+              >
+                {object.name}
+              </span>
+              <span
+                className="max-w-full truncate text-[10px] text-muted-foreground"
+                style={{ width }}
+              >
+                {isSpell(object) ? nameOf(object.controllerId) : `${nameOf(object.controllerId)}, ability`}
+              </span>
+            </div>
+          );
+        })}
+
+        {topFirst.length > STACK_SHOWN && (
+          <span className="self-center rounded-full bg-foreground/[0.1] px-2 py-1 text-[10px] font-semibold tabular-nums text-muted-foreground">
+            {topFirst.length - STACK_SHOWN} more
+          </span>
+        )}
       </div>
 
       {yourPriority && (

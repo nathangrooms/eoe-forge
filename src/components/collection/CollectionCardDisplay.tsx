@@ -12,6 +12,7 @@ import {
 } from '@/components/collection/browser/types';
 import { useCardLists } from '@/lib/shopping';
 import { StorageAPI, fileCardsIntoContainer } from '@/lib/api/storageAPI';
+import { bulkUpdateQuantity } from '@/lib/api/collectionBatch';
 import { CollectionAPI } from '@/server/routes/collection';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { StorageContainer } from '@/types/storage';
@@ -124,7 +125,12 @@ export function CollectionCardDisplay({
 
   const handleBulkUpdateQuantity = async (delta: number) => {
     try {
-      const result = await CollectionAPI.bulkUpdateQuantity(
+      /* One read and one write per chunk, not per row. `CollectionAPI
+         .bulkUpdateQuantity` reads and writes once for every selected id, and
+         the control above this one is a button that says "Select all N
+         matching": measured at 206 requests for one press over 100 rows. The
+         single-card stepper below still uses it, where one row is one row. */
+      const result = await bulkUpdateQuantity(
         selectedList.map(item => item.id),
         delta
       );

@@ -263,7 +263,7 @@ export function WatchedTable({
           would be, which is half of "how they are casting" on its own.
         */}
         <ViewerHand
-          className="absolute inset-x-0 bottom-2 z-30"
+          className="absolute inset-x-0 bottom-0 z-30"
           state={state}
           viewerPlayerId={watchedId}
           cardWidth={hand.cardWidth}

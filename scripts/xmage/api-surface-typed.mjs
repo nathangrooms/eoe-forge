@@ -95,7 +95,32 @@ function lookup(fqn, name) {
   const ms = methodsOf(fqn);
   const hit = ms.get(name);
   if (!hit) return null;
-  return { owner: hit.owner, ret: hit.ret };
+  return { owner: hit.owner, ret: hit.ret, root: rootDeclarer(hit.owner, name) };
+}
+
+/**
+ * The HIGHEST supertype that also declares `name`. `Permanent` overrides
+ * `getControllerId` from `Controllable`; both are one function in our engine, so
+ * the work order collapses them onto the root. Reported alongside the exact
+ * declarer rather than instead of it, because the two answer different
+ * questions: the declarer says where XMage put it, the root says how many
+ * functions have to be written.
+ */
+const rootCache = new Map();
+function rootDeclarer(fqn, name) {
+  const k = `${fqn}#${name}`;
+  if (rootCache.has(k)) return rootCache.get(k);
+  const rec = engine.classes[fqn];
+  let best = fqn;
+  let bestDepth = -1;
+  for (const anc of rec?.chain ?? []) {
+    if (!methodIdx.methods[anc]?.[name]) continue;
+    const d = (engine.classes[anc]?.chain ?? []).length;
+    // Fewest supertypes of its own = closest to the root of the hierarchy.
+    if (bestDepth === -1 || d < bestDepth) { bestDepth = d; best = anc; }
+  }
+  rootCache.set(k, best);
+  return best;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -283,8 +308,10 @@ for (const d of readdirSync(CARDS)) {
 }
 
 const byName = new Map();      // bare method name -> calls   (parity with api-surface.mjs)
-const byType = new Map();      // `Type#method`    -> calls
-const rowMeta = new Map();     // `Type#method`    -> { role, ret, cards:Set }
+const byType = new Map();      // `Declarer#method` -> calls
+const byRoot = new Map();      // `RootDeclarer#method` -> calls (one row = one function to write)
+const rowMeta = new Map();     // `Declarer#method` -> { role, ret, cards, root }
+const rootMeta = new Map();    // `RootDeclarer#method` -> { cards }
 let totalCalls = 0;
 let resolvedCalls = 0;
 let bodies = 0;
@@ -373,6 +400,16 @@ for (const path of files) {
         }
       }
 
+      // A parenthesised expression that is not a cast. Its own type is not
+      // tracked, but the chain hanging off it still has to be COUNTED, or
+      // `(a ? b : c).getX()` silently vanishes from the denominator.
+      if (t.v === '(') {
+        const close = skipBalanced(toks, i, '(', ')');
+        scanRange(i + 1, close - 1);
+        i = walkChain(null, close, hi);
+        continue;
+      }
+
       if ((t.t === 'id' && !NOT_A_TYPE.has(t.v)) || t.t === 'str') {
         if (toks[i - 1]?.v !== '.') {
           const ht = headType(i);
@@ -418,26 +455,34 @@ for (const path of files) {
       bump(byName, name);
 
       let key = '?';
+      let rootKey = null;
       let ret = null;
       if (cur) {
         const bi = builtinCall(cur, name);
-        if (bi) { key = bi.key; ret = bi.ret; }
+        if (bi) { key = bi.key; rootKey = bi.key; ret = bi.ret; }
         else {
           const { head } = splitGeneric(cur);
           const hit = head ? lookup(head, name) : null;
-          if (hit) { key = `${short(hit.owner)}#${name}`; ret = resolveTypeText(hit.ret, imports, pkg); }
-          else if (head && engine.classes[head]) key = `${short(head)}#${name}`;
+          if (hit) {
+            key = `${short(hit.owner)}#${name}`;
+            rootKey = `${short(hit.root)}#${name}`;
+            ret = resolveTypeText(hit.ret, imports, pkg);
+          } else if (head && engine.classes[head]) { key = `${short(head)}#${name}`; rootKey = key; }
           else key = `?#${name}`;
         }
       } else key = `?#${name}`;
 
       if (key !== '?' && !key.startsWith('?#')) resolvedCalls++;
       bump(byType, key);
-      const meta = rowMeta.get(key) ?? { ret: null, role: null, cards: 0 };
+      bump(byRoot, rootKey ?? key);
+      const meta = rowMeta.get(key) ?? { ret: null, role: null, cards: 0, root: rootKey ?? key };
       if (!meta.ret && ret) meta.ret = ret;
       if (!meta.role && cur) meta.role = engine.classes[splitGeneric(cur).head]?.role ?? null;
       rowMeta.set(key, meta);
       if (!seenHere.has(key)) { seenHere.add(key); meta.cards++; }
+      const rmeta = rootMeta.get(rootKey ?? key) ?? { cards: 0 };
+      if (!seenHere.has('R:' + (rootKey ?? key))) { seenHere.add('R:' + (rootKey ?? key)); rmeta.cards++; }
+      rootMeta.set(rootKey ?? key, rmeta);
 
       const close = skipBalanced(toks, i + 2, '(', ')');
       scanRange(i + 3, close - 1);
@@ -449,6 +494,10 @@ for (const path of files) {
 
   function fieldType(owner, name) {
     const { head } = splitGeneric(owner);
+    // An enum constant has the enum's own type: `CounterType.P1P1` is a
+    // `CounterType`, which is what makes `.createInstance(2)` resolvable.
+    const consts = engine.enums?.[head];
+    if (consts && consts.includes(name)) return head;
     const sf = engine.staticFields?.[head];
     if (sf && sf[name]?.type) return resolveTypeText(sf[name].type, imports, pkg);
     return null;
@@ -484,11 +533,13 @@ function cumulative(sorted, total) {
 
 const nameSorted = [...byName.entries()].sort((a, b) => b[1] - a[1]);
 const typeSorted = [...byType.entries()].sort((a, b) => b[1] - a[1]);
+const rootSorted = [...byRoot.entries()].sort((a, b) => b[1] - a[1]);
 const nameTotal = nameSorted.reduce((s, [, n]) => s + n, 0);
 const typeTotal = typeSorted.reduce((s, [, n]) => s + n, 0);
 
 const needName = cumulative(nameSorted, nameTotal);
 const needType = cumulative(typeSorted, typeTotal);
+const needRoot = cumulative(rootSorted, typeTotal);
 
 const unresolved = typeSorted.filter(([k]) => k.startsWith('?#')).reduce((s, [, n]) => s + n, 0);
 
@@ -507,9 +558,16 @@ const out = {
   },
   cumulativeByName: needName,
   cumulativeByType: needType,
+  cumulativeByRoot: needRoot,
   rows: typeSorted.map(([k, n]) => ({
     key: k, calls: n, cards: rowMeta.get(k)?.cards ?? 0,
+    root: rowMeta.get(k)?.root ?? k,
     ret: rowMeta.get(k)?.ret ?? null, role: rowMeta.get(k)?.role ?? null,
+  })),
+  /** The work order: one row is one function to write. */
+  workOrder: rootSorted.map(([k, n], i) => ({
+    rank: i + 1, key: k, calls: n, share: +((n / typeTotal) * 100).toFixed(3),
+    cards: rootMeta.get(k)?.cards ?? 0,
   })),
   byName: nameSorted.map(([k, n]) => ({ name: k, calls: n })),
 };
@@ -523,28 +581,34 @@ console.log('total method calls in those bodies : ' + totalCalls.toLocaleString(
 console.log('receiver type RESOLVED             : ' + resolvedCalls.toLocaleString() + '  (' + out.meta.resolvedShare + '%)');
 console.log('');
 console.log('DISTINCT rows, keyed by NAME       : ' + nameSorted.length);
-console.log('DISTINCT rows, keyed by TYPE#NAME  : ' + typeSorted.length);
+console.log('DISTINCT rows, keyed by DECLARER   : ' + typeSorted.length);
+console.log('DISTINCT rows, keyed by ROOT       : ' + rootSorted.length + '   <- functions to write');
 console.log('');
 console.log('rows needed to cover that share of all calls:');
-console.log('  share   by NAME   by TYPE#NAME');
+console.log('  share    by NAME   by DECLARER   by ROOT');
 for (const m of [50, 80, 90, 95, 99]) {
-  console.log('   ' + String(m).padStart(2) + '%   ' + String(needName[m]).padStart(6) + '   ' + String(needType[m]).padStart(12));
+  console.log('   ' + String(m).padStart(2) + '%    ' + String(needName[m]).padStart(6)
+    + '   ' + String(needType[m]).padStart(9) + '   ' + String(needRoot[m]).padStart(7));
 }
 console.log('');
-console.log('top 40 by receiver type:');
+console.log('THE WORK ORDER (root declarer), top 60:');
 let cum = 0;
-for (const [k, n] of typeSorted.slice(0, 40)) {
+for (const [k, n] of rootSorted.slice(0, 60)) {
   cum += n;
-  console.log('  ' + String(n).padStart(5) + '  ' + pct(n).padStart(6) + '  cum ' + pct(cum).padStart(6) + '  ' + k);
+  console.log('  ' + String(n).padStart(5) + '  ' + pct(n).padStart(6) + '  cum ' + pct(cum).padStart(6)
+    + '  ' + k.padEnd(38) + ' ' + String(rootMeta.get(k)?.cards ?? 0).padStart(5) + ' cards');
 }
 console.log('');
-console.log('the biggest names that SPLIT across receivers:');
-const splits = [];
-for (const [name, n] of nameSorted.slice(0, 60)) {
-  const owners = typeSorted.filter(([k]) => k.endsWith('#' + name) && !k.startsWith('?#'));
-  if (owners.length > 1) splits.push([name, n, owners.length, owners.slice(0, 4)]);
-}
-for (const [name, n, count, top] of splits.slice(0, 12)) {
-  console.log('  .' + name + '() ' + n + ' calls -> ' + count + ' receivers: '
-    + top.map(([k, c]) => k.split('#')[0] + ' ' + c).join(', '));
+console.log('HOW MUCH THE RANKING MOVED. Rank by NAME vs rank of that name\'s');
+console.log('biggest ROOT row, for the top 20 names:');
+const rootRank = new Map(rootSorted.map(([k], i) => [k, i + 1]));
+for (let i = 0; i < 20; i++) {
+  const [name, n] = nameSorted[i];
+  const owners = rootSorted.filter(([k]) => k.endsWith('#' + name) && !k.startsWith('?#'));
+  const top = owners[0];
+  const moved = top ? rootRank.get(top[0]) : null;
+  console.log('  ' + String(i + 1).padStart(3) + ' -> ' + String(moved ?? '-').padStart(4)
+    + '  .' + name + '()'.padEnd(2) + ' ' + String(n).padStart(5) + ' calls, '
+    + owners.length + ' receiver' + (owners.length === 1 ? '' : 's')
+    + (top ? ', biggest ' + top[0] + ' ' + top[1] + ' (' + Math.round((top[1] / n) * 100) + '% of the name)' : ''));
 }

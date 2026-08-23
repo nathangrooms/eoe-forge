@@ -206,7 +206,10 @@ function verdict(label, planned, state) {
         `  written[${r.goneWritten ? 'out' : 'STILL-IN'}/${r.inWritten ? 'in' : 'ABSENT'}]`
     );
   }
-  console.log(`   requests  : ${state.requests.length}`);
+  console.log(
+    `   requests  : ${state.requests.length} to apply` +
+      (state.lookCost ? `  (+${state.lookCost} to then go and look at the decklist)` : '')
+  );
   for (const row of summarise(state.requests)) {
     console.log(
       `      ${String(row.calls).padStart(2)} x  ${row.key}${row.rows ? `   (${row.rows} rows)` : ''}`
@@ -215,7 +218,15 @@ function verdict(label, planned, state) {
   return { label, planned, rows, landedScreen, landedWritten, requestCount: state.requests.length, requests: state.requests };
 }
 
-/** Load the page, run a pass, and land on the Swaps step. */
+/**
+ * Load the optimiser, run a pass, and land on the Swaps step.
+ *
+ * Finds it either way, on purpose. The optimiser was the third of nine tabs on
+ * `/deck/:id` and is `/deck/:id/optimise` now, and a before-and-after that
+ * needed two scripts would be two scripts to disagree. The route is tried
+ * first; a build that does not have it falls back to the tab, and the mode is
+ * reported so no reading is attributed to the wrong shape.
+ */
 async function openSwaps(browser, consoleErrors) {
   const page = await browser.newPage();
   await page.setViewport({ width: WIDTH, height: HEIGHT });
@@ -226,28 +237,38 @@ async function openSwaps(browser, consoleErrors) {
   await page.evaluateOnNewDocument(`window.__DM_SWAP_COUNT = ${SWAPS};`);
   await page.evaluateOnNewDocument(SHIM);
 
-  await page.goto(`http://127.0.0.1:${PORT}/deck/${DECK_ID}?tab=optimiser`, {
+  const hasPanel = () =>
+    page.waitForFunction(
+      () => [...document.querySelectorAll('button')].some(b => /Optimise deck/i.test(b.textContent || '')),
+      { timeout: 45000 }
+    );
+
+  let mode = 'route';
+  await page.goto(`http://127.0.0.1:${PORT}/deck/${DECK_ID}/optimise`, {
     waitUntil: 'networkidle2',
     timeout: 120000,
   });
-
-  // The Optimiser tab has to exist at all. It sits behind the
-  // `ai_deck_optimizer` flag and the strip HIDES it rather than disabling it,
-  // so reaching this button is itself an assertion.
-  await page.waitForFunction(
-    () => [...document.querySelectorAll('button')].some(b => /Optimise deck/i.test(b.textContent || '')),
-    { timeout: 90000 }
-  );
+  try {
+    await hasPanel();
+  } catch {
+    mode = 'tab';
+    await page.goto(`http://127.0.0.1:${PORT}/deck/${DECK_ID}?tab=optimiser`, {
+      waitUntil: 'networkidle2',
+      timeout: 120000,
+    });
+    await hasPanel();
+  }
   await sleep(2500);
 
-  const tabStrip = await page.evaluate(() =>
+  const deckTabs = await page.evaluate(() =>
     [...document.querySelectorAll('[role="tab"]')].map(t => (t.textContent || '').trim().replace(/\s+/g, ' '))
   );
 
   await clickByText(page, 'button', 'Optimise deck');
   await page.waitForFunction(
-    () => [...document.querySelectorAll('button')].some(b => /Apply this swap/i.test(b.textContent || '')) ||
-          [...document.querySelectorAll('[role="tab"]')].some(t => /Swaps/i.test(t.textContent || '')),
+    () =>
+      [...document.querySelectorAll('button')].some(b => /Apply this swap/i.test(b.textContent || '')) ||
+      [...document.querySelectorAll('[role="tab"]')].some(t => /Swaps/i.test(t.textContent || '')),
     { timeout: 120000 }
   );
   await sleep(3500);
@@ -255,7 +276,7 @@ async function openSwaps(browser, consoleErrors) {
   const steps = await page.evaluate(() =>
     [...document.querySelectorAll('[role="tab"]')]
       .map(t => (t.textContent || '').trim().replace(/\s+/g, ' '))
-      .filter(t => /Overview|Ideas|Cut|Swaps|Lands|^\d/.test(t))
+      .filter(t => /Overview|Ideas|Cut|Swaps|Lands/i.test(t))
   );
   const planned = await page.evaluate(() => window.__dmPlannedSwaps || []);
 
@@ -266,19 +287,41 @@ async function openSwaps(browser, consoleErrors) {
   );
   await sleep(1500);
 
-  return { page, tabStrip, steps, planned };
+  return { page, mode, deckTabs, steps, planned };
 }
 
-/** Open the decklist and read it. Unmounts the optimiser, so do it last. */
-async function readDeck(page) {
-  await clickByText(page, '[role="tab"]', 'Cards');
-  await sleep(4000);
+/** What the panel itself believes the deck is, without leaving it. */
+async function panelCount(page) {
+  return page.evaluate(() => {
+    const m = /(\d+)\s*\/\s*(\d+)\s*cards/.exec(document.body.innerText || '');
+    return m ? `${m[1]}/${m[2]}` : null;
+  });
+}
+
+/**
+ * Open the decklist and read it, without reloading.
+ *
+ * A reload would rebuild the shim's fixture and take the evidence with it, so
+ * this is a click in both modes: the Cards tab when the optimiser is a tab, the
+ * "Back to deck" link when it is a route. Both stay inside the same page, so
+ * `deck_cards` is still whatever the apply left it as.
+ */
+async function readDeck(page, mode) {
+  /* Taken BEFORE the navigation. When the optimiser is a route, going to look
+     at the decklist loads the deck page, and those reads are the cost of
+     looking rather than the cost of applying. Counting them would flatter or
+     damn the apply depending only on which shape the optimiser is in. */
+  const requests = await page.evaluate(() => window.__dmReq.slice());
+
+  if (mode === 'route') await clickByText(page, 'a', 'Back to deck');
+  else await clickByText(page, '[role="tab"]', 'Cards');
+  await sleep(5000);
   const screen = await readScreen(page);
   const written = await page.evaluate(() =>
     (window.__dmDeckCards ? window.__dmDeckCards() : []).map(r => r.card_name)
   );
-  const requests = await page.evaluate(() => window.__dmReq.slice());
-  return { screen, written, requests };
+  const afterLook = await page.evaluate(() => window.__dmReq.length);
+  return { screen, written, requests, lookCost: afterLook - requests.length };
 }
 
 (async () => {
@@ -298,9 +341,10 @@ async function readDeck(page) {
   /* ------------------------------------------------ PATH A: one swap ---- */
   {
     const ctx = await openSwaps(browser, consoleErrors);
-    tabStrip = ctx.tabStrip;
+    tabStrip = ctx.deckTabs;
     steps = ctx.steps;
-    console.log(`deck page tabs : ${JSON.stringify(tabStrip)}`);
+    console.log(`the optimiser is a: ${ctx.mode === 'route' ? 'ROUTE (/deck/:id/optimise)' : 'TAB on /deck/:id'}`);
+    console.log(`tabs on that page : ${JSON.stringify(tabStrip)}`);
     console.log(`optimiser steps: ${JSON.stringify(steps)}`);
     console.log(`planned swaps  : ${ctx.planned.length}`);
 
@@ -308,7 +352,7 @@ async function readDeck(page) {
     const clicked = await clickByText(ctx.page, 'button', 'Apply this swap');
     console.log(`\nclicked: ${JSON.stringify(clicked)}`);
     await sleep(SETTLE / 2);
-    results.push(verdict('PATH A — one swap', [ctx.planned[0]], await readDeck(ctx.page)));
+    results.push(verdict('PATH A — one swap', [ctx.planned[0]], await readDeck(ctx.page, ctx.mode)));
     await ctx.page.close();
   }
 
@@ -353,8 +397,14 @@ async function readDeck(page) {
       .catch(() => console.log('   (still showing "Applying" when the wait expired)'));
     await sleep(4000);
 
+    const panelSees = await panelCount(ctx.page);
+    console.log(`the panel's own count after applying: ${panelSees}`);
     results.push(
-      verdict(`PATH B — ${ctx.planned.length} swaps at once`, ctx.planned, await readDeck(ctx.page))
+      verdict(
+        `PATH B — ${ctx.planned.length} swaps at once`,
+        ctx.planned,
+        await readDeck(ctx.page, ctx.mode)
+      )
     );
     results[results.length - 1].confirm = confirm;
     await ctx.page.close();

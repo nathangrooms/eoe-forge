@@ -259,17 +259,28 @@ export function ViewerHand({
       ref={fanRef}
       className={cn('flex items-end justify-center', className)}
       /*
-       * `paddingBottom` — the lean swings the outer cards' bottom corners below
-       * the baseline, and an uncastable card sits a further step back. Both
-       * have to be paid for or the fan is cut off at its own bottom edge.
+       * THE SINK, and it is the whole of "the hand no longer covers the table".
        *
-       * `marginBottom` — the sink. Negative, so the fan hangs below the band it
-       * was given by exactly the part of a card the band does not reserve. This
-       * is the whole of "the hand no longer covers the table": what used to be
-       * the bottom 38% of every card lying across the near seat's mana row is
-       * now below the bottom of the screen, and the mat has the height back.
+       * A negative bottom margin, so the fan hangs below the band it was given
+       * by exactly the part of a card the band does not reserve. What used to
+       * be the bottom 38% of every card lying across the near seat's mana row
+       * is now below the bottom of the screen, and the mat has that height back.
+       *
+       * It has to swallow the padding as well as the sink, because both push
+       * the fan up off the container's own bottom edge. Measured on the first
+       * attempt with only the sink: the fan painted its top at y=827 against a
+       * band that started at 875, so 47px of it — the `bottom-2` offset plus
+       * the dip padding — was still lying on the mat. The caller pins this to
+       * `bottom-0` for the same reason.
+       *
+       * The dip padding still exists because the outer cards' bottom corners
+       * swing below the baseline when a raised card straightens: without it the
+       * fan is cut off at its own box rather than at the screen edge.
        */
-      style={{ paddingBottom: dip + UNPLAYABLE_STEP_BACK, marginBottom: -sink }}
+      style={{
+        paddingBottom: dip + UNPLAYABLE_STEP_BACK,
+        marginBottom: -(sink + dip + UNPLAYABLE_STEP_BACK),
+      }}
     >
       <AnimatePresence initial={false}>
         {cards.map((card, index) => {

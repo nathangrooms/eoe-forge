@@ -1532,7 +1532,7 @@ export default function Play() {
                     card opens the preview; it never plays it. */}
                 {showHand && (
                   <ViewerHand
-                    className="absolute inset-x-0 bottom-2 z-30"
+                    className="absolute inset-x-0 bottom-0 z-30"
                     state={state}
                     viewerPlayerId={HUMAN_SEAT}
                     freeCast={freeCast}

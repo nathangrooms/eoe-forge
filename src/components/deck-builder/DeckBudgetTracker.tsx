@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { CardGrid } from '@/components/cards';
@@ -56,6 +56,17 @@ interface DeckBudgetTrackerProps {
   deckCards: BudgetCard[];
   targetBudget?: number;
   /**
+   * The screen this row sits on already prints the deck's total.
+   *
+   * Set on the Value tab, where `DeckValuePanel`'s own row opens with a tile
+   * labelled `Deck value` carrying the identical figure, and the page's metric
+   * strip prints it a third time as `Est. value`. Measured at 1280 and 1920:
+   * `$887.55` twice under the same label, about six hundred pixels apart, plus
+   * `$888` above both. With this set the row leads on how much of the budget
+   * is gone, which is the only thing here the rest of the tab does not say.
+   */
+  totalDrawnElsewhere?: boolean;
+  /**
    * The decklist, so the five most expensive stacks can be drawn as cards.
    * Omit and they fall back to a list of names, which is what a generated deck
    * with no rows behind it gets.
@@ -79,12 +90,22 @@ function unitPrice(card: BudgetCard): number {
 export function DeckBudgetTracker({
   deckCards,
   targetBudget = 100,
+  totalDrawnElsewhere = false,
   rows,
   onCardClick,
   cardWidth,
   className,
 }: DeckBudgetTrackerProps) {
   const [budgetLimit, setBudgetLimit] = useState(targetBudget);
+  /* The slider follows the prop until somebody moves it, and never after.
+     `useState(targetBudget)` alone reads the prop once, and the Value tab now
+     passes the deck's own cost — a figure that is 0 for the frame or two
+     before the prices are in hand, which would have pinned the budget to the
+     $50 floor for the rest of the visit. */
+  const [chosen, setChosen] = useState(false);
+  useEffect(() => {
+    if (!chosen) setBudgetLimit(targetBudget);
+  }, [targetBudget, chosen]);
 
   const analysis = useMemo(() => {
     const totalValue = deckCards.reduce(
@@ -165,7 +186,10 @@ export function DeckBudgetTracker({
           </div>
           <Slider
             value={[budgetLimit]}
-            onValueChange={value => setBudgetLimit(value[0])}
+            onValueChange={value => {
+              setChosen(true);
+              setBudgetLimit(value[0]);
+            }}
             min={50}
             max={5000}
             step={50}
@@ -179,9 +203,9 @@ export function DeckBudgetTracker({
 
         <MetricRow
           on="card"
-          columns={3}
+          columns={totalDrawnElsewhere ? 2 : 3}
           metrics={[
-            {
+            !totalDrawnElsewhere && {
               id: 'value',
               label: 'Deck value',
               value: `$${analysis.totalValue.toFixed(2)}`,
@@ -201,7 +225,13 @@ export function DeckBudgetTracker({
                  budget is still unspent, which is the complement of the tile
                  beside it and a real fraction of a real number. */
               meter: Math.max(0, Math.min(100, 100 - analysis.percentUsed)),
-              subtext: analysis.isOverBudget ? 'more than the budget' : 'still within it',
+              /* When the total tile is gone its `% of the budget` goes with
+                 it, so it lands here rather than being dropped. */
+              subtext: totalDrawnElsewhere
+                ? `${analysis.percentUsed.toFixed(0)}% of the budget spent`
+                : analysis.isOverBudget
+                  ? 'more than the budget'
+                  : 'still within it',
             },
             {
               id: 'top5',

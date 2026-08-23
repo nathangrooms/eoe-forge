@@ -83,6 +83,11 @@ const DEFAULT_CARD_SIZE = 200;
 /** How many suggestions come back. Enough to choose from, few enough to read. */
 const SUGGESTION_LIMIT = 24;
 
+/**
+ * `Record<Role, string>` and not a partial map on purpose: the engine owns
+ * `Role`, and when it gains one this file stops compiling rather than quietly
+ * drawing a tile with no name on it. `creature` arrived exactly that way.
+ */
 const ROLE_LABEL: Record<Role, string> = {
   ramp: 'Ramp',
   draw: 'Card draw',
@@ -90,6 +95,7 @@ const ROLE_LABEL: Record<Role, string> = {
   interaction: 'Interaction',
   wincon: 'Win conditions',
   land: 'Lands',
+  creature: 'Creatures',
 };
 
 export interface DeckAddPanelProps {
@@ -184,11 +190,11 @@ export function DeckAddPanel({
       });
       setSuggestions(picks);
       setPool(cap);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Could not rank candidates for this deck:', error);
       showError(
         'Could not work out what to suggest',
-        error?.message ?? 'The card catalogue did not answer.'
+        error instanceof Error ? error.message : 'The card catalogue did not answer.'
       );
       setSuggestions([]);
     } finally {
@@ -250,8 +256,14 @@ export function DeckAddPanel({
           Counted off the deck's own cards against a declared target. No
           request, no model, and the two halves of every figure are labelled so
           nobody mistakes the target for a measurement. */}
+      {/* Columns follow how many roles the engine has, not a number typed
+          here. `ROLES` was six and is seven — `creature` landed in
+          `src/engine/core/types.ts` — and seven tiles in a six-column grid is
+          six tiles and then one on a line of its own beside five empty cells.
+          `MetricRow` caps at six, so anything past six drops to four and
+          wraps evenly. */}
       <MetricRow
-        columns={6}
+        columns={ROLES.length > 6 ? 4 : ROLES.length}
         metrics={ROLES.map(role => {
           const have = profile.roleCounts[role] ?? 0;
           const want = targets[role] ?? 0;
@@ -262,10 +274,16 @@ export function DeckAddPanel({
             raw: have,
             suffix: `/${want}`,
             meter: want > 0 ? Math.min(100, (have / want) * 100) : 0,
+            /* "At the target" for exactly the target, and the real distance in
+               either direction otherwise. A deck running 28 ramp against a
+               target of 10 read "at the target", which is the one thing it is
+               not, and it is the figure most in need of a word about it. */
             subtext:
-              have >= want
+              have === want
                 ? 'at the target'
-                : `${want - have} short of the target`,
+                : have > want
+                  ? `${have - want} past the target`
+                  : `${want - have} short of the target`,
           };
         })}
       />

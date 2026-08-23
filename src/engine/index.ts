@@ -86,7 +86,47 @@ export {
   type DeckProfileInput,
 } from './advise/profile.ts';
 export { rankCandidates, scoreCandidate, ineligibility, WEIGHTS } from './advise/rank.ts';
-export { servesRole, roleTargetsFor, ROLE_TAGS } from './advise/roles.ts';
+export {
+  servesRole,
+  cardRole,
+  roleTargetsFor,
+  creatureTargetFor,
+  ROLE_TAGS,
+  CREATURE_TARGETS,
+  DECK_STYLES,
+  type DeckStyle,
+} from './advise/roles.ts';
+
+/*
+ * What a card DOES, and what a commander is FOR.
+ *
+ * The vocabulary lives here; the producer that fills it is
+ * `src/lib/deck/recommend/behaviour.ts`, outside this tree because
+ * `engine-parity.test.ts` forbids the engine from importing the ability
+ * compiler. A caller holding card rows with oracle text runs that producer and
+ * hands the result back on `CandidateCard.facets`.
+ */
+export {
+  planForCommander,
+  planFit,
+  behaviourSimilarity,
+  describeSharedFacets,
+  facetsOf,
+  hasRecord,
+  isCompleteRecord,
+  facetCoverage,
+  cardServesRole,
+  FACET_PREFIXES,
+  EFFECT_VERBS,
+  REC_FULL,
+  REC_PARTIAL,
+  type Facet,
+  type CommanderPlan,
+  type Want,
+  type PlanFit,
+  type RoleSubject,
+  type BehaviourMatch,
+} from './knowledge/behaviour.ts';
 export {
   buildCandidateQuery,
   normalizeRow,

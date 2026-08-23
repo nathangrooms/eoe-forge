@@ -339,7 +339,7 @@ export function ArchetypeDetection({
       matches.push({
         name: 'Artifacts Matter',
         confidence: confidenceOf(typeAnalysis.artifacts, ['artifact']),
-        primaryStrategy: 'Leverage artifacts and artifact synergies',
+        primaryStrategy: 'Build a board of artifacts and cash them in',
         secondaryStrategies: ['Artifact tokens', 'Cost reduction', 'Synergy'],
         keyCards: deckCards
           .filter(c => c.tags?.includes('artifacts-matter') || c.type_line?.includes('Artifact'))

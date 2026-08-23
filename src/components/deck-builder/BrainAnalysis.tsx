@@ -93,8 +93,8 @@ interface BrainAnalysisProps {
 const ANALYSIS_OPTIONS = [
   {
     id: 'power-breakdown',
-    label: 'Power Analysis',
-    description: 'Deep dive into your deck\'s power level and subscores',
+    label: 'Power',
+    description: 'The score, and which subscore moved it',
     icon: Zap,
     prompt: (data: any) => `Analyze this deck's power level breakdown in detail:
 
@@ -113,8 +113,8 @@ Explain what each subscore means in practical gameplay, how to improve weak area
   },
   {
     id: 'mana-curve',
-    label: 'Mana Curve',
-    description: 'Optimize your curve and mana base',
+    label: 'Mana',
+    description: 'The curve and the mana base, in words',
     icon: Mountain,
     prompt: (data: any) => `Analyze this deck's mana curve and base:
 
@@ -132,8 +132,8 @@ Is my curve optimized? Should I adjust land count? Suggest 2-3 mana rocks or lan
   },
   {
     id: 'archetype',
-    label: 'Deck Archetype',
-    description: 'Identify your strategy and gameplan',
+    label: 'Archetype',
+    description: 'What this deck is trying to do',
     icon: Target,
     prompt: (data: any) => `Identify this deck's archetype and strategy:
 
@@ -154,8 +154,8 @@ What archetype is this (combo, stax, midrange, aggro, control)? What's the prima
   },
   {
     id: 'upgrades',
-    label: 'Card Recommendations',
-    description: 'Specific cards to add to your deck',
+    label: 'Cards to add',
+    description: 'Named cards, with a reason each',
     icon: Sparkles,
     prompt: (data: any) => `Provide 5-8 specific card recommendations for this deck:
 
@@ -182,8 +182,8 @@ List cards by name with brief explanations of why each fits the strategy and add
   },
   {
     id: 'cuts',
-    label: 'What to Cut',
-    description: 'Identify weak or underperforming cards',
+    label: 'What to cut',
+    description: 'The cards doing the least work',
     icon: AlertTriangle,
     prompt: (data: any) => `Identify 5-8 cards I should consider cutting from this deck:
 
@@ -203,8 +203,8 @@ Provide specific card names and brief explanations.`
   },
   {
     id: 'strategy',
-    label: 'Strategy Guide',
-    description: 'Learn how to pilot your deck',
+    label: 'How to play it',
+    description: 'Lines to look for, turn by turn',
     icon: Eye,
     prompt: (data: any) => `Provide a strategy guide for piloting this deck:
 
@@ -221,8 +221,8 @@ What are my win conditions? When should I hold up interaction vs. developing my 
   },
   {
     id: 'synergies',
-    label: 'Synergy Map',
-    description: 'Discover card interactions and combos',
+    label: 'Synergies',
+    description: 'Which cards work with which',
     icon: Layers,
     prompt: (data: any) => `Map out the key synergies and combos in this deck:
 
@@ -232,8 +232,8 @@ What are the main synergy packages? Are there any infinite combos? Which card in
   },
   {
     id: 'budget',
-    label: 'Budget Options',
-    description: 'Cost-effective alternatives and upgrades',
+    label: 'Budget swaps',
+    description: 'Cheaper cards that do the same job',
     icon: DollarSign,
     prompt: (data: any) => `Suggest budget-friendly improvements for this deck:
 
@@ -244,8 +244,8 @@ Recommend 5-8 cards under $5 each that would improve the deck. Focus on solid st
   },
   {
     id: 'meta',
-    label: 'Meta Analysis',
-    description: 'How your deck performs in the meta',
+    label: 'The meta',
+    description: 'What this deck runs into and how it does',
     icon: Users,
     prompt: (data: any) => `Analyze how this deck performs in the current Commander meta:
 
@@ -370,11 +370,13 @@ export function BrainAnalysis({ deck, commander, powerScore, deckId, format }: B
       const welcomeMessage: Message = {
         id: '1',
         type: 'assistant',
+        /* No score in this line. The tab's own metric row, the page header
+           and the EDH tab all print it, and a chat opening by reading a figure
+           back to you is a fourth. `ANALYZING` was also the one US spelling on
+           a page that says Optimise, Colour and Analyse. */
         content: `## Deck analysis
 
-**ANALYZING**: ${commander?.name || 'Deck'} | **POWER**: ${powerScore.score.toFixed(1)}/10 (${powerScore.band})
-
-This reads your decklist with comprehensive Magic knowledge. Pick an analysis below, or ask anything about your deck's strategy, card choices or optimisation.`,
+Reading ${commander?.name || 'this deck'}. Pick a question below, or ask your own about the deck's strategy, card choices or what to change.`,
         timestamp: new Date()
       };
       setMessages([welcomeMessage]);
@@ -511,7 +513,7 @@ Try again in a moment.`,
           <div className="flex items-center gap-2">
             <Settings className="h-4 w-4 text-muted-foreground" />
             <Label htmlFor="detailed-mode" className="text-sm font-medium">
-              Response Mode
+              Answer length
             </Label>
           </div>
           <div className="flex items-center gap-2">

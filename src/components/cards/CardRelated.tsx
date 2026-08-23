@@ -19,12 +19,31 @@ import { Layers3, Sparkles } from 'lucide-react';
  * share a keyword, cards that carry the same tag. A player can disagree with a
  * suggestion, but they can always see *why* it was made.
  *
+ * "SIMILAR" MEANS DOES A SIMILAR THING
+ * -----------------------------------
+ * The owner, 2026-08-23: *"looks great, but results dont seem right"*. Measured
+ * in `docs/design/ENGINE-PICKS.md`, 22 of the 70 entries this page produced for
+ * Sol Ring, Craterhoof Behemoth and Counterspell were genuinely similar cards.
+ * Every group matched a WORD, and the tag group was the worst of them: for
+ * Counterspell all 60 fetched rows scored an identical 6.32, so the fourteen
+ * shown were simply the most expensive sixty-first of the pool, and the list
+ * contained Frost Titan and Declaration of Naught while containing no
+ * counterspell anyone plays.
+ *
+ * `Does the same thing` replaces that group wherever the engine can read the
+ * card. It compiles both cards' oracle text into the structured ability record
+ * (`@/lib/deck/recommend/similar`, over `src/lib/cards/abilities` and the
+ * ported XMage records) and ranks by shared EFFECTS AND THEIR ARGUMENTS. Sol
+ * Ring's record is `add-mana`, two at a time, for no activation cost; a Dimir
+ * Signet's is the same three facts except the cost, and that one difference is
+ * why one is on the list and ten Signets are not. The tag group stays, and runs
+ * for a card the compiler cannot read at all.
+ *
  * The role-tag group ranks by how *rare* the shared tags are, not how many
  * there are — see `@/lib/cards/tag-signal`. Counting raw overlap gave Sol Ring
  * a list containing Flooded Strand, Soldevi Excavations and Elvish Harbinger,
  * with Mana Crypt and Mana Vault absent altogether: every one of the 2,140
- * cards tagged `ramp` was as good a match as another fast rock. It now leads
- * with Mana Vault, Mana Crypt and Sol Talisman.
+ * cards tagged `ramp` was as good a match as another fast rock.
  *
  * Every filter here rides an existing index — `cards_type_line_trgm_idx`,
  * `cards_keywords_idx`, `idx_cards_tags`, `cards_color_identity_idx`,
@@ -81,8 +100,61 @@ const TAG_PROBES = 4;
 /** Rows pulled per probe tag before ranking. */
 const PER_TAG_LIMIT = 60;
 
+/**
+ * THE BEHAVIOUR GROUP TAKES THE WHOLE PROBE, NOT SIXTY ROWS OF IT.
+ *
+ * `PER_TAG_LIMIT` above is the bug the owner saw and not a budget. Postgres
+ * applies `limit 60` before anything can rank, so for Counterspell the fourteen
+ * cards shown were the most expensive of an arbitrary sixty out of 326, and
+ * Mana Drain, Force of Will, Pact of Negation, Dovin's Veto and Negate — which
+ * carry the identical tags — were never fetched at all. Ranking carefully
+ * inside an arbitrary sample is worse than not ranking.
+ *
+ * So the behaviour group counts the probe first and fetches all of it, or skips
+ * the probe and says it skipped it. Measured live on 2026-08-23: Sol Ring pulls
+ * 341 rows across two probes and skips `ramp` at 1,968; Craterhoof pulls 133;
+ * Counterspell pulls 326. The cost is one `count=exact` head request per probe,
+ * which rides `idx_cards_tags` and answered in 38 to 568 ms.
+ */
+const BEHAVIOUR_PROBE_CAP = 400;
+
+/** Ceiling across every probe together, so a card with four small tags is bounded too. */
+const BEHAVIOUR_POOL_CAP = 900;
+
+/**
+ * The behaviour pass ranks on these and never draws them.
+ *
+ * `oracle_text` is what the ability compiler reads and `image_uris` is the
+ * heaviest column on the row, so the ranking fetch takes the first and refuses
+ * the second. Tile columns are fetched afterwards, for the fourteen winners
+ * only. Measured on the live catalogue, Counterspell's 326-row ranking fetch is
+ * 208 kB against the 641 kB the same rows would cost with `image_uris`.
+ */
+const RANK_COLUMNS =
+  'id, oracle_id, name, mana_cost, type_line, cmc, oracle_text, keywords, tags, layout, power, toughness, prices';
+
 /** Races generic enough that "shares the Human type" tells a player nothing. */
 const GENERIC_SUBTYPES = new Set(['Human']);
+
+/**
+ * The subject's own record, in the group heading, in the card's own terms.
+ *
+ * A player has to be able to see what the ranking read before they can disagree
+ * with it. Sol Ring reads "adds mana, costs nothing to use, 2 mana at a time",
+ * and every card under it either matches that or does not.
+ */
+function describeSubject(facets: readonly string[]): string {
+  const phrases: string[] = [];
+  for (const f of facets) {
+    if (f.startsWith('eff:')) phrases.push(f.slice(4).replace(/-/g, ' '));
+    else if (f === 'scope:all') phrases.push('everything at once');
+    else if (f.startsWith('cares:type:')) phrases.push(`${f.slice('cares:type:'.length)}s`);
+    else if (f.startsWith('mana:')) phrases.push(`${f.slice(5)} mana at a time`);
+    else if (f === 'acost:0') phrases.push('for no activation cost');
+    if (phrases.length >= 4) break;
+  }
+  return phrases.length > 0 ? phrases.join(', ') : 'only its type line';
+}
 
 export interface RelatedEntry {
   card: any;
@@ -428,20 +500,167 @@ export function CardWorksWellWith({ card, dbCard, className }: CardRelatedProps)
         console.error('Synergy group "keywords" failed:', err);
       }
 
-      /* --- 4. Shares a role tag, weighted by how rare that tag is. ---
+      /* --- 4. Does the same thing. Read from both cards' ability records. ---
        *
-       * One indexed `tags @> {tag}` per probe tag instead of a single
-       * `tags && {everything}`. The single overlap query was the real problem:
-       * Postgres applies `limit 40` before anything can rank, so Sol Ring's
-       * list was 40 arbitrary rows out of the 2,140 cards tagged `ramp` — one
-       * of them a fetchland — and `fast-mana`, which only 38 cards in the whole
-       * catalogue carry, never got a look in. Probing the rarest tags
-       * separately guarantees the rare ones are represented, and the merged set
-       * is then ranked by summed tag rarity.
+       * The recall is still a tag probe, because facets are not a column yet
+       * and `tags @> {tag}` is the only indexed way to get a pool of the right
+       * shape out of 34,000 rows. Two things are different and both of them
+       * matter:
+       *
+       *   THE WHOLE PROBE COMES BACK. Counted first, fetched entire, or skipped
+       *   and named. `BEHAVIOUR_PROBE_CAP` says why.
+       *
+       *   THE TAG DOES NOT DECIDE THE ORDER. Every row is compiled into its
+       *   ability record and ranked on shared effects and their arguments. The
+       *   tag says which conversation to look in; the record says who is in it.
+       *
+       * The compiler and the ported records are a real chunk of code, so they
+       * arrive on demand rather than in the card page's first load.
+       */
+      let behaviourRendered = false;
+      try {
+        const probes = tags.slice(0, TAG_PROBES);
+        const subjectRow = {
+          id: card?.id ?? dbCard?.id ?? null,
+          oracle_id: oracleId ?? null,
+          name,
+          type_line: typeLine,
+          oracle_text: card?.oracle_text ?? dbCard?.oracle_text ?? null,
+          mana_cost: card?.mana_cost ?? dbCard?.mana_cost ?? null,
+          cmc: card?.cmc ?? dbCard?.cmc ?? 0,
+          power: card?.power ?? dbCard?.power ?? null,
+          toughness: card?.toughness ?? dbCard?.toughness ?? null,
+          layout: card?.layout ?? dbCard?.layout ?? null,
+          keywords,
+          tags: dbCard?.tags ?? null,
+          card_faces: card?.card_faces ?? null,
+        };
+
+        if (probes.length > 0) {
+          const { rankBySameBehaviour, canReadBehaviour } = await import(
+            '@/lib/deck/recommend/similar'
+          );
+
+          /*
+           * A card the compiler produced nothing for has no behaviour to rank
+           * on, and dressing its tag list up as a behaviour list would be the
+           * exact dishonesty this change is undoing. Rite of Flame is the case:
+           * `coverage: 'manual'`, no abilities, one facet off the type line. The
+           * old tag group below runs for it instead.
+           */
+          if (canReadBehaviour(subjectRow)) {
+            const counts = await Promise.all(
+              probes.map(tag =>
+                retrying(async () => {
+                  let q = uniqueCards()
+                    .select('id', { count: 'exact', head: true })
+                    .contains('tags', [tag]);
+                  q = withinIdentity(q);
+                  if (oracleId) q = q.neq('oracle_id', oracleId);
+                  const res = await q;
+                  if (res.error) throw res.error;
+                  return res.count ?? null;
+                }, `Behaviour (count ${tag})`).catch(() => null)
+              )
+            );
+
+            const usable = probes
+              .map((tag, i) => ({ tag, n: counts[i] }))
+              .filter(p => p.n != null && p.n > 0 && p.n <= BEHAVIOUR_PROBE_CAP);
+            const skipped = probes
+              .map((tag, i) => ({ tag, n: counts[i] }))
+              .filter(p => p.n != null && p.n > BEHAVIOUR_PROBE_CAP);
+
+            const batches = await Promise.all(
+              usable.map(p =>
+                retrying(async () => {
+                  let q = uniqueCards()
+                    .select(RANK_COLUMNS)
+                    .contains('tags', [p.tag])
+                    .limit(BEHAVIOUR_PROBE_CAP);
+                  q = withinIdentity(q);
+                  if (oracleId) q = q.neq('oracle_id', oracleId);
+                  const res = await q;
+                  if (res.error) throw res.error;
+                  return res.data ?? [];
+                }, `Behaviour (probe ${p.tag})`).catch(err => {
+                  console.error(`Behaviour probe "${p.tag}" failed:`, err);
+                  return [] as any[];
+                })
+              )
+            );
+
+            const pool = new Map<string, any>();
+            for (const rows of batches) {
+              for (const row of rows) {
+                if (pool.size >= BEHAVIOUR_POOL_CAP) break;
+                pool.set(row.id, row);
+              }
+            }
+
+            const result = rankBySameBehaviour(subjectRow, Array.from(pool.values()), {
+              limit: 14,
+              exclude: seen,
+              priceOf: getUsdPrice,
+            });
+
+            if (result.entries.length > 0) {
+              /*
+               * The ranking columns carry no art. One more read, for the
+               * fourteen that survived, rather than pulling `image_uris` for
+               * every row in a 326-row pool.
+               */
+              const ids = result.entries.map(e => e.card.id).filter(Boolean);
+              const { data: tiles } = await supabase
+                .from('cards')
+                .select(CARD_COLUMNS)
+                .in('id', ids);
+              const byId = new Map((tiles ?? []).map(t => [t.id, t]));
+
+              const entries = result.entries
+                .map(e => ({ card: byId.get(e.card.id) ?? e.card, note: e.note }))
+                .filter(e => e.card);
+              const ordered = dedupeByOracle(entries.map(e => e.card), seen);
+              const noteFor = new Map(entries.map(e => [e.card.id, e.note]));
+
+              if (ordered.length > 0) {
+                const probeText = [
+                  ...usable.map(p => `${p.tag} (${p.n} cards, all of them)`),
+                  ...skipped.map(p => `${p.tag} (${p.n} cards, too many to rank, skipped)`),
+                ].join(', ');
+
+                built.push({
+                  key: 'behaviour',
+                  label: 'Does the same thing',
+                  basis:
+                    `Both cards' rules text compiled into an ability record, then ranked by shared effects and ` +
+                    `their arguments rather than by shared words. ${name} reads ${describeSubject(result.subject.facets)}. ` +
+                    `Candidates came from tags @> ${probeText}, and ${result.census.pool} of them were scored, ` +
+                    `not the first sixty. ${result.census.byRecord} of the ${result.entries.length} shown were decided by a record` +
+                    `${result.census.byTags > 0 ? `, ${result.census.byTags} by tags because we hold no record for them` : ''}.`,
+                  entries: ordered.map(c => ({ card: c, note: noteFor.get(c.id) })),
+                });
+                behaviourRendered = true;
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Synergy group "behaviour" failed:', err);
+      }
+
+      /* --- 5. Shares a role tag, weighted by how rare that tag is. ---
+       *
+       * THE FALLBACK NOW, not the answer. It runs only when the group above did
+       * not, which means the ability compiler read nothing for this card, and
+       * its own weakness is why: one indexed `tags @> {tag}` per probe tag, 60
+       * rows each, ranked by summed tag rarity. That ranking cannot separate two
+       * cards that share the tag, which is the whole reason `Does the same
+       * thing` exists.
        */
       try {
         const probes = tags.slice(0, TAG_PROBES);
-        if (probes.length > 0) {
+        if (!behaviourRendered && probes.length > 0) {
           const batches = await Promise.all(
             probes.map(tag =>
               retrying(async () => {
@@ -472,11 +691,11 @@ export function CardWorksWellWith({ card, dbCard, className }: CardRelatedProps)
             built.push({
               key: 'tags',
               label: `Also tagged ${probes.slice(0, 2).join(', ')}`,
-              basis: `Our card table tags this ${tags.join(', ')}. Searched on the ${
+              basis: `We hold no ability record for ${name}, so this is matched on words. Our card table tags it ${tags.join(
+                ', '
+              )}. Searched on the ${
                 probes.length === 1 ? 'rarest of those' : `${probes.length} rarest of those`
-              }, then ranked by how rare the shared tags are — a card matching ${
-                probes[0]
-              } counts for more than one matching a tag half the catalogue carries.`,
+              }, 60 rows each, then ranked by how rare the shared tags are. A tag cannot tell two cards that carry it apart, so read this as a starting point rather than an answer.`,
               entries: ordered.map(card => {
                 const hits = sharedTags(tags, card.tags);
                 return { card, note: hits.length > 0 ? hits.slice(0, 3).join(', ') : undefined };

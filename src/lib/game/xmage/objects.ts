@@ -58,10 +58,14 @@ import {
   typesIn,
 } from '../characteristics.ts';
 import type { PredicateContext, XFilter } from './filters.ts';
+// Type only. `targets.ts` imports types from here too; neither edge exists at
+// run time, so the two files do not form an import cycle.
+import type { XTarget } from './targets.ts';
 import {
   askForCards,
   askFromList,
   askYesNo,
+  countLibraryRead,
   deferHere,
   emit,
   type XmageScope,
@@ -342,7 +346,13 @@ export interface XCards {
   get(index: number): XCard | undefined;
   getRandom(): XCard | undefined;
   add(card: XCard | InstanceId): XCards;
-  addAll(cards: Array<XCard | InstanceId>): XCards;
+  /**
+   * Takes whatever a body has in hand, through `idsFrom`, rather than an array
+   * only. `new CardsImpl(controller.getLibrary().getTopCards(game, 4))` is the
+   * commonest thing a library read is wrapped in, and XMage's `CardsImpl` has a
+   * `Collection<? extends Card>` constructor for exactly it.
+   */
+  addAll(cards: XCardsInput): XCards;
   clear(): XCards;
   /** XMage's `Cards#retainZone`. Keeps only the cards currently in `zone`. */
   retainZone(zone: Zone): XCards;
@@ -367,7 +377,7 @@ export function makeCards(scope: XmageScope, ids: InstanceId[] = []): XCards {
       return cards;
     },
     addAll(more) {
-      for (const card of more) cards.add(card);
+      for (const id of idsFrom(more)) cards.add(id);
       return cards;
     },
     clear() {
@@ -396,6 +406,154 @@ export function makeCards(scope: XmageScope, ids: InstanceId[] = []): XCards {
  * cards and the boards would diverge. A body that genuinely needs a random pick
  * has to go through `state.rng` at the reducer, which is a different seam.
  */
+
+/* -------------------------------------------------------------------------- */
+/* Library — the player's, and the order is the whole point                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * XMage's `mage.players.Library`: what `player.getLibrary()` returns.
+ *
+ * ## Which Library, because there are two and the work order named the wrong one
+ *
+ * `docs/engine/RUNTIME-API.md` ranks its two biggest open rows as
+ * `ZoneChangeInfo.Library#getFromTop` and `#getTopCards`. The COUNTS are right
+ * and the class name is not. XMage declares `Library` twice:
+ * `mage.players.Library`, an ordered `Deque<UUID>` hanging off a player, and
+ * `mage.game.ZoneChangeInfo.Library`, a nested helper carrying one boolean.
+ * Resolving a simple name by package preference alone picks the nested one,
+ * because `mage.game.` outranks `mage.players.`.
+ *
+ * The nested class declares `top`, a constructor and `copy()` and nothing else,
+ * so it cannot be the receiver of `getTopCards`. The card files agree:
+ * AethermagesTouch reads `controller.getLibrary().getTopCards(game, 4)`,
+ * AdNauseam reads `controller.getLibrary().hasCards()`, AbundantHarvest reads
+ * `player.getLibrary().getCards(game)`. This is that class.
+ *
+ * ## The order is the whole point
+ *
+ * `Player.zones.library` is ordered and index 0 is the TOP — `drawCards` in
+ * `rules.ts` takes `zones.library[0]`, and `insertInto` puts a `position: 'top'`
+ * move at the front. Everything here reads that array in that order and never
+ * sorts it. A library read that loses the order is not a library read.
+ *
+ * ## Live, not a snapshot, and that is not a detail
+ *
+ * `player.getLibrary()` used to return an `XCards`, which copies the id list at
+ * the moment it is built. XMage binds the library object once and reads it
+ * repeatedly:
+ *
+ *     Library library = opponent.getLibrary();
+ *     do { card = library.getFromTop(game); … } while (library.hasCards());
+ *
+ * A snapshot answers the same card and the same "not empty" for ever. So every
+ * method below re-reads `scope.working` — the same working copy the emitted
+ * actions are folded into — which is what makes "move the top card, then look
+ * at the top card" mean what it says. The cost is that a body can now loop, and
+ * `countLibraryRead` in `runtime.ts` is the budget that stops it.
+ *
+ * ## Null, not undefined
+ *
+ * `getFromTop` returns `null` when the library is empty, matching
+ * `Game#getPermanent` and `Game#getCard`. XMage bodies are full of
+ * `if (card == null) break;`, the translator turns that into `=== null`, and a
+ * facade returning `undefined` would fail that check and carry on with nothing
+ * in hand.
+ *
+ * ## What is deliberately absent
+ *
+ * `removeFromTop`, `remove` and `clear` take a card OUT of the library without
+ * saying where it goes, and there is no action in this engine for a card in no
+ * zone. Implementing them as a read that removes nothing would turn
+ * `while (…) { library.removeFromTop(game); }` into a loop on one card for
+ * ever, so they are not on this facade at all and the bodies that call them
+ * block, visibly, in the work order. Three calls across two card files.
+ */
+export interface XLibrary {
+  /** `Library#getFromTop` — 284 calls. The card stays in the library. */
+  getFromTop(): XCard | null;
+  /** `Library#getFromBottom` — 3 calls. */
+  getFromBottom(): XCard | null;
+  /** `Library#getTopCards` — 268 calls. Top first, and fewer than asked when the library is short. */
+  getTopCards(amount: number): XCard[];
+  /** `Library#getCards` — 138 calls. Every card, top to bottom. */
+  getCards(): XCard[];
+  /** `Library#getCard` — 92 calls. Null when that card is not in THIS library. */
+  getCard(instanceId: InstanceId | undefined): XCard | null;
+  /** `Library#getCardList` — 4 calls. */
+  getCardList(): InstanceId[];
+  /** `Library#hasCards` — 100 calls. */
+  hasCards(): boolean;
+  /** `Library#size` — 30 calls. */
+  size(): number;
+  /** `Library#count` — 2 calls. How many cards the filter matches. */
+  count(filter: XFilter, ctx?: PredicateContext): number;
+  /** `Library#isEmptyDraw` — 1 call. Set by the reducer when a draw found nothing. */
+  isEmptyDraw(): boolean;
+  /** `Library#putOnTop` — 2 calls. */
+  putOnTop(card: XCard | InstanceId): boolean;
+  /** `Library#putOnBottom`. */
+  putOnBottom(card: XCard | InstanceId): boolean;
+  /**
+   * Ours, not XMage's, so it joins no row in `runtime-coverage.mjs`. The ids,
+   * for the places that want to build a `Cards` out of a library.
+   */
+  ids(): InstanceId[];
+}
+
+export function makeLibrary(scope: XmageScope, playerId: PlayerId): XLibrary {
+  /** The live list, top first. Counted, because a live read is what makes a loop possible. */
+  const list = (): InstanceId[] => {
+    countLibraryRead(scope);
+    return scope.working.players.find(p => p.id === playerId)?.zones?.library ?? [];
+  };
+
+  const cardAt = (instanceId: InstanceId | undefined): XCard | null =>
+    instanceId && scope.working.cards[instanceId] ? objectFacade(scope, instanceId) : null;
+
+  const put = (card: XCard | InstanceId, position: 'top' | 'bottom'): boolean => {
+    const id = typeof card === 'string' ? card : card?.getId();
+    if (!id || !scope.working.cards[id]) return false;
+    // XMage sends a card its owner does not own to the OWNER's library. So does
+    // `moveCard` in `rules.ts`, which files by `ownerId`, so there is nothing
+    // extra to do here.
+    emit(scope, { type: 'MOVE_ZONE', instanceId: id, to: 'library', position });
+    return true;
+  };
+
+  return {
+    getFromTop: () => cardAt(list()[0]),
+    getFromBottom: () => {
+      const ids = list();
+      return cardAt(ids[ids.length - 1]);
+    },
+    getTopCards: amount => {
+      if (!(amount > 0)) return [];
+      return list()
+        .slice(0, amount)
+        .filter(id => scope.working.cards[id])
+        .map(id => objectFacade(scope, id));
+    },
+    getCards: () =>
+      list()
+        .filter(id => scope.working.cards[id])
+        .map(id => objectFacade(scope, id)),
+    getCard: instanceId => (instanceId && list().includes(instanceId) ? cardAt(instanceId) : null),
+    getCardList: () => [...list()],
+    hasCards: () => list().length > 0,
+    size: () => list().length,
+    count: (filter, ctx = {}) =>
+      list().filter(id => {
+        const card = scope.working.cards[id];
+        return !!card && filter.match(scope.working, card, { controllerId: playerId, ...ctx });
+      }).length,
+    isEmptyDraw: () =>
+      !!scope.working.players.find(p => p.id === playerId)?.drewFromEmptyLibrary,
+    putOnTop: card => put(card, 'top'),
+    putOnBottom: card => put(card, 'bottom'),
+    ids: () => [...list()],
+  };
+}
 
 /* -------------------------------------------------------------------------- */
 /* Battlefield                                                                */
@@ -471,7 +629,16 @@ export interface XPlayer {
   isInGame(): boolean;
   hasLost(): boolean;
 
-  getLibrary(): XCards;
+  /**
+   * `Player#getLibrary` — and what it returns is a `Library`, not a `Cards`.
+   *
+   * XMage's `Cards` is an unordered `Set<UUID>`; its `Library` is an ordered
+   * `Deque<UUID>` with its own methods, and 505 card-local bodies stop on one
+   * of them. Returning an `XCards` here made every one of those calls resolve
+   * to nothing, because `library.getTopCards(game, 4)` keys as `Library#…` and
+   * an `XCards` has no such method. See `makeLibrary`.
+   */
+  getLibrary(): XLibrary;
   getHand(): XCards;
   getGraveyard(): XCards;
   getBattlefieldIds(): InstanceId[];
@@ -489,14 +656,73 @@ export interface XPlayer {
   shuffleLibrary(): boolean;
   revealCards(name: string, cards: XCardsInput): boolean;
 
+  /**
+   * `Player#millCards(int toMill, Ability, Game)`, the first blocker on 70
+   * card-local bodies.
+   *
+   * XMage's own implementation is two steps this port can already write:
+   * `new CardsImpl(this.getLibrary().getTopCards(game, amount))`, then
+   * `moveCards(cards, Zone.GRAVEYARD, source, game)`. It is a method here
+   * rather than a translator rewrite because it has to RETURN what it milled:
+   * bodies read the pile back on the next line and call `Cards` methods on it.
+   *
+   * The MILL_CARDS replacement event XMage fires first is not modelled, so a
+   * card that would replace a mill does not get the chance. That gap is shared
+   * by every write in this file and is not new here.
+   */
+  millCards(count: number): XCards;
+
   /* Decisions. These raise a question rather than guessing. */
   /** `Player#chooseUse` — rank 24, 845 calls. The "you may" and the "unless pays". */
   chooseUse(message: string): boolean;
   /** `Player#choose` — rank 15, 1,198 calls. */
   choose(prompt: string, from: XCardsInput, min?: number, max?: number): InstanceId[];
   chooseTarget(prompt: string, from: XCardsInput, min?: number, max?: number): InstanceId[];
-  discard(count: number): InstanceId[];
-  searchLibrary(prompt: string, filter?: XFilter, max?: number): InstanceId[];
+  /**
+   * `Player#discard(int amount, …)` and `Player#discard(int min, int max, …)`.
+   *
+   * The second argument is what tells the two XMage overloads apart, and it
+   * matters: `discard(0, Integer.MAX_VALUE, false, source, game)` is "discard
+   * any number of cards", and reading its first argument as the amount made it
+   * `discard(0)`, which returned nothing and said nothing. `max` defaults to
+   * `count` so the one-argument form is unchanged.
+   *
+   * Returns the cards it discarded as a `Cards`, which is what XMage returns
+   * and what the next line of a body calls `size()` and `getCards()` on. It
+   * returned an id array, and 23 otherwise complete bodies were thrown away by
+   * `tsc` for asking a `string[]` for its `size()`.
+   */
+  discard(count: number, max?: number): XCards;
+  /**
+   * `Player#discard(Card, …)` and `Player#discard(Cards, …)`: discard cards
+   * that are already named, which is not a decision and must not raise one.
+   *
+   * Ours, not XMage's, so it joins no row in `runtime-coverage.mjs`. XMage
+   * spells both of these `discard` as well, and a TypeScript overload set
+   * cannot be told apart by the translator's arity table, so the two meanings
+   * get two names here and the table picks by argument type.
+   */
+  discardCards(cards: XCardsInput): XCards;
+  /**
+   * `Player#searchLibrary(TargetCardInLibrary target, Ability, Game)`.
+   *
+   * XMage's returns a boolean and FILLS the target, and every body that calls
+   * it reads the result back off the target on the next line:
+   *
+   *     if (opponent.searchLibrary(target, source, game)) {
+   *         Card found = opponent.getLibrary().getCard(target.getFirstTarget(), game);
+   *
+   * This took a bare `XFilter` and returned the ids, so the target stayed
+   * empty, `getFirstTarget()` was undefined, and `getCard(undefined)` was null:
+   * the player was asked to search, answered, and the card did nothing. Oriq
+   * Loremage shuffled its library and reported success. Boldwyr Heavyweights
+   * asked every opponent whether to search and put nothing onto the
+   * battlefield. Neither said a word, because actions did come out.
+   *
+   * It takes the TARGET now, which is also the more faithful signature, and
+   * fills it. An `XFilter` is still accepted for a caller that has no target.
+   */
+  searchLibrary(prompt: string, target?: XTarget | XFilter, max?: number): InstanceId[];
 }
 
 /**
@@ -548,6 +774,50 @@ function playerFacade(scope: XmageScope, playerId: PlayerId): XPlayer {
     return moved;
   };
 
+  /**
+   * Put a group of cards back on the library, keeping the order it was given
+   * in, and say that the player was not asked to choose it.
+   *
+   * ## The bug this replaces
+   *
+   * `putCardsOnTopOfLibrary([a, b, c])` emitted three `position: 'top'` moves
+   * in order, and each one goes to index 0, so the library came back holding
+   * `c, b, a`. The commonest thing a library read is followed by is putting the
+   * cards it read straight back — Architects of Will reads
+   * `getTopCards(game, 3)` and returns exactly those three — so the card whose
+   * whole job was to leave a library alone was REVERSING its top three, in
+   * silence. Emitting the moves back to front fixes that: the first id given
+   * ends up on top.
+   *
+   * ## And the order was never ours to pick
+   *
+   * XMage's `putCardsOnTopOfLibrary(cards, game, source, anyOrder)` does one of
+   * two things and neither of them is "the order you handed me": with
+   * `anyOrder` it asks the player to order the cards one at a time, and without
+   * it it SHUFFLES them. So any order this engine chooses is a guess. Keeping
+   * the caller's is the guess that at least leaves an untouched library
+   * untouched, and the deferral says out loud that a decision was skipped —
+   * the same thing `getWatcher` and the unbound target pointer do, and for the
+   * same reason: a card that quietly picks for the player is worse than one
+   * that admits it did not ask.
+   */
+  const putBack = (input: XCardsInput, position: 'top' | 'bottom'): boolean => {
+    const ids = idsFrom(input).filter(id => scope.working.cards[id]);
+    if (!ids.length) return false;
+    if (ids.length > 1) {
+      deferHere(
+        scope,
+        `${ids.length} cards went ${position === 'top' ? 'on top of' : 'to the bottom of'} a ` +
+          `library in the order they were read, and the player was not asked to order them`
+      );
+    }
+    // Back to front for the top, because each move goes to index 0.
+    for (const id of position === 'top' ? [...ids].reverse() : ids) {
+      emit(scope, { type: 'MOVE_ZONE', instanceId: id, to: 'library', position });
+    }
+    return true;
+  };
+
   const player: XPlayer = {
     getId: () => playerId,
     getControllerId: () => playerId,
@@ -560,7 +830,7 @@ function playerFacade(scope: XmageScope, playerId: PlayerId): XPlayer {
     },
     hasLost: () => !!read()?.hasLost,
 
-    getLibrary: () => makeCards(scope, zone('library')),
+    getLibrary: () => makeLibrary(scope, playerId),
     getHand: () => makeCards(scope, zone('hand')),
     getGraveyard: () => makeCards(scope, zone('graveyard')),
     getBattlefieldIds: () =>
@@ -570,8 +840,8 @@ function playerFacade(scope: XmageScope, playerId: PlayerId): XPlayer {
 
     moveCards: (cards, toZone) => move(cards, toZone),
     moveCardsToExile: cards => move(cards, 'exile'),
-    putCardsOnBottomOfLibrary: cards => move(cards, 'library', 'bottom'),
-    putCardsOnTopOfLibrary: cards => move(cards, 'library', 'top'),
+    putCardsOnBottomOfLibrary: cards => putBack(cards, 'bottom'),
+    putCardsOnTopOfLibrary: cards => putBack(cards, 'top'),
 
     drawCards(count) {
       if (count <= 0) return 0;
@@ -603,6 +873,17 @@ function playerFacade(scope: XmageScope, playerId: PlayerId): XPlayer {
       emit(scope, { type: 'SHUFFLE', playerId });
       return true;
     },
+    millCards(count) {
+      if (count <= 0) return makeCards(scope, []);
+      // Through the library facade rather than the raw zone array, so the read
+      // is ordered top first and counts against the runaway budget the same way
+      // every other library read does.
+      const ids = makeLibrary(scope, playerId)
+        .getTopCards(count)
+        .map(card => card.getId());
+      for (const id of ids) emit(scope, { type: 'MOVE_ZONE', instanceId: id, to: 'graveyard' });
+      return makeCards(scope, ids);
+    },
     revealCards(name, cards) {
       const ids = idsFrom(cards);
       if (!ids.length) return false;
@@ -625,20 +906,43 @@ function playerFacade(scope: XmageScope, playerId: PlayerId): XPlayer {
     chooseTarget(prompt, from, min = 1, max = 1) {
       return askForCards(scope, prompt, idsFrom(from), min, max);
     },
-    discard(count) {
+    discard(count, max) {
       const hand = zone('hand');
-      if (!hand.length || count <= 0) return [];
+      const hi = Math.min(Math.max(max ?? count, 0), hand.length);
+      if (!hand.length || hi <= 0) return makeCards(scope, []);
+      const lo = Math.min(Math.max(count, 0), hi);
       const picked = askForCards(
         scope,
-        `Discard ${count} card${count === 1 ? '' : 's'}`,
+        lo === hi
+          ? `Discard ${hi} card${hi === 1 ? '' : 's'}`
+          : `Discard between ${lo} and ${hi} cards`,
         hand,
-        Math.min(count, hand.length),
-        Math.min(count, hand.length)
+        lo,
+        hi
       );
       for (const id of picked) emit(scope, { type: 'MOVE_ZONE', instanceId: id, to: 'graveyard' });
-      return picked;
+      return makeCards(scope, picked);
     },
-    searchLibrary(prompt, filter, max = 1) {
+    discardCards(cards) {
+      // Only what is actually in THIS player's hand. XMage's `discard(Card, …)`
+      // is a no-op on a card that has already moved, and a card that is not in
+      // the hand being "discarded" would move a card out of somebody else's.
+      const hand = new Set(zone('hand'));
+      const ids = idsFrom(cards).filter(id => hand.has(id));
+      for (const id of ids) emit(scope, { type: 'MOVE_ZONE', instanceId: id, to: 'graveyard' });
+      return ids;
+    },
+    searchLibrary(prompt, targetOrFilter, max = 1) {
+      // A `Target` carries the filter and the counts; a bare filter is the
+      // older shape and still works. `getFilter` is only on the target, so it
+      // is what tells the two apart.
+      const target =
+        targetOrFilter && typeof (targetOrFilter as XTarget).getFilter === 'function'
+          ? (targetOrFilter as XTarget)
+          : undefined;
+      const filter = target ? target.getFilter() : (targetOrFilter as XFilter | undefined);
+      const wanted = target ? target.getMaxNumberOfTargets() : max;
+
       const library = zone('library');
       const legal = filter
         ? library.filter(id => {
@@ -647,6 +951,14 @@ function playerFacade(scope: XmageScope, playerId: PlayerId): XPlayer {
           })
         : library;
       if (!legal.length) return [];
+      if (target) {
+        // Fill it, because that is what the next line of the body reads. The
+        // legal set is THIS player's library and no one else's, which is what
+        // "search your library" means and what `Target#choose` cannot know.
+        const picked = askForCards(scope, prompt, legal, 0, wanted);
+        target.setChosen(picked);
+        return picked;
+      }
       return askForCards(scope, prompt, legal, 0, max);
     },
   };

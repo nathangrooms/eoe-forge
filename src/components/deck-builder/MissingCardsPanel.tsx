@@ -175,8 +175,8 @@ export function MissingCardsPanel({
         kind === 'proxy' ? 'On your proxy list' : 'On your shopping list',
         `${showListItemCount(missing.length)} from “${deckName}”.`
       );
-    } catch (error: any) {
-      showError('Could not add them all', error?.message ?? 'Please try again.');
+    } catch (error) {
+      showError('Could not add them all', error instanceof Error ? error.message : 'Please try again.');
     } finally {
       setAddingAll(null);
     }
@@ -201,8 +201,8 @@ export function MissingCardsPanel({
       );
       if (error) throw error;
       showSuccess('On your wishlist', line.name);
-    } catch (error: any) {
-      showError('Could not add to your wishlist', error?.message ?? 'Please try again.');
+    } catch (error) {
+      showError('Could not add to your wishlist', error instanceof Error ? error.message : 'Please try again.');
     }
   };
 
@@ -232,8 +232,8 @@ export function MissingCardsPanel({
          shortfall genuinely changed. It used to splice the row out of its own
          local copy, which made the list agree with nothing else on the page. */
       onOwnershipChanged?.();
-    } catch (error: any) {
-      showError('Could not add to your collection', error?.message ?? 'Please try again.');
+    } catch (error) {
+      showError('Could not add to your collection', error instanceof Error ? error.message : 'Please try again.');
     } finally {
       setMarking(null);
     }

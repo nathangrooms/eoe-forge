@@ -181,6 +181,11 @@ export interface XmageScope {
   ordinal: number;
   /** `GameState#setValue` / `getValue`, run-local. See `objects.ts`. */
   values: Map<string, unknown>;
+  /**
+   * Live reads of a player's library, counted so a body cannot hang the app.
+   * See `XmageRunaway` below and the header on `makeLibrary` in `objects.ts`.
+   */
+  libraryReads: number;
 }
 
 export function makeScope(state: GameState, options: XmageRunOptions): XmageScope {
@@ -195,7 +200,55 @@ export function makeScope(state: GameState, options: XmageRunOptions): XmageScop
     seq: {},
     ordinal: 0,
     values: new Map(),
+    libraryReads: 0,
   };
+}
+
+/* -------------------------------------------------------------------------- */
+/* The runaway guard                                                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The budget for live reads of a library in one resolution, and the error that
+ * says it was spent.
+ *
+ * Every other facade in this folder answers from a value read once. A library
+ * cannot: XMage writes
+ *
+ *     Library library = opponent.getLibrary();
+ *     do { card = library.getFromTop(game); … } while (library.hasCards());
+ *
+ * and binds the object BEFORE the loop, so a snapshot would report the same
+ * card and the same "not empty" for ever. `makeLibrary` therefore reads the
+ * working state on every call, and that is the first thing in this folder that
+ * can loop — a loop whose body fails to move a card off the top never ends, and
+ * an engine that hangs is worse than one that says no.
+ *
+ * So the reads are counted. The budget is far above any real library: a
+ * hundred-card library read end to end costs a few hundred reads, and this is
+ * fifty thousand. Tripping it is a BUG in the body or in a facade, so it throws
+ * rather than returning a tidy empty answer — an empty library that is not
+ * empty is exactly the silent wrong number this project keeps shipping.
+ * `to-actions.ts` already catches a throw from a translated body and records it
+ * as a failed body, so a runaway card is a line in the log, not a frozen game.
+ */
+export const LIBRARY_READ_BUDGET = 50_000;
+
+export class XmageRunaway extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'XmageRunaway';
+  }
+}
+
+/** Count one live library read, or say the run has run away. */
+export function countLibraryRead(scope: XmageScope): void {
+  if (++scope.libraryReads > LIBRARY_READ_BUDGET) {
+    throw new XmageRunaway(
+      `a translated body read a library ${LIBRARY_READ_BUDGET.toLocaleString()} times in one ` +
+        `resolution, which is a loop that is not ending rather than a card`
+    );
+  }
 }
 
 /** Log metadata every emitted action carries. */

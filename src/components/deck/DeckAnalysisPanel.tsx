@@ -158,11 +158,17 @@ export function DeckAnalysisPanel({
 
   return (
     <div className="space-y-6">
-      {/* Four figures about how the deck behaves, at the top, in the tile every
-          other figure in the product uses. This tab opened on a heading and a
-          nested tab strip. */}
+      {/* Three figures about how the deck behaves, at the top, in the tile
+          every other figure in the product uses. This tab opened on a heading
+          and a nested tab strip.
+
+          A fourth tile said `Power score  2.0 /10` with the subtext "measured
+          on the EDH tab", which is the tile admitting it was a pointer rather
+          than a figure. The page header prints that number at 30px on this
+          same screen and the EDH tab prints it three more times, so it was the
+          second of five. Everything left here is measured on this tab. */}
       <MetricRow
-        columns={4}
+        columns={3}
         metrics={[
           {
             id: 'synergy',
@@ -186,14 +192,6 @@ export function DeckAnalysisPanel({
             subtext: clusters[0]
               ? `${clusters[0].mechanic} covers ${Math.round(clusters[0].coverage)}%`
               : 'no mechanic is concentrated',
-          },
-          {
-            id: 'power',
-            label: 'Power score',
-            value: power.score.toFixed(1),
-            raw: power.score,
-            suffix: '/10',
-            subtext: 'measured on the EDH tab',
           },
         ]}
       />
@@ -240,18 +238,37 @@ export function DeckAnalysisPanel({
                       </p>
                     </div>
                     <p className="text-sm text-muted-foreground">{pair.description}</p>
-                    <CardGrid width={view.size}>
-                      <DeckCardTile
-                        card={a.card}
-                        width={view.size}
-                        onClick={onCardClick && a.row ? () => onCardClick(a.row as DeckCardRow) : undefined}
-                      />
-                      <DeckCardTile
-                        card={b.card}
-                        width={view.size}
-                        onClick={onCardClick && b.row ? () => onCardClick(b.row as DeckCardRow) : undefined}
-                      />
-                    </CardGrid>
+                    {/* CARDS ONLY WHEN BOTH HALVES ARE CARDS.
+                        `SynergyEngine` returns two kinds of pair. Most are two
+                        card names. Some are two MECHANICS — "affinity
+                        synergises with artifact" — and `tileFor` cannot find a
+                        row for a keyword, so those drew two empty card frames
+                        with a lower-case word under each. Measured on the
+                        Analysis tab at 1280: two of the four pairs on the
+                        fixture deck were blank boxes. The count above still
+                        says four, because four is what the engine found; what
+                        changes is that a pair with no cards behind it is drawn
+                        as what it is. */}
+                    {a.row && b.row ? (
+                      <CardGrid width={view.size}>
+                        <DeckCardTile
+                          card={a.card}
+                          width={view.size}
+                          onClick={onCardClick ? () => onCardClick(a.row as DeckCardRow) : undefined}
+                        />
+                        <DeckCardTile
+                          card={b.card}
+                          width={view.size}
+                          onClick={onCardClick ? () => onCardClick(b.row as DeckCardRow) : undefined}
+                        />
+                      </CardGrid>
+                    ) : (
+                      <p className="text-sm">
+                        <span className="capitalize">{pair.cardA}</span>
+                        <span className="px-1.5 text-muted-foreground">with</span>
+                        <span className="capitalize">{pair.cardB}</span>
+                      </p>
+                    )}
                   </li>
                 );
               })}

@@ -101,12 +101,12 @@ export function EdhAnalysisPanel({ data, isLoading, needsRefresh, onRefresh }: E
             {isLoading ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Analyzing...
+                Working…
               </>
             ) : (
               <>
                 <Zap className="h-4 w-4 mr-2" />
-                Analyze Deck
+                Analyse deck
               </>
             )}
           </Button>

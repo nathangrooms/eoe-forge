@@ -41,7 +41,14 @@ export interface SuggestionTileProps {
   onToggle?: () => void;
   /** The single action — "Add now", "Remove". */
   action: ReactNode;
-  /** Removals grey the art so a cut reads as a cut. */
+  /**
+   * Removals fade the art so a cut reads as a cut.
+   *
+   * Opacity only. This prop used to add `grayscale` alongside it, which
+   * desaturates the artwork — one of the four things Scryfall's terms forbid
+   * doing to a card image, along with cropping, blurring and shifting its
+   * colour. The tick badge and the fade already say the card is selected.
+   */
   dimmed?: boolean;
   /**
    * Offer the shopping and proxy lists beside the action.
@@ -113,7 +120,7 @@ export function SuggestionTile({
           size="lg"
           fill
           onClick={() => openCard(card)}
-          imageClassName={cn(dimmed && selected && 'opacity-45 grayscale')}
+          imageClassName={cn(dimmed && selected && 'opacity-45')}
         />
         {/* Selection tick sits on the art rather than beside it, so the card
             keeps the full width of the tile. */}

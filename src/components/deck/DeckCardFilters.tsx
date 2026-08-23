@@ -179,7 +179,8 @@ export function DeckCardFilters({
                     active={state.playability.includes(option.value)}
                     onClick={() => toggle('playability', option.value)}
                     count={option.count}
-                    title={band ? `${band.label} — ${band.blurb}` : undefined}
+                    /* No em-dash in copy, and a tooltip is copy. */
+                    title={band ? `${band.label}. ${band.blurb}` : undefined}
                   >
                     <span
                       className={cn(

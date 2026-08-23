@@ -219,15 +219,22 @@ bodies call is **2,216 distinct functions**. This port has written **158**.
 
 | bucket | calls | share |
 |---|---:|---:|
-| **implemented** | 75,640 | **65.64%** |
+| **implemented** | 76,564 | **66.44%** |
 | refuses, out loud | 822 | 0.71% |
 | native (java.util, becomes TypeScript syntax) | 9,570 | 8.30% |
-| open | 18,148 | 15.75% |
+| open | 17,224 | 14.95% |
 | unresolved receiver | 11,060 | 9.60% |
 
-**158 functions out of 2,216 — 7.1% of the API — cover 65.64% of the calls.**
+**169 functions out of 2,212 — 7.6% of the API — cover 66.44% of the calls.**
 That is the whole argument for ranking by frequency, and it is the number the
 task asked for: a share of CALLS, not a share of methods.
+
+> **Updated 23 Aug 2026, from 158 functions and 65.64%.** The change is one
+> class, `Library`, and section 6a says what it cost and what it bought. The
+> re-run also merges 13 rows that were keyed to a class that cannot own them;
+> that correction moves 886 calls between ROW NAMES and, on its own, moves the
+> coverage figure by 0.00 points. Both numbers are printed by
+> `runtime-coverage.mjs`, and `--no-rekey` turns the correction off.
 
 The four buckets are never merged into one headline, and here is what each one
 is:
@@ -244,7 +251,7 @@ is:
 - **unresolved** is the analyser's own limit, not the port's. It stays in the
   denominator.
 
-**Implemented plus native is 73.94%** — the share of calls in an XMage card body
+**Implemented plus native is 74.74%** — the share of calls in an XMage card body
 that a mechanical translation can currently run.
 
 ## The one caveat that matters, stated rather than buried
@@ -271,8 +278,6 @@ than a quarter of a percent.
 
 | calls | share | function | cards |
 |---:|---:|---|---:|
-| 273 | 0.24% | `ZoneChangeInfo.Library#getFromTop` | 260 |
-| 266 | 0.23% | `ZoneChangeInfo.Library#getTopCards` | 266 |
 | 190 | 0.17% | `Exile#getExileZone` | 160 |
 | 189 | 0.16% | `Cost#pay` | 186 |
 | 169 | 0.15% | `ZoneChangeEvent#getTarget` | 111 |
@@ -281,6 +286,12 @@ than a quarter of a percent.
 | 142 | 0.12% | `Effect#setText` | 124 |
 | 140 | 0.12% | `CardUtil#getPermanentFromCardPutToBattlefield` | 139 |
 | 133 | 0.12% | `Game#getSpell` | 125 |
+| 132 | 0.12% | `Cards#remove` | 122 |
+| 132 | 0.12% | `Ability#addTarget` | 131 |
+
+The two rows that used to head this table, `ZoneChangeInfo.Library#getFromTop`
+at 273 calls and `#getTopCards` at 266, are gone from it. **The counts were
+right and the class name was wrong**, and the class is written now. Section 6a.
 
 `Cost#pay` is the interesting one on that list, because it is the missing half of
 the Rhystic Study idiom: the decision is implemented and the payment is not.
@@ -363,10 +374,15 @@ cannot have changed a game the harness plays.
 Stated plainly, because "the engine supports it" and "a player can do it" are
 different claims and this document only makes the first one.
 
-- **Nothing is wired in.** `src/lib/game/xmage/` is imported by its own test and
-  by `runtime-coverage.mjs`, and by nothing else. No card resolves through it. The
-  next piece of work is a translator that emits these bodies from
-  `scripts/xmage/lib/java-parse.mjs`, and then a bridge from `to-actions.ts`.
+- ~~**Nothing is wired in.**~~ **Superseded.** When this was written
+  `src/lib/game/xmage/` was imported by its own test and by
+  `runtime-coverage.mjs` and by nothing else. The translator exists
+  (`docs/engine/TRANSLATION.md`), `to-actions.ts` imports the bodies, and 217
+  cards reach one through the shipped table. What that bought is measured in
+  `TRANSLATION.md` section 9 and in section 6a below, and it is small.
+- **No private look.** `Player#lookAtCards` is the largest single blocker left,
+  62 bodies, and it is not a mapping: this engine has no way to show a card to
+  one player, and a `NOTE` naming the cards would show them to everybody.
 - **`Game#getObject` returns cards only.** XMage's also returns spells on the
   stack. `getStack()` reaches those separately.
 - **`Cost#pay` is missing**, so the payment half of "unless that player pays" is
@@ -376,3 +392,235 @@ different claims and this document only makes the first one.
 - **The 9.6% unresolved receivers** are a limit of the analyser, not of the port.
   Closing that gap would move calls out of `unresolved` and into one of the other
   four buckets; it would not move the implemented figure on its own.
+
+---
+
+# 6a. The Library, and the class name that was wrong
+
+Added 23 Aug 2026. Everything above this line except the figures in section 3
+was written before this class existed.
+
+## The work order named a class that cannot own the methods
+
+The two biggest open rows on the whole ranking were
+`ZoneChangeInfo.Library#getFromTop` (273 calls) and `#getTopCards` (266).
+`mage.game.ZoneChangeInfo.Library` is a nested helper: it declares one boolean,
+three constructors and `copy()`, and nothing else. It cannot be the receiver of
+either. The class the card bodies call is `mage.players.Library`, what
+`player.getLibrary()` returns, and `api-surface-typed.mjs` picked the other one
+because it resolves a simple name by package preference alone and `mage.game.`
+outranks `mage.players.`.
+
+Three things say so, and none of them is an opinion:
+
+- `xmage-engine-methods.json` lists exactly one method on the nested class.
+- The card files read `controller.getLibrary().getTopCards(game, 4)`. Aethermage's
+  Touch, Ad Nauseam and Abundant Harvest are the first three, and 500 more
+  follow.
+- `translate-check.mjs` check 1 has reported the two rows moving since the
+  translator was written, because `lib/java-types.mjs` already prefers a
+  top-level class over a nested one.
+
+**`api-surface-typed.mjs` is still not edited.** It produced the published
+ranking, and quietly changing the script behind a published number is how
+numbers drift. The correction is in `runtime-coverage.mjs`, in the open, and it
+is DERIVED rather than typed: for a row whose class name is nested, it asks the
+engine index whether that class can own the method through its own declarations
+and its whole chain, and re-keys only when it cannot while exactly one same-named
+top-level class can. It prints how many rows and calls it moved, and `--no-rekey`
+turns it off.
+
+It moves 13 rows and 886 calls, and every one of the 13 is a `Library` row. On
+its own it moves the coverage figure by nothing:
+
+| | implemented | share |
+|---|---:|---:|
+| re-key off, no `Library` in the manifest | 75,640 | 65.64% |
+| re-key on, no `Library` in the manifest | 75,640 | **65.64%** |
+| re-key off, `Library` written | 75,683 | 65.67% |
+| re-key on, `Library` written | 76,564 | **66.44%** |
+
+Row two is the point: the correction is a measurement fix and not a coverage
+gain. Row three is what writing the class would have been worth without it,
+0.03 points, because 886 of the 929 library calls were filed under a name the
+manifest could never match. All four rows come from one script over the same
+data, run four ways.
+
+## What the class is
+
+`makeLibrary` in `objects.ts`. Thirteen methods, twelve of them XMage's:
+`getFromTop`, `getFromBottom`, `getTopCards`, `getCards`, `getCard`,
+`getCardList`, `hasCards`, `size`, `count`, `isEmptyDraw`, `putOnTop`,
+`putOnBottom`, and `ids`, which is ours and joins no row.
+
+Two things about it are not obvious and both are load-bearing.
+
+**It is LIVE.** `player.getLibrary()` used to return an `XCards`, which copies
+the id list at the moment it is built. XMage binds the library object before a
+loop and reads it inside one:
+
+    Library library = opponent.getLibrary();
+    do { card = library.getFromTop(game); … } while (library.hasCards());
+
+Against a snapshot that loop never ends. So every read here goes back to the
+working state, the same copy the emitted actions are folded into, which is what
+makes "move the top card, then look at the top card" mean what it says.
+Twenty-two card files bind the library to a local before reading it.
+
+**Which is why there is a budget.** Liveness is the first thing in this folder
+that lets a body loop, and a loop whose body fails to move a card never ends.
+`countLibraryRead` counts the reads and throws `XmageRunaway` past fifty
+thousand of them, far above a real library, which costs a few hundred. It throws
+rather than returning a tidy empty answer, because an empty library that is not
+empty is the silent wrong number this project keeps shipping, and
+`to-actions.ts` already turns a throw from a translated body into a line in the
+log rather than a dead resolution.
+
+Three methods are deliberately ABSENT and their bodies stay blocked:
+`removeFromTop`, `remove` and `clear` take a card out of the library without
+saying where it goes, there is no action in this engine for a card in no zone,
+and a version that returned the card while leaving it in place would turn
+`while (…) removeFromTop()` into a loop on one card for ever. Five calls across
+three card files.
+
+## Reads return null, not undefined
+
+`getFromTop` on an empty library is `null`, matching `Game#getPermanent` and
+`Game#getCard`. XMage bodies are full of `if (card == null) break;`, the
+translator turns that into `=== null`, and a facade answering `undefined` fails
+that check and lets the body carry on holding nothing.
+
+## Three defects found while doing it
+
+All three are the same shape as the four in `TRANSLATION.md` section 6: a call
+that looked like it worked and quietly did nothing or the wrong thing. None was
+found by a test. All three are in `library.test.ts` now, pinned to real cards.
+
+### `putCardsOnTopOfLibrary` reversed the cards
+
+It emitted one `position: 'top'` move per card in order, and each one goes to
+index 0, so three cards came back in the opposite order. The commonest thing a
+library read is followed by is putting the cards it read straight back.
+Architects of Will reads `getTopCards(game, 3)` and returns exactly those three,
+so the card whose whole job is to leave a library alone was scrambling its top
+three in silence. The moves go back to front now, so the first id given ends up
+on top.
+
+**And the order was never ours to pick.** XMage's
+`putCardsOnTopOfLibrary(cards, game, source, anyOrder)` either asks the player to
+order the cards one at a time or SHUFFLES them, and "the order you handed me" is
+neither. So it defers when there is more than one card, saying the player was not
+asked. That adds no behaviour and guesses nothing, which is what `getWatcher` and
+the unbound target pointer already do.
+
+### `searchLibrary` threw away the target it was supposed to fill
+
+XMage's `Player#searchLibrary(target, source, game)` returns a boolean and FILLS
+the target, and every body that searches reads the answer back off it on the
+next line:
+
+    if (opponent.searchLibrary(target, source, game)) {
+        Card found = opponent.getLibrary().getCard(target.getFirstTarget(), game);
+
+Ours took a bare filter and returned the ids, so the target stayed empty,
+`getFirstTarget()` was `undefined` and `getCard(undefined)` was `null`. **Oriq
+Loremage asked the player to search their library, took the answer, shuffled,
+and put nothing in the graveyard, and returned true.** Boldwyr Heavyweights
+asked every opponent whether to search and put nothing onto the battlefield.
+Five shipped bodies have this shape, and `Library#getCard` is the line that reads
+the answer, so mapping it is what made the failure reachable.
+
+`searchLibrary` takes the TARGET now, which is also XMage's own signature, and
+fills it. The asking stays on the player rather than moving to `Target#choose`,
+because only the player knows which library is theirs and `choose` would offer
+every library on the board.
+
+### `revealCards` called a two-argument function with one argument
+
+The mapping took the `Cards` and dropped the title, and the empty string meant to
+replace the title never appeared, because `lit` only fires for a position that is
+actually taken. Every body reaching `revealCards` emitted `revealCards(cards)`
+and was thrown away by `tsc --strict` as TS2554. It went unnoticed because almost
+nothing reached `revealCards` until the `Library` rows unblocked the bodies that
+do: "reveal the top card of your library" is the commonest thing a library read
+is followed by. **60 bodies were failing this way; 2 remain**, on a different
+overload.
+
+## What it bought
+
+`translate-bodies.mjs`, before and after, joined body by body through the new
+`--ledger` and `--drop` flags rather than by subtracting totals:
+
+| | |
+|---|---:|
+| bodies whose FIRST blocker was one of the four named rows | **459** |
+| of those, emit after phase one | 71 (15.5%) |
+| of those, **SHIP** after `tsc --strict` | **54 (11.8%)** |
+| every body first-blocked on any `Library#` row | 505 |
+| of those, ship | 61 |
+
+**54 of 459.** A body blocked on one thing is usually blocked on a second, and
+the second is the honest number. What the other 388 stopped on next:
+
+| bodies | next blocker |
+|---:|---|
+| 62 | `Player#lookAtCards` |
+| 29 | `Player#choose/5` |
+| 16 | `CardUtil#makeCardPlayable` |
+| 11 | `Cards#remove` |
+| 11 | `CardUtil#castSpellWithAttributesForFree` |
+| 9 | `CardUtil#castMultipleWithAttributeForFree` |
+| 9 | `Card#setFaceDown` |
+
+`Player#lookAtCards` heads the list and is not so much a missing function as a
+missing idea: this engine has no private look, and a `NOTE` naming the cards
+would show them to everybody. It is the top of the next work order and it is a
+decision about hidden information rather than a mapping.
+
+Across the whole corpus, shipped bodies went **758 to 852** and card files
+**721 to 812**. 61 of that increase is the `Library` rows; the rest is the
+`revealCards` and `CardsImpl` mappings the Library work exposed. Substantive
+bodies went **380 to 474**, and the trivial count is unchanged at 378, so every
+new body is a substantive one.
+
+## And what it did not buy
+
+`scripts/verify-ability-coverage.mjs`, the only number that counts:
+
+| | AUTOMATED | of 32,469 |
+|---|---:|---:|
+| before | 3,488 | 10.74% |
+| after | **3,501** | **10.78%** |
+
+Under the script's stricter variant, 10.10% to 10.13%.
+
+**Thirteen cards.** Ninety-four more translated Java bodies, forty-one more cards
+carrying a body pointer in `lowered.generated.ts` (176 to 217), and the bar moved
+four hundredths of a point. That is the fifth time this project has measured the
+distance between an API being written and a player reaching it, and it is worth
+writing down rather than rounding up.
+
+## Gates
+
+Typecheck: 0 errors in `src/lib/**` and `scripts/**`. One error in
+`src/components/deck/DeckAddPanel.tsx` and a stale vendored engine, both from a
+concurrent edit to `src/engine/core/types.ts` that added a `creature` role.
+Neither file is this work's to touch and neither is caused by it.
+
+`node --test src/lib/**/*.test.ts`: **1,697 pass, 0 fail**, including 29 new
+tests in `src/lib/game/xmage/library.test.ts`. The 14 failures in the full run
+are all in `src/engine/engine-parity.test.ts`, the vendored-copy check failing
+for the same reason the `pretest` gate does.
+
+Harness, 20 commander games on seed 9000: **19 finished, 1 stalled, 0 invariant
+violations, 0 replays diverged.** Seed 9018 hits the 80-turn cap, the same
+pre-existing stall recorded in three earlier runs; re-run with `--max-turns 200`
+it **finishes on turn 82**, so it is a long game and not a deadlock. The analysis
+report is identical to the `bodies-loud` baseline except for one row: one more
+card doing a library search now says out loud that it did not do it.
+
+Sample read: 11 newly shipped bodies read against their Java, chosen
+deterministically. **Nine agree line for line. Two disagree, and both are the
+`searchLibrary` defect above**, Oriq Loremage and Boldwyr Heavyweights, which is
+how it was found. Both are fixed in the runtime and the mapping, never in the
+output.

@@ -84,6 +84,39 @@ import {
 
 const M = (ts, take, extra) => ({ ts, take, ...extra });
 
+/**
+ * A `when` guard that fires only when the given argument positions are those
+ * exact BOOLEAN LITERALS in the source.
+ *
+ * Several XMage overloads differ from a shorter one only by trailing flags, and
+ * the shorter one is the longer one with the flags at their defaults. Mapping
+ * the long form to the short function is exactly right for the default flags
+ * and exactly wrong for any other combination, so the guard reads the literal
+ * rather than assuming it. A call that passes a variable, or the other value,
+ * is not matched and blocks with its arity named, which is the report saying a
+ * meaning is missing rather than the file carrying a wrong one.
+ */
+const flags = (want) => (_types, nodes) =>
+  Object.entries(want).every(([index, value]) => {
+    const node = nodes[Number(index)];
+    return !!node && node.k === 'lit' && node.type === 'bool' && node.v === value;
+  });
+
+/** True when the argument at `index` parsed as a `null` literal. */
+const isNull = (index) => (_types, nodes) => {
+  const node = nodes[index];
+  return !!node && node.k === 'lit' && node.type === 'null';
+};
+
+/** Every guard has to hold. */
+const all = (...guards) => (types, nodes) => guards.every((g) => g(types, nodes));
+
+/** The argument at `index` is of a type whose simple name is one of `names`. */
+const argIs = (index, ...names) => (types) => {
+  const simple = String(types[index] ?? '').split('.').pop();
+  return names.includes(simple);
+};
+
 /** name -> entry | array of entries keyed by arity. */
 export const METHODS = {
   /* ---- Controllable / MageItem, on every facade ---- */
@@ -125,10 +158,26 @@ export const METHODS = {
   'Player#getLibrary': M('getLibrary', []),
   'Player#getHand': M('getHand', []),
   'Player#getGraveyard': M('getGraveyard', []),
-  // `moveCards(Cards|Card|Set, Zone toZone, Ability source, Game game)` — 4 args.
-  // The 8-arg overload carries tapped/faceDown/byOwner, which our `moveCards`
-  // cannot express, so it blocks.
-  'Player#moveCards': [{ arity: 4, ...M('moveCards', [0, 1]) }],
+  /*
+   * `moveCards(Cards|Card|Set, Zone toZone, Ability source, Game game)`, and the
+   * 8-argument form that adds `tapped`, `faceDown`, `byOwner` and an applied
+   * effects list.
+   *
+   * Our `moveCards` expresses none of those three, so the long form is mapped
+   * only where all three are the literal `false` and the list is `null`, which
+   * makes it the short form written out. 24 of the 133 eight-argument calls in
+   * the card files are that; the rest ask for a permanent to arrive tapped, or
+   * face down, or under its owner's control instead of the caster's, and each
+   * of those dropped would be a visible difference on the board.
+   */
+  'Player#moveCards': [
+    { arity: 4, ...M('moveCards', [0, 1]) },
+    {
+      arity: 8,
+      when: all(flags({ 4: 'false', 5: 'false', 6: 'false' }), isNull(7)),
+      ...M('moveCards', [0, 1]),
+    },
+  ],
   'Player#moveCardsToExile': [{ arity: 6, ...M('moveCardsToExile', [0]) }],
   // `putCardsOnBottomOfLibrary(Cards, Game, Ability, boolean anyOrder)`.
   'Player#putCardsOnBottomOfLibrary': [
@@ -138,16 +187,38 @@ export const METHODS = {
   'Player#putCardsOnTopOfLibrary': [{ arity: 4, ...M('putCardsOnTopOfLibrary', [0]) }],
   // `drawCards(int num, Ability source, Game game)`.
   'Player#drawCards': [{ arity: 3, ...M('drawCards', [0]) }],
-  // `damage(int, Ability, Game)` and `damage(int, UUID attackerId, Ability, Game)`.
-  'Player#damage': [{ arity: 3, ...M('damage', [0]) }, { arity: 4, ...M('damage', [0, 1]) }],
+  // `damage(int, Ability, Game)`, `damage(int, UUID attackerId, Ability, Game)`
+  // and the six-argument form. Same reading as `Permanent#damage` above, and
+  // `PlayerImpl`'s short form calls the long one with the same two defaults.
+  'Player#damage': [
+    { arity: 3, ...M('damage', [0]) },
+    { arity: 4, ...M('damage', [0, 1]) },
+    { arity: 6, when: flags({ 4: 'false', 5: 'true' }), ...M('damage', [0, 1]) },
+  ],
   // `gainLife(int amount, Game game, Ability source)`.
   'Player#gainLife': [{ arity: 3, ...M('gainLife', [0]) }],
   // `loseLife(int amount, Game game, Ability source, boolean atCombat)`.
   'Player#loseLife': [{ arity: 4, ...M('loseLife', [0]) }],
   'Player#shuffleLibrary': [{ arity: 2, ...M('shuffleLibrary', []) }],
-  // `revealCards(String titleSuffix, Cards cards, Game game)`. The wording is
-  // WotC text, so the name we pass is our own empty string.
-  'Player#revealCards': [{ arity: 3, ...M('revealCards', [1], { lit: { 0: "''" } }) }],
+  /*
+   * `revealCards(String titleSuffix, Cards cards, Game game)` and
+   * `revealCards(Ability source, Cards cards, Game game)`. Both are arity 3 and
+   * both put the `Cards` at index 1, so one row serves them. The title is WotC
+   * wording, so what we pass is our own empty string.
+   *
+   * `take` was `[1]` and the empty string never appeared: `lit` only fires for
+   * a position that is actually TAKEN, so every body reaching this emitted
+   * `revealCards(cards)` against a two-argument function and was thrown away by
+   * `tsc` as TS2554. It went unnoticed because almost nothing reached
+   * `revealCards` until the `Library` rows unblocked the bodies that do — "look
+   * at the top card and reveal it" is the commonest thing a library read is
+   * followed by.
+   *
+   * The arity-4 forms are NOT mapped: `(Ability, String, Cards, Game)` holds
+   * the cards at index 2 and `(String, Cards, Game, boolean)` at index 1, and
+   * arity alone cannot tell them apart. Guessing would reveal the wrong thing.
+   */
+  'Player#revealCards': [{ arity: 3, ...M('revealCards', [0, 1], { lit: { 0: "''" } }) }],
   // `chooseUse(Outcome, String message, Ability, Game)` and the 7-arg form.
   // Both put the message at index 1. The message is XMage's wording, so it is
   // replaced rather than copied.
@@ -155,8 +226,70 @@ export const METHODS = {
     { arity: 4, ...M('chooseUse', [], { lit: { 0: "''" }, fixed: ["''"] }) },
     { arity: 7, ...M('chooseUse', [], { fixed: ["''"] }) },
   ],
-  // `discard(int amount, boolean random, boolean payForCost, Ability, Game)`.
-  'Player#discard': [{ arity: 5, ...M('discard', [0]) }],
+  /*
+   * `discard` is four overloads and two of them are arity 5. Read out of
+   * `Mage/src/main/java/mage/players/Player.java`:
+   *
+   *     Cards   discard(int amount, boolean random, boolean payForCost, Ability, Game)
+   *     Cards   discard(int minAmount, int maxAmount, boolean payForCost, Ability, Game)
+   *     Cards   discard(Cards cards, boolean payForCost, Ability, Game)
+   *     boolean discard(Card card, boolean payForCost, Ability, Game)
+   *
+   * DEFECT THIS FOUND. The single arity-5 row took argument 0 as the amount and
+   * matched BOTH five-argument forms, so `discard(0, Integer.MAX_VALUE, false,
+   * source, game)` — "discard any number of cards", eight call sites — became
+   * `discard(0)`, which returns nothing and says nothing. The second argument
+   * is what tells the two apart and the guard reads it now.
+   *
+   * The two arity-4 forms both name the cards outright, so neither is a
+   * decision, and both go to `discardCards`. They are NOT `discard`: our
+   * `discard` asks the player which cards, and asking a player to choose a card
+   * the card already named is a different game action.
+   */
+  'Player#discard': [
+    { arity: 5, when: argIs(1, 'boolean'), ...M('discard', [0]) },
+    { arity: 5, when: argIs(1, 'int', 'Integer'), ...M('discard', [0, 1]) },
+    { arity: 4, ...M('discardCards', [0]) },
+  ],
+  // `millCards(int toMill, Ability source, Game game)`, and it returns the
+  // cards it milled, which the next line of a body reads.
+  'Player#millCards': [{ arity: 3, ...M('millCards', [0]) }],
+
+  /* ---- Library ----
+   *
+   * The PLAYER's library, `mage.players.Library`, which is what
+   * `player.getLibrary()` returns. `docs/engine/RUNTIME-API.md` ranks these
+   * rows as `ZoneChangeInfo.Library#…`; that is a nested helper declaring
+   * `top`, three constructors and `copy()`, and it cannot own any of them.
+   * Four of these rows — `getTopCards`, `getFromTop`, `hasCards`, `getCards` —
+   * are the first blocker on 459 bodies between them, the largest single item
+   * on the whole work order.
+   *
+   * Every signature below was read out of
+   * `Mage/src/main/java/mage/players/Library.java`. `removeFromTop`, `remove`
+   * and `clear` are deliberately absent: they take a card out of the library
+   * without saying where it goes, our facade has no such method, and a mapping
+   * that returned the card while leaving it in place would turn a `while` loop
+   * into a loop on one card for ever.
+   */
+  // `getFromTop(Game game)`, `getFromBottom(Game game)`.
+  'Library#getFromTop': [{ arity: 1, ...M('getFromTop', []) }],
+  'Library#getFromBottom': [{ arity: 1, ...M('getFromBottom', []) }],
+  // `getTopCards(Game game, int amount)`.
+  'Library#getTopCards': [{ arity: 2, ...M('getTopCards', [1]) }],
+  // `getCards(Game game)`. Ordered top to bottom, which is the whole point.
+  'Library#getCards': [{ arity: 1, ...M('getCards', []) }],
+  // `getCard(UUID cardId, Game game)` — null unless that card is in THIS library.
+  'Library#getCard': [{ arity: 2, ...M('getCard', [0]) }],
+  'Library#getCardList': [{ arity: 0, ...M('getCardList', []) }],
+  'Library#hasCards': [{ arity: 0, ...M('hasCards', []) }],
+  'Library#size': [{ arity: 0, ...M('size', []) }],
+  // `count(FilterCard filter, Game game)`.
+  'Library#count': [{ arity: 2, ...M('count', [0]) }],
+  'Library#isEmptyDraw': [{ arity: 0, ...M('isEmptyDraw', []) }],
+  // `putOnTop(Card card, Game game)`, `putOnBottom(Card card, Game game)`.
+  'Library#putOnTop': [{ arity: 2, ...M('putOnTop', [0]) }],
+  'Library#putOnBottom': [{ arity: 2, ...M('putOnBottom', [0]) }],
 
   /* ---- MageObject / Card / Permanent ---- */
   'MageObject#getName': M('getName', []),
@@ -180,9 +313,18 @@ export const METHODS = {
 
   'Card#getOwnerId': M('getOwnerId', []),
   'Card#getCounters': [{ arity: 1, ...M('getCounters', []) }, { arity: 0, ...M('getCounters', []) }],
-  // `addCounters(Counter, UUID playerAddingCounters, Ability source, Game game)`
-  // and the 5-arg form with `isEffect`.
+  /*
+   * `addCounters(Counter, Ability, Game)`, `(Counter, UUID, Ability, Game)` and
+   * the 5-arg form with `isEffect`. All three add the counter in argument 0.
+   *
+   * The 3-arg form is the simplest and commonest of the three and was the only
+   * one missing, which is why 35 bodies stopped on `Card#addCounters/3`. The
+   * 6- and 7-argument forms stay unmapped: the 7-argument one carries
+   * `maxCounters`, which CAPS how many go on, and a cap dropped is a card that
+   * puts on more counters than it says.
+   */
   'Card#addCounters': [
+    { arity: 3, ...M('addCounters', [0]) },
     { arity: 4, ...M('addCounters', [0]) },
     { arity: 5, ...M('addCounters', [0]) },
   ],
@@ -210,8 +352,23 @@ export const METHODS = {
     { arity: 2, ...M('destroy', []) },
   ],
   'Permanent#sacrifice': [{ arity: 2, ...M('sacrifice', []) }],
-  // `damage(int damage, UUID attackerId, Ability source, Game game)`.
-  'Permanent#damage': [{ arity: 4, ...M('damage', [0, 1]) }, { arity: 3, ...M('damage', [0]) }],
+  /*
+   * `damage(int, Ability, Game)`, `damage(int, UUID attackerId, Ability, Game)`
+   * and `damage(int, UUID, Ability, Game, boolean combat, boolean preventable)`.
+   *
+   * `PermanentImpl`'s four-argument form calls the six-argument one with
+   * `combat = false, preventable = true`, so the long form with those two
+   * literals IS the short form and maps to it exactly. Any other pair does not
+   * match and blocks: this engine folds damage prevention in `replacement.ts`
+   * and carries a `combat` flag on `DAMAGE_CARD`, so dropping either flag would
+   * be a real difference and not a rounding. Of the 157 six-argument calls in
+   * the card files, 151 are `false, true`.
+   */
+  'Permanent#damage': [
+    { arity: 4, ...M('damage', [0, 1]) },
+    { arity: 3, ...M('damage', [0]) },
+    { arity: 6, when: flags({ 4: 'false', 5: 'true' }), ...M('damage', [0, 1]) },
+  ],
 
   'MageInt#getValue': M('getValue', []),
   'MageInt#isUnknown': M('isUnknown', []),
@@ -355,11 +512,49 @@ export const METHODS = {
  * the walker.
  */
 export const REWRITES = {
-  // player.choose(outcome, target, source, game)  ->  target.choose(...).length > 0
+  /*
+   * `Player#choose` is three overloads and each is a different question.
+   *
+   *     boolean choose(Outcome, Target target, Ability, Game)
+   *     boolean choose(Outcome, Cards cards, TargetCard target, Ability, Game)
+   *     boolean choose(Outcome, Choice choice, Game)
+   *
+   * All three RETURN A BOOLEAN AND FILL something, and the next line of the
+   * body reads what was filled, so all three are rewrites rather than argument
+   * permutations.
+   *
+   * The five-argument form is the largest of the three at 97 bodies. It chooses
+   * out of a named pile rather than off the battlefield, which is why
+   * `Target#choose` takes the pile as a fourth argument: the cards are usually
+   * revealed off a library or sitting in exile, where the target's own zone
+   * would not find them. The pile is passed as ids and the target's filter
+   * still narrows it.
+   *
+   * A `when` reads the second argument's type rather than trusting the arity,
+   * because `choose(Outcome, Target, Ability, Game, Map options)` is also five
+   * arguments. No card file calls that one, and if one ever does it blocks
+   * instead of being read as the pile form.
+   */
   'Player#choose': [
     {
       arity: 4,
       emit: (recv, a) => `(${a[1]}.choose(game, '', ${recv}.getId()).length > 0)`,
+      needs: [1],
+    },
+    {
+      arity: 5,
+      when: argIs(1, 'Cards', 'CardsImpl'),
+      emit: (recv, a) => `(${a[2]}.choose(game, '', ${recv}.getId(), ${a[1]}.ids()).length > 0)`,
+      needs: [1, 2],
+    },
+    /*
+     * `choose(Outcome, Choice, Game)` is the only three-argument form, so arity
+     * settles it and no type guard is needed. A `Choice` this port cannot build
+     * still blocks, one step earlier, on the `new` that would have made it.
+     */
+    {
+      arity: 3,
+      emit: (recv, a) => `(${a[1]}.getChoice('') !== null)`,
       needs: [1],
     },
   ],
@@ -370,11 +565,21 @@ export const REWRITES = {
       needs: [1],
     },
   ],
-  // player.searchLibrary(target, source, game) -> ids, then the target holds them
+  /*
+   * `player.searchLibrary(TargetCardInLibrary target, Ability, Game)` returns a
+   * boolean and FILLS the target, and the next line of the body reads it back:
+   *
+   *     if (opponent.searchLibrary(target, source, game)) {
+   *         Card found = opponent.getLibrary().getCard(target.getFirstTarget(), game);
+   *
+   * This passed `target.getFilter()` and threw the target away, so the read on
+   * the next line found nothing and the card asked a question and then did
+   * nothing. Passing the TARGET is both the fix and the more faithful shape.
+   */
   'Player#searchLibrary': [
     {
       arity: 3,
-      emit: (recv, a) => `(${recv}.searchLibrary('', ${a[0]}.getFilter()).length > 0)`,
+      emit: (recv, a) => `(${recv}.searchLibrary('', ${a[0]}).length > 0)`,
       needs: [0],
     },
   ],
@@ -511,10 +716,25 @@ export const NEW = {
   FilterBasicLandCard: () => `StaticFilters.basicLandCard()`,
   FilterNonlandCard: () => `makeFilter('nonland card', [Predicates.not(cardTypePredicate('land'))])`,
 
-  // Cards. `new CardsImpl()` and `new CardsImpl(card)`.
-  CardsImpl: args => (args.length
-    ? `makeCards(game.xmageScope(), []).add(${args[0]})`
-    : `makeCards(game.xmageScope(), [])`),
+  /*
+   * Cards. XMage declares five constructors: `()`, `(Card)`,
+   * `(List<? extends Card>)`, `(Set<? extends Card>)` and `(Collection<UUID>)`.
+   * Only the first two were mapped, and `.add()` on our `XCards` takes one
+   * card, so the commonest wrapper a library read appears inside —
+   * `new CardsImpl(controller.getLibrary().getTopCards(game, 4))` — handed an
+   * ARRAY to a one-card method. That is a `tsc --strict` error, so those bodies
+   * were emitted by phase one and thrown away by phase two, which is a body
+   * lost to a mapping rather than to a missing function.
+   *
+   * The collection forms go to `addAll`, which reads its argument through
+   * `idsFrom` and so takes an array, an `XCards` or a single card alike.
+   */
+  CardsImpl: args => {
+    if (!args.length) return `makeCards(game.xmageScope(), [])`;
+    const simple = String(args.types?.[0] ?? '').split('.').pop();
+    const one = simple === 'Card' || simple === 'Permanent' || simple === 'Spell';
+    return `makeCards(game.xmageScope(), []).${one ? 'add' : 'addAll'}(${args[0]})`;
+  },
 
   // `new ChoiceColor()` picks one of the five. XMage's other Choice subclasses
   // fill their option list from a static table this engine does not carry, so

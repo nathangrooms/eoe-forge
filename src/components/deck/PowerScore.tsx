@@ -55,6 +55,23 @@ interface PowerScoreProps {
    * a description of a machine the reader cannot act on.
    */
   unscoredReason?: string;
+  /**
+   * `expanded` only. Draw the 48px score and the bracket above the working.
+   * Defaults to true. Pass false where the screen already carries both in its
+   * own metric row, which is the case on the EDH tab.
+   */
+  headline?: boolean;
+  /**
+   * `expanded` only. The screen already prints the average playability, so the
+   * castability row leads on the three figures that are only here.
+   *
+   * Both surfaces that draw this block have it: the deck page header carries
+   * `Average playability` on every tab, and the public deck page carries it in
+   * the metric row above. Without this the EDH tab drew `5.0%` twice about six
+   * hundred pixels apart — which is what it did under two different names
+   * before this file was made to use one.
+   */
+  averageDrawnElsewhere?: boolean;
   className?: string;
 }
 
@@ -478,11 +495,15 @@ function ExpandedPower({
   power,
   onRescore,
   rescoring,
+  headline = true,
+  averageDrawnElsewhere = false,
   className,
 }: {
   power: DeckPower;
   onRescore?: () => void;
   rescoring?: boolean;
+  headline?: boolean;
+  averageDrawnElsewhere?: boolean;
   className?: string;
 }) {
   const [showBreakdown, setShowBreakdown] = useState(true);
@@ -496,37 +517,49 @@ function ExpandedPower({
 
   return (
     <div className={cn('space-y-4', className)}>
-      {/* Headline: score + bracket, the two figures that matter most */}
-      <div className="rounded-xl bg-muted/40 p-5 shadow-sm">
-        <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
-          <div className="min-w-0">
-            <p className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              DeckMatrix EDH power score
-            </p>
-            <p className="mt-1.5 flex items-baseline gap-2">
-              <span className={cn('text-5xl font-bold leading-none tabular-nums', tone)}>
-                {formatPowerScore(power.score)}
-              </span>
-              <span className="text-base text-muted-foreground">/ 10</span>
-            </p>
-            <p className={cn('mt-2 text-sm font-bold', tone)}>{bandLabel(power.band)}</p>
-          </div>
+      {/* Headline: score + bracket, the two figures that matter most.
 
-          <div className="min-w-0 sm:text-right">
-            <p className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              Commander bracket
-            </p>
-            <p className="mt-1.5 flex items-baseline gap-2 sm:justify-end">
-              <span className={cn('text-3xl font-bold leading-none tabular-nums', tone)}>
-                {bracket.id}
-              </span>
-              <span className={cn('text-lg font-bold leading-none', tone)}>{bracket.name}</span>
-            </p>
-            <p className="mt-2 max-w-xs text-[0.7rem] leading-snug text-muted-foreground sm:ml-auto">
-              {bracket.blurb}
-            </p>
+          `headline={false}` is for a caller that has already drawn both at the
+          top of its own screen. It was measured off the EDH tab: the number
+          2.0 was printed five times on one page — the hero at 30px, this
+          block's 48px, `DeckEdhPanel`'s `MetricRow` tile at 24px, and the
+          before/after pair in `PowerSliderCoaching` — with the bracket four
+          times alongside it. The working below is what this component is for;
+          the figure at the top was the copy. Segments, the stale chip and the
+          rescore control stay either way, because the rescore control is the
+          only one there is. */}
+      <div className="rounded-xl bg-muted/40 p-5 shadow-sm">
+        {headline && (
+          <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+            <div className="min-w-0">
+              <p className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                DeckMatrix EDH power score
+              </p>
+              <p className="mt-1.5 flex items-baseline gap-2">
+                <span className={cn('text-5xl font-bold leading-none tabular-nums', tone)}>
+                  {formatPowerScore(power.score)}
+                </span>
+                <span className="text-base text-muted-foreground">/ 10</span>
+              </p>
+              <p className={cn('mt-2 text-sm font-bold', tone)}>{bandLabel(power.band)}</p>
+            </div>
+
+            <div className="min-w-0 sm:text-right">
+              <p className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                Commander bracket
+              </p>
+              <p className="mt-1.5 flex items-baseline gap-2 sm:justify-end">
+                <span className={cn('text-3xl font-bold leading-none tabular-nums', tone)}>
+                  {bracket.id}
+                </span>
+                <span className={cn('text-lg font-bold leading-none', tone)}>{bracket.name}</span>
+              </p>
+              <p className="mt-2 max-w-xs text-[0.7rem] leading-snug text-muted-foreground sm:ml-auto">
+                {bracket.blurb}
+              </p>
+            </div>
           </div>
-        </div>
+        )}
 
         <Segments score={power.score} band={power.band} muted={stale} />
 
@@ -564,21 +597,35 @@ function ExpandedPower({
             slot this was imitating. */}
         <MetricRow
           on="card"
-          columns={4}
+          columns={averageDrawnElsewhere ? 3 : 4}
           metrics={[
-            {
+            !averageDrawnElsewhere && {
               id: 'average',
-              label: 'Average castable',
-              value: cast.averagePct === null ? EMDASH : `${num(cast.averagePct)}%`,
+              /* ONE NAME AND ONE PRECISION FOR ONE NUMBER. This tile said
+                 `Average castable  5%`. The deck page header says
+                 `Average playability  5.0%` and the public deck page said
+                 `Playability  5%`, and all three read
+                 `power.castability.averagePct`, which is
+                 `playability.averagePct` — `src/engine/power/score.ts:324`
+                 assigns it straight across. Three names and two roundings for
+                 one measurement, two of them on the same screen on the EDH
+                 tab, where a reader has no way to tell that 5% and 5.0% are
+                 the same figure. */
+              label: 'Average playability',
+              value: cast.averagePct === null ? EMDASH : `${num(cast.averagePct, 1)}%`,
               raw: cast.averagePct ?? undefined,
               subtext: `across ${cast.scoredCount} cards with a cost`,
             },
             {
               id: 'hard',
-              label: 'Hard to cast',
+              /* Named after the threshold, the same way the Mana tab names it.
+                 This tile said `Hard to cast  94` while the Mana tab said
+                 `Under 50%  94` about the identical count, so the two tabs
+                 disagreed about what the figure was called. */
+              label: `Under ${cast.threshold}%`,
               value: String(cast.hardToCastCount),
               raw: cast.hardToCastCount,
-              subtext: `under ${cast.threshold}% on the turn they cost`,
+              subtext: 'more often stuck in hand than cast on curve',
             },
             {
               id: 'keepable',
@@ -715,6 +762,8 @@ export function PowerScore({
   onRescore,
   rescoring,
   unscoredReason,
+  headline,
+  averageDrawnElsewhere,
   className,
 }: PowerScoreProps) {
   if (!power) {
@@ -736,6 +785,8 @@ export function PowerScore({
         power={power}
         onRescore={onRescore}
         rescoring={rescoring}
+        headline={headline}
+        averageDrawnElsewhere={averageDrawnElsewhere}
         className={className}
       />
     );

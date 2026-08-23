@@ -34,7 +34,8 @@ import type {
 import { ROLES } from '../core/types.ts';
 import { isLegalIn, withinIdentity } from './query.ts';
 import { roleShortfall } from './profile.ts';
-import { servesRole } from './roles.ts';
+import { cardRole } from './roles.ts';
+import { planFit } from '../knowledge/behaviour.ts';
 
 /* ------------------------------------------------------------------ *
  * Weights
@@ -46,9 +47,21 @@ import { servesRole } from './roles.ts';
  *   role gap   3.0  The actionable one. "You have 4 ramp and want 10" is a
  *                   concrete deficiency; a card that fixes it beats a card
  *                   that is merely thematically pleasant.
+ *   cmdr fit   2.2  Does this card do what THIS commander does, read from both
+ *                   cards' ability records. Placed above tag synergy and below
+ *                   castability, deliberately: "its record proliferates and so
+ *                   does the commander's" is a stronger claim than "it shares
+ *                   the word ramp with the deck", and weaker than "you can
+ *                   actually pay for it". A declared position with no empirical
+ *                   basis, like every weight beside it, and the number that the
+ *                   four-deck overlap measurement in `ENGINE-PICKS.md` was
+ *                   chosen against.
  *   synergy    2.0  Does it belong here at all. IDF-weighted via tag-signal,
  *                   so a shared `storm` (worth 9.7) counts for far more than a
  *                   shared `ramp` (4.0), and platitudes are already stripped.
+ *                   It is the FALLBACK now: a card with an ability record is
+ *                   judged on what it does, and this is what is left for a card
+ *                   that has none.
  *   curve      1.0  A tilt, not a verdict. Measured against the deck's own
  *                   mean mana value, so it invents no ideal curve.
  *   budget     1.0  Only consulted when the user asks about budget.
@@ -70,6 +83,7 @@ import { servesRole } from './roles.ts';
 export const WEIGHTS = {
   roleGap: 3.0,
   playability: 2.5,
+  commanderFit: 2.2,
   tagSynergy: 2.0,
   curveFit: 1.0,
   budgetFit: 1.0,
@@ -128,6 +142,35 @@ function popularityWeight(options: RecommendOptions): number {
  * awkward is ranked down rather than hidden.
  */
 export const UNCASTABLE_GATE_PCT = 25;
+
+/**
+ * Above this, castability stops being worth extra.
+ *
+ * THE OTHER HALF OF THE CHEAP AND COLOURLESS TIEBREAK, and the half that was
+ * not diagnosed the first time round.
+ *
+ * `cardPlayability` answers a percentage, and paying `WEIGHTS.playability`
+ * times that percentage looks neutral. It is not. A zero-mana colourless
+ * artifact is castable 100% of the time by construction — every deck can pay
+ * nothing — so it collects the full 2.5 for free, while a real card in two
+ * colours at four mana collects perhaps 2.0. That is a flat 0.5 bonus for
+ * costing nothing and asking for no colours, applied to every card in the pool,
+ * on every pass. Measured on the Muldrotha build before this change: 61 of its
+ * 64 nonland cards cost one mana or less, 51 were colourless, and it was
+ * castable 94% of the time on average, which is the mark of a deck that
+ * optimised for being payable rather than for doing anything.
+ *
+ * A percentage is the wrong shape for what this signal MEANS. "Can this deck
+ * reliably pay for this card" is a threshold question. Once the answer is yes
+ * there is nothing further to reward, and Ornithopter being more payable than
+ * Birds of Paradise is not a fact about which is the better card.
+ *
+ * So the signal saturates: full credit at or above this figure, and it falls
+ * away linearly below it toward the `cannot-cast` gate. 75 is a declared
+ * choice, sitting between that gate at 25 and the 40 at which a card already in
+ * a deck counts as a problem — comfortably payable, not perfectly payable.
+ */
+export const CASTABILITY_COMFORT_PCT = 75;
 
 /**
  * Saturation constant for tag synergy.
@@ -277,7 +320,7 @@ export function scoreCandidate(
   // A card serving several short roles is credited for the worst one, not the
   // sum: a card is one card, and adding it closes one slot.
   const fillsRoles = ROLES.filter(
-    role => servesRole(card.tags, role) && roleShortfall(profile, role) > 0
+    role => cardRole(card, role) && roleShortfall(profile, role) > 0
   );
   let bestRole: Role | null = null;
   let bestShortfall = 0;
@@ -297,6 +340,35 @@ export function scoreCandidate(
       kind: 'role-gap',
       score: WEIGHTS.roleGap * bestShortfall,
       detail: `fills a ${bestRole} gap (${have} of ${target})`,
+    });
+  }
+
+  /* --- Commander fit ------------------------------------------------- */
+  /*
+   * The answer to "every commander has unique style, so it needs to use the
+   * brain to pick cards".
+   *
+   * Both halves come from ability records rather than from words. The plan is
+   * read off the commander's record by `planForCommander`; the card is matched
+   * against it by the facets on its own record. Atraxa's plan wants
+   * `eff:proliferate` because Atraxa's record proliferates, and a card matches
+   * because its record proliferates too — not because both oracle texts happen
+   * to contain the same string.
+   *
+   * Silent for a card with no record, and silent for a commander with no plan.
+   * That is the same rule castability follows: unknown produces no signal at
+   * all rather than a zero that would read as "this fits nothing".
+   */
+  const fit = planFit(profile.commanderPlan ?? null, card);
+  if (fit.fit > 0) {
+    const best = fit.matched[0];
+    signals.push({
+      kind: 'commander-fit',
+      score: WEIGHTS.commanderFit * fit.fit,
+      detail:
+        fit.matched.length === 1
+          ? best.because
+          : `${best.because}, and this does ${fit.matched.length} of what it wants`,
     });
   }
 
@@ -333,7 +405,10 @@ export function scoreCandidate(
   if (castable !== null) {
     signals.push({
       kind: 'castability',
-      score: WEIGHTS.playability * (castable / 100),
+      // Saturating at `CASTABILITY_COMFORT_PCT`, so being MORE payable than
+      // comfortably payable is worth nothing. See that constant for the whole
+      // argument and for the Muldrotha deck that made it necessary.
+      score: WEIGHTS.playability * Math.min(1, castable / CASTABILITY_COMFORT_PCT),
       detail: `you could pay for this ${Math.round(castable)}% of the time on turn ${Math.max(1, Math.round(card.cmc))}`,
     });
   }

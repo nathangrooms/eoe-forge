@@ -243,8 +243,8 @@ export function EnhancedMatchTracker({
         played_at: new Date().toISOString().split('T')[0],
       });
       onRecorded();
-    } catch (error: any) {
-      showError('Could not record that match', error?.message ?? 'Please try again.');
+    } catch (error) {
+      showError('Could not record that match', error instanceof Error ? error.message : 'Please try again.');
     } finally {
       setSaving(false);
     }

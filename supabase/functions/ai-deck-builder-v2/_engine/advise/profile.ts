@@ -13,8 +13,9 @@ import { signalTags } from '../knowledge/tag-signal.ts';
 import type { ManaProfile } from '../playability/castability.ts';
 import type { DeckCard, DeckProfile, Role } from '../core/types.ts';
 import { ROLES } from '../core/types.ts';
-import { roleTargetsFor, servesRole } from './roles.ts';
+import { roleTargetsFor, cardRole } from './roles.ts';
 import { normalizeIdentity } from './query.ts';
+import { hasRecord, type CommanderPlan } from '../knowledge/behaviour.ts';
 
 export interface DeckProfileInput {
   format: string;
@@ -28,6 +29,13 @@ export interface DeckProfileInput {
    * default: unknown is not the same as unsupported.
    */
   manaProfile?: ManaProfile | null;
+  /**
+   * What the commander is for, read from its ability record by
+   * `planForCommander`. Passed straight through onto the profile, because the
+   * profile is what `scoreCandidate` gets and the plan is a property of the
+   * deck rather than of any one candidate.
+   */
+  commanderPlan?: CommanderPlan | null;
 }
 
 /** Does this type line describe a land? */
@@ -52,6 +60,7 @@ export function deriveDeckProfile(input: DeckProfileInput): DeckProfile {
   let deckSize = 0;
   let spellCount = 0;
   let cmcTotal = 0;
+  let withRecord = 0;
 
   for (const card of cards) {
     const qty = Math.max(1, Math.trunc(card.quantity ?? 1));
@@ -73,8 +82,13 @@ export function deriveDeckProfile(input: DeckProfileInput): DeckProfile {
       tagCounts[tag] = (tagCounts[tag] ?? 0) + qty;
     }
 
+    if (hasRecord(card)) withRecord += 1;
+
+    // The record decides where it exists, the tags where it does not. Passing
+    // the whole card rather than its tags is what lets `creature` be answered
+    // off the type line and `wincon` off the record instead of off `voltron`.
     for (const role of ROLES) {
-      if (servesRole(card.tags, role)) roleCounts[role] += qty;
+      if (cardRole(card, role)) roleCounts[role] += qty;
     }
   }
 
@@ -94,6 +108,8 @@ export function deriveDeckProfile(input: DeckProfileInput): DeckProfile {
     roleTargets: roleTargetsFor(input.format, input.roleTargets),
     ownedOracleIds,
     manaProfile: input.manaProfile ?? null,
+    commanderPlan: input.commanderPlan ?? null,
+    facetCoverage: { withRecord, total: cards.length },
   };
 }
 

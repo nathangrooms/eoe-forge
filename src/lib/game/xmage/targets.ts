@@ -157,8 +157,35 @@ export interface XTarget {
   canChoose(game: XGame, controllerId?: PlayerId): boolean;
   /** The legal set right now. */
   possibleTargets(game: XGame, controllerId?: PlayerId): InstanceId[];
-  /** Ask the player. Raises a `PendingChoice` when unanswered. */
-  choose(game: XGame, prompt: string, controllerId?: PlayerId): InstanceId[];
+  /**
+   * Ask the player. Raises a `PendingChoice` when unanswered.
+   *
+   * `from` restricts the candidates to a set the caller already has, and it is
+   * how `Player#choose(Outcome, Cards, TargetCard, Ability, Game)` is served:
+   * that overload chooses out of a named pile rather than off the battlefield,
+   * and the pile is usually somewhere `legalSet` cannot see, such as cards
+   * revealed off a library or already in exile. The target's own filter still
+   * applies, so a "choose a creature card" target offered a mixed pile still
+   * only offers the creatures. The ZONE does not, because the pile is the
+   * candidate list.
+   */
+  choose(
+    game: XGame,
+    prompt: string,
+    controllerId?: PlayerId,
+    from?: readonly InstanceId[]
+  ): InstanceId[];
+  /**
+   * Put the chosen ids into the slot, for a caller that did the asking itself.
+   *
+   * Not an XMage name, so it joins no row in `runtime-coverage.mjs`. It exists
+   * because XMage's `Player#searchLibrary(target, …)` FILLS its target and
+   * every body that searches reads the answer back off the target on the very
+   * next line. The asking has to happen in `searchLibrary` rather than here,
+   * because only the player knows which library is theirs and `choose` would
+   * offer every library on the board.
+   */
+  setChosen(ids: readonly InstanceId[]): InstanceId[];
   getFilter(): XFilter | undefined;
   getMinNumberOfTargets(): number;
   getMaxNumberOfTargets(): number;
@@ -190,6 +217,23 @@ export function makeTarget(scope: XmageScope, options: XTargetOptions = {}): XTa
       .map(card => card.instanceId);
   };
 
+  /**
+   * The caller's own candidate pile, narrowed by this target's filter.
+   *
+   * No zone test, on purpose: the pile is the candidate list, and the cards in
+   * it are routinely somewhere `legalSet` would not look. A card that has left
+   * the game between the pile being built and the question being asked is
+   * dropped, because `scope.working.cards` no longer holds it.
+   */
+  const withinSet = (from: readonly InstanceId[], controllerId?: PlayerId): InstanceId[] => {
+    const ctx: PredicateContext = { controllerId, sourceId: options.sourceId };
+    return from
+      .map(id => scope.working.cards[id])
+      .filter(card => !!card)
+      .filter(card => (options.filter ? options.filter.match(scope.working, card, ctx) : true))
+      .map(card => card.instanceId);
+  };
+
   const target: XTarget = {
     getFirstTarget: () => chosen[0],
     getTargets: () => [...chosen],
@@ -202,12 +246,17 @@ export function makeTarget(scope: XmageScope, options: XTargetOptions = {}): XTa
     isNotTarget: () => notTarget,
     canChoose: (game, controllerId) => legalSet(controllerId).length >= min,
     possibleTargets: (game, controllerId) => legalSet(controllerId),
-    choose(game, prompt, controllerId) {
+    choose(game, prompt, controllerId, from) {
       if (chosen.length >= min) return [...chosen];
-      const legal = legalSet(controllerId);
+      const legal = from === undefined ? legalSet(controllerId) : withinSet(from, controllerId);
       const picked = askForCards(scope, prompt, legal, Math.min(min, legal.length), max);
       chosen.length = 0;
       chosen.push(...picked);
+      return [...chosen];
+    },
+    setChosen(ids) {
+      chosen.length = 0;
+      chosen.push(...ids);
       return [...chosen];
     },
     getFilter: () => options.filter,

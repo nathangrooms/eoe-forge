@@ -192,11 +192,13 @@ export function DeckValuePanel({
                   ? '—'
                   : null,
             raw: summary.cheapestTotal ?? undefined,
+            /* Short enough for a 151px tile. `MetricTile` truncates to one
+               line and this read "no other printings on rec…" at 1280. */
             subtext:
               summary.cheapestTotal === null
                 ? spreadsRead
-                  ? 'no other printings on record'
-                  : 'reading the other printings'
+                  ? 'no other printings'
+                  : 'still reading'
                 : summary.savingAtCheapest && summary.savingAtCheapest > 0
                   ? `saves $${summary.savingAtCheapest.toFixed(2)}`
                   : 'already the cheapest',
@@ -254,9 +256,24 @@ export function DeckValuePanel({
           the card page, and had never once read from a deck. */}
       <DeckValueHistory rows={rows} />
 
+      {/* `totalDrawnElsewhere`: the row at the top of this tab opens with
+          `Deck value` and the page's metric strip prints the same figure again
+          as `Est. value`, so the tracker's tile was the third printing of one
+          number on one screen — and the second under that exact label. It
+          leads on the budget now, which is the only figure here the rest of
+          the tab does not carry. */}
+      {/* THE BUDGET OPENS AT WHAT THE DECK COSTS, NOT AT $200.
+          It was a hard-coded 200. On the fixture deck that made the loudest
+          tile on the page — the one `emphasis` treatment in the product, white
+          on the page ground — read "Over budget −$687.55 · 444% of the budget
+          spent" against a figure nobody had set, next to a control captioned
+          "Set what you are willing to spend". A deck is not over a budget you
+          never chose. Opening at the deck's own cost makes the slider what the
+          caption says it is: move it down and see what has to go. */}
       <DeckBudgetTracker
         deckCards={analyticsCards}
-        targetBudget={200}
+        targetBudget={Math.max(50, Math.min(5000, Math.round(summary.total)))}
+        totalDrawnElsewhere
         rows={rows}
         onCardClick={onCardClick}
       />

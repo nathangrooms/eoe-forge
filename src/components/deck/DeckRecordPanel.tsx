@@ -79,8 +79,11 @@ export function DeckRecordPanel({
         .order('played_at', { ascending: false });
       if (error) throw error;
       setMatches((data ?? []) as MatchRow[]);
-    } catch (error: any) {
-      showError('Could not load this deck’s matches', error?.message ?? 'Please try again.');
+    } catch (error) {
+      showError(
+        'Could not load this deck’s matches',
+        error instanceof Error ? error.message : 'Please try again.'
+      );
       setMatches([]);
     } finally {
       setLoading(false);
@@ -153,11 +156,15 @@ export function DeckRecordPanel({
             label: 'Shared views',
             value: shareViews === null || shareViews === undefined ? '—' : String(shareViews),
             raw: shareViews ?? undefined,
+            /* `MetricTile` truncates its subtext to one line. Measured at 1280
+               in a six-column row, a 151px tile, this one read "this deck has
+               no public l…". Short enough to survive the width it is drawn at
+               rather than the width it was written at. */
             subtext: shared
               ? shareViews
-                ? 'opens of your public link'
-                : 'nobody has opened it yet'
-              : 'this deck has no public link',
+                ? 'opens of your link'
+                : 'nobody has opened it'
+              : 'no public link yet',
           },
         ]}
       />

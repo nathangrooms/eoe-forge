@@ -201,6 +201,11 @@ export function xmageApiManifest(): Record<string, string[]> {
     Controllable: ['getControllerId', 'isControlledBy'],
     MageItem: ['getId'],
     Cards: namesOf(cards),
+    // The PLAYER's library, `mage.players.Library`. `api-surface-typed.mjs`
+    // keys most of these calls `ZoneChangeInfo.Library#…`, which is a nested
+    // helper that declares none of them; `runtime-coverage.mjs` re-keys those
+    // rows and prints how many calls it moved.
+    Library: namesOf(player.getLibrary()),
     Counters: ['getCount', 'entries'],
     CounterType: ['createInstance'],
     MageInt: ['getValue', 'isUnknown'],

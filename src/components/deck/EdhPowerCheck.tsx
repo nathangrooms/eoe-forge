@@ -255,12 +255,21 @@ export function EdhPowerCheck({
         )}
       </div>
 
-      <EdhAnalysisPanel
-        data={analysis}
-        isLoading={loading}
-        needsRefresh={needsRefresh}
-        onRefresh={run}
-      />
+      {/* Only once there is something to draw. `EdhAnalysisPanel`'s empty
+          state is a full-width card holding an icon, a heading, a sentence and
+          an `Analyze Deck` button — a second control for the job the
+          `Calculate` button four lines above already does, under a US spelling
+          on a page that says Optimise and Colour. Measured on the EDH tab at
+          1280: it was the last 260px of the tab and it was empty on every deck
+          that has not been checked, which is every deck by default. */}
+      {(analysis || loading) && (
+        <EdhAnalysisPanel
+          data={analysis}
+          isLoading={loading}
+          needsRefresh={needsRefresh}
+          onRefresh={run}
+        />
+      )}
     </div>
   );
 }

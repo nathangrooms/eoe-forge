@@ -190,7 +190,20 @@ export function DeckManaPanel({
               `${s.reason}. Take out ${s.remove.count} at ${s.remove.cmc} mana and put in ${s.add.count} at ${s.add.cmc}.`
           ),
         ].slice(0, 4),
-        lands: lands.improvements.slice(0, 4),
+        /* THE LAND-COUNT LINES ARE DROPPED, THE COLOUR-SOURCE LINES ARE KEPT.
+           `LandBaseCalculator` builds its "Add N more lands" line from the
+           sum of the quantities in its own SUGGESTION list, not from a land
+           target — `src/lib/magic/land-base.ts:490`. On the fixture deck that
+           sum is 82, so the line read "Add 78 more lands" for a deck that is
+           already 100 cards, while the Add tab, reading the engine's real
+           target through `roleTargetsFor`, said "Lands 4/36 · 32 short of the
+           target" one tab away. Two tabs, one question, two answers, and the
+           one that cannot be acted on is this one. The colour-source lines
+           beside it are counted off this deck's own pips and stand.
+
+           The fix belongs in `land-base.ts`, which is not this directory's to
+           edit; until it lands the tab draws no figure it cannot defend. */
+        lands: lands.improvements.filter(line => !/^(Add|Remove) \d+ (more )?lands?$/.test(line)).slice(0, 4),
       };
     } catch (error) {
       // A library that cannot read this deck says nothing rather than throwing
@@ -203,25 +216,23 @@ export function DeckManaPanel({
   return (
     <div className="space-y-6">
       {/* The castability roll-up, at the top, at the size every other figure in
-          the product is drawn at. These four were a `MetricRow` inside
+          the product is drawn at. These were a `MetricRow` inside
           `ManaSourcesPanel`, one section down and one ground in, which meant
-          the tab opened on a heading rather than on its numbers. */}
+          the tab opened on a heading rather than on its numbers.
+
+          THERE IS NO `Average playability` TILE HERE, and that is deliberate.
+          The page header draws that exact figure at 30px under that exact
+          label about three hundred pixels above this row — measured at 1280
+          and at 1920, `5.0%` twice on one screen — and the header block is on
+          every tab, so this tab is the one that has to give way. The header
+          keeps the average and its denominator; this row keeps the three
+          figures the header does not print at figure size. */}
       <MetricRow
-        columns={4}
+        columns={3}
         metrics={[
           {
-            id: 'average',
-            label: 'Average playability',
-            value: playability.averagePct === null ? '—' : `${playability.averagePct.toFixed(1)}%`,
-            raw: playability.averagePct ?? undefined,
-            meter: playability.averagePct ?? undefined,
-            subtext: `across ${playability.scoredCount} scored ${
-              playability.scoredCount === 1 ? 'card' : 'cards'
-            }`,
-          },
-          {
             id: 'median',
-            label: 'Median',
+            label: 'Median playability',
             value: playability.medianPct === null ? '—' : `${playability.medianPct.toFixed(1)}%`,
             raw: playability.medianPct ?? undefined,
             meter: playability.medianPct ?? undefined,

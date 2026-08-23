@@ -1106,15 +1106,18 @@ export default function DeckInterface() {
                 <p className="mt-1 text-3xl font-bold tabular-nums">
                   {playability.averagePct.toFixed(1)}%
                 </p>
+                {/* The denominator stays: a percentage with nothing under it
+                    is not a measurement. Two figures that were on these lines
+                    are gone — `N under X%` and `N mana sources` — because the
+                    Mana tab draws both as 24px tiles a screen below this, so
+                    between them this block was reprinting three of that row's
+                    four figures. Measured at 1280 and 1920 before the change. */}
                 <p className="mt-1 text-sm text-muted-foreground">
                   across {playability.scoredCount}{' '}
-                  {playability.scoredCount === 1 ? 'spell' : 'spells'} ·{' '}
-                  {playability.belowThresholdCount} under {playability.threshold}%
+                  {playability.scoredCount === 1 ? 'spell' : 'spells'} in a{' '}
+                  {playability.profile.librarySize}-card library
                 </p>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {playability.profile.sources.length} mana sources in a{' '}
-                  {playability.profile.librarySize}-card library. See Mana →
-                </p>
+                <p className="mt-2 text-xs text-muted-foreground">See Mana →</p>
               </button>
             )}
           </div>

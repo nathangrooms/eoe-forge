@@ -53,8 +53,13 @@ import { ROLES } from '../core/types.ts';
 import type { EngineCard, EngineDeckEntry } from '../core/card.ts';
 import { deriveDeckProfile } from '../advise/profile.ts';
 import { rankCandidates } from '../advise/rank.ts';
-import { roleTargetsFor, servesRole } from '../advise/roles.ts';
+import { roleTargetsFor, cardRole, creatureTargetFor, type DeckStyle } from '../advise/roles.ts';
 import { normalizeIdentity } from '../advise/query.ts';
+import {
+  facetCoverage,
+  planForCommander,
+  type CommanderPlan,
+} from '../knowledge/behaviour.ts';
 import {
   buildManaProfile,
   coloursToMask,
@@ -108,6 +113,22 @@ export interface GenerateDeckInput {
   /** Overrides the declared land target. Defaults to `roles.ts`. */
   landTarget?: number;
   roleTargets?: Partial<Record<Role, number>>;
+  /**
+   * The deck style the user picked: `creatures`, `balanced` or `spells`.
+   *
+   * It sets ONE number, the creature floor in `roles.ts`, and the generator
+   * reports which style it actually used in `notes` so "you asked for creature
+   * mode and got a creature deck" is checkable rather than assumed. An
+   * unrecognised name falls back to `balanced` and says so; it never throws,
+   * because this arrives from a request body and a bad style must still produce
+   * a deck.
+   *
+   * Before this existed the owner's creature mode reached the language model
+   * planner as prompt text and nothing else — `pipeline.ts` passed `archetype`
+   * to `planFromShortlist` and never to `generateDeck` — which is why creature
+   * mode produced Atraxa 7 creatures, Krenko 3, Talrand 4 and Muldrotha 7.
+   */
+  style?: DeckStyle | string | null;
   /** Whole-deck price ceiling in USD, or null for no ceiling. */
   budgetUsd?: number | null;
   /**
@@ -122,6 +143,21 @@ export interface GenerateDeckInput {
 }
 
 export type Bucket = 'land' | 'basic' | Role | 'flex';
+
+/** Where the deck's picks came from: behaviour records, or the old tag words. */
+export interface BuildEvidence {
+  /** The plan read off the commander, or null when its record was empty. */
+  plan: CommanderPlan | null;
+  /** Pool cards carrying an ability record, and the pool size. */
+  poolWithRecord: number;
+  poolSize: number;
+  /** Chosen nonland cards carrying an ability record, and how many were chosen. */
+  pickedWithRecord: number;
+  pickedSpells: number;
+  /** The style asked for, and the one used. They differ when the name was unknown. */
+  styleAsked: string | null;
+  styleUsed: DeckStyle;
+}
 
 export interface GeneratedEntry {
   card: BuildCard;
@@ -149,6 +185,14 @@ export interface GeneratedDeck {
   notes: string[];
   /** Score, castability, profile and cut order from ONE computation. */
   evaluation: DeckEvaluation;
+  /**
+   * How much of this build was behaviour and how much was still word matching.
+   *
+   * Returned rather than logged, because the fallback to tags is invisible from
+   * the outside and a caller that cannot see it cannot tell a deck the engine
+   * reasoned about from a deck it pattern-matched.
+   */
+  evidence: BuildEvidence;
 }
 
 /* ------------------------------------------------------------------ *
@@ -196,23 +240,38 @@ const MIN_SOURCES_PER_COLOUR = 10;
 /**
  * How hard this module leans on EDHREC popularity.
  *
- * The optimiser's 0.8 is right for ranking additions to a deck that already
- * exists. It is not right here, and the difference is not a matter of taste:
- * against a profile seeded with the commander alone, every role is equally
- * short, so role-gap contributes the same 3.0 to every card carrying any role
- * tag, and everything left rewards being cheap and colourless. Measured on
- * 2026-08-19 against the live catalogue, at the default weight, an Atraxa build
- * scored Bone Saw at 7.50 against Sol Ring at 7.34 and returned thirty pieces
- * of nearly-free Equipment.
+ * WAS 2.0. NOW THE OPTIMISER'S OWN 0.8, AND THE CHANGE IS THE POINT.
  *
- * Popularity is the only broad evidence in this schema that a card is one
- * people actually play. Set below `WEIGHTS.playability`, deliberately and by
- * the standing rule: a card this deck cannot cast is a bad card for this deck
- * however many others play it. `rank.ts` clamps it there as well, so the rule
- * survives someone editing this constant. It is a declared position with no
- * empirical basis, like every weight it sits beside.
+ * The 2.0 was a patch on a hole that has since been filled. The argument for it
+ * ran: against a profile seeded with the commander alone every role is equally
+ * short, so role-gap contributes the same 3.0 to every card carrying any role
+ * TAG, and everything left rewards being cheap and colourless. That was true,
+ * and popularity was the only thing left to break the tie with.
+ *
+ * Two things then made it false.
+ *
+ *   1. Roles come from ability records now, not from tags, so "carries any role
+ *      tag" is no longer a club anyone can join. Bone Saw's record is a static
+ *      +1/+0 and an `attach`; it matches no role, so it collects no role-gap at
+ *      all, where the `voltron` tag used to make it a win condition. Sol Ring's
+ *      record contains `add-mana`, so Sol Ring is still ramp.
+ *   2. `commander-fit` gives the seed profile something real to separate cards
+ *      by, which is what popularity was standing in for.
+ *
+ * Leaning on popularity was also actively harmful given the data: measured on
+ * 2026-08-23, `edhrec_rank` is populated on only 13,440 of 33,032 `cards_unique`
+ * rows and is NULL for Sol Ring, Swords to Plowshares and Rhystic Study while
+ * Bone Saw carries rank 6,734. At 2.0 that gap was worth 1.4 points to Bone Saw
+ * and nothing to Sol Ring. Weighting a column that is missing on the best cards
+ * in the format is not a tie-break, it is a bias toward whatever the sync
+ * happened to reach.
+ *
+ * Still below `WEIGHTS.playability` by the standing rule: a card this deck
+ * cannot cast is a bad card for this deck however many others play it.
+ * `rank.ts` clamps it there as well, so the rule survives someone editing this
+ * constant.
  */
-const EMPTY_DECK_POPULARITY = 2.0;
+const EMPTY_DECK_POPULARITY = 0.8;
 
 /* ------------------------------------------------------------------ *
  * The generator
@@ -221,7 +280,26 @@ const EMPTY_DECK_POPULARITY = 2.0;
 export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
   const format = (input.format ?? 'commander').toLowerCase();
   const slots = input.slots ?? COMMANDER_SLOTS;
-  const targets = roleTargetsFor(format, input.roleTargets);
+
+  /*
+   * READ THE COMMANDER, before anything is ranked against it.
+   *
+   * Everything downstream is measured against this plan, so it is the first
+   * thing computed and it is computed from the commander's own ability record.
+   * A commander with no record returns a plan with no wants, the commander-fit
+   * signal never fires, and the build falls back to the behaviour it had
+   * before — visibly, through `evidence.plan.fromTagsOnly`, rather than
+   * silently.
+   */
+  const plan = planForCommander({
+    name: input.commander.name,
+    typeLine: input.commander.typeLine,
+    facets: input.commander.facets ?? null,
+    tags: input.commander.tags,
+  });
+
+  const style = creatureTargetFor(input.style ?? null);
+  const targets = roleTargetsFor(format, input.roleTargets, input.style ?? null);
   const landTarget = clamp(input.landTarget ?? targets.land, 0, slots);
   const identity = normalizeIdentity(input.commander.colorIdentity);
   const preferred = new Set(input.preferOracleIds ?? []);
@@ -259,7 +337,7 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
     // here would rank fixing against a ramp quota it is not being asked to fill.
     ...zeroRoleTargets(),
     land: landTarget,
-  });
+  }, plan);
 
   const rankedLands = rankCandidates(landPool, seedForLands, rankOptions);
   const chosenLands = pickLands(rankedLands, preferred, nonBasicRoom, identity);
@@ -300,7 +378,7 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
   const roleProfile = seedProfile(format, identity, input.commander, provisionalMana, {
     ...targets,
     land: 0, // lands are done; a land quota here would re-open it
-  });
+  }, plan);
   const rankedSpells = rankCandidates(spellPool, roleProfile, rankOptions);
 
   const shortlist = rankedSpells.slice(0, SHORTLIST).map(r => r.card as BuildCard);
@@ -322,7 +400,12 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
   // Pass one: fill the role quotas, best card first, planner picks ahead of
   // the rest at equal eligibility. A card counts for ONE role — the one it is
   // scored against in `scoreCandidate` — because a card is one card.
-  const quota = { ...targets, land: 0 } as Record<Role, number>;
+  //
+  // `creature` is zeroed here and filled by its own pass below. It is a FLOOR
+  // across the whole deck, not a quota competing with the others: a mana dork
+  // taken as ramp is still a creature, and making it choose between the two
+  // would either lose the ramp slot or double-count the card.
+  const quota = { ...targets, land: 0, creature: 0 } as Record<Role, number>;
   for (const rec of orderPreferredFirst(rankedSpells, preferred)) {
     if (picked.length - chosenLands.length >= spellSlots) break;
     const card = rec.card as BuildCard;
@@ -343,12 +426,60 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
   }
 
   for (const role of ROLES) {
-    if (role === 'land') continue;
+    if (role === 'land' || role === 'creature') continue;
     if (quota[role] > 0) {
       shortfalls.push(
         `${quota[role]} of ${targets[role]} ${role} slots could not be filled from the legal pool`
       );
     }
+  }
+
+  /* ---------------------------------------------------------------- *
+   * 2b. The creature floor.
+   * ---------------------------------------------------------------- *
+   *
+   * THE FIX FOR "IT BARELY ADDS ANY CREATURES, EVEN WHEN I DO CREATURE MODE".
+   *
+   * Counted across everything already picked, not filled from zero. The role
+   * quotas above take mana dorks, removal creatures and Craterhoof Behemoths
+   * without being asked to, and every one of those is a creature; topping up
+   * from zero would run the deck to sixty bodies and starve the rest of it.
+   *
+   * The top-up walks the same ranking as pass one, so a creature is chosen for
+   * the same reasons any other card is — including the commander-fit signal,
+   * which is what makes Krenko's creature slots fill with Goblins rather than
+   * with whatever creature happens to be popular. It only ever ADDS creatures
+   * up to the floor; it never cuts a non-creature to make room, because the
+   * five role quotas are the deck's job list and a creature count is not worth
+   * a missing sweeper.
+   */
+  const creatureFloor = targets.creature;
+  let creaturesPicked = picked.filter(e => cardRole(e.card, 'creature')).length;
+  if (creaturesPicked < creatureFloor) {
+    for (const rec of orderPreferredFirst(rankedSpells, preferred)) {
+      if (creaturesPicked >= creatureFloor) break;
+      if (picked.length - chosenLands.length >= spellSlots) break;
+      const card = rec.card as BuildCard;
+      if (takenOracleIds.has(card.oracleId)) continue;
+      if (!cardRole(card, 'creature')) continue;
+      takenOracleIds.add(card.oracleId);
+      creaturesPicked += 1;
+      picked.push({
+        card,
+        quantity: 1,
+        reason: rec.reason,
+        score: rec.score,
+        bucket: 'creature',
+        preferred: preferred.has(card.oracleId),
+      });
+    }
+  }
+  roleFill.creature.picked = creaturesPicked;
+  if (creaturesPicked < creatureFloor) {
+    shortfalls.push(
+      `${creatureFloor - creaturesPicked} of ${creatureFloor} creature slots could not be ` +
+        `filled from the legal pool`
+    );
   }
 
   /* ---------------------------------------------------------------- *
@@ -360,7 +491,7 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
     // The profile now has real tags, a real curve and real role counts, so
     // synergy and curve fit finally have something to measure against. At the
     // seed profile `spellCount` is 0 and curve fit cannot fire at all.
-    const nowProfile = deckProfileFrom(format, identity, input.commander, picked, provisionalMana, targets);
+    const nowProfile = deckProfileFrom(format, identity, input.commander, picked, provisionalMana, targets, plan);
     const rerank = rankCandidates(
       shortlist.filter(c => !takenOracleIds.has(c.oracleId)),
       nowProfile,
@@ -457,6 +588,39 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
     `castable on curve ${evaluation.playability.averagePct === null ? 'not measured' : `${Math.round(evaluation.playability.averagePct)}% of the time on average`}`
   );
 
+  /* ---------------------------------------------------------------- *
+   * 7. Say how much of this was behaviour and how much was words.
+   * ---------------------------------------------------------------- */
+
+  // Recounted here rather than trusted from the floor pass, because the flex
+  // pass and the budget trim both run after it and both change the answer.
+  const finalCreatures = picked.filter(e => cardRole(e.card, 'creature')).length;
+  roleFill.creature.picked = finalCreatures;
+
+  const spellEntries = picked.filter(e => e.bucket !== 'land' && e.bucket !== 'basic');
+  const pickedCoverage = facetCoverage(spellEntries.map(e => e.card));
+  const poolCoverage = facetCoverage(pool);
+
+  notes.push(
+    `${finalCreatures} creatures against a floor of ${creatureFloor} for the ` +
+      `${style.style} style` +
+      (style.matchedStyle ? '' : ` (you asked for "${String(input.style)}", which is not a style)`)
+  );
+  notes.push(
+    plan.wants.length === 0
+      ? `no ability record for ${input.commander.name}, so this deck was picked on tags alone`
+      : `${input.commander.name} wants ${plan.wants
+          .slice(0, 4)
+          .map(w => w.facet)
+          .join(', ')}${plan.tribe ? `, tribe ${plan.tribe}` : ''}` +
+          (plan.fromTagsOnly ? ' (read from tags, not from a record)' : '')
+  );
+  notes.push(
+    `${pickedCoverage.withRecord} of ${pickedCoverage.total} chosen spells had an ability ` +
+      `record (${pickedCoverage.pct.toFixed(0)}%); the rest fell back to tags. Pool: ` +
+      `${poolCoverage.withRecord} of ${poolCoverage.total} (${poolCoverage.pct.toFixed(0)}%)`
+  );
+
   return {
     entries: picked,
     totalCopies,
@@ -468,6 +632,15 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
     shortfalls,
     notes,
     evaluation,
+    evidence: {
+      plan: plan.wants.length > 0 ? plan : null,
+      poolWithRecord: poolCoverage.withRecord,
+      poolSize: poolCoverage.total,
+      pickedWithRecord: pickedCoverage.withRecord,
+      pickedSpells: pickedCoverage.total,
+      styleAsked: input.style == null ? null : String(input.style),
+      styleUsed: style.style,
+    },
   };
 }
 
@@ -503,7 +676,8 @@ function seedProfile(
   identity: readonly string[],
   commander: BuildCard,
   manaProfile: ManaProfile | null,
-  roleTargets: Partial<Record<Role, number>>
+  roleTargets: Partial<Record<Role, number>>,
+  commanderPlan: CommanderPlan | null
 ): DeckProfile {
   return deriveDeckProfile({
     format,
@@ -511,6 +685,7 @@ function seedProfile(
     cards: [toDeckCard(commander, 1)],
     roleTargets,
     manaProfile,
+    commanderPlan,
   });
 }
 
@@ -520,7 +695,8 @@ function deckProfileFrom(
   commander: BuildCard,
   picked: readonly GeneratedEntry[],
   manaProfile: ManaProfile | null,
-  roleTargets: Partial<Record<Role, number>>
+  roleTargets: Partial<Record<Role, number>>,
+  commanderPlan: CommanderPlan | null
 ): DeckProfile {
   return deriveDeckProfile({
     format,
@@ -528,6 +704,7 @@ function deckProfileFrom(
     cards: [toDeckCard(commander, 1), ...picked.map(e => toDeckCard(e.card, e.quantity))],
     roleTargets,
     manaProfile,
+    commanderPlan,
   });
 }
 
@@ -538,6 +715,10 @@ function toDeckCard(card: BuildCard, quantity: number): DeckCard {
     typeLine: card.typeLine,
     cmc: card.cmc,
     tags: card.tags,
+    // Carried, or the profile counts roles off tags for cards the pool already
+    // has records for and the deck the ranker is measured against stops being
+    // the deck the ranker built.
+    facets: card.facets ?? null,
     quantity,
   };
 }
@@ -581,7 +762,7 @@ function neediestRole(card: BuildCard, quota: Record<Role, number>): Role | null
   let bestLeft = 0;
   for (const role of ROLES) {
     if (quota[role] <= 0) continue;
-    if (!servesRole(card.tags, role)) continue;
+    if (!cardRole(card, role)) continue;
     // Strict `>` over a fixed role order, so ties resolve the same way every
     // time — the same rule `scoreCandidate` uses.
     if (quota[role] > bestLeft) {

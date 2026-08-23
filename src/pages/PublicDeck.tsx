@@ -325,8 +325,13 @@ export default function PublicDeck() {
          ever sees of it. Solved from the decklist by the same engine the
          owner's page uses, so the two cannot print different numbers. */
       id: 'playability',
-      label: 'Playability',
-      value: playability.averagePct === null ? '—' : `${playability.averagePct.toFixed(0)}%`,
+      /* The same name and the same rounding the owner's page uses. The comment
+         above says the two pages "cannot print different numbers" and they did
+         not — but this said `Playability  5%` where the deck page said
+         `Average playability  5.0%` and the EDH power block said
+         `Average castable  5%`. Same figure, three labels, two roundings. */
+      label: 'Average playability',
+      value: playability.averagePct === null ? '—' : `${playability.averagePct.toFixed(1)}%`,
       raw: playability.averagePct ?? undefined,
       /* No meter: a card count, an average mana value and a deck value have no
          denominator, and `MetricRow` reserves the bar's line for the whole row
@@ -468,8 +473,12 @@ export default function PublicDeck() {
                     Read-only: nothing is persisted from this page. The wrapper
                     took a `persist` prop for exactly this and there is nothing
                     left to switch off. */}
+                {/* `averageDrawnElsewhere`: the metric row at the top of this
+                    page already carries `Average playability`, so the
+                    castability block below leads on the three figures that are
+                    only in it. */}
                 {usesPowerLevel(deck.format) && power && (
-                  <PowerScore power={power} variant="expanded" />
+                  <PowerScore power={power} variant="expanded" averageDrawnElsewhere />
                 )}
                 {/* The land readout moved into the Mana tab beside the source
                     counts it belongs next to. It was mounted here on its own,

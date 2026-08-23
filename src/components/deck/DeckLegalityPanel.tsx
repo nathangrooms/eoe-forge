@@ -209,10 +209,9 @@ export function DeckLegalityPanel({
     );
 
   const sizeRule = ownVerdict?.rules.find(r => r.id === 'size');
-  /* Counted here rather than scraped back out of the rule's sentence. The rule
-     carries its reading as words on purpose, and a tile wants the figure. */
-  const deckSize =
-    rows.reduce((sum, row) => sum + Math.max(1, row.quantity), 0) + (commanderRow ? 1 : 0);
+  /* There was a `deckSize` count here, for a tile that printed the number the
+     page's metric strip already prints. The strip is the one place the card
+     count belongs; this tab reports whether it satisfies the format. */
 
   return (
     <div className="space-y-6">
@@ -249,11 +248,20 @@ export function DeckLegalityPanel({
               : 'this format’s rules are not modelled',
           },
           {
+            /* THE RULE, NOT THE COUNT. This tile said `Cards in the deck 100`,
+               which is the figure the page's own metric strip prints as
+               `Cards 100` about a hundred and eighty pixels above it: the same
+               number, in the same 24px tile, twice on one screen. What this
+               tab knows and the strip does not is whether that count SATISFIES
+               the format, so that is what the tile says now. The count itself
+               is still in the reading underneath. */
             id: 'size',
-            label: 'Cards in the deck',
-            value: String(deckSize),
-            raw: deckSize,
-            subtext: sizeRule ? sizeRule.label.toLowerCase() : 'commander included',
+            label: 'Deck size rule',
+            value: sizeRule ? (sizeRule.ok ? 'Met' : 'Not met') : '—',
+            subtext: sizeRule ? sizeRule.reading : 'this format sets no size',
+            /* No `emphasis`. `Cards to fix` already claims the one emphasised
+               tile this row is allowed, and `MetricRow`'s own rule is that a
+               row with two emphasised tiles has emphasised nothing. */
           },
           {
             id: 'formats',

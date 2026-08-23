@@ -60,12 +60,17 @@ import { useDeckPowerRank } from './useDeckPowerRank';
  * same measurement with the only frame of reference a player actually has. One
  * query — see `useDeckPowerRank`.
  *
- * ## And one thing that was drawn twice
+ * ## And the thing that was drawn five times
  *
  * `PowerScore variant="expanded"` sat above `CommanderPowerDisplay`, and
- * `CommanderPowerDisplay` opened with `PowerScore variant="compact"`. The
- * deck's power was on this tab twice, at two sizes, from one object. The inner
- * one is gone; see the note in that file.
+ * `CommanderPowerDisplay` opened with `PowerScore variant="compact"`. Removing
+ * that inner one was reported as the fix and it was not: measured off this tab
+ * afterwards, the score 2.0 was still on screen five times — the page hero at
+ * 30px, the first tile of the row below at 24px, the expanded block's headline
+ * at 48px, and the before/after pair in `PowerSliderCoaching` — with the
+ * bracket beside it four times. The headline is off now
+ * (`headline={false}`), which leaves the hero, the tile, and a pair where the
+ * comparison is the point.
  */
 
 const CARD_MODES: ListingMode[] = [
@@ -135,9 +140,18 @@ export function DeckEdhPanel({
   }, [rows]);
 
   const diagnostics = power?.diagnostics;
-  const changers = diagnostics?.gameChangerList ?? [];
-  const tutors = diagnostics?.tutorList ?? [];
-  const combos = diagnostics?.comboList ?? [];
+  /* One memo for the three lists, so their identity is stable across renders.
+     Read straight off `diagnostics` they were fresh arrays every time, and the
+     memos below that depend on them would have recomputed on every render for a
+     value that had not moved. */
+  const { changers, tutors, combos } = useMemo(
+    () => ({
+      changers: diagnostics?.gameChangerList ?? [],
+      tutors: diagnostics?.tutorList ?? [],
+      combos: diagnostics?.comboList ?? [],
+    }),
+    [diagnostics]
+  );
 
   /**
    * A combo is two cards, so it is drawn as two cards.
@@ -174,7 +188,7 @@ export function DeckEdhPanel({
     if (combos.length > 0) out.push('combos');
     if (tutors.length > 0) out.push('tutors');
     return out;
-  }, [changers.length, combos.length, tutors.length]);
+  }, [changers, combos, tutors]);
 
   const shown = available.includes(evidence) ? evidence : available[0];
 
@@ -227,20 +241,21 @@ export function DeckEdhPanel({
             label: 'Game changers',
             value: power ? String(diagnostics?.gameChangerCount ?? 0) : '—',
             raw: diagnostics?.gameChangerCount,
+            /* Short enough for a 151px tile in a six-column row. `MetricTile`
+               truncates to one line and the long form read "too few, so the
+               score is ..." at 1280. */
             subtext: diagnostics?.noGameChangers
-              ? 'too few, so the score is marked down'
+              ? 'too few, marked down'
               : changers.length > 0
                 ? 'named below'
-                : 'cards that end a game alone',
+                : 'cards that end a game',
           },
           {
             id: 'tutors',
             label: 'Tutors',
             value: power ? String(diagnostics?.tutorCount ?? 0) : '—',
             raw: diagnostics?.tutorCount,
-            subtext: diagnostics?.noTutors
-              ? 'too few, so the score is marked down'
-              : 'ways to find a card',
+            subtext: diagnostics?.noTutors ? 'too few, marked down' : 'ways to find a card',
           },
           {
             id: 'combos',
@@ -369,10 +384,26 @@ export function DeckEdhPanel({
         </div>
       )}
 
-      {/* THE SCORE, WITH ITS WORKING. `PowerScore` is the only way a power
+      {/* THE WORKING BEHIND THE SCORE. `PowerScore` is the only way a power
           number is ever drawn and it carries the ten subscores and the cards
-          each one counted. */}
-      <PowerScore power={power} variant="expanded" />
+          each one counted.
+
+          `headline={false}`, and this is the fix for the thing the note at the
+          top of this file claimed was already fixed. Removing the compact
+          `PowerScore` from inside `CommanderPowerDisplay` took the count from
+          three to four, not to one: measured on this tab, the number 2.0 was
+          on screen FIVE times — the page hero at 30px, this tab's own metric
+          tile at 24px, this block's 48px, and the before/after pair in
+          `PowerSliderCoaching` — with the bracket beside it four times. The
+          headline here was the copy; the ten subscores under it are what the
+          component exists for. What it leaves behind is three: the hero, the
+          tile, and the coaching pair, where a pair IS the figure. */}
+      <PowerScore
+        power={power}
+        variant="expanded"
+        headline={false}
+        averageDrawnElsewhere
+      />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <CommanderPowerDisplay power={power} commanderName={commanderName} />

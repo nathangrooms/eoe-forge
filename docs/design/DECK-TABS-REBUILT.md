@@ -2,6 +2,38 @@
 
 What changed, what it was measured against, and what is still missing.
 
+> **Corrections, added 23 Aug 2026 after an adversarial re-measurement of every
+> deck surface at 1280 and at 1920.** Three claims below did not survive it.
+>
+> 1. **"The power score drawn twice on the EDH tab ... fixed"** (section 5).
+>    Taking the compact `PowerScore` out of `CommanderPowerDisplay` moved the
+>    count from three to four, not to one. Measured on the rebuilt tab, the
+>    score `2.0` was on screen **five times** — the page header at 30px, this
+>    tab's own metric tile at 24px, `PowerScore variant="expanded"`'s headline
+>    at 48px, and the before/after pair in `PowerSliderCoaching` — with the
+>    bracket beside it four times. `PowerScore` takes `headline={false}` now
+>    and the EDH tab passes it. Three left, one of which is a comparison.
+> 2. **"`scripts/deck-save-measure.mjs` could not run here (it fails before
+>    navigation, with no harness deck id resolved)."** It runs. The harness deck
+>    id is a literal at `scripts/deck-save-measure.mjs:205` and nothing has to
+>    resolve it. Two runs against this `dist`, identical both times:
+>    **3 requests, 2 writes, 1 row each** — `DELETE deck_cards` ·
+>    `GET user_collections` · `PATCH user_decks`. The figure the merge
+>    published holds, and it is no longer an unverified figure.
+> 3. **The hairline counts and "0 console errors on any tab" hold.**
+>    Re-measured at both widths across 22 surfaces: 0 console errors
+>    everywhere, and 0 hairlines on Cards, Add, Mana, Analysis and Legality.
+>
+> Also found and corrected, every one measured at 1280 and at 1920 and every
+> one commented at the fix site: `Deck value` printed twice under that same
+> label on the Value tab; `Average playability` printed twice on the Mana tab;
+> `Cards in the deck` reprinting the metric strip's own figure on the Legality
+> tab; one measurement carrying three names (`Average playability`,
+> `Playability`, `Average castable`) at two roundings; a budget of `$200`
+> nobody set, drawn in the product's only emphasised tile as
+> `Over budget -$687.55 - 444% of the budget spent`; and `grayscale` applied to
+> Scryfall card art in the optimiser's cut list.
+
 Written 23 Aug 2026. Follows `DECK-TABS.md`, which is the census this works
 from, and `DECK-PAGE-AUDIT.md`, which is the nothing-lost contract. Where either
 of those measured something it is cited rather than restated; everything with a
@@ -53,16 +85,22 @@ what a reader already on the page pays to open that tab.
 | tab | cold load | | from Cards | |
 |---|---|---|---|---|
 | | before | after | before | after |
-| Cards | 15 | 15 | — | — |
-| Add | 15 | 15 | 0 | 0 |
-| Mana | 15 | 15 | 0 | 0 |
-| EDH | 15 | **16** | 0 | **1** |
-| Analysis | 15 | **16** | 0 | **1** |
-| Legality | 15 | 15 | 0 | 0 |
-| Value | **18** | **17** | **3** | **2** |
-| Record | 16 | 16 | 1 | 1 |
+| Cards | 18 | 18 | — | — |
+| Add | 18 | 18 | 0 | 0 |
+| Mana | 18 | 18 | 0 | 0 |
+| EDH | 18 | **19** | 0 | **1** |
+| Analysis | 18 | **19** | 0 | **1** |
+| Legality | 18 | 18 | 0 | 0 |
+| Value | **21** | **20** | **3** | **2** |
+| Record | 19 | 19 | 1 | 1 |
 
 Console errors: **zero on all eight tabs**, both builds.
+
+**Eighteen of those are the page and the app shell**, identical on both builds
+and on every tab: the deck and its cards, the collection, the profile, the
+favourite and wishlist checks, the shopping and proxy lists, and the one
+`PATCH user_decks` that caches the power score. The column that matters is "from
+Cards", which is the cost of the tab itself.
 
 Three tabs moved and each move is one request with a name on it.
 
@@ -82,8 +120,8 @@ Three tabs moved and each move is one request with a name on it.
   price record and `card_printing_spread` for the cheapest printing, both keyed
   on a set and both chunked at a hundred ids.
 
-Nothing on any tab is a per-row query. The worst cold load in the product's deck
-page went from 18 to 17.
+Nothing on any tab is a per-row query, and no tab's cost depends on the size of
+the deck. The worst cold load on the deck page went from 21 to 20.
 
 ### 2b. What each tab draws
 
@@ -105,6 +143,10 @@ elements drawing a visible border.
 The baseline of 2 card images is the commander drawn in the hero plus the app
 shell; a tab reading 2 was drawing no cards of its own at all. Four of the eight
 were.
+
+These are DOM counts rather than requests, so the dependency reinstall in
+section 7 does not touch them; the after column was re-taken afterwards and came
+back identical, figure for figure.
 
 **The two hairlines that remain are the same element**, on EDH and on Value: the
 Radix slider thumb, `border-2 border-primary`, which is the handle of the power
@@ -142,7 +184,7 @@ Statically imported, the eight rebuilt tabs put `DeckInterface` at 132.30 kB
 the split. The split is why the first load is now **43% smaller than it was
 before any of this**, and a reader still pays for exactly the tabs they open.
 
-`PublicDeck` went 24.73 kB to 27.07 kB for the castability engine and the shared
+`PublicDeck` went 24.73 kB to 27.10 kB for the castability engine and the shared
 analytics mapping; its Mana tab is lazy for the same reason.
 
 `recharts` was already out of first load and stays out: `DeckValueHistory`
@@ -444,15 +486,42 @@ pass had no mandate to do.
 
 ---
 
-## 7. Two notes on things outside this work
+## 7. Three notes on things outside this work, and one mistake
 
-Both are reported rather than fixed.
 
-**`src/lib/game/xmage/bodies.generated.ts` does not typecheck.** Roughly forty
-errors, `Property 'trivial' is missing in type … TranslatedBody` and similar.
-The file was being regenerated by the engine workflow while this pass ran and is
-outside its ownership. `node node_modules/typescript/bin/tsc --noEmit -p
-tsconfig.app.json` is clean for every other file in the tree.
+**A mistake, and its repair.** The before build was produced in a git worktree
+with a directory junction pointing at the main tree's `node_modules`. Removing
+that worktree afterwards deleted `node_modules/@radix-ui` through the junction —
+the junction was unlinked first and the recursive delete followed it anyway.
+`npm install` restored it from `package-lock.json`; the typecheck reports zero
+errors, the build succeeds and the whole test suite passes. `package.json` and `package-lock.json` were not
+modified. Two things to know:
+
+- The reinstall brought `node_modules` back in line with the lockfile, and the
+  tree it replaced was not: the app shell's own request count on every page went
+  from 15 to 18 across that boundary, in `profiles` and the wishlist `HEAD`.
+  Nothing in `src/` changed between those two measurements. **Every figure in
+  section 2a was re-taken afterwards, both halves on the same dependency tree**,
+  so the comparison is apples to apples and the shell's baseline is 18 in both
+  columns.
+- The second worktree was removed by unlinking the junction, verifying
+  `node_modules` was intact, and only then calling `git worktree remove`. That
+  is the order to use.
+
+The three below are reported rather than fixed.
+
+**The tree typechecks.** `node node_modules/typescript/bin/tsc --noEmit -p
+tsconfig.app.json` reports zero errors. It did not at the start of this pass:
+`src/lib/game/xmage/bodies.generated.ts` carried about forty
+`Property 'trivial' is missing in type … TranslatedBody` errors, which the
+engine workflow fixed while this ran. Noted because that file is outside this
+pass's ownership and nothing here touched it.
+
+**The repository commits itself.** `scripts/auto-commit.mjs` produced three
+`Checkpoint: N files, M tests pass` commits while this ran, and the work below
+was carried into them by it. Nothing in this pass ran `git add` or
+`git commit`; the commits are the repository’s own automation and they also
+carry the engine workflow’s concurrent changes.
 
 **A circular dependency between two barrels.**
 `@/components/listing/index.ts` re-exports `useListingView`, that hook imports

@@ -440,8 +440,8 @@ is lost is the sentence in the log, not the rules effect.
 the game through a static context this engine deliberately does not have, and
 every one of those objects needs the scope to read the board or raise a question.
 The name is one XMage never uses, so it joins no row in
-`runtime-coverage.mjs` — **the published 65.64% is unchanged, re-run and
-confirmed.** It is plumbing for the translator, not an implementation of an XMage
+`runtime-coverage.mjs`. **The published 65.64% was unchanged by it, re-run and
+confirmed** (it reads 66.44% now, for a different reason: see section 10). It is plumbing for the translator, not an implementation of an XMage
 function, and counting it as one would overstate the port.
 
 ---
@@ -673,3 +673,69 @@ disagreement between them looks exactly like a card that quietly does nothing.
 
 `npm run build` succeeds. `runtime-coverage.mjs` re-run: **65.64% unchanged**.
 nothing here added a facade method.
+
+---
+
+# 10. The Library rows, and what 459 bodies turned into
+
+Added 23 Aug 2026. Section 5 ranked four `Library#` rows as 459 bodies and
+called them the single largest return on the work order. The class is written.
+**`docs/engine/RUNTIME-API.md` section 6a is the full account**, including the
+three runtime defects it turned up; this is the part that belongs to the
+translator.
+
+## The class name in section 5 was right and the one in RUNTIME-API.md was not
+
+Section 5 already spells these rows `Library#…` because
+`lib/java-types.mjs` prefers a top-level class over a nested one, and check 1
+has reported the two rows moving ever since. `mage.game.ZoneChangeInfo.Library`
+declares one boolean, three constructors and `copy()`. The class is
+`mage.players.Library`. `runtime-coverage.mjs` now corrects those rows from the
+engine index rather than from a typed list, and prints how many it moved.
+
+## Three mappings, and two of them were bugs
+
+| | |
+|---|---|
+| `Library#*` | 12 new rows, every signature read out of `mage/players/Library.java`. `removeFromTop`, `remove` and `clear` are deliberately unmapped: they take a card out of a library without saying where it goes. |
+| `Player#searchLibrary` | passed `target.getFilter()` and threw the target away. XMage's FILLS the target and the next line reads it back, so five shipped bodies asked the player to search and then did nothing. It passes the TARGET now. |
+| `Player#revealCards` | `take: [1]` meant the replacement title was never emitted, so every call was one argument short and `tsc --strict` threw the body away. 60 bodies; 2 remain, on an overload that cannot be told apart by arity. |
+| `new CardsImpl(…)` | only `()` and `(Card)` were mapped, and `.add()` takes one card. `new CardsImpl(library.getTopCards(game, 4))` handed an array to a one-card method. The collection forms go to `addAll` now, which reads its argument through `idsFrom`. |
+
+## Two measurement flags on the generator
+
+The work order is an aggregate: it says 163 bodies stop on
+`Library#getTopCards`, not WHICH 163, so after a mapping is written there is no
+way to answer the only question that matters. `--ledger <path>` writes one
+record per body: the card, the class, and either `emitted` or the first
+blocker.
+`--drop <prefix>` deletes `METHODS` rows before the scan, so one script produces
+both the BEFORE and the AFTER ledger and they join body by body. `--drop`
+refuses to run without `--census` and refuses to write the shipped file or the
+published report.
+
+## The number
+
+| | |
+|---|---:|
+| bodies first-blocked on the four named rows | **459** |
+| of those, emit after phase one | 71 |
+| of those, **SHIP** after `tsc --strict` | **54** |
+| every body first-blocked on any `Library#` row | 505 |
+| of those, ship | 61 |
+
+**54 of 459, and that is the honest one.** The other 388 stopped on a second
+thing, led by `Player#lookAtCards` at 62.
+
+Corpus totals: bodies **758 to 852**, card files **721 to 812**, substantive
+**380 to 474** with the trivial count unchanged at 378. Records carrying a body
+pointer, **176 cards to 217**.
+
+`scripts/verify-ability-coverage.mjs` AUTOMATED: **3,488 (10.74%) to 3,501
+(10.78%)**. Thirteen cards.
+
+Typecheck clean in `src/lib/**` and `scripts/**`. `node --test
+src/lib/**/*.test.ts`: **1,697 pass, 0 fail**, with 29 new tests in
+`src/lib/game/xmage/library.test.ts`. Harness: 20 games, 19 finished, 1 stalled
+on the pre-existing seed 9018 which finishes on turn 82 at `--max-turns 200`, 0
+invariant violations, 0 replays diverged.

@@ -20,6 +20,10 @@
  */
 
 import type { ManaProfile } from '../playability/castability.ts';
+// Type-only, and the cycle it closes is type-only too: `behaviour.ts` reads
+// `Role` and the card shapes from here. Both sides are erased at compile time,
+// so no module actually depends on the other at run time.
+import type { CommanderPlan } from '../knowledge/behaviour.ts';
 
 /** The five colour-identity letters actually stored in `cards.color_identity`. */
 export type Color = 'W' | 'U' | 'B' | 'R' | 'G';
@@ -29,12 +33,41 @@ export const COLORS: readonly Color[] = ['W', 'U', 'B', 'R', 'G'];
 /**
  * The roles a deck is measured against.
  *
- * These are derived from tags that genuinely exist in `TAG_RULES` — see
- * `roles.ts`, where each role lists the tags that map to it.
+ * Five of the seven are decided by a card's BEHAVIOUR where an ability record
+ * exists and by its tags where one does not — see `knowledge/behaviour.ts` for
+ * the facet table and `roles.ts` for the tag fallback. Two are decided by the
+ * type line and never by either: `creature` and `land`.
+ *
+ * `creature` was added on 2026-08-23 because the owner asked why creature mode
+ * produced no creatures, and the answer, read out of this line, was that there
+ * was nowhere for it to. Measured on the four test decks before it existed:
+ * Atraxa 7 creatures, Krenko 3, Talrand 4, Muldrotha 7, against 49, 55, 54 and
+ * 43 artifacts each. A quota the generator does not hold is a quota it cannot
+ * fill.
+ *
+ * ORDER MATTERS. `neediestRole` and `scoreCandidate` both break ties by walking
+ * this list, so `creature` sits LAST: a mana dork is credited as ramp, which is
+ * the scarcer job, and still counts toward the creature floor, because that
+ * floor is taken over the whole deck rather than over one bucket.
  */
-export type Role = 'ramp' | 'draw' | 'removal' | 'interaction' | 'wincon' | 'land';
+export type Role =
+  | 'ramp'
+  | 'draw'
+  | 'removal'
+  | 'interaction'
+  | 'wincon'
+  | 'land'
+  | 'creature';
 
-export const ROLES: readonly Role[] = ['ramp', 'draw', 'removal', 'interaction', 'wincon', 'land'];
+export const ROLES: readonly Role[] = [
+  'ramp',
+  'draw',
+  'removal',
+  'interaction',
+  'wincon',
+  'land',
+  'creature',
+];
 
 /**
  * One printing, normalised.
@@ -74,6 +107,22 @@ export interface CandidateCard {
    * unknown rather than unpopular.
    */
   edhrecRank: number | null;
+  /**
+   * What this card's ability record says it DOES. See `knowledge/behaviour.ts`.
+   *
+   * Optional, and the difference between absent and empty is the whole point.
+   * Absent means no record was produced for this card and the engine falls back
+   * to `tags`, which is the old word matching and is counted as such. Present
+   * means the record spoke, and where it spoke it OVERRULES the tags: a record
+   * that contains no `add-mana` is evidence a card does not ramp, and letting a
+   * `ramp` tag win over it would put the text matcher back in charge of exactly
+   * the cards the record covers.
+   *
+   * Produced outside the engine, by `src/lib/deck/recommend/behaviour.ts`,
+   * because `engine-parity.test.ts` forbids this tree from importing the
+   * ability compiler. The engine owns the vocabulary and reads the values.
+   */
+  facets?: readonly string[] | null;
 }
 
 /** A card already in the deck. Only the fields ranking actually reads. */
@@ -85,6 +134,8 @@ export interface DeckCard {
   tags: string[];
   /** Copies in the deck. Commander is singleton, but limited/60-card is not. */
   quantity?: number;
+  /** Behaviour facets, when the caller has them. See `CandidateCard.facets`. */
+  facets?: readonly string[] | null;
 }
 
 /**
@@ -125,6 +176,25 @@ export interface DeckProfile {
    * no matter how well it fits, applied to additions as well as to cuts.
    */
   manaProfile?: ManaProfile | null;
+  /**
+   * What THIS commander is for, read from its own ability record.
+   *
+   * The answer to "every commander has unique style, so it needs to use the
+   * brain to pick cards". A plan is a list of wants — facets a card can carry
+   * that would make it do the commander's job — derived in
+   * `knowledge/behaviour.ts` from the commander's record and from nothing else.
+   * Absent means no commander was supplied or its record was empty, and then
+   * the `commander-fit` signal simply does not fire, which is the honest
+   * default: unknown is not "fits nothing".
+   */
+  commanderPlan?: CommanderPlan | null;
+  /**
+   * How many of the cards this profile was built from carried a record.
+   *
+   * Carried on the profile so a caller can report the fallback rate without
+   * recomputing it. `{ withRecord: 0, total: 0 }` when nothing was measured.
+   */
+  facetCoverage?: { withRecord: number; total: number };
 }
 
 /**
@@ -135,7 +205,14 @@ export interface DeckProfile {
  * attributable to a column in `cards` or a count taken from the deck.
  */
 export interface Signal {
-  kind: 'role-gap' | 'tag-synergy' | 'curve-fit' | 'budget-fit' | 'castability' | 'popularity';
+  kind:
+    | 'role-gap'
+    | 'commander-fit'
+    | 'tag-synergy'
+    | 'curve-fit'
+    | 'budget-fit'
+    | 'castability'
+    | 'popularity';
   /** Contribution to the total score. May be negative (curve fit only). */
   score: number;
   /** Human-readable clause, built from numbers. */

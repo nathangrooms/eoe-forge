@@ -30,10 +30,27 @@
  * generator reproduces the same file. `--no-typecheck` skips phase two and is
  * for inspecting what phase one produced.
  *
+ * ## Two measurement flags, and what they are for
+ *
+ * The work order is an aggregate: it says 163 bodies stop on
+ * `Library#getTopCards`, not WHICH 163. So after a mapping is written there is
+ * no way to answer the only question that matters — how many of those bodies
+ * now emit, and where the rest stopped instead. A body blocked on one thing is
+ * usually blocked on a second, and the honest number is the one after the
+ * second blocker.
+ *
+ * `--ledger <path>` writes one record per body: the card, the class, and either
+ * `emitted` or the first blocker by kind and detail. `--drop <prefix>` deletes
+ * every `METHODS` row whose key starts with that prefix before the scan, so the
+ * same script can produce the BEFORE ledger and the AFTER ledger and the two
+ * can be joined body by body. Neither flag changes what a normal run emits, and
+ * `--drop` refuses to write the shipped file.
+ *
  * Run:
  *   node scripts/xmage/translate-bodies.mjs
  *   node scripts/xmage/translate-bodies.mjs --census      (report only, no emit)
  *   node scripts/xmage/translate-bodies.mjs --card WrathOfGod
+ *   node scripts/xmage/translate-bodies.mjs --census --drop 'Library#' --ledger before.json
  *
  * ## Licence
  * Behaviour ported from **XMage**, MIT licensed,
@@ -49,7 +66,7 @@ import { execFileSync } from 'node:child_process';
 import { tokenize, readImports, readPackage, JavaParser } from './lib/java-parse.mjs';
 import { skipBalanced, readType } from './index-engine-methods.mjs';
 import { resolveTypeText, engine } from './lib/java-types.mjs';
-import { translateBody } from './lib/translate.mjs';
+import { translateBody, METHODS } from './lib/translate.mjs';
 import {
   applyMethods,
   classFields,
@@ -76,8 +93,38 @@ const argv = process.argv.slice(2);
 const CENSUS = argv.includes('--census');
 const NO_TYPECHECK = argv.includes('--no-typecheck') || CENSUS;
 const ONE = argv.includes('--card') ? argv[argv.indexOf('--card') + 1] : null;
+const LEDGER = argv.includes('--ledger') ? argv[argv.indexOf('--ledger') + 1] : null;
+const DROP = argv.includes('--drop') ? argv[argv.indexOf('--drop') + 1] : null;
+/*
+ * `--tsc-log <path>` writes every phase-two error with its MESSAGE and the card
+ * it landed in.
+ *
+ * The report records the error CODE only, and a code is not enough to act on: a
+ * mapping that emits a call to a method the facade does not have shows up as
+ * `TS2339` on 63 bodies with nothing to say which method. The message names it.
+ * The flag changes nothing about what is emitted.
+ */
+const TSC_LOG = argv.includes('--tsc-log') ? argv[argv.indexOf('--tsc-log') + 1] : null;
 const TARGET = ONE ? ONE_TS : OUT_TS;
 if (ONE) mkdirSync(dirname(ONE_TS), { recursive: true });
+
+/*
+ * `--drop` is a measurement flag: it takes mappings AWAY so a before-and-after
+ * ledger can be produced by one script rather than by two copies of it. A run
+ * with mappings removed must never be able to write the shipped file or the
+ * published report, because both would then describe an engine nobody has.
+ */
+if (DROP) {
+  if (!CENSUS) throw new Error('--drop is a measurement flag and only runs with --census');
+  let dropped = 0;
+  for (const key of Object.keys(METHODS)) {
+    if (key.startsWith(DROP)) { delete METHODS[key]; dropped++; }
+  }
+  console.log(`--drop ${DROP}: removed ${dropped} METHODS rows for this run only`);
+}
+
+/** One record per body, written only when `--ledger` asks for it. */
+const ledger = [];
 
 /* -------------------------------------------------------------------------- */
 /* The scan                                                                   */
@@ -145,8 +192,10 @@ for (const path of files) {
     const fieldValues = inlineConstructorArgs(toks, cls, fields);
     const selfType = resolveTypeText(cls.superName, imports, pkg);
 
+    let bodyIndex = 0;
     for (const m of methods) {
       stats.applyBodies++;
+      const thisBody = bodyIndex++;
 
       let stmts;
       try {
@@ -157,6 +206,12 @@ for (const path of files) {
       } catch (e) {
         stats.blockedBodies++;
         note('parse', String(e.message).slice(0, 40), cardCls);
+        if (LEDGER) {
+          ledger.push({
+            card: cardCls, cls: cls.name, n: thisBody,
+            status: 'blocked', kind: 'parse', detail: String(e.message).slice(0, 40),
+          });
+        }
         continue;
       }
 
@@ -178,9 +233,17 @@ for (const path of files) {
       if (!result.ok) {
         stats.blockedBodies++;
         for (const b of result.blocked) note(b.kind, b.detail, cardCls);
+        if (LEDGER) {
+          const first = result.blocked[0] ?? {};
+          ledger.push({
+            card: cardCls, cls: cls.name, n: thisBody,
+            status: 'blocked', kind: first.kind ?? '?', detail: first.detail ?? '?',
+          });
+        }
         continue;
       }
 
+      if (LEDGER) ledger.push({ card: cardCls, cls: cls.name, n: thisBody, status: 'emitted' });
       stats.emittedBodies++;
       stats.callsInEmitted += result.calls;
       if (result.degraded.length) {
@@ -362,6 +425,16 @@ if (CENSUS) {
       if (owner === null || owner === undefined) continue;
       note('typecheck', e.code, list[owner].card);
     }
+    if (TSC_LOG) {
+      const rows = errors.map(e => {
+        const owner = first.owner[e.line - 1];
+        const body = owner === null || owner === undefined ? null : list[owner];
+        return { code: e.code, msg: e.msg, card: body?.card ?? null, effect: body?.effect ?? null };
+      });
+      mkdirSync(dirname(resolve(TSC_LOG)), { recursive: true });
+      writeFileSync(resolve(TSC_LOG), JSON.stringify(rows, null, 1));
+      console.log(`tsc log: ${rows.length.toLocaleString()} errors -> ${TSC_LOG}`);
+    }
     const badSet = new Set(dropped);
     list = list.filter(b => !badSet.has(b));
     stats.emittedBodies = list.length;
@@ -445,7 +518,24 @@ function report(list = emitted) {
   // `--card` scans one file, so its numbers describe one file. Writing them to
   // the shared report would leave the published figures reading
   // `withLocalClass: 1` until somebody noticed.
-  if (!ONE) writeFileSync(join(DATA, 'xmage-translation.json'), JSON.stringify(out));
+  /*
+   * The published report is written by a FULL run only.
+   *
+   * `--card` scans one file. `--drop` describes an engine with mappings taken
+   * away. `--census` skips the typecheck phase, so its body count is what phase
+   * one produced and not what ships: it read 984 where the shipped file holds
+   * 852. All three produce real numbers about something other than the build,
+   * and section 7 of `docs/engine/TRANSLATION.md` already said `--census`
+   * writes nothing. It does now.
+   */
+  if (!ONE && !DROP && !CENSUS) {
+    writeFileSync(join(DATA, 'xmage-translation.json'), JSON.stringify(out));
+  }
+  if (LEDGER) {
+    mkdirSync(dirname(resolve(LEDGER)), { recursive: true });
+    writeFileSync(resolve(LEDGER), JSON.stringify(ledger));
+    console.log(`ledger: ${ledger.length.toLocaleString()} bodies -> ${LEDGER}`);
+  }
 
   console.log('card files scanned                 : ' + stats.cardFiles.toLocaleString());
   console.log('with a card-local class            : ' + stats.withLocalClass.toLocaleString());

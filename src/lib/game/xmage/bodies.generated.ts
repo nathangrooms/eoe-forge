@@ -223,6 +223,86 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "AgonizingRemorse::AgonizingRemorseEffect": {
+    card: "AgonizingRemorse",
+    effect: "AgonizingRemorseEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/a/AgonizingRemorse.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    let opponent = game.getPlayer(source.getFirstTarget());
+    if (controller === null || opponent === null) {
+      {
+        return false;
+      }
+    }
+    opponent.revealCards('', opponent.getHand());
+    let target = undefined;
+    let cards = undefined;
+    if (controller.chooseUse('')) {
+      {
+        target = makeTarget(game.xmageScope(), { filter: makeFilter('nonland card', [Predicates.not(cardTypePredicate('land'))]), zone: 'hand' });
+        target.withNotTarget(true);
+        cards = opponent.getHand();
+      }
+    } else {
+      {
+        target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), zone: 'graveyard' });
+        target.withNotTarget(true);
+        cards = opponent.getGraveyard();
+      }
+    }
+    if ((target.choose(game, '', controller.getId(), cards.ids()).length > 0)) {
+      {
+        let card = game.getCard(target.getFirstTarget());
+        if (card !== null) {
+          {
+            controller.moveCards(card, 'exile');
+          }
+        }
+      }
+    }
+    controller.loseLife(1);
+    return true;
+      return true;
+    },
+  },
+  "AjaniSleeperAgent::AjaniSleeperAgentEffect": {
+    card: "AjaniSleeperAgent",
+    effect: "AjaniSleeperAgentEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/a/AjaniSleeperAgent.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller === null) {
+      {
+        return false;
+      }
+    }
+    let card = controller.getLibrary().getFromTop();
+    if (card === null) {
+      {
+        return false;
+      }
+    }
+    controller.revealCards('', makeCards(game.xmageScope(), []).add(card));
+    if (card.isCreature() || card.isPlaneswalker()) {
+      {
+        controller.moveCards(card, 'hand');
+      }
+    } else {
+      if (controller.chooseUse('')) {
+        {
+          controller.putCardsOnBottomOfLibrary(card);
+        }
+      }
+    }
+    return true;
+      return true;
+    },
+  },
   "AlienSymbiosis::AlienSymbiosisGraveyardEffect": {
     card: "AlienSymbiosis",
     effect: "AlienSymbiosisGraveyardEffect",
@@ -368,6 +448,28 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
     return false;
+      return true;
+    },
+  },
+  "AnotherChance::AnotherChanceMillEffect": {
+    card: "AnotherChance",
+    effect: "AnotherChanceMillEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/a/AnotherChance.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    if (player.chooseUse('')) {
+      {
+        player.millCards(2);
+      }
+    }
+    return true;
       return true;
     },
   },
@@ -568,6 +670,76 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "AshcoatOfTheShadowSwarm::AshcoatEffect": {
+    card: "AshcoatOfTheShadowSwarm",
+    effect: "AshcoatEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/a/AshcoatOfTheShadowSwarm.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    let target = makeTarget(game.xmageScope(), { filter: (StaticFilters.creatureCard().add(subTypePredicate("rat"))), min: 0, max: 2, zone: "graveyard" }).withNotTarget(true);
+    (target.choose(game, '', player.getId()).length > 0);
+    player.moveCards(makeCards(game.xmageScope(), []).addAll(target.getTargets()), 'hand');
+    return true;
+      return true;
+    },
+  },
+  "AshiokNightmareWeaver::AshiokNightmareWeaverExileEffect": {
+    card: "AshiokNightmareWeaver",
+    effect: "AshiokNightmareWeaverExileEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/a/AshiokNightmareWeaver.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let opponent = game.getPlayer(source.getTargetPointer().getFirst());
+    let controller = game.getPlayer(source.getControllerId());
+    if (opponent === null || controller === null) {
+      {
+        return false;
+      }
+    }
+    controller.moveCardsToExile(opponent.getLibrary().getTopCards(3));
+    return true;
+      return true;
+    },
+  },
+  "AshiokNightmareWeaver::AshiokNightmareWeaverExileAllEffect": {
+    card: "AshiokNightmareWeaver",
+    effect: "AshiokNightmareWeaverExileAllEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/a/AshiokNightmareWeaver.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller === null) {
+      {
+        return false;
+      }
+    }
+    let cards = makeCards(game.xmageScope(), []);
+    for (const opponentId of game.getOpponents(source.getControllerId())) {
+      {
+        let opponent = game.getPlayer(opponentId);
+        if (opponent === null) {
+          {
+            continue;
+          }
+        }
+        cards.addAll(opponent.getHand());
+        cards.addAll(opponent.getGraveyard());
+      }
+    }
+    controller.moveCardsToExile(cards.getCards());
+    return true;
+      return true;
+    },
+  },
   "Asmoranomardicadaistinaculdacar::AsmoranomardicadaistinaculdacarEffect": {
     card: "Asmoranomardicadaistinaculdacar",
     effect: "AsmoranomardicadaistinaculdacarEffect",
@@ -615,6 +787,101 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     source: "Mage.Sets/src/mage/cards/a/AssembleThePlayers.java",
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
+    return true;
+      return true;
+    },
+  },
+  "AtomwheelAcrobats::AtomwheelAcrobatsCountersEffect": {
+    card: "AtomwheelAcrobats",
+    effect: "AtomwheelAcrobatsCountersEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/a/AtomwheelAcrobats.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    if (game.getState().getValue("rolled") === null) {
+      {
+        return false;
+      }
+    }
+    let amount = Number(game.getState().getValue("rolled"));
+    let sourcePermanent = source.getSourcePermanentIfItStillExists(game);
+    if (sourcePermanent === null) {
+      {
+        return false;
+      }
+    }
+    sourcePermanent.addCounters(CounterType.of("+1/+1").createInstance(amount));
+    return true;
+      return true;
+    },
+  },
+  "AuguryAdept::AuguryAdeptEffect": {
+    card: "AuguryAdept",
+    effect: "AuguryAdeptEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/a/AuguryAdept.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller === null) {
+      {
+        return false;
+      }
+    }
+    let card = controller.getLibrary().getFromTop();
+    if (card === null) {
+      {
+        return false;
+      }
+    }
+    controller.revealCards('', makeCards(game.xmageScope(), []).add(card));
+    controller.moveCards(card, 'hand');
+    let cmc = card.getManaValue();
+    if (cmc > 0) {
+      {
+        controller.gainLife(cmc);
+      }
+    }
+    return true;
+      return true;
+    },
+  },
+  "AuraBarbs::AuraBarbsEffect": {
+    card: "AuraBarbs",
+    effect: "AuraBarbsEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/a/AuraBarbs.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let filterEnchantments = makeFilter('permanent');
+    filterEnchantments.add(cardTypePredicate("enchantment"));
+    for (const permanent of game.getBattlefield().getActivePermanents(filterEnchantments, source.getControllerId())) {
+      {
+        let controller = game.getPlayer(permanent.getControllerId());
+        if (controller !== null) {
+          {
+            controller.damage(2, permanent.getId());
+            game.informPlayers('' + controller.getLogName() + '' + permanent.getName());
+          }
+        }
+      }
+    }
+    filterEnchantments.add(subTypePredicate("aura"));
+    for (const auraEnchantment of game.getBattlefield().getActivePermanents(filterEnchantments, source.getControllerId())) {
+      {
+        if (auraEnchantment.getAttachedTo() !== null) {
+          {
+            let attachedToCreature = game.getPermanent(auraEnchantment.getAttachedTo());
+            if (attachedToCreature !== null && attachedToCreature.isCreature()) {
+              {
+                attachedToCreature.damage(2, auraEnchantment.getId());
+                game.informPlayers('' + attachedToCreature.getName() + '' + auraEnchantment.getName());
+              }
+            }
+          }
+        }
+      }
+    }
     return true;
       return true;
     },
@@ -758,6 +1025,40 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "BalustradeSpy::BalustradeSpyEffect": {
+    card: "BalustradeSpy",
+    effect: "BalustradeSpyEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/b/BalustradeSpy.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getTargetPointer().getFirst());
+    if (controller === null) {
+      {
+        return false;
+      }
+    }
+    let toGraveyard = makeCards(game.xmageScope(), []);
+    for (const card of controller.getLibrary().getCards()) {
+      {
+        if (card !== null) {
+          {
+            toGraveyard.add(card);
+            if (card.isLand()) {
+              {
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+    controller.revealCards('', toGraveyard);
+    controller.moveCards(toGraveyard, 'graveyard');
+    return true;
+      return true;
+    },
+  },
   "BaneAlleyBroker::BaneAlleyBrokerLookAtCardEffect": {
     card: "BaneAlleyBroker",
     effect: "BaneAlleyBrokerLookAtCardEffect",
@@ -765,6 +1066,41 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     source: "Mage.Sets/src/mage/cards/b/BaneAlleyBroker.java",
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
+    return true;
+      return true;
+    },
+  },
+  "BanefulOmen::BanefulOmenEffect": {
+    card: "BanefulOmen",
+    effect: "BanefulOmenEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/b/BanefulOmen.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player === null || !player.getLibrary().hasCards()) {
+      {
+        return false;
+      }
+    }
+    let card = player.getLibrary().getFromTop();
+    if (card === null) {
+      {
+        return false;
+      }
+    }
+    player.revealCards('', makeCards(game.xmageScope(), []).add(card));
+    let mv = card.getManaValue();
+    for (const opponentId of game.getOpponents(source.getControllerId())) {
+      {
+        let opponent = game.getPlayer(opponentId);
+        if (opponent !== null) {
+          {
+            opponent.loseLife(mv);
+          }
+        }
+      }
+    }
     return true;
       return true;
     },
@@ -1052,6 +1388,54 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "BlessedReincarnation::BlessedReincarnationEffect": {
+    card: "BlessedReincarnation",
+    effect: "BlessedReincarnationEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/b/BlessedReincarnation.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    let permanent = game.getPermanent(source.getTargetPointer().getFirst());
+    if (permanent !== null && controller !== null) {
+      {
+        controller.moveCards(permanent, 'exile');
+        game.processAction();
+        let permanentController = game.getPlayer(permanent.getControllerId());
+        if (permanentController !== null) {
+          {
+            let library = permanentController.getLibrary();
+            if (library.hasCards()) {
+              {
+                let toReveal = makeCards(game.xmageScope(), []);
+                for (const card of library.getCards()) {
+                  {
+                    toReveal.add(card);
+                    if (card.isCreature()) {
+                      {
+                        permanentController.moveCards(card, 'battlefield');
+                        break;
+                      }
+                    }
+                  }
+                }
+                permanentController.revealCards('', toReveal);
+                if (toReveal.size() > 1) {
+                  {
+                    permanentController.shuffleLibrary();
+                  }
+                }
+              }
+            }
+          }
+        }
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
   "BlessedRespite::BlessedRespiteEffect": {
     card: "BlessedRespite",
     effect: "BlessedRespiteEffect",
@@ -1252,6 +1636,44 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "BoldwyrHeavyweights::BoldwyrHeavyweightsEffect": {
+    card: "BoldwyrHeavyweights",
+    effect: "BoldwyrHeavyweightsEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/b/BoldwyrHeavyweights.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let playersThatSearched = [];
+    for (const opponentId of game.getOpponents(source.getControllerId())) {
+      {
+        let opponent = game.getPlayer(opponentId);
+        if (opponent !== null && opponent.chooseUse('')) {
+          {
+            let target = makeTarget(game.xmageScope(), { filter: StaticFilters.creatureCard(), zone: "library" });
+            if ((opponent.searchLibrary('', target).length > 0)) {
+              {
+                let targetCard = opponent.getLibrary().getCard(target.getFirstTarget());
+                if (targetCard !== null) {
+                  {
+                    opponent.moveCards(targetCard, 'battlefield');
+                    playersThatSearched.push(opponent);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    for (const opponent of playersThatSearched) {
+      {
+        opponent.shuffleLibrary();
+      }
+    }
+    return true;
+      return true;
+    },
+  },
   "BoneDancer::BoneDancerEffect": {
     card: "BoneDancer",
     effect: "BoneDancerEffect",
@@ -1276,6 +1698,46 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         if (lastCreatureCard !== null) {
           {
             controller.moveCards(lastCreatureCard, 'battlefield');
+          }
+        }
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
+  "BookBurning::BookBurningMillEffect": {
+    card: "BookBurning",
+    effect: "BookBurningMillEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/b/BookBurning.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let sourceObject = source.getSourceObject(game);
+    if (sourceObject !== null) {
+      {
+        let millCards = true;
+        for (const playerId of game.getState().getPlayersInRange(source.getControllerId())) {
+          {
+            let player = game.getPlayer(playerId);
+            if (player !== null && player.chooseUse('')) {
+              {
+                millCards = false;
+                player.damage(6, source.getSourceId());
+                game.informPlayers(player.getLogName() + '' + sourceObject.getLogName() + '');
+              }
+            }
+          }
+        }
+        if (millCards) {
+          {
+            let targetPlayer = game.getPlayer(source.getTargetPointer().getFirst());
+            if (targetPlayer !== null) {
+              {
+                targetPlayer.moveCards(targetPlayer.getLibrary().getTopCards(6), 'graveyard');
+              }
+            }
           }
         }
         return true;
@@ -1376,6 +1838,32 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "BrambleFamiliar::FetchQuestEffect": {
+    card: "BrambleFamiliar",
+    effect: "FetchQuestEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/b/BrambleFamiliar.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    let cards = player.millCards(7);
+    if (makeCards(game.xmageScope(), cards.ids()).retain((StaticFilters.card().add(Predicates.or(cardTypePredicate("creature"), cardTypePredicate("enchantment"), cardTypePredicate("land"))))).size() < 1) {
+      {
+        return true;
+      }
+    }
+    let target = makeTarget(game.xmageScope(), { filter: (StaticFilters.card().add(Predicates.or(cardTypePredicate("creature"), cardTypePredicate("enchantment"), cardTypePredicate("land")))), min: 1, max: 1, zone: "graveyard" }).withNotTarget(true);
+    (target.choose(game, '', player.getId(), cards.ids()).length > 0);
+    player.moveCards(makeCards(game.xmageScope(), []).addAll(target.getTargets()), 'battlefield');
+    return true;
+      return true;
+    },
+  },
   "BreakingWave::BreakingWaveEffect": {
     card: "BreakingWave",
     effect: "BreakingWaveEffect",
@@ -1419,6 +1907,24 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     (target.choose(game, '', player.getId()).length > 0);
     let permanent = game.getPermanent(target.getFirstTarget());
     return permanent !== null && permanent.addCounters(CounterType.of("+1/+1").createInstance(2));
+      return true;
+    },
+  },
+  "BrightPalmSoulAwakener::BrightPalmSoulAwakenerEffect": {
+    card: "BrightPalmSoulAwakener",
+    effect: "BrightPalmSoulAwakenerEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/b/BrightPalmSoulAwakener.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let permanent = game.getPermanent(source.getTargetPointer().getFirst());
+    if (permanent === null) {
+      {
+        return false;
+      }
+    }
+    let count = permanent.getCounters().getCount(CounterType.of("+1/+1"));
+    return count > 0 && permanent.addCounters(CounterType.of("+1/+1").createInstance(count));
       return true;
     },
   },
@@ -1548,6 +2054,29 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "BuriedAlive::BuriedAliveEffect": {
+    card: "BuriedAlive",
+    effect: "BuriedAliveEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/b/BuriedAlive.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller === null) {
+      {
+        return false;
+      }
+    }
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.creatureCard(), min: 0, max: 3, zone: "library" });
+    (controller.searchLibrary('', target).length > 0);
+    let cards = makeCards(game.xmageScope(), []).addAll(target.getTargets());
+    cards.retainZone('library');
+    controller.moveCards(cards, 'graveyard');
+    controller.shuffleLibrary();
+    return true;
+      return true;
+    },
+  },
   "BurnTheAccursed::BurnTheAccursedEffect": {
     card: "BurnTheAccursed",
     effect: "BurnTheAccursedEffect",
@@ -1566,6 +2095,44 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     if (player !== null) {
       {
         player.damage(2, source.getSourceId());
+      }
+    }
+    return true;
+      return true;
+    },
+  },
+  "CallOfTheWild::CallOfTheWildEffect": {
+    card: "CallOfTheWild",
+    effect: "CallOfTheWildEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/c/CallOfTheWild.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    let sourceObject = source.getSourceObject(game);
+    if (controller === null || sourceObject === null) {
+      {
+        return false;
+      }
+    }
+    if (controller.getLibrary().hasCards()) {
+      {
+        let card = controller.getLibrary().getFromTop();
+        if (card !== null) {
+          {
+            let cards = makeCards(game.xmageScope(), []).add(card);
+            controller.revealCards('', cards);
+            if (card.isCreature()) {
+              {
+                controller.moveCards(card, 'battlefield');
+              }
+            } else {
+              {
+                controller.moveCards(card, 'graveyard');
+              }
+            }
+          }
+        }
       }
     }
     return true;
@@ -1787,6 +2354,25 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "CephalidVandal::CephalidVandalEffect": {
+    card: "CephalidVandal",
+    effect: "CephalidVandalEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/c/CephalidVandal.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    let permanent = game.getPermanent(source.getSourceId());
+    if (permanent !== null && controller !== null) {
+      {
+        let amount = permanent.getCounters().getCount(CounterType.of("shred"));
+        controller.millCards(amount);
+      }
+    }
+    return true;
+      return true;
+    },
+  },
   "CertainDeath::CertainDeathEffect": {
     card: "CertainDeath",
     effect: "CertainDeathEffect",
@@ -1842,6 +2428,41 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     source: "Mage.Sets/src/mage/cards/c/ChandraHopesBeacon.java",
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
+    return true;
+      return true;
+    },
+  },
+  "ChandrasIgnition::ChandrasIgnitionEffect": {
+    card: "ChandrasIgnition",
+    effect: "ChandrasIgnitionEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/c/ChandrasIgnition.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let targetCreature = game.getPermanent(source.getTargetPointer().getFirst());
+    if (targetCreature !== null && targetCreature.getPower().getValue() > 0) {
+      {
+        for (const creature of game.getBattlefield().getActivePermanents(StaticFilters.creature(), source.getControllerId())) {
+          {
+            if (!(creature.getId() === targetCreature.getId())) {
+              {
+                creature.damage(targetCreature.getPower().getValue(), targetCreature.getId());
+              }
+            }
+          }
+        }
+        for (const opponentId of game.getOpponents(source.getControllerId())) {
+          {
+            let opponent = game.getPlayer(opponentId);
+            if (opponent !== null) {
+              {
+                opponent.damage(targetCreature.getPower().getValue(), targetCreature.getId());
+              }
+            }
+          }
+        }
+      }
+    }
     return true;
       return true;
     },
@@ -1983,6 +2604,25 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "ClearTheMind::ClearTheMindEffect": {
+    card: "ClearTheMind",
+    effect: "ClearTheMindEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/c/ClearTheMind.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getFirstTarget());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    player.putCardsOnBottomOfLibrary(makeCards(game.xmageScope(), []).addAll(player.getGraveyard().getCards()));
+    player.shuffleLibrary();
+    return true;
+      return true;
+    },
+  },
   "ClingToDust::ClingToDustEffect": {
     card: "ClingToDust",
     effect: "ClingToDustEffect",
@@ -2079,6 +2719,31 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "ColossalBadger::ColossalBadgerEffect": {
+    card: "ColossalBadger",
+    effect: "ColossalBadgerEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/c/ColossalBadger.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    let amount = makeCards(game.xmageScope(), player.millCards(4).ids()).retain(StaticFilters.creatureCard()).size();
+    let permanent = game.getPermanent(source.getTargetPointer().getFirst());
+    if (amount > 0 && permanent !== null) {
+      {
+        game.processAction();
+        permanent.addCounters(CounterType.of("+1/+1").createInstance(amount));
+      }
+    }
+    return true;
+      return true;
+    },
+  },
   "CommuneWithLava::CommuneWithLavaMayPlayEffect": {
     card: "CommuneWithLava",
     effect: "CommuneWithLavaMayPlayEffect",
@@ -2146,6 +2811,44 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
     return false;
+      return true;
+    },
+  },
+  "ConsumingAberration::ConsumingAberrationEffect": {
+    card: "ConsumingAberration",
+    effect: "ConsumingAberrationEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/c/ConsumingAberration.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    for (const opponentId of game.getOpponents(source.getControllerId())) {
+      {
+        let player = game.getPlayer(opponentId);
+        if (player === null) {
+          {
+            continue;
+          }
+        }
+        let cards = makeCards(game.xmageScope(), []);
+        for (const card of player.getLibrary().getCards()) {
+          {
+            if (card !== null) {
+              {
+                cards.add(card);
+                if (card.isLand()) {
+                  {
+                    break;
+                  }
+                }
+              }
+            }
+          }
+        }
+        player.revealCards('', cards);
+        player.moveCards(cards, 'graveyard');
+      }
+    }
+    return true;
       return true;
     },
   },
@@ -2316,6 +3019,40 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "CountrysideCrusher::CountrysideCrusherEffect": {
+    card: "CountrysideCrusher",
+    effect: "CountrysideCrusherEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/c/CountrysideCrusher.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    let sourcePermanent = game.getPermanentOrLKIBattlefield(source.getSourceId());
+    if (controller === null || sourcePermanent === null) {
+      {
+        return false;
+      }
+    }
+    let cards = makeCards(game.xmageScope(), []);
+    for (const card of controller.getLibrary().getCards()) {
+      {
+        cards.add(card);
+        if (card.isLand()) {
+          {
+            controller.moveCards(card, 'graveyard');
+          }
+        } else {
+          {
+            break;
+          }
+        }
+      }
+    }
+    controller.revealCards('', cards);
+    return true;
+      return true;
+    },
+  },
   "CourtOfLocthwain::CourtOfLocthwainCastForFreeEffect": {
     card: "CourtOfLocthwain",
     effect: "CourtOfLocthwainCastForFreeEffect",
@@ -2338,6 +3075,27 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "CraterHellion::CraterHellionEffect": {
+    card: "CraterHellion",
+    effect: "CraterHellionEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/c/CraterHellion.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let permanents = game.getBattlefield().getActivePermanents(StaticFilters.creature(), source.getControllerId());
+    for (const permanent of permanents) {
+      {
+        if (!(permanent.getId() === source.getSourceId())) {
+          {
+            permanent.damage(4, source.getSourceId());
+          }
+        }
+      }
+    }
+    return true;
+      return true;
+    },
+  },
   "Crevasse::CrevasseEffect": {
     card: "Crevasse",
     effect: "CrevasseEffect",
@@ -2346,6 +3104,29 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
     return true;
+      return true;
+    },
+  },
+  "CrownOfConvergence::CrownOfConvergenceEffect": {
+    card: "CrownOfConvergence",
+    effect: "CrownOfConvergenceEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/c/CrownOfConvergence.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller !== null) {
+      {
+        let card = controller.getLibrary().getFromTop();
+        if (card !== null) {
+          {
+            controller.putCardsOnBottomOfLibrary(makeCards(game.xmageScope(), []).add(card));
+          }
+        }
+        return true;
+      }
+    }
+    return false;
       return true;
     },
   },
@@ -2404,6 +3185,38 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       }
     }
     return false;
+      return true;
+    },
+  },
+  "CrushUnderfoot::CrushUnderfootEffect": {
+    card: "CrushUnderfoot",
+    effect: "CrushUnderfootEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/c/CrushUnderfoot.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller === null) {
+      {
+        return false;
+      }
+    }
+    let target = makeTarget(game.xmageScope(), { filter: (StaticFilters.creatureYouControl()) });
+    target.withNotTarget(true);
+    if (!target.canChoose(game, controller.getId()) || !(target.choose(game, '', controller.getId()).length > 0)) {
+      {
+        return false;
+      }
+    }
+    let giant = game.getPermanent(target.getFirstTarget());
+    if (giant === null) {
+      {
+        return false;
+      }
+    }
+    game.informPlayers('' + giant.getName());
+    let targetCreature = game.getPermanent(source.getTargetPointer().getFirst());
+    return targetCreature !== null && targetCreature.damage(giant.getPower().getValue(), source.getSourceId()) > 0;
       return true;
     },
   },
@@ -2525,6 +3338,45 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "CurseOfUnbinding::CurseOfUnbindingEffect": {
+    card: "CurseOfUnbinding",
+    effect: "CurseOfUnbindingEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/c/CurseOfUnbinding.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(game.getActivePlayerId());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    let cards = makeCards(game.xmageScope(), []);
+    let toHand = null;
+    for (const card of player.getLibrary().getCards()) {
+      {
+        cards.add(card);
+        if (card.isCreature()) {
+          {
+            toHand = card;
+            break;
+          }
+        }
+      }
+    }
+    player.revealCards('', cards);
+    let controller = game.getPlayer(source.getControllerId());
+    if (toHand !== null && controller !== null) {
+      {
+        controller.moveCards(toHand, 'battlefield');
+      }
+    }
+    cards.retainZone('library');
+    player.moveCards(cards, 'graveyard');
+    return true;
+      return true;
+    },
+  },
   "CyberdriveAwakener::CyberdriveAwakenerEffect": {
     card: "CyberdriveAwakener",
     effect: "CyberdriveAwakenerEffect",
@@ -2532,6 +3384,26 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     source: "Mage.Sets/src/mage/cards/c/CyberdriveAwakener.java",
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
+    return false;
+      return true;
+    },
+  },
+  "CyclopsGladiator::CyclopsGladiatorEffect": {
+    card: "CyclopsGladiator",
+    effect: "CyclopsGladiatorEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/c/CyclopsGladiator.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let permanent = game.getPermanent(source.getTargetPointer().getFirst());
+    let cyclops = game.getPermanent(source.getSourceId());
+    if (permanent !== null && cyclops !== null) {
+      {
+        permanent.damage(cyclops.getPower().getValue(), cyclops.getId());
+        cyclops.damage(permanent.getPower().getValue(), permanent.getId());
+        return true;
+      }
+    }
     return false;
       return true;
     },
@@ -2858,6 +3730,41 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "DecreeOfAnnihilation::DecreeOfAnnihilationEffect": {
+    card: "DecreeOfAnnihilation",
+    effect: "DecreeOfAnnihilationEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/d/DecreeOfAnnihilation.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller === null) {
+      {
+        return false;
+      }
+    }
+    let cards = makeCards(game.xmageScope(), []);
+    for (const permanent of game.getBattlefield().getActivePermanents((makeFilter('permanent').add(Predicates.or(cardTypePredicate("artifact"), cardTypePredicate("creature"), cardTypePredicate("land")))), source.getControllerId())) {
+      {
+        cards.add(permanent);
+      }
+    }
+    for (const playerId of game.getState().getPlayersInRange(source.getControllerId())) {
+      {
+        let player = game.getPlayer(playerId);
+        if (player === null) {
+          {
+            continue;
+          }
+        }
+        cards.addAll(player.getHand());
+        cards.addAll(player.getGraveyard());
+      }
+    }
+    return controller.moveCards(cards, 'exile');
+      return true;
+    },
+  },
   "DecreeOfPain::DecreeOfPainEffect": {
     card: "DecreeOfPain",
     effect: "DecreeOfPainEffect",
@@ -2944,6 +3851,33 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "DemonicBargain::DemonicBargainEffect": {
+    card: "DemonicBargain",
+    effect: "DemonicBargainEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/d/DemonicBargain.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    player.moveCards(player.getLibrary().getTopCards(13), 'exile');
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), zone: "library" });
+    (player.searchLibrary('', target).length > 0);
+    let card = player.getLibrary().getCard(target.getFirstTarget());
+    if (card !== null) {
+      {
+        player.moveCards(card, 'hand');
+      }
+    }
+    player.shuffleLibrary();
+    return true;
+      return true;
+    },
+  },
   "DemonicEmbrace::DemonicEmbracePlayEffect": {
     card: "DemonicEmbrace",
     effect: "DemonicEmbracePlayEffect",
@@ -2951,6 +3885,48 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     source: "Mage.Sets/src/mage/cards/d/DemonicEmbrace.java",
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
+    return true;
+      return true;
+    },
+  },
+  "DemonlordBelzenlok::DemonlordBelzenlokEffect": {
+    card: "DemonlordBelzenlok",
+    effect: "DemonlordBelzenlokEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/d/DemonlordBelzenlok.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    let permanent = game.getPermanentOrLKIBattlefield(source.getSourceId());
+    if (controller === null || permanent === null) {
+      {
+        return false;
+      }
+    }
+    let cont = true;
+    let addedToHand = 0;
+    while (controller.getLibrary().hasCards() && cont) {
+      {
+        let card = controller.getLibrary().getFromTop();
+        if (card !== null) {
+          {
+            controller.moveCards(card, 'exile');
+            if (!card.isLand()) {
+              {
+                if (card.getManaValue() < 4) {
+                  {
+                    cont = false;
+                  }
+                }
+                controller.moveCards(card, 'hand');
+                addedToHand++;
+              }
+            }
+          }
+        }
+      }
+    }
+    controller.damage(addedToHand, source.getSourceId());
     return true;
       return true;
     },
@@ -3014,6 +3990,46 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
             return true;
           }
         }
+      }
+    }
+    return false;
+      return true;
+    },
+  },
+  "DestroyTheEvidence::DestroyTheEvidenceEffect": {
+    card: "DestroyTheEvidence",
+    effect: "DestroyTheEvidenceEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/d/DestroyTheEvidence.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let landPermanent = game.getPermanentOrLKIBattlefield(source.getTargetPointer().getFirst());
+    if (landPermanent !== null) {
+      {
+        let player = game.getPlayer(landPermanent.getControllerId());
+        if (player === null) {
+          {
+            return false;
+          }
+        }
+        let cards = makeCards(game.xmageScope(), []);
+        for (const card of player.getLibrary().getCards()) {
+          {
+            if (card !== null) {
+              {
+                cards.add(card);
+                if (card.isLand()) {
+                  {
+                    break;
+                  }
+                }
+              }
+            }
+          }
+        }
+        player.revealCards('', cards);
+        player.moveCards(cards, 'graveyard');
+        return true;
       }
     }
     return false;
@@ -3085,6 +4101,37 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "DimensionalInfiltrator::DimensionalInfiltratorEffect": {
+    card: "DimensionalInfiltrator",
+    effect: "DimensionalInfiltratorEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/d/DimensionalInfiltrator.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    let opponent = game.getPlayer(source.getFirstTarget());
+    if (player === null || opponent === null) {
+      {
+        return false;
+      }
+    }
+    let card = opponent.getLibrary().getFromTop();
+    if (card === null) {
+      {
+        return false;
+      }
+    }
+    player.moveCards(card, 'exile');
+    if (!card.isLand()) {
+      {
+        return true;
+      }
+    }
+    let permanent = source.getSourcePermanentIfItStillExists(game);
+    return permanent !== null && player.chooseUse('') && player.moveCards(permanent, 'hand');
+      return true;
+    },
+  },
   "DimirCutpurse::DimirCutpurseEffect": {
     card: "DimirCutpurse",
     effect: "DimirCutpurseEffect",
@@ -3104,6 +4151,44 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         you.drawCards(1);
       }
     }
+    return true;
+      return true;
+    },
+  },
+  "DinasGuidance::DinasGuidanceEffect": {
+    card: "DinasGuidance",
+    effect: "DinasGuidanceEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/d/DinasGuidance.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller === null) {
+      {
+        return false;
+      }
+    }
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.creatureCard(), zone: "library" });
+    if ((controller.searchLibrary('', target).length > 0)) {
+      {
+        let card = game.getCard(target.getFirstTarget());
+        if (card !== null) {
+          {
+            controller.revealCards('', makeCards(game.xmageScope(), []).add(card));
+            if (controller.chooseUse('')) {
+              {
+                controller.moveCards(card, 'hand');
+              }
+            } else {
+              {
+                controller.moveCards(card, 'graveyard');
+              }
+            }
+          }
+        }
+      }
+    }
+    controller.shuffleLibrary();
     return true;
       return true;
     },
@@ -3498,6 +4583,26 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "DrasticRevelation::DrasticRevelationEffect": {
+    card: "DrasticRevelation",
+    effect: "DrasticRevelationEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/d/DrasticRevelation.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let you = game.getPlayer(source.getControllerId());
+    if (you === null) {
+      {
+        return false;
+      }
+    }
+    you.discardCards(you.getHand());
+    you.drawCards(7);
+    you.discard(3);
+    return false;
+      return true;
+    },
+  },
   "DraugrNecromancer::DraugrNecromancerCastFromExileEffect": {
     card: "DraugrNecromancer",
     effect: "DraugrNecromancerCastFromExileEffect",
@@ -3517,6 +4622,41 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
     return true;
+      return true;
+    },
+  },
+  "DreamCache::DreamCacheEffect": {
+    card: "DreamCache",
+    effect: "DreamCacheEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/d/DreamCache.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller !== null) {
+      {
+        controller.drawCards(3);
+        let putOnTop = controller.chooseUse('');
+        let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), min: 2, max: 2, zone: "hand" });
+        (target.choose(game, '', controller.getId()).length > 0);
+        let cardsToLibrary = makeCards(game.xmageScope(), []).addAll(target.getTargets());
+        if (!cardsToLibrary.isEmpty()) {
+          {
+            if (putOnTop) {
+              {
+                controller.putCardsOnTopOfLibrary(cardsToLibrary);
+              }
+            } else {
+              {
+                controller.putCardsOnBottomOfLibrary(cardsToLibrary);
+              }
+            }
+          }
+        }
+        return true;
+      }
+    }
+    return false;
       return true;
     },
   },
@@ -3552,6 +4692,36 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
     return false;
+      return true;
+    },
+  },
+  "DuskmantleSeer::DuskmantleSeerEffect": {
+    card: "DuskmantleSeer",
+    effect: "DuskmantleSeerEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/d/DuskmantleSeer.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    for (const playerId of game.getState().getPlayersInRange(source.getControllerId())) {
+      {
+        let player = game.getPlayer(playerId);
+        if (player === null) {
+          {
+            continue;
+          }
+        }
+        let card = player.getLibrary().getFromTop();
+        if (card === null) {
+          {
+            continue;
+          }
+        }
+        player.revealCards('', makeCards(game.xmageScope(), []).add(card));
+        player.loseLife(card.getManaValue());
+        player.moveCards(card, 'hand');
+      }
+    }
+    return true;
       return true;
     },
   },
@@ -3928,6 +5098,34 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "EndlessWhispers::ReturnSourceToBattlefieldEffect": {
+    card: "EndlessWhispers",
+    effect: "ReturnSourceToBattlefieldEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/e/EndlessWhispers.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    if (game.getState().getZone(source.getSourceId()) !== 'graveyard') {
+      {
+        return false;
+      }
+    }
+    let card = game.getCard(source.getSourceId());
+    if (card === null) {
+      {
+        return false;
+      }
+    }
+    let player = game.getPlayer(source.getFirstTarget());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    return player.moveCards(card, 'battlefield');
+      return true;
+    },
+  },
   "Endurance::EnduranceEffect": {
     card: "Endurance",
     effect: "EnduranceEffect",
@@ -3980,6 +5178,56 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
             }
           }
         }
+      }
+    }
+    return false;
+      return true;
+    },
+  },
+  "ErraticExplosion::ErraticExplosionEffect": {
+    card: "ErraticExplosion",
+    effect: "ErraticExplosionEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/e/ErraticExplosion.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller !== null) {
+      {
+        let toReveal = makeCards(game.xmageScope(), []);
+        let nonLandCard = null;
+        for (const card of controller.getLibrary().getCards()) {
+          {
+            toReveal.add(card);
+            if (!card.isLand()) {
+              {
+                nonLandCard = card;
+                break;
+              }
+            }
+          }
+        }
+        controller.revealCards('', toReveal);
+        if (nonLandCard !== null) {
+          {
+            let targetCreature = game.getPermanent(source.getTargetPointer().getFirst());
+            if (targetCreature !== null) {
+              {
+                targetCreature.damage(nonLandCard.getManaValue(), source.getSourceId());
+              }
+            } else {
+              {
+                let targetPlayer = game.getPlayer(source.getTargetPointer().getFirst());
+                if (targetPlayer !== null) {
+                  {
+                    targetPlayer.damage(nonLandCard.getManaValue(), source.getSourceId());
+                  }
+                }
+              }
+            }
+          }
+        }
+        return controller.putCardsOnBottomOfLibrary(toReveal);
       }
     }
     return false;
@@ -4236,6 +5484,44 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "FathomFeeder::FathomFeederEffect": {
+    card: "FathomFeeder",
+    effect: "FathomFeederEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/f/FathomFeeder.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    for (const opponentId of game.getOpponents(source.getControllerId())) {
+      {
+        let player = game.getPlayer(opponentId);
+        if (player !== null) {
+          {
+            let card = player.getLibrary().getFromTop();
+            if (card !== null) {
+              {
+                player.moveCards(card, 'exile');
+              }
+            }
+          }
+        }
+      }
+    }
+    return true;
+      return true;
+    },
+  },
+  "FearOfImmobility::FearOfImmobilityEffect": {
+    card: "FearOfImmobility",
+    effect: "FearOfImmobilityEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/f/FearOfImmobility.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let permanent = game.getPermanent(source.getTargetPointer().getFirst());
+    return permanent !== null && game.getOpponents(source.getControllerId()).includes(permanent.getControllerId()) && permanent.addCounters(CounterType.of("stun").createInstance());
+      return true;
+    },
+  },
   "FearsomeAwakening::FearsomeAwakeningEffect": {
     card: "FearsomeAwakening",
     effect: "FearsomeAwakeningEffect",
@@ -4365,6 +5651,39 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "FieldOfRuin::FieldOfRuinEffect": {
+    card: "FieldOfRuin",
+    effect: "FieldOfRuinEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/f/FieldOfRuin.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller !== null) {
+      {
+        for (const playerId of game.getState().getPlayersInRange(controller.getId())) {
+          {
+            let player = game.getPlayer(playerId);
+            if (player !== null) {
+              {
+                let target = makeTarget(game.xmageScope(), { filter: StaticFilters.basicLandCard(), min: 0, max: 1, zone: "library" });
+                if ((player.searchLibrary('', target).length > 0)) {
+                  {
+                    player.moveCards(makeCards(game.xmageScope(), []).addAll(target.getTargets()).getCards(), 'battlefield');
+                    player.shuffleLibrary();
+                  }
+                }
+              }
+            }
+          }
+        }
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
   "FireGiantsFury::FireGiantsFuryMayPlayEffect": {
     card: "FireGiantsFury",
     effect: "FireGiantsFuryMayPlayEffect",
@@ -4372,6 +5691,36 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     source: "Mage.Sets/src/mage/cards/f/FireGiantsFury.java",
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
+    return true;
+      return true;
+    },
+  },
+  "FireProphecy::FireProphecyEffect": {
+    card: "FireProphecy",
+    effect: "FireProphecyEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/f/FireProphecy.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player === null || player.getHand().isEmpty() || !player.chooseUse('')) {
+      {
+        return false;
+      }
+    }
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), zone: "hand" });
+    (target.choose(game, '', player.getId(), player.getHand().ids()).length > 0);
+    let card = game.getCard(target.getFirstTarget());
+    if (card === null) {
+      {
+        return false;
+      }
+    }
+    if (player.putCardsOnBottomOfLibrary(card)) {
+      {
+        player.drawCards(1);
+      }
+    }
     return true;
       return true;
     },
@@ -4398,6 +5747,120 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "FolioOfFancies::FolioOfFanciesEffect": {
+    card: "FolioOfFancies",
+    effect: "FolioOfFanciesEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/f/FolioOfFancies.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller === null) {
+      {
+        return false;
+      }
+    }
+    for (const playerId of game.getOpponents(source.getControllerId())) {
+      {
+        let player = game.getPlayer(playerId);
+        if (player === null) {
+          {
+            continue;
+          }
+        }
+        player.millCards(player.getHand().size());
+      }
+    }
+    return true;
+      return true;
+    },
+  },
+  "ForceDrain::ForceDrainEffect": {
+    card: "ForceDrain",
+    effect: "ForceDrainEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/f/ForceDrain.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller !== null) {
+      {
+        let permanent = game.getPermanent(source.getTargetPointer().getFirst());
+        if (permanent !== null) {
+          {
+            permanent.damage(2, source.getId());
+            return true;
+          }
+        }
+        let player = game.getPlayer(source.getTargetPointer().getFirst());
+        if (player !== null) {
+          {
+            if (player.damage(2, source.getId()) > 0) {
+              {
+                controller.gainLife(2);
+              }
+            }
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+      return true;
+    },
+  },
+  "ForceMastery::ForceMasteryEffect": {
+    card: "ForceMastery",
+    effect: "ForceMasteryEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/f/ForceMastery.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller !== null) {
+      {
+        let card = controller.getLibrary().getFromTop();
+        if (card !== null) {
+          {
+            controller.revealCards('', makeCards(game.xmageScope(), []).add(card));
+            controller.moveCards(card, 'hand');
+            controller.gainLife(card.getManaValue());
+          }
+        }
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
+  "ForgeOfHeroes::ForgeOfHeroesEffect": {
+    card: "ForgeOfHeroes",
+    effect: "ForgeOfHeroesEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/f/ForgeOfHeroes.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let permanent = game.getPermanent(source.getTargetPointer().getFirst());
+    if (permanent === null) {
+      {
+        return false;
+      }
+    }
+    if (permanent.isCreature()) {
+      {
+        permanent.addCounters(CounterType.of("+1/+1").createInstance());
+      }
+    }
+    if (permanent.isPlaneswalker()) {
+      {
+        permanent.addCounters(CounterType.of("loyalty").createInstance());
+      }
+    }
+    return true;
+      return true;
+    },
+  },
   "ForgottenCreation::ForgottenCreationEffect": {
     card: "ForgottenCreation",
     effect: "ForgottenCreationEffect",
@@ -4413,6 +5876,30 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
           {
             controller.discard(cardsInHand);
             controller.drawCards(cardsInHand);
+          }
+        }
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
+  "FormOfTheDinosaur::FormOfTheDinosaurEffect": {
+    card: "FormOfTheDinosaur",
+    effect: "FormOfTheDinosaurEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/f/FormOfTheDinosaur.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller !== null) {
+      {
+        let targetCreature = game.getPermanent(source.getTargetPointer().getFirst());
+        if (targetCreature !== null) {
+          {
+            targetCreature.damage(15, source.getSourceId());
+            controller.damage(targetCreature.getPower().getValue(), targetCreature.getId());
           }
         }
         return true;
@@ -4569,6 +6056,24 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "GallifreyStands::GallifreyStandsReturnEffect": {
+    card: "GallifreyStands",
+    effect: "GallifreyStandsReturnEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/g/GallifreyStands.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    let cards = makeCards(game.xmageScope(), []).addAll(makeCards(game.xmageScope(), player.getGraveyard().ids()).retain((StaticFilters.card().add(subTypePredicate("doctor")))).getCards());
+    return player.moveCards(cards, 'hand');
+      return true;
+    },
+  },
   "GalvanicRelay::GalvanicRelayMayPlayEffect": {
     card: "GalvanicRelay",
     effect: "GalvanicRelayMayPlayEffect",
@@ -4609,6 +6114,70 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     let permanent = source.getSourcePermanentIfItStillExists(game);
     let creature = game.getPermanentOrLKIBattlefield(source.getTargetPointer().getFirst());
     return permanent !== null && creature !== null && permanent.damage(creature.getPower().getValue(), creature.getId()) > 0;
+      return true;
+    },
+  },
+  "GarrukSavageHerald::GarrukSavageHeraldEffect": {
+    card: "GarrukSavageHerald",
+    effect: "GarrukSavageHeraldEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/g/GarrukSavageHerald.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    let card = player.getLibrary().getFromTop();
+    if (card === null) {
+      {
+        return false;
+      }
+    }
+    player.revealCards('', makeCards(game.xmageScope(), []).add(card));
+    if (card.isCreature()) {
+      {
+        return player.moveCards(card, 'hand');
+      }
+    } else {
+      {
+        return player.putCardsOnBottomOfLibrary(card);
+      }
+    }
+      return true;
+    },
+  },
+  "GateToTheAether::GateToTheAetherEffect": {
+    card: "GateToTheAether",
+    effect: "GateToTheAetherEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/g/GateToTheAether.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let activePlayer = game.getPlayer(source.getTargetPointer().getFirst());
+    if (activePlayer !== null) {
+      {
+        let card = activePlayer.getLibrary().getFromTop();
+        if (card !== null) {
+          {
+            activePlayer.revealCards('', makeCards(game.xmageScope(), []).add(card));
+            if (card.isArtifact() || card.isCreature() || card.isEnchantment() || card.isLand()) {
+              {
+                if (activePlayer.chooseUse('')) {
+                  {
+                    activePlayer.moveCards(card, 'battlefield');
+                  }
+                }
+              }
+            }
+          }
+        }
+        return true;
+      }
+    }
+    return false;
       return true;
     },
   },
@@ -4704,6 +6273,26 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       }
     }
     targetCreature.destroy(false);
+    return true;
+      return true;
+    },
+  },
+  "GhaltaStampedeTyrant::GhaltaStampedeTyrantEffect": {
+    card: "GhaltaStampedeTyrant",
+    effect: "GhaltaStampedeTyrantEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/g/GhaltaStampedeTyrant.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.creatureCard(), min: 0, max: 0, zone: "hand" });
+    (target.choose(game, '', player.getId()).length > 0);
+    player.moveCards(makeCards(game.xmageScope(), []).addAll(target.getTargets()), 'battlefield');
     return true;
       return true;
     },
@@ -4950,6 +6539,31 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "GoblinTinkerer::GoblinTinkererDamageEffect": {
+    card: "GoblinTinkerer",
+    effect: "GoblinTinkererDamageEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/g/GoblinTinkerer.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    let targetArtifact = game.getPermanentOrLKIBattlefield(source.getTargetPointer().getFirst());
+    if (controller !== null && targetArtifact !== null) {
+      {
+        let sourceObject = game.getPermanent(source.getSourceId());
+        let damage = targetArtifact.getManaValue();
+        if (sourceObject !== null && damage > 0) {
+          {
+            sourceObject.damage(damage, targetArtifact.getId());
+          }
+        }
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
   "GoblinWelder::GoblinWelderEffect": {
     card: "GoblinWelder",
     effect: "GoblinWelderEffect",
@@ -5087,6 +6701,79 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "GraveyardTrespasser::GraveyardTrespasserEffect": {
+    card: "GraveyardTrespasser",
+    effect: "GraveyardTrespasserEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/g/GraveyardTrespasser.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    let cards = makeCards(game.xmageScope(), []).addAll(source.getTargetPointer().getTargets());
+    if (player === null || cards.isEmpty()) {
+      {
+        return false;
+      }
+    }
+    player.moveCards(cards, 'exile');
+    let amount = makeCards(game.xmageScope(), cards.ids()).retain(StaticFilters.creatureCard()).size();
+    if (amount < 1) {
+      {
+        return true;
+      }
+    }
+    game.processAction();
+    player.gainLife(amount);
+    for (const opponentId of game.getOpponents(source.getControllerId())) {
+      {
+        let opponent = game.getPlayer(opponentId);
+        if (opponent !== null) {
+          {
+            opponent.loseLife(amount);
+          }
+        }
+      }
+    }
+    return true;
+      return true;
+    },
+  },
+  "GraveyardTrespasser::GraveyardGluttonEffect": {
+    card: "GraveyardTrespasser",
+    effect: "GraveyardGluttonEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/g/GraveyardTrespasser.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    let cards = makeCards(game.xmageScope(), []).addAll(source.getTargetPointer().getTargets());
+    if (player === null || cards.isEmpty()) {
+      {
+        return false;
+      }
+    }
+    player.moveCards(cards, 'exile');
+    let amount = makeCards(game.xmageScope(), cards.ids()).retain(StaticFilters.creatureCard()).size();
+    if (amount < 1) {
+      {
+        return true;
+      }
+    }
+    player.gainLife(amount);
+    for (const opponentId of game.getOpponents(source.getControllerId())) {
+      {
+        let opponent = game.getPlayer(opponentId);
+        if (opponent !== null) {
+          {
+            opponent.loseLife(amount);
+          }
+        }
+      }
+    }
+    return true;
+      return true;
+    },
+  },
   "GravityWell::GravityWellEffect": {
     card: "GravityWell",
     effect: "GravityWellEffect",
@@ -5142,6 +6829,43 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "GrenzoDungeonWarden::GrenzoDungeonWardenEffect": {
+    card: "GrenzoDungeonWarden",
+    effect: "GrenzoDungeonWardenEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/g/GrenzoDungeonWarden.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller !== null) {
+      {
+        if (controller.getLibrary().hasCards()) {
+          {
+            let card = controller.getLibrary().getFromBottom();
+            if (card !== null) {
+              {
+                controller.moveCards(card, 'graveyard');
+                if (card.isCreature()) {
+                  {
+                    let sourcePermanent = game.getPermanentOrLKIBattlefield(source.getSourceId());
+                    if (sourcePermanent !== null && card.getPower().getValue() <= sourcePermanent.getPower().getValue()) {
+                      {
+                        controller.moveCards(card, 'battlefield');
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
   "GreyKnightParagon::GreyKnightParagonEffect": {
     card: "GreyKnightParagon",
     effect: "GreyKnightParagonEffect",
@@ -5177,6 +6901,30 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "Grindclock::GrindclockEffect": {
+    card: "Grindclock",
+    effect: "GrindclockEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/g/Grindclock.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let sourceObject = game.getPermanentOrLKIBattlefield(source.getSourceId());
+    if (sourceObject !== null) {
+      {
+        let amount = sourceObject.getCounters().getCount(CounterType.of("charge"));
+        let targetPlayer = game.getPlayer(source.getFirstTarget());
+        if (targetPlayer !== null) {
+          {
+            targetPlayer.millCards(amount);
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+      return true;
+    },
+  },
   "GristTheHungerTide::GristTheHungerTideTypeEffect": {
     card: "GristTheHungerTide",
     effect: "GristTheHungerTideTypeEffect",
@@ -5195,6 +6943,24 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     source: "Mage.Sets/src/mage/cards/g/GrolnokTheOmnivore.java",
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
+    return true;
+      return true;
+    },
+  },
+  "GrubsCommand::GrubsCommandMillEffect": {
+    card: "GrubsCommand",
+    effect: "GrubsCommandMillEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/g/GrubsCommand.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getTargetPointer().getFirst());
+    if (player === null || !player.getLibrary().hasCards()) {
+      {
+        return false;
+      }
+    }
+    player.moveCards(makeCards(game.xmageScope(), player.millCards(5).ids()).retain((StaticFilters.card())).getCards(), 'hand');
     return true;
       return true;
     },
@@ -5406,6 +7172,27 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "HarnessInfinity::HarnessInfinityEffect": {
+    card: "HarnessInfinity",
+    effect: "HarnessInfinityEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/h/HarnessInfinity.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    let hand = makeCards(game.xmageScope(), []).addAll(player.getHand());
+    let graveyard = makeCards(game.xmageScope(), []).addAll(player.getGraveyard());
+    player.moveCards(hand, 'graveyard');
+    player.moveCards(graveyard, 'hand');
+    return true;
+      return true;
+    },
+  },
   "HaroldAndBobFirstNumens::HaroldAndBobContinuousEffect": {
     card: "HaroldAndBobFirstNumens",
     effect: "HaroldAndBobContinuousEffect",
@@ -5570,6 +7357,66 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "HiredGiant::HiredGiantEffect": {
+    card: "HiredGiant",
+    effect: "HiredGiantEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/h/HiredGiant.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller !== null) {
+      {
+        let playersThatSearched = [];
+        for (const playerId of game.getState().getPlayersInRange(controller.getId())) {
+          {
+            if (!(playerId === controller.getId())) {
+              {
+                let player = game.getPlayer(playerId);
+                if (player !== null && player.chooseUse('')) {
+                  {
+                    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.landCard(), zone: "library" });
+                    if ((player.searchLibrary('', target).length > 0)) {
+                      {
+                        let targetCard = player.getLibrary().getCard(target.getFirstTarget());
+                        if (targetCard !== null) {
+                          {
+                            player.moveCards(targetCard, 'battlefield');
+                            playersThatSearched.push(player);
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        for (const player of playersThatSearched) {
+          {
+            player.shuffleLibrary();
+          }
+        }
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
+  "HogMonkeyRampage::HogMonkeyRampageEffect": {
+    card: "HogMonkeyRampage",
+    effect: "HogMonkeyRampageEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/h/HogMonkeyRampage.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let permanent = game.getPermanent(source.getTargetPointer().getFirst());
+    return permanent !== null && permanent.getPower().getValue() >= 4 && permanent.addCounters(CounterType.of("+1/+1").createInstance());
+      return true;
+    },
+  },
   "HoldForRansom::HoldForRansomSacrificeEffect": {
     card: "HoldForRansom",
     effect: "HoldForRansomSacrificeEffect",
@@ -5625,6 +7472,52 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     source: "Mage.Sets/src/mage/cards/h/HonestWork.java",
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
+    return false;
+      return true;
+    },
+  },
+  "HourOfGlory::HourOfGloryEffect": {
+    card: "HourOfGlory",
+    effect: "HourOfGloryEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/h/HourOfGlory.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    let sourceObject = source.getSourceObject(game);
+    if (controller !== null && sourceObject !== null) {
+      {
+        let targetCreature = game.getPermanent(source.getTargetPointer().getFirst());
+        if (targetCreature !== null) {
+          {
+            controller.moveCards(targetCreature, 'exile');
+            if (targetCreature.hasSubtype("god")) {
+              {
+                game.processAction();
+                let targetController = game.getPlayer(targetCreature.getControllerId());
+                if (targetController !== null) {
+                  {
+                    targetController.revealCards('', targetController.getHand());
+                    let toExile = [];
+                    for (const card of targetController.getHand().getCards()) {
+                      {
+                        if ((card.getName() === targetCreature.getName())) {
+                          {
+                            toExile.push(card);
+                          }
+                        }
+                      }
+                    }
+                    targetController.moveCards(toExile, 'exile');
+                  }
+                }
+              }
+            }
+          }
+        }
+        return true;
+      }
+    }
     return false;
       return true;
     },
@@ -5727,6 +7620,27 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
     return true;
+      return true;
+    },
+  },
+  "IdentityCrisis::IdentityCrisisEffect": {
+    card: "IdentityCrisis",
+    effect: "IdentityCrisisEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/i/IdentityCrisis.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getFirstTarget());
+    let player = game.getPlayer(source.getFirstTarget());
+    if (controller === null || player === null) {
+      {
+        return false;
+      }
+    }
+    let cards = makeCards(game.xmageScope(), []);
+    cards.addAll(player.getHand());
+    cards.addAll(player.getGraveyard());
+    return controller.moveCards(cards, 'exile');
       return true;
     },
   },
@@ -5928,6 +7842,42 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "InnerStruggle::InnerStruggleEffect": {
+    card: "InnerStruggle",
+    effect: "InnerStruggleEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/i/InnerStruggle.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller !== null) {
+      {
+        let targetCreature = game.getPermanent(source.getTargetPointer().getFirst());
+        if (targetCreature !== null) {
+          {
+            targetCreature.damage(targetCreature.getPower().getValue(), targetCreature.getId());
+          }
+        }
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
+  "InspiritFlagshipVessel::InspiritFlagshipVesselEffect": {
+    card: "InspiritFlagshipVessel",
+    effect: "InspiritFlagshipVesselEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/i/InspiritFlagshipVessel.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    let permanent = game.getPermanent(source.getTargetPointer().getFirst());
+    return player !== null && permanent !== null && permanent.addCounters((player.chooseUse('') ? CounterType.of("+1/+1").createInstance() : CounterType.of("charge").createInstance(2)));
+      return true;
+    },
+  },
   "InstillEnergy::CanAttackAsThoughItHadHasteEnchantedEffect": {
     card: "InstillEnergy",
     effect: "CanAttackAsThoughItHadHasteEnchantedEffect",
@@ -5994,6 +7944,64 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "InvincibleHymn::InvincibleHymnEffect": {
+    card: "InvincibleHymn",
+    effect: "InvincibleHymnEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/i/InvincibleHymn.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player !== null) {
+      {
+        let newValue = player.getLibrary().size();
+        let oldValue = player.getLife();
+        if (newValue - oldValue > 0) {
+          {
+            player.gainLife(newValue - oldValue);
+          }
+        }
+        if (oldValue - newValue > 0) {
+          {
+            player.loseLife(oldValue - newValue);
+          }
+        }
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
+  "IronLadDivergingDestiny::IronLadDivergingDestinyEffect": {
+    card: "IronLadDivergingDestiny",
+    effect: "IronLadDivergingDestinyEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/i/IronLadDivergingDestiny.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    let card = player.getLibrary().getFromTop();
+    if (card === null) {
+      {
+        return true;
+      }
+    }
+    player.revealCards('', makeCards(game.xmageScope(), []).add(card));
+    if (card.isArtifact()) {
+      {
+        player.drawCards(1);
+      }
+    }
+    return true;
+      return true;
+    },
+  },
   "IronMaiden::IronMaidenEffect": {
     card: "IronMaiden",
     effect: "IronMaidenEffect",
@@ -6017,6 +8025,33 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "IsildursFatefulStrike::IsildursFatefulStrikeEffect": {
+    card: "IsildursFatefulStrike",
+    effect: "IsildursFatefulStrikeEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/i/IsildursFatefulStrike.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let permanent = game.getPermanent(source.getTargetPointer().getFirst());
+    if (permanent === null) {
+      {
+        return false;
+      }
+    }
+    permanent.destroy();
+    let player = game.getPlayer(permanent.getControllerId());
+    if (player === null || player.getHand().size() <= 4) {
+      {
+        return true;
+      }
+    }
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), min: player.getHand().size() - 4, max: player.getHand().size() - 4, zone: "hand" });
+    (target.choose(game, '', player.getId(), player.getHand().ids()).length > 0);
+    player.moveCards(makeCards(game.xmageScope(), []).addAll(target.getTargets()), 'exile');
+    return true;
+      return true;
+    },
+  },
   "IvoryTower::IvoryTowerEffect": {
     card: "IvoryTower",
     effect: "IvoryTowerEffect",
@@ -6033,6 +8068,27 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
             player.gainLife(amount);
           }
         }
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
+  "JaceTheMindSculptor::JaceTheMindSculptorEffect2": {
+    card: "JaceTheMindSculptor",
+    effect: "JaceTheMindSculptorEffect2",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/j/JaceTheMindSculptor.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    let targetPlayer = game.getPlayer(source.getFirstTarget());
+    if (controller !== null && targetPlayer !== null) {
+      {
+        controller.moveCards(targetPlayer.getLibrary().getTopCards(targetPlayer.getLibrary().size()), 'exile');
+        targetPlayer.moveCards(targetPlayer.getHand(), 'library');
+        targetPlayer.shuffleLibrary();
         return true;
       }
     }
@@ -6070,6 +8126,25 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
     return true;
+      return true;
+    },
+  },
+  "JadziOracleOfArcavios::JourneyToTheOracleEffect": {
+    card: "JadziOracleOfArcavios",
+    effect: "JourneyToTheOracleEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/j/JadziOracleOfArcavios.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.landCard(), min: 0, max: 0, zone: "hand" });
+    (target.choose(game, '', player.getId()).length > 0);
+    return player.moveCards(makeCards(game.xmageScope(), []).addAll(target.getTargets()), 'battlefield');
       return true;
     },
   },
@@ -6150,6 +8225,78 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       }
     }
     return false;
+      return true;
+    },
+  },
+  "JusticeStrike::JusticeStrikeEffect": {
+    card: "JusticeStrike",
+    effect: "JusticeStrikeEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/j/JusticeStrike.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let permanent = game.getPermanent(source.getFirstTarget());
+    if (permanent === null) {
+      {
+        return false;
+      }
+    }
+    return permanent.damage(permanent.getPower().getValue(), permanent.getId()) > 0;
+      return true;
+    },
+  },
+  "Kaboom::KaboomEffect": {
+    card: "Kaboom",
+    effect: "KaboomEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/k/Kaboom.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller === null) {
+      {
+        return false;
+      }
+    }
+    for (const targetId of source.getTargetPointer().getTargets()) {
+      {
+        let toReveal = makeCards(game.xmageScope(), []);
+        let nonland = null;
+        for (const card of controller.getLibrary().getCards()) {
+          {
+            toReveal.add(card);
+            if (!card.isLand()) {
+              {
+                nonland = card;
+                break;
+              }
+            }
+          }
+        }
+        controller.revealCards('', toReveal);
+        if (nonland !== null) {
+          {
+            let planeswalker = game.getPermanent(targetId);
+            if (planeswalker !== null) {
+              {
+                planeswalker.damage(nonland.getManaValue());
+              }
+            } else {
+              {
+                let targetPlayer = game.getPlayer(targetId);
+                if (targetPlayer !== null) {
+                  {
+                    targetPlayer.damage(nonland.getManaValue());
+                  }
+                }
+              }
+            }
+          }
+        }
+        controller.putCardsOnBottomOfLibrary(toReveal);
+      }
+    }
+    return true;
       return true;
     },
   },
@@ -6442,6 +8589,47 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "KikuNightsFlower::KikuNightsFlowerEffect": {
+    card: "KikuNightsFlower",
+    effect: "KikuNightsFlowerEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/k/KikuNightsFlower.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let permanent = game.getPermanent(source.getTargetPointer().getFirst());
+    if (permanent !== null) {
+      {
+        permanent.damage(permanent.getPower().getValue(), permanent.getId());
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
+  "KikusShadow::KikusShadowEffect": {
+    card: "KikusShadow",
+    effect: "KikusShadowEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/k/KikusShadow.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller !== null) {
+      {
+        let targetCreature = game.getPermanent(source.getTargetPointer().getFirst());
+        if (targetCreature !== null) {
+          {
+            targetCreature.damage(targetCreature.getPower().getValue(), source.getSourceId());
+          }
+        }
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
   "KnacksawClique::KnacksawCliqueCastFromExileEffect": {
     card: "KnacksawClique",
     effect: "KnacksawCliqueCastFromExileEffect",
@@ -6449,6 +8637,71 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     source: "Mage.Sets/src/mage/cards/k/KnacksawClique.java",
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
+    return true;
+      return true;
+    },
+  },
+  "KnowledgePool::KnowledgePoolExileThreeCardsEffect": {
+    card: "KnowledgePool",
+    effect: "KnowledgePoolExileThreeCardsEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/k/KnowledgePool.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller === null) {
+      {
+        return false;
+      }
+    }
+    let sourceObject = game.getObject(source.getSourceId());
+    if (sourceObject === null) {
+      {
+        return false;
+      }
+    }
+    for (const playerId of game.getState().getPlayersInRange(controller.getId())) {
+      {
+        let player = game.getPlayer(playerId);
+        if (player === null) {
+          {
+            continue;
+          }
+        }
+        player.moveCardsToExile(player.getLibrary().getTopCards(3));
+      }
+    }
+    return true;
+      return true;
+    },
+  },
+  "KrangAndShredder::KrangAndShredderExileEffect": {
+    card: "KrangAndShredder",
+    effect: "KrangAndShredderExileEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/k/KrangAndShredder.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    for (const opponentId of game.getOpponents(source.getControllerId())) {
+      {
+        let opponent = game.getPlayer(opponentId);
+        if (opponent === null) {
+          {
+            continue;
+          }
+        }
+        for (const card of opponent.getLibrary().getCards()) {
+          {
+            opponent.moveCardsToExile(card);
+            if (!card.isLand()) {
+              {
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
     return true;
       return true;
     },
@@ -6559,6 +8812,73 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "LastDitchEffort::LastDitchEffortEffect": {
+    card: "LastDitchEffort",
+    effect: "LastDitchEffortEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/l/LastDitchEffort.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player !== null) {
+      {
+        let target = makeTarget(game.xmageScope(), { filter: StaticFilters.creature().add(controlledByPredicate()), min: 0, max: 0 }).withNotTarget(true);
+        (target.choose(game, '', player.getId()).length > 0);
+        let numSacrificed = 0;
+        for (const permanentId of target.getTargets()) {
+          {
+            let permanent = game.getPermanent(permanentId);
+            if (permanent !== null && permanent.sacrifice()) {
+              {
+                numSacrificed++;
+              }
+            }
+          }
+        }
+        if (numSacrificed > 0) {
+          {
+            let uuid = source.getTargetPointer().getFirst();
+            let permanent = game.getPermanent(uuid);
+            let opponent = game.getPlayer(uuid);
+            if (permanent !== null) {
+              {
+                permanent.damage(numSacrificed, source.getSourceId());
+              }
+            }
+            if (opponent !== null) {
+              {
+                opponent.damage(numSacrificed, source.getSourceId());
+              }
+            }
+          }
+        }
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
+  "LastMarchOfTheEnts::LastMarchOfTheEntsEffect": {
+    card: "LastMarchOfTheEnts",
+    effect: "LastMarchOfTheEntsEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/l/LastMarchOfTheEnts.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.creatureCard(), min: 0, max: 0, zone: "hand" });
+    (target.choose(game, '', player.getId()).length > 0);
+    player.moveCards(makeCards(game.xmageScope(), []).addAll(target.getTargets()), 'battlefield');
+    return true;
+      return true;
+    },
+  },
   "LavaBlister::LavaBlisterEffect": {
     card: "LavaBlister",
     effect: "LavaBlisterEffect",
@@ -6599,6 +8919,26 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
     return true;
+      return true;
+    },
+  },
+  "Leveler::LevelerExileLibraryEffect": {
+    card: "Leveler",
+    effect: "LevelerExileLibraryEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/l/Leveler.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller !== null) {
+      {
+        let count = controller.getLibrary().size();
+        let cards = makeCards(game.xmageScope(), []).addAll(controller.getLibrary().getTopCards(count));
+        controller.moveCards(cards, 'exile');
+        return true;
+      }
+    }
+    return false;
       return true;
     },
   },
@@ -6767,6 +9107,35 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       }
     }
     return player.moveCards(cardsToMove, 'battlefield');
+      return true;
+    },
+  },
+  "LilianaVess::LilianaVessEffect": {
+    card: "LilianaVess",
+    effect: "LilianaVessEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/l/LilianaVess.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller !== null) {
+      {
+        let creatureCards = [];
+        for (const playerId of game.getState().getPlayersInRange(controller.getId())) {
+          {
+            let player = game.getPlayer(playerId);
+            if (player !== null) {
+              {
+                creatureCards.push(...makeCards(game.xmageScope(), player.getGraveyard().ids()).retain(StaticFilters.creatureCard()).getCards());
+              }
+            }
+          }
+        }
+        controller.moveCards(creatureCards, 'battlefield');
+        return true;
+      }
+    }
+    return false;
       return true;
     },
   },
@@ -6939,6 +9308,27 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "LostInTheMaze::LostInTheMazeEffect": {
+    card: "LostInTheMaze",
+    effect: "LostInTheMazeEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/l/LostInTheMaze.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    for (const targetId of source.getTargetPointer().getTargets()) {
+      {
+        let permanent = game.getPermanent(targetId);
+        if (permanent !== null && !permanent.isControlledBy(source.getControllerId())) {
+          {
+            permanent.addCounters(CounterType.of("stun").createInstance());
+          }
+        }
+      }
+    }
+    return true;
+      return true;
+    },
+  },
   "LothlorienBlade::LothlorienBladeEffect": {
     card: "LothlorienBlade",
     effect: "LothlorienBladeEffect",
@@ -6975,6 +9365,24 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "Lychguard::LychguardEffect": {
+    card: "Lychguard",
+    effect: "LychguardEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/l/Lychguard.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    let cards = makeCards(game.xmageScope(), []).addAll(makeCards(game.xmageScope(), player.getGraveyard().ids()).retain((StaticFilters.card().add(superTypePredicate("legendary")))).getCards());
+    return player.moveCards(cards, 'hand');
+      return true;
+    },
+  },
   "MaestrosAscendancy::MaestrosAscendancyCastEffect": {
     card: "MaestrosAscendancy",
     effect: "MaestrosAscendancyCastEffect",
@@ -6994,6 +9402,50 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
     return false;
+      return true;
+    },
+  },
+  "Malboro::MalboroEffect": {
+    card: "Malboro",
+    effect: "MalboroEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/m/Malboro.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    for (const opponentId of game.getOpponents(source.getControllerId())) {
+      {
+        let player = game.getPlayer(opponentId);
+        if (player !== null) {
+          {
+            player.moveCards(player.getLibrary().getTopCards(3), 'exile');
+          }
+        }
+      }
+    }
+    return true;
+      return true;
+    },
+  },
+  "ManaSeverance::ManaSeveranceEffect": {
+    card: "ManaSeverance",
+    effect: "ManaSeveranceEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/m/ManaSeverance.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.landCard(), min: 0, max: 0, zone: "library" });
+    (player.searchLibrary('', target).length > 0);
+    let cards = makeCards(game.xmageScope(), []).addAll(target.getTargets());
+    cards.retainZone('library');
+    player.moveCards(cards, 'exile');
+    player.shuffleLibrary();
+    return true;
       return true;
     },
   },
@@ -7035,6 +9487,36 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "ManholeMissile::ManholeMissileEffect": {
+    card: "ManholeMissile",
+    effect: "ManholeMissileEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/m/ManholeMissile.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player === null || player.getHand().isEmpty() || !player.chooseUse('')) {
+      {
+        return false;
+      }
+    }
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), zone: "hand" });
+    (target.choose(game, '', player.getId(), player.getHand().ids()).length > 0);
+    let card = game.getCard(target.getFirstTarget());
+    if (card === null) {
+      {
+        return false;
+      }
+    }
+    if (player.putCardsOnBottomOfLibrary(card)) {
+      {
+        player.drawCards(1);
+      }
+    }
+    return true;
+      return true;
+    },
+  },
   "MaralenFaeAscendant::MaralenFaeAscendantCastFromExileEffect": {
     card: "MaralenFaeAscendant",
     effect: "MaralenFaeAscendantCastFromExileEffect",
@@ -7043,6 +9525,32 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
     return true;
+      return true;
+    },
+  },
+  "MaralenOfTheMornsong::MaralenOfTheMornsongEffect2": {
+    card: "MaralenOfTheMornsong",
+    effect: "MaralenOfTheMornsongEffect2",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/m/MaralenOfTheMornsong.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let activePlayerId = game.getActivePlayerId();
+    let player = game.getPlayer(activePlayerId);
+    if (player !== null) {
+      {
+        player.loseLife(3);
+        let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), zone: "library" });
+        if ((player.searchLibrary('', target).length > 0)) {
+          {
+            player.moveCards(makeCards(game.xmageScope(), []).addAll(target.getTargets()), 'hand');
+          }
+        }
+        player.shuffleLibrary();
+        return true;
+      }
+    }
+    return false;
       return true;
     },
   },
@@ -7112,6 +9620,52 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "MemoryLeak::MemoryLeakEffect": {
+    card: "MemoryLeak",
+    effect: "MemoryLeakEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/m/MemoryLeak.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    let opponent = game.getPlayer(source.getFirstTarget());
+    if (controller === null || opponent === null) {
+      {
+        return false;
+      }
+    }
+    opponent.revealCards('', opponent.getHand());
+    let target = undefined;
+    let cards = undefined;
+    if (controller.chooseUse('')) {
+      {
+        let filter = makeFilter('nonland card', [Predicates.not(cardTypePredicate('land'))]);
+        target = makeTarget(game.xmageScope(), { filter: filter, zone: 'hand' });
+        target.withNotTarget(true);
+        cards = opponent.getHand();
+      }
+    } else {
+      {
+        let filter = makeFilter('nonland card', [Predicates.not(cardTypePredicate('land'))]);
+        target = makeTarget(game.xmageScope(), { filter: filter, zone: 'graveyard' });
+        target.withNotTarget(true);
+        cards = opponent.getGraveyard();
+      }
+    }
+    if ((target.choose(game, '', controller.getId(), cards.ids()).length > 0)) {
+      {
+        let card = game.getCard(target.getFirstTarget());
+        if (card !== null) {
+          {
+            controller.moveCards(card, 'exile');
+          }
+        }
+      }
+    }
+    return true;
+      return true;
+    },
+  },
   "MephidrossVampire::MephidrossVampireEffect": {
     card: "MephidrossVampire",
     effect: "MephidrossVampireEffect",
@@ -7119,6 +9673,37 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     source: "Mage.Sets/src/mage/cards/m/MephidrossVampire.java",
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
+    return false;
+      return true;
+    },
+  },
+  "MindFuneral::MindFuneralEffect": {
+    card: "MindFuneral",
+    effect: "MindFuneralEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/m/MindFuneral.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let opponent = game.getPlayer(source.getTargetPointer().getFirst());
+    if (opponent !== null) {
+      {
+        let cards = makeCards(game.xmageScope(), []);
+        let landsFound = 0;
+        for (const card of opponent.getLibrary().getCards()) {
+          {
+            cards.add(card);
+            if (card.isLand() && ++landsFound === 4) {
+              {
+                break;
+              }
+            }
+          }
+        }
+        opponent.revealCards('', cards);
+        opponent.moveCards(cards, 'graveyard');
+        return true;
+      }
+    }
     return false;
       return true;
     },
@@ -7139,6 +9724,25 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       }
     }
     return true;
+      return true;
+    },
+  },
+  "Mindreaver::MindreaverExileEffect": {
+    card: "Mindreaver",
+    effect: "MindreaverExileEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/m/Mindreaver.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    let player = game.getPlayer(source.getFirstTarget());
+    if (controller === null || player === null) {
+      {
+        return false;
+      }
+    }
+    let cards = makeCards(game.xmageScope(), []).addAll(player.getLibrary().getTopCards(3));
+    return controller.moveCardsToExile(cards.getCards());
       return true;
     },
   },
@@ -7327,6 +9931,30 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "Misinformation::MisinformationEffect": {
+    card: "Misinformation",
+    effect: "MisinformationEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/m/Misinformation.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller !== null) {
+      {
+        let targets = source.getTargetPointer().getTargets();
+        if (targets !== null) {
+          {
+            let cards = makeCards(game.xmageScope(), []).addAll(targets);
+            controller.putCardsOnTopOfLibrary(cards);
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+      return true;
+    },
+  },
   "MistbreathElder::MistbreathElderEffect": {
     card: "MistbreathElder",
     effect: "MistbreathElderEffect",
@@ -7412,6 +10040,73 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "MoonlightHunt::MoonlightHuntEffect": {
+    card: "MoonlightHunt",
+    effect: "MoonlightHuntEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/m/MoonlightHunt.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    let targetCreature = game.getPermanent(source.getTargetPointer().getFirst());
+    if (controller !== null && targetCreature !== null) {
+      {
+        for (const permanent of game.getBattlefield().getAllActivePermanents((StaticFilters.creature().add(Predicates.or(subTypePredicate("wolf"), subTypePredicate("werewolf")))), source.getControllerId())) {
+          {
+            targetCreature.damage(permanent.getPower().getValue(), permanent.getId());
+          }
+        }
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
+  "MoralityShift::MoralityShiftEffect": {
+    card: "MoralityShift",
+    effect: "MoralityShiftEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/m/MoralityShift.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller === null) {
+      {
+        return false;
+      }
+    }
+    let copyLibrary = [...controller.getLibrary().getCards()];
+    let copyGraveyard = [...controller.getGraveyard().getCards()];
+    controller.moveCards(copyGraveyard, 'library');
+    controller.moveCards(copyLibrary, 'graveyard');
+    controller.shuffleLibrary();
+    return true;
+      return true;
+    },
+  },
+  "Mordenkainen::MordenkainenExchangeEffect": {
+    card: "Mordenkainen",
+    effect: "MordenkainenExchangeEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/m/Mordenkainen.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller === null) {
+      {
+        return false;
+      }
+    }
+    let hand = makeCards(game.xmageScope(), []).addAll(controller.getHand());
+    let library = makeCards(game.xmageScope(), []).addAll(controller.getLibrary().getCardList());
+    controller.putCardsOnTopOfLibrary(hand);
+    controller.moveCards(library, 'hand');
+    controller.shuffleLibrary();
+    return true;
+      return true;
+    },
+  },
   "MordenkainensPolymorph::MordenkainensPolymorphEffect": {
     card: "MordenkainensPolymorph",
     effect: "MordenkainensPolymorphEffect",
@@ -7419,6 +10114,32 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     source: "Mage.Sets/src/mage/cards/m/MordenkainensPolymorph.java",
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
+    return false;
+      return true;
+    },
+  },
+  "MornsongAria::MornsongAriaTriggerEffect": {
+    card: "MornsongAria",
+    effect: "MornsongAriaTriggerEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/m/MornsongAria.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let activePlayerId = game.getActivePlayerId();
+    let player = game.getPlayer(activePlayerId);
+    if (player !== null) {
+      {
+        player.loseLife(3);
+        let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), zone: "library" });
+        if ((player.searchLibrary('', target).length > 0)) {
+          {
+            player.moveCards(makeCards(game.xmageScope(), []).addAll(target.getTargets()), 'hand');
+          }
+        }
+        player.shuffleLibrary();
+        return true;
+      }
+    }
     return false;
       return true;
     },
@@ -7500,6 +10221,37 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "MurderousRedcap::MurderousRedcapEffect": {
+    card: "MurderousRedcap",
+    effect: "MurderousRedcapEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/m/MurderousRedcap.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let sourcePermanent = game.getPermanent(source.getSourceId());
+    let permanent = game.getPermanent(source.getFirstTarget());
+    if (sourcePermanent === null) {
+      {
+        sourcePermanent = game.getPermanentOrLKIBattlefield(source.getSourceId());
+      }
+    }
+    if (sourcePermanent !== null && permanent !== null) {
+      {
+        permanent.damage(sourcePermanent.getPower().getValue(), sourcePermanent.getId());
+        return true;
+      }
+    }
+    let player = game.getPlayer(source.getFirstTarget());
+    if (sourcePermanent !== null && player !== null) {
+      {
+        player.damage(sourcePermanent.getPower().getValue(), sourcePermanent.getId());
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
   "MycosynthLattice::ManaCanBeSpentAsAnyColorEffect": {
     card: "MycosynthLattice",
     effect: "ManaCanBeSpentAsAnyColorEffect",
@@ -7507,6 +10259,50 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     source: "Mage.Sets/src/mage/cards/m/MycosynthLattice.java",
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
+    return true;
+      return true;
+    },
+  },
+  "MyojinOfLifesWeb::MyojinOfLifesWebPutCreatureOnBattlefieldEffect": {
+    card: "MyojinOfLifesWeb",
+    effect: "MyojinOfLifesWebPutCreatureOnBattlefieldEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/m/MyojinOfLifesWeb.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller === null) {
+      {
+        return false;
+      }
+    }
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.creatureCard(), min: 0, max: 0, zone: "hand" });
+    if ((target.choose(game, '', controller.getId()).length > 0)) {
+      {
+        return controller.moveCards(makeCards(game.xmageScope(), []).addAll(target.getTargets()).getCards(), 'battlefield');
+      }
+    }
+    return false;
+      return true;
+    },
+  },
+  "MyojinOfNightsReach::MyojinOfNightsReachEffect": {
+    card: "MyojinOfNightsReach",
+    effect: "MyojinOfNightsReachEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/m/MyojinOfNightsReach.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    for (const opponentId of game.getOpponents(source.getControllerId())) {
+      {
+        let opponent = game.getPlayer(opponentId);
+        if (opponent !== null) {
+          {
+            opponent.discardCards(opponent.getHand());
+          }
+        }
+      }
+    }
     return true;
       return true;
     },
@@ -7703,6 +10499,90 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "NeurokFamiliar::NeurokFamiliarEffect": {
+    card: "NeurokFamiliar",
+    effect: "NeurokFamiliarEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/n/NeurokFamiliar.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    let sourceObject = source.getSourceObject(game);
+    if (controller === null || sourceObject === null) {
+      {
+        return false;
+      }
+    }
+    if (controller.getLibrary().hasCards()) {
+      {
+        let card = controller.getLibrary().getFromTop();
+        if (card !== null) {
+          {
+            let cards = makeCards(game.xmageScope(), []).add(card);
+            controller.revealCards('', cards);
+            if (card.isArtifact()) {
+              {
+                controller.moveCards(card, 'hand');
+              }
+            } else {
+              {
+                controller.moveCards(card, 'graveyard');
+              }
+            }
+          }
+        }
+      }
+    }
+    return true;
+      return true;
+    },
+  },
+  "NeverHappened::NeverHappenedEffect": {
+    card: "NeverHappened",
+    effect: "NeverHappenedEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/n/NeverHappened.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    let opponent = game.getPlayer(source.getFirstTarget());
+    if (controller === null || opponent === null) {
+      {
+        return false;
+      }
+    }
+    opponent.revealCards('', opponent.getHand());
+    let target = undefined;
+    let cards = undefined;
+    if (controller.chooseUse('')) {
+      {
+        let filter = makeFilter('nonland card', [Predicates.not(cardTypePredicate('land'))]);
+        target = makeTarget(game.xmageScope(), { filter: filter, zone: 'hand' });
+        target.withNotTarget(true);
+        cards = opponent.getHand();
+      }
+    } else {
+      {
+        let filter = makeFilter('nonland card', [Predicates.not(cardTypePredicate('land'))]);
+        target = makeTarget(game.xmageScope(), { filter: filter, zone: 'graveyard' });
+        target.withNotTarget(true);
+        cards = opponent.getGraveyard();
+      }
+    }
+    if ((target.choose(game, '', controller.getId(), cards.ids()).length > 0)) {
+      {
+        let card = game.getCard(target.getFirstTarget());
+        if (card !== null) {
+          {
+            controller.moveCards(card, 'exile');
+          }
+        }
+      }
+    }
+    return true;
+      return true;
+    },
+  },
   "NewBlood::ChangeCreatureTypeTargetEffect": {
     card: "NewBlood",
     effect: "ChangeCreatureTypeTargetEffect",
@@ -7755,6 +10635,24 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "NicolBolasTheRavager::NicolBolasTheArisenEffect": {
+    card: "NicolBolasTheRavager",
+    effect: "NicolBolasTheArisenEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/n/NicolBolasTheRavager.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let targetPlayer = game.getPlayer(source.getFirstTarget());
+    let controller = game.getPlayer(source.getControllerId());
+    if (targetPlayer === null || controller === null) {
+      {
+        return false;
+      }
+    }
+    return controller.moveCards(targetPlayer.getLibrary().getTopCards(targetPlayer.getLibrary().size() - 1), 'exile');
+      return true;
+    },
+  },
   "NightDealings::NightDealingsEffect": {
     card: "NightDealings",
     effect: "NightDealingsEffect",
@@ -7768,6 +10666,29 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "NightveilSpecter::NightveilSpecterExileEffect": {
+    card: "NightveilSpecter",
+    effect: "NightveilSpecterExileEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/n/NightveilSpecter.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getTargetPointer().getFirst());
+    if (player !== null) {
+      {
+        let card = player.getLibrary().getFromTop();
+        if (card !== null) {
+          {
+            player.moveCardsToExile(card);
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+      return true;
+    },
+  },
   "NightveilSpecter::NightveilSpecterEffect": {
     card: "NightveilSpecter",
     effect: "NightveilSpecterEffect",
@@ -7775,6 +10696,47 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     source: "Mage.Sets/src/mage/cards/n/NightveilSpecter.java",
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
+    return true;
+      return true;
+    },
+  },
+  "NineFingersKeene::NineFingersKeeneEffect": {
+    card: "NineFingersKeene",
+    effect: "NineFingersKeeneEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/n/NineFingersKeene.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    let cards = makeCards(game.xmageScope(), []).addAll(player.getLibrary().getTopCards(9));
+    if (cards.isEmpty()) {
+      {
+        return false;
+      }
+    }
+    let target = makeTarget(game.xmageScope(), { filter: (StaticFilters.card().add(subTypePredicate("gate"))), min: 0, max: 1, zone: "library" });
+    (target.choose(game, '', player.getId(), cards.ids()).length > 0);
+    let card = game.getCard(target.getFirstTarget());
+    if (card !== null) {
+      {
+        player.moveCards(card, 'battlefield');
+      }
+    }
+    cards.retainZone('library');
+    if (game.getBattlefield().count((makeFilter('permanent you control', [controlledByPredicate()])), source.getControllerId()) >= 9) {
+      {
+        player.moveCards(cards, 'hand');
+      }
+    } else {
+      {
+        player.putCardsOnBottomOfLibrary(cards);
+      }
+    }
     return true;
       return true;
     },
@@ -7815,6 +10777,38 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     source: "Mage.Sets/src/mage/cards/n/NissaWorldsoulSpeaker.java",
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
+    return false;
+      return true;
+    },
+  },
+  "NissasRevelation::NissasRevelationEffect": {
+    card: "NissasRevelation",
+    effect: "NissasRevelationEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/n/NissasRevelation.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    let sourceObject = source.getSourceObject(game);
+    if (controller !== null && sourceObject !== null) {
+      {
+        let card = controller.getLibrary().getFromTop();
+        if (card !== null) {
+          {
+            let cards = makeCards(game.xmageScope(), []);
+            cards.add(card);
+            controller.revealCards('', cards);
+            if (card.isCreature()) {
+              {
+                controller.drawCards(card.getPower().getValue());
+                controller.gainLife(card.getToughness().getValue());
+              }
+            }
+          }
+        }
+        return true;
+      }
+    }
     return false;
       return true;
     },
@@ -7910,6 +10904,87 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "NyleaKeenEyed::NyleaKeenEyedEffect": {
+    card: "NyleaKeenEyed",
+    effect: "NyleaKeenEyedEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/n/NyleaKeenEyed.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    let card = player.getLibrary().getFromTop();
+    if (card === null) {
+      {
+        return false;
+      }
+    }
+    player.revealCards('', makeCards(game.xmageScope(), []).add(card));
+    if (card.isCreature()) {
+      {
+        return player.moveCards(card, 'hand');
+      }
+    }
+    if (!player.chooseUse('')) {
+      {
+        return true;
+      }
+    }
+    return player.moveCards(card, 'graveyard');
+      return true;
+    },
+  },
+  "OathOfDruids::OathOfDruidsEffect": {
+    card: "OathOfDruids",
+    effect: "OathOfDruidsEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/o/OathOfDruids.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(game.getActivePlayerId());
+    if (controller === null) {
+      {
+        return false;
+      }
+    }
+    let revealed = makeCards(game.xmageScope(), []);
+    let selectedCard = null;
+    let notSelectedCards = makeCards(game.xmageScope(), []);
+    if (!controller.chooseUse('')) {
+      {
+        return true;
+      }
+    }
+    for (const card of controller.getLibrary().getCards()) {
+      {
+        revealed.add(card);
+        if (card.isCreature()) {
+          {
+            selectedCard = card;
+            break;
+          }
+        } else {
+          {
+            notSelectedCards.add(card);
+          }
+        }
+      }
+    }
+    controller.revealCards('', revealed);
+    if (selectedCard !== null) {
+      {
+        controller.moveCards(selectedCard, 'battlefield');
+      }
+    }
+    controller.moveCards(notSelectedCards, 'graveyard');
+    return true;
+      return true;
+    },
+  },
   "OathOfNissa::OathOfNissaSpendAnyManaEffect": {
     card: "OathOfNissa",
     effect: "OathOfNissaSpendAnyManaEffect",
@@ -7989,6 +11064,26 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "OgreHeadHelm::OgreHeadHelmEffect": {
+    card: "OgreHeadHelm",
+    effect: "OgreHeadHelmEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/o/OgreHeadHelm.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    let permanent = game.getPermanent(source.getTargetPointer().getFirst());
+    if (player === null || permanent === null || !player.chooseUse('') || !permanent.sacrifice()) {
+      {
+        return false;
+      }
+    }
+    player.discardCards(player.getHand());
+    player.drawCards(3);
+    return true;
+      return true;
+    },
+  },
   "OkoThiefOfCrowns::OkoThiefOfCrownsEffect": {
     card: "OkoThiefOfCrowns",
     effect: "OkoThiefOfCrownsEffect",
@@ -8018,6 +11113,38 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     source: "Mage.Sets/src/mage/cards/o/OldManOfTheSea.java",
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
+    return true;
+      return true;
+    },
+  },
+  "OmnivorousFlytrap::OmnivorousFlytrapEffect": {
+    card: "OmnivorousFlytrap",
+    effect: "OmnivorousFlytrapEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/o/OmnivorousFlytrap.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller === null) {
+      {
+        return false;
+      }
+    }
+    for (const targetId of source.getTargetPointer().getTargets()) {
+      {
+        let permanent = game.getPermanent(targetId);
+        if (permanent !== null) {
+          {
+            let existingCounters = permanent.getCounters().getCount(CounterType.of("+1/+1"));
+            if (existingCounters > 0) {
+              {
+                permanent.addCounters(CounterType.of("+1/+1").createInstance(existingCounters));
+              }
+            }
+          }
+        }
+      }
+    }
     return true;
       return true;
     },
@@ -8181,6 +11308,41 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "OriqLoremage::OriqLoremageEffect": {
+    card: "OriqLoremage",
+    effect: "OriqLoremageEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/o/OriqLoremage.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), zone: "library" });
+    (player.searchLibrary('', target).length > 0);
+    let card = player.getLibrary().getCard(target.getFirstTarget());
+    if (card === null) {
+      {
+        player.shuffleLibrary();
+        return true;
+      }
+    }
+    player.moveCards(card, 'graveyard');
+    player.shuffleLibrary();
+    let permanent = source.getSourcePermanentIfItStillExists(game);
+    if (!card.isInstantOrSorcery() || permanent === null) {
+      {
+        return true;
+      }
+    }
+    permanent.addCounters(CounterType.of("+1/+1").createInstance());
+    return true;
+      return true;
+    },
+  },
   "OrnateKanzashi::OrnateKanzashiCastFromExileEffect": {
     card: "OrnateKanzashi",
     effect: "OrnateKanzashiCastFromExileEffect",
@@ -8278,6 +11440,43 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     source: "Mage.Sets/src/mage/cards/o/OverwhelmingSplendor.java",
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
+    return false;
+      return true;
+    },
+  },
+  "Pandemonium::PandemoniumEffect": {
+    card: "Pandemonium",
+    effect: "PandemoniumEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/p/Pandemonium.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller !== null) {
+      {
+        let enteringCreature = game.getPermanentOrLKIBattlefield(source.getTargetPointer().getFirst());
+        if (enteringCreature !== null) {
+          {
+            let targetPermanent = game.getPermanent(source.getTargets().getFirstTarget());
+            if (targetPermanent !== null) {
+              {
+                targetPermanent.damage(enteringCreature.getPower().getValue(), enteringCreature.getId());
+              }
+            } else {
+              {
+                let targetPlayer = game.getPlayer(source.getTargets().getFirstTarget());
+                if (targetPlayer !== null) {
+                  {
+                    targetPlayer.damage(enteringCreature.getPower().getValue(), enteringCreature.getId());
+                  }
+                }
+              }
+            }
+            return true;
+          }
+        }
+      }
+    }
     return false;
       return true;
     },
@@ -8380,6 +11579,40 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       }
     }
     return false;
+      return true;
+    },
+  },
+  "PatientRebuilding::PatientRebuildingEffect": {
+    card: "PatientRebuilding",
+    effect: "PatientRebuildingEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/p/PatientRebuilding.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getFirstTarget());
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller === null || player === null) {
+      {
+        return false;
+      }
+    }
+    let numberOfLandCards = 0;
+    let movedCards = player.millCards(3).getCards();
+    for (const card of movedCards) {
+      {
+        if (card.isLand()) {
+          {
+            numberOfLandCards++;
+          }
+        }
+      }
+    }
+    if (numberOfLandCards > 0) {
+      {
+        return controller.drawCards(numberOfLandCards) > 0;
+      }
+    }
+    return true;
       return true;
     },
   },
@@ -8525,6 +11758,54 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "PiasRevolution::PiasRevolutionReturnEffect": {
+    card: "PiasRevolution",
+    effect: "PiasRevolutionReturnEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/p/PiasRevolution.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    let cards = makeCards(game.xmageScope(), []).addAll(source.getTargetPointer().getTargets()).getCards();
+    if (controller === null || (cards.length === 0)) {
+      {
+        return false;
+      }
+    }
+    let opponent = game.getPlayer(source.getFirstTarget());
+    if (opponent !== null && opponent.chooseUse('')) {
+      {
+        opponent.damage(3, source.getSourceId());
+      }
+    } else {
+      {
+        controller.moveCards(cards, 'hand');
+      }
+    }
+    return true;
+      return true;
+    },
+  },
+  "PitOfOfferings::PitOfOfferingsEffect": {
+    card: "PitOfOfferings",
+    effect: "PitOfOfferingsEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/p/PitOfOfferings.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    let sourceObject = source.getSourceObject(game);
+    if (controller === null || sourceObject === null) {
+      {
+        return false;
+      }
+    }
+    let cardsExiled = makeCards(game.xmageScope(), []).addAll(source.getTargetPointer().getTargets());
+    controller.moveCardsToExile(cardsExiled.getCards());
+    return true;
+      return true;
+    },
+  },
   "PlaneswalkersMischief::PlaneswalkersMischiefCastFromExileEffect": {
     card: "PlaneswalkersMischief",
     effect: "PlaneswalkersMischiefCastFromExileEffect",
@@ -8605,6 +11886,22 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
     return false;
+      return true;
+    },
+  },
+  "PracticedOffense::PracticedOffenseEffect": {
+    card: "PracticedOffense",
+    effect: "PracticedOffenseEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/p/PracticedOffense.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    for (const permanent of game.getBattlefield().getActivePermanents(StaticFilters.creatureYouControl(), source.getTargetPointer().getFirst())) {
+      {
+        permanent.addCounters(CounterType.of("+1/+1").createInstance());
+      }
+    }
+    return true;
       return true;
     },
   },
@@ -8779,6 +12076,24 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         }
       }
     }
+    return true;
+      return true;
+    },
+  },
+  "ProbeDroid::ProbeDroidEffect": {
+    card: "ProbeDroid",
+    effect: "ProbeDroidEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/p/ProbeDroid.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getTargetPointer().getFirst());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    player.revealCards('', player.getHand());
     return true;
       return true;
     },
@@ -9090,6 +12405,35 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "RaphaelsTechnique::RaphaelsTechniqueEffect": {
+    card: "RaphaelsTechnique",
+    effect: "RaphaelsTechniqueEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/r/RaphaelsTechnique.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let wheelers = [];
+    for (const playerId of game.getState().getPlayersInRange(source.getControllerId())) {
+      {
+        let player = game.getPlayer(playerId);
+        if (player !== null && player.chooseUse('')) {
+          {
+            game.informPlayers(player.getName() + '');
+            wheelers.push(player);
+          }
+        }
+      }
+    }
+    for (const player of wheelers) {
+      {
+        player.discardCards(player.getHand());
+        player.drawCards(7);
+      }
+    }
+    return true;
+      return true;
+    },
+  },
   "RavingDead::RavingDeadDamageEffect": {
     card: "RavingDead",
     effect: "RavingDeadDamageEffect",
@@ -9197,6 +12541,37 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       }
     }
     return true;
+      return true;
+    },
+  },
+  "ReasonBelieve::BelieveEffect": {
+    card: "ReasonBelieve",
+    effect: "BelieveEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/r/ReasonBelieve.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller !== null) {
+      {
+        let card = controller.getLibrary().getFromTop();
+        if (card !== null) {
+          {
+            if (card.isCreature() && controller.chooseUse('')) {
+              {
+                controller.moveCards(card, 'battlefield');
+              }
+            } else {
+              {
+                controller.moveCards(card, 'hand');
+              }
+            }
+          }
+        }
+        return true;
+      }
+    }
+    return false;
       return true;
     },
   },
@@ -9346,6 +12721,24 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "Repentance::RepentanceEffect": {
+    card: "Repentance",
+    effect: "RepentanceEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/r/Repentance.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let permanent = game.getPermanent(source.getTargetPointer().getFirst());
+    if (permanent !== null) {
+      {
+        permanent.damage(permanent.getPower().getValue(), permanent.getId());
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
   "Reprocess::ReprocessEffect": {
     card: "Reprocess",
     effect: "ReprocessEffect",
@@ -9381,6 +12774,22 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "RequisitionRaid::RequisitionRaidEffect": {
+    card: "RequisitionRaid",
+    effect: "RequisitionRaidEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/r/RequisitionRaid.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    for (const permanent of game.getBattlefield().getActivePermanents(StaticFilters.creatureYouControl(), source.getTargetPointer().getFirst())) {
+      {
+        permanent.addCounters(CounterType.of("+1/+1").createInstance());
+      }
+    }
+    return true;
+      return true;
+    },
+  },
   "RescueFromTheUnderworld::RescueFromTheUnderworldTextEffect": {
     card: "RescueFromTheUnderworld",
     effect: "RescueFromTheUnderworldTextEffect",
@@ -9389,6 +12798,44 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
     return true;
+      return true;
+    },
+  },
+  "RetracedImage::RetracedImageEffect": {
+    card: "RetracedImage",
+    effect: "RetracedImageEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/r/RetracedImage.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller !== null) {
+      {
+        let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), zone: "hand" });
+        if (target.canChoose(game, controller.getId()) && (target.choose(game, '', controller.getId()).length > 0)) {
+          {
+            let chosenCard = game.getCard(target.getFirstTarget());
+            if (chosenCard !== null) {
+              {
+                let cards = makeCards(game.xmageScope(), []);
+                cards.add(chosenCard);
+                controller.revealCards('', cards);
+                for (const permanent of game.getBattlefield().getAllActivePermanents()) {
+                  {
+                    if ((permanent.getName() === chosenCard.getName())) {
+                      {
+                        return controller.moveCards(chosenCard, 'battlefield');
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    return false;
       return true;
     },
   },
@@ -9427,6 +12874,43 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "RiseOfTheDarkRealms::RiseOfTheDarkRealmsEffect": {
+    card: "RiseOfTheDarkRealms",
+    effect: "RiseOfTheDarkRealmsEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/r/RiseOfTheDarkRealms.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller !== null) {
+      {
+        let creatureCards = [];
+        for (const playerId of game.getState().getPlayersInRange(controller.getId())) {
+          {
+            let player = game.getPlayer(playerId);
+            if (player !== null) {
+              {
+                for (const card of player.getGraveyard().getCards()) {
+                  {
+                    if (card.isCreature()) {
+                      {
+                        creatureCards.push(card);
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        controller.moveCards(creatureCards, 'battlefield');
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
   "RisenExecutioner::RisenExecutionerCastEffect": {
     card: "RisenExecutioner",
     effect: "RisenExecutionerCastEffect",
@@ -9462,6 +12946,27 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       }
     }
     return true;
+      return true;
+    },
+  },
+  "RobberFly::DrawCardsDefendingPlayerEffect": {
+    card: "RobberFly",
+    effect: "DrawCardsDefendingPlayerEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/r/RobberFly.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    let defendingPlayer = game.getPlayer(source.getTargetPointer().getFirst());
+    if (controller !== null && defendingPlayer !== null) {
+      {
+        let numberOfCardsInHand = defendingPlayer.getHand().size();
+        defendingPlayer.discardCards(defendingPlayer.getHand());
+        defendingPlayer.drawCards(numberOfCardsInHand);
+        return true;
+      }
+    }
+    return false;
       return true;
     },
   },
@@ -9556,6 +13061,26 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "RootingKavu::RootingKavuEffect": {
+    card: "RootingKavu",
+    effect: "RootingKavuEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/r/RootingKavu.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller !== null) {
+      {
+        let cards = makeCards(game.xmageScope(), []).addAll(makeCards(game.xmageScope(), controller.getGraveyard().ids()).retain(StaticFilters.creatureCard()).getCards());
+        controller.putCardsOnTopOfLibrary(cards);
+        controller.shuffleLibrary();
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
   "RootingMoloch::RootingMolochMayPlayEffect": {
     card: "RootingMoloch",
     effect: "RootingMolochMayPlayEffect",
@@ -9564,6 +13089,66 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
     return true;
+      return true;
+    },
+  },
+  "RuinGrinder::RuinGrinderEffect": {
+    card: "RuinGrinder",
+    effect: "RuinGrinderEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/r/RuinGrinder.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let wheelers = [];
+    for (const playerId of game.getState().getPlayersInRange(source.getControllerId())) {
+      {
+        let player = game.getPlayer(playerId);
+        if (player !== null && player.chooseUse('')) {
+          {
+            game.informPlayers(player.getName() + '');
+            wheelers.push(player);
+          }
+        }
+      }
+    }
+    for (const player of wheelers) {
+      {
+        player.discardCards(player.getHand());
+        player.drawCards(7);
+      }
+    }
+    return true;
+      return true;
+    },
+  },
+  "RumblingAftershocks::RumblingAftershocksDealDamageEffect": {
+    card: "RumblingAftershocks",
+    effect: "RumblingAftershocksDealDamageEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/r/RumblingAftershocks.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    let damageAmount = Number(game.getState().getValue("damageAmount"));
+    if (player !== null && damageAmount > 0) {
+      {
+        let targetPlayer = game.getPlayer(source.getTargetPointer().getFirst());
+        if (targetPlayer !== null) {
+          {
+            targetPlayer.damage(damageAmount, source.getSourceId());
+            return true;
+          }
+        }
+        let permanent = game.getPermanent(source.getTargetPointer().getFirst());
+        if (permanent !== null) {
+          {
+            permanent.damage(damageAmount, source.getSourceId());
+            return true;
+          }
+        }
+      }
+    }
+    return false;
       return true;
     },
   },
@@ -9646,6 +13231,42 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "SaplingOfColfenor::SaplingOfColfenorEffect": {
+    card: "SaplingOfColfenor",
+    effect: "SaplingOfColfenorEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/s/SaplingOfColfenor.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    let sourceObject = source.getSourceObject(game);
+    if (controller !== null && sourceObject !== null) {
+      {
+        if (controller.getLibrary().hasCards()) {
+          {
+            let card = controller.getLibrary().getFromTop();
+            if (card !== null) {
+              {
+                let cards = makeCards(game.xmageScope(), []).add(card);
+                controller.revealCards('', cards);
+                if (card.isCreature()) {
+                  {
+                    controller.gainLife(card.getToughness().getValue());
+                    controller.loseLife(card.getPower().getValue());
+                    return controller.moveCards(cards.getCards(), 'hand');
+                  }
+                }
+              }
+            }
+          }
+        }
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
   "SarkhanTheDragonspeaker::SarkhanTheDragonspeakerEffect": {
     card: "SarkhanTheDragonspeaker",
     effect: "SarkhanTheDragonspeakerEffect",
@@ -9690,6 +13311,31 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     source: "Mage.Sets/src/mage/cards/s/SarkhanTheMasterless.java",
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
+    return false;
+      return true;
+    },
+  },
+  "SavageAlliance::SavageAllianceDamageEffect": {
+    card: "SavageAlliance",
+    effect: "SavageAllianceDamageEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/s/SavageAlliance.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getFirstTarget());
+    if (player !== null) {
+      {
+        let filter = StaticFilters.creature();
+        filter.add(controlledByPredicate(player.getId()));
+        let creatures = game.getBattlefield().getActivePermanents(filter, source.getControllerId());
+        for (const creature of creatures) {
+          {
+            creature.damage(1, source.getSourceId());
+          }
+        }
+        return true;
+      }
+    }
     return false;
       return true;
     },
@@ -9740,6 +13386,32 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
                 permanent.sacrifice();
               }
             }
+          }
+        }
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
+  "SawtoothLoon::SawtoothLoonEffect": {
+    card: "SawtoothLoon",
+    effect: "SawtoothLoonEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/s/SawtoothLoon.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller !== null) {
+      {
+        controller.drawCards(2);
+        let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), min: 2, max: 2, zone: "hand" });
+        (target.choose(game, '', controller.getId()).length > 0);
+        let cardsToLibrary = makeCards(game.xmageScope(), []).addAll(target.getTargets());
+        if (!cardsToLibrary.isEmpty()) {
+          {
+            controller.putCardsOnBottomOfLibrary(cardsToLibrary);
           }
         }
         return true;
@@ -9805,6 +13477,57 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     }
     let card = game.getCard(target.getFirstTarget());
     return card !== null && targetPlayer.moveCards(card, 'exile');
+      return true;
+    },
+  },
+  "ScribNibblers::ScribNibblersEffect": {
+    card: "ScribNibblers",
+    effect: "ScribNibblersEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/s/ScribNibblers.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let you = game.getPlayer(source.getControllerId());
+    let targetPlayer = game.getPlayer(source.getFirstTarget());
+    if (you === null || targetPlayer === null || !targetPlayer.getLibrary().hasCards()) {
+      {
+        return false;
+      }
+    }
+    let card = targetPlayer.getLibrary().getFromTop();
+    if (card === null) {
+      {
+        return false;
+      }
+    }
+    you.moveCards(card, 'exile');
+    if (card.isLand()) {
+      {
+        you.gainLife(1);
+      }
+    }
+    return true;
+      return true;
+    },
+  },
+  "SearchWarrant::SearchWarrantEffect": {
+    card: "SearchWarrant",
+    effect: "SearchWarrantEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/s/SearchWarrant.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    let targetPlayer = game.getPlayer(source.getFirstTarget());
+    if (player !== null && targetPlayer !== null) {
+      {
+        targetPlayer.revealCards('', targetPlayer.getHand());
+        let ctd = targetPlayer.getHand().size();
+        player.gainLife(ctd);
+        return true;
+      }
+    }
+    return false;
       return true;
     },
   },
@@ -10062,6 +13785,28 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "ShackleSlinger::ShackleSlingerEffect": {
+    card: "ShackleSlinger",
+    effect: "ShackleSlingerEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/s/ShackleSlinger.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let permanent = game.getPermanent(source.getTargetPointer().getFirst());
+    if (permanent === null) {
+      {
+        return false;
+      }
+    }
+    if (!permanent.isTapped()) {
+      {
+        return permanent.tap();
+      }
+    }
+    return permanent.addCounters(CounterType.of("stun").createInstance());
+      return true;
+    },
+  },
   "ShadowOfTheEnemy::ShadowOfTheEnemyCastFromExileEffect": {
     card: "ShadowOfTheEnemy",
     effect: "ShadowOfTheEnemyCastFromExileEffect",
@@ -10128,6 +13873,50 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     source: "Mage.Sets/src/mage/cards/s/ShangChiMasterOfKungFu.java",
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
+    return true;
+      return true;
+    },
+  },
+  "ShapeAnew::ShapeAnewEffect": {
+    card: "ShapeAnew",
+    effect: "ShapeAnewEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/s/ShapeAnew.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let targetPermanent = game.getPermanent(source.getTargetPointer().getFirst());
+    if (targetPermanent === null) {
+      {
+        return false;
+      }
+    }
+    targetPermanent.sacrifice();
+    let targetController = game.getPlayer(targetPermanent.getControllerId());
+    if (targetController === null) {
+      {
+        return false;
+      }
+    }
+    let revealed = makeCards(game.xmageScope(), []);
+    let artifactCard = null;
+    for (const card of targetController.getLibrary().getCards()) {
+      {
+        revealed.add(card);
+        if (card.isArtifact()) {
+          {
+            artifactCard = card;
+            break;
+          }
+        }
+      }
+    }
+    targetController.revealCards('', revealed);
+    if (artifactCard !== null) {
+      {
+        targetController.moveCards(artifactCard, 'battlefield');
+      }
+    }
+    targetController.shuffleLibrary();
     return true;
       return true;
     },
@@ -10310,6 +14099,33 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "SigurdJarlOfRavensthorpe::SigurdJarlOfRavensthorpeEffect": {
+    card: "SigurdJarlOfRavensthorpe",
+    effect: "SigurdJarlOfRavensthorpeEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/s/SigurdJarlOfRavensthorpe.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    let permanent = game.getPermanent(source.getTargetPointer().getFirst());
+    if (player === null || permanent === null) {
+      {
+        return false;
+      }
+    }
+    if (player.chooseUse('')) {
+      {
+        permanent.addCounters(CounterType.of("lore").createInstance());
+      }
+    } else {
+      {
+        permanent.removeCounters(CounterType.of("lore").createInstance());
+      }
+    }
+    return true;
+      return true;
+    },
+  },
   "SilasRennSeekerAdept::SilasRennSeekerAdeptPlayEffect": {
     card: "SilasRennSeekerAdept",
     effect: "SilasRennSeekerAdeptPlayEffect",
@@ -10343,6 +14159,104 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "Simoon::SimoonEffect": {
+    card: "Simoon",
+    effect: "SimoonEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/s/Simoon.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getFirstTarget());
+    if (player !== null) {
+      {
+        let filter = StaticFilters.creature();
+        filter.add(controlledByPredicate(player.getId()));
+        let creatures = game.getBattlefield().getActivePermanents(filter, source.getControllerId());
+        for (const creature of creatures) {
+          {
+            creature.damage(1, source.getSourceId());
+          }
+        }
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
+  "SinProdder::SinProdderEffect": {
+    card: "SinProdder",
+    effect: "SinProdderEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/s/SinProdder.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller !== null) {
+      {
+        let card = controller.getLibrary().getFromTop();
+        if (card !== null) {
+          {
+            controller.revealCards('', makeCards(game.xmageScope(), []).add(card));
+            let message = '' + card.getName() + '' + controller.getName() + '';
+            let putInGraveyard = false;
+            for (const opponentUuid of game.getOpponents(source.getControllerId())) {
+              {
+                let opponent = game.getPlayer(opponentUuid);
+                if (opponent !== null && !putInGraveyard && opponent.chooseUse('')) {
+                  {
+                    putInGraveyard = true;
+                    opponent.damage(card.getManaValue(), source.getSourceId());
+                    break;
+                  }
+                }
+              }
+            }
+            if (putInGraveyard) {
+              {
+                controller.moveCards(card, 'graveyard');
+              }
+            } else {
+              {
+                controller.moveCards(card, 'hand');
+              }
+            }
+          }
+        }
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
+  "SireOfInsanity::SireOfInsanityEffect": {
+    card: "SireOfInsanity",
+    effect: "SireOfInsanityEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/s/SireOfInsanity.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let sourcePlayer = game.getPlayer(source.getControllerId());
+    if (sourcePlayer === null) {
+      {
+        return false;
+      }
+    }
+    for (const playerId of game.getState().getPlayersInRange(sourcePlayer.getId())) {
+      {
+        let player = game.getPlayer(playerId);
+        if (player !== null) {
+          {
+            player.discardCards(player.getHand());
+          }
+        }
+      }
+    }
+    return true;
+      return true;
+    },
+  },
   "SisterHospitaller::SisterHospitallerEffect": {
     card: "SisterHospitaller",
     effect: "SisterHospitallerEffect",
@@ -10361,6 +14275,29 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     player.moveCards(card, 'battlefield');
     player.gainLife(mv);
     return true;
+      return true;
+    },
+  },
+  "Skred::SkredDamageEffect": {
+    card: "Skred",
+    effect: "SkredDamageEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/s/Skred.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let amount = game.getBattlefield().count((makeFilter('permanent you control', [controlledByPredicate()]).add(superTypePredicate("snow"))), source.getControllerId());
+    let permanent = game.getPermanent(source.getTargetPointer().getFirst());
+    if (amount > 0) {
+      {
+        if (permanent !== null) {
+          {
+            permanent.damage(amount, source.getSourceId());
+            return true;
+          }
+        }
+      }
+    }
+    return false;
       return true;
     },
   },
@@ -10465,6 +14402,29 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "SmugglersSurprise::SmugglersSurpriseEffect": {
+    card: "SmugglersSurprise",
+    effect: "SmugglersSurpriseEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/s/SmugglersSurprise.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller === null) {
+      {
+        return false;
+      }
+    }
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.creatureCard(), min: 0, max: 2, zone: "hand" });
+    if ((target.choose(game, '', controller.getId()).length > 0)) {
+      {
+        return controller.moveCards(makeCards(game.xmageScope(), []).addAll(target.getTargets()).getCards(), 'battlefield');
+      }
+    }
+    return false;
+      return true;
+    },
+  },
   "SolarBlaze::SolarBlazeEffect": {
     card: "SolarBlaze",
     effect: "SolarBlazeEffect",
@@ -10561,6 +14521,54 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       {
         caster.loseLife(1);
         return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
+  "SorinGrimNemesis::SorinGrimNemesisRevealEffect": {
+    card: "SorinGrimNemesis",
+    effect: "SorinGrimNemesisRevealEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/s/SorinGrimNemesis.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller === null) {
+      {
+        return false;
+      }
+    }
+    if (controller.getLibrary().hasCards()) {
+      {
+        let card = controller.getLibrary().getFromTop();
+        if (card !== null) {
+          {
+            let cards = makeCards(game.xmageScope(), []);
+            cards.add(card);
+            controller.revealCards('', cards);
+            if (controller.moveCards(card, 'hand')) {
+              {
+                for (const playerId of game.getOpponents(source.getControllerId())) {
+                  {
+                    if (card.getManaValue() > 0) {
+                      {
+                        let opponent = game.getPlayer(playerId);
+                        if (opponent !== null) {
+                          {
+                            opponent.loseLife(card.getManaValue());
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                return true;
+              }
+            }
+          }
+        }
       }
     }
     return false;
@@ -10795,6 +14803,111 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "SphinxBoneWand::SphinxBoneWandEffect": {
+    card: "SphinxBoneWand",
+    effect: "SphinxBoneWandEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/s/SphinxBoneWand.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let sourcePermanent = game.getPermanent(source.getSourceId());
+    if (sourcePermanent !== null) {
+      {
+        sourcePermanent.addCounters(CounterType.of("charge").createInstance());
+        let amount = sourcePermanent.getCounters().getCount(CounterType.of("charge"));
+        let permanent = game.getPermanent(source.getFirstTarget());
+        if (permanent !== null) {
+          {
+            permanent.damage(amount, source.getSourceId());
+          }
+        }
+        let player = game.getPlayer(source.getFirstTarget());
+        if (player !== null) {
+          {
+            player.damage(amount, source.getSourceId());
+          }
+        }
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
+  "SpikeshotElder::SpikeshotElderEffect": {
+    card: "SpikeshotElder",
+    effect: "SpikeshotElderEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/s/SpikeshotElder.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let sourcePermanent = game.getPermanent(source.getSourceId());
+    if (sourcePermanent === null) {
+      {
+        sourcePermanent = game.getPermanentOrLKIBattlefield(source.getSourceId());
+      }
+    }
+    if (sourcePermanent === null) {
+      {
+        return false;
+      }
+    }
+    let damage = sourcePermanent.getPower().getValue();
+    let permanent = game.getPermanent(source.getFirstTarget());
+    if (permanent !== null) {
+      {
+        permanent.damage(damage, sourcePermanent.getId());
+        return true;
+      }
+    }
+    let player = game.getPlayer(source.getFirstTarget());
+    if (player !== null) {
+      {
+        player.damage(damage, sourcePermanent.getId());
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
+  "SpikeshotGoblin::SpikeshotGoblinEffect": {
+    card: "SpikeshotGoblin",
+    effect: "SpikeshotGoblinEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/s/SpikeshotGoblin.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let sourcePermanent = game.getPermanent(source.getSourceId());
+    if (sourcePermanent === null) {
+      {
+        sourcePermanent = game.getPermanentOrLKIBattlefield(source.getSourceId());
+      }
+    }
+    if (sourcePermanent === null) {
+      {
+        return false;
+      }
+    }
+    let damage = sourcePermanent.getPower().getValue();
+    let permanent = game.getPermanent(source.getFirstTarget());
+    if (permanent !== null) {
+      {
+        permanent.damage(damage, sourcePermanent.getId());
+        return true;
+      }
+    }
+    let player = game.getPlayer(source.getFirstTarget());
+    if (player !== null) {
+      {
+        player.damage(damage, sourcePermanent.getId());
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
   "SpinalEmbrace::SpinalEmbraceSacrificeEffect": {
     card: "SpinalEmbrace",
     effect: "SpinalEmbraceSacrificeEffect",
@@ -10871,6 +14984,32 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       }
     }
     return false;
+      return true;
+    },
+  },
+  "SplinterAndLeoFatherAndSon::SplinterAndLeoFatherAndSonEffect": {
+    card: "SplinterAndLeoFatherAndSon",
+    effect: "SplinterAndLeoFatherAndSonEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/s/SplinterAndLeoFatherAndSon.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getTargetPointer().getFirst());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    for (const permanent of game.getBattlefield().getAllActivePermanents(undefined, player.getId())) {
+      {
+        if (permanent.isCreature() && !(permanent.getId() === source.getSourceId())) {
+          {
+            permanent.addCounters(CounterType.of("+1/+1").createInstance());
+          }
+        }
+      }
+    }
+    return true;
       return true;
     },
   },
@@ -10960,6 +15099,55 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
     return true;
+      return true;
+    },
+  },
+  "StalkingYeti::StalkingYetiEffect": {
+    card: "StalkingYeti",
+    effect: "StalkingYetiEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/s/StalkingYeti.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let thisCreature = game.getPermanent(source.getSourceId());
+    let thatCreature = game.getPermanent(source.getFirstTarget());
+    if (thisCreature === null || thatCreature === null) {
+      {
+        return false;
+      }
+    }
+    thatCreature.damage(thisCreature.getPower().getValue(), thisCreature.getId());
+    game.processAction();
+    thisCreature.damage(thatCreature.getPower().getValue(), thatCreature.getId());
+    return true;
+      return true;
+    },
+  },
+  "Starfall::StarfallEffect": {
+    card: "Starfall",
+    effect: "StarfallEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/s/Starfall.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let permanent = game.getPermanent(source.getTargetPointer().getFirst());
+    if (permanent !== null) {
+      {
+        permanent.damage(3, source.getSourceId());
+        if (permanent.isEnchantment()) {
+          {
+            let targetController = game.getPlayer(permanent.getControllerId());
+            if (targetController !== null) {
+              {
+                targetController.damage(3, source.getSourceId());
+              }
+            }
+          }
+        }
+        return true;
+      }
+    }
+    return false;
       return true;
     },
   },
@@ -11168,6 +15356,27 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     if (controller !== null && permanent !== null) {
       {
         controller.gainLife(permanent.getPower().getValue());
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
+  "SupportMission::SupportMissionEffect": {
+    card: "SupportMission",
+    effect: "SupportMissionEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/s/SupportMission.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let permanent = game.getPermanent(source.getTargetPointer().getFirst());
+    let sourcePermanent = game.getPermanent(source.getSourceId());
+    if (permanent !== null && sourcePermanent !== null) {
+      {
+        let questCounters = sourcePermanent.getCounters().getCount(CounterType.of("quest"));
+        let countersToAdd = (questCounters >= 5 ? 2 : 1);
+        permanent.addCounters(CounterType.of("+1/+1").createInstance(countersToAdd));
         return true;
       }
     }
@@ -11439,6 +15648,71 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "TashaTheWitchQueen::TashaTheWitchQueenExileEffect": {
+    card: "TashaTheWitchQueen",
+    effect: "TashaTheWitchQueenExileEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/t/TashaTheWitchQueen.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    let cards = makeCards(game.xmageScope(), []).addAll(source.getTargetPointer().getTargets());
+    player.moveCards(cards, 'exile');
+    cards.retainZone('exile');
+    for (const card of cards.getCards()) {
+      {
+        card.addCounters(CounterType.of("page").createInstance());
+      }
+    }
+    return true;
+      return true;
+    },
+  },
+  "TashasHideousLaughter::TashasHideousLaughterEffect": {
+    card: "TashasHideousLaughter",
+    effect: "TashasHideousLaughterEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/t/TashasHideousLaughter.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller === null) {
+      {
+        return false;
+      }
+    }
+    let cards = makeCards(game.xmageScope(), []);
+    for (const playerId of game.getOpponents(source.getControllerId())) {
+      {
+        let player = game.getPlayer(playerId);
+        if (player === null) {
+          {
+            continue;
+          }
+        }
+        let totalMV = 0;
+        for (const card of player.getLibrary().getCards()) {
+          {
+            cards.add(card);
+            totalMV += card.getManaValue();
+            if (totalMV >= 20) {
+              {
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+    return controller.moveCards(cards, 'exile');
+      return true;
+    },
+  },
   "TeferiMasterOfTime::TeferiMasterOfTimeActivationEffect": {
     card: "TeferiMasterOfTime",
     effect: "TeferiMasterOfTimeActivationEffect",
@@ -11466,6 +15740,54 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       }
     }
     return true;
+      return true;
+    },
+  },
+  "TeleminPerformance::TeleminPerformanceEffect": {
+    card: "TeleminPerformance",
+    effect: "TeleminPerformanceEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/t/TeleminPerformance.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller !== null) {
+      {
+        let opponent = game.getPlayer(source.getTargetPointer().getFirst());
+        if (opponent !== null) {
+          {
+            let creature = null;
+            let nonCreatures = makeCards(game.xmageScope(), []);
+            let reveal = makeCards(game.xmageScope(), []);
+            for (const card of opponent.getLibrary().getCards()) {
+              {
+                reveal.add(card);
+                if (card.isCreature()) {
+                  {
+                    creature = card;
+                    break;
+                  }
+                } else {
+                  {
+                    nonCreatures.add(card);
+                  }
+                }
+              }
+            }
+            opponent.revealCards('', reveal);
+            opponent.moveCards(nonCreatures, 'graveyard');
+            if (creature !== null) {
+              {
+                game.processAction();
+                controller.moveCards(creature, 'battlefield');
+              }
+            }
+          }
+        }
+        return true;
+      }
+    }
+    return false;
       return true;
     },
   },
@@ -11621,6 +15943,35 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "TezzeretMasterOfTheBridge::TezzeretMasterOfTheBridgeEffect2": {
+    card: "TezzeretMasterOfTheBridge",
+    effect: "TezzeretMasterOfTheBridgeEffect2",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/t/TezzeretMasterOfTheBridge.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    let cards = makeCards(game.xmageScope(), []).addAll(player.getLibrary().getTopCards(10));
+    player.moveCards(cards, 'exile');
+    let cards2 = makeCards(game.xmageScope(), []);
+    for (const card of cards.getCards()) {
+      {
+        if (card.isArtifact()) {
+          {
+            cards2.add(card);
+          }
+        }
+      }
+    }
+    return player.moveCards(cards2, 'battlefield');
+      return true;
+    },
+  },
   "TezzeretTheSeeker::TezzeretTheSeekerEffect3": {
     card: "TezzeretTheSeeker",
     effect: "TezzeretTheSeekerEffect3",
@@ -11748,6 +16099,29 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
     return false;
+      return true;
+    },
+  },
+  "TheFourteenthDoctor::TheFourteenthDoctorRevealEffect": {
+    card: "TheFourteenthDoctor",
+    effect: "TheFourteenthDoctorRevealEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/t/TheFourteenthDoctor.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    let cards = makeCards(game.xmageScope(), []).addAll(player.getLibrary().getTopCards(14));
+    player.revealCards('', cards);
+    let toGrave = makeCards(game.xmageScope(), []).addAll(makeCards(game.xmageScope(), cards.ids()).retain((StaticFilters.card().add(subTypePredicate("doctor")))).getCards());
+    player.moveCards(toGrave, 'graveyard');
+    cards.retainZone('library');
+    player.putCardsOnBottomOfLibrary(cards);
+    return true;
       return true;
     },
   },
@@ -11931,6 +16305,44 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
             }
           }
         }
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
+  "ThoughtGorger::ThoughtGorgerEffectEnters": {
+    card: "ThoughtGorger",
+    effect: "ThoughtGorgerEffectEnters",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/t/ThoughtGorger.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    let thoughtGorger = game.getPermanent(source.getSourceId());
+    if (player === null || player.getHand().isEmpty() || thoughtGorger === null || !thoughtGorger.addCounters(CounterType.of("+1/+1").createInstance(player.getHand().size()))) {
+      {
+        return false;
+      }
+    }
+    player.discardCards(player.getHand());
+    return true;
+      return true;
+    },
+  },
+  "ThoughtLash::ThoughtLashExileLibraryEffect": {
+    card: "ThoughtLash",
+    effect: "ThoughtLashExileLibraryEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/t/ThoughtLash.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller !== null) {
+      {
+        let cards = makeCards(game.xmageScope(), []).addAll(controller.getLibrary().getTopCards(controller.getLibrary().size()));
+        controller.moveCards(cards, 'exile');
         return true;
       }
     }
@@ -12133,6 +16545,54 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "TitanOfIndustry::TitanOfIndustryEffect": {
+    card: "TitanOfIndustry",
+    effect: "TitanOfIndustryEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/t/TitanOfIndustry.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player === null || game.getBattlefield().count(StaticFilters.creatureYouControl(), source.getControllerId()) < 1) {
+      {
+        return false;
+      }
+    }
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.creatureYouControl() });
+    target.withNotTarget(true);
+    (target.choose(game, '', player.getId()).length > 0);
+    let permanent = game.getPermanent(target.getFirstTarget());
+    return permanent !== null && permanent.addCounters(CounterType.of("shield").createInstance());
+      return true;
+    },
+  },
+  "TitaniasCommand::TitaniasCommandEffect": {
+    card: "TitaniasCommand",
+    effect: "TitaniasCommandEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/t/TitaniasCommand.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    let player = game.getPlayer(source.getTargetPointer().getFirst());
+    if (controller === null || player === null) {
+      {
+        return false;
+      }
+    }
+    let cards = makeCards(game.xmageScope(), []).addAll(player.getGraveyard());
+    if (cards.isEmpty()) {
+      {
+        return false;
+      }
+    }
+    controller.moveCards(cards, 'exile');
+    cards.retainZone('exile');
+    controller.gainLife(cards.size());
+    return true;
+      return true;
+    },
+  },
   "TitaniasSong::TitaniasSongEffect": {
     card: "TitaniasSong",
     effect: "TitaniasSongEffect",
@@ -12151,6 +16611,67 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     source: "Mage.Sets/src/mage/cards/t/TlincalliHunter.java",
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
+    return false;
+      return true;
+    },
+  },
+  "TomBombadil::TomBombadilEffect": {
+    card: "TomBombadil",
+    effect: "TomBombadilEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/t/TomBombadil.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller === null) {
+      {
+        return false;
+      }
+    }
+    let toReveal = makeCards(game.xmageScope(), []);
+    let toBattlefield = null;
+    for (const card of controller.getLibrary().getCards()) {
+      {
+        toReveal.add(card);
+        if (card.hasSubtype("saga")) {
+          {
+            toBattlefield = card;
+            break;
+          }
+        }
+      }
+    }
+    controller.revealCards('', toReveal);
+    if (toBattlefield !== null) {
+      {
+        controller.moveCards(toBattlefield, 'battlefield');
+        toReveal.retainZone('library');
+      }
+    }
+    controller.putCardsOnBottomOfLibrary(toReveal);
+    return true;
+      return true;
+    },
+  },
+  "ToothAndNail::ToothAndNailPutCreatureOnBattlefieldEffect": {
+    card: "ToothAndNail",
+    effect: "ToothAndNailPutCreatureOnBattlefieldEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/t/ToothAndNail.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller === null) {
+      {
+        return false;
+      }
+    }
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.creatureCard(), min: 0, max: 2, zone: "hand" });
+    if ((target.choose(game, '', controller.getId()).length > 0)) {
+      {
+        return controller.moveCards(makeCards(game.xmageScope(), []).addAll(target.getTargets()).getCards(), 'battlefield');
+      }
+    }
     return false;
       return true;
     },
@@ -12248,6 +16769,25 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "TrapfindersTrick::TrapfindersTrickEffect": {
+    card: "TrapfindersTrick",
+    effect: "TrapfindersTrickEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/t/TrapfindersTrick.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getFirstTarget());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    player.revealCards('', player.getHand());
+    player.discardCards(makeCards(game.xmageScope(), []).addAll(makeCards(game.xmageScope(), player.getHand().ids()).retain((StaticFilters.card().add(subTypePredicate("trap")))).getCards()));
+    return true;
+      return true;
+    },
+  },
   "TreacherousTerrain::TreacherousTerrainEffect": {
     card: "TreacherousTerrain",
     effect: "TreacherousTerrainEffect",
@@ -12280,6 +16820,57 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         }
       }
     }
+    return true;
+      return true;
+    },
+  },
+  "TreasureHunt::TreasureHuntEffect": {
+    card: "TreasureHunt",
+    effect: "TreasureHuntEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/t/TreasureHunt.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller !== null && controller.getLibrary().hasCards()) {
+      {
+        let cards = makeCards(game.xmageScope(), []);
+        for (const card of controller.getLibrary().getCards()) {
+          {
+            cards.add(card);
+            if (!card.isLand()) {
+              {
+                break;
+              }
+            }
+          }
+        }
+        controller.revealCards('', cards);
+        controller.moveCards(cards, 'hand');
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
+  "TrenzaloreClocktower::TrenzaloreClocktowerEffect": {
+    card: "TrenzaloreClocktower",
+    effect: "TrenzaloreClocktowerEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/t/TrenzaloreClocktower.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    let cards = makeCards(game.xmageScope(), []).addAll(player.getGraveyard());
+    cards.addAll(player.getHand());
+    player.putCardsOnTopOfLibrary(cards);
+    player.shuffleLibrary();
     return true;
       return true;
     },
@@ -12484,6 +17075,49 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "UlamogTheCeaselessHunger::UlamogExileLibraryEffect": {
+    card: "UlamogTheCeaselessHunger",
+    effect: "UlamogExileLibraryEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/u/UlamogTheCeaselessHunger.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let defender = game.getPlayer(source.getTargetPointer().getFirst());
+    if (defender !== null) {
+      {
+        defender.moveCards(defender.getLibrary().getTopCards(20), 'exile');
+        return true;
+      }
+    }
+    return false;
+      return true;
+    },
+  },
+  "UlamogTheDefiler::UlamogTheDefilerTargetEffect": {
+    card: "UlamogTheDefiler",
+    effect: "UlamogTheDefilerTargetEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/u/UlamogTheDefiler.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let opponent = game.getPlayer(source.getFirstTarget());
+    if (opponent === null) {
+      {
+        return false;
+      }
+    }
+    let toExile = (opponent.getLibrary().size() + 1) / 2;
+    let cards = opponent.getLibrary().getTopCards(toExile);
+    if ((cards.length === 0)) {
+      {
+        return false;
+      }
+    }
+    opponent.moveCardsToExile(cards);
+    return true;
+      return true;
+    },
+  },
   "UltimaOriginOfOblivion::UltimaOriginOfOblivionEffect": {
     card: "UltimaOriginOfOblivion",
     effect: "UltimaOriginOfOblivionEffect",
@@ -12534,6 +17168,33 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "UmbrisFearManifest::UmbrisFearManifestEffect": {
+    card: "UmbrisFearManifest",
+    effect: "UmbrisFearManifestEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/u/UmbrisFearManifest.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getFirstTarget());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    for (const card of player.getLibrary().getCards()) {
+      {
+        player.moveCards(card, 'exile');
+        if (card.isLand()) {
+          {
+            break;
+          }
+        }
+      }
+    }
+    return true;
+      return true;
+    },
+  },
   "UnbenderTine::UnbenderTineEffect": {
     card: "UnbenderTine",
     effect: "UnbenderTineEffect",
@@ -12573,6 +17234,36 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "UndercityInformer::UndercityInformerEffect": {
+    card: "UndercityInformer",
+    effect: "UndercityInformerEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/u/UndercityInformer.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getTargetPointer().getFirst());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    let cards = makeCards(game.xmageScope(), []);
+    for (const card of player.getLibrary().getCards()) {
+      {
+        cards.add(card);
+        if (card.isLand()) {
+          {
+            break;
+          }
+        }
+      }
+    }
+    player.revealCards('', cards);
+    player.moveCards(cards, 'graveyard');
+    return true;
+      return true;
+    },
+  },
   "Undertow::UndertowEffect": {
     card: "Undertow",
     effect: "UndertowEffect",
@@ -12581,6 +17272,29 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
     return true;
+      return true;
+    },
+  },
+  "Unforge::UnforgeEffect": {
+    card: "Unforge",
+    effect: "UnforgeEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/u/Unforge.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let equipment = game.getPermanentOrLKIBattlefield(source.getTargetPointer().getFirst());
+    if (equipment !== null) {
+      {
+        let creature = game.getPermanent(equipment.getAttachedTo());
+        if (creature !== null) {
+          {
+            creature.damage(2, source.getSourceId());
+            return true;
+          }
+        }
+      }
+    }
+    return false;
       return true;
     },
   },
@@ -12806,6 +17520,37 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       }
     }
     return false;
+      return true;
+    },
+  },
+  "VentureForth::VentureForthEffect": {
+    card: "VentureForth",
+    effect: "VentureForthEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/v/VentureForth.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    let cards = makeCards(game.xmageScope(), []);
+    for (const card of player.getLibrary().getCards()) {
+      {
+        player.moveCards(card, 'exile');
+        if (card.isLand()) {
+          {
+            player.moveCards(card, 'battlefield');
+            break;
+          }
+        }
+        cards.add(card);
+      }
+    }
+    player.putCardsOnBottomOfLibrary(cards);
+    return true;
       return true;
     },
   },
@@ -13041,6 +17786,86 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "VolcanicEruption::VolcanicEruptionEffect": {
+    card: "VolcanicEruption",
+    effect: "VolcanicEruptionEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/v/VolcanicEruption.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let destroyedCount = 0;
+    for (const targetID of source.getTargetPointer().getTargets()) {
+      {
+        let permanent = game.getPermanent(targetID);
+        if (permanent !== null) {
+          {
+            if (permanent.destroy(false)) {
+              {
+                if (game.getState().getZone(permanent.getId()) === 'graveyard') {
+                  {
+                    destroyedCount++;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    if (destroyedCount > 0) {
+      {
+        let permanents = game.getBattlefield().getActivePermanents(StaticFilters.creature(), source.getControllerId());
+        for (const permanent of permanents) {
+          {
+            permanent.damage(destroyedCount, source.getSourceId());
+          }
+        }
+        for (const playerId of game.getState().getPlayersInRange(source.getControllerId())) {
+          {
+            let player = game.getPlayer(playerId);
+            if (player !== null) {
+              {
+                player.damage(destroyedCount, source.getSourceId());
+              }
+            }
+          }
+        }
+      }
+    }
+    return true;
+      return true;
+    },
+  },
+  "VolcanicSpite::VolcanicSpiteEffect": {
+    card: "VolcanicSpite",
+    effect: "VolcanicSpiteEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/v/VolcanicSpite.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player === null || player.getHand().isEmpty() || !player.chooseUse('')) {
+      {
+        return false;
+      }
+    }
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), zone: "hand" });
+    (target.choose(game, '', player.getId(), player.getHand().ids()).length > 0);
+    let card = game.getCard(target.getFirstTarget());
+    if (card === null) {
+      {
+        return false;
+      }
+    }
+    if (player.putCardsOnBottomOfLibrary(card)) {
+      {
+        player.drawCards(1);
+      }
+    }
+    return true;
+      return true;
+    },
+  },
   "VolitionReins::UntapVolitionReinsEffect": {
     card: "VolitionReins",
     effect: "UntapVolitionReinsEffect",
@@ -13269,6 +18094,25 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
+  "WaveOfReckoning::WaveOfReckoningDamageEffect": {
+    card: "WaveOfReckoning",
+    effect: "WaveOfReckoningDamageEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/w/WaveOfReckoning.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let filter = makeFilter('permanent');
+    filter.add(cardTypePredicate("creature"));
+    for (const permanent of game.getBattlefield().getActivePermanents(filter, source.getControllerId())) {
+      {
+        let amount = permanent.getPower().getValue();
+        permanent.damage(amount, permanent.getId());
+      }
+    }
+    return true;
+      return true;
+    },
+  },
   "WeiAssassins::WeiAssassinsEffect": {
     card: "WeiAssassins",
     effect: "WeiAssassinsEffect",
@@ -13392,6 +18236,35 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
     return false;
+      return true;
+    },
+  },
+  "WillOfTheJeskai::WillOfTheJeskaiEffect": {
+    card: "WillOfTheJeskai",
+    effect: "WillOfTheJeskaiEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/w/WillOfTheJeskai.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let wheelers = [];
+    for (const playerId of game.getState().getPlayersInRange(source.getControllerId())) {
+      {
+        let player = game.getPlayer(playerId);
+        if (player !== null && player.chooseUse('')) {
+          {
+            game.informPlayers(player.getName() + '');
+            wheelers.push(player);
+          }
+        }
+      }
+    }
+    for (const player of wheelers) {
+      {
+        player.discardCards(player.getHand());
+        player.drawCards(5);
+      }
+    }
+    return true;
       return true;
     },
   },
@@ -13559,6 +18432,24 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       }
     }
     return player.moveCardsToExile(player.getHand().getCards());
+      return true;
+    },
+  },
+  "WrackWithMadness::WrackWithMadnessEffect": {
+    card: "WrackWithMadness",
+    effect: "WrackWithMadnessEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/w/WrackWithMadness.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let permanent = game.getPermanent(source.getTargetPointer().getFirst());
+    if (permanent !== null) {
+      {
+        permanent.damage(permanent.getPower().getValue(), permanent.getId());
+        return true;
+      }
+    }
+    return false;
       return true;
     },
   },
@@ -13747,6 +18638,45 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     trivial: true,
     run: (game: XGame, source: XAbility): boolean => {
     return false;
+      return true;
+    },
+  },
+  "ZimonesHypothesis::ZimonesHypothesisCounterEffect": {
+    card: "ZimonesHypothesis",
+    effect: "ZimonesHypothesisCounterEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/z/ZimonesHypothesis.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let player = game.getPlayer(source.getControllerId());
+    if (player === null) {
+      {
+        return false;
+      }
+    }
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.creature(), min: 0, max: 1 }).withNotTarget(true);
+    (target.choose(game, '', player.getId()).length > 0);
+    let permanent = game.getPermanent(target.getFirstTarget());
+    return permanent !== null && permanent.addCounters(CounterType.of("+1/+1").createInstance());
+      return true;
+    },
+  },
+  "ZombieMob::ZombieMobExileEffect": {
+    card: "ZombieMob",
+    effect: "ZombieMobExileEffect",
+    base: "OneShotEffect",
+    source: "Mage.Sets/src/mage/cards/z/ZombieMob.java",
+    trivial: false,
+    run: (game: XGame, source: XAbility): boolean => {
+    let controller = game.getPlayer(source.getControllerId());
+    if (controller === null) {
+      {
+        return false;
+      }
+    }
+    let cards = makeCards(game.xmageScope(), []).addAll(makeCards(game.xmageScope(), controller.getGraveyard().ids()).retain(StaticFilters.creatureCard()).getCards());
+    controller.moveCards(cards, 'exile');
+    return true;
       return true;
     },
   },

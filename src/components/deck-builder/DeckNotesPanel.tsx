@@ -106,7 +106,7 @@ export function DeckNotesPanel({ deckId }: DeckNotesPanelProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <MessageSquare className="h-5 w-5 text-primary" />
-          Deck Notes & Comments
+          Notes
           <Badge variant="secondary">{notes.length}</Badge>
         </CardTitle>
       </CardHeader>
@@ -114,7 +114,7 @@ export function DeckNotesPanel({ deckId }: DeckNotesPanelProps) {
         {/* Add Note Form */}
         <div className="space-y-2">
           <Textarea
-            placeholder="Add a note about this deck... (strategy tips, card combos, meta considerations, etc.)"
+            placeholder="A note about this deck"
             value={newNote}
             onChange={(e) => setNewNote(e.target.value)}
             rows={3}
@@ -127,7 +127,7 @@ export function DeckNotesPanel({ deckId }: DeckNotesPanelProps) {
               size="sm"
             >
               <Send className="mr-2 h-4 w-4" />
-              Add Note
+              Add note
             </Button>
           </div>
         </div>
@@ -147,7 +147,7 @@ export function DeckNotesPanel({ deckId }: DeckNotesPanelProps) {
             <div className="text-center py-8 text-muted-foreground">
               <MessageSquare className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p className="mb-2">No notes yet</p>
-              <p className="text-sm">Add your first note about this deck</p>
+              <p className="text-sm">Anything you want to remember about this deck</p>
             </div>
           ) : (
             <div className="space-y-3 pr-4">

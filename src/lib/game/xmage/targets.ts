@@ -217,6 +217,24 @@ export interface XTargetOptions {
   max?: number;
   /** Search this zone rather than the battlefield. */
   zone?: 'battlefield' | 'hand' | 'graveyard' | 'library' | 'exile';
+  /**
+   * Whose pile, when the zone is a private one.
+   *
+   * FOUND BY THE ADVERSARIAL READ, and it is the biggest thing this facade got
+   * wrong. XMage puts the owner restriction in the TARGET CLASS, not in the
+   * filter: `TargetCardInYourGraveyard.possibleTargets` reads
+   * `game.getPlayer(sourceControllerId).getGraveyard()`, and its filter is a
+   * plain `FilterCreatureCard` whose only mention of "your" is in its display
+   * name. So `TargetCardInYourGraveyard`, `TargetCardInGraveyard` and
+   * `TargetCardInOpponentsGraveyard` all reached here as `zone:'graveyard'`
+   * and every one of them offered every graveyard on the board. Gix's Command
+   * would return a creature card from an OPPONENT'S graveyard to your hand;
+   * Dream Cache would put two cards from somebody else's hand on a library.
+   * 26 shipped bodies were in that state.
+   *
+   * Left undefined for the classes that genuinely mean any player's pile.
+   */
+  owner?: 'chooser' | 'not-chooser';
   /** Already-chosen ids, from the ability's announcement. */
   chosen?: InstanceId[];
   sourceId?: InstanceId;
@@ -228,11 +246,37 @@ export function makeTarget(scope: XmageScope, options: XTargetOptions = {}): XTa
   const min = options.min ?? 1;
   const max = options.max ?? 1;
 
+  /**
+   * Whose pile a card is in.
+   *
+   * By OWNER, not controller: a hand, a graveyard and a library are owner-keyed
+   * piles in this engine exactly as they are in XMage, and a stolen creature
+   * still dies to its owner's graveyard.
+   *
+   * With no chooser to compare against there is nothing to scope by. Returning
+   * everything there would be the bug again, so it returns NOTHING and says so:
+   * the body then takes its "nobody chose anything" branch with a line in the
+   * log, which is the visible failure this port prefers.
+   */
+  const ownedOk = (ownerId: PlayerId, controllerId?: PlayerId): boolean => {
+    if (!options.owner) return true;
+    if (!controllerId) return false;
+    return options.owner === 'chooser' ? ownerId === controllerId : ownerId !== controllerId;
+  };
+
   const legalSet = (controllerId?: PlayerId): InstanceId[] => {
     const ctx: PredicateContext = { controllerId, sourceId: options.sourceId };
     const zone = options.zone ?? 'battlefield';
+    if (options.owner && !controllerId) {
+      deferHere(
+        scope,
+        `a card had to be chosen from one player's ${zone} and no chooser was passed, so nothing was offered`
+      );
+      return [];
+    }
     return Object.values(scope.working.cards)
       .filter(card => card.zone === zone)
+      .filter(card => ownedOk(card.ownerId, controllerId))
       .filter(card => (options.filter ? options.filter.match(scope.working, card, ctx) : true))
       .map(card => card.instanceId);
   };
@@ -244,12 +288,17 @@ export function makeTarget(scope: XmageScope, options: XTargetOptions = {}): XTa
    * it are routinely somewhere `legalSet` would not look. A card that has left
    * the game between the pile being built and the question being asked is
    * dropped, because `scope.working.cards` no longer holds it.
+   *
+   * The OWNER test does apply here. XMage puts it on `canTarget` as well as on
+   * `possibleTargets`, so a pile handed to `TargetCardInYourGraveyard` is
+   * narrowed the same way whoever built the pile.
    */
   const withinSet = (from: readonly InstanceId[], controllerId?: PlayerId): InstanceId[] => {
     const ctx: PredicateContext = { controllerId, sourceId: options.sourceId };
     return from
       .map(id => scope.working.cards[id])
       .filter(card => !!card)
+      .filter(card => ownedOk(card.ownerId, controllerId))
       .filter(card => (options.filter ? options.filter.match(scope.working, card, ctx) : true))
       .map(card => card.instanceId);
   };

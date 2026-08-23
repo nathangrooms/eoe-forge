@@ -996,3 +996,91 @@ Living Lore and Severance Priest both emit `moveCardsToExile(card)` without the
 exile-zone id, which is `CardUtil#getExileZoneId` being dropped along with its
 argument. Check 2 counts it, 13 occurrences, and what it means is that those
 cards exile to a generic zone rather than a named one.
+
+---
+
+## 6d. Whose pile is it: the owner scope on a zone target (23 August 2026)
+
+Added by the adversarial read of sections 6a to 6c. `docs/engine/TRANSLATION.md`
+section 13 is the full account; this is what changed in the runtime.
+
+### The rule, read out of XMage rather than assumed
+
+XMage never puts the owner restriction in the filter. It puts it in the target
+class, and the filter it hands that class says "your" only in the display name it
+was constructed with:
+
+    TargetCardInYourGraveyard.possibleTargets(sourceControllerId, source, game)
+        -> game.getPlayer(sourceControllerId).getGraveyard()
+
+    TargetCardInHand.possibleTargets(sourceControllerId, source, game)
+        -> game.getPlayer(sourceControllerId).getHand()
+
+    TargetCardInLibrary.canTarget(id, source, game)
+        -> game.getPlayer(source.getControllerId()).getLibrary().getCard(id, game)
+
+    TargetCardInOpponentsGraveyard.possibleTargets(sourceControllerId, …)
+        -> every player in range the source controller hasOpponent()
+
+    TargetCardInGraveyard   -> every graveyard, so no restriction
+    TargetCardInExile       -> the shared exile in range, so no restriction
+
+The translator read the filter, took the zone from the class NAME and dropped the
+rest, so the first four and the fifth all arrived here as a bare
+`zone:'graveyard'` or `zone:'hand'`. `makeTarget`'s `legalSet` filters on
+`card.zone` alone, so all of them offered every player's pile.
+
+### What that did
+
+26 shipped bodies. Measured on the pre-fix bundle, on a real board, answering the
+one question Gix's Command asks with an opponent's card:
+
+    before:  MOVE_ZONE theirAngel -> hand
+    after:   nothing moves; the chooser's own card still comes back
+
+Dream Cache, Nantuko Cultivator, Sawtooth Loon, Tooth and Nail and eleven more
+were reading somebody else's hand the same way.
+
+### The shape of the fix
+
+`XTargetOptions` gains one field:
+
+    owner?: 'chooser' | 'not-chooser';
+
+Scoped by OWNER and not by controller, because a hand, a graveyard and a library
+are owner-keyed piles in this engine exactly as they are in XMage, and a stolen
+creature still dies to its owner's graveyard. Applied in `legalSet`, which is
+`possibleTargets` and `canChoose`, and in `withinSet`, which is the
+candidate-pile path, because XMage enforces the same restriction in `canTarget`.
+
+The direction of the failure case is the load-bearing part. With no chooser
+passed it returns NOTHING and files a deferral. Falling back to "every pile"
+would be the original bug wearing a guard clause, and it would be silent; an
+empty list plus a line in the log is the visible failure this port prefers.
+
+Undefined for the classes that genuinely mean any player's pile, so
+`TargetCardInGraveyard` still sees every graveyard, which is what Liliana, the
+Necromancer needs.
+
+### The ratchet
+
+`src/lib/game/xmage/owner-scope.test.ts`, seven tests. Five drive the facade,
+one drives a body out of `bodies.generated.ts` rather than one the test wrote,
+and the last walks the whole shipped bundle and fails if any hand or library
+target is emitted without an owner. XMage has exactly one hand target class and
+one library target class in this corpus and both are chooser-scoped, so a
+missing owner there is the mapping regressing rather than a card that means
+something else.
+
+42 shipped bodies now name whose pile they mean. Nothing uses `not-chooser` yet:
+no body in the bundle constructs `TargetCardInOpponentsGraveyard`.
+
+### One more flag, in the translator rather than in the runtime
+
+`Player#discard`'s five-argument form was matched on the TYPE of argument 1 and
+then dropped it. Argument 1 is `random`, so XMage's "discard a card at random"
+was arriving as our `discard(count)`, which asks the player which card to pitch.
+Now guarded with `flags({ 1: 'false', 2: 'false' })`, so a random discard and a
+discard paid as a cost block with their arity named until the facade has
+something to map them to. Three bodies leave the bundle and coverage falls by one
+card, which is the honest direction.

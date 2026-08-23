@@ -1109,3 +1109,254 @@ to 747** (trivial unchanged at 378, so every new body is substantive), records i
 **`scripts/verify-ability-coverage.mjs` AUTOMATED, whole corpus, same script:
 3,507 (10.80%) to 3,522 (10.85%). Fifteen cards.** Stricter variant 3,295
 (10.15%) to 3,310 (10.19%).
+
+---
+
+# 13. The adversarial read, 23 August 2026
+
+An independent pass whose job was to refute sections 10 to 12 rather than to
+agree with them. Every number here came from a script run in that session. Where
+a claim survived it says so; where it did not, the correction is here and the
+code is fixed.
+
+## The ruler was not relaxed, and that is checkable
+
+The first thing to rule out, because this project has twice reported a
+denominator as a gain. `scripts/verify-ability-coverage.mjs` and
+`src/lib/game/abilities/behaviour-probe.ts` are both byte-identical to what they
+were at commit `c59af7b`, which is before the first of the three tranches:
+
+    git log --oneline c59af7b..HEAD -- \
+      src/lib/game/abilities/behaviour-probe.ts scripts/verify-ability-coverage.mjs
+
+returns nothing, and neither file is modified in the working tree. The
+denominator is the whole pool, 32,469 of 38,626 rows, and the exclusions are
+printed at the top of every run. The probe still downgrades: 997 cards that grade
+AUTOMATED before it are refused after it. It still does NOT downgrade the 212
+that resolve in complete silence, and the script still prints what the figure
+would be if it did, 3,309 (10.19%).
+
+So the gain is real. It is also much smaller than four tranches of work implies,
+and the reason nobody could see that is the next section.
+
+## The counterfactual nobody had run
+
+Every tranche measured its own delta. None measured the programme. Doing it takes
+no source change: ES modules are one instance per process, so load
+`lowered.generated.ts`, delete every record carrying a `{do:'xmage-body'}`
+pointer, and only then load the grader, which reads the same object.
+
+    node --experimental-strip-types scratch/refute/bodies-off.mjs
+
+With all 342 body-carrying records removed, AUTOMATED reads **3,465 (10.67%)**.
+That is exactly the figure `CLAUDE.md` still carries, and it is what the corpus
+scored before any body existed.
+
+So the whole translated-body line of work, 1,122 bodies across four tranches, is
+worth **56 cards, 3,465 to 3,521, 0.17 points**. The three tranches under review
+account for 34 of them. Turning the XMage swap off entirely with `DM_XMAGE_OFF=1`
+reads 3,172 (9.77%), so the port as a whole is worth 349 cards and the primitive
+lowerings are 293 of those. A translated body is worth about a fortieth of a
+card.
+
+That is the sentence the next planning session needs, and no tranche delta could
+have produced it.
+
+## The count of cards carrying a body was a record count
+
+Section 12 says 343 cards carry a body. 343 is the number of RECORDS with a
+pointer, 342 after this pass. Eleven are digital-only MTGO printings the pool
+excludes. Twenty-two more survive the pool and are still dropped at compile time:
+nineteen because the oracle-text compiler already grades them `full`, so
+`xmageSwapFor` refuses on its first line, and three because they are split cards
+with text on a face this engine does not play. The number of POOL cards whose
+compiled abilities hold a pointer is **309**, and 55 of them run on the probe
+board.
+
+The 22 refusals are the precedence rule working, not a defect. The count was
+still the wrong one to publish.
+
+## Reachability, proved from the bundle rather than from grep
+
+Both legs, and neither passes through a test or a script.
+
+Which cards get a pointer: `src/App.tsx:76` lazy-loads `src/pages/Play.tsx`,
+which mounts `src/components/play/AbilityPanel.tsx` and `PlayTable.tsx`; those
+import `activationsFor` and `planActivation` as values from `@/lib/game`;
+`src/lib/game/activate.ts:68` and `src/lib/game/stack.ts:92` import
+`abilitiesFor` from `abilities/card-abilities.ts`, whose line 87 calls
+`compileCardAbilities`; `src/lib/cards/abilities/compiler.ts:645` calls
+`xmageSwapFor`, which reads `XMAGE_LOWERED`.
+
+What happens on resolution: `stack.ts:465` and `:577` call
+`resolveAbilityActions`, `activate.ts:1151` calls `resolveAbilityRun`, and both
+land on `to-actions.ts` `case 'xmage-body'`, which reads `TRANSLATED_BODIES` and
+calls `runXmageEffect`.
+
+The empirical half: after `npm run build`, all **1,122 body keys are in
+`dist/assets/rules-*.js`**, the chunk the play route loads, and the string
+`owner:"chooser"` added by this pass is in it too. The bodies ship to the
+browser.
+
+## Two defects, both found by reading the Java beside the TypeScript
+
+Thirty non-trivial bodies were drawn deterministically from the 1,122 that ship
+and read pair by pair. **Two disagreed, 6.7%.** Both were a general rule with a
+blast radius much larger than the sample, so both were then measured across the
+whole bundle.
+
+### A boolean flag matched on its type instead of its value
+
+`Player#discard` has two five-argument overloads, and the row that told them
+apart read the TYPE of argument 1 and then threw the argument away:
+
+    { arity: 5, when: argIs(1, 'boolean'), ...M('discard', [0]) }
+
+Argument 1 is `random`. `discard(1, true, false, source, game)` is XMage for
+"discard a card at random" and it became `discard(1)`, which asks the player
+which card to pitch. Section 11 states that "every long-form overload is matched
+on the LITERAL flag values its short form passes". That was true of
+`Permanent#damage/6` and `Player#damage/6` and it was not true of the one method
+whose fix that section describes. Three shipped bodies were affected:
+Skullknocker Ogre, Drastic Revelation and Oath of Scholars.
+
+Fixed with `flags({ 1: 'false', 2: 'false' })`, so a random discard and a discard
+paid as a cost now block with their arity named, which is this translator's own
+doctrine. The three bodies leave the bundle and **coverage falls by one card**.
+
+### The owner restriction lives in the target class, and it was being dropped
+
+The larger one. XMage does not put "your graveyard" in the filter. It puts it in
+the target class: `TargetCardInYourGraveyard.possibleTargets(sourceControllerId)`
+reads `game.getPlayer(sourceControllerId).getGraveyard()`, and the filter it was
+constructed with is a plain `FilterCreatureCard` whose only mention of "your" is
+its display name. `TargetCardInHand` and `TargetCardInLibrary` are the same
+shape.
+
+The translator read the filter, took the zone from the class name and dropped the
+rest, so `TargetCardInYourGraveyard`, `TargetCardInGraveyard` and
+`TargetCardInOpponentsGraveyard` all arrived as `zone:'graveyard'` and
+`makeTarget` offered every player's pile. **26 shipped bodies were in that
+state.** Measured on the pre-fix bundle, on a real board:
+
+    Gix's Command, answer = an opponent's Serra Angel
+      before:  MOVE_ZONE theirAngel -> hand
+      after:   nothing moves; the chooser's own card still comes back
+
+`XTargetOptions` now carries `owner: 'chooser' | 'not-chooser'`, honoured in both
+`possibleTargets` and the candidate-pile path, because XMage enforces it in
+`canTarget` as well. With no chooser passed it offers NOTHING and files a
+deferral, rather than falling back to everything, which would be the same bug
+wearing a guard clause. 42 shipped bodies now name whose pile they mean.
+`src/lib/game/xmage/owner-scope.test.ts` holds seven tests, one of which walks
+the whole bundle and fails if a hand or library target ever loses its owner
+again.
+
+### What did not disagree
+
+The other 28 agree line for line, including every case where the difference looks
+like one. `Library#getFromTop` peeks in XMage and peeks here. `Library#getCards`
+is top to bottom in both. `Permanent#damage/6` is guarded on `false, true` and
+those are the defaults. Gallifrey Stands reads the inner class's own `FilterCard`
+with the Doctor predicate, and so do we. Liliana, the Necromancer uses
+`TargetCardInGraveyard`, which really does mean any graveyard, and correctly has
+no owner scope after the fix.
+
+Two things are approximations rather than disagreements, and both say so out
+loud: a two-option `chooseUse` becomes a Yes/No with an empty prompt, because the
+labels are XMage's wording, and `putCardsOnBottomOfLibrary(cards, anyOrder)`
+keeps the caller's order and files a deferral saying nobody was asked to pick it.
+Eleven shipped bodies pass `anyOrder = true`.
+
+## Ten cards checked against Scryfall by hand
+
+Twelve, in the end, each cast on a real two-player board and folded through the
+real reducer. Fumigate destroyed three creatures and gained three life. Windfall
+had both players pitch their hands and draw two, which is the larger of the two
+piles. Stronghold Discipline took two from the player with two creatures and one
+from the player with one. Biorhythm set the totals to 2 and 1. Fracturing Gust
+destroyed one artifact and one enchantment and gained four. Treasure Hunt took
+two lands and the nonland under them. Wave of Reckoning and Solar Blaze each
+killed all three creatures, which is what both oracle texts say and what both
+Java files do. Death Begets Life destroyed four permanents and drew four.
+Heartless Hidetsugu halved both life totals. Pestilence Demon hit four creatures
+and two players. Mana Severance deferred and said why.
+
+**Eleven correct, one honest deferral, no disagreement.**
+
+## The finding that should choose the next tranche
+
+Section 12 stopped on the grounds that "more translated bodies is no longer the
+binding constraint" and named the ruler as the reason: 177 of the 343 body cards
+defer because the probe binds no target. It priced the fix at 884 cards and 2.72
+points and left the premise untested.
+
+The premise holds. Take body cards the probe downgraded for an unbound target,
+put each on a real board, bind a legal target, and run:
+
+    node --experimental-strip-types scratch/refute/bind-targets.mjs 120
+
+    sampled                                 120
+    run clean once a target is bound         91   (75.8%)
+    still defer                              29
+
+**Three out of four.** Of the 309 pool cards that reach a body, 164 defer on this
+one line; at that rate about 124 of them would run. That is more than twice what
+1,122 translated bodies have bought in total, and it comes from a change to the
+probe rather than to the engine.
+
+The caveat is real and has to be published beside the number: the harness binds
+whatever legal target makes the body run, not the target a rules-correct
+announcement would pick, so 75.8% is a ceiling on what target-binding is worth
+and not a promise. Containment Breach "ran" against a creature. A body does not
+check its own target's legality, because in XMage the `Target` does that at
+announcement and here the announcer does, so the real work is binding off each
+record's `TargetSpec`, and the two numbers must be published side by side exactly
+as section 11 said.
+
+`CreateTokenCopyTargetEffect`, the row section 12 nominated, is still 78 bodies
+and still the largest single row. At this programme's measured rate of one card
+per forty bodies it is worth about two cards. The unbound target is worth about a
+hundred.
+
+## Gates
+
+`tsc --noEmit -p tsconfig.app.json` 0 errors. `npm test` **2,451 pass, 0 fail**,
+seven of them new. `npm run build` succeeds. Checks 1 to 5 clean, check 5 still 0
+of 4,554 literals. Both generators byte-reproducible across two runs.
+
+Harness, seed 9000, 20 games, `--verify --max-turns 200`, before and after the
+fixes: **20 finished, 0 stalled, 0 replays diverged, 0 cards resolved silently**,
+27,018 actions both times. Seed 9018 finishes on turn 82. The harness has no
+counter called "invariant violations"; what `--verify` does is replay every game
+and compare every state hash, and no replay diverged.
+
+Corpus: bodies **1,125 to 1,122**, substantive **747 to 744**, records **6,488 to
+6,487**, cards carrying a pointer **343 to 342**, pool cards that reach one 309.
+
+**`scripts/verify-ability-coverage.mjs` AUTOMATED, whole corpus: 3,522 (10.85%)
+to 3,521 (10.84%).** One card, and it is the price of the random-discard guard.
+Stricter variant 3,310 (10.19%) to 3,309 (10.19%).
+
+## The licence notice was wrong and is corrected
+
+`THIRD-PARTY-NOTICES.md` opened with "No XMage source file has been copied,
+machine-translated, or vendored." Two of those three are still true. Roughly
+1,100 of XMage's card-local `apply(Game, Ability)` bodies are machine-translated
+into `src/lib/game/xmage/bodies.generated.ts` and the shipped app runs them. MIT
+permits that with the copyright notice retained, and it is retained: in that
+file's header, and in every file under `src/lib/game/xmage/` and
+`src/lib/cards/xmage/` except `record.test.ts`, which holds no ported logic. A
+notice that understates what was taken is the one error an attribution file
+cannot afford, so it is corrected and dated.
+
+Checked at the same time: no `.java` or `.jar` file is tracked or present in the
+repository, the clone is read in place, no Forge clone exists anywhere on the
+machine, and nothing in `scripts/` or `src/` fetches or reads one. An independent
+wording check took every string literal of eight characters or more holding a
+space out of the five generated and hand-written XMage files, 586 of them, and
+asked whether it appears verbatim among the 70,282 distinct Java string literals
+in the clone. 84 do, and all 84 are Magic vocabulary Scryfall also prints: filter
+names like "creature you control", token names like "Storm Crow", and type lines
+like "Artifact Creature, Phyrexian Golem". No sentence of rules text. Check 5
+reads 0 and that survives an independent method.

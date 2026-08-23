@@ -10,13 +10,27 @@ See [Card-Forge/forge is not used](#card-forgeforge-is-not-used-gpl-30) below.
 
 ## XMage (magefree/mage) — MIT
 
-**Used as:** an architectural source for the rules core in `src/lib/game/`.
+**Used as:** an architectural source for the rules core in `src/lib/game/`, **and** the source of
+card behaviour, machine-translated, in `src/lib/game/xmage/` and `src/lib/cards/xmage/`.
 
-DeckMatrix's rules engine is written from scratch in TypeScript. No XMage source file has been
-copied, machine-translated, or vendored. What is derived is XMage's **model** — how a game of
-Magic decomposes into parts, and what those parts are called. That decomposition is the hard,
-well-earned thing in XMage, and it is genuinely load-bearing here, so it is attributed rather
-than quietly absorbed.
+DeckMatrix's rules core is written from scratch in TypeScript, and what it derives from XMage
+there is the **model** — how a game of Magic decomposes into parts, and what those parts are
+called. That decomposition is the hard, well-earned thing in XMage, and it is genuinely
+load-bearing here, so it is attributed rather than quietly absorbed.
+
+**Corrected 23 August 2026.** This paragraph used to end "No XMage source file has been copied,
+machine-translated, or vendored." Two of those three are still true and the middle one is not.
+`src/lib/game/xmage/bodies.generated.ts` carries roughly 1,100 of XMage's card-local
+`apply(Game, Ability)` method bodies translated into TypeScript by machine by
+`scripts/xmage/translate-bodies.mjs`, and the shipped app runs them. That file has said so in its
+own header since it was written; this notice had not caught up, and a notice that understates
+what was taken is the one kind of error an attribution file cannot afford. MIT permits the
+translation provided the copyright notice is retained, which it is: below, and in the header of
+every file holding ported logic. Nothing is vendored: the clone is read in place from
+`$XMAGE_ROOT` and no XMage file lives in this repository. XMage's display strings are NOT
+translated, because those carry Wizards of the Coast rules text which is not XMage's to license;
+where a translated body needs a prompt it is emitted with an empty one and the wording comes from
+Scryfall.
 
 ### Licence
 

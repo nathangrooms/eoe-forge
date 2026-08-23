@@ -905,7 +905,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         return false;
       }
     }
-    let target = makeTarget(game.xmageScope(), { filter: (StaticFilters.creatureCard().add(subTypePredicate("rat"))), min: 0, max: 2, zone: "graveyard" }).withNotTarget(true);
+    let target = makeTarget(game.xmageScope(), { filter: (StaticFilters.creatureCard().add(subTypePredicate("rat"))), min: 0, max: 2, zone: "graveyard", owner: "chooser" }).withNotTarget(true);
     (target.choose(game, '', player.getId()).length > 0);
     player.moveCards(makeCards(game.xmageScope(), []).addAll(target.getTargets()), 'hand');
     return true;
@@ -2002,7 +2002,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         let opponent = game.getPlayer(opponentId);
         if (opponent !== null && opponent.chooseUse('')) {
           {
-            let target = makeTarget(game.xmageScope(), { filter: StaticFilters.creatureCard(), zone: "library" });
+            let target = makeTarget(game.xmageScope(), { filter: StaticFilters.creatureCard(), zone: "library", owner: "chooser" });
             if ((opponent.searchLibrary('', target).length > 0)) {
               {
                 let targetCard = opponent.getLibrary().getCard(target.getFirstTarget());
@@ -2051,7 +2051,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         return false;
       }
     }
-    let target = makeTarget(game.xmageScope(), { filter: makeFilter(["card"], [Predicates.or(cardTypePredicate("instant"), cardTypePredicate("sorcery"))]), min: 0, max: 2, zone: "graveyard" }).withNotTarget(true);
+    let target = makeTarget(game.xmageScope(), { filter: makeFilter(["card"], [Predicates.or(cardTypePredicate("instant"), cardTypePredicate("sorcery"))]), min: 0, max: 2, zone: "graveyard", owner: "chooser" }).withNotTarget(true);
     if (!(target.choose(game, '', player.getId()).length > 0)) {
       {
         return false;
@@ -2270,7 +2270,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         return true;
       }
     }
-    let target = makeTarget(game.xmageScope(), { filter: (StaticFilters.card().add(Predicates.or(cardTypePredicate("creature"), cardTypePredicate("enchantment"), cardTypePredicate("land")))), min: 1, max: 1, zone: "graveyard" }).withNotTarget(true);
+    let target = makeTarget(game.xmageScope(), { filter: (StaticFilters.card().add(Predicates.or(cardTypePredicate("creature"), cardTypePredicate("enchantment"), cardTypePredicate("land")))), min: 1, max: 1, zone: "graveyard", owner: "chooser" }).withNotTarget(true);
     (target.choose(game, '', player.getId(), cards.ids()).length > 0);
     player.moveCards(makeCards(game.xmageScope(), []).addAll(target.getTargets()), 'battlefield');
     return true;
@@ -2557,7 +2557,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         return false;
       }
     }
-    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.creatureCard(), min: 0, max: 3, zone: "library" });
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.creatureCard(), min: 0, max: 3, zone: "library", owner: "chooser" });
     (controller.searchLibrary('', target).length > 0);
     let cards = makeCards(game.xmageScope(), []).addAll(target.getTargets());
     cards.retainZone('library');
@@ -4725,7 +4725,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       }
     }
     player.moveCards(player.getLibrary().getTopCards(13), 'exile');
-    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), zone: "library" });
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), zone: "library", owner: "chooser" });
     (player.searchLibrary('', target).length > 0);
     let card = player.getLibrary().getCard(target.getFirstTarget());
     if (card !== null) {
@@ -5071,7 +5071,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         return false;
       }
     }
-    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.creatureCard(), zone: "library" });
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.creatureCard(), zone: "library", owner: "chooser" });
     if ((controller.searchLibrary('', target).length > 0)) {
       {
         let card = game.getCard(target.getFirstTarget());
@@ -5245,7 +5245,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         return false;
       }
     }
-    let target = makeTarget(game.xmageScope(), { filter: makeFilter(["artifact", "card"], [cardTypePredicate("artifact")]), min: 0, max: 3, zone: "library" });
+    let target = makeTarget(game.xmageScope(), { filter: makeFilter(["artifact", "card"], [cardTypePredicate("artifact")]), min: 0, max: 3, zone: "library", owner: "chooser" });
     (controller.searchLibrary('', target).length > 0);
     let cards = makeCards(game.xmageScope(), []).addAll(target.getTargets());
     cards.retainZone('library');
@@ -5370,7 +5370,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         return false;
       }
     }
-    let target = makeTarget(game.xmageScope(), { filter: (StaticFilters.card().add(Predicates.or(subTypePredicate("aura"), subTypePredicate("equipment")))), zone: "graveyard" });
+    let target = makeTarget(game.xmageScope(), { filter: (StaticFilters.card().add(Predicates.or(subTypePredicate("aura"), subTypePredicate("equipment")))), zone: "graveyard", owner: "chooser" });
     target.withNotTarget(true);
     (target.choose(game, '', player.getId()).length > 0);
     let card = game.getCard(target.getFirstTarget());
@@ -5548,26 +5548,6 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
-  "DrasticRevelation::DrasticRevelationEffect": {
-    card: "DrasticRevelation",
-    effect: "DrasticRevelationEffect",
-    base: "OneShotEffect",
-    source: "Mage.Sets/src/mage/cards/d/DrasticRevelation.java",
-    trivial: false,
-    run: (game: XGame, source: XAbility): boolean => {
-    let you = game.getPlayer(source.getControllerId());
-    if (you === null) {
-      {
-        return false;
-      }
-    }
-    you.discardCards(you.getHand());
-    you.drawCards(7);
-    you.discard(3);
-    return false;
-      return true;
-    },
-  },
   "DraugrNecromancer::DraugrNecromancerCastFromExileEffect": {
     card: "DraugrNecromancer",
     effect: "DraugrNecromancerCastFromExileEffect",
@@ -5602,7 +5582,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       {
         controller.drawCards(3);
         let putOnTop = controller.chooseUse('');
-        let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), min: 2, max: 2, zone: "hand" });
+        let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), min: 2, max: 2, zone: "hand", owner: "chooser" });
         (target.choose(game, '', controller.getId()).length > 0);
         let cardsToLibrary = makeCards(game.xmageScope(), []).addAll(target.getTargets());
         if (!cardsToLibrary.isEmpty()) {
@@ -6226,7 +6206,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     let controller = game.getPlayer(source.getControllerId());
     if (controller !== null) {
       {
-        let target = makeTarget(game.xmageScope(), { filter: makeFilter(["enchantment", "card"], [cardTypePredicate("enchantment")]), zone: "library" });
+        let target = makeTarget(game.xmageScope(), { filter: makeFilter(["enchantment", "card"], [cardTypePredicate("enchantment")]), zone: "library", owner: "chooser" });
         (controller.searchLibrary('', target).length > 0);
         let targetCard = game.getCard(target.getFirstTarget());
         if (targetCard === null) {
@@ -7126,7 +7106,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
             let player = game.getPlayer(playerId);
             if (player !== null) {
               {
-                let target = makeTarget(game.xmageScope(), { filter: StaticFilters.basicLandCard(), min: 0, max: 1, zone: "library" });
+                let target = makeTarget(game.xmageScope(), { filter: StaticFilters.basicLandCard(), min: 0, max: 1, zone: "library", owner: "chooser" });
                 if ((player.searchLibrary('', target).length > 0)) {
                   {
                     player.moveCards(makeCards(game.xmageScope(), []).addAll(target.getTargets()).getCards(), 'battlefield');
@@ -7168,7 +7148,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         return false;
       }
     }
-    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), zone: "hand" });
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), zone: "hand", owner: "chooser" });
     (target.choose(game, '', player.getId(), player.getHand().ids()).length > 0);
     let card = game.getCard(target.getFirstTarget());
     if (card === null) {
@@ -7944,7 +7924,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         return false;
       }
     }
-    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.creatureCard(), min: 0, max: Number.MAX_SAFE_INTEGER, zone: "hand" });
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.creatureCard(), min: 0, max: Number.MAX_SAFE_INTEGER, zone: "hand", owner: "chooser" });
     (target.choose(game, '', player.getId()).length > 0);
     player.moveCards(makeCards(game.xmageScope(), []).addAll(target.getTargets()), 'battlefield');
     return true;
@@ -8114,7 +8094,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         return false;
       }
     }
-    let target = makeTarget(game.xmageScope(), { filter: makeFilter(["creature", "card"], [cardTypePredicate("creature")]), min: 0, max: 2, zone: "graveyard" }).withNotTarget(true);
+    let target = makeTarget(game.xmageScope(), { filter: makeFilter(["creature", "card"], [cardTypePredicate("creature")]), min: 0, max: 2, zone: "graveyard", owner: "chooser" }).withNotTarget(true);
     (target.choose(game, '', controller.getId()).length > 0);
     return controller.moveCards(makeCards(game.xmageScope(), []).addAll(target.getTargets()), 'hand');
       return true;
@@ -8289,7 +8269,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         return false;
       }
     }
-    let target = makeTarget(game.xmageScope(), { filter: (StaticFilters.landCard()), min: 0, max: 1, zone: "graveyard" }).withNotTarget(true);
+    let target = makeTarget(game.xmageScope(), { filter: (StaticFilters.landCard()), min: 0, max: 1, zone: "graveyard", owner: "chooser" }).withNotTarget(true);
     if (player.chooseUse('') && (target.choose(game, '', player.getId()).length > 0)) {
       {
         let card = game.getCard(target.getFirstTarget());
@@ -9088,7 +9068,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         return false;
       }
     }
-    let target = makeTarget(game.xmageScope(), { filter: makeFilter(["artifact", "card"], [cardTypePredicate("artifact")]), zone: "library" });
+    let target = makeTarget(game.xmageScope(), { filter: makeFilter(["artifact", "card"], [cardTypePredicate("artifact")]), zone: "library", owner: "chooser" });
     (player.searchLibrary('', target).length > 0);
     let card = player.getLibrary().getCard(target.getFirstTarget());
     if (card === null) {
@@ -9232,7 +9212,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         return false;
       }
     }
-    let target = makeTarget(game.xmageScope(), { filter: (StaticFilters.card().add(Predicates.or(cardTypePredicate("instant"), cardTypePredicate("sorcery"), cardTypePredicate("battle")))), min: 0, max: 1, zone: "graveyard" }).withNotTarget(true);
+    let target = makeTarget(game.xmageScope(), { filter: (StaticFilters.card().add(Predicates.or(cardTypePredicate("instant"), cardTypePredicate("sorcery"), cardTypePredicate("battle")))), min: 0, max: 1, zone: "graveyard", owner: "chooser" }).withNotTarget(true);
     (target.choose(game, '', player.getId()).length > 0);
     let card = game.getCard(target.getFirstTarget());
     return card !== null && player.putCardsOnTopOfLibrary(card);
@@ -9611,7 +9591,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
                 let player = game.getPlayer(playerId);
                 if (player !== null && player.chooseUse('')) {
                   {
-                    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.landCard(), zone: "library" });
+                    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.landCard(), zone: "library", owner: "chooser" });
                     if ((player.searchLibrary('', target).length > 0)) {
                       {
                         let targetCard = player.getLibrary().getCard(target.getFirstTarget());
@@ -10443,7 +10423,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         return true;
       }
     }
-    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), min: player.getHand().size() - 4, max: player.getHand().size() - 4, zone: "hand" });
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), min: player.getHand().size() - 4, max: player.getHand().size() - 4, zone: "hand", owner: "chooser" });
     (target.choose(game, '', player.getId(), player.getHand().ids()).length > 0);
     player.moveCards(makeCards(game.xmageScope(), []).addAll(target.getTargets()), 'exile');
     return true;
@@ -10582,7 +10562,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         return false;
       }
     }
-    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.landCard(), min: 0, max: Number.MAX_SAFE_INTEGER, zone: "hand" });
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.landCard(), min: 0, max: Number.MAX_SAFE_INTEGER, zone: "hand", owner: "chooser" });
     (target.choose(game, '', player.getId()).length > 0);
     return player.moveCards(makeCards(game.xmageScope(), []).addAll(target.getTargets()), 'battlefield');
       return true;
@@ -11413,7 +11393,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         return false;
       }
     }
-    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.creatureCard(), min: 0, max: Number.MAX_SAFE_INTEGER, zone: "hand" });
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.creatureCard(), min: 0, max: Number.MAX_SAFE_INTEGER, zone: "hand", owner: "chooser" });
     (target.choose(game, '', player.getId()).length > 0);
     player.moveCards(makeCards(game.xmageScope(), []).addAll(target.getTargets()), 'battlefield');
     return true;
@@ -11814,7 +11794,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         return false;
       }
     }
-    let target = makeTarget(game.xmageScope(), { filter: makeFilter(["card"], [Predicates.or(cardTypePredicate("instant"), cardTypePredicate("sorcery"))]), zone: "graveyard" });
+    let target = makeTarget(game.xmageScope(), { filter: makeFilter(["card"], [Predicates.or(cardTypePredicate("instant"), cardTypePredicate("sorcery"))]), zone: "graveyard", owner: "chooser" });
     target.withNotTarget(true);
     (target.choose(game, '', controller.getId()).length > 0);
     let card = game.getCard(target.getFirstTarget());
@@ -12119,7 +12099,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         return false;
       }
     }
-    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.landCard(), min: 0, max: Number.MAX_SAFE_INTEGER, zone: "library" });
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.landCard(), min: 0, max: Number.MAX_SAFE_INTEGER, zone: "library", owner: "chooser" });
     (player.searchLibrary('', target).length > 0);
     let cards = makeCards(game.xmageScope(), []).addAll(target.getTargets());
     cards.retainZone('library');
@@ -12180,7 +12160,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         return false;
       }
     }
-    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), zone: "hand" });
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), zone: "hand", owner: "chooser" });
     (target.choose(game, '', player.getId(), player.getHand().ids()).length > 0);
     let card = game.getCard(target.getFirstTarget());
     if (card === null) {
@@ -12220,7 +12200,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     if (player !== null) {
       {
         player.loseLife(3);
-        let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), zone: "library" });
+        let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), zone: "library", owner: "chooser" });
         if ((player.searchLibrary('', target).length > 0)) {
           {
             player.moveCards(makeCards(game.xmageScope(), []).addAll(target.getTargets()), 'hand');
@@ -13012,7 +12992,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     if (player !== null) {
       {
         player.loseLife(3);
-        let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), zone: "library" });
+        let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), zone: "library", owner: "chooser" });
         if ((player.searchLibrary('', target).length > 0)) {
           {
             player.moveCards(makeCards(game.xmageScope(), []).addAll(target.getTargets()), 'hand');
@@ -13051,7 +13031,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       {
         if (controller.chooseUse('')) {
           {
-            let target = makeTarget(game.xmageScope(), { filter: makeFilter(["creature", "card"], [cardTypePredicate("creature")]), zone: "hand" });
+            let target = makeTarget(game.xmageScope(), { filter: makeFilter(["creature", "card"], [cardTypePredicate("creature")]), zone: "hand", owner: "chooser" });
             if ((target.choose(game, '', controller.getId()).length > 0)) {
               {
                 let card = game.getCard(target.getFirstTarget());
@@ -13277,7 +13257,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         return false;
       }
     }
-    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.creatureCard(), min: 0, max: Number.MAX_SAFE_INTEGER, zone: "hand" });
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.creatureCard(), min: 0, max: Number.MAX_SAFE_INTEGER, zone: "hand", owner: "chooser" });
     if ((target.choose(game, '', controller.getId()).length > 0)) {
       {
         return controller.moveCards(makeCards(game.xmageScope(), []).addAll(target.getTargets()).getCards(), 'battlefield');
@@ -13353,7 +13333,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         return false;
       }
     }
-    let toDiscard = makeTarget(game.xmageScope(), { filter: StaticFilters.landCard(), min: 0, max: Number.MAX_SAFE_INTEGER, zone: "hand" });
+    let toDiscard = makeTarget(game.xmageScope(), { filter: StaticFilters.landCard(), min: 0, max: Number.MAX_SAFE_INTEGER, zone: "hand", owner: "chooser" });
     (toDiscard.choose(game, '', player.getId()).length > 0);
     let count = player.discardCards(makeCards(game.xmageScope(), []).addAll(toDiscard.getTargets())).size();
     if (count < 1) {
@@ -13795,7 +13775,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         return false;
       }
     }
-    let target = makeTarget(game.xmageScope(), { filter: (StaticFilters.card().add(subTypePredicate("gate"))), min: 0, max: 1, zone: "library" });
+    let target = makeTarget(game.xmageScope(), { filter: (StaticFilters.card().add(subTypePredicate("gate"))), min: 0, max: 1, zone: "library", owner: "chooser" });
     (target.choose(game, '', player.getId(), cards.ids()).length > 0);
     let card = game.getCard(target.getFirstTarget());
     if (card !== null) {
@@ -14170,31 +14150,6 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
-  "OathOfScholars::OathOfScholarsEffect": {
-    card: "OathOfScholars",
-    effect: "OathOfScholarsEffect",
-    base: "OneShotEffect",
-    source: "Mage.Sets/src/mage/cards/o/OathOfScholars.java",
-    trivial: false,
-    run: (game: XGame, source: XAbility): boolean => {
-    let sourceObject = game.getObject(source.getSourceId());
-    let firstPlayer = game.getPlayer(game.getActivePlayerId());
-    if (sourceObject === null || firstPlayer === null) {
-      {
-        return false;
-      }
-    }
-    if (firstPlayer.chooseUse('')) {
-      {
-        firstPlayer.discard(firstPlayer.getHand().size());
-        firstPlayer.drawCards(3);
-        return true;
-      }
-    }
-    return false;
-      return true;
-    },
-  },
   "OathkeeperTakenosDaisho::OathkeeperExileEquippedEffect": {
     card: "OathkeeperTakenosDaisho",
     effect: "OathkeeperExileEquippedEffect",
@@ -14563,7 +14518,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         return false;
       }
     }
-    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), zone: "library" });
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), zone: "library", owner: "chooser" });
     (player.searchLibrary('', target).length > 0);
     let card = player.getLibrary().getCard(target.getFirstTarget());
     if (card === null) {
@@ -16379,7 +16334,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     let sourceObject = game.getObject(source.getSourceId());
     if (sourceObject !== null && controller !== null) {
       {
-        let target = makeTarget(game.xmageScope(), { filter: (StaticFilters.card().add(Predicates.or(namePredicate(''), namePredicate('')))), zone: "library" });
+        let target = makeTarget(game.xmageScope(), { filter: (StaticFilters.card().add(Predicates.or(namePredicate(''), namePredicate('')))), zone: "library", owner: "chooser" });
         if ((controller.searchLibrary('', target).length > 0)) {
           {
             if (!(target.getTargets().length === 0)) {
@@ -16583,7 +16538,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     let controller = game.getPlayer(source.getControllerId());
     if (controller !== null) {
       {
-        let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), zone: "hand" });
+        let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), zone: "hand", owner: "chooser" });
         if (target.canChoose(game, controller.getId()) && (target.choose(game, '', controller.getId()).length > 0)) {
           {
             let chosenCard = game.getCard(target.getFirstTarget());
@@ -17357,7 +17312,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     if (controller !== null) {
       {
         controller.drawCards(2);
-        let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), min: 2, max: 2, zone: "hand" });
+        let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), min: 2, max: 2, zone: "hand", owner: "chooser" });
         (target.choose(game, '', controller.getId()).length > 0);
         let cardsToLibrary = makeCards(game.xmageScope(), []).addAll(target.getTargets());
         if (!cardsToLibrary.isEmpty()) {
@@ -17667,7 +17622,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         return false;
       }
     }
-    let target = makeTarget(game.xmageScope(), { filter: makeFilter(["card"], [Predicates.not(cardTypePredicate("land"))]), min: 0, max: Number.MAX_SAFE_INTEGER, zone: "library" });
+    let target = makeTarget(game.xmageScope(), { filter: makeFilter(["card"], [Predicates.not(cardTypePredicate("land"))]), min: 0, max: Number.MAX_SAFE_INTEGER, zone: "library", owner: "chooser" });
     (player.searchLibrary('', target).length > 0);
     let cards = makeCards(game.xmageScope(), []).addAll(target.getTargets());
     cards.retainZone('library');
@@ -17837,7 +17792,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         return false;
       }
     }
-    let target = makeTarget(game.xmageScope(), { filter: makeFilter(["artifact", "card"], [cardTypePredicate("artifact")]), zone: "graveyard" });
+    let target = makeTarget(game.xmageScope(), { filter: makeFilter(["artifact", "card"], [cardTypePredicate("artifact")]), zone: "graveyard", owner: "chooser" });
     target.withNotTarget(true);
     if (target.canChoose(game, source.getControllerId()) && controller.chooseUse('') && (target.choose(game, '', controller.getId()).length > 0)) {
       {
@@ -18587,28 +18542,6 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
       return true;
     },
   },
-  "SkullknockerOgre::SkullknockerOgreEffect": {
-    card: "SkullknockerOgre",
-    effect: "SkullknockerOgreEffect",
-    base: "OneShotEffect",
-    source: "Mage.Sets/src/mage/cards/s/SkullknockerOgre.java",
-    trivial: false,
-    run: (game: XGame, source: XAbility): boolean => {
-    let player = game.getPlayer(source.getTargetPointer().getFirst());
-    if (player === null) {
-      {
-        return false;
-      }
-    }
-    if (player.discard(1).size() > 0) {
-      {
-        player.drawCards(1);
-      }
-    }
-    return true;
-      return true;
-    },
-  },
   "SkyclavePickAxe::SkyclavePickAxeEffect": {
     card: "SkyclavePickAxe",
     effect: "SkyclavePickAxeEffect",
@@ -18720,7 +18653,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         return false;
       }
     }
-    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.creatureCard(), min: 0, max: 2, zone: "hand" });
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.creatureCard(), min: 0, max: 2, zone: "hand", owner: "chooser" });
     if ((target.choose(game, '', controller.getId()).length > 0)) {
       {
         return controller.moveCards(makeCards(game.xmageScope(), []).addAll(target.getTargets()).getCards(), 'battlefield');
@@ -19175,7 +19108,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         return false;
       }
     }
-    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.landCard(), min: 0, max: 1, zone: "hand" });
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.landCard(), min: 0, max: 1, zone: "hand", owner: "chooser" });
     (target.choose(game, '', controller.getId()).length > 0);
     let landInHand = game.getCard(target.getFirstTarget());
     if (landInHand === null) {
@@ -19779,7 +19712,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
     if (controller !== null) {
       {
         let cardsToHand = makeCards(game.xmageScope(), []);
-        let target = makeTarget(game.xmageScope(), { filter: makeFilter(["creature", "card"], [cardTypePredicate("creature")]), zone: "graveyard" });
+        let target = makeTarget(game.xmageScope(), { filter: makeFilter(["creature", "card"], [cardTypePredicate("creature")]), zone: "graveyard", owner: "chooser" });
         target.withNotTarget(true);
         if (target.canChoose(game, controller.getId()) && (target.choose(game, '', controller.getId()).length > 0)) {
           {
@@ -19791,7 +19724,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
             }
           }
         }
-        target = makeTarget(game.xmageScope(), { filter: StaticFilters.landCard(), zone: "graveyard" });
+        target = makeTarget(game.xmageScope(), { filter: StaticFilters.landCard(), zone: "graveyard", owner: "chooser" });
         target.withNotTarget(true);
         if (target.canChoose(game, controller.getId()) && (target.choose(game, '', controller.getId()).length > 0)) {
           {
@@ -21574,7 +21507,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         return false;
       }
     }
-    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.creatureCard(), min: 0, max: 2, zone: "hand" });
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.creatureCard(), min: 0, max: 2, zone: "hand", owner: "chooser" });
     if ((target.choose(game, '', controller.getId()).length > 0)) {
       {
         return controller.moveCards(makeCards(game.xmageScope(), []).addAll(target.getTargets()).getCards(), 'battlefield');
@@ -22889,7 +22822,7 @@ export const TRANSLATED_BODIES: Record<string, TranslatedBody> = {
         return false;
       }
     }
-    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), zone: "hand" });
+    let target = makeTarget(game.xmageScope(), { filter: StaticFilters.card(), zone: "hand", owner: "chooser" });
     (target.choose(game, '', player.getId(), player.getHand().ids()).length > 0);
     let card = game.getCard(target.getFirstTarget());
     if (card === null) {

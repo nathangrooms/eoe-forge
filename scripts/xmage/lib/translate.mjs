@@ -329,10 +329,22 @@ export const METHODS = {
    * the pile and the single-`Card` form returns a BOOLEAN, so the second is a
    * rewrite rather than a rename; handing a body an object where it expected
    * true or false would make every `if` on it true.
+   *
+   * SECOND DEFECT, FOUND BY THE ADVERSARIAL READ. The row above told the two
+   * arity-5 forms apart by the TYPE of argument 1 and then threw the argument
+   * away, so `random` was never read. `discard(1, true, false, source, game)`
+   * is "discard a card AT RANDOM" and it became `discard(1)`, which asks the
+   * player which card to pitch. That is a different game action and it is the
+   * one the player would rather have: Skullknocker Ogre, Drastic Revelation and
+   * Oath of Scholars all shipped choosing what XMage discards blind. Every
+   * other trailing flag in this table is matched with `flags()` on its literal;
+   * this one now is too, so `random = true` blocks with its arity named until
+   * the facade has a random discard to map it to. `payForCost` is guarded the
+   * same way, for the same reason: a discard paid as a cost is not an effect.
    */
   'Player#discard': [
-    { arity: 5, when: argIs(1, 'boolean'), ...M('discard', [0]) },
-    { arity: 5, when: argIs(1, 'int', 'Integer'), ...M('discard', [0, 1]) },
+    { arity: 5, when: all(argIs(1, 'boolean'), flags({ 1: 'false', 2: 'false' })), ...M('discard', [0]) },
+    { arity: 5, when: all(argIs(1, 'int', 'Integer'), flags({ 2: 'false' })), ...M('discard', [0, 1]) },
     { arity: 4, when: argIs(0, 'Cards', 'CardsImpl'), ...M('discardCards', [0]) },
   ],
   // `millCards(int toMill, Ability source, Game game)`, and it returns the
@@ -851,7 +863,18 @@ function boostArgs(fn, className, a) {
   return `${fn}(game.xmageScope(), ${a[0]}, ${a[1]}${duration})`;
 }
 
-function target(a, defaultFilter, zone, zoneExpr, wrapFilter, forceNotTarget) {
+/**
+ * `owner` is the seventh argument and it is not decoration.
+ *
+ * XMage keeps the owner restriction in the target CLASS, not in the filter:
+ * `TargetCardInYourGraveyard.possibleTargets` reads the source controller's
+ * graveyard and its filter's only mention of "your" is the display name it was
+ * constructed with. Reading the filter alone therefore turns "a creature card
+ * in YOUR graveyard" into "a creature card in ANY graveyard", which is what
+ * shipped. The class name is the only place the restriction exists, so it is
+ * read here and passed to `makeTarget` as data.
+ */
+function target(a, defaultFilter, zone, zoneExpr, wrapFilter, forceNotTarget, owner) {
   const simpleOf = t => String(t == null ? '' : t).split('.').pop();
   const isFilter = t => /^Filter/.test(simpleOf(t));
   const isInt = t => ['int', 'long', 'Integer'].includes(simpleOf(t));
@@ -874,6 +897,7 @@ function target(a, defaultFilter, zone, zoneExpr, wrapFilter, forceNotTarget) {
   else if (ints.length === 1) parts.push('min: ' + ints[0], 'max: ' + ints[0]);
   const z = zoneExpr != null ? zoneExpr : (zone ? JSON.stringify(zone) : null);
   if (z) parts.push('zone: ' + z);
+  if (owner) parts.push('owner: ' + JSON.stringify(owner));
 
   const built = 'makeTarget(game.xmageScope(), { ' + parts.join(', ') + ' })';
   return (notTarget || forceNotTarget) ? built + '.withNotTarget(true)' : built;
@@ -943,11 +967,21 @@ export const NEW = {
   TargetControlledCreaturePermanent: a => target(a, 'StaticFilters.creatureYouControl()'),
   TargetControlledPermanent: a => target(a, "makeFilter(['permanent','you','control'], [controlledByPredicate()])"),
   TargetOpponentsCreaturePermanent: a => target(a, 'StaticFilters.creatureOpponentControls()'),
-  TargetCardInHand: a => target(a, 'StaticFilters.card()', 'hand'),
-  TargetCardInYourGraveyard: a => target(a, 'StaticFilters.card()', 'graveyard'),
+  /*
+   * The owner scope on each of these was read out of the class, not guessed:
+   *   TargetCardInHand.possibleTargets            -> game.getPlayer(sourceControllerId).getHand()
+   *   TargetCardInYourGraveyard.possibleTargets   -> game.getPlayer(sourceControllerId).getGraveyard()
+   *   TargetCardInOpponentsGraveyard.possibleTargets -> every player in range the
+   *                                                  source controller hasOpponent()
+   *   TargetCardInLibrary.canTarget               -> game.getPlayer(source.getControllerId()).getLibrary()
+   *   TargetCardInGraveyard                       -> every graveyard, so no scope
+   *   TargetCardInExile                           -> the shared exile in range, so no scope
+   */
+  TargetCardInHand: a => target(a, 'StaticFilters.card()', 'hand', null, null, false, 'chooser'),
+  TargetCardInYourGraveyard: a => target(a, 'StaticFilters.card()', 'graveyard', null, null, false, 'chooser'),
   TargetCardInGraveyard: a => target(a, 'StaticFilters.card()', 'graveyard'),
-  TargetCardInOpponentsGraveyard: a => target(a, 'StaticFilters.card()', 'graveyard'),
-  TargetCardInLibrary: a => target(a, 'StaticFilters.card()', 'library'),
+  TargetCardInOpponentsGraveyard: a => target(a, 'StaticFilters.card()', 'graveyard', null, null, false, 'not-chooser'),
+  TargetCardInLibrary: a => target(a, 'StaticFilters.card()', 'library', null, null, false, 'chooser'),
   TargetCardInExile: a => target(a, 'StaticFilters.card()', 'exile'),
 
   /*

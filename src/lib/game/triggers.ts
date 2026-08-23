@@ -76,11 +76,21 @@ import type {
   InterveningCondition,
   PendingTrigger,
   PlayerId,
+  StackTarget,
   TriggerEvent,
   TriggerEventKind,
   TriggerTiming,
 } from './types.ts';
 import { isLand } from './mana.ts';
+// CR 603.3d — what a waiting trigger is pointed at, and whether anybody still
+// has to be asked. `announce.ts` never imports this file back; the reason the
+// dependency has to point one way is written there.
+import {
+  blankIllegalTargets,
+  everyTargetIsGone,
+  planTriggerTargets,
+  triggerTargetSpecs,
+} from './announce.ts';
 import {
   TRIGGER_LABELS,
   actionsForTrigger,
@@ -793,6 +803,70 @@ export function resolveTriggerActions(
       ];
     }
 
+    /*
+     * WHAT IT IS POINTED AT, and the three rules that decide it. All three end
+     * in a sentence rather than in an ability that runs and changes nothing,
+     * because a trigger that "resolved" and did nothing is the loudest silent
+     * no-op there is.
+     *
+     * ONE. Nobody announced. `drainTriggers` below does not allow that — it
+     * settles or waits — but a hand-built trigger in a test, or a game saved
+     * before `PendingTrigger.targets` existed, still can, and resolving one
+     * would aim every `{sel:'target'}` at nobody in silence.
+     */
+    const specs = triggerTargetSpecs(trigger);
+    if (specs.length > 0 && !trigger.targets) {
+      return [
+        {
+          type: 'NOTE',
+          instanceId: trigger.sourceInstanceId,
+          message: `${trigger.sourceName} triggered and was never pointed at anything, so nothing happened. Resolve it by hand: ${trigger.dsl.text}`,
+          at,
+        },
+      ];
+    }
+
+    /*
+     * TWO. CR 603.3d — the ability names a target and the board offered none,
+     * so it is simply removed from the stack. The empty announcement is that
+     * verdict, written by `planTriggerTargets`, and it has to be checked here
+     * or an "enters, destroy target creature an opponent controls" played into
+     * an empty board would run its effects against nobody and read as an engine
+     * that had not understood the card.
+     */
+    if (specs.length > 0 && !(trigger.targets ?? []).some(Boolean)) {
+      return [
+        {
+          type: 'NOTE',
+          instanceId: trigger.sourceInstanceId,
+          message: `${trigger.sourceName}'s triggered ability was removed from the stack — there was nothing legal for it to target: ${trigger.dsl.text}`,
+          at,
+        },
+      ];
+    }
+
+    /*
+     * THREE. CR 608.2b, the recheck: the target is looked at AGAIN as the
+     * ability resolves, and an ability all of whose targets have gone does not
+     * resolve at all. Exactly the rule `stack.ts` applies to a spell, through
+     * exactly the same two functions — which is the reason they moved to
+     * `announce.ts` rather than being written twice.
+     */
+    const by = {
+      controllerId: trigger.controllerId,
+      sourceInstanceId: trigger.sourceInstanceId,
+    };
+    if (everyTargetIsGone(state, trigger.targets, by)) {
+      return [
+        {
+          type: 'NOTE',
+          instanceId: trigger.sourceInstanceId,
+          message: `${trigger.sourceName}'s triggered ability did nothing — every target it was pointed at is now illegal.`,
+          at,
+        },
+      ];
+    }
+
     return dslTriggerActions(
       state,
       trigger.dsl,
@@ -804,6 +878,12 @@ export function resolveTriggerActions(
         // the same subject detection matched. `PendingTrigger.event` is plain
         // JSON, so a client replaying the log binds it identically.
         event: trigger.event,
+        // Announced when this went on the stack, with anything since gone
+        // illegal blanked IN PLACE rather than filtered out. Positions are the
+        // contract — `{sel:'target', ref:n}` is a plain index — so compacting
+        // would point the first half of the ability at the second half's
+        // victim.
+        targets: blankIllegalTargets(state, trigger.targets, by),
         // Derived from the trigger's own deterministic id and the state
         // version, so any token this ability mints gets the same id on every
         // client replaying the log.
@@ -862,6 +942,47 @@ export interface TriggerDrainResult {
   resolved: PendingTrigger[];
   /** False when the cap was reached and triggers are still waiting. */
   drained: boolean;
+  /**
+   * True when the drain stopped because the top trigger is waiting to be
+   * pointed at something. Distinct from the cap: this is the game working, not
+   * the engine giving up, and it clears the moment somebody answers.
+   */
+  awaitingTargets: boolean;
+}
+
+/**
+ * CR 603.3d — settle a trigger's targets, or say the drain has to wait.
+ *
+ * Three answers, and each one is a different thing to do next:
+ *
+ *   `resolve`  nothing to aim, or a FORCED choice the engine took itself. A
+ *              lone legal candidate is not a decision, so most triggers never
+ *              stop the game at all.
+ *   `wait`     a real decision, and the engine decides nothing. The trigger
+ *              stays at the top of the queue and its controller is asked. This
+ *              is the halt, and `announce.ts` explains why it has to be one.
+ *   `resolve`  again, for CR 603.3d's other half: an ability that names a
+ *              target and finds none legal is removed from the stack. That is
+ *              an ANSWER, not a question, so it must not wait — it goes through
+ *              `resolveTriggerActions`, which prints the sentence.
+ *
+ * The forced answer is written onto the trigger rather than recomputed at
+ * resolution, for the same reason `StackObject.targets` is a field: the choice
+ * belongs to the moment the ability went on the stack, and a board that changed
+ * underneath must not be able to re-aim it.
+ */
+function settleTargets(
+  state: GameState,
+  trigger: PendingTrigger
+): { wait: boolean; trigger: PendingTrigger } {
+  if (trigger.targets) return { wait: false, trigger };
+  if (triggerTargetSpecs(trigger).length === 0) return { wait: false, trigger };
+
+  const aim = planTriggerTargets(state, trigger);
+  if (aim.pending.length > 0) return { wait: true, trigger };
+  // Either settled outright, or impossible. Both resolve; `resolveTriggerActions`
+  // and `everyTargetIsGone` between them say which happened.
+  return { wait: false, trigger: { ...trigger, targets: aim.targets } };
 }
 
 /**
@@ -872,6 +993,16 @@ export interface TriggerDrainResult {
  * Anything a resolving trigger causes lands on the queue while the loop is
  * running and is picked up on the next turn of it, which is what makes a chain
  * of triggers resolve last-in-first-out without any recursion.
+ *
+ * ## It can now stop early without anything being wrong
+ *
+ * A trigger whose ability names a target and offers its controller a real
+ * choice halts the loop. Everything below it waits too, which is correct: it is
+ * not on the stack yet. The queue stays on `GameState.pendingTriggers`, where
+ * `triggerAwaitingTargets` finds it, and the game resumes on an
+ * `ANNOUNCE_TRIGGER_TARGETS`. A seat with nobody willing to answer is a hung
+ * game — visible as a stall in the playtest harness, never as a trigger that
+ * quietly did nothing.
  */
 export function drainTriggers(
   state: GameState,
@@ -883,18 +1014,27 @@ export function drainTriggers(
   const resolved: PendingTrigger[] = [];
 
   for (let i = 0; i < maxResolutions; i++) {
+    const queue = pendingTriggersOf(next);
+    const top = queue[queue.length - 1];
+    if (!top) return { state: next, resolved, drained: true, awaitingTargets: false };
+
+    const settled = settleTargets(next, top);
+    if (settled.wait) {
+      return { state: next, resolved, drained: false, awaitingTargets: true };
+    }
+
     const popped = popTrigger(next);
-    if (!popped) return { state: next, resolved, drained: true };
+    if (!popped) return { state: next, resolved, drained: true, awaitingTargets: false };
 
     next = popped.state;
-    resolved.push(popped.trigger);
-    for (const action of resolveTriggerActions(next, popped.trigger, at)) {
+    resolved.push(settled.trigger);
+    for (const action of resolveTriggerActions(next, settled.trigger, at)) {
       next = apply(next, action);
     }
   }
 
   if (pendingTriggersOf(next).length === 0) {
-    return { state: next, resolved, drained: true };
+    return { state: next, resolved, drained: true, awaitingTargets: false };
   }
 
   // CR 104.4b would call this a draw. We stop, keep the remainder visible on
@@ -904,7 +1044,7 @@ export function drainTriggers(
     message: `Stopped after ${maxResolutions} triggered abilities — ${pendingTriggersOf(next).length} still waiting. In a real game this loop would be a draw; resolve the rest by hand.`,
     at,
   });
-  return { state: next, resolved, drained: false };
+  return { state: next, resolved, drained: false, awaitingTargets: false };
 }
 
 /* -------------------------------------------------------------------------- */

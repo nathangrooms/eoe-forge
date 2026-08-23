@@ -1,6 +1,13 @@
 /**
  * Oracle text -> `CardAbilities`.
  *
+ * The abilities this file hands the engine for a card the compiler cannot
+ * finish are DERIVED FROM XMAGE, which is MIT licensed, Copyright (c) 2010
+ * betasteward@gmail.com, https://github.com/magefree/mage. See `xmageSwapFor`
+ * below and `../xmage/lowered.ts`. Nothing from the XMage clone is vendored
+ * and no XMage display string is copied. Forge is GPL-3.0 and was not fetched,
+ * read or referenced.
+ *
  * The compiler CONSUMES text. Every paragraph of the normalised oracle text is
  * either turned into one or more `Ability` values or pushed to `unparsed` with a
  * `GapReason` and its character span. There is no branch that discards a
@@ -43,6 +50,7 @@ import {
   parseStatic,
   parseTriggerEvent,
 } from './clause-rules.ts';
+import { xmageSwapFor } from '../xmage/lowered.ts';
 
 /* ------------------------------------------------------------------ *
  * Gap classification
@@ -615,6 +623,41 @@ export function compileWithTrace(card: AbilityCard): CompileTrace {
     oracleHash: normalized.hash,
     coverage: deriveCoverage(abilities, unparsed),
   };
+
+  /*
+   * THE SECOND SOURCE, and the only place it is allowed in.
+   *
+   * `src/lib/cards/xmage/` holds thousands of cards' behaviour, already lowered into
+   * the `Ability` shapes below, and `docs/engine/PORT-LOG.md` recorded that
+   * nothing outside that folder imported it, so the shipped app played 0 cards
+   * from it. This is the import. It goes HERE, in `compileWithTrace`, and not
+   * in `card-abilities.ts` one layer up, for the reason `card-abilities.ts`'s
+   * own header gives: there is exactly one classifier per card and no second
+   * one to drift from it. A fallback wired above the compiler would be a second
+   * classifier, and the coverage report — which calls this function directly —
+   * would not have been able to see it.
+   *
+   * The precedence rule, the argument for it, and the three bars it refuses on
+   * are all in `../xmage/lowered.ts`. The short version is that the compiler
+   * wins whenever it fully understands the card, so the line below can only
+   * ever fire on a card this function has already marked incomplete.
+   */
+  const decision = xmageSwapFor(result, normalized);
+  if ('swap' in decision) {
+    const swapped: CardAbilities = {
+      ...result,
+      abilities: decision.swap.abilities,
+      unparsed: [],
+      source: 'xmage',
+      coverage: deriveCoverage(decision.swap.abilities, []),
+    };
+    return {
+      result: swapped,
+      normalized,
+      consumedSpans: decision.swap.consumed,
+      ruleHits: ['xmage'],
+    };
+  }
 
   return { result, normalized, consumedSpans, ruleHits };
 }

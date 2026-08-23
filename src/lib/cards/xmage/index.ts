@@ -16,6 +16,14 @@ export * from './compare.ts';
 export * from './lower.ts';
 export * from './coverage.ts';
 
+/* The reachable half, and the reason this folder is no longer a dead end.
+ * `lowered.generated.ts` is the lowering's RESULT, run offline and frozen, so a
+ * browser can read it without a checkout of XMage or a 90 MB extraction.
+ * `lowered.ts` holds the precedence rule that decides when the shipped engine
+ * uses it instead of the oracle-text compiler. Everything above this line needs
+ * a `CardRecord` and therefore cannot run in the app at all. */
+export * from './lowered.ts';
+
 /* The ported vocabularies. One file per kind of thing an XMage argument can be,
  * each with its own measured census and its own list of what it refuses and
  * why. `docs/engine/PORT-LOG.md` is the ranked order they were written in and

@@ -33,7 +33,7 @@
  *   scripts/coverage/.data/xmage-port-progress.json
  */
 
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -56,6 +56,35 @@ import {
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '..', '..');
 const DATA = path.join(REPO, 'scripts', 'coverage', '.data');
+
+/*
+ * The two downstream measurements, READ rather than retyped.
+ *
+ * Items 1 and 3 of section 3 used to be literals inside the template below, and
+ * both went stale the moment anything under them moved. Item 1 still quoted
+ * 5,984 and 5,183 in a run whose lowering had already been corrected
+ * underneath it, and item 3 still said nothing outside `src/lib/cards/xmage/`
+ * imports this module in a run where the shipped compiler did. A generated
+ * document with hand-typed numbers in it is a document that lies on its next
+ * regeneration, which is the same defect `verify-ability-coverage.mjs` names
+ * twice in its own comments and fixed the same way.
+ *
+ * A missing file reports as missing rather than as zero, because a zero that
+ * means "not measured" is exactly how a coverage number gets overstated.
+ */
+const readJson = (file) => {
+  const at = path.join(DATA, file);
+  return existsSync(at) ? JSON.parse(readFileSync(at, 'utf8')) : null;
+};
+const RUNNABLE = readJson('xmage-runnable.json');
+const SHIPPED = (() => {
+  const at = path.join(REPO, 'src', 'lib', 'cards', 'xmage', 'lowered.generated.ts');
+  if (!existsSync(at)) return null;
+  const match = readFileSync(at, 'utf8').match(/XMAGE_LOWERED_STATS = (\{.*?\}) as const;/s);
+  return match ? JSON.parse(match[1]) : null;
+})();
+const measured = (n) => (typeof n === 'number' ? n.toLocaleString('en-US') : 'NOT MEASURED IN THIS RUN');
+const shareOf = (n, d) => (typeof n === 'number' ? `${((n / d) * 100).toFixed(2)}%` : 'unknown');
 
 /* ------------------------------------------------------------------ *
  * The tables, and how to turn them off
@@ -466,6 +495,16 @@ const REFUSALS = [
     'lower.ts',
     'The helper adds abilities the record never saw. Cyclonic Rift is the example, 35 abilities across the corpus.',
   ],
+  [
+    'any spell or triggered ability carrying an additional cost',
+    'lower.ts',
+    '`ActivatedAbility` and `ManaAbility` have a `costs` field and `SpellAbility` and `TriggeredAbility` do not, so the cost was read for two kinds and silently dropped for the other two. Raze destroyed a land without sacrificing one. 304 spell and 99 triggered abilities across the corpus.',
+  ],
+  [
+    'any ability whose effects read a target it does not announce',
+    'lower.ts',
+    'A modal ability keeps its targets on each MODE, so the ability-level target list came out empty while every mode still read `{sel:"target", ref:0}`. Dawnbringer Cleric is the example. Checked structurally on the finished ability, so it catches any other shape that loses a spec the same way.',
+  ],
 ];
 
 const doc = `# The port: what was written, in ranked order, and what each entry bought
@@ -603,16 +642,48 @@ things stand between the two, each measured rather than assumed:
 1. \`scripts/coverage/xmage-runnable.mjs\` takes every lowered card to the
    engine's own doors and asks whether anything would throw, be silently
    dropped, or reach the engine and do nothing. Of the ${withEverything.playable}
-   here it finds 5,984 that would not break and **5,183, 16.11% of the corpus,
-   where every ability would actually act**. The ~800 in between are triggered
-   abilities \`unrunnableReason\` in \`trigger-bridge.ts\` refuses, mostly because
-   nothing announces targets for a trigger yet.
+   here it finds ${measured(RUNNABLE?.executable)} that would not break and
+   **${measured(RUNNABLE?.runs)}, ${shareOf(RUNNABLE?.runs, N)} of the corpus, where every
+   ability would actually act**. The ones in between are mostly triggered
+   abilities \`unrunnableReason\` in \`trigger-bridge.ts\` refuses because nothing
+   announces targets for a trigger yet, which is the largest seam left.
 2. \`scripts/verify-ability-coverage.mjs\` goes further and casts real spells on
-   a real board, downgrading anything that resolves silently. It downgraded 612
-   cards the last time it ran. Nothing in this port has been through it.
-3. **Nothing outside \`src/lib/cards/xmage/\` imports this module.** So the number
-   of cards the shipped app plays from these records today is 0. Wiring it into
-   \`src/lib/game/**\` belongs to another workflow.
+   a real board through the real reducer, and downgrades anything that resolves
+   silently. It is the only measurement here that describes what a player
+   experiences, and **every figure in this document is a ceiling above it**.
+3. **These records now reach the shipped app, and that is new.**
+   \`src/lib/cards/xmage/lowered.generated.ts\` holds ${measured(SHIPPED?.emitted)}
+   of the cards above, already lowered into \`dsl.ts\` shapes and keyed by
+   Scryfall oracle id. \`lowered.ts\` states the precedence rule that decides
+   when they are used, and \`compileWithTrace\` in
+   \`src/lib/cards/abilities/compiler.ts\` applies it.
+
+   The line that used to sit here said the number of cards the shipped app
+   plays from these records is 0. That was true for TWO separate reasons and
+   only the first was closed when the artifact was generated.
+
+   FIRST: nothing outside \`src/lib/cards/xmage/\` imported the module, because
+   there was no artifact a browser could import. There is one now.
+
+   SECOND, and it outlived the first fix: the table is keyed by Scryfall
+   \`oracle_id\`, \`card-abilities.ts\` reads that id off \`CardInstance.oracleId\`,
+   and \`PlayCard\` had no field to carry one. So \`buildTable\` set no oracle id on
+   any card in any game, every lookup missed, and a table dealt from a deck of
+   60 cards that all swap ran 0 of them. The import was real and no game ever
+   reached it. No measurement outside a game could see this, because the
+   coverage script hands the compiler a Scryfall row and a Scryfall row always
+   has an oracle id.
+
+   Closed 23 Aug 2026: \`PlayCard.oracleId\` added, \`oracle_id\` projected in both
+   deck queries, carried through \`buildTable\`, and the harness pool given the
+   same field at POOL_VERSION 5. \`reachability.test.ts\` holds the ratchet. The
+   20-game harness went from 26,223 actions to 27,036 on the same seeds, which
+   is the port doing work in a real game for the first time.
+
+   **That count is still not an automation number.** It is how many cards the
+   app CAN consult, not how many it runs, and the two differ by every card
+   whose abilities no consumer in \`src/lib/game/**\` reads. Only item 2 answers
+   the second question, and it is the only one that should ever be quoted.
 
 ---
 
@@ -673,7 +744,7 @@ Test: Wrath of God.
 
 ---
 
-# 7. Four bugs real cards found that reading the code did not
+# 7. Six bugs real cards found that reading the code did not
 
 Every one of these produced a card that RAN and was wrong, which is worse than a
 card that refuses, and every one survived until a named card was walked through
@@ -706,9 +777,30 @@ the letters \`W U B R G\`, and the first version of the cost table read the colo
 words. It matched nothing and refused every single-coloured activation cost in
 the corpus, Shivan Dragon included. Test: Shivan Dragon.
 
-A fifth was found by the harness rather than by a card: one \`Mana\` field carries
-\`Integer.MAX_VALUE\`, and an unbounded \`String.repeat\` on it crashed the whole
-measurement 5,727 records into a ${N} record run.
+**An additional cast cost read for two ability kinds and dropped for the other
+two.** \`lowerResolving\` reads \`ability.costs\` when the lowered shape is an
+\`ActivatedAbility\` or a \`ManaAbility\`, because those have a \`costs\` field.
+\`SpellAbility\` and \`TriggeredAbility\` do not, so the branch never looked and the
+cost vanished without a word. Raze, "as an additional cost to cast this spell,
+sacrifice a land", destroyed a land for free. Harvest Pyre exiled nothing and
+dealt X = nothing. Thunderherd Migration revealed no Dinosaur and paid no {1}.
+403 abilities across the corpus arrive this way. Tests: Raze.
+
+**A modal ability's targets left on the modes.** Dawnbringer Cleric's three
+modes each read \`{sel:"target", ref:0}\` while the ability announced no targets
+at all, because \`lowerTargets\` was given the ability's own empty list and each
+mode's specs were never lifted onto it. An effect reading an unbound ref either
+does nothing or hits whatever sits at index zero, and both are a card that
+resolved and lied. Tests: Dawnbringer Cleric.
+
+Both of the last two were found the same way as the four above and only that
+way: by walking a named card through after this lowering was wired into the
+shipped compiler. Neither was visible from reading \`lower.ts\`, and both had a
+green suite over them the entire time.
+
+A seventh was found by the harness rather than by a card: one \`Mana\` field
+carries \`Integer.MAX_VALUE\`, and an unbounded \`String.repeat\` on it crashed the
+whole measurement 5,727 records into a ${N} record run.
 
 ---
 

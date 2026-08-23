@@ -70,7 +70,11 @@ import type {
   Zone,
 } from './types.ts';
 import { getCard, getPlayer, isAlive, livingPlayers, nextLivingPlayer } from './rules.ts';
-import { canBeTargetedBy } from './keywords.ts';
+/*
+ * CR 608.2b, shared with the triggered-ability half. `targetIsLegal` below says
+ * why the rule lives over there rather than here.
+ */
+import { blankIllegalTargets, targetStillLegal, type TargetingSource } from './announce.ts';
 import { resolvesToGraveyard } from './mana.ts';
 import { auraNeedsHost } from './attach.ts';
 // The honesty note for a spell that resolved and did nothing, built by the
@@ -172,44 +176,36 @@ export function stackTopFirst(state: GameState): StackObject[] {
 /* -------------------------------------------------------------------------- */
 
 /**
+ * The object a stack target was chosen for, in the shape the shared rule takes.
+ *
+ * `sourceInstanceId` falls back to `cardInstanceId` because a SPELL is its own
+ * source: an instant has no separate permanent behind it, and protection is
+ * judged against the card being cast.
+ */
+function targetingSourceOf(object: StackObject): TargetingSource {
+  return {
+    controllerId: object.controllerId,
+    sourceInstanceId: object.sourceInstanceId ?? object.cardInstanceId,
+  };
+}
+
+/**
  * CR 608.2b — is this target still a legal one.
  *
- * Three ways a target goes illegal between announcement and resolution:
- * the player left the game, the card changed zones (CR 400.7 — what is there
- * now is a different object), or it gained hexproof/shroud/protection.
+ * THE RULE ITSELF MOVED, and this is now a two-line adapter onto it. It lives
+ * in `announce.ts` because a triggered ability has to ask exactly the same
+ * question and cannot reach this file: `triggers.ts` is imported by `rules.ts`,
+ * which this module already depends on. Writing the second copy over there is
+ * how one path ends up with the CR 400.7 flicker check and the other does not.
+ *
+ * The signature is unchanged, because a dozen callers and the tests read it.
  */
 export function targetIsLegal(
   state: GameState,
   object: StackObject,
   target: StackTarget
 ): boolean {
-  switch (target.kind) {
-    case 'player': {
-      const player = target.playerId ? getPlayer(state, target.playerId) : undefined;
-      return !!player && isAlive(player);
-    }
-    case 'card': {
-      const card = target.instanceId ? getCard(state, target.instanceId) : undefined;
-      if (!card || card.removedFromGame) return false;
-      // Changed zones since it was targeted: a new object, so not our target.
-      if (target.zone && card.zone !== target.zone) return false;
-      // ...and the counter catches what the zone alone cannot — flickered out
-      // and straight back, same zone, different object (CR 400.7).
-      if (
-        target.zoneChangeCounter !== undefined &&
-        (card.zoneChangeCounter ?? 0) !== target.zoneChangeCounter
-      ) {
-        return false;
-      }
-      const source = object.sourceInstanceId ?? object.cardInstanceId;
-      const sourceCard = source ? getCard(state, source) : undefined;
-      return canBeTargetedBy(card, object.controllerId, sourceCard);
-    }
-    case 'stack':
-      return !!target.stackId && !!stackObject(state, target.stackId);
-    default:
-      return false;
-  }
+  return targetStillLegal(state, target, targetingSourceOf(object));
 }
 
 /** The subset of an object's announced targets that are still legal. */
@@ -492,9 +488,7 @@ function compiledAbilityActions(
  */
 function contextForResolution(state: GameState, object: StackObject, sourceId: InstanceId) {
   return makeContext(state, sourceId, object.controllerId, {
-    targets: object.targets.map(target =>
-      targetIsLegal(state, object, target) ? target : ({ kind: 'card' } as StackTarget)
-    ),
+    targets: blankIllegalTargets(state, object.targets, targetingSourceOf(object)),
     triggerSourceId: sourceId,
   });
 }

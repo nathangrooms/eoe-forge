@@ -785,6 +785,23 @@ export interface PendingTrigger {
    * about the ability engine keep working.
    */
   dsl?: TriggeredAbility;
+  /**
+   * CR 603.3d — what this triggered ability is pointed at.
+   *
+   * Indexed by `TargetSpec.ref`, the same contract `StackObject.targets` keeps,
+   * because `{sel:'target', ref:n}` is a plain index into both. A hole stays a
+   * hole and nothing is ever compacted, or the first half of an ability would
+   * resolve against the second half's victim.
+   *
+   * Absent means NOT ANNOUNCED YET, which is a real state rather than a bug: a
+   * trigger whose ability names a target waits on `pendingTriggers` until its
+   * controller announces one, exactly as a player is asked as it goes on the
+   * stack. The common case never waits, because a forced choice is not a
+   * choice: `chooseTargetsFor` takes a lone legal candidate itself.
+   *
+   * `announce.ts` owns both halves of this. Nothing else writes the field.
+   */
+  targets?: StackTarget[];
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1235,6 +1252,25 @@ export type GameAction = ActionMeta &
     | { type: 'RESOLVE_STACK' }
     /** CR 701.5 — remove an object from the stack without resolving it. */
     | { type: 'COUNTER_SPELL'; stackId: StackObjectId; reason?: string }
+
+    /**
+     * CR 603.3d — the controller of a waiting trigger says what it is aimed at.
+     *
+     * THIS IS THE ASK, AS AN ACTION, and it is an action for the reason
+     * `replacementOrder` and `triggerOrder` are fields rather than callbacks:
+     * the reducer is pure and the log is the only authority, so a choice that
+     * travelled any other way would exist on one screen and not the other. A
+     * human presses a name on the mat, a bot's policy answers, an opponent's
+     * answer arrives over the transport — all three become this.
+     *
+     * `triggerId` is the `PendingTrigger.id` the reducer minted, which is
+     * deterministic and therefore the same string on every client. An id that
+     * is not waiting, or a target the ability could not legally have been
+     * pointed at, is REFUSED rather than stored: an illegal announcement is a
+     * client bug and quietly repairing it would aim the ability somewhere
+     * nobody chose.
+     */
+    | { type: 'ANNOUNCE_TRIGGER_TARGETS'; triggerId: string; targets: StackTarget[] }
 
     /* --- replacement effects (see replacement.ts) --- */
     | { type: 'ADD_REPLACEMENT'; effect: ReplacementEffect }

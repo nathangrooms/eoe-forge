@@ -64,6 +64,10 @@ import {
   pendingTriggersOf,
   spellResolutionNotes,
 } from './triggers.ts';
+// CR 603.3d — judging a trigger's announced targets. The same
+// `chooseTargetsFor` the question was asked with, so an answer cannot be
+// accepted by one rule and resolved by another.
+import { planTriggerTargets } from './announce.ts';
 import {
   castSpell,
   clearStack,
@@ -1500,6 +1504,24 @@ function describeAction(state: GameState, action: GameAction): string {
       return action.resolved === false
         ? `${cardName(state, action.instanceId)} marked as still needing manual resolution.`
         : `${cardName(state, action.instanceId)} resolved by hand.`;
+    case 'ANNOUNCE_TRIGGER_TARGETS': {
+      /*
+       * Named in the log, because a trigger being aimed is a play. A watcher
+       * who sees "Angel of Despair's ability destroys that land" without ever
+       * seeing the land chosen has no way to tell a decision from a default.
+       */
+      const queue = pendingTriggersOf(state);
+      const trigger = queue.find(entry => entry.id === action.triggerId);
+      const named = action.targets
+        .map(target =>
+          target.kind === 'player'
+            ? playerName(state, target.playerId)
+            : cardName(state, target.instanceId)
+        )
+        .filter(Boolean);
+      const who = trigger ? `${trigger.sourceName}'s triggered ability` : 'A triggered ability';
+      return named.length > 0 ? `${who} is aimed at ${named.join(' and ')}.` : `${who} is aimed.`;
+    }
     case 'NOTE':
       return action.message;
     default:
@@ -1941,6 +1963,38 @@ function reduce(state: GameState, action: GameAction): GameState {
         const resolved = action.resolved !== false;
         return card.manualResolved === resolved ? card : { ...card, manualResolved: resolved };
       });
+
+    /*
+     * CR 603.3d — the controller of a waiting trigger says what it is aimed at.
+     *
+     * Only the TOP of the queue may be answered, because that is the only one
+     * on the stack: `drainTriggers` pops last-in-first-out, and letting a
+     * player aim a trigger further down would be aiming it at a board that has
+     * not happened yet. The id is checked rather than the position, so a stale
+     * answer sent twice over a transport is refused instead of landing on
+     * whatever happens to be on top now.
+     *
+     * Legality is `planTriggerTargets`, which is `chooseTargetsFor`, which is
+     * the same function that judged the candidates when the question was asked.
+     * Nothing is re-derived here, so an answer cannot be accepted by one rule
+     * and resolved by another.
+     */
+    case 'ANNOUNCE_TRIGGER_TARGETS': {
+      const queue = pendingTriggersOf(state);
+      const top = queue[queue.length - 1];
+      if (!top || top.id !== action.triggerId || top.targets) return state;
+
+      const aim = planTriggerTargets(state, top, { targets: action.targets });
+      // A refusal is a rejection, never a repair. Announcing something the
+      // ability could not legally have been pointed at would aim it somewhere
+      // nobody chose, which is worse than the client seeing its action bounce.
+      if (aim.reason) return state;
+
+      return {
+        ...state,
+        pendingTriggers: [...queue.slice(0, -1), { ...top, targets: aim.targets }],
+      };
+    }
 
     case 'NOTE':
       // Changes nothing on purpose. A new object identity is what makes

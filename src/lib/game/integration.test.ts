@@ -357,7 +357,22 @@ test('a card whose text the engine does not implement is marked, not silently ig
     {
       id: 'c1',
       name: 'Complicated Thing',
-      oracleText: 'When this creature enters, destroy target creature an opponent controls.',
+      /*
+       * The text has to be something the engine genuinely will not run, and
+       * "destroy target creature an opponent controls" stopped being that on 23
+       * Aug 2026: a trigger can announce a target now, so the engine understands
+       * the card and an empty opposing board gets CR 603.3d's "removed from the
+       * stack" instead of a manual marker. That is the right answer, and it is
+       * a different test — `triggers.test.ts` has it.
+       *
+       * So the text is now one the COMPILER cannot read at all, which is what
+       * "the engine does not implement it" has to mean for this case to keep
+       * testing what it says: the card carries a manual marker, and the log
+       * says so, instead of the trigger being quietly dropped.
+       */
+      oracleText:
+        'When this creature enters, each player chooses a creature type at random, ' +
+        'then exiles a permanent of that type they control unless another player pays {2}.',
     },
   ]);
 

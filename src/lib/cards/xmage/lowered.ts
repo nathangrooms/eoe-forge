@@ -1,0 +1,163 @@
+/**
+ * The ported XMage behaviour, as the shipped engine reads it.
+ *
+ * Derived from XMage, which is MIT licensed, Copyright (c) 2010
+ * betasteward@gmail.com, https://github.com/magefree/mage. The clone is read in
+ * place and nothing from it is vendored here. XMage's display strings are never
+ * copied: they carry Wizards of the Coast rules text, so every ability's `text`
+ * is filled from Scryfall's oracle text instead. Forge is GPL-3.0 and was not
+ * fetched, read or referenced.
+ *
+ * ==========================================================================
+ * THE PRECEDENCE RULE. One rule, not a per-case judgement.
+ * ==========================================================================
+ *
+ *   THE ORACLE-TEXT COMPILER WINS WHENEVER IT FULLY UNDERSTANDS THE CARD.
+ *   THE XMAGE RECORD IS CONSULTED ONLY FOR A CARD THE COMPILER DOES NOT FULLY
+ *   UNDERSTAND, AND WHEN IT IS CONSULTED IT REPLACES THE CARD'S WHOLE ABILITY
+ *   LIST RATHER THAN BEING MERGED INTO IT CLAUSE BY CLAUSE.
+ *
+ * `CLAUDE.md`'s standing position is that oracle text wins and the
+ * disagreement is recorded. This does not depart from it. It says WHERE the
+ * question arises: only on a card the compiler already admits it has not
+ * finished, which is `coverage !== 'full'` — a value `deriveCoverage` computes
+ * and nothing hand-sets.
+ *
+ * ### Why the compiler wins where it is complete
+ *
+ * The compiler reads the card a player is holding: Scryfall's oracle text, the
+ * current wording, errata included. The XMage record is a transcription of that
+ * card into Java by a third party, joined back to an oracle id afterwards. Both
+ * are good; only one of them is the card. Where the printed card is fully
+ * understood there is nothing a second-hand copy can add, and preferring it
+ * would make the engine's behaviour depend on which of two sources happened to
+ * be more complete for that card — which is a per-case judgement wearing a
+ * rule's clothes.
+ *
+ * ### Why the swap is whole-card and never clause by clause
+ *
+ * Because the two sources disagree about where a clause even STARTS. A compiler
+ * ability is paragraph-shaped and carries the span it came from. An XMage
+ * ability is a Java object and carries no span at all. Merging them means
+ * guessing which XMage ability corresponds to which printed paragraph, and a
+ * wrong guess does not produce a card that refuses — it produces a card that
+ * RUNS AND IS WRONG. `docs/engine/PORT-LOG.md` section 7 is four separate
+ * instances of exactly that, every one of which survived code review and was
+ * caught only by walking a named card through. A whole-card swap needs no
+ * guess: either the record lowers the entire card or it is not used at all.
+ *
+ * ### What the whole-card swap costs, stated rather than hidden
+ *
+ * `Ability.text` is player-facing. `statics.ts`, `activate.ts` and
+ * `trigger-bridge.ts` all put it in the game log. A compiler ability carries
+ * the one clause it came from; a swapped ability carries the WHOLE front face,
+ * because the record genuinely does not know which printed line it came from.
+ * So the log for a swapped multi-ability card names the whole card each time it
+ * fires. That is verbose and it is true. Attaching a guessed line instead would
+ * be neither.
+ *
+ * ### Two further bars, both of which cost real cards
+ *
+ * A card with any paragraph on a face other than the front is never swapped.
+ * `normalizeCard` marks those a declared gap, the engine does not play a back
+ * face today, and consuming them here would silently claim it does.
+ *
+ * A record is only in `lowered.generated.ts` at all if EVERY ability of every
+ * face lowered — the same all-or-nothing bar `lowerCard` and `PORT-LOG.md`
+ * use, for the same reason. Half a card is the failure this project has now
+ * made three times.
+ */
+
+import type { Ability, CardAbilities } from '../abilities/dsl.ts';
+import type { NormalizedOracle } from '../abilities/normalize.ts';
+import { XMAGE_LOWERED, XMAGE_LOWERED_STATS } from './lowered.generated.ts';
+
+export { XMAGE_LOWERED_STATS };
+
+/**
+ * Turns the second source off, so the figures from before it was wired can be
+ * reproduced by a session that no longer has the code it was measured against.
+ *
+ * The same escape hatch, and the same argument for it, as `DM_ACTIVATED_DEAD`
+ * in `scripts/verify-ability-coverage.mjs`: it can only ever make the engine
+ * claim LESS than it does, so it is the direction that is safe to leave
+ * available. There is no switch in the other direction.
+ *
+ * Read once, here, rather than per card, and guarded because `process` does not
+ * exist in a browser.
+ */
+const XMAGE_OFF =
+  typeof process !== 'undefined' && process?.env?.DM_XMAGE_OFF === '1';
+
+/** How many cards the shipped table can speak for. Not a coverage number. */
+export function xmageLoweredCardCount(): number {
+  return Object.keys(XMAGE_LOWERED).length;
+}
+
+/** Does the table hold this card at all? Says nothing about precedence. */
+export function hasXmageRecord(oracleId: string | null | undefined): boolean {
+  return !!oracleId && Object.prototype.hasOwnProperty.call(XMAGE_LOWERED, oracleId);
+}
+
+/**
+ * The reason this card was NOT swapped, or `null` when it was.
+ *
+ * Returned as a sentence rather than a boolean because every other refusal in
+ * this port names itself, and a swap that silently did not happen is the kind
+ * of thing that gets rediscovered a session later as a mystery.
+ */
+export type SwapRefusal =
+  | 'compiler understands this card completely'
+  | 'no XMage record for this oracle id'
+  | 'the card has text on a face the engine does not play'
+  | 'the record lowered to no abilities'
+  | 'DM_XMAGE_OFF=1';
+
+export interface XmageSwap {
+  abilities: Ability[];
+  /** Every front-face paragraph, which the swap consumes as a whole. */
+  consumed: Array<[number, number]>;
+}
+
+/**
+ * Apply the precedence rule.
+ *
+ * `compiled` is what the oracle-text compiler made of the card. Returning
+ * `null` means the compiler's answer stands, which is the common case and the
+ * default: this function only ever fires on a card the compiler has already
+ * marked incomplete.
+ */
+export function xmageSwapFor(
+  compiled: CardAbilities,
+  normalized: NormalizedOracle,
+): { swap: XmageSwap } | { refused: SwapRefusal } {
+  if (XMAGE_OFF) return { refused: 'DM_XMAGE_OFF=1' };
+
+  // THE RULE, first line, before anything else is looked at.
+  if (compiled.coverage === 'full') return { refused: 'compiler understands this card completely' };
+
+  const oracleId = compiled.oracleId;
+  if (!Object.prototype.hasOwnProperty.call(XMAGE_LOWERED, oracleId)) {
+    return { refused: 'no XMage record for this oracle id' };
+  }
+
+  const paragraphs = normalized.paragraphs;
+  if (paragraphs.some((p) => p.face > 0)) {
+    return { refused: 'the card has text on a face the engine does not play' };
+  }
+
+  const stored = XMAGE_LOWERED[oracleId];
+  if (!stored || stored.length === 0) return { refused: 'the record lowered to no abilities' };
+
+  // The whole front face, verbatim, as `Paragraph.raw` defines it: "this is what
+  // `Ability.text` carries". Every swapped ability carries all of it, for the
+  // reason in this file's header.
+  const text = paragraphs.map((p) => p.raw).join('\n');
+
+  return {
+    swap: {
+      abilities: stored.map((ability) => ({ ...ability, text }) as Ability),
+      consumed: paragraphs.map((p) => p.span),
+    },
+  };
+}

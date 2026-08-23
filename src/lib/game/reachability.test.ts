@@ -349,3 +349,73 @@ test('the unoffered list does not outlive the gaps it records', () => {
       `Leaving a closed gap on the list lets the next one hide behind it.`,
   );
 });
+
+/* -------------------------------------------------------------------------- */
+/* The same question asked of DATA rather than of actions                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The port has to reach a real table, not just a script.
+ *
+ * This file's whole subject is the gap between "the engine implements it" and
+ * "a player can get at it", and on 23 Aug 2026 the ported XMage behaviour was
+ * sitting in exactly that gap in a form the action census above cannot see. No
+ * action was missing. The DATA was: `XMAGE_LOWERED` is keyed by Scryfall
+ * `oracle_id`, `card-abilities.ts` reads that id off `CardInstance.oracleId`,
+ * and `PlayCard` had no field to carry one — so `buildTable` set none, every
+ * lookup missed, and a table dealt from a deck of nothing but swappable cards
+ * ran none of them.
+ *
+ * It measured as a gain of 305 cards the whole time, because
+ * `verify-ability-coverage.mjs` hands the compiler a Scryfall row and a
+ * Scryfall row always has an oracle id. Only a game built the way the app
+ * builds one could see it, which is what this test is.
+ */
+test('a table dealt the way the app deals one runs the ported records', async () => {
+  const { buildTable } = await import('./setup.ts');
+  const { abilitiesFor } = await import('./abilities/card-abilities.ts');
+  const { XMAGE_LOWERED } = await import('../cards/xmage/lowered.generated.ts');
+
+  const oracleId = Object.keys(XMAGE_LOWERED)[0];
+  assert.ok(oracleId, 'the shipped table must hold at least one record');
+
+  // Deliberately a card whose oracle text is empty, so the oracle-text compiler
+  // has nothing to work with and the ONLY way abilities can appear is the port.
+  const deck = {
+    id: 'reach', name: 'Reach', format: 'commander' as const, source: 'user-deck' as const,
+    commanders: [],
+    cards: Array.from({ length: 8 }, (_, i) => ({
+      cardId: `print-${i}`,
+      oracleId,
+      name: 'Ported Card',
+      typeLine: 'Creature — Bear',
+      oracleText: '',
+      power: '2',
+      toughness: '2',
+    })),
+  };
+
+  const { state } = buildTable({
+    id: 'reach-table', seed: 1, now: 0, format: 'commander',
+    seats: [{ deck, playerName: 'You', playerId: 'p1' }],
+  });
+
+  const instances = Object.values(state.cards);
+  assert.ok(instances.length > 0, 'the table must have been dealt');
+
+  const carrying = instances.filter(c => c.oracleId === oracleId);
+  assert.equal(
+    carrying.length,
+    instances.length,
+    'every card instance must carry the oracle id its deck row had, or the ported ' +
+      'table cannot be looked up for any of them',
+  );
+
+  const fromPort = instances.filter(c => abilitiesFor(c).source === 'xmage');
+  assert.equal(
+    fromPort.length,
+    instances.length,
+    'every one of these cards must get its abilities from the port: the compiler ' +
+      'has no oracle text to read, so anything else means the record was never consulted',
+  );
+});

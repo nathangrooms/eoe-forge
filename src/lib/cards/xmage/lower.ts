@@ -1098,6 +1098,62 @@ function equipCost(ability: AbilityRecord): Cost[] | null {
   return lowered.ok && lowered.costs.length > 0 ? lowered.costs : null;
 }
 
+/**
+ * XMage's mana-cost classes, which do NOT live in the extraction's cost list.
+ *
+ * `COST_RULES` already knows how to lower each of these. The problem this set
+ * solves is finding them at all.
+ */
+const MANA_COST_PRIMS = new Set<PrimId>([
+  'xmage:ManaCostsImpl',
+  'xmage:GenericManaCost',
+  'xmage:ColoredManaCost',
+  'xmage:VariableManaCost',
+  'xmage:MonoHybridManaCost',
+  'xmage:HybridManaCost',
+]);
+
+/**
+ * EVERY cost of an activated or mana ability, including the mana.
+ *
+ * ## The bug this exists to close
+ *
+ * XMage registers an ability's non-mana costs one at a time
+ * (`ability.addCost(new TapSourceCost())`) and the extraction collects those
+ * into `AbilityRecord.costs`. It passes the MANA cost a different way, as a
+ * constructor argument:
+ *
+ *     new SimpleActivatedAbility(new DestroyTargetEffect(true), new ManaCostsImpl("{2}{B}"))
+ *
+ * so the mana is in `ability.via.args` and never in `ability.costs`. Reading
+ * only the list drops it. Notorious Assassin prints "{2}{B}, {T}, Discard a
+ * card" and lowered to tap plus discard; Aboshan, Cephalid Emperor lowered to
+ * no cost at all. `scratch/refute/cost-gap.mjs` counted it over the whole
+ * extraction: of 13,823 activated and mana abilities, 2,004 carry their mana in
+ * the cost list and **5,005 carry it only in the constructor argument**.
+ *
+ * Adding it rather than refusing, because unlike the intervening if above there
+ * is somewhere for it to go: `COST_RULES` has lowered `ManaCostsImpl` since the
+ * day costs were written, and the value is right there resolved. Refusing here
+ * would throw away 5,005 abilities to avoid a bug that has a two-line fix.
+ *
+ * Only the mana classes are lifted, and only when the list does not already
+ * carry one, so an ability whose cost list is already complete is untouched and
+ * nothing can be charged twice.
+ */
+function activationCostsOf(ability: AbilityRecord): Invocation[] {
+  if ((ability.costs ?? []).some((c) => MANA_COST_PRIMS.has(c.prim))) return [...ability.costs];
+  const fromArgs: Invocation[] = [];
+  for (const slot of ability.via.args ?? []) {
+    const value = slot.value;
+    if (value?.k === 'invoke' && MANA_COST_PRIMS.has(value.invocation.prim)) {
+      fromArgs.push(value.invocation);
+    }
+  }
+  // Mana first, the order the card prints it in.
+  return [...fromArgs, ...(ability.costs ?? [])];
+}
+
 /* ------------------------------------------------------------------ *
  * Lowering
  * ------------------------------------------------------------------ */
@@ -1320,10 +1376,40 @@ function lowerResolving(
     effects.push(...runList(ability.effects, ability.targets));
   }
 
-  // An intervening if that did not resolve changes WHETHER the ability does
-  // anything, so an ability carrying an unresolved one must not run. CR 603.4.
-  if (ability.interveningIf && ability.interveningIf.value === undefined) {
-    refused.push({ prim: ability.via.prim, why: 'intervening if condition did not resolve' });
+  /*
+   * AN INTERVENING IF REFUSES THE ABILITY. Widened 23 Aug 2026.
+   *
+   * It used to refuse only the case where the condition slot did not resolve,
+   * on the reasoning that a resolved one could be carried through. It could
+   * not. There is no mapping from an XMage `Condition` to a `dsl.ts` one —
+   * PORT-LOG.md's own work order still lists it as 602 cards of unstarted work,
+   * "167 distinct condition classes ... `{do:"if"}` exists; the mapping does
+   * not" — so the resolved condition had nowhere to go. What the lowering did
+   * with it was set `interveningIf: true`, a boolean, and the engine gates on a
+   * different field: `dslConditionHolds` in `trigger-bridge.ts` reads
+   * `ability.condition` and returns true when it is absent. Nothing in
+   * `src/lib/game` reads `interveningIf` at all.
+   *
+   * So the guard read as a safety net and was the opposite of one: the
+   * conditions it let through were exactly the ones the extractor UNDERSTOOD,
+   * and they were then dropped. "At the beginning of your upkeep, if you have
+   * exactly 1 life, you win the game" lowered to "at the beginning of your
+   * upkeep, you win the game".
+   *
+   * Refusing is the safe half and the one this file already applies to costs
+   * for the same reason: a card that does nothing is `silent-noted`, which the
+   * app says out loud, while a card that runs the wrong half says nothing. When
+   * the condition table exists this becomes a lowering rather than a refusal,
+   * and the ability comes back with a real `condition`.
+   */
+  if (ability.interveningIf) {
+    refused.push({
+      prim: ability.via.prim,
+      why:
+        ability.interveningIf.value === undefined
+          ? 'intervening if condition did not resolve'
+          : 'intervening if condition has no dsl.ts equivalent to lower into',
+    });
   }
 
   let trigger: ReturnType<typeof lowerTrigger> | null = null;
@@ -1350,7 +1436,7 @@ function lowerResolving(
       costs = produced;
     }
   } else if (ability.kind === 'activated' || ability.kind === 'mana') {
-    const lowered = lowerCosts(ability.costs);
+    const lowered = lowerCosts(activationCostsOf(ability));
     if (!lowered.ok) {
       missing.push(...lowered.missing);
       refused.push(...lowered.refused);
@@ -1372,16 +1458,78 @@ function lowerResolving(
     }
   }
 
+  // A COST THE LOWERED ABILITY HAS NOWHERE TO PUT.
+  //
+  // Found by walking three named cards through after this lowering was wired
+  // into the shipped compiler, which is the only reason it was found at all.
+  // `ability.costs` is read above for `activated` and `mana`, because
+  // `ActivatedAbility` and `ManaAbility` have a `costs` field. `SpellAbility`
+  // and `TriggeredAbility` do not, so the branch below simply never looked, and
+  // an additional cast cost was dropped without a word:
+  //
+  //   Raze                  "sacrifice a land" -> destroys a land for free
+  //   Harvest Pyre          "exile X cards from your graveyard" -> X is nothing,
+  //                         so it deals 0 damage and still resolves
+  //   Thunderherd Migration "reveal a Dinosaur or pay {1}" -> neither
+  //
+  // Every one of those RAN and was wrong, which PORT-LOG.md section 7 already
+  // names as worse than a card that refuses. 304 spell abilities and 99
+  // triggered ones across the corpus carry a cost this way.
+  //
+  // The blocker is the record shape rather than a missing table entry, so the
+  // work order gets `dsl:` and not `xmage:`. Naming a cost primitive here would
+  // rank a lowering that already exists and would still have nowhere to write
+  // its answer.
+  if ((ability.kind === 'spell' || ability.kind === 'triggered') && (ability.costs ?? []).length > 0) {
+    missing.push(`dsl:${ability.kind === 'spell' ? 'SpellAbility' : 'TriggeredAbility'}.costs`);
+    refused.push({
+      prim: ability.via.prim,
+      why: `the card declares an additional cost (${(ability.costs ?? []).map((c) => c.prim).join(', ')}) and this ability shape has no cost list to carry it`,
+    });
+  }
+
   if (missing.length > 0 || refused.length > 0) return fail(missing, refused);
 
   const base = { id: ability.id, text: '', confidence: 'exact' as const };
   const targets: TargetSpec[] = targetsResult.specs;
 
+  // A TARGET REF POINTING AT NOTHING.
+  //
+  // Also found by a named card: Dawnbringer Cleric, "choose one — ... Destroy
+  // target enchantment. ... Exile target card from a graveyard." A modal
+  // ability keeps its targets on each MODE, `lowerTargets(ability.targets)`
+  // reads the ability's own empty list, and each mode's effects still came out
+  // holding `{sel:'target', ref:0}`. The result was an ability announcing no
+  // targets whose effects all read target zero.
+  //
+  // That is not a near miss. An effect reading an unbound ref either does
+  // nothing or hits whatever happens to be at index zero, and both of those are
+  // a card that resolved and lied. Checked structurally, on the finished
+  // ability, so it catches any other shape that loses a spec the same way
+  // rather than just this one.
+  const dangling = danglingTargetRef(effects, targets);
+  if (dangling !== null) {
+    return fail(
+      [`dangling-target-ref:${ability.via.prim}`],
+      [
+        {
+          prim: ability.via.prim,
+          why: `an effect reads target ref ${dangling} and the ability announces no such target`,
+        },
+      ],
+    );
+  }
+
   if (ability.kind === 'triggered' && trigger?.event) {
     const lowered: TriggeredAbility = { ...base, kind: 'triggered', event: trigger.event, effects };
     if (targets.length > 0) lowered.targets = targets;
     if (trigger.optional) lowered.optional = true;
-    if (ability.interveningIf) lowered.interveningIf = true;
+    /* No `interveningIf` marker is set here any more, and the line that set one
+     * is gone rather than commented out. An ability carrying an intervening if
+     * is refused above, so this point is unreachable for one; and the marker was
+     * a boolean no consumer in `src/lib/game` ever read, which is what made the
+     * dropped condition invisible. If it comes back it comes back as
+     * `condition`, the field the engine actually gates on. */
     return { ok: true, ability: lowered, effects, missing: [], refused: [] };
   }
   if (ability.kind === 'activated') {
@@ -1401,6 +1549,37 @@ function lowerResolving(
   const lowered: SpellAbility = { ...base, kind: 'spell', effects };
   if (targets.length > 0) lowered.targets = targets;
   return { ok: true, ability: lowered, effects, missing: [], refused: [] };
+}
+
+/**
+ * The first target ref an effect tree reads that the ability does not announce,
+ * or `null` when every ref has a spec.
+ *
+ * Walks the whole tree rather than the top level, because `choose-mode`,
+ * `if`, `for-each`, `repeat`, `may` and `unless-pays` all nest effects and the
+ * card that found this bug hid its refs three levels down inside modes.
+ */
+function danglingTargetRef(effects: readonly Effect[], specs: readonly TargetSpec[]): number | null {
+  const announced = new Set(specs.map((s) => s.ref));
+  let found: number | null = null;
+
+  const walk = (node: unknown): void => {
+    if (found !== null) return;
+    if (Array.isArray(node)) {
+      for (const entry of node) walk(entry);
+      return;
+    }
+    if (!node || typeof node !== 'object') return;
+    const record = node as Record<string, unknown>;
+    if (record.sel === 'target' && typeof record.ref === 'number' && !announced.has(record.ref)) {
+      found = record.ref;
+      return;
+    }
+    for (const value of Object.values(record)) walk(value);
+  };
+  walk(effects);
+
+  return found;
 }
 
 /**

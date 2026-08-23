@@ -66,7 +66,21 @@ import {
 // through. It gets no private route onto the stack, which is the property that
 // makes a bot seat and a human seat the same thing to everything downstream.
 import { activatablePermanents, planActivationWith, type PendingChoice } from './activate.ts';
-import type { CardInstance, GameAction, GameState, InstanceId, PlayerId, StackTarget } from './types.ts';
+// CR 603.3d — the other half of the same seam. `answerTriggerTargets` runs the
+// ask-and-answer loop with this file's policy injected, the exact twin of
+// `planCastWith` above, so a bot cannot drift into its own idea of a legal
+// target for a trigger.
+import { answerTriggerTargets, triggerAwaitingTargets } from './announce.ts';
+import type { Effect } from '../cards/abilities/dsl.ts';
+import type {
+  CardInstance,
+  GameAction,
+  GameState,
+  InstanceId,
+  PendingTrigger,
+  PlayerId,
+  StackTarget,
+} from './types.ts';
 
 /** One visible decision. The surface applies the whole batch, then re-renders. */
 export interface BotMove {
@@ -316,26 +330,36 @@ const HARMS_ITS_TARGET = new Set([
   'poison',
 ]);
 
-function spellPunishes(card: CardInstance): boolean {
+/**
+ * Does this effect tree do something UNPLEASANT to the thing it names?
+ *
+ * Lifted out of `spellPunishes` on 23 Aug 2026 so a TRIGGERED ability can ask
+ * the identical question. A trigger's targets are announced through the same
+ * `chooseTargetsFor` a spell's are, so which way to point them has to be read
+ * the same way too: two copies of "is this removal" is exactly how a bot ends
+ * up aiming Angel of Despair at its own board and its Doom Blade at nothing.
+ */
+function punishesItsTarget(effects: readonly Effect[]): boolean {
   let harmful = false;
-  for (const ability of spellAbilitiesOf(card)) {
-    walkEffects(ability.effects, node => {
-      if (harmful) return;
-      if (!mentionsTarget(node)) return;
-      const verb = node.do as string;
-      if (HARMS_ITS_TARGET.has(verb)) harmful = true;
-      // "Target creature gets -3/-3" is removal; the same node with +3/+3 is a
-      // combat trick for the bot's own creature. Only the sign separates them.
-      if (verb === 'pump' && (flatNumber(node.power) < 0 || flatNumber(node.toughness) < 0)) {
-        harmful = true;
-      }
-      if (verb === 'add-counters' && String(node.counter ?? '').startsWith('-')) harmful = true;
-      // Anywhere but the battlefield is a bounce, a tuck or a bin.
-      if (verb === 'move-zone' && node.to !== 'battlefield') harmful = true;
-    });
-    if (harmful) return true;
-  }
-  return false;
+  walkEffects(effects, node => {
+    if (harmful) return;
+    if (!mentionsTarget(node)) return;
+    const verb = node.do as string;
+    if (HARMS_ITS_TARGET.has(verb)) harmful = true;
+    // "Target creature gets -3/-3" is removal; the same node with +3/+3 is a
+    // combat trick for the bot's own creature. Only the sign separates them.
+    if (verb === 'pump' && (flatNumber(node.power) < 0 || flatNumber(node.toughness) < 0)) {
+      harmful = true;
+    }
+    if (verb === 'add-counters' && String(node.counter ?? '').startsWith('-')) harmful = true;
+    // Anywhere but the battlefield is a bounce, a tuck or a bin.
+    if (verb === 'move-zone' && node.to !== 'battlefield') harmful = true;
+  });
+  return harmful;
+}
+
+function spellPunishes(card: CardInstance): boolean {
+  return spellAbilitiesOf(card).some(ability => punishesItsTarget(ability.effects));
 }
 
 /* -------------------------------------------------------------------------- */
@@ -678,30 +702,121 @@ function botSpellTarget(
   choice: PendingChoice
 ): StackTarget | null {
   if (choice.kind !== 'target') return null;
+  return aimByDirection(state, playerId, spellPunishes(card), choice);
+}
 
-  const harmful = spellPunishes(card);
+/**
+ * THE PICK, once the direction is known. Shared by a spell and a trigger.
+ *
+ * Harmful goes at the biggest creature an opponent controls, and at an
+ * opponent's seat only when no permanent of theirs is legal. Beneficial goes at
+ * this seat's own biggest creature, or at this seat, and is NEVER pointed
+ * across the table.
+ *
+ * `null` means the direction had nothing in it. What that MEANS is the caller's
+ * business and the two callers read it oppositely, which is why the decision is
+ * theirs and not this function's — see `botTriggerTarget`.
+ */
+function aimByDirection(
+  state: GameState,
+  playerId: PlayerId,
+  harmful: boolean,
+  choice: PendingChoice
+): StackTarget | null {
   const theirs = choice.instanceIds.filter(id => state.cards[id]?.controllerId !== playerId);
   const mine = choice.instanceIds.filter(id => state.cards[id]?.controllerId === playerId);
 
-  const pickCard = (ids: InstanceId[]): StackTarget | null => {
-    const chosen = bestHostOf(state, ids, () => true);
-    if (!chosen) return null;
-    const target = state.cards[chosen];
-    return {
-      kind: 'card',
-      instanceId: chosen,
-      zone: target?.zone,
-      zoneChangeCounter: target?.zoneChangeCounter ?? 0,
-    };
-  };
-
   if (harmful) {
     const opponentSeat = choice.playerIds.find(id => id !== playerId);
-    return pickCard(theirs) ?? (opponentSeat ? { kind: 'player', playerId: opponentSeat } : null);
+    return pickBiggest(state, theirs) ?? (opponentSeat ? { kind: 'player', playerId: opponentSeat } : null);
   }
 
   const own = choice.playerIds.indexOf(playerId) !== -1 ? playerId : undefined;
-  return pickCard(mine) ?? (own ? { kind: 'player', playerId: own } : null);
+  return pickBiggest(state, mine) ?? (own ? { kind: 'player', playerId: own } : null);
+}
+
+/** The biggest of these permanents as a `StackTarget`, with CR 400.7's snapshot. */
+function pickBiggest(state: GameState, ids: readonly InstanceId[]): StackTarget | null {
+  const chosen = bestHostOf(state, ids, () => true);
+  if (!chosen) return null;
+  const target = state.cards[chosen];
+  return {
+    kind: 'card',
+    instanceId: chosen,
+    zone: target?.zone,
+    zoneChangeCounter: target?.zoneChangeCounter ?? 0,
+  };
+}
+
+/**
+ * WHERE THE BOT POINTS A TRIGGER, and the one way it differs from a spell.
+ *
+ * The direction is read off the ability's own compiled effects through the same
+ * `punishesItsTarget` a spell uses, so Angel of Despair's "destroy target
+ * permanent" goes across the table and Guardian Gladewalker's "+1/+1 counter on
+ * target creature" stays home. Nothing about that is new policy.
+ *
+ * **DECLINING IS NOT AN OPTION HERE, AND THAT IS THE RULE RATHER THAN A
+ * CONCESSION TO THE HARNESS.** A spell that has nothing worth pointing at is
+ * simply not cast, which is `botSpellTarget` returning null and the cast loop
+ * moving on. A trigger has already triggered: CR 603.3d says its controller
+ * chooses a legal target, and "I would rather not" is not among the answers. So
+ * when the preferred direction is empty the bot takes whatever is legal instead
+ * of refusing.
+ *
+ * It matters beyond correctness. `drainTriggers` HALTS on an unanswered
+ * trigger, so a bot that declined would hang its own table — and the failure
+ * would be a game that stopped, on a board that looks fine, with nothing in the
+ * log saying why. The playtest harness would report it as a stall, which is the
+ * right way to find out and the wrong way to ship.
+ *
+ * The cost of the fallback is a bot occasionally aiming its own removal at its
+ * own creature, when the card gave it no other legal choice. That is what the
+ * card says to do.
+ */
+function botTriggerTarget(
+  state: GameState,
+  playerId: PlayerId,
+  trigger: PendingTrigger,
+  choice: PendingChoice
+): StackTarget | null {
+  if (choice.kind !== 'target') return null;
+  const harmful = trigger.dsl ? punishesItsTarget(trigger.dsl.effects) : false;
+  return (
+    aimByDirection(state, playerId, harmful, choice) ??
+    // The other direction, because a legal target must be chosen.
+    aimByDirection(state, playerId, !harmful, choice) ??
+    pickBiggest(state, choice.instanceIds) ??
+    (choice.playerIds.length > 0 ? { kind: 'player', playerId: choice.playerIds[0] } : null)
+  );
+}
+
+/**
+ * Answer a triggered ability of this seat's that is waiting to be aimed.
+ *
+ * FIRST, before priority and before anything else `nextBotMove` considers,
+ * because the game is stopped: `drainTriggers` returned without emptying the
+ * queue and nothing else will move until this action lands.
+ *
+ * It answers only for seats this bot plays — `triggerAwaitingTargets` reports
+ * the controller and the caller passes its own id — so a human's waiting
+ * trigger is left for the human's mat, exactly as priority is.
+ */
+function announceTriggerMove(state: GameState, playerId: PlayerId, at: number): BotMove | null {
+  const ask = triggerAwaitingTargets(state);
+  if (!ask || ask.playerId !== playerId) return null;
+
+  const action = answerTriggerTargets(
+    state,
+    pending => botTriggerTarget(state, playerId, pending.trigger, pending.choice),
+    at
+  );
+  if (!action) return null;
+
+  return {
+    actions: [action],
+    note: `Aims ${ask.trigger.sourceName}'s triggered ability.`,
+  };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1738,6 +1853,28 @@ export function nextBotMove(
   if (state.status !== 'playing') return null;
   const player = getPlayer(state, playerId);
   if (!player || !isAlive(player)) return null;
+
+  /*
+   * A TRIGGER WAITING TO BE AIMED OUTRANKS EVEN THE STACK.
+   *
+   * `drainTriggers` stopped, so the game is not merely waiting on a decision,
+   * it is not running at all: no step advances, no spell resolves, nothing on
+   * the stack moves. Anything this function returned instead would be a move
+   * into a game that has paused. See `announceTriggerMove`.
+   */
+  const aiming = announceTriggerMove(state, playerId, options.at ?? 0);
+  if (aiming) return aiming;
+
+  /*
+   * ...AND SOMEBODY ELSE'S WAITING TRIGGER STOPS THIS SEAT TOO.
+   *
+   * Returning null here is the same move `priorityMove` makes when this bot
+   * does not hold priority: it hands control back to the surface so the seat
+   * that owes an answer can give one. Without it a bot whose turn it is would
+   * keep advancing steps around a human's unanswered trigger, which is a board
+   * moving underneath a decision that was taken about an older one.
+   */
+  if (triggerAwaitingTargets(state)) return null;
 
   /*
    * A non-empty stack outranks everything.

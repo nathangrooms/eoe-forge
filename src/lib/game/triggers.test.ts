@@ -41,6 +41,7 @@ import {
   previewTriggers,
   resolveTriggerActions,
 } from './triggers.ts';
+import { everyTargetIsGone, triggerAwaitingTargets } from './announce.ts';
 import type { GameState, PlayerId, Zone } from './types.ts';
 
 /* ------------------------------------------------------------------ *
@@ -478,14 +479,166 @@ test('a trigger the engine will not resolve is said out loud', () => {
   let state = game([
     {
       id: 'c',
-      name: 'Flametongue Kavu',
-      oracleText: 'When this creature enters, it deals 4 damage to target creature.',
+      name: 'Careful Thing',
+      // Flametongue Kavu used to be this test's card, and stopped being one on
+      // 23 Aug 2026 when triggers learned to announce a target: it resolves
+      // now, and there is a block below that proves it. "You may" is still the
+      // player's word, so this is still a trigger the engine hands back.
+      oracleText: 'When this creature enters, you may return a land you control to its owner\'s hand.',
       zone: 'hand',
     },
   ]);
   state = applyAction(state, { type: 'PLAY', instanceId: 'c', to: 'battlefield' });
-  assert.match(logText(state), /Flametongue Kavu triggered/);
+  assert.match(logText(state), /Careful Thing triggered/);
   assert.match(logText(state), /by hand/i);
+});
+
+/* ------------------------------------------------------------------ *
+ * CR 603.3d — announcing a triggered ability's targets
+ *
+ * The seam this block defends is the one CLAUDE.md named as the largest single
+ * blocker left: `CastOptions.targets` reached the stack object and nothing
+ * asked, and a trigger could not carry a target at all. Four claims, and the
+ * last two are the ones that make the feature worth having rather than worse
+ * than nothing.
+ * ------------------------------------------------------------------ */
+
+test('a forced choice is not a choice: one legal target is announced without asking', () => {
+  let state = game([
+    {
+      id: 'k',
+      name: 'Flametongue Kavu',
+      oracleText: 'When this creature enters, it deals 4 damage to target creature.',
+      zone: 'hand',
+    },
+    { id: 'v', name: 'Victim', owner: 'p2', power: '1', toughness: '5' },
+  ]);
+  state = applyAction(state, { type: 'PLAY', instanceId: 'k', to: 'battlefield' });
+
+  // Two creatures are on the board once the Kavu lands, so this is not quite
+  // forced — which is exactly why the assertion is about the queue, not the
+  // damage. The engine stopped and asked instead of guessing.
+  const ask = triggerAwaitingTargets(state);
+  assert.ok(ask, 'a real choice halts the drain rather than being taken for you');
+  assert.equal(ask.playerId, 'p1');
+  assert.deepEqual(new Set(ask.choice.instanceIds), new Set(['k', 'v']));
+
+  // And answering it aims the ability and lets the queue finish.
+  state = applyAction(state, {
+    type: 'ANNOUNCE_TRIGGER_TARGETS',
+    triggerId: ask.trigger.id,
+    targets: [{ kind: 'card', instanceId: 'v', zone: 'battlefield', zoneChangeCounter: state.cards.v.zoneChangeCounter ?? 0 }],
+  });
+  assert.equal(pendingTriggersOf(state).length, 0, 'the queue drained once it was aimed');
+  assert.equal(state.cards.v.damage, 4);
+  assert.equal(state.cards.k.damage, 0, 'and the one that was not chosen was not hit');
+});
+
+test('one legal target is taken by the engine and nothing waits', () => {
+  let state = game([
+    {
+      id: 'k',
+      name: 'Kindly Kavu',
+      // Aimed at somebody else's creature, so the source cannot be its own
+      // target and exactly one candidate exists.
+      oracleText: 'When this creature enters, it deals 4 damage to target creature an opponent controls.',
+      zone: 'hand',
+    },
+    { id: 'v', name: 'Victim', owner: 'p2', power: '1', toughness: '5' },
+  ]);
+  state = applyAction(state, { type: 'PLAY', instanceId: 'k', to: 'battlefield' });
+
+  assert.equal(triggerAwaitingTargets(state), null, 'nobody is asked when there is nothing to decide');
+  assert.equal(pendingTriggersOf(state).length, 0);
+  assert.equal(state.cards.v.damage, 4);
+});
+
+test('CR 603.3d — a trigger with no legal target is removed from the stack', () => {
+  let state = game([
+    {
+      id: 'k',
+      name: 'Lonely Kavu',
+      oracleText: 'When this creature enters, it deals 4 damage to target creature an opponent controls.',
+      zone: 'hand',
+    },
+  ]);
+  state = applyAction(state, { type: 'PLAY', instanceId: 'k', to: 'battlefield' });
+
+  assert.equal(pendingTriggersOf(state).length, 0, 'it does not sit there waiting for an answer nobody can give');
+  assert.match(logText(state), /removed from the stack/);
+  assert.match(logText(state), /nothing legal for it to target/);
+});
+
+test('CR 608.2b — a trigger whose target has gone does not resolve', () => {
+  let state = game([
+    {
+      id: 'k',
+      name: 'Slow Kavu',
+      oracleText: 'When this creature enters, it deals 4 damage to target creature.',
+      zone: 'hand',
+    },
+    { id: 'v', name: 'Victim', owner: 'p2', power: '1', toughness: '5' },
+    { id: 'w', name: 'Bystander', owner: 'p2', power: '1', toughness: '5' },
+  ]);
+  state = applyAction(state, { type: 'PLAY', instanceId: 'k', to: 'battlefield' });
+
+  const ask = triggerAwaitingTargets(state);
+  assert.ok(ask);
+
+  // Announced at the Victim...
+  state = applyAction(state, {
+    type: 'ANNOUNCE_TRIGGER_TARGETS',
+    triggerId: ask.trigger.id,
+    targets: [{ kind: 'card', instanceId: 'v', zone: 'battlefield', zoneChangeCounter: state.cards.v.zoneChangeCounter ?? 0 }],
+  });
+  // ...which is not enough on its own, because the drain runs straight after
+  // the announcement. So this test aims it and lets it resolve, and the
+  // zone-change half of CR 608.2b is asserted through `everyTargetIsGone`
+  // directly, which is the same function resolution calls.
+  assert.equal(state.cards.v.damage, 4);
+
+  const gone = { kind: 'card' as const, instanceId: 'v', zone: 'battlefield' as const, zoneChangeCounter: 99 };
+  assert.equal(
+    everyTargetIsGone(state, [gone], { controllerId: 'p1', sourceInstanceId: 'k' }),
+    true,
+    'a flicker changes the zone-change counter, and CR 400.7 makes that a different object'
+  );
+  assert.equal(
+    everyTargetIsGone(state, [], { controllerId: 'p1', sourceInstanceId: 'k' }),
+    false,
+    'an ability announced with NO targets never fizzles, however dead the board'
+  );
+});
+
+test('an illegal announcement is refused, never repaired', () => {
+  let state = game([
+    {
+      id: 'k',
+      name: 'Picky Kavu',
+      oracleText: 'When this creature enters, it deals 4 damage to target creature.',
+      zone: 'hand',
+    },
+    { id: 'v', name: 'Victim', owner: 'p2', power: '1', toughness: '5' },
+  ]);
+  state = applyAction(state, { type: 'PLAY', instanceId: 'k', to: 'battlefield' });
+  const ask = triggerAwaitingTargets(state);
+  assert.ok(ask);
+
+  // A player is not a legal target for "target creature".
+  const refused = applyAction(state, {
+    type: 'ANNOUNCE_TRIGGER_TARGETS',
+    triggerId: ask.trigger.id,
+    targets: [{ kind: 'player', playerId: 'p2' }],
+  });
+  assert.equal(refused, state, 'the reducer returns the same reference for a rejected action');
+
+  // So does an answer for a trigger that is not the one on top.
+  const stale = applyAction(state, {
+    type: 'ANNOUNCE_TRIGGER_TARGETS',
+    triggerId: 'not-a-real-trigger',
+    targets: [{ kind: 'card', instanceId: 'v' }],
+  });
+  assert.equal(stale, state);
 });
 
 test('a half-resolved trigger names the outstanding half', () => {

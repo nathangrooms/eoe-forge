@@ -228,13 +228,41 @@ test('anything with a target is left to the player, and said out loud', () => {
   assert.equal(automation.manualNotes.length, 1);
 });
 
-test('a targeted ETB logs a manual note instead of quietly resolving', () => {
+/*
+ * FLAMETONGUE KAVU WAS THE EXAMPLE OF A TRIGGER THE ENGINE WOULD NOT RUN, and
+ * on 23 Aug 2026 it stopped being one: a triggered ability can be pointed at
+ * something now, so this ETB aims itself and deals its four damage.
+ *
+ * The assertion is inverted rather than deleted, and the honesty rule moved to
+ * a card the engine still genuinely will not run. A test that only ever
+ * asserted "we cannot do this yet" has to change when we can. A test asserting
+ * "and it says so when we cannot" must not, so there is still one below.
+ */
+test('a targeted ETB is aimed and resolves', () => {
   let state = game([
     { id: 'c', name: 'Flametongue Kavu', oracleText: 'When this creature enters, it deals 4 damage to target creature.' },
   ]);
   state = applyAction(state, { type: 'PLAY', instanceId: 'c', to: 'battlefield' });
+  // The Kavu is the only creature on the board, so it is the only legal target,
+  // and a forced choice is not a choice: nobody is asked and it kills itself.
+  // That is the card played correctly, and it is the answer a judge gives.
+  assert.match(logText(state), /dealt 4 damage/i);
+  assert.equal(state.cards.c.zone, 'graveyard');
+  assert.doesNotMatch(logText(state), /by hand/i, 'nothing was left over, so nothing claims to be');
+});
+
+test('a trigger the engine still will not run says so rather than going quiet', () => {
+  let state = game([
+    {
+      id: 'c',
+      name: 'Careful Thing',
+      // "You may" is the player's word, so `unrunnableReasons` refuses it and
+      // the card stays with the old detector, which asks for it by hand.
+      oracleText: 'When this creature enters, you may return a land you control to its owner\'s hand.',
+    },
+  ]);
+  state = applyAction(state, { type: 'PLAY', instanceId: 'c', to: 'battlefield' });
   assert.match(logText(state), /by hand/i);
-  assert.match(logText(state), /Flametongue Kavu triggered/);
   assert.ok(state.log.some(event => event.type === 'NOTE'));
 });
 

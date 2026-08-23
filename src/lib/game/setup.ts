@@ -22,6 +22,25 @@ import type { Format, GameAction, GameState, ManaColor, PlayerId, Zone } from '.
 export interface PlayCard {
   cardId: string;
   name: string;
+  /**
+   * Scryfall's `oracle_id`, and it has to travel with the deck for exactly the
+   * reason `loyalty` below does.
+   *
+   * `cardId` is a PRINTING. `oracle_id` is the card. The ported XMage behaviour
+   * in `src/lib/cards/xmage/lowered.generated.ts` is keyed by oracle id and
+   * nothing else, and `card-abilities.ts` reads it off `CardInstance.oracleId`.
+   * This field did not exist, so `buildTable` set no oracle id on any instance,
+   * so `xmageSwapFor` looked up `undefined` and refused every card in every
+   * real game. Measured before it was added: a table built the way
+   * `src/pages/Play.tsx` builds one, dealt 60 cards that all swap when asked
+   * with an oracle id, ran 0 of them from the port.
+   *
+   * That is the same shape of bug as the loyalty one below and it hid the same
+   * way: the coverage script feeds Scryfall rows straight to the compiler, and
+   * a Scryfall row always has an oracle id, so no measurement taken outside a
+   * real game could see it.
+   */
+  oracleId?: string;
   manaCost?: string;
   cmc?: number;
   typeLine?: string;
@@ -155,6 +174,7 @@ export function buildTable(options: BuildTableOptions): BuiltTable {
           instanceId: instanceIdFor(playerId, cursor),
           cardId: commander.cardId,
           name: commander.name,
+          oracleId: commander.oracleId,
           ownerId: playerId,
           isCommander: true,
           manaCost: commander.manaCost,
@@ -180,6 +200,7 @@ export function buildTable(options: BuildTableOptions): BuiltTable {
           instanceId: instanceIdFor(playerId, cursor),
           cardId: card.cardId,
           name: card.name,
+          oracleId: card.oracleId,
           ownerId: playerId,
           manaCost: card.manaCost,
           cmc: card.cmc,

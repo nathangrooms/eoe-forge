@@ -38,6 +38,10 @@
  *   - `moves.ts`     composite moves (cast, land drop, advance) shared by UI and bot
  *   - `cast-targets.ts` CR 601.2c — aiming an instant or a sorcery as it is
  *                    cast, reusing `activate.ts`'s target legality
+ *   - `announce.ts`  CR 603.3d — aiming a TRIGGERED ability as it goes on the
+ *                    stack, through the same `chooseTargetsFor`, plus the one
+ *                    copy of CR 608.2b's "is that still a legal target" that
+ *                    both halves re-check with
  *   - `setup.ts`     decklists in, shuffled and dealt `GameState` out
  *   - `bot.ts`       a plausible opponent that decides only in `GameAction`s
  *
@@ -103,6 +107,10 @@ export * from './moves.ts';
 // After `moves.ts` and `activate.ts` because it composes both: it reuses
 // `activate.ts`'s target legality and ends in `moves.ts`'s cast plan.
 export * from './cast-targets.ts';
+// CR 603.3d — the other half of the same seam: aiming a TRIGGERED ability, and
+// the one copy of "is that still a legal target" (CR 608.2b) that the spell
+// half re-checks with too.
+export * from './announce.ts';
 export * from './setup.ts';
 export * from './bot.ts';
 

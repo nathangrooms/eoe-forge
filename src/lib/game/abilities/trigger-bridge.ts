@@ -51,6 +51,7 @@ import type {
   GameState,
   InstanceId,
   PlayerId,
+  StackTarget,
   TriggerEvent as GameTriggerEvent,
   TriggerEventKind,
   TriggerTiming,
@@ -64,7 +65,7 @@ import type {
   TriggeredAbility,
 } from '../../cards/abilities/dsl.ts';
 import { playerSelectorsIn, watchQueriesIn } from '../../cards/abilities/dsl.ts';
-import { abilitiesFor, triggeredAbilitiesOf } from './card-abilities.ts';
+import { abilitiesFor, announcedTargetsOf, triggeredAbilitiesOf } from './card-abilities.ts';
 import type { AbilityContext } from './context.ts';
 import { evalCondition, makeContext, matchesFilter, resolvePlayers, viewOf } from './context.ts';
 import { resolveAbilityActions } from './to-actions.ts';
@@ -421,6 +422,24 @@ function hasUnlessPays(effect: Effect): boolean {
 }
 
 /**
+ * Puts the old blanket refusal on targeted triggers back, so the figures from
+ * before they could be announced can be reproduced.
+ *
+ * The same escape hatch, and the same argument for it, as `DM_XMAGE_OFF` in
+ * `src/lib/cards/xmage/lowered.ts` and `DM_ACTIVATED_DEAD` in
+ * `scripts/verify-ability-coverage.mjs`: it can only ever make the engine claim
+ * LESS than it does, so it is the direction that is safe to leave available.
+ * There is no switch in the other direction.
+ *
+ * It exists because a change to what the engine OWNS changes what the playtest
+ * harness plays, and "did that regress the twenty games" is a question that
+ * needs the two runs to be the same binary. Read once, here, and guarded
+ * because `process` does not exist in a browser.
+ */
+const TRIGGER_TARGETS_OFF =
+  typeof process !== 'undefined' && process?.env?.DM_TRIGGER_TARGETS_OFF === '1';
+
+/**
  * EVERY reason this triggered ability cannot be run. Empty when it can.
  *
  * `unrunnableReason` below returns the first of these, which is what ownership
@@ -456,10 +475,55 @@ export function unrunnableReasons(ability: TriggeredAbility): string[] {
     // not carry. Ignoring it would let the ability fire every time.
     reasons.push(`limited to ${ability.limit.count} per ${ability.limit.per} — state carries no usage count`);
   }
-  if (ability.targets && ability.targets.length > 0) {
-    // Nothing announces targets for a trigger yet, so `{sel:'target'}` would
-    // resolve to nothing and the ability would quietly do half its job.
+  /*
+   * TARGETS. This used to refuse every one of them, and the sentence was
+   * "needs announced targets, which triggers cannot yet carry". It was true:
+   * `PendingTrigger` had no `targets` field, so `{sel:'target'}` resolved to
+   * nobody and an owned ability would have done half its job in silence. It
+   * cost 1,364 ability hits on 1,077 cards over the 32,469 card pool, counted
+   * by `scripts/xmage/trigger-target-census.mjs`. `DM_TRIGGER_TARGETS_OFF=1`
+   * puts the old refusal back, so that figure can be reproduced.
+   *
+   * `announce.ts` carries them now, `drainTriggers` aims the ability before it
+   * resolves, and `triggers.ts` rechecks CR 608.2b as it does. So the refusal
+   * narrows to the shapes that still cannot be announced — and the bar is
+   * `chooseTargetsFor`'s, not a new one invented here, because ownership
+   * claiming what the asker cannot deliver is how a trigger ends up waiting for
+   * an answer nobody can give.
+   *
+   * ASKED THROUGH `announcedTargetsOf`, WHICH IS THE OTHER HALF OF AGREEING
+   * WITH IT. A REF NOTHING READS IS NOT A TARGET: a compiled `targets` list can
+   * carry a spec no effect ever indexes, and refusing on one of those refuses
+   * for nothing. `planTriggerTargets` filters the same way, so what ownership
+   * promises and what the drain asks for are the same list by construction.
+   *
+   * Measured over the pool: 1,109 triggered abilities announce a target at all.
+   * 985 specs are `min=1 max=1`, which is the shape this now accepts. 138 are
+   * "up to" and 3 name two at once, and both stay refused:
+   *
+   *   min > 1  `chooseTargetsFor` announces one `StackTarget` per spec, so
+   *            "two target creatures" would go on the stack half aimed and
+   *            resolve against the wrong board.
+   *   min = 0  "destroy up to one target artifact" makes DECLINING a real
+   *            answer, and nothing anywhere can hand one back. Accepting it
+   *            would either force a target the player did not want or halt the
+   *            drain on a question with no legal reply.
+   *
+   * What that leaves refused is 117 cards, 64 of them at `coverage === 'full'`,
+   * and the census prints both. "Up to" is the next tranche and it is a control
+   * question rather than an engine one: the ask needs a way to say none.
+   */
+  const announced = announcedTargetsOf(ability);
+  if (TRIGGER_TARGETS_OFF && announced.length > 0) {
     reasons.push('needs announced targets, which triggers cannot yet carry');
+  }
+  const unannounceable = announced.find(spec => spec.min !== 1);
+  if (unannounceable) {
+    reasons.push(
+      unannounceable.min > 1
+        ? `needs ${unannounceable.min} targets announced at once, which nothing can choose yet`
+        : `"up to" ${unannounceable.max}, and declining a target is an answer nothing can give yet`
+    );
   }
   if (needsHistory(ability.condition)) {
     // `evalCondition` answers `true` for 'first-time-this-turn' by design, so
@@ -607,12 +671,36 @@ export function dslTriggerActions(
   state: GameState,
   ability: TriggeredAbility,
   source: { instanceId: InstanceId; controllerId: PlayerId },
-  options: { at?: number; cause?: string; idPrefix: string; event?: GameTriggerEvent }
+  options: {
+    at?: number;
+    cause?: string;
+    idPrefix: string;
+    event?: GameTriggerEvent;
+    /**
+     * CR 603.3d — what this ability was announced at, indexed by
+     * `TargetSpec.ref`, with anything since gone illegal already blanked in
+     * place by the caller (`triggers.ts`, through `blankIllegalTargets`).
+     *
+     * `{sel:'target', ref:n}` reads this array directly, so a hole resolves to
+     * nobody, which is CR 608.2b for that one clause rather than for the whole
+     * ability.
+     *
+     * Empty was the only value this could ever have before a `PendingTrigger`
+     * could carry a target, and it was empty SILENTLY: `resolveSelector`
+     * answered `[]`, "destroy target creature" destroyed nothing, and nothing
+     * said so. `unrunnableReasons` kept every such card away from this path for
+     * exactly that reason, and no longer has to.
+     */
+    targets?: StackTarget[];
+  }
 ): GameAction[] {
   // The SAME binding detection used. If the two ever diverged, a trigger would
   // fire for the right creature and do its work to a different one, which is
   // the one bug in this area that no log line would make obvious.
-  const ctx = subjectContext(state, source, options.event ?? EVENTLESS);
+  const ctx: AbilityContext = {
+    ...subjectContext(state, source, options.event ?? EVENTLESS),
+    targets: options.targets ?? [],
+  };
 
   return resolveAbilityActions(ability.effects, ctx, {
     at: options.at ?? 0,

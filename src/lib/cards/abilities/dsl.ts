@@ -638,7 +638,14 @@ export interface CardAbilities {
   abilities: Ability[];
   /** NON-EMPTY => this card can never be reported as fully automated. */
   unparsed: UnparsedClause[];
-  source: 'compiler' | 'book' | 'book-partial';
+  /**
+   * Which source produced `abilities`.
+   *
+   * `xmage` means the oracle-text compiler did NOT fully understand this card
+   * and the ported XMage record replaced its whole ability list. The rule that
+   * decides that, and the argument for it, are in `../xmage/lowered.ts`.
+   */
+  source: 'compiler' | 'book' | 'book-partial' | 'xmage';
   /** Hash of the normalised oracle text this was derived from. */
   oracleHash: string;
   /** DERIVED by `deriveCoverage`, never hand-set. */

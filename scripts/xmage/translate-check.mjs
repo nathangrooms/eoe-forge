@@ -269,14 +269,25 @@ const substantive = shippedPairs.length - trivial;
  */
 const bodySection = generated.slice(generated.indexOf('export const TRANSLATED_BODIES'));
 const literals = new Map();
-// Scanned character by character rather than by regular expression: the pattern
-// for "a double quoted string with escapes" needs enough backslashes that it is
-// easier to get wrong than to read.
+/*
+ * Scanned character by character rather than by regular expression: the pattern
+ * for "a quoted string with escapes" needs enough backslashes that it is easier
+ * to get wrong than to read.
+ *
+ * BOTH QUOTE CHARACTERS, and the single quote was missing until 23 Aug 2026.
+ * The translator emits both — `JSON.stringify` produces double quotes, and the
+ * hand-written `NEW` rows in `translate.mjs` are written with single ones — so
+ * while this read only double quotes, every hand-written filter name in the
+ * generated file was invisible to it and the check reported zero with a hole in
+ * it. A guard that reads zero while it cannot see half of what it is guarding is
+ * worse than no guard, because the zero is believed.
+ */
 for (let i = 0; i < bodySection.length; i++) {
-  if (bodySection[i] !== '"') continue;
+  const quote = bodySection[i];
+  if (quote !== '"' && quote !== "'") continue;
   let text = '';
   let j = i + 1;
-  for (; j < bodySection.length && bodySection[j] !== '"'; j++) {
+  for (; j < bodySection.length && bodySection[j] !== quote; j++) {
     if (bodySection[j] === '\\') { text += bodySection[j + 1] ?? ''; j++; continue; }
     text += bodySection[j];
   }

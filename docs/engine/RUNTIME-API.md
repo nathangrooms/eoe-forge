@@ -624,3 +624,375 @@ deterministically. **Nine agree line for line. Two disagree, and both are the
 `searchLibrary` defect above**, Oriq Loremage and Boldwyr Heavyweights, which is
 how it was found. Both are fixed in the runtime and the mapping, never in the
 output.
+
+---
+
+# 6b. Six overloads, three defects, and the thing the number is now waiting on
+
+Added 23 Aug 2026. The figures in sections 3 and 6a are superseded by the ones
+below; everything else above this line stands.
+
+## What this tranche was asked to do, and what was already true
+
+The task was to make a translated body RUN when a card resolves. It already
+does. `to-actions.ts` has carried a `{do:'xmage-body'}` case since section 9 of
+`TRANSLATION.md`, `compileWithTrace` reaches it through `xmageSwapFor`, and both
+resolution paths in `stack.ts` end at `resolveAbilityRun`, which turns every
+line a body defers into a `NOTE` in the game log. Measured on the pool:
+**1,367 cards are swapped to an XMage record and 191 of them carry a body**, of
+which 36 are AUTOMATED and 32 are PROMPTED or PROMPTABLE.
+
+So the seam was not the constraint. The constraint is how many cards have a
+translated body at all, and that is a translator question. This section is the
+runtime half of the answer; `TRANSLATION.md` section 11 is the other half.
+
+## The methods
+
+Six rows on the translator's work order were overloads of methods this port
+already had. Together they were the first blocker on 290 bodies, which was more
+than the three effect classes ranked above them and very much cheaper.
+
+| added | what it is |
+|---|---|
+| `Player#millCards` | `millCards(int, Ability, Game)`. XMage's own implementation is `getTopCards` then `moveCards` to the graveyard, both of which existed. It returns the milled pile, because the next line of a body reads it. |
+| `Player#discardCards` | The two `discard` overloads that NAME the cards. Not a decision, so it must not raise one. Ours, not XMage's, so it joins no row here. |
+| `Target#choose(…, from)` | A fourth argument: choose out of a pile the caller already has. This is what `Player#choose(Outcome, Cards, TargetCard, Ability, Game)` needs, 97 bodies, and the pile is usually somewhere the target's own zone cannot see. |
+| `Player#discard(count, max)` | The range form. See defect 1. |
+
+`Permanent#damage/6`, `Player#damage/6` and `Card#addCounters/3` needed no new
+function at all: they are longer spellings of overloads already mapped, and the
+translator now recognises them when the extra flags are the defaults XMage's own
+short forms pass. `Player#choose/3`, the `Choice` form, is mapped and bought
+nothing: every body reaching it stops one step earlier on a `Choice` this port
+cannot build.
+
+## Three defects, all found by reading a shipped body against its Java
+
+### 1. One arity row matched two different overloads
+
+`Player#discard` has two five-argument forms:
+
+    Cards discard(int amount, boolean random, boolean payForCost, Ability, Game)
+    Cards discard(int minAmount, int maxAmount, boolean payForCost, Ability, Game)
+
+One row took argument 0 as the amount and matched both. So
+`discard(0, Integer.MAX_VALUE, false, source, game)`, which is XMage for "discard
+any number of cards", translated to `discard(0)`, which returns nothing and says
+nothing. The second argument is what tells them apart and the mapping reads it
+now.
+
+### 2. `Integer.MAX_VALUE` did not read as an int, so a target could hold nothing
+
+`target()` collects the int arguments of a target constructor to work out its
+min and max. `Integer` is not an engine class, so the type lookup answered null,
+so the upper bound was invisible, so `new TargetCardInHand(0, Integer.MAX_VALUE,
+filter)` became `{ min: 0, max: 0 }`: a target that cannot hold a card.
+**271 target constructors in the card files are written that way.**
+
+### 3. A target whose minimum is zero never asked anybody
+
+`Target#choose` opened with `if (chosen.length >= min) return [...chosen]`. With
+`min` legitimately 0 that is `0 >= 0` on the first line, so the target returned
+an empty list without asking, and the body carried on as though the player had
+declined. It is now `>= Math.max(min, 1)`: a target that was already filled
+still short-circuits, and a target that may take nothing is still a question.
+
+Nantuko Cultivator is where both of the last two showed up together. Printed:
+"You may discard any number of land cards. Draw that many cards." It discarded
+nothing, drew nothing, grew by nothing, and returned false. `overloads.test.ts`
+now runs its shipped body and asserts all three.
+
+A fourth thing, not a defect but the same shape: `discard` returned an id array
+where XMage returns a `Cards`, and 23 otherwise complete bodies were thrown away
+by `tsc` for asking a `string[]` for its `size()`.
+
+## A body that throws does not take the game with it
+
+`to-actions.ts` already caught it. What was missing was a test, and the task
+asked for the decision to be written down: **a body that throws is reported as a
+deferral naming the key and the message, the other effects of the same ability
+still run, and `resolveAbilityRun` turns the deferral into a `NOTE` a player
+reads.** Three tests in `xmage-body.test.ts` assert exactly that, including one
+that folds the resulting actions through the real reducer. They install a
+throwing body in `TRANSLATED_BODIES` and remove it again, because the import in
+`to-actions.ts` is deliberately direct and a registry added to make this
+testable would be a registry that can be empty when a card resolves.
+
+## The share of calls, re-run
+
+`node --experimental-strip-types scripts/xmage/runtime-coverage.mjs`
+
+| bucket | calls | share |
+|---|---:|---:|
+| **implemented** | 76,678 | **66.54%** |
+| refuses, out loud | 822 | 0.71% |
+| native | 9,570 | 8.30% |
+| open | 17,110 | 14.85% |
+| unresolved receiver | 11,060 | 9.60% |
+
+**170 functions**, up from 169, and 66.44% to 66.54%. Only `millCards` is an
+XMage name, so it is the only one of the four additions that can move this
+figure at all. Implemented plus native: 74.74% to **74.84%**.
+
+That is the whole point of keeping this figure separate from the coverage bar
+below. A tranche that added four functions and 98 shipped bodies moved the share
+of calls by a tenth of a point and the share of cards a player can play by two
+hundredths. Neither number is wrong. They answer different questions.
+
+## Gates
+
+Typecheck: **0 errors** over `tsconfig.app.json`. The `DeckAddPanel.tsx` error
+and the stale vendored engine that section 6a recorded are both gone; that
+concurrent edit has landed.
+
+`npm test`: **2,401 pass, 0 fail**, including 13 new tests in
+`src/lib/game/xmage/overloads.test.ts` and 3 in
+`src/lib/game/abilities/xmage-body.test.ts`. `pretest` passes now too.
+
+`npm run build` succeeds.
+
+Harness, 20 commander games on seed 9000 at `--max-turns 200`: **20 finished, 0
+stalled, 0 invariant violations.** Seed 9018 finishes on turn 82, which is what
+section 6a predicted. The analysis report is the `bodies-loud` baseline plus
+three resolutions and one more card that says out loud what it did not do.
+
+Sample read: five newly shipped bodies against their Java, chosen from the ones
+using the new mappings. Chandra's Ignition, Colossal Badger, Windfall, Sire of
+Insanity and Grindclock **agree line for line**. Nantuko Cultivator did not, and
+that is defect 2 and 3 above.
+
+---
+
+# 6c. The effect classes, the two tables behind them, and where the return stopped
+
+Added 23 Aug 2026. The figures in sections 3, 6a and 6b are superseded by the
+ones below; everything else above this line stands. `TRANSLATION.md` section 12
+is the translator half and carries the exchange rate.
+
+## The work order named the wrong unit, twice
+
+The task named `CreateTokenEffect`, `BoostTargetEffect` and
+`CreateTokenCopyTargetEffect` as the next block, 179 bodies, and said to re-rank
+first because the list changes as things get written. Re-ranking moved the
+answer, for a reason worth keeping: **the work order ranks by ROW, and the
+largest things left are FAMILIES.**
+
+A family is a row per member. Re-aggregating the blocked bodies by what one piece
+of work would serve — over the **5,423** a `--census` run reports, which is phase
+one, rather than the 5,574 a full run blocks once the typecheck has dropped its
+share:
+
+| bodies | cards | family | rows it is spread across |
+|---:|---:|---|---:|
+| 491 | 487 | a shared `*Effect` class | 183 |
+| 129 | 128 | `CreateToken*Effect` | 2 |
+| **127** | **127** | **a token CLASS** | **101** |
+| 123 | 123 | a `*Predicate` | 21 |
+| 106 | 105 | `CardUtil#getSourceCostsTag` | 1 |
+| 80 | 80 | `GameState#getWatcher` | 1 |
+
+The token classes are 127 bodies and they never appear on the ranking, because
+101 distinct classes at one and two bodies each sit below every visible row.
+They were also **already extracted**: `scripts/xmage/extract-tokens.mjs` parsed
+741 of XMage's 793 token classes into `tokens.generated.ts` in an earlier
+tranche and nothing had ever read it. So the largest single item available was
+also the cheapest, and it was invisible.
+
+The same shape appeared again after the first step: `StaticFilters.*` is 181
+bodies across 56 constants and `new Filter*` is 62 more across 22 classes.
+Neither is a row anybody would have picked off the list.
+
+## Step one: tokens, CreateTokenEffect, BoostTargetEffect
+
+`src/lib/game/xmage/effects.ts` is new, and it is the first file in this folder
+that is HAND written rather than the runtime a machine translation calls. That
+distinction is the point: a card-local body lives in `bodies.generated.ts` and is
+translated; a shared effect class is called by hundreds of cards, and a machine
+translation of one would be wrong in hundreds of places at once.
+
+- **`xmageToken(scope, className)`** reads the generated table. A class the table
+  does not hold RAISES rather than falling back on a 1/1, and a constructor with
+  ARGUMENTS blocks in the translator: `new PhyrexianRebirthHorrorToken(count,
+  count)` sizes the token from the board, and the no-argument spec would put a
+  token of the wrong size onto the battlefield in silence. 118 of the 127 take no
+  arguments; the other nine block by name.
+- **`createTokenEffect`** is XMage's `CreateTokenEffect`, with the parts a body
+  reads back off it: `getLastAddedTokenIds`, `entersWithCounters`,
+  `withAdditionalTokens`, and the two removal methods, which defer because they
+  set up a delayed trigger and there is no store for one.
+- **`boostTargetEffect`** and **`boostSourceEffect`** build one of this engine's
+  own `ContinuousEffect` records at layer 7c. They are BUILDERS rather than
+  finished records because `setTargetPointer` arrives on the line after the
+  constructor, so an effect that resolved its targets eagerly would resolve them
+  before it had any.
+
+`Game#addEffect` now takes the ability as its second argument, which is XMage's
+own signature. It used to be dropped, and it can be dropped as long as the
+argument is a finished record; a builder cannot say what it is about without it.
+
+## Step two: the filter family, derived rather than transcribed
+
+`scripts/xmage/extract-filters.mjs` is new and follows the `extract-tokens.mjs`
+precedent exactly: read XMage's own filter classes and `StaticFilters.java`,
+resolve each to a predicate list, and REFUSE anything carrying a predicate this
+engine cannot express rather than publishing it short.
+
+- Of the 67 filter files, 13 are base classes this script handles directly. Of
+  the remaining 54: **32 read, 22 refused**, each refusal named by the predicate
+  that stopped it.
+- 98 of 198 `StaticFilters` constants read.
+- 171 of the 198 constants pass only a NAME to their constructor. That argument
+  is dropped, and dropping it is not an approximation:
+  `new FilterNonlandCard("a nonland card")` matches exactly what
+  `new FilterNonlandCard()` matches. Any OTHER argument narrows the filter, and
+  those refuse.
+
+**The name is built, never copied.** XMage's own filter string is Wizards of the
+Coast wording; the message this table emits is assembled from the predicates that
+resolved, which is the rule `extract-tokens.mjs` already applies to a token's
+type line.
+
+**Eighteen of the derived constants overlap the 29 hand-typed rows already in
+`translate.mjs`, and all eighteen agree.** That is what makes the other 80
+trustworthy, and it is why the hand rows still win: a row somebody wrote on
+purpose is never silently replaced by a parse.
+
+### The extraction was wrong twice before it was right, and both were the same wrong
+
+The first version returned an EMPTY predicate list for
+`FilterControlledCreaturePermanent`, because XMage's constructors delegate three
+hops deep and the walker followed one and returned what it had. An empty
+predicate list under a name that says "creature you control" is a filter that
+matches every permanent on the battlefield.
+
+The second version ignored the STATIC BLOCKS, where half the meaning lives:
+
+    FILTER_CONTROLLED_UNTAPPED_CREATURES = new FilterControlledCreaturePermanent(...);
+    static { FILTER_CONTROLLED_UNTAPPED_CREATURES.add(TappedPredicate.UNTAPPED); }
+
+Read from the declaration alone, that constant is "creatures you control", and a
+card built on it would let a player tap a creature that was already tapped.
+
+Neither was caught by anything except reading eight constants against their Java
+before wiring the table in. Both had the shape this project keeps relearning: the
+extractor gave up quietly and returned the part it managed. It refuses now — a
+chain it cannot follow to its end, a guard it cannot decide, or an `add` it
+cannot resolve all refuse the whole filter and report it by name.
+
+## Six defects, and the first would have shipped in the change that caused it
+
+### 1. Every token would have arrived colourless
+
+`XTokenSpec` was a narrower hand-written copy of the engine's `TokenSpec`, with
+no `colorIdentity`. `CREATE_TOKEN` takes a `TokenSpec`, a narrower object is
+assignable to a wider one, so the colour was dropped by the type system without a
+word. It was **unreachable until this change** — no shipped body could build a
+token at all — and would have become reachable in the same commit that wired the
+table in. `XTokenSpec` is an alias of `TokenSpec` now, so it cannot drift again.
+
+### 2. A chain forgot what it was, and 16 bodies were thrown away for it
+
+`Effect#setTargetPointer` returned `XEffect`. XMage bodies write
+`new BoostTargetEffect(2, 2).setTargetPointer(...)` and hand the result straight
+to `game.addEffect`, and after that chain the value was no longer a
+continuous-effect builder as far as `tsc` was concerned. Sixteen bodies were
+translated correctly and dropped. The return type is `this`.
+
+### 3. `FixedTarget` takes an object as often as an id
+
+XMage has six constructors and `new FixedTarget(permanent, game)` is the
+commonest spelling in a body. Ours took only the id, so 20 bodies translated and
+were then rejected for handing a permanent where a string belonged. It takes
+either now. **What our version does NOT do is pin the zone change counter**,
+which XMage's object forms do, so the pointer here follows the id alone and will
+still find a card somebody moved in between. That is a real difference and it is
+recorded rather than hidden.
+
+### 4. `Game#getObject(Ability)` is a second overload on the same arity
+
+`game.getObject(source)` is how a body reads the card its own ability is printed
+on, and XMage's implementation of it is `getObject(source.getSourceId())`. Ours
+had only the id form, and the two cannot be told apart by argument count, so 20
+bodies failed to typecheck. It is matched on the argument TYPE now.
+
+### 5. `putOntoBattlefield` returned void where XMage returns boolean
+
+All seven of XMage's overloads return "did any token arrive", and Tempting
+Contract reads `if (opponent.chooseUse(...) && token.putOntoBattlefield(...))`.
+Ours returned void, which is not a thing that can be tested for truth.
+
+### 6. The wording guard had only ever read half the file
+
+`translate-check.mjs` check 5 refuses any string literal in the generated file
+with a space in it, on the blunt rule that every string this engine uses as data
+is one token. It scanned **double-quoted literals only**. The translator emits
+both: `JSON.stringify` produces double quotes and the hand-written `NEW` rows in
+`translate.mjs` are written with single ones. So for as long as that check has
+existed, every hand-written filter name in the generated file was invisible to
+it, and it reported zero with a hole in it.
+
+It reads both quote characters now, and it immediately found two pre-existing
+names, `permanent you control` and `nonland card`. Both are ours rather than
+XMage's, and both are now emitted as a LIST OF WORDS that `makeFilter` joins,
+which is also how the derived filter names go in. The check stays blunt, it sees
+twice as much, and it reads **zero**.
+
+Softening the rule for these rows was the other option and it was the wrong one.
+A guard that reads zero while it cannot see half of what it guards is worse than
+no guard, because the zero is believed.
+
+## A seventh thing, in a gate rather than in the engine
+
+`lowered.generated.ts` was **not byte-reproducible**, and the previous tranche
+gated on "generator output is byte-reproducible". Two runs over identical inputs
+produced identical records and different file hashes, because the header carried
+a build timestamp. The claim could be made and never checked. The stamp is gone;
+the XMage commit above it is what identifies the input, and unlike a clock it
+reads the same on every machine. Both generators hash identically across runs
+now.
+
+## The share of calls
+
+`node --experimental-strip-types scripts/xmage/runtime-coverage.mjs`
+
+| bucket | calls | share |
+|---|---:|---:|
+| **implemented** | 76,738 | **66.59%** |
+| refuses, out loud | 822 | 0.71% |
+| native | 9,570 | 8.30% |
+| open | 17,050 | 14.80% |
+| unresolved receiver | 11,060 | 9.60% |
+
+**171 functions**, up from 170; 66.54% to 66.59%. Implemented plus native, 74.84%
+to **74.89%**. Most of this tranche is not a function at all — it is two tables
+and a set of overloads — so this figure barely moves, which is the expected shape
+rather than a disappointment. It answers a different question from the bar in
+`TRANSLATION.md` and the two are never added together.
+
+## Gates
+
+`tsc --noEmit -p tsconfig.app.json`: **0 errors**.
+
+`npm test`: **2,444 pass, 0 fail**, including 16 new tests in
+`src/lib/game/xmage/effects.test.ts`. Five of those run a body that really ships
+rather than one the test wrote, which is the discipline `library.test.ts` set: a
+body written by the test proves the facade runs, not that anything reaches it.
+Every board is folded through the real reducer before it is asserted.
+
+`npm run build` succeeds, prebuild gate included.
+
+Checks 1 to 5 unchanged except check 5, which now reads both quote characters and
+still reports **0 of 4,565 literals**. Check 4: 1,125 bodies, 378 trivial, **747
+substantive** — the trivial count is unchanged at 378, so every body this tranche
+added is a substantive one.
+
+Harness, seed 9000, 20 games, `--max-turns 200`: **20 finished, 0 stalled, 0
+invariant violations.** Seed 9018 finishes on turn 82, the same as the last two
+tranches.
+
+Sample read: 12 pairs, chosen deterministically from the 1,125 that ship. **All
+12 agree line for line.** The one thing worth naming is not a disagreement:
+Living Lore and Severance Priest both emit `moveCardsToExile(card)` without the
+exile-zone id, which is `CardUtil#getExileZoneId` being dropped along with its
+argument. Check 2 counts it, 13 occurrences, and what it means is that those
+cards exile to a generic zone rather than a named one.

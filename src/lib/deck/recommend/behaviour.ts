@@ -28,18 +28,23 @@
  *
  * WHAT THAT RULE COSTS TODAY, MEASURED
  * ------------------------------------
- * `scratch/engine-picks-after.mjs` runs this producer over all 31,833
+ * `scratch/xmage-source-census.mjs` runs this producer over all 31,833
  * commander-legal cards in the 2026-08-19 catalogue snapshot and counts where
- * each answer came from. On 2026-08-23 the result was: compiler 24,244, XMage
- * record 0, no record at all 7,589.
+ * each answer came from. On 2026-08-23: **compiler 24,268, XMage record 1,541,
+ * no record at all 7,565**.
  *
- * The zero is not a bug and it is not an argument for deleting the call. Every
- * oracle id the shipped XMage table holds is one the compiler already covers
- * COMPLETELY, so the precedence rule never reaches the record — the two sources
- * are disjoint in exactly the wrong place. The call stays because the day the
- * compiler's coverage moves, or the day the table grows past the compiler, the
- * record starts paying without anything here changing. See
- * `docs/design/ENGINE-PICKS.md` for the full figures.
+ * THAT SECOND FIGURE CORRECTS AN EARLIER ONE. `ENGINE-PICKS.md` part two
+ * reported "XMage record 0" and concluded the two sources were disjoint in
+ * exactly the wrong place. They are not. The zero came from this file deriving
+ * `source` from `abilities.length` instead of from `CardAbilities.source`,
+ * which hid every card the compiler had ALREADY swapped internally. Wrath of
+ * God and Damnation are two of the 1,541. The reading is fixed below and the
+ * report is corrected in part three.
+ *
+ * The `xmageSwapFor` call here is separate from the compiler's own, and it
+ * still fires zero times for the reason the old note gave: it only runs when
+ * the compiler is incomplete, and by then the compiler has already consulted
+ * the same table. It stays because the day either source moves, it pays.
  *
  * Pure. No network, no database, no AI.
  */
@@ -106,7 +111,22 @@ export function facetsForCard(row: FacetInput): FacetResult {
     const compiled = compileCardAbilities(row);
     coverage = compiled.coverage;
     abilities = compiled.abilities;
-    source = abilities.length > 0 ? 'compiler' : 'none';
+    /*
+     * READ THE COMPILER'S OWN VERDICT, not the length of its output.
+     *
+     * This line used to say `abilities.length > 0 ? 'compiler' : 'none'`, and
+     * that is how `ENGINE-PICKS.md` came to report "XMage record 0". The
+     * compiler performs the XMage swap ITSELF — see `xmageSwapFor` inside
+     * `compiler.ts` — and reports it on `CardAbilities.source`, so every card
+     * the ported record spoke for was being counted as the compiler's.
+     * Re-measured over the same 31,833 rows on 2026-08-23 by
+     * `scratch/xmage-source-census.mjs`: the record speaks for 1,541 of them,
+     * 4.8%, including Wrath of God and Damnation. `book` is the hand-authored
+     * path and does not fire anywhere in this catalogue; it is grouped with the
+     * compiler rather than given a fourth name nobody would ever see.
+     */
+    source =
+      abilities.length === 0 ? 'none' : compiled.source === 'xmage' ? 'xmage' : 'compiler';
 
     if (compiled.coverage !== 'full') {
       const swap = xmageSwapFor(compiled, normalizeCard(row));
@@ -145,7 +165,116 @@ export function facetsForCard(row: FacetInput): FacetResult {
   if (coverage === 'full') out.add('rec:full');
   else if (abilities.length > 0) out.add('rec:partial');
 
+  readOwnTypeInRules(row, out);
+
   return { facets: [...out].sort(), source, coverage };
+}
+
+/**
+ * DOES THIS CARD'S RULES TEXT NAME ITS OWN CREATURE TYPE.
+ *
+ * A printed-truth read, and it is here because the record misses it on exactly
+ * the cards where it matters most.
+ *
+ * `CommanderPlan.tribe` in the engine states the rule: the subtype has to be on
+ * the commander's own type line AND inside one of its abilities. Krenko passes
+ * and Talrand fails, which is right. The problem is the second half. The engine
+ * can only ask a compiled record, and the compiler refuses precisely the
+ * clauses that make a tribal commander tribal. Measured by
+ * `scratch/refute-eight.mjs` on the 2026-08-19 snapshot, over eight commanders
+ * the tuning never saw:
+ *
+ *   Edgar Markov   record reads kw:first strike, kw:haste, sub:knight,
+ *                  sub:vampire. The eminence trigger and the +1/+1 attack
+ *                  trigger are both refused, so there is no `cares:sub:vampire`
+ *                  and no `tok:vampire`.
+ *   Lathril        No `tok:elf` from "create that many 1/1 Elf Warrior tokens",
+ *                  no `cares:sub:elf` from "Tap ten untapped Elves you control".
+ *   Yuriko         No `cares:sub:ninja` from "Whenever a Ninja you control deals
+ *                  combat damage to a player".
+ *
+ * All three came back `tribe: null`, two of them with no wants at all, and all
+ * three built a deck of cheap colourless artifacts that was LESS on theme than
+ * drawing at random from their own colour pool. That is the owner's "every
+ * commander has unique style" test failing on three of eight, silently.
+ *
+ * So this asks the printed text the same question the record could not answer:
+ * does a subtype from this card's own type line appear as a word in its own
+ * rules text. Under the division of sources in CLAUDE.md that is Scryfall's
+ * half of the job, "printed truth: names, costs, type lines, oracle text", and
+ * it is not an attempt to work out what the card DOES, which stays XMage's half
+ * and stays with the compiler.
+ *
+ * WHAT IT DELIBERATELY CANNOT DO. It emits `cares:sub:` and never `tok:` and
+ * never an effect, so it can say "this card is about Vampires" and can never
+ * say what it does about them. A word is weaker evidence than a record, so the
+ * facet it produces is the weakest one that still carries the meaning.
+ *
+ * THE CASES IT HAS TO GET RIGHT, all asserted in `behaviour.test.ts`:
+ *
+ *   Talrand, Sky Summoner  A Merfolk Wizard whose text says "instant or sorcery"
+ *                          and "Drake". Neither of its own subtypes appears, so
+ *                          nothing is emitted and Talrand still has no tribe.
+ *   Kaalia of the Vast     A Human Cleric whose text names Angel, Demon and
+ *                          Dragon. None of those is her own subtype, so nothing
+ *                          is emitted and she gets no tribe, which is right:
+ *                          she is not a tribal commander.
+ *   Yuriko                 "Ninjutsu" must not match `sub:ninja`. Word
+ *                          boundaries, not substrings.
+ *
+ * Reminder text is stripped first, because "(This card is every creature
+ * type.)" is an explanation of a keyword and not the card naming a tribe.
+ */
+function readOwnTypeInRules(row: FacetInput, out: Set<Facet>): void {
+  const subs = [...out].filter(f => f.startsWith('sub:')).map(f => f.slice('sub:'.length));
+  if (subs.length === 0) return;
+
+  const text = rulesTextOf(row);
+  if (!text) return;
+
+  for (const sub of subs) {
+    if (!/^[a-z][a-z'-]*$/.test(sub)) continue;
+    if (namesWord(text, sub)) out.add(`cares:sub:${sub}`);
+  }
+}
+
+/** Every face's rules text, with bracketed reminder text removed. */
+function rulesTextOf(row: FacetInput): string {
+  const parts: string[] = [];
+  if (typeof row.oracle_text === 'string') parts.push(row.oracle_text);
+  const faces = (row as { card_faces?: { oracle_text?: string | null }[] | null }).card_faces;
+  for (const face of faces ?? []) {
+    if (typeof face?.oracle_text === 'string') parts.push(face.oracle_text);
+  }
+  return parts.join('\n').replace(/\([^)]*\)/g, ' ').toLowerCase();
+}
+
+/**
+ * Is `word` present as a word, allowing the plurals Magic actually prints?
+ *
+ * `Elves` is the form that matters and the one a stemmer gets wrong in both
+ * directions, so the irregulars are listed rather than derived.
+ */
+const IRREGULAR_PLURALS: Readonly<Record<string, string>> = {
+  elf: 'elves',
+  dwarf: 'dwarves',
+  wolf: 'wolves',
+  mouse: 'mice',
+  goose: 'geese',
+};
+
+function namesWord(text: string, word: string): boolean {
+  const forms = new Set([word, `${word}s`, `${word}es`]);
+  const irregular = IRREGULAR_PLURALS[word];
+  if (irregular) forms.add(irregular);
+  for (const form of forms) {
+    if (new RegExp(`(^|[^a-z'])${escapeRe(form)}([^a-z']|$)`).test(text)) return true;
+  }
+  return false;
+}
+
+function escapeRe(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\\-]/g, '\\$&');
 }
 
 /* ------------------------------------------------------------------ *

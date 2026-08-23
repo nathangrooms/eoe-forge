@@ -269,8 +269,28 @@ const ROLE_FACETS: Readonly<Record<Role, readonly Facet[]>> = {
    * narrower version of the right rule, it is the wrong rule, so it is gone.
    * Craterhoof reaches this role through `rec:partial` and its `finisher` tag,
    * which is exactly what the tag fallback is for.
+   *
+   * `eff:poison` was removed on 2026-08-23 for the same reason, and it is the
+   * voltron mistake a second time in a different word.
+   *
+   * The reasoning for keeping it was "a card that says a player takes poison".
+   * What carries that facet in practice is every creature printed with toxic 1
+   * or with infect, because one poison counter is still poison. Measured by
+   * `scratch/refute-eight.mjs` over eight commanders on the 2026-08-19
+   * snapshot: Blightbelly Rat, a two-mana 1/1 with toxic 1, was a win condition
+   * of the Meren, Kaalia and Yuriko decks, and Ichorclaw Myr and Core Prowler
+   * took most of the remaining twelve slots. Kaalia of the Vast, whose whole
+   * job is putting a Demon onto the battlefield attacking, was handed a 1/1 Rat
+   * as one of her three ways to end a game.
+   *
+   * Ten poison counters end a game; one does not, and this vocabulary carries
+   * no magnitude for poison the way `mana:` carries one for mana. A rule that
+   * cannot tell Blightsteel Colossus from Blightbelly Rat is not a narrower
+   * version of the right rule, it is the wrong rule. The infect cards that do
+   * end games reach this role through the tag fallback, the same door
+   * Craterhoof comes through.
    */
-  wincon: ['eff:win-game', 'eff:lose-game', 'eff:poison', 'eff:extra-turn', 'eff:extra-combat'],
+  wincon: ['eff:win-game', 'eff:lose-game', 'eff:extra-turn', 'eff:extra-combat'],
   // Decided by the type line, never by an effect. See `cardServesRole`.
   creature: [],
   land: [],
@@ -940,7 +960,55 @@ export function behaviourSimilarity(
     !hasRecord(subject) || !hasRecord(candidate) ? 'none' : complete ? 'record' : 'partial';
 
   shared.sort((x, y) => facetWeight(y) - facetWeight(x) || x.localeCompare(y));
-  return { score: unionWeight === 0 ? 0 : interWeight / unionWeight, shared, basis };
+  const raw = unionWeight === 0 ? 0 : interWeight / unionWeight;
+  return { score: raw * agreementFactor(a, b), shared, basis };
+}
+
+/**
+ * SAME VERB, DIFFERENT OBJECT, and a Jaccard cannot see the difference.
+ *
+ * A weighted Jaccard counts a facet the candidate lacks and a facet the
+ * candidate has instead as the same kind of evidence: both land in the union
+ * and neither lands in the intersection. For the axes that name what the verb
+ * was DONE TO, that is wrong in a way a player sees immediately.
+ *
+ * Measured live on 2026-08-23 by `scratch/refute-related.mjs`, which builds the
+ * card page's list the way `CardRelated.tsx` builds it. Wrath of God reads
+ * "destroys, hits everything at once, about creatures". Its fourteen came back
+ * holding Armageddon at 8 and Ravages of War at 7 — both of which read
+ * "Destroy all lands." — and Cleansing Meditation at 9 and Cleanfall at 14,
+ * which read "Destroy all enchantments." All four outranked Rout, which
+ * destroys all creatures, because Rout also has a flash clause and every extra
+ * facet Rout carries is another unshared term in its union. The list rewarded
+ * doing a DIFFERENT thing over doing the SAME thing plus something else, and
+ * the page's own notes gave it away: the four wrong entries printed "Also
+ * destroys, hits everything at once" with the "about creatures" clause missing.
+ *
+ * So: when both records name an object on the same axis and they name no object
+ * in common, that is a contradiction and not an absence, and the score is cut.
+ * Silence on either side is still only an absence, because a partial record
+ * that never read the filter must not be punished for what it did not say.
+ *
+ * `AGREEMENT_FLOOR` is declared policy, not a fit. 0.4 is the point at which a
+ * card that destroys all lands falls below every card in the pool that destroys
+ * all creatures, checked against that Wrath of God list and no other data.
+ */
+const AGREEMENT_FLOOR = 0.4;
+
+/** The axes that name what the verb was done to. */
+const ARGUMENT_AXES: readonly string[] = ['cares:type:', 'cares:sub:'];
+
+function agreementFactor(a: readonly Facet[], b: readonly Facet[]): number {
+  let factor = 1;
+  for (const axis of ARGUMENT_AXES) {
+    const av = a.filter(f => f.startsWith(axis));
+    const bv = b.filter(f => f.startsWith(axis));
+    // Silence on either side is an absence, not a disagreement.
+    if (av.length === 0 || bv.length === 0) continue;
+    if (av.some(f => bv.includes(f))) continue;
+    factor *= AGREEMENT_FLOOR;
+  }
+  return factor;
 }
 
 /**
@@ -964,6 +1032,16 @@ export function describeSharedFacets(facets: readonly Facet[], limit = 3): strin
 function phraseFor(facet: Facet): string | null {
   if (facet.startsWith('eff:')) return EFFECT_PHRASES[facet.slice(4)] ?? null;
   if (facet === 'scope:all') return 'hits everything at once';
+  // A shared keyword IS a shared behaviour and the only reason it was not read
+  // here at first is that the page has a keyword group of its own. It still has
+  // to be sayable: without it Centaur Chieftain, which shares Craterhoof's
+  // haste, drew the tile note "same card type, nothing else in common".
+  if (facet.startsWith('kw:')) return `has ${facet.slice(3)}`;
+  // Weakest thing worth saying, and it is only ever reached when nothing
+  // stronger matched. Blossoming Bogbeast shares Craterhoof's Beast type and
+  // nothing the compiler read, and "shares the beast type" is a truer note than
+  // "same card type, nothing else in common".
+  if (facet.startsWith('sub:')) return `shares the ${facet.slice(4)} type`;
   if (facet.startsWith('cares:type:')) return `about ${facet.slice('cares:type:'.length)}s`;
   if (facet.startsWith('cares:sub:')) return `about ${facet.slice('cares:sub:'.length)}s`;
   if (facet.startsWith('cares:zone:')) return `uses the ${facet.slice('cares:zone:'.length)}`;

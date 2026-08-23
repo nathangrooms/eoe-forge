@@ -123,27 +123,46 @@ describe('canReadBehaviour', () => {
 describe('rankBySameBehaviour: Counterspell', () => {
   const pool = [FROST_TITAN, DECLARATION_OF_NAUGHT, MANA_DRAIN];
 
-  it('drops the two cards whose only claim was the word counterspell', () => {
+  it('demotes the two cards whose only claim was the word counterspell', () => {
+    /*
+     * Under `sharedTagScore` all three tied at 6.32 and the order was market
+     * price, which put Frost Titan and Declaration of Naught on the page ahead
+     * of every real counterspell. A record match now outranks a tag match
+     * whatever the tag is worth. The two are kept, not deleted: neither record
+     * is complete enough to call it a positive no, and a labelled entry is more
+     * use than a silently missing one.
+     */
     const { entries } = rankBySameBehaviour(COUNTERSPELL, pool);
-    assert.deepEqual(
-      entries.map(e => e.card.name),
-      ['Mana Drain']
-    );
+    assert.equal(entries[0].card.name, 'Mana Drain');
+    assert.equal(entries[0].basis, 'partial');
+    for (const e of entries.slice(1)) assert.equal(e.basis, 'tags');
   });
 
-  it('says why, in the card\'s own terms', () => {
+  it("says why, in the card's own terms", () => {
     const { entries } = rankBySameBehaviour(COUNTERSPELL, pool);
-    assert.equal(entries[0].note, 'Both counters a spell');
-    assert.equal(entries[0].basis, 'partial');
+    assert.equal(entries[0].note, 'Also counters a spell');
+    // Two different silences, told apart. Declaration of Naught produced no
+    // abilities at all; Frost Titan produced some and the compiler refused the
+    // rest, so "no match" means different things and the tile says which.
+    const notes = new Map(entries.map(e => [e.card.name, e.note]));
+    assert.equal(notes.get('Declaration of Naught'), 'No ability record. Tagged counterspell');
+    assert.equal(notes.get('Frost Titan'), 'Record is incomplete. Tagged counterspell');
   });
 
   it('a complete record that shares nothing is dropped, not demoted', () => {
-    // Declaration of Naught has NO record, so it reaches the tag tier; the
-    // rule being pinned is the other one, that two fully read cards sharing
-    // nothing produce no entry at all.
-    const { entries } = rankBySameBehaviour(COUNTERSPELL, [
-      { ...DECLARATION_OF_NAUGHT, oracle_text: 'Destroy all creatures.', name: 'Sweeper' },
-    ]);
+    // Both cards read end to end, nothing in common. That is an answer and the
+    // tags do not get to argue with it, which is `cardServesRole`'s rule
+    // applied to a pair instead of to a role.
+    const sweeper = {
+      oracle_id: 'sweeper',
+      name: 'Sweeper',
+      type_line: 'Sorcery',
+      mana_cost: '{2}{U}{U}',
+      cmc: 4,
+      oracle_text: 'Destroy all creatures.',
+      tags: ['counterspell', 'sorcery'],
+    };
+    const { entries } = rankBySameBehaviour(COUNTERSPELL, [sweeper]);
     assert.equal(entries.length, 0);
   });
 });

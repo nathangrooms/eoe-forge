@@ -236,7 +236,14 @@ const file = `/**
  * recommendation and optimisation consumers get nothing from it.
  *
  * XMage commit: ${meta.commit}
- * Built: ${new Date().toISOString()}
+ *
+ * There is deliberately NO BUILD TIMESTAMP here. There was one, and it was the
+ * only thing in this file that differed between two runs over identical
+ * inputs: every record matched byte for byte and the file hashes still did not,
+ * so "the generator output is byte-reproducible" was a gate that could be
+ * claimed and never checked. The XMage commit above is what actually identifies
+ * the input, and unlike a clock it reads the same on every machine that
+ * regenerates from it.
  */
 
 import type { Ability } from '../abilities/dsl.ts';

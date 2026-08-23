@@ -26,7 +26,7 @@ import { XMAGE_LOWERED } from '../../cards/xmage/lowered.generated.ts';
 import { assertOracleContains, board } from './primitives/harness.testlib.ts';
 import { applyActions } from '../rules.ts';
 import { makeContext } from './context.ts';
-import { runEffects } from './to-actions.ts';
+import { resolveAbilityRun, runEffects } from './to-actions.ts';
 import { TRANSLATED_BODIES } from '../xmage/bodies.generated.ts';
 import type { GameState, StackTarget } from '../types.ts';
 
@@ -151,6 +151,101 @@ describe('nothing resolves to silence', () => {
     // empty, so the card either resolves completely or not at all.
     assert.equal(actions.length, 0);
     assert.ok(deferred.length > 0, 'and the question is named');
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A BODY THAT THROWS MUST NOT TAKE THE GAME WITH IT.
+ *
+ * A translated body is machine-written from somebody else's Java. It can reach
+ * a facade that refuses, divide by an undefined, or run away reading a library
+ * that never empties. None of that may end the game: the other effects of the
+ * same ability still have to run, the log has to say what happened, and the
+ * reducer has to keep folding.
+ *
+ * The table is a plain object, so the test puts a body in it that throws and
+ * takes it out again. That is deliberately the only way in: `to-actions.ts`
+ * imports `TRANSLATED_BODIES` directly rather than through a registry, for the
+ * reason its own header gives, and a registry added to make this testable would
+ * be a registry that can be empty when a card resolves.
+ */
+describe('a body that throws is loud, and the game carries on', () => {
+  const KEY = '__TestOnly__::__ThrowsOnPurpose__';
+
+  const withThrowingBody = <T>(thrown: unknown, fn: () => T): T => {
+    TRANSLATED_BODIES[KEY] = {
+      card: '__TestOnly__',
+      effect: '__ThrowsOnPurpose__',
+      base: 'OneShotEffect',
+      source: '(this test)',
+      trivial: false,
+      run: () => {
+        throw thrown;
+      },
+    };
+    try {
+      return fn();
+    } finally {
+      delete TRANSLATED_BODIES[KEY];
+    }
+  };
+
+  it('the failure is reported, the sibling effect still runs, and nothing propagates', () => {
+    const state = board([
+      { id: 'src', card: 'Grizzly Bears', owner: 'p1' },
+      { id: 'lib', card: 'Grizzly Bears', owner: 'p1', zone: 'library' },
+    ]);
+
+    const { actions, deferred, after } = withThrowingBody(new Error('boom'), () =>
+      run(state, [
+        pointer(KEY),
+        { do: 'draw', who: { who: 'you' }, count: 1 },
+      ])
+    );
+
+    assert.ok(
+      deferred.some(line => line.includes(KEY) && line.includes('boom')),
+      `the failure names the key and the message. Got: ${JSON.stringify(deferred)}`
+    );
+    assert.ok(actions.some(a => a.type === 'DRAW'), 'the rest of the ability still ran');
+    assert.equal(after.players[0].zones.hand.length, state.players[0].zones.hand.length + 1);
+  });
+
+  it('a thrown value that is not an Error is still named rather than swallowed', () => {
+    const state = board([{ id: 'src', card: 'Grizzly Bears', owner: 'p1' }]);
+    const { deferred } = withThrowingBody('a bare string', () => run(state, [pointer(KEY)]));
+
+    assert.ok(
+      deferred.some(line => line.includes('a bare string')),
+      `Got: ${JSON.stringify(deferred)}`
+    );
+  });
+
+  it('resolution turns the failure into a line in the game log', () => {
+    const state = board([{ id: 'src', card: 'Grizzly Bears', owner: 'p1' }]);
+
+    // `resolveAbilityRun` is what BOTH resolution paths in `stack.ts` call, so
+    // this is the log a player would actually see rather than a second one
+    // written for the test.
+    const resolved = withThrowingBody(new Error('boom'), () =>
+      resolveAbilityRun([pointer(KEY)], makeContext(state, 'src', 'p1'), {
+        at: 0,
+        cause: 'Grizzly Bears',
+        idPrefix: 'xb-throw',
+        sourceInstanceId: 'src',
+        verb: 'resolved',
+      })
+    );
+
+    const notes = resolved.actions.filter(a => a.type === 'NOTE');
+    assert.ok(
+      notes.some(a => 'message' in a && a.message.includes('translated XMage body failed')),
+      `Got: ${JSON.stringify(resolved.actions)}`
+    );
+    // And the reducer still folds it.
+    assert.doesNotThrow(() => applyActions(state, resolved.actions));
   });
 });
 

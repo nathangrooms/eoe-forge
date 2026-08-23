@@ -35,9 +35,10 @@ import { Layers3, Sparkles } from 'lucide-react';
  * (`@/lib/deck/recommend/similar`, over `src/lib/cards/abilities` and the
  * ported XMage records) and ranks by shared EFFECTS AND THEIR ARGUMENTS. Sol
  * Ring's record is `add-mana`, two at a time, for no activation cost; a Dimir
- * Signet's is the same three facts except the cost, and that one difference is
- * why one is on the list and ten Signets are not. The tag group stays, and runs
- * for a card the compiler cannot read at all.
+ * Signet's is the same three facts except the cost. Reading that one argument,
+ * and charging for the extra mana value on top of it, is what turns a list of
+ * ten Signets into Mana Crypt, Sol Talisman and the Moxen. The tag group stays,
+ * and runs for a card the compiler cannot read at all.
  *
  * The role-tag group ranks by how *rare* the shared tags are, not how many
  * there are — see `@/lib/cards/tag-signal`. Counting raw overlap gave Sol Ring
@@ -110,11 +111,31 @@ const PER_TAG_LIMIT = 60;
  * carry the identical tags — were never fetched at all. Ranking carefully
  * inside an arbitrary sample is worse than not ranking.
  *
- * So the behaviour group counts the probe first and fetches all of it, or skips
- * the probe and says it skipped it. Measured live on 2026-08-23: Sol Ring pulls
- * 341 rows across two probes and skips `ramp` at 1,968; Craterhoof pulls 133;
- * Counterspell pulls 326. The cost is one `count=exact` head request per probe,
- * which rides `idx_cards_tags` and answered in 38 to 568 ms.
+ * So the behaviour group counts the probe first and fetches all of it. Measured
+ * live on 2026-08-23: Sol Ring merges 336 rows out of two probes, Craterhoof
+ * 133, Counterspell 326. The cost is one `count=exact` head request per probe,
+ * which rides `idx_cards_tags` and answered in 65 to 568 ms.
+ *
+ * A PROBE OVER THE CAP IS NARROWED, NOT DROPPED, and dropping it was the wrong
+ * call. Skipping the only probe skips the whole group, and the player is handed
+ * the word-matching list this was written to replace. Measured live on
+ * 2026-08-23 across five well known cards, every one of which a player is far
+ * more likely to open than the three the change was tuned on:
+ *
+ *   Lightning Bolt   `targeted-removal` counts 1,149 in red. Group skipped.
+ *                    The player saw Fungal Infection, Gallant Strike, Drill Too
+ *                    Deep and Breath of Fire as cards like Lightning Bolt.
+ *   Wrath of God     `board-wipe` counts 609 with no identity filter, 136 in
+ *                    white. It survived on the filter alone.
+ *   Counterspell     326 in blue against 416 unfiltered. Also a near miss.
+ *
+ * So an oversized probe now takes its `BEHAVIOUR_PROBE_CAP` most-played rows in
+ * `edhrec_rank` order instead of its first arbitrary rows or none at all, and
+ * the group's own basis line says which of the two it did. That ordering is not
+ * neutral and must not be described as if it were: `edhrec_rank` is NULL on
+ * 19,592 of 33,032 `cards_unique` rows, so on a narrowed probe an unranked card
+ * cannot appear. On a probe under the cap nothing changes and everything is
+ * still scored.
  */
 const BEHAVIOUR_PROBE_CAP = 400;
 
@@ -127,34 +148,15 @@ const BEHAVIOUR_POOL_CAP = 900;
  * `oracle_text` is what the ability compiler reads and `image_uris` is the
  * heaviest column on the row, so the ranking fetch takes the first and refuses
  * the second. Tile columns are fetched afterwards, for the fourteen winners
- * only. Measured on the live catalogue, Counterspell's 326-row ranking fetch is
- * 208 kB against the 641 kB the same rows would cost with `image_uris`.
+ * only. Measured live on 2026-08-23, Counterspell's probe returns 327 rows:
+ * 177 kB on these columns, against 533 kB on `CARD_COLUMNS` and 559 kB if it
+ * asked for both.
  */
 const RANK_COLUMNS =
   'id, oracle_id, name, mana_cost, type_line, cmc, oracle_text, keywords, tags, layout, power, toughness, prices';
 
 /** Races generic enough that "shares the Human type" tells a player nothing. */
 const GENERIC_SUBTYPES = new Set(['Human']);
-
-/**
- * The subject's own record, in the group heading, in the card's own terms.
- *
- * A player has to be able to see what the ranking read before they can disagree
- * with it. Sol Ring reads "adds mana, costs nothing to use, 2 mana at a time",
- * and every card under it either matches that or does not.
- */
-function describeSubject(facets: readonly string[]): string {
-  const phrases: string[] = [];
-  for (const f of facets) {
-    if (f.startsWith('eff:')) phrases.push(f.slice(4).replace(/-/g, ' '));
-    else if (f === 'scope:all') phrases.push('everything at once');
-    else if (f.startsWith('cares:type:')) phrases.push(`${f.slice('cares:type:'.length)}s`);
-    else if (f.startsWith('mana:')) phrases.push(`${f.slice(5)} mana at a time`);
-    else if (f === 'acost:0') phrases.push('for no activation cost');
-    if (phrases.length >= 4) break;
-  }
-  return phrases.length > 0 ? phrases.join(', ') : 'only its type line';
-}
 
 export interface RelatedEntry {
   card: any;
@@ -200,6 +202,20 @@ function primaryTypeOf(typeLine: string): string | null {
     if (front.includes(t)) return t;
   }
   return null;
+}
+
+/**
+ * Rows that are cards you can put in a deck.
+ *
+ * `Eldrazi Guacamole Tightrope` has the type line `Stickers`, carries the haste
+ * keyword, and cost $5.49, so it was the SECOND entry on Craterhoof Behemoth's
+ * "Shares Haste" list — a row ranked by price, above every real card. A type
+ * line that names no card type is not a card, and one line here is cheaper than
+ * a predicate outside the index set. `layout` does not help: that row's layout
+ * is `normal`.
+ */
+function playable(rows: any[]): any[] {
+  return rows.filter(row => primaryTypeOf(row?.type_line ?? '') !== null);
 }
 
 /** Shared traits first, then market price — stated in the UI, not implied. */
@@ -344,6 +360,26 @@ export function CardWorksWellWith({ card, dbCard, className }: CardRelatedProps)
       if (name) seen.add(`name:${name}`);
       const built: RelatedGroup[] = [];
 
+      /*
+       * PAINT WHAT IS READY, and the behaviour group is the reason.
+       *
+       * Groups 1 to 3 are three indexed reads. Group 4 also downloads the
+       * ability compiler, which is a 2.4 MB chunk (297 kB gzipped) that the
+       * card page did not previously pull, and then compiles up to 900 rows of
+       * oracle text. Holding the whole section behind that would trade a
+       * measurably better list for a visibly slower page, so the cheap groups
+       * are handed to React as soon as they land and the behaviour group
+       * appends itself when it arrives.
+       */
+      const publish = () => {
+        if (cancelled) return;
+        const order = ['decks', 'behaviour', 'subtype', 'keywords', 'tags'];
+        setGroups(
+          [...built].sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key))
+        );
+        if (built.length > 0) setLoading(false);
+      };
+
       /* --- 1. Real decks. The only group that is evidence, not similarity. --- */
       try {
         if (oracleId) {
@@ -421,94 +457,19 @@ export function CardWorksWellWith({ card, dbCard, className }: CardRelatedProps)
         console.error('Synergy group "played alongside" failed:', err);
       }
 
-      /* --- 2. Shares a creature / permanent subtype (trigram on type_line). --- */
-      try {
-        const subtype = subtypesOf(typeLine).find(s => !GENERIC_SUBTYPES.has(s));
-        if (subtype && subtype.length > 2) {
-          // A related-cards row is a card, not a printing. The limit is applied
-          // by the database, so searching printings would spend all forty slots
-          // on a few heavily reprinted cards.
-          let q = uniqueCards()
-            .select(CARD_COLUMNS)
-            .ilike('type_line', `%${subtype}%`)
-            .limit(40);
-          q = withinIdentity(q);
-          if (oracleId) q = q.neq('oracle_id', oracleId);
+      // The evidence group is done. Draw it before the compiler download starts.
+      publish();
 
-          const { data, error } = await retrying(async () => {
-            const res = await q;
-            if (res.error) throw res.error;
-            return res;
-          }, 'Synergy (subtype)');
-          if (error) throw error;
-          const ordered = dedupeByOracle(rank(data ?? [], () => 0), seen).slice(0, 14);
-
-          if (ordered.length > 0) {
-            built.push({
-              key: 'subtype',
-              label: `Other ${subtype}s`,
-              basis: `Type line contains "${subtype}"${
-                colorIdentity.length
-                  ? ` and colour identity fits inside ${colorIdentity.join('')}`
-                  : ''
-              }. Ranked by market price.`,
-              entries: ordered.map(card => ({ card })),
-            });
-          }
-        }
-      } catch (err) {
-        console.error('Synergy group "subtype" failed:', err);
-      }
-
-      /* --- 3. Shares a keyword (GIN overlap on keywords). --- */
-      try {
-        if (keywords.length > 0) {
-          let q = uniqueCards()
-            .select(CARD_COLUMNS)
-            .overlaps('keywords', keywords)
-            .limit(40);
-          q = withinIdentity(q);
-          if (oracleId) q = q.neq('oracle_id', oracleId);
-
-          const { data, error } = await retrying(async () => {
-            const res = await q;
-            if (res.error) throw res.error;
-            return res;
-          }, 'Synergy (keyword overlap)');
-          if (error) throw error;
-          const sharedCount = (row: any) =>
-            (row.keywords ?? []).filter((k: string) => keywords.includes(k)).length;
-          const ordered = dedupeByOracle(rank(data ?? [], sharedCount), seen).slice(0, 14);
-
-          if (ordered.length > 0) {
-            built.push({
-              key: 'keywords',
-              label: `Shares ${keywords.slice(0, 3).join(', ')}`,
-              basis: `Keyword overlap with ${keywords.join(', ')}${
-                colorIdentity.length
-                  ? `, colour identity inside ${colorIdentity.join('')}`
-                  : ''
-              }. Ranked by keywords in common, then market price.`,
-              entries: ordered.map(card => ({
-                card,
-                note: `${sharedCount(card)} keyword${sharedCount(card) === 1 ? '' : 's'} shared`,
-              })),
-            });
-          }
-        }
-      } catch (err) {
-        console.error('Synergy group "keywords" failed:', err);
-      }
-
-      /* --- 4. Does the same thing. Read from both cards' ability records. ---
+      /* --- 2. Does the same thing. Read from both cards' ability records. ---
        *
        * The recall is still a tag probe, because facets are not a column yet
        * and `tags @> {tag}` is the only indexed way to get a pool of the right
        * shape out of 34,000 rows. Two things are different and both of them
        * matter:
        *
-       *   THE WHOLE PROBE COMES BACK. Counted first, fetched entire, or skipped
-       *   and named. `BEHAVIOUR_PROBE_CAP` says why.
+       *   THE WHOLE PROBE COMES BACK. Counted first, then fetched entire, or
+       *   narrowed to its most-played rows and said so. `BEHAVIOUR_PROBE_CAP`
+       *   says why, and why narrowing replaced skipping.
        *
        *   THE TAG DOES NOT DECIDE THE ORDER. Every row is compiled into its
        *   ability record and ranked on shared effects and their arguments. The
@@ -516,6 +477,15 @@ export function CardWorksWellWith({ card, dbCard, className }: CardRelatedProps)
        *
        * The compiler and the ported records are a real chunk of code, so they
        * arrive on demand rather than in the card page's first load.
+       *
+       * IT RUNS SECOND, AHEAD OF THE WORD MATCHERS, and the order is not
+       * cosmetic. One card appears once on this page, so whichever group runs
+       * first claims it. Measured in the browser on 2026-08-23 with this block
+       * running last: "Other Beasts" had already taken Blossoming Bogbeast and
+       * "Shares Haste" had taken Decimator of the Provinces and End-Raze
+       * Forerunners, so the best group on the page was ranking the leftovers
+       * and reported 4 of 14 by record instead of 8. The strongest signal picks
+       * first.
        */
       let behaviourRendered = false;
       try {
@@ -565,19 +535,21 @@ export function CardWorksWellWith({ card, dbCard, className }: CardRelatedProps)
             );
 
             const usable = probes
-              .map((tag, i) => ({ tag, n: counts[i] }))
-              .filter(p => p.n != null && p.n > 0 && p.n <= BEHAVIOUR_PROBE_CAP);
-            const skipped = probes
-              .map((tag, i) => ({ tag, n: counts[i] }))
-              .filter(p => p.n != null && p.n > BEHAVIOUR_PROBE_CAP);
+              .map((tag, i) => ({
+                tag,
+                n: counts[i],
+                narrowed: (counts[i] ?? 0) > BEHAVIOUR_PROBE_CAP,
+              }))
+              .filter(p => p.n != null && p.n > 0);
 
             const batches = await Promise.all(
               usable.map(p =>
                 retrying(async () => {
-                  let q = uniqueCards()
-                    .select(RANK_COLUMNS)
-                    .contains('tags', [p.tag])
-                    .limit(BEHAVIOUR_PROBE_CAP);
+                  let q = uniqueCards().select(RANK_COLUMNS).contains('tags', [p.tag]);
+                  // A probe over the cap takes its most-played rows rather than
+                  // its first arbitrary ones. See `BEHAVIOUR_PROBE_CAP`.
+                  if (p.narrowed) q = q.order('edhrec_rank', { ascending: true, nullsFirst: false });
+                  q = q.limit(BEHAVIOUR_PROBE_CAP);
                   q = withinIdentity(q);
                   if (oracleId) q = q.neq('oracle_id', oracleId);
                   const res = await q;
@@ -613,28 +585,47 @@ export function CardWorksWellWith({ card, dbCard, className }: CardRelatedProps)
               const ids = result.entries.map(e => e.card.id).filter(Boolean);
               const { data: tiles } = await supabase
                 .from('cards')
-                .select(CARD_COLUMNS)
+                .select(`${CARD_COLUMNS}, legalities`)
                 .in('id', ids);
               const byId = new Map((tiles ?? []).map(t => [t.id, t]));
 
+              /*
+               * SAY IT IF IT IS BANNED, and do not quietly filter it out.
+               *
+               * Part one flagged that this page shows Commander-banned cards
+               * with no mark: Black Lotus, Jeweled Lotus and Mana Crypt were 3
+               * of Sol Ring's 14. Reading behaviour makes that WORSE, because
+               * the cards that most exactly do what Sol Ring does are the
+               * Moxen, and 8 of the new 14 are banned. A filter would be a
+               * format decision on a page that is not format-scoped, so the
+               * tile states the fact instead and the player decides. It costs
+               * one extra column on a fourteen-row read.
+               */
               const entries = result.entries
-                .map(e => ({ card: byId.get(e.card.id) ?? e.card, note: e.note }))
+                .map(e => {
+                  const card = byId.get(e.card.id) ?? e.card;
+                  const banned = card?.legalities?.commander === 'banned';
+                  return { card, note: banned ? `${e.note} · banned in Commander` : e.note };
+                })
                 .filter(e => e.card);
               const ordered = dedupeByOracle(entries.map(e => e.card), seen);
               const noteFor = new Map(entries.map(e => [e.card.id, e.note]));
 
               if (ordered.length > 0) {
-                const probeText = [
-                  ...usable.map(p => `${p.tag} (${p.n} cards, all of them)`),
-                  ...skipped.map(p => `${p.tag} (${p.n} cards, too many to rank, skipped)`),
-                ].join(', ');
+                const probeText = usable
+                  .map(p =>
+                    p.narrowed
+                      ? `${p.tag} (${p.n} cards, the ${BEHAVIOUR_PROBE_CAP} most played of them)`
+                      : `${p.tag} (${p.n} cards, all of them)`
+                  )
+                  .join(', ');
 
                 built.push({
                   key: 'behaviour',
                   label: 'Does the same thing',
                   basis:
                     `Both cards' rules text compiled into an ability record, then ranked by shared effects and ` +
-                    `their arguments rather than by shared words. ${name} reads ${describeSubject(result.subject.facets)}. ` +
+                    `their arguments rather than by shared words. ${name} ${result.subject.reads}. ` +
                     `Candidates came from tags @> ${probeText}, and ${result.census.pool} of them were scored, ` +
                     `not the first sixty. ${result.census.byRecord} of the ${result.entries.length} shown were decided by a record` +
                     `${result.census.byTags > 0 ? `, ${result.census.byTags} by tags because we hold no record for them` : ''}.`,
@@ -649,10 +640,95 @@ export function CardWorksWellWith({ card, dbCard, className }: CardRelatedProps)
         console.error('Synergy group "behaviour" failed:', err);
       }
 
+      // Behaviour is done, and it claimed its cards before the weaker groups
+      // could take them. Draw it, then finish with the word matchers.
+      publish();
+
+      /* --- 3. Shares a creature / permanent subtype (trigram on type_line). --- */
+      try {
+        const subtype = subtypesOf(typeLine).find(s => !GENERIC_SUBTYPES.has(s));
+        if (subtype && subtype.length > 2) {
+          // A related-cards row is a card, not a printing. The limit is applied
+          // by the database, so searching printings would spend all forty slots
+          // on a few heavily reprinted cards.
+          let q = uniqueCards()
+            .select(CARD_COLUMNS)
+            .ilike('type_line', `%${subtype}%`)
+            .limit(40);
+          q = withinIdentity(q);
+          if (oracleId) q = q.neq('oracle_id', oracleId);
+
+          const { data, error } = await retrying(async () => {
+            const res = await q;
+            if (res.error) throw res.error;
+            return res;
+          }, 'Synergy (subtype)');
+          if (error) throw error;
+          const ordered = dedupeByOracle(rank(playable(data ?? []), () => 0), seen).slice(0, 14);
+
+          if (ordered.length > 0) {
+            built.push({
+              key: 'subtype',
+              label: `Other ${subtype}s`,
+              basis: `Type line contains "${subtype}"${
+                colorIdentity.length
+                  ? ` and colour identity fits inside ${colorIdentity.join('')}`
+                  : ''
+              }. Ranked by market price.`,
+              entries: ordered.map(card => ({ card })),
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Synergy group "subtype" failed:', err);
+      }
+
+      /* --- 4. Shares a keyword (GIN overlap on keywords). --- */
+      try {
+        if (keywords.length > 0) {
+          let q = uniqueCards()
+            .select(CARD_COLUMNS)
+            .overlaps('keywords', keywords)
+            .limit(40);
+          q = withinIdentity(q);
+          if (oracleId) q = q.neq('oracle_id', oracleId);
+
+          const { data, error } = await retrying(async () => {
+            const res = await q;
+            if (res.error) throw res.error;
+            return res;
+          }, 'Synergy (keyword overlap)');
+          if (error) throw error;
+          const sharedCount = (row: any) =>
+            (row.keywords ?? []).filter((k: string) => keywords.includes(k)).length;
+          const ordered = dedupeByOracle(rank(playable(data ?? []), sharedCount), seen).slice(0, 14);
+
+          if (ordered.length > 0) {
+            built.push({
+              key: 'keywords',
+              label: `Shares ${keywords.slice(0, 3).join(', ')}`,
+              basis: `Keyword overlap with ${keywords.join(', ')}${
+                colorIdentity.length
+                  ? `, colour identity inside ${colorIdentity.join('')}`
+                  : ''
+              }. Ranked by keywords in common, then market price.`,
+              entries: ordered.map(card => ({
+                card,
+                note: `${sharedCount(card)} keyword${sharedCount(card) === 1 ? '' : 's'} shared`,
+              })),
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Synergy group "keywords" failed:', err);
+      }
+
+      publish();
+
       /* --- 5. Shares a role tag, weighted by how rare that tag is. ---
        *
-       * THE FALLBACK NOW, not the answer. It runs only when the group above did
-       * not, which means the ability compiler read nothing for this card, and
+       * THE FALLBACK NOW, not the answer. It runs only when group 2 did not,
+       * which means the ability compiler read nothing for this card, and
        * its own weakness is why: one indexed `tags @> {tag}` per probe tag, 60
        * rows each, ranked by summed tag rarity. That ranking cannot separate two
        * cards that share the tag, which is the whole reason `Does the same
@@ -707,10 +783,10 @@ export function CardWorksWellWith({ card, dbCard, className }: CardRelatedProps)
         console.error('Synergy group "tags" failed:', err);
       }
 
-      if (!cancelled) {
-        setGroups(built);
-        setLoading(false);
-      }
+      publish();
+      // `publish` only clears the skeleton when it has something to draw, so a
+      // card with no signal at all still needs this to reach its empty state.
+      if (!cancelled) setLoading(false);
     };
 
     void run();
@@ -730,13 +806,15 @@ export function CardWorksWellWith({ card, dbCard, className }: CardRelatedProps)
       </div>
       <p className="mb-4 text-xs text-muted-foreground">
         Grouped by the signal that produced them. DeckMatrix has no recommendation model — every
-        group below is a query against real card and deck data, and says which one.
+        group below is a query against real card and deck data, and says which one. Does the same
+        thing reads both cards' rules text as a structured ability record and compares what they
+        actually do; the rest match a name, a keyword or a tag, and say so.
       </p>
 
       {loading ? (
         <TileRowSkeleton />
       ) : groups.length === 0 ? (
-        /* Naming the four signals and which of them this card lacks is more use
+        /* Naming the five signals and which of them this card lacks is more use
            than a padded row — and a padded row would be the fabrication design
            law item 7 forbids. */
         <div className="rounded-lg bg-muted/20 px-4 py-4 text-sm">
@@ -744,6 +822,10 @@ export function CardWorksWellWith({ card, dbCard, className }: CardRelatedProps)
           <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
             <li>
               Decks — no deck you can see runs it. Sign in, or make a deck containing it public.
+            </li>
+            <li>
+              What it does. Nothing in its colour identity carrying one of its tags does the same
+              thing, or we hold no ability record for this card and nothing to compare it on.
             </li>
             <li>
               Keywords —{' '}

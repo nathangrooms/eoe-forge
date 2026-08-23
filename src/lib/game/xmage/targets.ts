@@ -49,8 +49,28 @@ export interface XTargetPointer {
   getTargets(): InstanceId[];
 }
 
-/** XMage's `FixedTarget`. */
-export function fixedTarget(instanceId: InstanceId | undefined): XTargetPointer {
+/**
+ * XMage's `FixedTarget`.
+ *
+ * Six constructors, and three of them matter here: `FixedTarget(UUID)`,
+ * `FixedTarget(Card, Game)` and `FixedTarget(Permanent, Game)`. The last two
+ * are the commonest spelling in a card body — `new FixedTarget(permanent,
+ * game)` — and taking only the id meant 20 bodies translated and were then
+ * thrown away by `tsc` for handing a permanent where a string belonged.
+ *
+ * XMage's object forms also pin the object's ZONE CHANGE COUNTER, so the
+ * pointer stops finding the object once it has moved zones. This engine has no
+ * zone change counter, so the pointer here follows the id alone. That is a
+ * REAL difference and not a translation of it: a card that says "return the
+ * exiled card" will find the card whether or not somebody else moved it in
+ * between. It is recorded here rather than hidden because the alternative is a
+ * pointer that pretends to a precision it does not have.
+ */
+export function fixedTarget(
+  target: InstanceId | { getId(): InstanceId } | undefined | null
+): XTargetPointer {
+  const instanceId =
+    target == null ? undefined : typeof target === 'string' ? target : target.getId();
   return {
     getFirst: () => instanceId,
     getFirstPlayer: () => undefined,
@@ -247,7 +267,21 @@ export function makeTarget(scope: XmageScope, options: XTargetOptions = {}): XTa
     canChoose: (game, controllerId) => legalSet(controllerId).length >= min,
     possibleTargets: (game, controllerId) => legalSet(controllerId),
     choose(game, prompt, controllerId, from) {
-      if (chosen.length >= min) return [...chosen];
+      /*
+       * "Enough is already chosen" has to mean at least one, not at least
+       * `min`, because `min` is legitimately 0.
+       *
+       * `new TargetCardInHand(0, Integer.MAX_VALUE, …)` is XMage's "any number
+       * of cards", and it is a real question with a real answer. Against
+       * `chosen.length >= min` it was 0 >= 0 on the first line, so the target
+       * returned an empty list without asking anybody, and the body carried on
+       * as though the player had declined. Nantuko Cultivator discarded nothing
+       * and drew nothing, out loud to no one.
+       *
+       * A target that was already filled, by an announcement or by `setChosen`,
+       * still short-circuits, which is the case this guard is for.
+       */
+      if (chosen.length >= Math.max(min, 1)) return [...chosen];
       const legal = from === undefined ? legalSet(controllerId) : withinSet(from, controllerId);
       const picked = askForCards(scope, prompt, legal, Math.min(min, legal.length), max);
       chosen.length = 0;
@@ -409,8 +443,18 @@ export function makeEvent(event: XEventData): XGameEvent {
 export interface XEffect {
   /** `Effect#apply` — rank 28. Returns XMage's own "did anything happen". */
   apply(game: XGame, source: XAbility): boolean;
-  /** `Effect#setTargetPointer` — rank 29, 680 calls. Returns itself, so it chains. */
-  setTargetPointer(pointer: XTargetPointer): XEffect;
+  /**
+   * `Effect#setTargetPointer` — rank 29, 680 calls. Returns ITSELF, so it
+   * chains.
+   *
+   * The return type is `this` rather than `XEffect`, and that is the difference
+   * between a chain that typechecks and one that does not. XMage bodies write
+   * `new BoostTargetEffect(2, 2).setTargetPointer(...)` and hand the result
+   * straight to `game.addEffect`. With `XEffect` as the return type the chain
+   * forgets it was ever a continuous-effect builder, and the body is translated
+   * correctly and then thrown away by `tsc`.
+   */
+  setTargetPointer(pointer: XTargetPointer): this;
   getTargetPointer(): XTargetPointer | undefined;
 }
 

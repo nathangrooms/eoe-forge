@@ -166,11 +166,41 @@ export const UNCASTABLE_GATE_PCT = 25;
  * Birds of Paradise is not a fact about which is the better card.
  *
  * So the signal saturates: full credit at or above this figure, and it falls
- * away linearly below it toward the `cannot-cast` gate. 75 is a declared
- * choice, sitting between that gate at 25 and the 40 at which a card already in
- * a deck counts as a problem — comfortably payable, not perfectly payable.
+ * away linearly below it toward the `cannot-cast` gate.
+ *
+ * 75 WAS STILL TOO HIGH, and 50 replaced it on 2026-08-23.
+ *
+ * The figure has to be one an ordinary on-colour card in a real deck actually
+ * reaches, or the saturation never fires for anything except the colourless
+ * cards it was written to stop rewarding. It did not: a five-drop in three
+ * colours lands near 50%, so at a comfort point of 75 it still collected a
+ * third less than a Bone Saw. Measured by `scratch/refute-eight.mjs` over eight
+ * commanders on the 2026-08-19 snapshot with the comfort point at 75, counting
+ * the 64 nonland spells of each finished deck:
+ *
+ *   mean mana value 1.33 to 2.08, and across all eight decks — 512 spells —
+ *   exactly TWO cards cost five mana or more.
+ *
+ * Kaalia of the Vast, whose entire function is putting a seven-mana Angel or
+ * Demon onto the battlefield attacking, was handed a 99 whose most expensive
+ * nonland card cost three. At 50 the same eight decks run a mean of 1.80 to
+ * 2.69 with a real four-drop band, and the thing this must not cost — actually
+ * being able to cast the deck — did not move: the finished decks are castable
+ * on curve 69% to 76% of the time, against 62% to 85% before.
+ *
+ * 50 is a declared choice and not a fit. It sits between the `cannot-cast` gate
+ * at 25 and the 75 it replaced, and it says that paying for a card half the
+ * time is comfortable in a format where the game lasts fifteen turns. It is not
+ * pushed lower because the gap between "comfortable" and "refused" has to stay
+ * wide enough for the signal to be a slope rather than a switch.
+ *
+ * THIS IS NOT THE WHOLE FIX AND MUST NOT BE READ AS ONE. Even at 50 the eight
+ * decks hold no card at six mana or more. A deck with 35 lands and nothing to
+ * ramp into is still the wrong deck, and the missing piece is a declared curve
+ * target beside `COMMANDER_ROLE_TARGETS` in `advise/roles.ts` — written up as a
+ * handover in `docs/design/ENGINE-PICKS.md` rather than invented here.
  */
-export const CASTABILITY_COMFORT_PCT = 75;
+export const CASTABILITY_COMFORT_PCT = 50;
 
 /**
  * Saturation constant for tag synergy.
@@ -495,6 +525,82 @@ function cheaper(a: CandidateCard, b: CandidateCard): boolean {
  * ------------------------------------------------------------------ */
 
 /**
+ * WHAT HAPPENS WHEN THE SCORE HAS NO OPINION, which is most of the time.
+ *
+ * Until 2026-08-23 this was `a.card.name.localeCompare(b.card.name)`, and the
+ * comment above it said the tie-breakers exist to make the result independent
+ * of input order. They did. They also made it dependent on the alphabet, and
+ * that turned out to be the single largest influence on what a generated deck
+ * contains, because the score ties enormously:
+ *
+ *   Measured by `scratch/refute-ties.mjs` over eight commanders on the
+ *   2026-08-19 catalogue snapshot, seeded with the commander alone. Ranking
+ *   Kaalia of the Vast's 17,818 legal spells produced 3,472 distinct score
+ *   values, and 5,074 of those cards scored exactly 5.3750. The deck needs 64
+ *   spells and the 64th sat at 5.78, a whisker above that block, so the flex
+ *   and role passes reached straight into a five-thousand-card tie and took it
+ *   in alphabetical order. Kaalia's finished 99 drew 92% of its spells from
+ *   names beginning A to I against a pool that is 46% A to I; Yuriko's drew
+ *   91% against 43%. Across all eight decks the letter C was picked at 2.03x
+ *   its share of the pool and the letter S at 0.51x, R at 0.30x, V at 0.22x.
+ *   Sol Ring, Swords to Plowshares, Rhystic Study, Toxic Deluge and Vampiric
+ *   Tutor lose to Academy Manufactor, Arcane Denial and Blood Artist for a
+ *   reason that has nothing to do with Magic.
+ *
+ * A tie means the model genuinely cannot separate two cards, so the honest
+ * answer is not to invent a preference — it is to break the tie WITHOUT A
+ * SYSTEMATIC BIAS, and to say how much of the deck was decided this way.
+ * `generateDeck` reports the tie mass in its notes for that reason.
+ *
+ *   1. `edhrecRank`, ascending, nulls last. The only broad evidence in this
+ *      schema that a card is one people actually play. It is already a scoring
+ *      signal at weight 0.8, so this line only decides cases the score could
+ *      not: a ranked card against an unranked one, or two cards at the same
+ *      rank. Preferring the played card there costs nothing and is never
+ *      strong enough to overturn a real signal.
+ *   2. A hash of the oracle id. Deterministic, so the same pool gives the same
+ *      deck every time and the tie-breakers still make the result independent
+ *      of input order; uniform over the catalogue, so it has no opinion about
+ *      the first letter of a card's name, its price, its rarity or its set.
+ *   3. The oracle id itself, which is unique after dedupe, so no two entries
+ *      can compare equal and the sort is a total order.
+ *
+ * This does NOT make a tied pick a good pick. It removes one specific wrong
+ * answer and leaves the real problem visible: a signal set that cannot tell
+ * five thousand cards apart needs more signal, and the fix for that is a
+ * commander plan that fires (`knowledge/behaviour.ts`) and an `edhrec_rank`
+ * column that is not NULL on 19,592 rows.
+ */
+export function compareTied(a: CandidateCard, b: CandidateCard): number {
+  const ar = a.edhrecRank !== null && a.edhrecRank > 0 ? a.edhrecRank : Number.POSITIVE_INFINITY;
+  const br = b.edhrecRank !== null && b.edhrecRank > 0 ? b.edhrecRank : Number.POSITIVE_INFINITY;
+  if (ar !== br) return ar - br;
+  const ah = stableHash(a.oracleId);
+  const bh = stableHash(b.oracleId);
+  if (ah !== bh) return ah - bh;
+  return a.oracleId.localeCompare(b.oracleId);
+}
+
+/**
+ * FNV-1a over a key. Not cryptography; a spreader.
+ *
+ * The only property required is that it correlates with nothing a player or a
+ * deck cares about. An oracle id is a random UUID assigned by Scryfall, so
+ * hashing it is closer to shuffling than to sorting, and it is stable across
+ * runs because the id is. `advise/cuts.ts` hashes the card NAME instead,
+ * because a cut entry carries no id; hashing a name still destroys the
+ * alphabetical ordering, which is the property being bought.
+ */
+export function stableHash(key: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < key.length; i++) {
+    h ^= key.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h;
+}
+
+/**
  * Rank the full pool, then truncate.
  *
  * `options.limit` is applied on the last line and nowhere else.
@@ -523,15 +629,9 @@ export function rankCandidates(
     };
   });
 
-  // 4. Total order. Score first; then name and oracle id, which are the
-  //    tie-breakers that make the result independent of input order. `oracleId`
-  //    is unique after dedupe, so no two entries can compare equal.
-  scored.sort(
-    (a, b) =>
-      b.score - a.score ||
-      a.card.name.localeCompare(b.card.name) ||
-      a.card.oracleId.localeCompare(b.card.oracleId)
-  );
+  // 4. Total order. See `compareTied` for what happens below the score, and
+  //    why it is no longer the alphabet.
+  scored.sort((a, b) => b.score - a.score || compareTied(a.card, b.card));
 
   // 5. Only now.
   const limit = options.limit;

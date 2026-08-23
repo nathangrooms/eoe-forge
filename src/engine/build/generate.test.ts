@@ -492,3 +492,125 @@ test('a hybrid pip is split between the colours that can pay it', () => {
   assert.equal(demand.W, 1);
   assert.equal(demand.U, 1);
 });
+
+/* ------------------------------------------------------------------ *
+ * The colour floor and the mana base, added 2026-08-23
+ * ------------------------------------------------------------------ *
+ *
+ * Both come out of `scratch/refute-eight.mjs` and `scratch/refute-colour.mjs`,
+ * which built decks for eight commanders the earlier tuning never saw.
+ */
+
+/** Colourless artifacts that are castable by every deck and do nothing else. */
+function colourlessFiller(count: number): BuildCard[] {
+  const out: BuildCard[] = [];
+  for (let i = 0; i < count; i++) {
+    out.push(
+      card({
+        id: `rock-${i}`,
+        oracle_id: `rock-${i}`,
+        name: `Colourless Filler ${String(i).padStart(3, '0')}`,
+        type_line: i % 4 === 0 ? 'Artifact Creature — Construct' : 'Artifact',
+        cmc: String(i % 2),
+        mana_cost: `{${i % 2}}`,
+        color_identity: [],
+        tags: ROLE_TAG_CYCLE[i % ROLE_TAG_CYCLE.length],
+        prices: { usd: '0.25' },
+      })
+    );
+  }
+  return out;
+}
+
+test('the deck plays the commander colours, not just what is cheapest to cast', () => {
+  /*
+   * A zero-mana colourless artifact is castable by every deck by construction,
+   * so it collects the full `WEIGHTS.playability` for free while a real card in
+   * two colours collects less. Measured by `scratch/refute-colour.mjs` on the
+   * 2026-08-19 snapshot before this floor existed: six of eight decks came back
+   * one and a half to three times more colourless than the pool they were drawn
+   * from, and Urza, Lord High Artificer's mono-blue 99 contained two blue
+   * spells out of sixty-four.
+   *
+   * The pool here is stacked the same way on purpose: 500 colourless artifacts
+   * against 120 coloured cards.
+   */
+  const stacked = [
+    COMMAND_TOWER,
+    ...fillerLands(60, true),
+    ...colourlessFiller(500),
+    ...fillerPool(120),
+  ];
+  const deck = build({ pool: stacked });
+  const spells = deck.entries.filter(e => e.bucket !== 'land' && e.bucket !== 'basic');
+  const coloured = spells.filter(e => (e.card.colorIdentity ?? []).length > 0).length;
+  assert.ok(
+    coloured >= Math.floor(spells.length * 0.5),
+    `${coloured} of ${spells.length} spells are in the commander's colours`
+  );
+});
+
+test('a colourless commander is not asked to play colours it does not have', () => {
+  const karn = card({
+    id: 'karn-1',
+    oracle_id: 'karn-oracle',
+    name: 'Karn, Silver Golem',
+    type_line: 'Legendary Artifact Creature — Golem',
+    cmc: '5',
+    mana_cost: '{5}',
+    color_identity: [],
+    tags: ['artifact', 'creature'],
+  });
+  const deck = generateDeck({
+    format: 'commander',
+    commander: karn,
+    pool: [...fillerLands(60, true), ...colourlessFiller(500)],
+    basics: BASICS,
+  });
+  // The floor is zero for an empty identity, so this must not report a
+  // shortfall it could never fill.
+  for (const note of deck.notes) assert.ok(!note.includes("commander's colours"), note);
+});
+
+test('a land that taps for nothing is picked last', () => {
+  /*
+   * `pickLands` used to take any remaining land in rank order, and every land
+   * scores identically, so it was reading the tie-break. While that tie-break
+   * was alphabetical the result looked fine; with an unbiased one the Edgar
+   * Markov mana base came back holding Dark Depths, which taps for no mana at
+   * all, over a basic land.
+   */
+  const deadLand = card(
+    {
+      id: 'dead-land',
+      oracle_id: 'dead-land',
+      name: 'Aaa Dead Land',
+      type_line: 'Land',
+      cmc: '0',
+      color_identity: [],
+      tags: ['land'],
+      edhrec_rank: 1,
+      prices: { usd: '0.25' },
+    },
+    'Aaa Dead Land enters tapped. {T}, Sacrifice this land: Draw a card.'
+  );
+  const deck = generateDeck({
+    format: 'commander',
+    commander: ATRAXA,
+    // Exactly enough real lands to fill the nonbasic room, plus one that makes
+    // no mana and every advantage the ranker can give it.
+    pool: [deadLand, ...fillerLands(60, true), ...fillerPool(400)],
+    basics: BASICS,
+  });
+  const names = deck.entries
+    .filter(e => e.bucket === 'land' || e.bucket === 'basic')
+    .map(e => e.card.name);
+  assert.ok(!names.includes('Aaa Dead Land'), names.join(', '));
+});
+
+test('the notes say how much of the deck the score could not decide', () => {
+  const deck = build();
+  const line = deck.notes.find(n => n.includes('the score could not separate'));
+  assert.ok(line, deck.notes.join('\n'));
+  assert.match(line as string, /^\d+ of \d+ spells/);
+});

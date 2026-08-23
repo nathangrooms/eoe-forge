@@ -851,6 +851,18 @@ export function xmageBodyLowerings(keys: Iterable<string>): Record<PrimId, Lower
   const table: Record<PrimId, Lowering> = {};
   for (const effectName of effectNames) {
     const prim: PrimId = `local:${effectName}`;
+    /*
+     * A HAND-WRITTEN LOWERING ALWAYS WINS OVER A MACHINE TRANSLATION.
+     *
+     * Nothing in `LOWERINGS` names a `local:` primitive today, so this skips
+     * nothing right now. It is here because the caller merges the two tables
+     * with a spread, and a spread makes precedence a property of the order the
+     * two objects are written in. That is the wrong thing for this rule to
+     * depend on: it is the third line of the precedence rule in `lowered.ts`,
+     * and it should be readable in the code that implements it rather than
+     * inferred from an argument order somewhere else.
+     */
+    if (Object.prototype.hasOwnProperty.call(LOWERINGS, prim)) continue;
     table[prim] = (_invocation, ctx) => {
       const cls = ctx.record.provenance?.xmageClass;
       if (!cls) return null;

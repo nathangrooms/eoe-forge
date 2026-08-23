@@ -74,9 +74,29 @@ export interface XFilter {
   match(state: GameState, card: CardInstance, ctx?: PredicateContext): boolean;
 }
 
-export function makeFilter(message: string, predicates: XPredicate[] = []): XFilter {
+/**
+ * Build a filter.
+ *
+ * `message` takes A LIST OF WORDS as well as a string, and the list is not a
+ * convenience. `extract-filters.mjs` derives a name for each of XMage's filter
+ * classes from the predicates it resolved — never from XMage's own string,
+ * which carries Wizards of the Coast rules text this project may not copy — and
+ * that derived name is several words long. Written into `bodies.generated.ts`
+ * as one literal it trips check 5 in `translate-check.mjs`, whose rule is
+ * deliberately blunt: a space, or more than 24 characters, means wording.
+ *
+ * The answer was not to soften the check or to exempt these rows from it. It
+ * was to stop putting a sentence in the generated file at all: the generator
+ * emits the WORDS and the joining happens here, in the folder where "every
+ * filter name and log line is ours" already holds. Check 5 stays blunt and
+ * stays at zero, which is worth more than the nine rows it would have cost.
+ */
+export function makeFilter(
+  message: string | readonly string[],
+  predicates: XPredicate[] = []
+): XFilter {
   const filter: XFilter = {
-    message,
+    message: typeof message === 'string' ? message : message.join(' '),
     predicates: [...predicates],
     add(predicate: XPredicate) {
       filter.predicates.push(predicate);

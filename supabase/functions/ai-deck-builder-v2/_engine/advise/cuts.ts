@@ -41,7 +41,7 @@
 
 import { isLandCard, manaValue, tagsOf, type EngineDeckEntry } from '../core/card.ts';
 import type { CandidateCard, Color, DeckProfile, Role } from '../core/types.ts';
-import { scoreCandidate } from './rank.ts';
+import { scoreCandidate, stableHash } from './rank.ts';
 import { normalizeIdentity } from './query.ts';
 import type { CardPlayability, DeckPlayability } from '../playability/castability.ts';
 
@@ -172,12 +172,20 @@ export function chooseCuts(
     });
   });
 
-  // Worst castability first, then worst fit. Ties broken by name so the order
-  // does not depend on how the deck happened to be stored.
-  uncastable.sort(
-    (a, b) => (a.castabilityPct ?? 0) - (b.castabilityPct ?? 0) || a.name.localeCompare(b.name)
-  );
-  rest.sort((a, b) => a.fitScore - b.fitScore || a.name.localeCompare(b.name));
+  /*
+   * Worst castability first, then worst fit.
+   *
+   * Ties are broken by a hash of the name and not by the name, for the reason
+   * `compareTied` in `rank.ts` gives at length: the fit score ties heavily, and
+   * an alphabetical tie-break makes "which card should I cut" a question about
+   * spelling. Hashing keeps the order independent of how the deck happened to
+   * be stored, which is what the old comment here was buying, and drops the
+   * bias it was paying for without noticing.
+   */
+  const spread = (a: { name: string }, b: { name: string }) =>
+    stableHash(a.name) - stableHash(b.name) || a.name.localeCompare(b.name);
+  uncastable.sort((a, b) => (a.castabilityPct ?? 0) - (b.castabilityPct ?? 0) || spread(a, b));
+  rest.sort((a, b) => a.fitScore - b.fitScore || spread(a, b));
 
   const all = [...uncastable, ...rest];
   const limit = options.limit;

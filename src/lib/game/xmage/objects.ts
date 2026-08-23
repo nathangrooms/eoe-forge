@@ -47,6 +47,7 @@ import type {
   Zone,
 } from '../types.ts';
 import type { ContinuousEffect } from '../layers.ts';
+import type { TokenSpec } from '../../cards/abilities/dsl.ts';
 import {
   colorsIn,
   isCreatureIn,
@@ -60,7 +61,14 @@ import {
 import type { PredicateContext, XFilter } from './filters.ts';
 // Type only. `targets.ts` imports types from here too; neither edge exists at
 // run time, so the two files do not form an import cycle.
-import type { XTarget } from './targets.ts';
+import type { XAbility, XTarget } from './targets.ts';
+/*
+ * `effects.ts` imports VALUES from here (`makeToken`), so this edge has to stay
+ * a type import or the two files would form a run-time cycle. `addEffect` needs
+ * one predicate at run time, and it lives here rather than there for exactly
+ * that reason: it is three lines about a shape, not a fifth effect class.
+ */
+import type { XContinuousBuilder } from './effects.ts';
 import {
   askForCards,
   askFromList,
@@ -930,7 +938,7 @@ function playerFacade(scope: XmageScope, playerId: PlayerId): XPlayer {
       const hand = new Set(zone('hand'));
       const ids = idsFrom(cards).filter(id => hand.has(id));
       for (const id of ids) emit(scope, { type: 'MOVE_ZONE', instanceId: id, to: 'graveyard' });
-      return ids;
+      return makeCards(scope, ids);
     },
     searchLibrary(prompt, targetOrFilter, max = 1) {
       // A `Target` carries the filter and the counts; a bare filter is the
@@ -1112,22 +1120,55 @@ function combatFacade(scope: XmageScope): XCombat {
  */
 export interface XToken {
   getName(): string;
-  putOntoBattlefield(count: number, controllerId: PlayerId, tapped?: boolean): void;
+  /**
+   * `Token#putOntoBattlefield` — rank 73, 350 calls.
+   *
+   * Returns BOOLEAN, which is XMage's own return type on all seven overloads
+   * and not a shape of ours: "whether any token arrived". It used to return
+   * void, and Tempting Contract, which reads
+   * `if (opponent.chooseUse(...) && token.putOntoBattlefield(...))`, would not
+   * compile against it.
+   */
+  putOntoBattlefield(count: number, controllerId: PlayerId, tapped?: boolean): boolean;
+  /**
+   * `Token#getLastAddedTokenIds` — the ids of the tokens the last
+   * `putOntoBattlefield` actually made. Read off the board rather than derived,
+   * so it cannot disagree with the reducer about which ids exist.
+   */
+  getLastAddedTokenIds(): InstanceId[];
 }
 
-export interface XTokenSpec {
-  name: string;
-  typeLine?: string;
-  power?: string;
-  toughness?: string;
-  keywords?: string[];
-}
+/**
+ * A token's characteristics.
+ *
+ * This is the engine's own `TokenSpec` and NOT a narrower copy of it. It was a
+ * narrower copy — `name`, `typeLine`, `power`, `toughness`, `keywords` — and
+ * the copy was missing `colorIdentity`. `CREATE_TOKEN` takes a `TokenSpec`, a
+ * narrower object is structurally assignable to a wider one, so the colour was
+ * dropped by the type system without a word: every token a translated body made
+ * would have arrived colourless, which is wrong for a Zombie and wrong for
+ * anything a filter later asks the colour of.
+ *
+ * It was unreachable until now, because no shipped body could build a token at
+ * all, and it would have become reachable in the same change that wired the
+ * token table in. Aliased rather than re-declared so it cannot drift again.
+ */
+export type XTokenSpec = TokenSpec;
 
 export function makeToken(scope: XmageScope, spec: XTokenSpec): XToken {
+  let lastAdded: InstanceId[] = [];
   return {
     getName: () => spec.name,
     putOntoBattlefield(count, controllerId, tapped = false) {
-      if (count <= 0) return;
+      lastAdded = [];
+      if (count <= 0) return false;
+      /*
+       * Which ids arrived is a question only the reducer can answer, and it
+       * derives them from `state.version`. Diffing the working board either
+       * side of the emit asks the reducer instead of re-deriving the rule here,
+       * so the two can never fall out of step.
+       */
+      const before = new Set(Object.keys(scope.working.cards));
       emit(scope, {
         type: 'CREATE_TOKEN',
         playerId: controllerId,
@@ -1135,7 +1176,10 @@ export function makeToken(scope: XmageScope, spec: XTokenSpec): XToken {
         count,
         ...(tapped ? { tapped: true } : {}),
       });
+      lastAdded = Object.keys(scope.working.cards).filter(id => !before.has(id));
+      return lastAdded.length > 0;
     },
+    getLastAddedTokenIds: () => [...lastAdded],
   };
 }
 
@@ -1184,8 +1228,20 @@ export interface XGame {
   /** `Game#getOpponents` — rank 37. */
   getOpponents(playerId: PlayerId): PlayerId[];
   getActivePlayerId(): PlayerId;
-  /** `Game#addEffect` — rank 16, 1,184 calls. Takes OUR `ContinuousEffect`. */
-  addEffect(effect: ContinuousEffect): void;
+  /**
+   * `Game#addEffect` — rank 16, 1,184 calls.
+   *
+   * Takes either OUR `ContinuousEffect`, which is pure data and ready to store,
+   * or one of the shared builders in `effects.ts`, which is what an XMage body
+   * actually passes: `new BoostTargetEffect(2, 2)`. A builder cannot resolve its
+   * own targets when it is constructed, because `setTargetPointer` arrives on
+   * the next line, so it is asked here instead.
+   *
+   * `source` is XMage's own second argument. It used to be dropped by the
+   * translator; it is kept because a builder needs the ability to find out what
+   * the effect is about.
+   */
+  addEffect(effect: ContinuousEffect | XContinuousBuilder, source?: XAbility): void;
   /** `Game#informPlayers` — rank 44. */
   informPlayers(message: string): void;
   /** `Game#processAction` — rank 105. A no-op here, and correct: see the body. */
@@ -1221,8 +1277,21 @@ export interface XGame {
   xmageScope(): XmageScope;
 }
 
+/**
+ * Is this a stored-effect BUILDER rather than a finished `ContinuousEffect`?
+ *
+ * The test is a method, because a `ContinuousEffect` is pure data with no
+ * methods at all, so the two can never be confused in either direction. A
+ * boolean flag would have to be set by hand on every builder and forgotten once.
+ */
+function isContinuousBuilder(
+  value: ContinuousEffect | XContinuousBuilder
+): value is XContinuousBuilder {
+  return typeof (value as XContinuousBuilder).buildContinuous === 'function';
+}
+
 export function makeGame(scope: XmageScope, defaultControllerId?: PlayerId): XGame {
-  return {
+  const game: XGame = {
     getPlayer(playerId) {
       if (!playerId) return null;
       return scope.working.players.some(p => p.id === playerId)
@@ -1262,9 +1331,31 @@ export function makeGame(scope: XmageScope, defaultControllerId?: PlayerId): XGa
         .map(p => p.id);
     },
     getActivePlayerId: () => scope.working.activePlayerId,
-    addEffect(effect) {
-      scope.continuous.push(effect);
-      emit(scope, { type: 'ADD_CONTINUOUS', effect });
+    addEffect(effect, source) {
+      let record: ContinuousEffect | null;
+      if (isContinuousBuilder(effect)) {
+        if (!source) {
+          /*
+           * A builder without the ability cannot say what it is about. Guessing
+           * the source's own id would turn "target creature gets +2/+2" into
+           * "this creature gets +2/+2", which is a card that runs and is wrong.
+           */
+          deferHere(
+            scope,
+            'a continuous effect was added without the ability it came from, so nothing could be worked out for it to affect'
+          );
+          return;
+        }
+        record = effect.buildContinuous(game, source);
+      } else {
+        record = effect;
+      }
+      // `buildContinuous` answers null when nothing was bound, and the pointer
+      // has already said so. Storing an effect that modifies no object would be
+      // the silent half of that.
+      if (!record) return;
+      scope.continuous.push(record);
+      emit(scope, { type: 'ADD_CONTINUOUS', effect: record });
     },
     informPlayers(message) {
       emit(scope, { type: 'NOTE', message });
@@ -1300,6 +1391,7 @@ export function makeGame(scope: XmageScope, defaultControllerId?: PlayerId): XGa
     rawState: () => scope.working,
     xmageScope: () => scope,
   };
+  return game;
 }
 
 /* Exported so `index.ts` can build one without reaching inside. */

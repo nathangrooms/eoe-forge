@@ -162,9 +162,56 @@ describe('a record beats a word', () => {
     assert.equal(cardRole(CARDS.craterhoof, 'wincon'), true);
   });
 
-  it('Blighted Agent is a win condition from the record, with no tag needed', () => {
-    assert.equal(CARDS.blightedAgent.tags.some(t => t === 'wincon' || t === 'finisher'), false);
-    assert.equal(cardRole(CARDS.blightedAgent, 'wincon'), true);
+  /*
+   * REVERSED ON 2026-08-23. This used to assert that Blighted Agent IS a win
+   * condition, read straight off `eff:poison` with no tag needed, and it was
+   * cited as the rule working. Eight fresh commanders said otherwise.
+   *
+   * `scratch/refute-eight.mjs` built decks for eight commanders the tuning had
+   * never seen. Blightbelly Rat, a two-mana 1/1 with toxic 1, took a win
+   * condition slot in the Meren, Kaalia and Yuriko decks, and Ichorclaw Myr and
+   * Core Prowler took most of the remaining twelve. One poison counter is not a
+   * win, and nothing in this vocabulary carries the magnitude that would tell a
+   * Blightsteel Colossus from a 1/1 Rat.
+   *
+   * TWO DOORS HAD TO CLOSE, and closing one closed neither. The producer prints
+   * Ichorclaw Myr as `rec:full` with `eff:poison`, so it came in through
+   * `ROLE_FACETS`; it prints Blightbelly Rat as `rec:partial` with no
+   * `eff:poison` at all and the tag `infect`, so it came in through the tag
+   * fallback in `ROLE_TAGS`. Both lists lost their poison entry.
+   *
+   * WHAT IT COSTS, stated rather than buried: Blightsteel Colossus is
+   * `rec:partial` and its only tags are `artifact`, `creature` and `infect`, so
+   * it no longer reaches this role by any door. That is a real loss on a real
+   * win condition, taken because the same word was putting a 1/1 Rat into three
+   * decks out of eight.
+   */
+  it('Blighted Agent is NOT a win condition, because one poison counter is not a win', () => {
+    assert.equal(CARDS.blightedAgent.facets.includes('eff:poison'), true);
+    assert.equal(cardRole(CARDS.blightedAgent, 'wincon'), false);
+  });
+
+  it('Blightbelly Rat is not a win condition through the infect TAG either', () => {
+    // Facets exactly as the producer printed them: the compiler reads the dies
+    // trigger, refuses toxic, and emits no poison facet at all. Only the tag
+    // ever knew, which is why removing the facet on its own changed nothing.
+    const blightbellyRat = {
+      name: 'Blightbelly Rat',
+      typeLine: 'Creature — Phyrexian Rat',
+      tags: ['creature', 'infect', 'proliferate'],
+      facets: [
+        'eff:proliferate',
+        'kw:toxic',
+        'rec:partial',
+        'sub:phyrexian',
+        'sub:rat',
+        'trig:dies',
+        'type:creature',
+      ],
+    };
+    assert.equal(blightbellyRat.facets.includes('eff:poison'), false);
+    assert.equal(blightbellyRat.facets.includes('rec:partial'), true);
+    assert.equal(cardRole(blightbellyRat, 'wincon'), false);
   });
 
   it('a complete record that says nothing is a NO, not a shrug', () => {
@@ -329,14 +376,17 @@ describe('the creature floor is a declared number, and the style picks it', () =
   });
 });
 
-describe('voltron is gone from the win condition tags', () => {
-  it('and nothing else was lost with it', () => {
-    // Pinned so the tag cannot come back without this failing. `storm` and
-    // `infect` stay: each names a card that ends a game on its own.
-    const wincon = ['finisher', 'wincon', 'extra-turn', 'extra-combat', 'infect', 'storm'];
+describe('voltron and infect are gone from the win condition tags', () => {
+  it('and nothing else was lost with them', () => {
+    // Pinned so neither tag can come back without this failing. `storm` stays:
+    // a storm card ends a game on its own. `infect` went on 2026-08-23 for the
+    // Blightbelly Rat measurement above, one day after `voltron` went for the
+    // Basilisk Collar one, and they are the same mistake in different words.
+    const wincon = ['finisher', 'wincon', 'extra-turn', 'extra-combat', 'storm'];
     for (const tag of wincon) assert.equal(servesRole([tag], 'wincon'), true, tag);
     assert.equal(servesRole(['voltron'], 'wincon'), false);
     assert.equal(servesRole(['equipment'], 'wincon'), false);
+    assert.equal(servesRole(['infect'], 'wincon'), false);
   });
 });
 
@@ -450,6 +500,7 @@ describe('behaviourSimilarity: same effect, similar arguments', () => {
 describe('describeSharedFacets', () => {
   it('builds the clause from the facet and refuses what it has no phrase for', () => {
     assert.deepEqual(describeSharedFacets(['eff:counter', 'type:instant']), ['counters a spell']);
+    assert.deepEqual(describeSharedFacets(['kw:haste', 'type:creature']), ['has haste']);
     assert.deepEqual(describeSharedFacets(['eff:add-mana', 'acost:0', 'mana:2']), [
       'adds mana',
       'costs nothing to use',
@@ -461,5 +512,203 @@ describe('describeSharedFacets', () => {
     for (const phrase of describeSharedFacets(['cares:zone:library-land', 'rec:full', 'sub:goblin'])) {
       assert.ok(!phrase.includes(':'), phrase);
     }
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * The tribe, on eight commanders the tuning never saw
+ * ------------------------------------------------------------------ */
+
+/*
+ * `CommanderPlan.tribe` needs the subtype on the type line AND inside an
+ * ability. The second half was only ever answerable by the compiler, and the
+ * compiler refuses exactly the clauses that make a tribal commander tribal, so
+ * `scratch/refute-eight.mjs` found Edgar Markov, Lathril and Yuriko all coming
+ * back `tribe: null` and building decks of cheap colourless artifacts.
+ *
+ * `readOwnTypeInRules` in `src/lib/deck/recommend/behaviour.ts` now asks the
+ * printed text the same question and emits `cares:sub:` when it says yes. These
+ * facet lists are that producer's real output over the 2026-08-19 snapshot,
+ * printed by `scratch/refute-probe-facets.mjs` on 2026-08-23. What is pinned
+ * here is the engine's half of the contract: given these facets, these tribes.
+ */
+const COMMANDERS = {
+  edgarMarkov: {
+    name: 'Edgar Markov',
+    typeLine: 'Legendary Creature — Vampire Knight',
+    tags: ['counters', 'creature', 'token-maker', 'tokens'],
+    facets: [
+      'cares:sub:vampire',
+      'kw:first strike',
+      'kw:haste',
+      'rec:partial',
+      'sub:knight',
+      'sub:vampire',
+      'type:creature',
+      'type:legendary',
+    ],
+  },
+  talrand: {
+    name: 'Talrand, Sky Summoner',
+    typeLine: 'Legendary Creature — Merfolk Wizard',
+    tags: ['creature', 'spellslinger', 'token-maker', 'tokens'],
+    facets: [
+      'cares:type:instant',
+      'cares:type:sorcery',
+      'cares:zone:stack',
+      'eff:create-token',
+      'rec:full',
+      'scope:all',
+      'sub:merfolk',
+      'sub:wizard',
+      'tok:drake',
+      'trig:cast',
+      'type:creature',
+      'type:legendary',
+    ],
+  },
+  kaalia: {
+    name: 'Kaalia of the Vast',
+    typeLine: 'Legendary Creature — Human Cleric',
+    tags: ['creature', 'evasion'],
+    facets: ['kw:flying', 'rec:partial', 'sub:cleric', 'sub:human', 'type:creature', 'type:legendary'],
+  },
+  yuriko: {
+    name: "Yuriko, the Tiger's Shadow",
+    typeLine: 'Legendary Creature — Human Ninja',
+    tags: ['creature'],
+    facets: [
+      'cares:sub:ninja',
+      'rec:partial',
+      'sub:human',
+      'sub:ninja',
+      'trig:deals-damage',
+      'type:creature',
+      'type:legendary',
+    ],
+  },
+};
+
+describe('the tribe rule, on commanders the tuning never saw', () => {
+  it('Edgar Markov is a Vampire deck, from a record the compiler only half read', () => {
+    const plan = planForCommander(COMMANDERS.edgarMarkov);
+    assert.equal(plan.tribe, 'vampire');
+    assert.ok(plan.wants.some(w => w.facet === 'sub:vampire'));
+    assert.ok(plan.wants.some(w => w.facet === 'tok:vampire'));
+    // The record admits it is incomplete, which is the case this exists for.
+    assert.equal(COMMANDERS.edgarMarkov.facets.includes('rec:partial'), true);
+  });
+
+  it('Yuriko is a Ninja deck and Lathril is an Elf deck', () => {
+    assert.equal(planForCommander(COMMANDERS.yuriko).tribe, 'ninja');
+    const lathril = planForCommander({
+      name: 'Lathril, Blade of the Elves',
+      typeLine: 'Legendary Creature — Elf Noble',
+      tags: ['creature', 'evasion', 'lifegain', 'token-maker', 'tokens'],
+      facets: [
+        'acost:0',
+        'cares:sub:elf',
+        'eff:gain-life',
+        'eff:lose-life',
+        'kw:menace',
+        'rec:partial',
+        'sub:elf',
+        'sub:noble',
+        'trig:deals-damage',
+        'type:creature',
+        'type:legendary',
+      ],
+    });
+    assert.equal(lathril.tribe, 'elf');
+  });
+
+  it('Talrand is still NOT a Merfolk deck, which is the rule this must not break', () => {
+    // The whole point of the both-places rule. Talrand's text names instants,
+    // sorceries and Drakes; it never names Merfolk or Wizard, so the printed
+    // read adds nothing and the tribe stays null.
+    const plan = planForCommander(COMMANDERS.talrand);
+    assert.equal(plan.tribe, null);
+    assert.equal(COMMANDERS.talrand.facets.includes('cares:sub:merfolk'), false);
+    assert.ok(plan.wants.some(w => w.facet === 'type:instant'));
+  });
+
+  it('Kaalia gets no tribe, because the types she names are not her own', () => {
+    // Angel, Demon and Dragon are in her text and none of them is on her type
+    // line, so a rule that read "any creature type in the text" would have
+    // given her three tribes. She is not a tribal commander and gets none.
+    const plan = planForCommander(COMMANDERS.kaalia);
+    assert.equal(plan.tribe, null);
+    for (const f of COMMANDERS.kaalia.facets) assert.ok(!f.startsWith('cares:sub:'), f);
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * Same verb, different object
+ * ------------------------------------------------------------------ */
+
+describe('behaviourSimilarity separates what the verb was done to', () => {
+  /* Producer output, 2026-08-23, via `scratch/refute-probe-facets.mjs`. */
+  const wrath = {
+    name: 'Wrath of God',
+    facets: ['cares:type:creature', 'eff:destroy', 'rec:full', 'scope:all', 'type:sorcery'],
+  };
+  const dayOfJudgment = {
+    name: 'Day of Judgment',
+    facets: ['cares:type:creature', 'eff:destroy', 'rec:full', 'scope:all', 'type:sorcery'],
+  };
+  const rout = {
+    name: 'Rout',
+    facets: ['acost:2', 'cares:type:creature', 'eff:destroy', 'rec:full', 'scope:all', 'type:sorcery'],
+  };
+  const armageddon = {
+    name: 'Armageddon',
+    facets: ['cares:type:land', 'eff:destroy', 'rec:full', 'scope:all', 'type:sorcery'],
+  };
+  const cleansingMeditation = {
+    name: 'Cleansing Meditation',
+    facets: ['cares:type:enchantment', 'eff:destroy', 'rec:partial', 'scope:all', 'type:sorcery'],
+  };
+
+  it('Rout beats Armageddon, which is the case the live page got wrong', () => {
+    /*
+     * Measured live on 2026-08-23 by `scratch/refute-related.mjs`: Wrath of
+     * God's fourteen held Ravages of War at 7, Armageddon at 8, Cleansing
+     * Meditation at 9 and Cleanfall at 14, all above Rout at 10. Armageddon and
+     * Ravages of War read "Destroy all lands"; Cleansing Meditation and
+     * Cleanfall read "Destroy all enchantments". Rout destroys all creatures
+     * and lost only because its flash clause is an extra unshared facet, so a
+     * plain Jaccard counted doing MORE against it harder than doing something
+     * ELSE.
+     */
+    const vsRout = behaviourSimilarity(wrath, rout).score;
+    const vsArmageddon = behaviourSimilarity(wrath, armageddon).score;
+    const vsMeditation = behaviourSimilarity(wrath, cleansingMeditation).score;
+    assert.ok(vsRout > vsArmageddon, `Rout ${vsRout} vs Armageddon ${vsArmageddon}`);
+    assert.ok(vsRout > vsMeditation, `Rout ${vsRout} vs Cleansing Meditation ${vsMeditation}`);
+  });
+
+  it('the functional reprint still wins outright', () => {
+    const twin = behaviourSimilarity(wrath, dayOfJudgment).score;
+    assert.equal(twin, 1);
+    assert.ok(twin > behaviourSimilarity(wrath, rout).score);
+  });
+
+  it('silence is an absence and not a disagreement', () => {
+    // A record that never named an object must not be punished as if it had
+    // named a different one, or a partial record becomes a wrong record.
+    const saysNothing = {
+      name: 'unread',
+      facets: ['eff:destroy', 'rec:partial', 'scope:all', 'type:sorcery'],
+    };
+    const silent = behaviourSimilarity(wrath, saysNothing).score;
+    const contradicts = behaviourSimilarity(wrath, armageddon).score;
+    assert.ok(silent > contradicts, `silent ${silent} vs contradicting ${contradicts}`);
+  });
+
+  it('is still symmetric with the factor applied', () => {
+    assert.equal(
+      behaviourSimilarity(wrath, armageddon).score,
+      behaviourSimilarity(armageddon, wrath).score
+    );
   });
 });

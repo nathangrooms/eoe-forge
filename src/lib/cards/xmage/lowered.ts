@@ -9,13 +9,52 @@
  * fetched, read or referenced.
  *
  * ==========================================================================
- * THE PRECEDENCE RULE. One rule, not a per-case judgement.
+ * THE PRECEDENCE RULE. Three tiers, one rule, not a per-case judgement.
  * ==========================================================================
  *
- *   THE ORACLE-TEXT COMPILER WINS WHENEVER IT FULLY UNDERSTANDS THE CARD.
- *   THE XMAGE RECORD IS CONSULTED ONLY FOR A CARD THE COMPILER DOES NOT FULLY
- *   UNDERSTAND, AND WHEN IT IS CONSULTED IT REPLACES THE CARD'S WHOLE ABILITY
- *   LIST RATHER THAN BEING MERGED INTO IT CLAUSE BY CLAUSE.
+ *   1. THE ORACLE-TEXT COMPILER WINS WHENEVER IT FULLY UNDERSTANDS THE CARD.
+ *   2. THE XMAGE RECORD, LOWERED THROUGH THE SHARED CLASS TABLE, IS CONSULTED
+ *      ONLY FOR A CARD THE COMPILER DOES NOT FULLY UNDERSTAND, AND WHEN IT IS
+ *      CONSULTED IT REPLACES THE CARD'S WHOLE ABILITY LIST RATHER THAN BEING
+ *      MERGED INTO IT CLAUSE BY CLAUSE.
+ *   3. A MACHINE-TRANSLATED XMAGE BODY IS THE LAST RESORT, REACHED ONLY FOR AN
+ *      EFFECT CLASS THAT ONE CARD DECLARES FOR ITSELF AND THAT NO SHARED
+ *      LOWERING CAN SERVE.
+ *
+ * ### Why a translated body is last, and how that is enforced
+ *
+ * Everything in tier 2 is a lowering somebody wrote and can be read: one
+ * function, one XMage class, an argument list checked against the source. A
+ * tier 3 body is none of those. It is `scripts/xmage/translate-bodies.mjs`
+ * rewriting a third party's Java into TypeScript from the parse tree, with no
+ * human in the loop for that particular card. It is the least reviewed thing
+ * this engine can run, so it runs only where nothing else can.
+ *
+ * The order is not a preference expressed at a merge. It is structural, in
+ * three places:
+ *
+ *   - A body is keyed `local:SomeEffect`, and a `local:` primitive is BY
+ *     DEFINITION one no shared class covers: it is a class the card file
+ *     declared for itself. There is nothing for it to take precedence over.
+ *   - `xmageBodyLowerings` refuses any primitive `LOWERINGS` already holds, so
+ *     the day a hand-written lowering for a card-local class is added, it wins
+ *     and the machine translation stands down.
+ *   - `to-actions.ts` refuses the body a second time at the point of use when
+ *     it is a bare `return true` override, and reports out loud when it throws,
+ *     when its key names a body this build does not carry, when it stops on a
+ *     question, and when it claims success having changed nothing. A tier 3
+ *     body is the only member of the effect union carrying all five guards, and
+ *     it carries them because of what it is.
+ *
+ * ### What tier 3 is NOT, and this is the bar it does not cross
+ *
+ * A card whose record fails to lower does not fall back to "run whichever of
+ * its abilities did lower". 246 cards have a substantive translated body they
+ * cannot reach for exactly that reason, and running the reachable part of them
+ * would be half a card. The all-or-nothing bar in `emit-lowered.mjs` is the
+ * same bar as tier 2's whole-card swap and it is there for the same reason.
+ * Tier 3 is a last resort WITHIN a card that lowers completely, not a way to
+ * ship part of one that does not.
  *
  * `CLAUDE.md`'s standing position is that oracle text wins and the
  * disagreement is recorded. This does not depart from it. It says WHERE the

@@ -307,6 +307,8 @@ import {
   SuperType,
   anotherPredicate,
   cardTypePredicate,
+  colorPredicate,
+  controlledByOpponentPredicate,
   controlledByPredicate,
   makeFilter,
   namePredicate,
@@ -316,6 +318,12 @@ import {
   tappedPredicate,
 } from './filters.ts';
 import { CardUtil, fixedTarget, makeTarget } from './targets.ts';
+import {
+  boostSourceEffect,
+  boostTargetEffect,
+  createTokenEffect,
+  xmageToken,
+} from './effects.ts';
 
 /** One translated body, with where in XMage it came from. */
 export interface TranslatedBody {

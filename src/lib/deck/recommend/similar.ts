@@ -89,8 +89,20 @@ export interface SimilarCensus {
 }
 
 export interface SimilarResult<T> {
-  /** The subject's own reading, so a caller can say whether it could speak. */
-  subject: { facets: readonly Facet[]; source: 'compiler' | 'xmage' | 'none'; coverage: string };
+  /**
+   * The subject's own reading, so a caller can say whether it could speak.
+   *
+   * `reads` is that reading in plain English — "counters a spell", "adds mana,
+   * costs nothing to use, 2 mana at a time" — built here rather than in the
+   * component so a page cannot invent its own phrasing for a facet. A player
+   * has to see what the ranking read before they can disagree with it.
+   */
+  subject: {
+    facets: readonly Facet[];
+    reads: string;
+    source: 'compiler' | 'xmage' | 'none';
+    coverage: string;
+  };
   entries: SimilarEntry<T>[];
   census: SimilarCensus;
 }
@@ -242,7 +254,12 @@ export function rankBySameBehaviour<T extends SimilarCard>(
   }));
 
   return {
-    subject: { facets: self.facets, source: self.source, coverage: self.coverage },
+    subject: {
+      facets: self.facets,
+      reads: describeSharedFacets(verbFirst(self.facets), 4).join(', ') || 'only its type line',
+      source: self.source,
+      coverage: self.coverage,
+    },
     entries,
     census: {
       pool: candidates.length,
@@ -270,10 +287,18 @@ export function canReadBehaviour(card: SimilarCard): boolean {
  * Notes
  * ------------------------------------------------------------------ */
 
+/**
+ * "Also", not "Both".
+ *
+ * The phrases come out of the engine in the third person singular, because the
+ * same table writes the SUBJECT's reading — "Sol Ring adds mana, 2 mana at a
+ * time". Prefixing them with "Both" produced "Both counters a spell". "Also"
+ * reads correctly against either, and one phrase table is worth more than two.
+ */
 function recordNote(shared: readonly Facet[]): string {
   const phrases = describeSharedFacets(shared, 3);
-  if (phrases.length === 0) return 'same card type, nothing else in common';
-  return `Both ${phrases.join(', ')}`;
+  if (phrases.length === 0) return 'Same card type, nothing else in common';
+  return `Also ${phrases.join(', ')}`;
 }
 
 /**
@@ -298,6 +323,23 @@ function tagNote(
 /* ------------------------------------------------------------------ *
  * Small helpers
  * ------------------------------------------------------------------ */
+
+/**
+ * Verb, then arguments, then magnitudes.
+ *
+ * Facets arrive sorted alphabetically, which reads as "Sol Ring costs nothing
+ * to use, adds mana, 2 mana at a time". A sentence about a card starts with
+ * what the card does.
+ */
+const READING_ORDER = ['eff:', 'scope:', 'cares:', 'mana:', 'acost:', 'ctr:', 'tok:', 'trig:'];
+
+function verbFirst(facets: readonly Facet[]): Facet[] {
+  const rank = (f: Facet) => {
+    const i = READING_ORDER.findIndex(p => f.startsWith(p));
+    return i < 0 ? READING_ORDER.length : i;
+  };
+  return [...facets].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+}
 
 function numberOf(value: number | string | null | undefined): number {
   const n = typeof value === 'number' ? value : Number(value ?? 0);

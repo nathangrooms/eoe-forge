@@ -45,13 +45,25 @@ export const ROLE_TAGS: Readonly<Record<Role, readonly string[]>> = {
    * were Equipment, and Basilisk Collar was the win condition of all four
    * decks. A strategy is not a win condition, and a Bone Saw is not a strategy.
    *
-   * `storm` and `infect` stay, because each names a card that ends a game on
-   * its own. What replaced `voltron` is not another word: `behaviour.ts` reads
-   * `eff:win-game`, `eff:lose-game`, `eff:poison`, extra turns, extra combats
-   * and mass pump straight off the ability record, which is how Craterhoof
-   * Behemoth qualifies and Bone Saw does not.
+   * `infect` followed it out on the same day, and the fact that it took a
+   * second pass to see is the point worth keeping.
+   *
+   * `eff:poison` was removed from `ROLE_FACETS` in `knowledge/behaviour.ts`
+   * first, on the argument that one poison counter is not a win. That fixed
+   * nothing on its own, because a card whose record is PARTIAL never reaches
+   * that table's verdict — `cardServesRole` falls through to these words
+   * instead — so Blightbelly Rat and Ichorclaw Myr walked back in through the
+   * tag. Re-measured by `scratch/refute-eight.mjs` with only the facet half
+   * done: Blightbelly Rat, a two-mana 1/1, was still a win condition of the
+   * Meren, Kaalia and Yuriko decks. A role has TWO doors and closing one is
+   * closing neither.
+   *
+   * `storm` stays, because a storm card ends a game on its own. What replaced
+   * both words is not another word: `behaviour.ts` reads `eff:win-game`,
+   * `eff:lose-game`, extra turns and extra combats straight off the ability
+   * record, which is how Craterhoof Behemoth qualifies and Bone Saw does not.
    */
-  wincon: ['finisher', 'wincon', 'extra-turn', 'extra-combat', 'infect', 'storm'],
+  wincon: ['finisher', 'wincon', 'extra-turn', 'extra-combat', 'storm'],
   land: ['land'],
   /*
    * Empty, and it has to stay empty.

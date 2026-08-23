@@ -739,3 +739,373 @@ src/lib/**/*.test.ts`: **1,697 pass, 0 fail**, with 29 new tests in
 `src/lib/game/xmage/library.test.ts`. Harness: 20 games, 19 finished, 1 stalled
 on the pre-existing seed 9018 which finishes on turn 82 at `--max-turns 200`, 0
 invariant violations, 0 replays diverged.
+
+---
+
+# 11. The arity block, and the ceiling the whole body line of work is aiming at
+
+Added 23 Aug 2026. `docs/engine/RUNTIME-API.md` section 6b is the runtime half
+of this, including the three defects. This is the translator half and the
+measurement.
+
+## The wiring was already done, so this had to move somewhere else
+
+The task was to make a translated body run when a card resolves. Section 9 did
+that and it still holds: `compileWithTrace` reaches `xmageSwapFor`, a swapped
+record can carry a `{do:'xmage-body'}` pointer, and `to-actions.ts` runs it.
+Counted over the pool this time rather than assumed:
+
+| | cards |
+|---|---:|
+| swapped to an XMage record | **1,367** |
+| of those, carrying a translated body | 191 |
+| of those, AUTOMATED | 36 |
+| of those, PROMPTED or PROMPTABLE | 32 |
+| of those, downgraded by the probe or graded dead | 123 |
+
+`scratch/xmage/swapped-pool-verdicts.mjs`, joined against the name list
+`DM_NAME_LIST=1` writes. The other measurements quoted below are
+`scratch/xmage/body-reach.mjs` and `body-shape.mjs` for the 246 cards that
+cannot reach a body, `body-block-why.mjs` for why, `pigeon.mjs` for the 44,
+`local-ceiling.mjs` for the ceiling and `probe-target-cost.mjs` for the 884.
+Every one of them was run; none of the figures here is estimated.
+
+So the seam is not the constraint. The constraint is how many cards have a body
+at all, and the biggest cheap block on the work order was six OVERLOADS of
+methods the runtime already had: `Player#choose/5` (97 bodies),
+`Permanent#damage/6` (63), `Player#moveCards/8` (39), `Card#addCounters/3` (35),
+`Player#choose/3` (29) and `Player#discard/4` (27), plus `Player#millCards`
+(70), which is one method whose XMage implementation is two calls this port
+already had.
+
+## Three guards, so an overload is matched and never guessed
+
+Longer XMage overloads are usually the shorter one with trailing flags, and the
+shorter one is the longer one with those flags at their defaults. Mapping the
+long form to the short function is exactly right for the default flags and
+exactly wrong for anything else, so `translate.mjs` now reads the LITERAL:
+
+- `flags({4:'false', 5:'true'})` matches `damage(..., combat, preventable)` only
+  in the combination `PermanentImpl`'s own four-argument form passes. 151 of the
+  157 six-argument calls in the card files are that pair. The other six block.
+- `all(flags({4:'false',5:'false',6:'false'}), isNull(7))` does the same for
+  `moveCards/8`. 24 of the 133 calls qualify; the rest ask for a permanent to
+  arrive tapped, face down, or under its owner's control, and each of those
+  dropped would be a visible difference on the board.
+- `argIs(1, 'Cards', 'CardsImpl')` picks between two five-argument `choose`
+  overloads by the type of the second argument, and `argIs(1, 'boolean')`
+  against `argIs(1, 'int')` does it for the two five-argument `discard` forms.
+  That second pair was a live defect: see RUNTIME-API section 6b.
+
+A call that matches none of them blocks with its arity named, which is the
+report saying a meaning is missing rather than the file carrying a wrong one.
+
+## One new flag on the generator
+
+`--tsc-log <path>` writes every phase-two error with its MESSAGE and the card it
+landed in. The report has always recorded the error CODE, and a code cannot be
+acted on: `TS2339` on 63 bodies says a method is missing without saying which.
+It named two in one run, and `discard` returning an id array where XMage returns
+a `Cards` was worth 23 bodies on its own. It changes nothing about what is
+emitted.
+
+## The number
+
+| | before | after |
+|---|---:|---:|
+| bodies that SHIP, after `tsc --strict` | 852 | **950** |
+| card files that emit something | 812 | 910 |
+| substantive bodies | 474 | 572 |
+| bodies first-blocked on an arity | 420 | **194** |
+| records in `lowered.generated.ts` | 6,362 | 6,409 |
+| cards carrying a body pointer | 217 | **264** |
+
+**`scripts/verify-ability-coverage.mjs` AUTOMATED, whole corpus, same script:
+3,501 (10.78%) to 3,507 (10.80%). Six cards.** Under the stricter variant,
+3,290 (10.13%) to 3,295 (10.15%).
+
+Ninety-eight more shipped bodies and forty-seven more cards reaching one bought
+six cards on the bar. Pre-probe the figure went from 4,427 to 4,459, so
+thirty-two more cards became candidates and twenty-six of them were downgraded:
+21 for an unbound target, 11 for a target pointer nothing bound, 3 for a discard
+the engine correctly refuses to decide. Every one of those downgrades is the
+honest direction.
+
+That is the exchange rate, and it is the number worth carrying forward: **the
+Library tranche was 54 bodies for 13 cards, this one is 98 bodies for 6.** No
+single tranche of this kind moves 10.80% by a visible amount.
+
+## The ceiling this whole line of work is aiming at
+
+`scratch/xmage/local-ceiling.mjs`, over all 32,168 extracted records: if every
+card-local body translated and nothing else changed, how many more cards would
+lower?
+
+| | records |
+|---|---:|
+| lowers today | 6,362 |
+| **blocked ONLY on card-local classes** | **3,605** |
+| blocked on a card-local class AND on something shared | 3,234 |
+| blocked on shared classes only | 18,183 |
+| no usable oracle id, or no abilities | 784 |
+
+**3,605 cards is the ceiling of the translated-body line of work.** It is worth
+having because it is the denominator that says whether to keep going: the bodies
+deliver 264 cards today against a ceiling of 3,605, and 18,183 cards are not
+waiting on a body at all. It is a ceiling and not coverage, which on this
+project has to be said out loud every time.
+
+## Why tier 3 stops where it does, and what it costs
+
+The precedence rule in `src/lib/cards/xmage/lowered.ts` now names three tiers,
+and the third one, a machine-translated body, is deliberately a last resort
+INSIDE a card that lowers completely rather than a way to ship part of one that
+does not.
+
+Measured: **246 cards have a substantive translated body they cannot reach.**
+151 of them because the ability carrying the body is itself blocked, and 95
+because a sibling ability is. Running the reachable half of those 95 would be
+half a card, which is the failure this project has already made four times, and
+the 151 would gain nothing at all. The blockers behind them are a long tail with
+no lever in it: the biggest is `ConditionalOneShotEffect` at 13 cards.
+
+A stricter version was measured too, in case the correspondence could ever be
+forced rather than guessed: cards where the compiler failed on exactly ONE
+paragraph and exactly one lowered ability carries exactly one body, so there is
+one thing on each side and no matching to do. **44 cards.** Not worth
+overturning the whole-card rule for.
+
+## The largest single thing between 10.80% and a higher number, and it is the ruler
+
+`scratch/xmage/probe-target-cost.mjs`, and this is a measurement ABOUT THE
+MEASUREMENT, not a coverage figure:
+
+**884 cards are in neither the AUTOMATED nor the PROMPTED bucket, and the only
+thing the behaviour probe deferred on for any of them was the sentence "targets
+are not bound on the probe board".** That is 2.72 points of the pool, more than
+a hundred times what this tranche moved.
+
+It is not an engine gap. `behaviour-probe.ts` binds no targets on purpose,
+because faking one would test the fake, and it reports `deferred` rather than
+`silent` so the card is not falsely rejected. But `verify-ability-coverage.mjs`
+grades the target question separately and already decides it: a targeted SPELL
+is AUTOMATED because a shipped surface announces spell targets, and a targeted
+trigger or activated ability is a DECISION. Then the probe downgrades the spell
+anyway, for a target the verdict rule has already said a player can announce.
+
+The fix is to bind a legal target off each ability's own `TargetSpec`, which
+`scratch/xmage/hand-check.mjs` already knows how to do, and NOT to delete the
+downgrade. It is left alone here for one reason: it would move the headline by
+around 2.7 points without changing a single thing a player experiences, and this
+project has twice published a number that moved for that kind of reason. When
+somebody does it, both numbers have to be printed side by side and the old one
+has to stay reproducible.
+
+## Gates
+
+Typecheck **0 errors** over `tsconfig.app.json`. `npm test` **2,401 pass, 0
+fail**, including 13 new tests in `src/lib/game/xmage/overloads.test.ts` and 3
+in `src/lib/game/abilities/xmage-body.test.ts` for a body that throws.
+`npm run build` succeeds. Checks 1 to 5 unchanged; no XMage wording reaches the
+generated file.
+
+Harness, seed 9000, 20 games, `--max-turns 200`: **20 finished, 0 stalled, 0
+invariant violations.** Seed 9018 finishes on turn 82. The analysis report
+matches the `bodies-loud` baseline on every verdict but three resolutions and
+one card.
+
+---
+
+# 12. Two blocks, the curve, and the reason to stop
+
+Added 23 Aug 2026. `docs/engine/RUNTIME-API.md` section 6c is the runtime half,
+including the six defects and the seventh in a gate. This is the translator half,
+the measurement, and the stopping argument.
+
+The task was to work down the blocker list until the return falls off, re-ranking
+after each step, re-measuring coverage after each block so the curve is visible,
+and to stop when the return per unit of work falls off rather than when the list
+runs out.
+
+## Re-ranking changed the answer, and it is a fact about the ranking
+
+Section 5's table and the work order `translate-bodies.mjs` prints both rank by
+ROW. That is right for a method and wrong for a family, and the largest things
+left on the list are families: one piece of work spread over a hundred rows of
+one and two bodies each, sitting below everything visible.
+
+Re-aggregated by what a single piece of work would serve, the token classes were
+127 bodies across 101 rows — the largest item available, invisible on the
+ranking, and already extracted into `tokens.generated.ts` by a tranche that never
+wired it up. `StaticFilters.*` and `new Filter*` were 243 more across 78 rows.
+
+Neither was on the named list. The named block, `CreateTokenEffect` +
+`BoostTargetEffect` + `CreateTokenCopyTargetEffect`, was 183 bodies, and the
+first two of those three came along with step one because the token table
+unblocked their argument.
+
+## The two steps, and what each one cost and bought
+
+Measured after each step, not once at the end.
+
+| | bodies that ship | card files | cards with a body pointer | AUTOMATED | stricter |
+|---|---:|---:|---:|---:|---:|
+| **start** | 950 | 910 | 264 | 3,507 (10.80%) | 3,295 (10.15%) |
+| after **step 1**: tokens, `CreateTokenEffect`, `BoostTargetEffect`, `putOntoBattlefield` | 1,065 | 1,022 | 314 | **3,519 (10.84%)** | 3,307 (10.19%) |
+| after **step 2**: the filter family, `putOntoBattlefield/3` and `/6` | 1,125 | 1,082 | 343 | **3,522 (10.85%)** | 3,310 (10.19%) |
+
+**The curve, which is the thing worth carrying forward:**
+
+| tranche | bodies added | cards on the bar | bodies per card |
+|---|---:|---:|---:|
+| Library (section 10) | 54 | 13 | 4 |
+| the arity block (section 11) | 98 | 6 | 16 |
+| **step 1, this section** | **115** | **12** | **10** |
+| **step 2, this section** | **60** | **3** | **20** |
+
+Step two cost the same kind of work as step one and returned a quarter as much
+per body. That is the return falling off, and it is where this stops.
+
+## Why it falls off, which is not where anybody would look
+
+The obvious reading is that the bodies are getting harder. They are not. Joined
+card by card, `scratch/xmage/body-verdicts.mjs`, over all 343 cards that carry a
+translated body today:
+
+| | cards |
+|---|---:|
+| lowers fully, and the body RAN on the probe board | **64** |
+| lowers fully, probe DEFERRED | **261** |
+| lowers fully, probe silent | 15 |
+| does not lower fully | 3 |
+
+**Three out of four cards that carry a working translated body are deferred**,
+and the deferrals are almost entirely two lines:
+
+| hits | what it says |
+|---:|---|
+| 177 | targets are not bound on the probe board, so this ability was not executed |
+| 110 | the object this card is about was never bound, so the part of the card that reads it did nothing |
+| 8 | the source had nothing left to attach to |
+| 5 | the tokens were created but the delayed trigger that removes them cannot be stored |
+
+Neither of the top two is a missing translation, and only the second is even an
+engine gap.
+
+- **The first is the RULER**, and section 11 already named it: `behaviour-probe.ts`
+  binds no targets on purpose, and `verify-ability-coverage.mjs` grades the target
+  question separately and has already decided it before the probe downgrades the
+  card anyway. Section 11 measured that at 884 cards and 2.72 points across the
+  whole pool. It is untouched here, for the reason section 11 gives.
+- **The second is the trigger target pointer**, `targets.ts`'s `UNBOUND`: XMage
+  rebinds the pointer inside the TRIGGER class, which is a different Java file
+  from the effect and therefore not part of the body this project translates.
+
+So the shape of the ceiling has moved. The bodies that ship now are increasingly
+ones whose whole job is to act on a target, and a target is exactly what neither
+the probe nor the trigger bridge provides. **More translated bodies is no longer
+the binding constraint.**
+
+## Where this stopped, and what the next step would have bought
+
+Stopped after step two, on the curve above.
+
+The work order after step two, largest first, with what each row actually is:
+
+| bodies | cards | row | available? |
+|---:|---:|---|---|
+| 106 | 105 | `CardUtil#getSourceCostsTag` | **no** — same name, different function; section 5 |
+| 81 | 81 | `GameState#getWatcher` | **no** — a deliberate refusal |
+| 78 | 78 | `CreateTokenCopyTargetEffect` | yes |
+| 77 | 74 | an object in a `+` expression | a translator job, not an engine one |
+| 74 | 72 | `Exile#getExileZone` | yes |
+| 70 | 70 | `Player#lookAtCards` | a decision about hidden information |
+
+**The next step would have been `CreateTokenCopyTargetEffect`, 78 bodies across
+78 cards, and here is what it needs**, counted over those 78 files:
+
+| files | what they use |
+|---:|---|
+| 60 | `setTargetPointer` |
+| 36 | `getAddedPermanents` |
+| 17 | `addDelayedTriggeredAbility` |
+| 15 | `setSavedPermanent` |
+| 13 | `withAdditionalSubType` |
+| 6 + 3 + 2 + 1 | `setIsntLegendary`, `setOnlySubType`, `setBecomesArtifact`, a `CopyApplier` |
+
+That is copy-of-a-copy handling, a token built from a live permanent, a delayed
+trigger this engine has no store for, and six modifier methods — several times
+the work of either step above. And **60 of the 78 read a target pointer**, which
+is the exact shape the measurement above says gets deferred three times in four.
+
+At step two's rate of 20 bodies per card it would be worth about **three or four
+cards**, for more work than both steps here combined. That is the estimate the
+stopping decision rests on, and it is an estimate: the honest thing about it is
+that it comes from this tranche's own measured exchange rate rather than from a
+guess about the class.
+
+**What is worth doing instead, and it is not on this list at all:** bind a legal
+target off each ability's own `TargetSpec` in the probe. Section 11 measured that
+at 884 cards and 2.72 points, a hundred times either step here, and this
+tranche's 177 target deferrals across body-carrying cards say the same thing
+again from a different direction. Section 11's conditions still hold: bind a
+legal target rather than deleting the downgrade, and publish both numbers side by
+side.
+
+## What went into the translator
+
+- The token table and the filter table are read from
+  `scripts/coverage/.data/*.json` and consulted **after** the hand-written
+  `NEW`, `STATIC_FILTERS` and `METHODS` tables, never before. Eighteen filter
+  constants overlap the hand table and all eighteen agree, which is what makes
+  the derived half trustworthy; hand rows still win so that a row somebody wrote
+  on purpose is never silently replaced by a parse.
+- A `NEW` builder can now BLOCK. Builders are module level and `fail` belongs to
+  the per-body closure, so a builder returns a block and `newRef` raises it. That
+  is what lets `CreateTokenEffect` refuse a `DynamicValue` amount and
+  `BoostTargetEffect` refuse a `DynamicValue` boost rather than passing an object
+  where a number belongs.
+- `Duration` maps to four of this engine's `EffectExpiry` kinds. `Custom`,
+  `OneUse`, `EndOfStep` and `EndOfCombat` block by name rather than becoming end
+  of turn: an effect that ends at the wrong moment is a wrong board that nothing
+  later notices.
+- A token or filter class constructed WITH ARGUMENTS blocks. The tables hold the
+  no-argument form, and reading `new FilterCreatureCard(SubType.ELF)` as the
+  no-argument form would match every creature card instead of every Elf.
+- `Token#putOntoBattlefield` gained the 3-argument form, which XMage defines as
+  the 4-argument one with the ability's own controller. It was the first blocker
+  on 55 bodies, and it is a row that only APPEARED once the token classes stopped
+  blocking those bodies one step earlier. The 6-argument form is matched on the
+  literal `false` for `attacking`, so a token meant to arrive attacking blocks
+  rather than quietly arriving in the second main phase.
+
+## Reproducing
+
+```bash
+node scripts/xmage/extract-tokens.mjs     # the token table
+node scripts/xmage/extract-filters.mjs    # the filter table, new here
+node scripts/xmage/translate-bodies.mjs
+node --experimental-strip-types scripts/xmage/emit-lowered.mjs
+node --experimental-strip-types scripts/verify-ability-coverage.mjs
+node --experimental-strip-types scratch/xmage/body-verdicts.mjs   # the 343
+```
+
+Both generators are byte-reproducible now. `lowered.generated.ts` was not: see
+`RUNTIME-API.md` section 6c.
+
+## Gates
+
+`tsc --noEmit -p tsconfig.app.json` **0 errors**. `npm test` **2,444 pass, 0
+fail**. `npm run build` succeeds. Checks 1 to 5 clean, with check 5 now reading
+both quote characters and still at 0. Harness seed 9000, 20 games,
+`--max-turns 200`: **20 finished, 0 stalled, 0 invariant violations**. Sample
+read: **12 of 12 agree line for line**.
+
+Corpus: bodies **950 to 1,125**, card files **910 to 1,082**, substantive **572
+to 747** (trivial unchanged at 378, so every new body is substantive), records in
+`lowered.generated.ts` **6,409 to 6,488**, cards carrying a body pointer **264 to
+343**.
+
+**`scripts/verify-ability-coverage.mjs` AUTOMATED, whole corpus, same script:
+3,507 (10.80%) to 3,522 (10.85%). Fifteen cards.** Stricter variant 3,295
+(10.15%) to 3,310 (10.19%).

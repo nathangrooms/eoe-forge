@@ -73,6 +73,37 @@ import {
 import { evaluateDeck, type DeckEvaluation } from '../evaluate.ts';
 
 /* ------------------------------------------------------------------ *
+ * The colour floor
+ * ------------------------------------------------------------------ */
+
+/**
+ * How many of the nonland slots must carry one of the commander's colours.
+ *
+ * DECLARED POLICY, in the same shape and for the same reason as
+ * `CREATURE_TARGETS` in `advise/roles.ts`: a number the product chose, written
+ * down where it can be argued with rather than buried in a scoring weight.
+ *
+ * Half. A Commander deck with 35 lands has 64 nonland slots, and half of them
+ * is the point below which the deck stops being a deck in those colours: it
+ * still leaves room for the thirty-odd artifacts a genuine artifact deck wants,
+ * and it is far enough under the fifty-plus coloured cards an ordinary
+ * two-colour list runs that it can never be the binding constraint for one.
+ *
+ * A colourless commander returns 0 and the pass never runs.
+ */
+export const COLOURED_FLOOR_SHARE = 0.5;
+
+export function colouredFloorFor(identity: readonly string[], spellSlots: number): number {
+  if (identity.length === 0) return 0;
+  return Math.floor(spellSlots * COLOURED_FLOOR_SHARE);
+}
+
+/** Does this card carry any colour at all? Colour identity, not the mana cost. */
+function hasColour(card: { colorIdentity?: readonly string[] | null }): boolean {
+  return (card.colorIdentity ?? []).length > 0;
+}
+
+/* ------------------------------------------------------------------ *
  * Shapes
  * ------------------------------------------------------------------ */
 
@@ -331,13 +362,47 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
   const nonBasicRoom = Math.max(0, landTarget - basicFloor);
 
   const landPool = pool.filter(isLandCandidate);
-  const seedForLands = seedProfile(format, identity, input.commander, null, {
-    // Only the land quota is short, so the role-gap signal is about lands and
-    // nothing else. An Evolving Wilds is tagged `ramp` too, and crediting that
-    // here would rank fixing against a ramp quota it is not being asked to fill.
-    ...zeroRoleTargets(),
-    land: landTarget,
-  }, plan);
+  /*
+   * A LAND IS PICKED FOR THE MANA IT MAKES, NOT FOR A WORD IT SHARES WITH THE
+   * COMMANDER, so the land seed carries neither tags nor the plan.
+   *
+   * Only the land quota is short, so the role-gap signal is about lands and
+   * nothing else. An Evolving Wilds is tagged `ramp` too, and crediting that
+   * here would rank fixing against a ramp quota it is not being asked to fill.
+   * That much was already true. What was not, and what
+   * `scratch/refute-lands.mjs` measured on 2026-08-23:
+   *
+   * With the commander's tags in the seed, every land that shares any tag with
+   * the commander collects `tag-synergy` of about 0.70, and the ENTIRE
+   * popularity spread across 641 Mardu lands is 0.11 to 0.75. So one shared
+   * word outweighs the whole of the only evidence we hold about which lands
+   * people actually play. Ranking Edgar Markov's lands that way put Field of
+   * the Dead, Castle Ardenvale, Abandoned Air Temple, Dark Depths and Adagia,
+   * Windswept Bastion in the top eight and Command Tower at 41, Godless Shrine
+   * at 81 and Blood Crypt at 83. Kaalia of the Vast has the same three colours
+   * and no plan, so nothing fired for her and the same code returned Command
+   * Tower, Exotic Orchard, Evolving Wilds, Bojuka Bog, Flooded Strand, Godless
+   * Shrine and Blood Crypt in that order. Same colours, same pool, same
+   * function: the deck with a working commander plan got the worse mana base.
+   * Measured castability on curve for the Edgar deck, before and after this
+   * line: 62% and 75%. Both Mardu decks now get the same mana base, which is
+   * the right answer: a mana base is a function of the colours, and two decks
+   * in the same three colours wanting different lands was the symptom.
+   *
+   * The cost is real and small: Cavern of Souls is a genuinely better land in
+   * Edgar's deck than in most, and this cannot see that any more. It is still
+   * picked, because it is the 15th most played land in these colours, and a
+   * signal that promotes Dark Depths over Command Tower is not paying for
+   * itself.
+   */
+  const seedForLands = seedProfile(
+    format,
+    identity,
+    { ...input.commander, tags: [], facets: null },
+    null,
+    { ...zeroRoleTargets(), land: landTarget },
+    null
+  );
 
   const rankedLands = rankCandidates(landPool, seedForLands, rankOptions);
   const chosenLands = pickLands(rankedLands, preferred, nonBasicRoom, identity);
@@ -405,13 +470,32 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
   // across the whole deck, not a quota competing with the others: a mana dork
   // taken as ramp is still a creature, and making it choose between the two
   // would either lose the ramp slot or double-count the card.
+  /*
+   * THE COLOURLESS BUDGET, and it is a cap rather than a floor because a floor
+   * arrives too late.
+   *
+   * See `colouredFloorFor` for the policy and the measurement. Written as a
+   * top-up pass after the quotas it could not do its job: with a pool of 500
+   * colourless artifacts against 120 coloured cards the role quotas took 35
+   * colourless cards first, the creature floor took most of what was left, and
+   * the top-up reached 28 of the 31 it needed with nowhere to put the rest.
+   * Neither floor may cut what an earlier pass chose, so the only way to keep
+   * the room is to not spend it. Every pass below stops taking colourless
+   * cards once this many are in.
+   */
+  const colourlessCap = spellSlots - colouredFloorFor(identity, spellSlots);
+  let colourlessPicked = 0;
+  const overColourlessCap = (card: BuildCard) => !hasColour(card) && colourlessPicked >= colourlessCap;
+
   const quota = { ...targets, land: 0, creature: 0 } as Record<Role, number>;
   for (const rec of orderPreferredFirst(rankedSpells, preferred)) {
     if (picked.length - chosenLands.length >= spellSlots) break;
     const card = rec.card as BuildCard;
     if (takenOracleIds.has(card.oracleId)) continue;
+    if (overColourlessCap(card)) continue;
     const role = neediestRole(card, quota);
     if (!role) continue;
+    if (!hasColour(card)) colourlessPicked += 1;
     quota[role] -= 1;
     roleFill[role].picked += 1;
     takenOracleIds.add(card.oracleId);
@@ -454,31 +538,122 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
    * a missing sweeper.
    */
   const creatureFloor = targets.creature;
+  const colourFloor = colouredFloorFor(identity, spellSlots);
   let creaturesPicked = picked.filter(e => cardRole(e.card, 'creature')).length;
-  if (creaturesPicked < creatureFloor) {
+  let colouredPicked = picked.filter(e => !cardRole(e.card, 'land') && hasColour(e.card)).length;
+
+  /**
+   * Take cards off the seed ranking until `enough()` or the deck is full.
+   *
+   * Shared by both floors so they cannot drift apart, and so a card taken for
+   * one is counted by the other. `wanted` is the test a card has to pass;
+   * `bucket` is only a label for the entry.
+   */
+  const fillTo = (
+    enough: () => boolean,
+    wanted: (card: BuildCard) => boolean,
+    bucket: Bucket
+  ) => {
+    if (enough()) return;
     for (const rec of orderPreferredFirst(rankedSpells, preferred)) {
-      if (creaturesPicked >= creatureFloor) break;
+      if (enough()) break;
       if (picked.length - chosenLands.length >= spellSlots) break;
       const card = rec.card as BuildCard;
       if (takenOracleIds.has(card.oracleId)) continue;
-      if (!cardRole(card, 'creature')) continue;
+      if (!wanted(card)) continue;
+      if (overColourlessCap(card)) continue;
       takenOracleIds.add(card.oracleId);
-      creaturesPicked += 1;
+      if (cardRole(card, 'creature')) creaturesPicked += 1;
+      if (hasColour(card)) colouredPicked += 1;
+      else colourlessPicked += 1;
       picked.push({
         card,
         quantity: 1,
         reason: rec.reason,
         score: rec.score,
-        bucket: 'creature',
+        bucket,
         preferred: preferred.has(card.oracleId),
       });
     }
-  }
+  };
+
+  /*
+   * COLOURED CREATURES FIRST, and this sweep is the whole reason the two floors
+   * are written together instead of one after the other.
+   *
+   * Both floors only ADD, so they compete for the same nonland slots, and
+   * whichever runs first spends them. Written as two independent passes with
+   * the creature floor first, Urza, Lord High Artificer came back with 40
+   * creatures and 46 of 64 spells colourless: the creature top-up had taken
+   * artifact creatures, which are the highest-ranked creatures in a mono-blue
+   * pool, and by the time the colour floor ran there were fourteen slots left
+   * and it needed twenty-eight.
+   *
+   * A card that closes both floors at once closes both for free, so those are
+   * taken first and neither floor can starve the other.
+   */
+  fillTo(
+    () => creaturesPicked >= creatureFloor || colouredPicked >= colourFloor,
+    card => cardRole(card, 'creature') && hasColour(card),
+    'creature'
+  );
+  fillTo(() => creaturesPicked >= creatureFloor, card => cardRole(card, 'creature'), 'creature');
+
   roleFill.creature.picked = creaturesPicked;
   if (creaturesPicked < creatureFloor) {
     shortfalls.push(
       `${creatureFloor - creaturesPicked} of ${creatureFloor} creature slots could not be ` +
         `filled from the legal pool`
+    );
+  }
+
+  /* ---------------------------------------------------------------- *
+   * 2c. The colour floor.
+   * ---------------------------------------------------------------- *
+   *
+   * THE FIX FOR "IT IS JUST TAKING ADVANTAGE OF COLOURLESS ARTIFACTS".
+   *
+   * Same shape as the creature floor above and for the same kind of reason: a
+   * requirement the ranker structurally cannot see, stated declaratively
+   * instead of tuned into a weight.
+   *
+   * WHAT THE RANKER SEES. `WEIGHTS.playability` pays a card for how reliably
+   * this deck can pay for it, and a colourless card is castable by every deck
+   * that can pay its generic cost. So every colourless card collects the full
+   * 2.5 and a real card in two colours at four mana collects perhaps 2.0.
+   * `CASTABILITY_COMFORT_PCT` was added to blunt that and does not remove it:
+   * the comfort point is 75%, and plenty of honest on-colour cards never reach
+   * 75%. Measured by `scratch/refute-colour.mjs` on the 2026-08-19 snapshot,
+   * colourless share of the legal spell pool against colourless share of the
+   * finished 64, after every other fix in this pass had landed:
+   *
+   *   Urza                 pool 34.0%   deck 96.9%   x2.85
+   *   Ghave                pool 13.5%   deck 40.6%   x3.01
+   *   Meren                pool 19.8%   deck 45.3%   x2.29
+   *   Niv-Mizzet           pool 19.7%   deck 43.8%   x2.22
+   *   Kaalia               pool 13.4%   deck 25.0%   x1.87
+   *   Yuriko               pool 19.7%   deck 29.7%   x1.51
+   *
+   * Six of eight decks came back one and a half to three times more colourless
+   * than the pool they were drawn from. Urza's mono-blue 99 contained two blue
+   * spells. Nobody asked for that deck: a player who picks a commander has
+   * picked its colours, and a 99 that does not play them is not the deck they
+   * asked for however castable it is.
+   *
+   * WHAT THIS DOES NOT DO. It does not fix the scoring bias, which is still
+   * there and still measurable; it states the requirement the scoring cannot
+   * express. Like the creature floor it only ever ADDS, never cuts, so a
+   * genuine artifact deck keeps its artifacts — Urza goes to a deck that is
+   * half blue cards and half artifacts rather than one that is all artifacts.
+   * A colourless commander has an empty identity and this pass never runs.
+   */
+  fillTo(() => colouredPicked >= colourFloor, card => hasColour(card), 'flex');
+  roleFill.creature.picked = creaturesPicked;
+
+  if (colourFloor > 0 && colouredPicked < colourFloor) {
+    shortfalls.push(
+      `${colourFloor - colouredPicked} of ${colourFloor} slots for cards in the commander's ` +
+        `colours could not be filled from the legal pool`
     );
   }
 
@@ -501,7 +676,10 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
       if (picked.length - chosenLands.length >= spellSlots) break;
       const card = rec.card as BuildCard;
       if (takenOracleIds.has(card.oracleId)) continue;
+      if (overColourlessCap(card)) continue;
       takenOracleIds.add(card.oracleId);
+      if (hasColour(card)) colouredPicked += 1;
+      else colourlessPicked += 1;
       picked.push({
         card,
         quantity: 1,
@@ -606,9 +784,20 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
       `${style.style} style` +
       (style.matchedStyle ? '' : ` (you asked for "${String(input.style)}", which is not a style)`)
   );
+  /*
+   * "No wants" and "no record" are different failures and this used to print
+   * the second when it meant the first. Kaalia of the Vast has a record — the
+   * compiler read her flying and her type line — and it produced no want,
+   * because the clause that makes her Kaalia is the one it refused. Telling the
+   * player there is no record for her is not true, and it points at the wrong
+   * thing to fix.
+   */
   notes.push(
     plan.wants.length === 0
-      ? `no ability record for ${input.commander.name}, so this deck was picked on tags alone`
+      ? plan.fromTagsOnly
+        ? `no ability record for ${input.commander.name}, so this deck was picked on tags alone`
+        : `${input.commander.name} has an ability record but nothing in it says what the deck ` +
+          `should do, so this deck was picked on roles and tags alone`
       : `${input.commander.name} wants ${plan.wants
           .slice(0, 4)
           .map(w => w.facet)
@@ -619,6 +808,42 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
     `${pickedCoverage.withRecord} of ${pickedCoverage.total} chosen spells had an ability ` +
       `record (${pickedCoverage.pct.toFixed(0)}%); the rest fell back to tags. Pool: ` +
       `${poolCoverage.withRecord} of ${poolCoverage.total} (${poolCoverage.pct.toFixed(0)}%)`
+  );
+
+  /*
+   * HOW MANY OF THESE PICKS THE SCORE ACTUALLY CHOSE.
+   *
+   * The most useful number in this list and the one that was missing. A pick
+   * whose score is shared with hundreds of other cards was not chosen by the
+   * model at all — `compareTied` in `rank.ts` decided it, and `compareTied`
+   * knows nothing about Magic. Until 2026-08-23 that line was the alphabet, and
+   * the reason nobody noticed for so long is that the deck came back looking
+   * confident either way. Counting it here makes "the engine had no opinion
+   * about 41 of these 64 cards" a fact on the object a caller already reads,
+   * rather than something you have to write a script to discover.
+   *
+   * Counted against the seed ranking, which is what the role passes and the
+   * creature and colour floors drew from.
+   */
+  const tieSize = new Map<string, number>();
+  for (const rec of rankedSpells) {
+    const k = rec.score.toFixed(4);
+    tieSize.set(k, (tieSize.get(k) ?? 0) + 1);
+  }
+  const scoreOf = new Map(rankedSpells.map(r => [r.card.oracleId, r.score.toFixed(4)]));
+  let tiedPicks = 0;
+  let widestTie = 0;
+  for (const e of spellEntries) {
+    const k = scoreOf.get(e.card.oracleId);
+    const n = k === undefined ? 0 : (tieSize.get(k) ?? 0);
+    if (n > 1) tiedPicks += 1;
+    if (n > widestTie) widestTie = n;
+  }
+  notes.push(
+    `${tiedPicks} of ${spellEntries.length} spells were picked out of a group the score could ` +
+      `not separate` +
+      (widestTie > 1 ? `, the widest being ${widestTie} cards on the same score` : '') +
+      `; those were settled by popularity and then by a hash, not by the model`
   );
 
   return {
@@ -846,6 +1071,7 @@ function pickLands<T extends { card: CandidateCard }>(
     return source ? maskToColours(source.colourMask) : [];
   };
 
+  // Pass one: cover every colour up to `MIN_SOURCES_PER_COLOUR`.
   for (const rec of order) {
     if (chosen.length >= limit) break;
     const colours = coloursOf(rec);
@@ -854,13 +1080,84 @@ function pickLands<T extends { card: CandidateCard }>(
     }
   }
 
-  for (const rec of order) {
+  /*
+   * WHAT IS LEFT, AND A LAND THAT TAPS FOR NOTHING GOES LAST.
+   *
+   * This used to be one loop that accepted any remaining land in rank order,
+   * and `accept(rec, coloursOf(rec))` does not care that `coloursOf` came back
+   * empty. Every land in the catalogue scores identically — mana value 0, so
+   * full castability, and the land quota is the only role short, so full role
+   * gap — so this loop was never choosing anything. It was reading
+   * `rankCandidates`' tie-break.
+   *
+   * While that tie-break was alphabetical the loop looked fine, because the A
+   * to C end of Magic's land names is unusually strong: Ancient Tomb, Arid
+   * Mesa, Battlefield Forge, Blood Crypt, Bloodstained Mire, Caves of Koilos,
+   * Cavern of Souls, City of Brass, Clifftop Retreat, Command Tower. Replacing
+   * the alphabet with an unbiased hash in `rank.ts` removed that accident, and
+   * the real behaviour surfaced in one run: the Edgar Markov mana base came
+   * back as Abandoned Air Temple, Big Apple, 3 a.m., Cradle of the Accursed,
+   * Crawling Barrens, Dunes of the Dead, Foundry of the Consuls and Dark
+   * Depths, which taps for no mana at all, over three basic lands.
+   *
+   * So the tiers are stated here rather than left to a tie-break to imply. A
+   * land that produces one of the deck's colours beats a land that produces
+   * colourless, which beats a land that produces nothing; inside a tier the
+   * ranking still decides. This is not new policy — `castability.ts` has always
+   * scored a finished deck on exactly this distinction, and this is the first
+   * time the builder agrees with it.
+   */
+  const tierOf = (rec: T): number => {
+    const colours = coloursOf(rec);
+    /*
+     * THREE TIERS AND NOT MORE, and the fourth one was tried and removed.
+     *
+     * The obvious refinement is to rank a land by how many of the deck's
+     * colours it makes, on the reasoning that a Command Tower beats a Castle
+     * Ardenvale. Measured on the Mardu decks it makes the mana base worse, not
+     * better: what actually sits at the top of "produces all three" is Ancient
+     * Ziggurat, Crystal Grotto, Gateway Plaza, Gond Gate and Holdout
+     * Settlement, and those displaced Battlefield Forge and Caves of Koilos.
+     * Fixing every colour and entering tapped is not better than fixing two and
+     * entering untapped, and this function cannot see the difference. Inside a
+     * tier the popularity order already puts Command Tower first, so the
+     * refinement was buying nothing and paying for it.
+     */
+    if (colours.some(c => wanted.includes(c))) return 0;
+    if (colours.length > 0) return 1;
+    return producesAnyMana(rec.card as BuildCard) ? 1 : 2;
+  };
+
+  for (let tier = 0; tier <= 2; tier++) {
     if (chosen.length >= limit) break;
-    if (taken.has(rec.card.oracleId)) continue;
-    accept(rec, coloursOf(rec));
+    for (const rec of order) {
+      if (chosen.length >= limit) break;
+      if (taken.has(rec.card.oracleId)) continue;
+      if (tierOf(rec) !== tier) continue;
+      accept(rec, coloursOf(rec));
+    }
   }
 
   return chosen;
+}
+
+/**
+ * Does this land tap for mana at all?
+ *
+ * `manaSourceFor` answers "which of the DECK's colours does this make", so a
+ * land that makes only colourless comes back with an empty colour list and is
+ * indistinguishable there from a Dark Depths that makes nothing. That
+ * difference decides the last tier above, so it is read off the printed text
+ * instead, which is the division of sources CLAUDE.md declares.
+ *
+ * A row with no `oracleText` cannot be told apart either way, and is assumed to
+ * produce mana rather than assumed not to, so a column the caller did not fetch
+ * can never push a real land to the bottom of the pile.
+ */
+function producesAnyMana(card: BuildCard): boolean {
+  const text = card.oracleText;
+  if (typeof text !== 'string' || text.length === 0) return true;
+  return /\badd\s+(\{|one mana|two mana|three mana|mana of|an amount)/i.test(text);
 }
 
 /** Placeholder basics used only to size the provisional library. */

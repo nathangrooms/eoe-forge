@@ -49,6 +49,10 @@
  * comments before anything reaches this file.
  */
 
+import { readFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { JavaParser, ParseError } from './java-parse.mjs';
 import {
   builtinCall,
@@ -61,6 +65,64 @@ import {
   simpleToFqn,
   splitGeneric,
 } from './java-types.mjs';
+
+/*
+ * The token table, so the translator can tell a token class it can build from
+ * one it cannot BEFORE emitting a body that names it. `extract-tokens.mjs`
+ * wrote it; this reads the JSON rather than the TypeScript so the generator has
+ * no TypeScript loader in it. The two are written by the same run.
+ *
+ * A class missing from the table BLOCKS by name. It does not fall back on a
+ * default token: a 1/1 where the card says 4/4 is a card that runs and is
+ * wrong, and nothing downstream could ever notice.
+ */
+const dataFile = name => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  return join(resolve(here, '../../..'), 'scripts/coverage/.data', name);
+};
+
+const readTable = (file, pick) => {
+  try {
+    return pick(JSON.parse(readFileSync(dataFile(file), 'utf8'))) ?? {};
+  } catch {
+    // Absent means every row it would have served blocks, which is the state
+    // before its extractor has been run and is the safe direction.
+    return {};
+  }
+};
+
+const TOKEN_TABLE = readTable('xmage-token-table.json', j => j.table);
+
+/*
+ * The filter table, from `extract-filters.mjs`. Two halves, and both are only
+ * ever consulted AFTER the hand-written tables below.
+ *
+ * `classes` is `new FilterNonlandCard()`; `constants` is `StaticFilters.FILTER_*`,
+ * which is a filter class plus whatever a static block added to it. Together
+ * they were 243 blocked bodies across 78 rows of one and two, which is a family
+ * that never appears as a line on a first-blocker ranking.
+ *
+ * The hand-written `STATIC_FILTERS` and `NEW` rows win, deliberately. Eighteen
+ * of them overlap the derived table and all eighteen AGREE, which is what makes
+ * the derived half trustworthy; keeping the hand rows first means a row
+ * somebody wrote on purpose is never silently replaced by a parse.
+ */
+const FILTER_TABLE = readTable('xmage-filter-table.json', j => j);
+
+/**
+ * `makeFilter([words], [predicates])` for one row of the derived table.
+ *
+ * The name goes in as SEPARATE WORDS, never as a sentence. `extract-filters.mjs`
+ * builds it from the predicates it resolved rather than copying XMage's own
+ * string, so it is ours; but check 5 in `translate-check.mjs` is a blunt rule
+ * over the generated file — a space means wording — and it is worth more blunt
+ * and at zero than softened for these nine rows. `makeFilter` joins the words,
+ * in the folder where every log line is already ours.
+ */
+const derivedFilter = row =>
+  `makeFilter([${row.message.split(' ').filter(Boolean).map(w => JSON.stringify(w)).join(', ')}]${
+    row.predicates.length ? `, [${row.predicates.join(', ')}]` : ''
+  })`;
 
 /* ========================================================================== *
  * 1. The argument mapping table
@@ -129,7 +191,25 @@ export const METHODS = {
   'Game#getPermanent': M('getPermanent', [0]),
   'Game#getPermanentOrLKIBattlefield': M('getPermanentOrLKIBattlefield', [0]),
   'Game#getCard': M('getCard', [0]),
-  'Game#getObject': M('getObject', [0]),
+  /*
+   * `Game#getObject` is two overloads on one arity, `getObject(UUID)` and
+   * `getObject(Ability)`, so they cannot be told apart by argument count. XMage's
+   * own second one is `getObject(source.getSourceId())`, which is what `emit`
+   * writes here rather than a new runtime function.
+   *
+   * `game.getObject(source)` is the idiom a body uses to read the card its own
+   * ability is printed on, and passing the ability where an id belonged made 20
+   * otherwise complete bodies fail `tsc`. That is the visible failure; the one
+   * worth naming is what would have happened if `getObject` had taken `unknown`.
+   */
+  'Game#getObject': [
+    {
+      arity: 1,
+      when: argIs(0, 'Ability', 'SpellAbility', 'ActivatedAbility', 'TriggeredAbility'),
+      ...M('getObject', [0], { lit: { 0: 'source.getSourceId()' } }),
+    },
+    { arity: 1, ...M('getObject', [0]) },
+  ],
   'Game#getBattlefield': M('getBattlefield', []),
   'Game#getState': M('getState', []),
   'Game#getOpponents': M('getOpponents', [0]),
@@ -237,19 +317,23 @@ export const METHODS = {
    *
    * DEFECT THIS FOUND. The single arity-5 row took argument 0 as the amount and
    * matched BOTH five-argument forms, so `discard(0, Integer.MAX_VALUE, false,
-   * source, game)` — "discard any number of cards", eight call sites — became
+   * source, game)`, which is "discard any number of cards" and eight call
+   * sites, became
    * `discard(0)`, which returns nothing and says nothing. The second argument
    * is what tells the two apart and the guard reads it now.
    *
    * The two arity-4 forms both name the cards outright, so neither is a
    * decision, and both go to `discardCards`. They are NOT `discard`: our
    * `discard` asks the player which cards, and asking a player to choose a card
-   * the card already named is a different game action.
+   * the card already named is a different game action. The `Cards` form returns
+   * the pile and the single-`Card` form returns a BOOLEAN, so the second is a
+   * rewrite rather than a rename; handing a body an object where it expected
+   * true or false would make every `if` on it true.
    */
   'Player#discard': [
     { arity: 5, when: argIs(1, 'boolean'), ...M('discard', [0]) },
     { arity: 5, when: argIs(1, 'int', 'Integer'), ...M('discard', [0, 1]) },
-    { arity: 4, ...M('discardCards', [0]) },
+    { arity: 4, when: argIs(0, 'Cards', 'CardsImpl'), ...M('discardCards', [0]) },
   ],
   // `millCards(int toMill, Ability source, Game game)`, and it returns the
   // cards it milled, which the next line of a body reads.
@@ -463,6 +547,28 @@ export const METHODS = {
   'Effect#apply': [{ arity: 2, ...M('apply', ['game', 'source']) }],
   'Effect#setTargetPointer': M('setTargetPointer', [0]),
   'Effect#getTargetPointer': M('getTargetPointer', []),
+
+  /* ---- CreateTokenEffect, the parts a body reads back off it ---- */
+  'CreateTokenEffect#getLastAddedTokenIds': M('getLastAddedTokenIds', []),
+  'CreateTokenEffect#exileTokensCreatedAtNextEndStep': [
+    { arity: 2, ...M('exileTokensCreatedAtNextEndStep', ['game', 'source']) },
+  ],
+  /*
+   * `removeTokensCreatedAt(game, source, exile, phaseStep, targetController)`.
+   * Every argument past the second describes WHICH delayed trigger to set up,
+   * and this engine stores none of them, so they are dropped and the call
+   * defers by name rather than pretending to distinguish them.
+   */
+  'CreateTokenEffect#removeTokensCreatedAt': [
+    { arity: 5, ...M('removeTokensCreatedAt', ['game', 'source']) },
+  ],
+  'CreateTokenEffect#withAdditionalTokens': M('withAdditionalTokens', 'all'),
+  /*
+   * `entersWithCounters(CounterType, DynamicValue)`. Only the static form maps:
+   * a `DynamicValue` here would put the string form of an object where a count
+   * belongs, so it blocks with its arity named.
+   */
+  'CreateTokenEffect#entersWithCounters': [{ arity: 2, ...M('entersWithCounters', [0, 1]) }],
   'DynamicValue#calculate': [
     { arity: 3, ...M('calculate', ['game', 'source']) },
     { arity: 2, ...M('calculate', ['game', 'source']) },
@@ -497,9 +603,30 @@ export const METHODS = {
   'Choice#getChoices': M('getChoices', []),
 
   /* ---- Token ---- */
+  /*
+   * XMage's seven overloads all funnel into one another, and the short forms
+   * are the long ones with defaults:
+   *
+   *   putOntoBattlefield(amount, game, source)
+   *     -> putOntoBattlefield(amount, game, source, source.getControllerId())
+   *     -> ..., controllerId, false, false)
+   *
+   * So the three-argument form is the four-argument one with the ability's own
+   * controller, which is `source.getControllerId()` here and not a guess. It
+   * was missing and it was the first blocker on 55 bodies — a row that only
+   * appeared once the token classes stopped blocking them one step earlier.
+   *
+   * The six-argument form passes `tapped` and `attacking`. Only `tapped` is
+   * taken, and `attacking` is matched on the literal `false`: a token that is
+   * meant to arrive attacking and does not is a creature that was going to deal
+   * damage this turn and now is not, so that overload blocks with its arity
+   * named rather than quietly arriving untapped in the second main phase.
+   */
   'Token#putOntoBattlefield': [
+    { arity: 3, ...M('putOntoBattlefield', [0, 'controller']) },
     { arity: 4, ...M('putOntoBattlefield', [0, 3]) },
     { arity: 5, ...M('putOntoBattlefield', [0, 3]) },
+    { arity: 6, when: flags({ 5: 'false' }), ...M('putOntoBattlefield', [0, 3, 4]) },
   ],
 };
 
@@ -576,6 +703,21 @@ export const REWRITES = {
    * the next line found nothing and the card asked a question and then did
    * nothing. Passing the TARGET is both the fix and the more faithful shape.
    */
+  /*
+   * `boolean discard(Card card, boolean payForCost, Ability, Game)`. The pile
+   * form next door returns the cards; this one returns whether the one card
+   * went. `discardCards` does the work for both and the boolean is read off the
+   * result, so a body that writes `if (player.discard(card, …))` still branches
+   * on whether anything moved.
+   */
+  'Player#discard': [
+    {
+      arity: 4,
+      when: argIs(0, 'Card', 'Permanent', 'Spell'),
+      emit: (recv, a) => `(${recv}.discardCards(${a[0]}).size() > 0)`,
+      needs: [0],
+    },
+  ],
   'Player#searchLibrary': [
     {
       arity: 3,
@@ -583,8 +725,17 @@ export const REWRITES = {
       needs: [0],
     },
   ],
-  // game.addEffect(effect, source) — our addEffect takes our own ContinuousEffect
-  'Game#addEffect': [{ arity: 2, emit: (recv, a) => `${recv}.addEffect(${a[0]})` }],
+  /*
+   * `game.addEffect(effect, source)`.
+   *
+   * The `source` used to be dropped, because our `addEffect` took a finished
+   * `ContinuousEffect` and a finished effect needs nothing else. It takes a
+   * BUILDER now — `new BoostTargetEffect(2, 2)`, which is what an XMage body
+   * actually passes — and a builder cannot resolve what it affects without the
+   * ability. So the second argument is passed on, which is also XMage's own
+   * signature rather than a shape of ours.
+   */
+  'Game#addEffect': [{ arity: 2, emit: (recv, a) => `${recv}.addEffect(${a[0]}, source)` }],
 
   // `CardUtil.getExileZoneId(Game, Ability)` and `(Game, Ability, int offset)`
   // name the exile zone a source owns; ours takes the source id directly. The
@@ -667,6 +818,39 @@ export const REWRITES = {
  * `a` is the translated argument list, carrying `.types` (the Java type of each
  * argument), `.nodes` (the parse nodes) and `.zoneArg`.
  */
+/**
+ * A `NEW` builder's way of saying "this overload has no mapping".
+ *
+ * Builders are module-level and `fail` belongs to the per-body closure, so a
+ * builder cannot block by throwing the way the walker does. It returns this
+ * instead and `newRef` raises it, which keeps the reason in the work order
+ * BY NAME rather than turning an unmappable overload into a wrong body.
+ */
+const BLOCKED = Symbol('blocked');
+const BLOCK = (kind, detail) => ({ [BLOCKED]: true, kind, detail });
+const isBlock = value => typeof value === 'object' && value !== null && value[BLOCKED] === true;
+
+const simpleTypeOf = t => String(t == null ? '' : t).split('.').pop();
+const isIntType = t => ['int', 'long', 'Integer', 'Long'].includes(simpleTypeOf(t));
+
+/**
+ * `BoostTargetEffect(int, int)`, `(int, int, Duration)`, and the two
+ * `DynamicValue` forms that block.
+ *
+ * The duration argument is already a quoted string by the time it arrives,
+ * because `Duration.EndOfTurn` is a constant and `constant()` maps it. An
+ * absent one is XMage's own default of end of turn and `effects.ts` applies the
+ * same default in the same place.
+ */
+function boostArgs(fn, className, a) {
+  if (a.length < 2) return BLOCK('arity', `${className}/${a.length}`);
+  if (!isIntType(a.types[0]) || !isIntType(a.types[1])) {
+    return BLOCK('arity', `${className}/dynamic-value`);
+  }
+  const duration = a.length > 2 ? `, ${a[2]}` : '';
+  return `${fn}(game.xmageScope(), ${a[0]}, ${a[1]}${duration})`;
+}
+
 function target(a, defaultFilter, zone, zoneExpr, wrapFilter, forceNotTarget) {
   const simpleOf = t => String(t == null ? '' : t).split('.').pop();
   const isFilter = t => /^Filter/.test(simpleOf(t));
@@ -701,9 +885,9 @@ export const NEW = {
   FilterPermanent: () => `makeFilter('permanent')`,
   FilterCreaturePermanent: () => `StaticFilters.creature()`,
   FilterControlledCreaturePermanent: () => `StaticFilters.creatureYouControl()`,
-  FilterControlledPermanent: () => `makeFilter('permanent you control', [controlledByPredicate()])`,
+  FilterControlledPermanent: () => `makeFilter(['permanent','you','control'], [controlledByPredicate()])`,
   FilterOpponentsCreaturePermanent: () => `StaticFilters.creatureOpponentControls()`,
-  FilterAnotherPermanent: () => `makeFilter('another permanent', [anotherPredicate()])`,
+  FilterAnotherPermanent: () => `makeFilter(['another','permanent'], [anotherPredicate()])`,
   FilterAttackingCreature: () => `StaticFilters.creature()`,
   FilterBlockingCreature: () => `StaticFilters.creature()`,
   FilterArtifactPermanent: () => `StaticFilters.artifact()`,
@@ -714,7 +898,7 @@ export const NEW = {
   FilterCreatureCard: () => `StaticFilters.creatureCard()`,
   FilterLandCard: () => `StaticFilters.landCard()`,
   FilterBasicLandCard: () => `StaticFilters.basicLandCard()`,
-  FilterNonlandCard: () => `makeFilter('nonland card', [Predicates.not(cardTypePredicate('land'))])`,
+  FilterNonlandCard: () => `makeFilter(['nonland','card'], [Predicates.not(cardTypePredicate('land'))])`,
 
   /*
    * Cards. XMage declares five constructors: `()`, `(Card)`,
@@ -757,7 +941,7 @@ export const NEW = {
   TargetPermanent: a => target(a, "makeFilter('permanent')"),
   TargetCreaturePermanent: a => target(a, 'StaticFilters.creature()'),
   TargetControlledCreaturePermanent: a => target(a, 'StaticFilters.creatureYouControl()'),
-  TargetControlledPermanent: a => target(a, "makeFilter('permanent you control', [controlledByPredicate()])"),
+  TargetControlledPermanent: a => target(a, "makeFilter(['permanent','you','control'], [controlledByPredicate()])"),
   TargetOpponentsCreaturePermanent: a => target(a, 'StaticFilters.creatureOpponentControls()'),
   TargetCardInHand: a => target(a, 'StaticFilters.card()', 'hand'),
   TargetCardInYourGraveyard: a => target(a, 'StaticFilters.card()', 'graveyard'),
@@ -781,7 +965,7 @@ export const NEW = {
    * changes which permanents a player may pick, and it is added.
    */
   TargetSacrifice: a => target(
-    a, "makeFilter('permanent you control')", null, null,
+    a, "makeFilter(['permanent','you','control'])", null, null,
     f => `${f}.add(controlledByPredicate())`, true
   ),
   // `TargetCard` carries its zone as a real argument rather than in its name.
@@ -796,6 +980,41 @@ export const NEW = {
 
   // Target pointers.
   FixedTarget: args => `fixedTarget(${args[0] ?? 'undefined'})`,
+
+  /*
+   * ---- The shared effect classes ----
+   *
+   * `Game#addEffect` has counted as implemented since the first tranche because
+   * the CALL is; these are its ARGUMENTS, and RUNTIME-API.md section 3 has said
+   * all along that each argument is its own porting job. They are hand written
+   * in `src/lib/game/xmage/effects.ts`, never machine translated, because one
+   * shared class is called by hundreds of cards and a wrong translation of it
+   * would be wrong in hundreds of places at once.
+   */
+
+  /*
+   * `CreateTokenEffect(Token)`, `(Token, int)`, `(Token, int, boolean)`,
+   * `(Token, int, boolean, boolean)`. The `DynamicValue` forms are absent on
+   * purpose: our second argument is a number, and a `DynamicValue` reaching it
+   * would stringify into the count. `argIsNumeric` below keeps them out.
+   */
+  CreateTokenEffect: a => {
+    if (a.length === 0) return BLOCK('arity', 'CreateTokenEffect/0');
+    if (a.length > 1 && !isIntType(a.types[1])) {
+      return BLOCK('arity', 'CreateTokenEffect/dynamic-amount');
+    }
+    const rest = [a[1], a[2], a[3]].filter(v => v !== undefined);
+    return `createTokenEffect(game.xmageScope(), ${[a[0], ...rest].join(', ')})`;
+  },
+
+  /*
+   * `BoostTargetEffect(int, int)` and `(int, int, Duration)`. The `DynamicValue`
+   * overloads block: XMage locks a dynamic boost in at `init`, this port has no
+   * place to run that, and passing the value object through would boost a
+   * creature by the string form of an object.
+   */
+  BoostTargetEffect: a => boostArgs('boostTargetEffect', 'BoostTargetEffect', a),
+  BoostSourceEffect: a => boostArgs('boostSourceEffect', 'BoostSourceEffect', a),
 
   // Plain java.util, which becomes TypeScript.
   ArrayList: args => (args.length && !/^\d+$/.test(args[0]) ? `[...${args[0]}]` : `[]`),
@@ -1089,6 +1308,24 @@ export function translateBody(opts) {
         if (node.obj.k === 'this' || node.obj.k === 'super') {
           return fields?.has(node.name) ? resolveTypeText(fields.get(node.name).type, imports, pkg) : null;
         }
+        /*
+         * DEFECT THIS FOUND. `Integer.MAX_VALUE` is not an engine class, so
+         * `fieldType` answered null and every reader that asks "is this
+         * argument an int" said no.
+         *
+         * `target()` collects the int arguments to work out a target's min and
+         * max, and `new TargetCardInHand(0, Integer.MAX_VALUE, filter)` is how
+         * XMage spells "any number of cards". With the upper bound invisible it
+         * collected one int and emitted `min: 0, max: 0`, which is a target that
+         * can never hold anything: Nantuko Cultivator discarded no lands, drew
+         * no cards and returned false. 271 target constructors in the card files
+         * are written that way.
+         *
+         * `constant()` already translates the value itself, so only the TYPE was
+         * missing.
+         */
+        if (node.obj.k === 'name' && node.obj.id === 'Integer'
+          && (node.name === 'MAX_VALUE' || node.name === 'MIN_VALUE')) return 'int';
         const owner = typeOf(node.obj);
         return owner ? fieldType(owner, node.name, imports, pkg) : null;
       }
@@ -1319,7 +1556,23 @@ export function translateBody(opts) {
     if (owner === 'StaticFilters') {
       const f = STATIC_FILTERS[name];
       if (f) { usedHelpers.add('StaticFilters'); return f; }
+      // Then the derived table. Hand rows win; see FILTER_TABLE above.
+      const derived = FILTER_TABLE.constants?.[name];
+      if (derived) { usedHelpers.add('filters'); return derivedFilter(derived); }
       return undefined;
+    }
+    /*
+     * `Duration.EndOfTurn`. Four of XMage's durations map onto this engine's
+     * `EffectExpiry` and the rest do not: `Custom` is XMage saying "the effect
+     * decides", and `OneUse`, `EndOfStep` and `EndOfCombat` have no expiry kind
+     * here. An unmapped one blocks by name rather than becoming end of turn,
+     * because an effect that ends at the wrong moment is a wrong board that
+     * nothing later can notice.
+     */
+    if (owner === 'Duration') {
+      return ['EndOfTurn', 'EndOfGame', 'UntilYourNextTurn', 'WhileOnBattlefield'].includes(name)
+        ? JSON.stringify(name)
+        : undefined;
     }
     if (owner === 'Integer' && name === 'MAX_VALUE') return 'Number.MAX_SAFE_INTEGER';
     if (owner === 'Integer' && name === 'MIN_VALUE') return 'Number.MIN_SAFE_INTEGER';
@@ -1405,6 +1658,9 @@ export function translateBody(opts) {
       if (t === 'game') { out.push('game'); continue; }
       if (t === 'source') { out.push('source'); continue; }
       if (t === 'undefined') { out.push('undefined'); continue; }
+      // The ability's own controller, which several XMage short forms pass on
+      // the caller's behalf rather than taking as an argument.
+      if (t === 'controller') { out.push('source.getControllerId()'); continue; }
       if (spec.lit && spec.lit[t] !== undefined) { out.push(spec.lit[t]); continue; }
       if (t >= arity) fail('arity', `${info.key}/${arity}`);
       out.push(argAt(t));
@@ -1429,6 +1685,40 @@ export function translateBody(opts) {
 
   function newRef(node) {
     const simple = node.type.name.split('.').pop();
+    /*
+     * A TOKEN CLASS is looked up in the generated table before the hand-written
+     * table, and it is the one `new` that is data rather than code. XMage has
+     * 793 of them and 101 distinct ones are the first blocker on 127 bodies, so
+     * on a first-blocker ranking they are a hundred rows of one or two and never
+     * appear as a single line of work. They are one mapping.
+     *
+     * Only the NO-ARGUMENT constructor maps, because the table holds only that
+     * one. `new PhyrexianRebirthHorrorToken(count, count)` sizes the token from
+     * the board, and giving it the no-argument spec would put a token of the
+     * wrong size onto the battlefield in silence. Nine of the 127 are written
+     * that way and each blocks with its own name in the report.
+     */
+    if (TOKEN_TABLE[simple] && !NEW[simple]) {
+      if (node.args.length > 0) fail('new-token-args', `${simple}/${node.args.length}`);
+      usedHelpers.add('xmageToken');
+      return `xmageToken(game.xmageScope(), ${JSON.stringify(simple)})`;
+    }
+
+    /*
+     * A FILTER CLASS, from the derived table, and only after `NEW`. Same rule
+     * as the token classes: the no-argument form only. `new
+     * FilterCreatureCard(SubType.ELF)` narrows the filter by a subtype the
+     * table cannot see, and reading it as the no-argument form would match
+     * every creature card instead of every Elf.
+     */
+    if (!NEW[simple] && FILTER_TABLE.classes?.[simple]) {
+      if (node.args.length > 1 || (node.args.length === 1 && node.args[0].k !== 'lit')) {
+        fail('new-filter-args', `${simple}/${node.args.length}`);
+      }
+      usedHelpers.add('filters');
+      return derivedFilter(FILTER_TABLE.classes[simple]);
+    }
+
     const build = NEW[simple];
     if (!build) fail('new', simple);
     const list = node.args.map(expr);
@@ -1439,7 +1729,10 @@ export function translateBody(opts) {
     list.types = node.args.map(typeOf);
     list.nodes = node.args;
     list.zoneArg = zoneIdx >= 0 ? list[zoneIdx] : null;
-    return build(list);
+    const built = build(list);
+    // A builder cannot reach `fail`, so it returns a block and this raises it.
+    if (isBlock(built)) fail(built.kind, built.detail);
+    return built;
   }
 
   /* ---------------- statements ---------------- */

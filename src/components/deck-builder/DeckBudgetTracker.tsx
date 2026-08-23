@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { MetricRow } from '@/components/listing';
 import { DollarSign, TrendingUp, TrendingDown, AlertCircle, Package } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { useState } from 'react';
@@ -95,12 +96,6 @@ export function DeckBudgetTracker({ deckCards, targetBudget = 100 }: DeckBudgetT
     };
   }, [deckCards, budgetLimit]);
 
-  const getBudgetColor = (percent: number) => {
-    if (percent > 100) return 'text-destructive';
-    if (percent > 80) return 'text-foreground';
-    return 'text-foreground';
-  };
-
   const getRarityColor = (rarity: string | undefined) => {
     if (!rarity) return 'text-foreground';
     switch (rarity.toLowerCase()) {
@@ -143,45 +138,57 @@ export function DeckBudgetTracker({ deckCards, targetBudget = 100 }: DeckBudgetT
           </div>
         </div>
 
-        {/* Current Status */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm text-muted-foreground">Current Deck Value</div>
-              <div className={`text-3xl font-bold ${getBudgetColor(budgetAnalysis.percentUsed)}`}>
-                ${budgetAnalysis.totalValue.toFixed(2)}
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-sm text-muted-foreground">
-                {budgetAnalysis.isOverBudget ? 'Over Budget' : 'Remaining'}
-              </div>
-              <div className={`text-2xl font-bold ${budgetAnalysis.isOverBudget ? 'text-destructive' : 'text-foreground'}`}>
-                {budgetAnalysis.isOverBudget ? (
-                  <>-${Math.abs(budgetAnalysis.remaining).toFixed(2)}</>
-                ) : (
-                  <>${budgetAnalysis.remaining.toFixed(2)}</>
-                )}
-              </div>
-            </div>
-          </div>
+        {/*
+          Where the deck stands against the budget.
 
-          <Progress 
-            value={Math.min(budgetAnalysis.percentUsed, 100)} 
-            className={`h-3 ${budgetAnalysis.isOverBudget ? '[&>div]:bg-destructive/10' : ''}`}
-          />
-          
-          <div className="text-sm text-muted-foreground">
-            Using {budgetAnalysis.percentUsed.toFixed(1)}% of budget
-          </div>
-        </div>
+          This was a 30px figure beside a 24px one, in a flex row with a
+          separate `Progress` under them and a third line spelling the
+          percentage out in words. Three renderings of one fact. `MetricRow`
+          draws the figure and the bar together, which is what `Metric.meter` is
+          for, and the percentage is the bar rather than a sentence about it.
+
+          The colour went. `getBudgetColor` returned `text-foreground` for two
+          of its three cases, so all it ever did was paint the value red past
+          100% — which the "Over budget" label already says, in words that do
+          not depend on being able to tell two greys apart.
+        */}
+        <MetricRow
+          on="card"
+          columns={2}
+          metrics={[
+            {
+              id: 'value',
+              label: 'Deck value',
+              value: `$${budgetAnalysis.totalValue.toFixed(2)}`,
+              raw: budgetAnalysis.totalValue,
+              meter: Math.min(budgetAnalysis.percentUsed, 100),
+              subtext: `${budgetAnalysis.percentUsed.toFixed(1)}% of the budget`,
+            },
+            {
+              id: 'remaining',
+              label: budgetAnalysis.isOverBudget ? 'Over budget' : 'Remaining',
+              value: `${budgetAnalysis.isOverBudget ? '-' : ''}$${Math.abs(budgetAnalysis.remaining).toFixed(2)}`,
+              raw: budgetAnalysis.remaining,
+              subtext: budgetAnalysis.isOverBudget ? 'more than the budget' : 'left to spend',
+            },
+          ]}
+        />
 
         {/* Suggestions */}
         {budgetAnalysis.suggestions.length > 0 && (
-          <Alert className={budgetAnalysis.isOverBudget ? 'border-destructive/40 bg-destructive/10' : 'border-border bg-muted'}>
+          /* Borderless. This drew `border-destructive/40` or `border-border`,
+             which is a hairline either way, and the tint alone carries it. */
+          <Alert
+            className={
+              budgetAnalysis.isOverBudget
+                ? 'border-0 bg-destructive/10'
+                : 'border-0 bg-muted'
+            }
+          >
             <AlertCircle className={`h-4 w-4 ${budgetAnalysis.isOverBudget ? 'text-destructive' : 'text-foreground'}`} />
             <AlertDescription className="text-sm">
-              <div className="font-medium mb-2">Budget Insights:</div>
+              {/* Was "Budget Insights:". Nobody asked for an insight. */}
+              <div className="font-medium mb-2">What this costs you</div>
               <ul className="list-disc list-inside space-y-1">
                 {budgetAnalysis.suggestions.map((suggestion, idx) => (
                   <li key={idx}>{suggestion}</li>
@@ -229,7 +236,7 @@ export function DeckBudgetTracker({ deckCards, targetBudget = 100 }: DeckBudgetT
             {Object.entries(budgetAnalysis.byRarity)
               .sort(([, a], [, b]) => (b as number) - (a as number))
               .map(([rarity, value]) => (
-                <div key={rarity} className="p-3 rounded-lg border bg-card">
+                <div key={rarity} className="rounded-lg bg-muted/30 p-3">
                   <div className="text-xs text-muted-foreground capitalize mb-1">{rarity}</div>
                   <div className="text-lg font-bold">${(value as number).toFixed(2)}</div>
                   <div className="text-xs text-muted-foreground">

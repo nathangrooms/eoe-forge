@@ -26,12 +26,39 @@
  * `w + (n-1) * w * (1 - overlap)`, so the fan measures itself and solves that
  * for the widest card that fits. Without it, ten cards at the preferred size
  * need about 970px and simply ran off the side of a narrow screen.
+ *
+ * ---------------------------------------------------------------------------
+ * IT IS HELD AT THE EDGE OF THE TABLE, NOT OVER IT
+ * ---------------------------------------------------------------------------
+ * Owner, on a screenshot of a real game: *"THE HAND OVERLAPS THE BOARD. A large
+ * fan of cards sits on top of the mat and covers the bottom third of the
+ * table."* Measured at 1920 x 1080 before this change: the fan painted 320px
+ * where the board had reserved 270, so 95,316 px of the reader's own mat and
+ * six of their own permanents sat underneath it.
+ *
+ * So the fan sits in a band of its own and SINKS into it. The top
+ * `HAND_REVEAL` of every card is above the table edge and the rest hangs below
+ * the bottom of the screen, the way a hand is really held: name, mana cost,
+ * whole illustration and type line on screen for every card you hold, rules
+ * text and the power box one hover away and in the preview on a press.
+ *
+ * Reaching for a card lifts the whole of it back into view. Hover does it,
+ * keyboard focus does it, and the card open in the preview stays lifted, so a
+ * player choosing a play is looking at the whole card and the whole board at
+ * once. The lift is `translateY` and nothing else, so the board behind it never
+ * moves.
+ *
+ * `tableMetrics.ts` owns both halves of the sum — what the band reserves and
+ * what this sinks by — because two copies of that arithmetic is exactly how the
+ * fan would come to hang half a card too low.
  */
 
+import { useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { GameCardView } from './GameCardView';
 import { useMeasuredWidth } from './useMeasure';
+import { handSinkFor } from './tableMetrics';
 import {
   isLand,
   planCastFromHand,
@@ -72,6 +99,24 @@ export interface ViewerHandProps {
    * the two surfaces can share the component instead of forking it.
    */
   emptyLabel?: string;
+  /**
+   * Something on the table is asking what it is aimed at, so the fan steps back.
+   *
+   * Two reasons, and the second is the load-bearing one:
+   *
+   *   - the eye. The fan is the brightest thing on the screen and it laps over
+   *     the near mats. Leaving it lit while the board recedes points the player
+   *     at the one place the answer is not;
+   *   - the announcement. A press on a hand card opens that card in the
+   *     preview, which unmounts whatever was asking and drops a half collected
+   *     answer on the floor without saying so. While a question is open the fan
+   *     does not take presses at all, and Escape is the way back.
+   *
+   * Nothing in here is ever a legal target: a spell cast from hand is not on
+   * the battlefield, and `AimLayer` carries a control for any legal card that
+   * is off the board.
+   */
+  receded?: boolean;
   className?: string;
 }
 
@@ -148,10 +193,17 @@ export function ViewerHand({
   cardWidth = 300,
   includeCommandZone = true,
   emptyLabel = 'Your hand is empty',
+  receded = false,
   className,
 }: ViewerHandProps) {
   const reduceMotion = useReducedMotion();
   const [fanRef, fanWidth] = useMeasuredWidth<HTMLDivElement>();
+  /* Keyboard reach. Hover raises a card and so must focus, or a player driving
+     the fan from the keyboard reads the top 62% of everything and never sees a
+     rules box. `onFocus`/`onBlur` in React are `focusin`/`focusout`, which
+     bubble, so one handler on the button covers whatever inside it takes the
+     focus ring. */
+  const [focusedId, setFocusedId] = useState<string | null>(null);
 
   const me = state.players.find(p => p.id === viewerPlayerId);
 
@@ -176,6 +228,20 @@ export function ViewerHand({
     (renderedWidth / 2) * Math.sin((step * (cards.length - 1) * Math.PI) / 360)
   );
 
+  /*
+   * How far the fan is sunk below the table edge, and therefore how far a card
+   * has to travel to come back.
+   *
+   * `handSinkFor` is the half of the band arithmetic `tableMetrics.ts` does not
+   * reserve; `handBandFor` is the half it does, and the board is inset by that.
+   * Together they are one card height, which is why the two cannot be allowed
+   * to live in two files.
+   */
+  const sink = handSinkFor(renderedWidth);
+  /* Clear of the edge by the part that was hidden, plus a little more so the
+     raised card stands out of the fan rather than merely joining it. */
+  const raise = sink + 54;
+
   if (!me) return null;
 
   if (cards.length === 0) {
@@ -192,10 +258,18 @@ export function ViewerHand({
     <div
       ref={fanRef}
       className={cn('flex items-end justify-center', className)}
-      /* The lean swings the outer cards' bottom corners below the baseline, and
-         an uncastable card sits a further step back — both have to be paid for
-         here or the fan is clipped by the bottom of the viewport. */
-      style={{ paddingBottom: dip + UNPLAYABLE_STEP_BACK }}
+      /*
+       * `paddingBottom` — the lean swings the outer cards' bottom corners below
+       * the baseline, and an uncastable card sits a further step back. Both
+       * have to be paid for or the fan is cut off at its own bottom edge.
+       *
+       * `marginBottom` — the sink. Negative, so the fan hangs below the band it
+       * was given by exactly the part of a card the band does not reserve. This
+       * is the whole of "the hand no longer covers the table": what used to be
+       * the bottom 38% of every card lying across the near seat's mana row is
+       * now below the bottom of the screen, and the mat has the height back.
+       */
+      style={{ paddingBottom: dip + UNPLAYABLE_STEP_BACK, marginBottom: -sink }}
     >
       <AnimatePresence initial={false}>
         {cards.map((card, index) => {
@@ -210,6 +284,11 @@ export function ViewerHand({
           const reason = (land ? landPlan?.reason : castPlan?.reason) ?? '';
           const selected =
             selectedId === card.instanceId || !!markedIds?.includes(card.instanceId);
+          /* Raised: the whole card is on screen. A card the player has reached
+             for — with the keyboard, or by opening it in the preview — stays
+             raised, so choosing a play means looking at the whole card and the
+             whole board at the same time. */
+          const raised = selected || focusedId === card.instanceId;
 
           const offset = index - middle;
           const rotate = offset * step;
@@ -242,9 +321,12 @@ export function ViewerHand({
               animate={{
                 opacity: 1,
                 x: 0,
-                y: selected ? drop - 46 : drop,
-                rotate: selected ? 0 : rotate,
-                scale: selected ? 1.08 : 1,
+                /* `raise` clears the sink as well as standing the card out of
+                   the fan, so a raised card is whole on screen rather than
+                   merely higher than its neighbours. */
+                y: raised ? drop - raise : drop,
+                rotate: raised ? 0 : rotate,
+                scale: raised ? 1.08 : 1,
               }}
               exit={
                 reduceMotion
@@ -252,7 +334,9 @@ export function ViewerHand({
                   : { opacity: 0, y: -150, scale: 0.85, transition: { duration: 0.28 } }
               }
               whileHover={
-                reduceMotion ? undefined : { y: drop - 54, rotate: 0, scale: 1.16, zIndex: 60 }
+                reduceMotion || receded
+                  ? undefined
+                  : { y: drop - raise, rotate: 0, scale: 1.12, zIndex: 60 }
               }
               transition={
                 reduceMotion
@@ -262,13 +346,16 @@ export function ViewerHand({
               style={{
                 transformOrigin: 'bottom center',
                 marginLeft: index === 0 ? 0 : -renderedWidth * overlap,
-                zIndex: selected ? 70 : index,
+                zIndex: raised ? 70 : index,
               }}
               className="relative"
             >
               <button
                 type="button"
                 onClick={() => onInspect(card)}
+                onFocus={() => setFocusedId(card.instanceId)}
+                onBlur={() => setFocusedId(id => (id === card.instanceId ? null : id))}
+                disabled={receded}
                 title={label}
                 aria-label={label}
                 className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -277,8 +364,9 @@ export function ViewerHand({
                   card={card}
                   width={renderedWidth}
                   ignoreTapped
+                  aiming={receded ? 'receded' : null}
                   dimmed={!playable && !freeCast}
-                  selected={selected}
+                  selected={!receded && selected}
                   title={label}
                 />
                 {fromCommand && (

@@ -56,22 +56,39 @@ export default function ListingMessages() {
 
       if (error) throw error;
 
-      const messagesWithProfiles = await Promise.all(
-        (data || []).map(async (msg) => {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('username')
-            .eq('id', msg.sender_id)
-            .maybeSingle();
+      /*
+       * ONE QUERY FOR THE SENDERS, not one per message.
+       *
+       * This asked `profiles` for the sender of every single message. A thread
+       * has exactly two participants, so a sixty message thread was sixty two
+       * requests to fetch two rows. Worse than a page load: `loadMessages` is
+       * the realtime handler as well as the loader, so every new message re-ran
+       * the whole lot, for both people, for as long as the tab stayed open.
+       *
+       * Collect the sender ids, ask once, read a Map while mapping. Two rows,
+       * one request, whatever the thread length.
+       */
+      const rows = data || [];
+      const senderIds = [...new Set(rows.map(m => m.sender_id).filter(Boolean))];
+      const senders = new Map<string, { username: string | null }>();
 
-          return {
-            ...msg,
-            sender_profile: profile || { username: null }
-          };
-        })
+      if (senderIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, username')
+          .in('id', senderIds);
+
+        for (const profile of profiles || []) {
+          senders.set(profile.id, { username: profile.username });
+        }
+      }
+
+      setMessages(
+        rows.map(msg => ({
+          ...msg,
+          sender_profile: senders.get(msg.sender_id) || { username: null },
+        }))
       );
-
-      setMessages(messagesWithProfiles);
 
       const unreadMessages = (data || []).filter(
         m => m.receiver_id === user.id && !m.is_read

@@ -11,7 +11,7 @@ import {
   type BrowserCard,
 } from '@/components/collection/browser/types';
 import { useCardLists } from '@/lib/shopping';
-import { StorageAPI } from '@/lib/api/storageAPI';
+import { StorageAPI, fileCardsIntoContainer } from '@/lib/api/storageAPI';
 import { CollectionAPI } from '@/server/routes/collection';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { StorageContainer } from '@/types/storage';
@@ -151,14 +151,21 @@ export function CollectionCardDisplay({
 
   const handleBulkAssignStorage = async (containerId: string) => {
     try {
-      for (const item of selectedList) {
-        await StorageAPI.assignCard({
-          container_id: containerId,
+      /* One batch for the whole selection. This was `StorageAPI.assignCard` per
+         selected row, which is five requests each: selecting 100 cards was
+         around 500 requests, and it grows with the collection, which is the
+         thing the product most wants people to have more of. */
+      const filed = await fileCardsIntoContainer(
+        containerId,
+        selectedList.map(item => ({
           card_id: item.card_id,
           qty: item.quantity,
           foil: item.foil > 0,
-        });
-      }
+        }))
+      );
+
+      if (filed.failed.length > 0) throw new Error(filed.failed[0].reason);
+
       showSuccess('Assigned', `Assigned ${selectedList.length} card(s) to storage`);
       clearSelection();
     } catch {

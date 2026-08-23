@@ -207,7 +207,7 @@ export function DeckCompatibilityChecker({
               {violations.map((violation: any) => (
                 <div
                   key={violation.cardId}
-                  className="flex items-center justify-between p-3 rounded-lg border border-destructive/20 bg-destructive/5"
+                  className="flex items-center justify-between rounded-lg bg-destructive/10 p-3"
                 >
                   <div className="flex-1 space-y-1">
                     <p className="text-sm font-medium">{violation.cardName}</p>

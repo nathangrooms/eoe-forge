@@ -1,19 +1,11 @@
 import { useState, useEffect } from "react";
-import { FIELD } from '@/components/listing';
+import { FIELD, MetricRow } from '@/components/listing';
 import { cn } from '@/lib/utils';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import {
-  Copy,
-  QrCode,
-  Link2,
-  RefreshCw,
-  Eye,
-  MousePointerClick,
-  X,
-} from "lucide-react";
+import { Copy, QrCode, Link2, RefreshCw, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   enableDeckShare,
@@ -162,9 +154,20 @@ export function DeckSharePanel({
   };
 
   return (
-    <div className="max-w-2xl space-y-4">
+    /*
+      The full column, not `max-w-2xl`.
+
+      This panel kept the width it had as a 90vh drawer, so as a page it drew a
+      672px strip against the left edge of a 1288px band and left the rest
+      empty. Export made the same move and was widened when it became a route;
+      this one was missed. The link and the QR code do not want the same width,
+      so the second half is two tracks: the link, its buttons and the embed code
+      on the left, the QR image and the counts on the right, where a 192px
+      square and a two-figure row both fit without stretching.
+    */
+    <div className="space-y-4">
       {/* Enable / disable */}
-      <div className="rounded-xl bg-card p-4 shadow-sm">
+      <div className="rounded-lg bg-card p-4 shadow-lg shadow-black/20">
         <div className="flex items-center justify-between gap-4">
           <div className="space-y-0.5">
             <Label htmlFor="public-toggle">Public link</Label>
@@ -218,8 +221,8 @@ export function DeckSharePanel({
       </div>
 
       {enabled && shareUrl && (
-        <>
-          <div className="space-y-2 rounded-xl bg-card p-4 shadow-sm">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className="min-w-0 space-y-2 rounded-lg bg-card p-4 shadow-lg shadow-black/20">
             <Label htmlFor="deck-share-url">Share link</Label>
             <div className="flex gap-2">
               <Input
@@ -247,9 +250,11 @@ export function DeckSharePanel({
                 Copy embed code
               </Button>
             </div>
+          </div>
 
+          <div className="space-y-4">
             {qrCodeUrl && (
-              <div className="mt-2 flex flex-col items-center gap-4 rounded-lg bg-muted/40 p-4">
+              <div className="flex flex-col items-center gap-4 rounded-lg bg-card p-4 shadow-lg shadow-black/20">
                 <img src={qrCodeUrl} alt="QR code for this deck's share link" className="h-48 w-48" />
                 <Button variant="ghost" size="sm" onClick={() => setQrCodeUrl(null)}>
                   <X className="mr-2 h-4 w-4" />
@@ -257,30 +262,44 @@ export function DeckSharePanel({
                 </Button>
               </div>
             )}
-          </div>
 
-          {analytics && (
-            <div className="space-y-3 rounded-xl bg-card p-4 shadow-sm">
-              <Label>Analytics</Label>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex items-center gap-2 rounded-lg bg-muted/40 p-3">
-                  <Eye className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <div className="text-2xl font-bold tabular-nums">{analytics.views}</div>
-                    <div className="text-xs text-muted-foreground">Views</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 rounded-lg bg-muted/40 p-3">
-                  <MousePointerClick className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <div className="text-2xl font-bold tabular-nums">{analytics.copies}</div>
-                    <div className="text-xs text-muted-foreground">Copies</div>
-                  </div>
-                </div>
+            {analytics && (
+              <div className="space-y-3 rounded-lg bg-card p-4 shadow-lg shadow-black/20">
+                <Label>Analytics</Label>
+                {/*
+                Two figures that used to be hand-built: a 40px icon square, the
+                value above the label rather than under it, and `font-bold`
+                where every other figure in the product is `font-semibold`. The
+                icons are the specific thing the owner ruled out on this exact
+                kind of tile — "Deck manage metrics dont need icons - makes it
+                look like ai slop" — and `MetricRow` has no `icon` prop, which
+                is how that ruling is kept rather than remembered.
+
+                `on="card"`: this is a row inside a panel that is already
+                raised, so the tiles are the recessed treatment.
+              */}
+                <MetricRow
+                  on="card"
+                  columns={2}
+                  metrics={[
+                    {
+                      id: 'views',
+                      label: 'Views',
+                      value: analytics.views.toLocaleString(),
+                      raw: analytics.views,
+                    },
+                    {
+                      id: 'copies',
+                      label: 'Copies',
+                      value: analytics.copies.toLocaleString(),
+                      raw: analytics.copies,
+                    },
+                  ]}
+                />
               </div>
-            </div>
-          )}
-        </>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

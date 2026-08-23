@@ -7,6 +7,12 @@ import { RefreshCw, TrendingUp, DollarSign, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 
+/** Scryfall accepts at most 75 identifiers per `/cards/collection` request. */
+const SCRYFALL_COLLECTION_MAX = 75;
+
+/** Collection rows per write. A body is roomier than a URL, but not endless. */
+const WRITE_CHUNK = 200;
+
 interface PriceSyncResult {
   updated: number;
   failed: number;
@@ -36,10 +42,13 @@ export function TCGPlayerPriceSync() {
         return;
       }
 
-      // Get user's collection
+      /* Every column a row needs to be written back whole. The price write is
+         an upsert on the primary key — one statement for many rows, each with
+         its own new price — and a row sent to an upsert has to be a valid row
+         on its own. */
       const { data: collectionData, error: collectionError } = await supabase
         .from('user_collections')
-        .select('id, card_id, card_name, price_usd, quantity')
+        .select('id, card_id, card_name, set_code, price_usd, quantity, foil, condition')
         .eq('user_id', session.user.id);
 
       if (collectionError) throw collectionError;
@@ -59,63 +68,94 @@ export function TCGPlayerPriceSync() {
       const changedCards: PriceSyncResult['changedCards'] = [];
       let totalValue = 0;
 
-      // Fetch updated prices from Scryfall (which aggregates TCGPlayer data)
-      for (const cardId of cardIds) {
+      /*
+       * SEVENTY FIVE CARDS PER REQUEST, not one request per card.
+       *
+       * This asked Scryfall for one card at a time with a 100ms sleep between
+       * calls, then wrote one `user_collections` row at a time. A 5,000 card
+       * collection was 5,000 Scryfall calls, over eight minutes of sleeping,
+       * and 5,000 writes.
+       *
+       * Scryfall publishes `/cards/collection`, which takes 75 identifiers in
+       * one POST, and `src/components/marketplace/useMarketplaceSeed.ts` in
+       * this same codebase already calls it correctly. The pacing stays, but
+       * between BATCHES: Scryfall asks for it, and a rate-limited reply comes
+       * back as a CORS error rather than as a status code.
+       */
+      const prices = new Map<string, number>();
+
+      for (let i = 0; i < cardIds.length; i += SCRYFALL_COLLECTION_MAX) {
+        const slice = cardIds.slice(i, i + SCRYFALL_COLLECTION_MAX);
         try {
-          const response = await fetch(`https://api.scryfall.com/cards/${cardId}`);
+          const response = await fetch('https://api.scryfall.com/cards/collection', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifiers: slice.map(id => ({ id })) }),
+          });
+
           if (!response.ok) {
-            failedCount++;
-            continue;
-          }
-
-          const cardData = await response.json();
-          const newPrice = cardData.prices?.usd ? parseFloat(cardData.prices.usd) : null;
-
-          if (newPrice !== null) {
-            // Find all collection entries for this card
-            const entries = collectionData.filter(c => c.card_id === cardId);
-            
-            for (const entry of entries) {
-              const oldPrice = entry.price_usd || 0;
-              
-              // Update price in database
-              const { error: updateError } = await supabase
-                .from('user_collections')
-                .update({ 
-                  price_usd: newPrice,
-                  updated_at: new Date().toISOString()
-                })
-                .eq('id', entry.id);
-
-              if (!updateError) {
-                updatedCount++;
-                totalValue += newPrice * entry.quantity;
-                
-                // Track significant price changes (>10% or >$5)
-                const priceDiff = Math.abs(newPrice - oldPrice);
-                const percentChange = oldPrice > 0 ? (priceDiff / oldPrice) * 100 : 0;
-                
-                if (percentChange > 10 || priceDiff > 5) {
-                  changedCards.push({
-                    name: entry.card_name,
-                    oldPrice,
-                    newPrice
-                  });
-                }
-              } else {
-                failedCount++;
-              }
+            failedCount += slice.length;
+          } else {
+            const payload = await response.json();
+            for (const card of payload?.data ?? []) {
+              const usd = card?.prices?.usd ? parseFloat(card.prices.usd) : null;
+              if (usd !== null && Number.isFinite(usd)) prices.set(card.id, usd);
             }
           }
-
-          processedCards++;
-          setProgress(10 + (processedCards / totalCards) * 80);
-
-          // Rate limiting - Scryfall requests 50-100ms delay between requests
-          await new Promise(resolve => setTimeout(resolve, 100));
         } catch (error) {
-          console.error(`Error syncing card ${cardId}:`, error);
-          failedCount++;
+          console.error('Error syncing a batch of cards:', error);
+          failedCount += slice.length;
+        }
+
+        processedCards += slice.length;
+        setProgress(10 + (processedCards / totalCards) * 80);
+
+        // Rate limiting - Scryfall asks for 50-100ms between requests.
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      /* One write per 200 rows. Every row carries a different new price, so
+         this is an upsert on the primary key: a PATCH cannot set a different
+         value per row, which is why the old code needed one write each. */
+      const rows = collectionData
+        .filter(entry => prices.has(entry.card_id))
+        .map(entry => ({ entry, newPrice: prices.get(entry.card_id) as number }));
+
+      for (let i = 0; i < rows.length; i += WRITE_CHUNK) {
+        const slice = rows.slice(i, i + WRITE_CHUNK);
+        const { error: updateError } = await supabase.from('user_collections').upsert(
+          slice.map(({ entry, newPrice }) => ({
+            id: entry.id,
+            user_id: session.user.id,
+            card_id: entry.card_id,
+            card_name: entry.card_name,
+            set_code: entry.set_code,
+            quantity: entry.quantity,
+            foil: entry.foil,
+            condition: entry.condition,
+            price_usd: newPrice,
+            updated_at: new Date().toISOString(),
+          })),
+          { onConflict: 'id' }
+        );
+
+        if (updateError) {
+          failedCount += slice.length;
+          continue;
+        }
+
+        for (const { entry, newPrice } of slice) {
+          updatedCount++;
+          totalValue += newPrice * entry.quantity;
+
+          // Track significant price changes (>10% or >$5)
+          const oldPrice = entry.price_usd || 0;
+          const priceDiff = Math.abs(newPrice - oldPrice);
+          const percentChange = oldPrice > 0 ? (priceDiff / oldPrice) * 100 : 0;
+
+          if (percentChange > 10 || priceDiff > 5) {
+            changedCards.push({ name: entry.card_name, oldPrice, newPrice });
+          }
         }
       }
 

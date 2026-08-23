@@ -64,6 +64,28 @@
  *   6. **A bound edge**, as an inset ring, the way a printed mat is stitched.
  *
  * ---------------------------------------------------------------------------
+ * AND THE PRINTED PLATE, WHICH IS THE PART THAT WAS MISSING
+ * ---------------------------------------------------------------------------
+ *
+ * Owner, on a screenshot: *"THE MAT IS A FLAT COLOUR ... no art, no texture and
+ * no seat identity."* Measured on 23 Aug 2026, the tint and the eight layers
+ * were all present and correct; what was missing was anything a printed mat
+ * carries. A bare 120 x 80 patch of the surface measured a standard deviation
+ * of 6.56 luminance levels at 1920 and 3.43 at 1280, which is a weave nobody
+ * can see, and every built-in style left `image` unset by design, so "no art"
+ * was the specification rather than a fault.
+ *
+ * So `matStyles.ts` now draws one. The weave is an SVG tile of broken threads
+ * rather than two crossed gradients, and each style has an emblem and a bound
+ * edge in the middle of the mat. All of it is ours, drawn in SVG, so there is
+ * no licence to break and no resolution to run out of, and it goes UNDER the
+ * tint and the weave so a red seat is a red mat with a design in it rather than
+ * a design with red near it.
+ *
+ * The alphas are the design. This is the thing 120 cards sit on top of: a mark
+ * you notice while you are counting blockers is a mark that has failed.
+ *
+ * ---------------------------------------------------------------------------
  * THE ONE BITMAP THAT IS ALLOWED: THE PLAYER'S OWN
  * ---------------------------------------------------------------------------
  * Everything above is about CARD ART, and both reasons are specific to it: a
@@ -81,7 +103,7 @@
 import { memo, type CSSProperties, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { identityGround } from '@/lib/cards/identityGround';
-import { matStyleOf, type MatStyleId } from './matStyles';
+import { matStyleOf, type MatLayer, type MatStyleId } from './matStyles';
 import { tintColors, usePlaymatPrefs, type MatTintId } from './usePlaymatStyle';
 
 export type MatTone = 'seat' | 'active' | 'viewer' | 'board';
@@ -204,41 +226,52 @@ export const Playmat = memo(function Playmat({
   /* One element, one `background-image`, painted front to back in CSS order.
      The browser composites this as a single layer, so a four-seat board is four
      gradient stacks rather than sixteen absolutely-positioned divs. */
-  const layers = [
+  const layers: MatLayer[] = [
     /* Light on the middle of the table, and the fall-off at its edges. */
-    `radial-gradient(120% 100% at 50% 38%, hsl(0 0% 100% / ${settings.glow}) 0%, transparent 46%)`,
-    `radial-gradient(125% 110% at 50% 45%, transparent 38%, hsl(0 0% 2% / ${settings.vignette}) 100%)`,
+    {
+      image: `radial-gradient(120% 100% at 50% 38%, hsl(0 0% 100% / ${settings.glow}) 0%, transparent 46%)`,
+    },
+    {
+      image: `radial-gradient(125% 110% at 50% 45%, transparent 38%, hsl(0 0% 2% / ${settings.vignette}) 100%)`,
+    },
     ...mat.texture(settings.weave),
     ...mat.mottle,
     /* The tint sits under the texture, so the weave reads on top of it — the
        way a dye sits in cloth rather than on it. */
-    ...(tint ? [tint] : []),
-    /* Real artwork goes under the tint and the texture so the weave still
-       reads across it. Either a style carrying its own (unset on every
-       built-in one; see the licensing note in `matStyles.ts`) or the reader's
-       own upload. */
-    ...(mat.image ? [mat.image] : []),
-    ...(picture ? [picture] : []),
+    ...(tint ? [{ image: tint }] : []),
+    /* The printed plate: the emblem in the middle of the mat and the bound
+       edge, drawn by us in SVG. Under the tint and the weave, so the seat's own
+       colour dyes it and the cloth reads across it, which is the order a real
+       mat is made in. A photograph the reader uploaded covers it, because a
+       photograph is already the whole surface. */
+    ...(picture ? [] : mat.art?.(settings.weave) ?? []),
+    /* A style carrying a commissioned photograph. Unset on every built-in one;
+       see the licensing note in `matStyles.ts`. */
+    ...(mat.image ? [{ image: mat.image, size: 'cover', position: 'center', repeat: 'no-repeat' }] : []),
+    ...(picture ? [{ image: picture, size: 'cover', position: 'center', repeat: 'no-repeat' }] : []),
   ];
 
+  /*
+   * Every layer states its own placement now, and the whole list is emitted.
+   *
+   * It used to emit `background-size` only when there was an uploaded picture,
+   * on the correct reasoning that a gradient has no intrinsic size and `auto`
+   * and `cover` mean the same thing for one. That stopped being true when the
+   * surface gained drawn artwork: the weave has to tile at a fixed pitch, and
+   * the emblem has to be sized to the mat's HEIGHT and centred or a 1904 x 369
+   * table prints an oval where a circle was drawn.
+   *
+   * `cover` on a photograph is unchanged and is still the right answer: a mat
+   * box runs from 948 x 369 to 1912 x 369, no photograph is that shape, and the
+   * choice is between cropping it and squashing it.
+   */
   const surface: CSSProperties = {
     backgroundColor: `hsl(${settings.base})`,
-    backgroundImage: layers.join(','),
+    backgroundImage: layers.map(layer => layer.image).join(','),
+    backgroundSize: layers.map(layer => layer.size ?? 'auto').join(','),
+    backgroundPosition: layers.map(layer => layer.position ?? '0 0').join(','),
+    backgroundRepeat: layers.map(layer => layer.repeat ?? 'repeat').join(','),
   };
-
-  /* Sizing is only emitted when there is a real picture to size. A gradient
-     has no intrinsic dimensions, so `auto` and `cover` mean the same thing for
-     every other layer, and leaving the property off entirely keeps the
-     gradient-only case byte-for-byte what it was.
-
-     `cover` is what makes any shape of picture work: a mat box is anywhere
-     from 948x369 to 1912x369, no photograph is that shape, and the choice is
-     between cropping it and squashing it. */
-  if (picture) {
-    surface.backgroundSize = layers.map(layer => (layer === picture ? 'cover' : 'auto')).join(',');
-    surface.backgroundPosition = layers.map(layer => (layer === picture ? 'center' : '0 0')).join(',');
-    surface.backgroundRepeat = layers.map(layer => (layer === picture ? 'no-repeat' : 'repeat')).join(',');
-  }
 
   return (
     <div className={cn('relative overflow-hidden', rounded, className)} style={surface}>

@@ -92,24 +92,53 @@ export interface BandShare {
 }
 
 /**
- * How the mat's board area divides between the two rows: exactly in half.
+ * The creature row's share of the board area. The mana row gets the rest.
+ *
+ * See `splitBands`. It is a constant because the whole of this file is the rule
+ * that geometry follows the BOX: a share that moved with the board is a card
+ * that resizes when a permanent arrives.
+ */
+export const CREATURE_SHARE = 0.55;
+
+/**
+ * How the mat's board area divides between the two rows.
+ *
+ * ## What this used to be, and what it fixed
  *
  * It used to divide by what each row could USE, so an empty creatures row
  * collapsed to a label strip and handed the mana row underneath it the whole
  * mat. That is a flattering picture of a board with one creature on it and a
  * reflow the moment a second arrives: the measurement in this file's header is
  * that reflow, twenty boxes moving and every card resizing because one land
- * landed.
+ * landed. It was replaced by an exactly even split, which fixed it.
  *
- * An even split is also what the spec asks for in as many words — *"A row that
- * is empty still holds its place, so the board does not reflow as permanents
- * enter and leave. Its label stays visible at low contrast."* — and it makes
- * the creature row, which is the row every other player at the table has to
- * read, the same size as the mana row instead of half of it. Measured before
- * this change on a four-seat table at 1680: creatures 62px against lands 134px.
+ * ## Why it is 55/45 now and not 50/50
+ *
+ * The even split was chosen to stop the creature row being HALF the mana row —
+ * measured on a four-seat table at 1680, creatures at the 62px floor against
+ * lands at 134px. That reason is about which row is worth more, and it does not
+ * stop at parity.
+ *
+ * Owner: *"cards LARGE and use the FULL width"*, and measured on 23 Aug 2026 at
+ * 1920 x 1080, two seats: a 152px row drew a 105px creature, 52% of the 200px
+ * the size slider was set to, with 991px of the row's 1548 holding nothing. The
+ * card is capped by the row's HEIGHT and by nothing else, so height is the only
+ * place a bigger card can come from, and there are exactly two places to take
+ * it: the hand's band, which `tableMetrics.ts` has now given back, and the row
+ * beside it.
+ *
+ * A creature is the card every other player at the table has to read: its art,
+ * its power and toughness, its counters and whether it is turned. A land is a
+ * card you COUNT. So the surplus goes to the creatures, and it is spent so that
+ * the mana row keeps the size it already had rather than paying for it:
+ * measured after, at 1920, creatures 105 -> 128 and lands 105 -> 104.
+ *
+ * The rule this file exists for is untouched. The share is a constant and the
+ * argument is the box, so a permanent arriving cannot change either row's
+ * height, cannot change either card's size, and `splitBands.length` is still 1.
  */
 export function splitBands(bandsUsable: number): BandShare {
-  const creatureHeight = Math.floor(bandsUsable / 2);
+  const creatureHeight = Math.round(bandsUsable * CREATURE_SHARE);
   return { creatureHeight, landHeight: bandsUsable - creatureHeight };
 }
 
@@ -375,16 +404,77 @@ export function supportBlockWidth(matWidth: number, count = 0): number {
   return Math.round(Math.max(76, Math.min(matWidth * rung.share, rung.cap)));
 }
 
+/* -------------------------------------------------------------------------- */
+/* THE PILES: FOUR TILES, TWO ACROSS                                          */
+/* -------------------------------------------------------------------------- */
+/*
+ * Owner, on a screenshot: *"THE ZONES ARE POSTAGE STAMPS. Library, graveyard,
+ * exile and command sit in a narrow left rail at a size where the art is
+ * unreadable."*
+ *
+ * Measured on 23 Aug 2026, two seats, real `/play`:
+ *
+ *   1920 x 1080   four tiles of 116 x 72, the card inside each 44px wide
+ *   1280 x 800    four tiles of  94 x 49, the card inside each 28px wide
+ *
+ * A 44px card is a coloured rectangle; `MIN_BOARD_CARD` is 62 and exists
+ * because below it the art stops reading. The cause was the shape and not the
+ * width: four card-shaped tiles STACKED down a 369px mat get 92px of height
+ * each, and 92px of height buys 44px of card whatever the rail is allowed to be
+ * wide. `railWidth` was then capped at an absolute 120, so a mat getting wider
+ * never helped either.
+ *
+ * Two columns and two rows fixes the shape rather than the number. Each tile
+ * gets HALF the mat's height instead of a quarter, which roughly doubles the
+ * card, and the rail pays for it in width — out of the 991px of dead row the
+ * same measurement found sitting beside it.
+ *
+ * It is capped at a quarter of the mat, because the two rows are the board and
+ * the piles are the furniture next to it.
+ */
+
+/** The piles are laid two across and two down: library, yard / exile, command. */
+export const PILE_COLUMNS = 2;
+export const PILE_ROWS = 2;
+
+export interface PileGrid {
+  /** Total width of the rail, including the gap between the two columns. */
+  rail: number;
+  tileWidth: number;
+  tileHeight: number;
+  /** The card drawn inside one tile. */
+  cardWidth: number;
+}
+
 /**
- * The width a seat gives its outer rail: the identity block, then the piles.
+ * The four piles' grid on a mat of this size.
+ *
+ * Takes the mat and nothing else — no counts, no zone contents — so a card
+ * arriving in a graveyard cannot move the board, which is the rule the whole of
+ * this file enforces.
+ */
+export function pileGrid(matWidth: number, matHeight: number): PileGrid {
+  const usable = Math.max(60, matHeight - identityBandHeight(matHeight) - 16);
+  const tileHeight = Math.max(34, Math.floor(usable / PILE_ROWS) - 4);
+  /* A quarter of the mat, never more, and never so little that a tile cannot
+     hold a card at all. */
+  const cap = Math.max(96, Math.min(matWidth * 0.24, 268));
+  const byWidth = Math.floor((cap - 6) / PILE_COLUMNS) - 12;
+  /* 12px of the tile's height is its label and its count badge. */
+  const cardWidth = Math.max(20, Math.min(Math.round((tileHeight - 12) * CARD_RATIO), byWidth));
+  const tileWidth = cardWidth + 10;
+  return { rail: tileWidth * PILE_COLUMNS + 6, tileWidth, tileHeight, cardWidth };
+}
+
+/**
+ * The width a seat gives its outer rail: the four piles, two across.
  *
  * Sized from the mat's HEIGHT as well as its width, because the rail's job is
- * to hold four stacked card-shaped tiles. A rail set purely as a fraction of
- * the width is a wide empty strip on a short quadrant.
+ * to hold card-shaped tiles. A rail set purely as a fraction of the width is a
+ * wide empty strip on a short quadrant.
  */
 export function railWidth(matWidth: number, matHeight: number): number {
-  const byHeight = Math.round((matHeight - 16) / 4 / CARD_RATIO) + 12;
-  return Math.round(Math.max(52, Math.min(matWidth * 0.15, byHeight, 120)));
+  return pileGrid(matWidth, matHeight).rail;
 }
 
 /**

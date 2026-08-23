@@ -85,7 +85,9 @@ class ScryfallAPI {
    * So every collection import failed on every line, including "1 Black Lotus",
    * with "no match on Scryfall" while the search itself was answering
    * total_cards: 1. The card was found and then dropped one property name
-   * later. Same mistake in collectionAPI.ts.
+   * later. `src/lib/api/collectionAPI.ts` carried the same mistake and has been
+   * deleted: nothing imported it, and its class name collided with the live
+   * `CollectionAPI` in `src/server/routes/collection.ts`.
    *
    * `cards` is added rather than `data` renamed, so anything reading the raw
    * Scryfall shape keeps working.

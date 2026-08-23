@@ -61,6 +61,7 @@ const load = {
   deckBuilderRedirect: () => import("./pages/DeckBuilderRedirect"),
   deckCommander: () => import("./pages/DeckCommander"),
   deckInterface: () => import("./pages/DeckInterface"),
+  deckOptimise: () => import("./pages/DeckOptimise"),
   deckExport: () => import("./pages/DeckExport"),
   deckShare: () => import("./pages/DeckShare"),
   deckProxies: () => import("./pages/DeckProxies"),
@@ -109,6 +110,7 @@ const Precons = lazy(load.precons);
 const DeckBuilderRedirect = lazy(load.deckBuilderRedirect);
 const DeckCommander = lazy(load.deckCommander);
 const DeckInterface = lazy(load.deckInterface);
+const DeckOptimise = lazy(load.deckOptimise);
 const DeckExport = lazy(load.deckExport);
 const DeckShare = lazy(load.deckShare);
 const DeckProxies = lazy(load.deckProxies);
@@ -424,6 +426,24 @@ function AppContent() {
                 from. Export and share were dialogs over /decks; proxies and the
                 test hand were tabs on the builder, and a print job with paper
                 size and cut guides wants a URL of its own. */}
+            {/* THE OPTIMISER IS A DESTINATION, NOT THE THIRD OF NINE TABS.
+
+                It was a tab, and measured on the built bundle nothing in the
+                product linked to it: a grep for `tab=optimiser` across src/
+                found two comments and no hrefs, and the tab strip itself starts
+                at y=904 in a 1000px viewport, so the only door sat in the last
+                96 pixels of the fold. Export had a header button AND a route.
+                The thing that rewrites your deck had neither.
+
+                It belongs here for the same reason proxies and the test hand
+                do, and more so: it calls an edge function, takes about
+                twenty-five seconds to produce a pass, and then draws five
+                numbered steps with their own sub-tabs, a confirmation and a
+                receipt with an undo. It is also the one panel the tab strip was
+                actively hostile to, because all eight other tabs unmount it and
+                throw the pass away. `?tab=optimiser` and the older `?tab=ai`
+                land here. */}
+            <Route path="/deck/:id/optimise" element={<ProtectedRoute><DeckOptimise /></ProtectedRoute>} />
             <Route path="/deck/:id/export" element={<ProtectedRoute><DeckExport /></ProtectedRoute>} />
             <Route path="/deck/:id/share" element={<ProtectedRoute><DeckShare /></ProtectedRoute>} />
             <Route path="/deck/:id/proxies" element={<ProtectedRoute><DeckProxies /></ProtectedRoute>} />

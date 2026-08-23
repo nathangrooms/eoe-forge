@@ -67,6 +67,8 @@ import type { Format, ManaColor, PlayCard, PlayDeck } from '@/lib/game';
 interface CardRow {
   id: string;
   name: string;
+  /** The card, as opposed to `id` which is one printing of it. See `PlayCard.oracleId`. */
+  oracle_id?: string | null;
   mana_cost?: string | null;
   cmc?: number | null;
   type_line?: string | null;
@@ -84,7 +86,7 @@ interface CardRow {
 }
 
 const CARD_COLUMNS =
-  'id, name, mana_cost, cmc, type_line, oracle_text, power, toughness, loyalty, color_identity, keywords, image_uris, faces, is_legendary';
+  'id, oracle_id, name, mana_cost, cmc, type_line, oracle_text, power, toughness, loyalty, color_identity, keywords, image_uris, faces, is_legendary';
 
 /**
  * The seeded pools' column list.
@@ -114,7 +116,7 @@ const CARD_COLUMNS =
  * cast to `CardRow` on the way out of `selectCardRows` regardless.
  */
 const SEED_CARD_COLUMNS: string =
-  'id, name, mana_cost, cmc, type_line, oracle_text, power, toughness, loyalty, color_identity, keywords, is_legendary, image_url:image_uris->>normal';
+  'id, oracle_id, name, mana_cost, cmc, type_line, oracle_text, power, toughness, loyalty, color_identity, keywords, is_legendary, image_url:image_uris->>normal';
 
 function readImage(value: unknown): string | undefined {
   if (!value || typeof value !== 'object') return undefined;
@@ -263,6 +265,8 @@ export function toPlayCard(row: CardRow, deckColors: readonly ManaColor[] = []):
   return {
     cardId: row.id,
     name: row.name,
+    // Keyed on by the ported behaviour table. See `PlayCard.oracleId`.
+    oracleId: row.oracle_id ?? undefined,
     manaCost: row.mana_cost ?? undefined,
     cmc: row.cmc ?? 0,
     typeLine: row.type_line ?? undefined,

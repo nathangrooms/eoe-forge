@@ -274,6 +274,28 @@ export class StorageAPI {
     return slot;
   }
 
+  /**
+   * Every page, divider or shelf of a new container in one insert.
+   *
+   * A binder template has up to 26 slots and creating one called `createSlot`
+   * 26 times inside a `Promise.all`, which is 26 concurrent inserts of one row
+   * each. Rows go in in the order given, so `position` still decides the order
+   * on screen.
+   */
+  static async createSlots(
+    rows: { container_id: string; name: string; position?: number }[]
+  ): Promise<StorageSlot[]> {
+    if (rows.length === 0) return [];
+
+    const { data: slots, error } = await supabase
+      .from('storage_slots')
+      .insert(rows)
+      .select();
+
+    if (error) throw error;
+    return slots ?? [];
+  }
+
   static async getContainerItems(containerId: string): Promise<StorageItemWithCard[]> {
     const { data: items, error } = await supabase
       .from('storage_items')
@@ -299,10 +321,19 @@ export class StorageAPI {
     })) || [];
   }
 
+  /**
+   * File one card. **One card.** To file several, call
+   * {@link fileCardsIntoContainer}, which does the whole batch in a fixed
+   * number of requests. This in a loop is the per-row pattern that measured
+   * 1,100 requests for a single button press.
+   */
   static async assignCard(request: StorageAssignRequest): Promise<StorageItem> {
     // Check available quantity using StorageSync
     const { StorageSync } = await import('@/lib/storageSync');
-    const { data: { user } } = await supabase.auth.getUser();
+    /* `getSession()` reads the token the client already holds. `getUser()` is a
+       round trip to the auth server for an id we can have for nothing. */
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
     if (!user) throw new Error('Not authenticated');
 
     const available = await StorageSync.getAvailableQuantity(
@@ -392,6 +423,48 @@ export class StorageAPI {
 
     if (error) throw new Error(error.message);
     return data as string;
+  }
+
+  /**
+   * Move a whole selection in one request.
+   *
+   * `moveCards` in a loop was one round trip per picked row, so moving fifty
+   * cards was fifty requests. `storage_move_cards_batch` runs each move through
+   * the same `storage_move_cards` the single move uses, inside its own
+   * exception block, so one card that cannot go where it was asked still leaves
+   * the rest moved and comes back with its reason.
+   *
+   * Results come back in the order the moves were given.
+   */
+  static async moveCardsBatch(
+    requests: StorageMoveRequest[]
+  ): Promise<{ item_id: string; moved_to: string | null; error: string | null }[]> {
+    if (requests.length === 0) return [];
+
+    const out: { item_id: string; moved_to: string | null; error: string | null }[] = [];
+
+    for (const slice of chunk(requests, MOVE_CHUNK)) {
+      const { data, error } = await supabase.rpc('storage_move_cards_batch' as any, {
+        p_moves: slice.map(request => ({
+          item_id: request.item_id,
+          qty: request.qty,
+          to_container: request.to_container_id,
+          to_slot: request.to_slot_id ?? null,
+          to_pocket: request.to_pocket ?? null,
+        })),
+      } as any);
+
+      if (error) throw new Error(error.message);
+      for (const row of (data ?? []) as any[]) {
+        out.push({
+          item_id: row.item_id,
+          moved_to: row.moved_to ?? null,
+          error: row.error ?? null,
+        });
+      }
+    }
+
+    return out;
   }
 
   /**
@@ -489,6 +562,29 @@ export class StorageAPI {
  * Filing cards from somewhere else in the product
  * -------------------------------------------------------------------------- */
 
+/**
+ * `.in()` lists are URL segments and a URL has a length. 150 is the chunk this
+ * codebase settled on — `CollectionBulkImport` explains why in a comment, and
+ * `src/lib/shopping/api.ts` and `src/lib/cards/printings.ts` use the same one.
+ */
+const ID_CHUNK = 150;
+
+/** Rows per write. The same reasoning, applied to a body rather than a URL. */
+const WRITE_CHUNK = 200;
+
+/**
+ * Moves per `storage_move_cards_batch` call. The function refuses more than
+ * 500; 200 keeps one call's server-side work inside the 8 second statement
+ * timeout the web role carries.
+ */
+const MOVE_CHUNK = 200;
+
+function chunk<T>(rows: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < rows.length; i += size) out.push(rows.slice(i, i + size));
+  return out;
+}
+
 /** One card to file, at the printing and finish it actually is. */
 export interface CardToFile {
   /** A real `cards.id`. The printing matters: storage records what you own. */
@@ -530,6 +626,15 @@ export interface FiledCardsResult {
  *
  * To move cards that are ALREADY in storage, use `StorageAPI.moveCards`, which
  * is atomic and keeps the printing. Do not remove and re-add.
+ *
+ * ## The cost
+ *
+ * Fixed, whatever the batch size: one collection read and one storage read per
+ * 150 cards, then one merge write and one insert write per 200 rows. It used to
+ * call `StorageAPI.assignCard` once per card — the very thing its own comment
+ * above tells callers not to do — at five requests each, so filing 100 cards
+ * was 500 requests and filing a Commander deck through the storage panel was
+ * 1,100.
  */
 export async function fileCardsIntoContainer(
   containerId: string,
@@ -537,23 +642,169 @@ export async function fileCardsIntoContainer(
   slotId?: string | null
 ): Promise<FiledCardsResult> {
   const result: FiledCardsResult = { filed: 0, failed: [] };
+  const wanted = new Map<string, { card_id: string; foil: boolean; qty: number }>();
 
+  /* Merge duplicates first. Two entries for the same printing and finish used
+     to be two separate assigns that each read availability and then merged into
+     the same row; one entry carrying the total reaches the same place. */
   for (const card of cards) {
     if (!card.card_id || !(card.qty > 0)) continue;
-    try {
-      await StorageAPI.assignCard({
+    const foil = Boolean(card.foil);
+    const key = `${card.card_id}:${foil}`;
+    const existing = wanted.get(key);
+    if (existing) existing.qty += card.qty;
+    else wanted.set(key, { card_id: card.card_id, foil, qty: card.qty });
+  }
+
+  if (wanted.size === 0) return result;
+
+  const entries = [...wanted.values()];
+  const cardIds = [...new Set(entries.map(entry => entry.card_id))];
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) {
+    for (const entry of entries) {
+      result.failed.push({ card_id: entry.card_id, reason: 'Not authenticated' });
+    }
+    return result;
+  }
+
+  /* ---------------------------------------------------------------- reads */
+
+  /** Copies owned, per card. One query for the whole batch. */
+  const owned = new Map<string, { quantity: number; foil: number }>();
+  /** Every storage row for these cards, whichever container it is in. */
+  const stored: {
+    id: string;
+    card_id: string;
+    container_id: string;
+    slot_id: string | null;
+    pocket: number | null;
+    qty: number;
+    foil: boolean | null;
+  }[] = [];
+
+  try {
+    for (const slice of chunk(cardIds, ID_CHUNK)) {
+      const { data, error } = await supabase
+        .from('user_collections')
+        .select('card_id, quantity, foil')
+        .eq('user_id', session.user.id)
+        .in('card_id', slice);
+      if (error) throw error;
+      for (const row of data ?? []) {
+        owned.set(row.card_id, { quantity: row.quantity ?? 0, foil: row.foil ?? 0 });
+      }
+
+      /* Every assignment of these cards anywhere, which answers two questions
+         at once: how many copies are already spoken for, and whether this
+         container already holds a stack to merge into. RLS scopes it to the
+         signed-in owner, exactly as the single-card path relied on. */
+      const { data: items, error: itemsError } = await supabase
+        .from('storage_items')
+        .select('id, card_id, container_id, slot_id, pocket, qty, foil')
+        .in('card_id', slice);
+      if (itemsError) throw itemsError;
+      stored.push(...((items ?? []) as typeof stored));
+    }
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'Could not file these cards';
+    for (const entry of entries) result.failed.push({ card_id: entry.card_id, reason });
+    return result;
+  }
+
+  const assigned = new Map<string, number>();
+  for (const row of stored) {
+    const key = `${row.card_id}:${Boolean(row.foil)}`;
+    assigned.set(key, (assigned.get(key) ?? 0) + row.qty);
+  }
+
+  /* ------------------------------------------------------- decide, in hand */
+
+  interface StorageRowWrite {
+    id?: string;
+    container_id: string;
+    slot_id: string | null;
+    pocket: number | null;
+    card_id: string;
+    qty: number;
+    foil: boolean;
+  }
+  /** Merges into a stack that is already there. Carries every column, because a
+      row sent as an upsert has to be a valid row on its own. */
+  const updates: StorageRowWrite[] = [];
+  const inserts: StorageRowWrite[] = [];
+  /** Copies each merge is worth, so a rejected write is not counted as filed. */
+  const filedBy = new Map<string, number>();
+
+  for (const entry of entries) {
+    const key = `${entry.card_id}:${entry.foil}`;
+    const collection = owned.get(entry.card_id);
+    const has = collection ? (entry.foil ? collection.foil : collection.quantity) : 0;
+    const available = Math.max(0, has - (assigned.get(key) ?? 0));
+
+    if (entry.qty > available) {
+      /* The wording the single-card path used, unchanged: it is what the panel
+         shows a person when a card cannot go in. */
+      result.failed.push({
+        card_id: entry.card_id,
+        reason: `Cannot assign ${entry.qty} cards. Only ${available} available.`,
+      });
+      continue;
+    }
+
+    /* A pocketed row is one card in one pocket and never merges; only the loose
+       stacks accumulate. Same rule the single-card path applies. */
+    const target = stored.find(
+      row =>
+        row.container_id === containerId &&
+        row.card_id === entry.card_id &&
+        Boolean(row.foil) === entry.foil &&
+        row.pocket == null &&
+        (row.slot_id ?? null) === (slotId ?? null)
+    );
+
+    if (target) {
+      updates.push({
+        id: target.id,
+        container_id: target.container_id,
+        slot_id: target.slot_id ?? null,
+        pocket: target.pocket ?? null,
+        card_id: target.card_id,
+        qty: target.qty + entry.qty,
+        foil: Boolean(target.foil),
+      });
+      filedBy.set(target.id, entry.qty);
+    } else {
+      inserts.push({
         container_id: containerId,
         slot_id: slotId ?? null,
-        card_id: card.card_id,
-        qty: card.qty,
-        foil: Boolean(card.foil),
+        pocket: null,
+        card_id: entry.card_id,
+        qty: entry.qty,
+        foil: entry.foil,
       });
-      result.filed += card.qty;
-    } catch (error) {
-      result.failed.push({
-        card_id: card.card_id,
-        reason: error instanceof Error ? error.message : 'Could not file this card',
-      });
+    }
+  }
+
+  /* ---------------------------------------------------------------- writes */
+
+  for (const slice of chunk(updates, WRITE_CHUNK)) {
+    const { error } = await supabase.from('storage_items').upsert(slice, { onConflict: 'id' });
+    for (const row of slice) {
+      const filed = filedBy.get(row.id as string) ?? 0;
+      if (error) result.failed.push({ card_id: row.card_id, reason: error.message });
+      else result.filed += filed;
+    }
+  }
+
+  for (const slice of chunk(inserts, WRITE_CHUNK)) {
+    const { error } = await supabase.from('storage_items').insert(slice);
+    for (const row of slice) {
+      if (error) result.failed.push({ card_id: row.card_id, reason: error.message });
+      else result.filed += row.qty;
     }
   }
 

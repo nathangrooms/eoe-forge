@@ -29,6 +29,11 @@ import { ReplaceCardPanel } from '@/components/deck/ReplaceCardPanel';
 import { ImportDeckPanel } from '@/components/deck/ImportDeckPanel';
 import { EdhPowerCheck } from '@/components/deck/EdhPowerCheck';
 import { useDeckEditor } from '@/components/deck/useDeckEditor';
+import {
+  analyticsCommanderOf,
+  mainboardOf,
+  toAnalyticsCards,
+} from '@/components/deck/deckAnalyticsCards';
 import { ManaSourcesPanel } from '@/components/deck/ManaSourcesPanel';
 import { EmptyState, PageTabs } from '@/components/listing';
 import { CommanderHero } from '@/components/deck/CommanderHero';
@@ -39,19 +44,15 @@ import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { DeckAPI } from '@/lib/api/deckAPI';
-import { scryfallAPI } from '@/lib/api/scryfall';
 import { cardImage, computeDeckStats, type DeckCardRow } from '@/lib/deck/deckCards';
-import { categorizeCard } from '@/lib/deck/cardCategories';
 import { deckAverageManaValue } from '@/lib/deck/curve';
 import { formatLabel, usesPowerLevel } from '@/lib/deck/formats';
-import { useIsFeatureEnabled } from '@/hooks/useFeatureAccess';
 import type { Card as StoreCard } from '@/stores/deckStore';
 
 /* Everything the builder could do arrives here as the same components it
    mounted, against the same decklist, with the writes routed through
    `useDeckEditor`. Nothing was taken off either page to do it. */
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
-import { AIOptimizerPanel } from '@/components/deck-builder/AIOptimizerPanel';
 import { DeckQuickStats } from '@/components/deck-builder/DeckQuickStats';
 import { ManaCurve } from '@/components/deck-builder/ManaCurve';
 import { CommanderPowerDisplay } from '@/components/deck-builder/CommanderPowerDisplay';
@@ -208,18 +209,31 @@ interface TabDef {
  *   EDH        how strong is it?         score, coaching, the scrape
  *   Analysis   how does it play?         archetype, deck analysis, the Brain
  *   Legality   is it legal?              validation, colour identity
- *   Optimiser  what should I change?     the five-step pass
  *   Value      what does it cost?        budget, and what I am missing
  *   Record     what do I know about it?  primer, matches, notes
  *
- * Nine. Primer and Matches were two tabs and are one, because they are the same
- * kind of thing — notes a human writes about a deck — and folding them is what
- * keeps the strip on one line.
+ * Eight. Primer and Matches were two tabs and are one, because they are the
+ * same kind of thing — notes a human writes about a deck.
+ *
+ * ## The optimiser was the ninth and is a route now
+ *
+ * It was seventh, then third, and third was still wrong. The tab strip starts
+ * at y=904 on a 1000px viewport, so every position on it is a door in the last
+ * 96 pixels of the fold, and nothing anywhere in the product linked to any of
+ * them. Meanwhile the optimiser is not a panel: it calls an edge function,
+ * takes about twenty-five seconds, and then draws five numbered steps with
+ * their own sub-tabs, a confirmation and a receipt with an undo.
+ *
+ * The deciding fact is that a tab strip is hostile to it. Every one of the
+ * eight tabs above unmounts the panel and throws away a pass that cost a server
+ * call to make, so the optimiser sat with eight controls directly above it that
+ * silently destroyed it. It is `/deck/:id/optimise`, reached from a control in
+ * this page's header where Export and Share already are, and `?tab=optimiser`
+ * and `?tab=ai` redirect there.
  *
  * EDH is conditional: a Standard deck has no bracket, no commander and no
  * colour-identity legality, so offering the tab would be offering an empty
- * room. Optimiser is conditional on its feature flag, hidden rather than
- * disabled. Add is conditional on the deck being yours.
+ * room. Add is conditional on the deck being yours.
  */
 const TAB_DEFS: TabDef[] = [
   { id: 'cards', label: 'Cards', icon: LayoutGrid, hint: 'The decklist' },
@@ -228,7 +242,6 @@ const TAB_DEFS: TabDef[] = [
   { id: 'edh', label: 'EDH', icon: Crown, hint: 'Commander power' },
   { id: 'analysis', label: 'Analysis', icon: BarChart3, hint: 'How it plays' },
   { id: 'legality', label: 'Legality', icon: Gavel, hint: 'Format rules' },
-  { id: 'optimiser', label: 'Optimiser', icon: Sparkles, hint: 'What to change' },
   { id: 'value', label: 'Value', icon: Wallet, hint: 'Cost and gaps' },
   { id: 'record', label: 'Record', icon: ScrollText, hint: 'Primer and matches' },
 ];
@@ -249,7 +262,6 @@ const LEGACY_TABS: Record<string, { tab: string; view?: DeckCardView }> = {
   list: { tab: 'cards', view: 'table' },
   primer: { tab: 'record' },
   matches: { tab: 'record' },
-  ai: { tab: 'optimiser' },
   search: { tab: 'add' },
   'import-export': { tab: 'cards' },
 };
@@ -273,6 +285,11 @@ const LEGACY_TABS: Record<string, { tab: string; view?: DeckCardView }> = {
 const LEGACY_ROUTES: Record<string, string> = {
   proxies: 'proxies',
   test: 'testhand',
+  /* The optimiser was a tab here and is a route now. Both spellings land, so a
+     link written before the move, and one written before the move before that,
+     open the optimiser rather than falling through to the decklist. */
+  optimiser: 'optimise',
+  ai: 'optimise',
 };
 
 export default function DeckInterface() {
@@ -287,9 +304,6 @@ export default function DeckInterface() {
 
   const editor = useDeckEditor(id);
   const { deck, rows, commander, loading, notFound, saveState } = editor;
-
-  const { isEnabled: optimiserEnabled, isLoading: optimiserFlagLoading } =
-    useIsFeatureEnabled('ai_deck_optimizer');
 
   const [isFavorited, setIsFavorited] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -338,63 +352,20 @@ export default function DeckInterface() {
   /**
    * The deck shaped for the shared analytics engine.
    *
-   * `legalities` is in here now, and that is a bug fix rather than a tidy.
-   * `DeckLegalityChecker` reads `card.legalities` at six places; this mapping
-   * did not carry the field at all, so the validation panel on this page could
-   * never report a banned card while the builder's copy of the same panel
-   * could. That was the one figure where the builder's input was the better
-   * one, and it is the reason the merge read both rather than assuming.
+   * The mapping itself lives in `deckAnalyticsCards` now, because the optimiser
+   * is a route of its own and feeds the same panels the same deck. Two copies
+   * of a forty-field mapping is how the legality panel ended up reading a card
+   * that had no `legalities` on it.
    */
-  const analyticsDeck = useMemo<StoreCard[]>(
-    () =>
-      rows
-        .filter(row => !row.is_sideboard)
-        .map(
-          row =>
-            ({
-              id: row.card_id,
-              name: row.card?.name || row.card_name,
-              cmc: row.card?.cmc ?? 0,
-              type_line: row.card?.type_line || '',
-              colors: row.card?.colors ?? [],
-              color_identity: row.card?.color_identity ?? [],
-              oracle_text: row.card?.oracle_text ?? '',
-              power: row.card?.power ?? undefined,
-              toughness: row.card?.toughness ?? undefined,
-              rarity: row.card?.rarity ?? undefined,
-              mana_cost: row.card?.mana_cost ?? undefined,
-              set: row.card?.set_code ?? undefined,
-              set_name: row.card?.set_code ?? undefined,
-              // The legality check reads this and nothing else. Without it the
-              // panel reported no banned cards for every deck, including one
-              // holding a banned card.
-              legalities: row.card?.legalities ?? undefined,
-              keywords: row.card?.keywords ?? [],
-              // Budget and value panels read `prices.usd` off the card.
-              prices: row.card?.prices ?? undefined,
-              image_uris: row.card?.image_uris ?? undefined,
-              quantity: row.quantity,
-              category: categorizeCard(row.card?.type_line, {
-                isCommander: row.is_commander,
-              }) as StoreCard['category'],
-              mechanics: row.card?.keywords ?? [],
-              // Archetype detection counts role tags and nothing else.
-              tags: row.card?.tags ?? [],
-            }) as unknown as StoreCard
-        ),
-    [rows]
-  );
+  const analyticsDeck = useMemo<StoreCard[]>(() => toAnalyticsCards(rows), [rows]);
 
   const analyticsCommander = useMemo<StoreCard | undefined>(
-    () => analyticsDeck.find(c => c.category === 'commanders'),
+    () => analyticsCommanderOf(analyticsDeck),
     [analyticsDeck]
   );
 
   /** The ninety-nine — what every panel below treats as the deck proper. */
-  const mainboard = useMemo(
-    () => analyticsDeck.filter(c => c.category !== 'commanders'),
-    [analyticsDeck]
-  );
+  const mainboard = useMemo(() => mainboardOf(analyticsDeck), [analyticsDeck]);
 
   /** What the decklist lists: everything except the commander drawn above it. */
   const listRows = useMemo(() => rows.filter(row => !row.is_commander), [rows]);
@@ -483,11 +454,10 @@ export default function DeckInterface() {
     () =>
       TAB_DEFS.filter(tab => {
         if (tab.id === 'edh') return isCommanderFormat || showPower;
-        if (tab.id === 'optimiser') return optimiserEnabled && !optimiserFlagLoading;
         if (tab.id === 'add') return canEdit;
         return true;
       }),
-    [isCommanderFormat, showPower, optimiserEnabled, optimiserFlagLoading, canEdit]
+    [isCommanderFormat, showPower, canEdit]
   );
 
   /* The open tab lives in the URL, so Back steps out of a tab and a deck link
@@ -623,14 +593,16 @@ export default function DeckInterface() {
   if (notFound || !deck) {
     return (
       <StandardPageLayout title="Deck not found" description="This deck could not be loaded">
-        <Card>
-          <CardContent className="p-10 text-center">
-            <p className="mb-4 text-muted-foreground">
-              It may have been deleted, or you may not have permission to view it.
-            </p>
-            <Button onClick={() => navigate('/decks')}>Back to decks</Button>
-          </CardContent>
-        </Card>
+        {/* The shared panel, the same one the five deck sub-routes draw when
+            they cannot open a deck. This was a `Card` with `p-10 text-center`
+            written out here, which is one of the seven copies `EmptyState`
+            exists to replace, and it meant the same failure looked like two
+            different things depending on which deck URL you had typed. */}
+        <EmptyState
+          title="This deck could not be opened"
+          description="It may have been deleted, or you may not have permission to view it."
+          action={{ label: 'Back to my decks', onClick: () => navigate('/decks') }}
+        />
       </StandardPageLayout>
     );
   }
@@ -774,6 +746,26 @@ export default function DeckInterface() {
             <Heart className={`mr-2 h-4 w-4 ${isFavorited ? 'fill-current' : ''}`} />
             <span className="hidden sm:inline">{isFavorited ? 'Favorited' : 'Favorite'}</span>
           </Button>
+          {/* THE OPTIMISER'S FRONT DOOR.
+
+              `default`, not `secondary`, and first in the row. Every other
+              control here reads or copies the deck; this is the one that
+              changes it for you, and it is the feature the owner has asked
+              about more than any other. Before this it had no door at all
+              outside the tab strip: measured on the built bundle, a grep for
+              `tab=optimiser` across src/ found two comments and no links, and
+              the strip itself starts at y=904 on a 1000px viewport. Export sat
+              here with a button and a route while the thing that rewrites your
+              deck had neither.
+
+              `leaveFrom` so the optimiser's back control returns to the tab
+              this was pressed from rather than to the decklist. */}
+          {canEdit && (
+            <Button size="sm" onClick={() => navigate(`/deck/${deck.id}/optimise`, leaveFrom)}>
+              <Sparkles className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Optimise</span>
+            </Button>
+          )}
           <Button variant="secondary" size="sm" onClick={() => navigate(`/deck/${deck.id}/share`, leaveFrom)}>
             <Share2 className="mr-2 h-4 w-4" />
             <span className="hidden sm:inline">Share</span>
@@ -1286,106 +1278,6 @@ export default function DeckInterface() {
             </div>
           ) : (
             needsCards('legality checks')
-          ))}
-
-        {activeTab === 'optimiser' &&
-          (hasCards ? (
-            <AIOptimizerPanel
-              deckId={deck.id}
-              deckCards={mainboard as never}
-              deckName={deck.name}
-              format={deck.format}
-              commander={analyticsCommander as never}
-              power={power}
-              edhAnalysis={(deck.edh_analysis as unknown as EdhAnalysisData) ?? null}
-              /* THE VISIBLE SAVE, AND WHY IT IS THE STATE AND NOT THE BUTTON.
-
-                 The optimiser is the longest thing on this page: five steps,
-                 each with its own list, then a receipt. By the time a pass has
-                 been applied, the page header — where this page reports every
-                 save — is well off screen. So the state goes to the panel and
-                 is drawn where the work happened. That is the half of the old
-                 control that was doing the job, and it is why it could not just
-                 be left to the header.
-
-                 `onSaveDeck` is not passed, and that is a decision rather than
-                 an omission. It existed because applying a pass wrote the deck
-                 through a silent 500ms timer, so a person needed a way to make
-                 the write happen now. `useDeckEditor` writes each change as it
-                 is made, so there is no pending timer left to flush, and a
-                 button whose only possible outcome is "already saved" teaches
-                 people to distrust the report next to it. */
-              saveState={canEdit ? saveState : undefined}
-              onApplyReplacements={async replacements => {
-                /* THIS LOOP ONCE LOST 14 CARDS OUT OF A REAL DECK, and the
-                   three rules that stopped it are kept exactly:
-
-                   A replacement with an empty `add` is the removal sentinel.
-                   Asking Scryfall for the empty string produced fifteen HTTP
-                   400s and spent the request budget for the real lookups.
-
-                   Scryfall asks for 50 to 100ms between requests, and a
-                   rate-limited reply carries no access-control header, so the
-                   browser reports CORS and the card is simply never added.
-
-                   And a card is never removed before its replacement is in
-                   hand. A failed lookup leaves the deck alone and says so. */
-                const failed: string[] = [];
-
-                for (const [index, { remove, add }] of replacements.entries()) {
-                  const wanted = (add ?? '').trim();
-                  const outgoing = rows.find(
-                    r => (r.card?.name || r.card_name) === remove && !r.is_commander
-                  );
-
-                  if (!wanted) {
-                    if (outgoing) await editor.deleteAll(outgoing);
-                    continue;
-                  }
-
-                  if (index > 0) await new Promise(resolve => setTimeout(resolve, 120));
-
-                  let incoming: unknown = null;
-                  try {
-                    incoming = await scryfallAPI.getCardByName(wanted);
-                  } catch (error) {
-                    console.error(`Failed to add ${wanted}:`, error);
-                  }
-
-                  if (!incoming) {
-                    failed.push(wanted);
-                    continue;
-                  }
-
-                  if (outgoing) await editor.replaceCard(outgoing, incoming as never);
-                  else await editor.addCard(incoming as never, { quiet: true });
-                }
-
-                if (failed.length > 0) {
-                  showError(
-                    `${failed.length} card${failed.length === 1 ? '' : 's'} could not be looked up`,
-                    `${failed.slice(0, 3).join(', ')}${failed.length > 3 ? ' and others' : ''} stayed as they were.`
-                  );
-                }
-              }}
-              onAddCard={async cardName => {
-                try {
-                  const card = await scryfallAPI.getCardByName(cardName);
-                  await editor.addCard(card as never, { quiet: true });
-                } catch (error) {
-                  console.error(`Failed to add ${cardName}:`, error);
-                  showError(`Failed to add ${cardName}`);
-                }
-              }}
-              onRemoveCard={async cardName => {
-                const row = rows.find(
-                  r => (r.card?.name || r.card_name) === cardName && !r.is_commander
-                );
-                if (row) await editor.deleteAll(row);
-              }}
-            />
-          ) : (
-            needsCards('optimisation suggestions')
           ))}
 
         {activeTab === 'value' &&

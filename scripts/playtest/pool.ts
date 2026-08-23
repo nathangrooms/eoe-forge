@@ -47,13 +47,22 @@ export const POOL_DIR = path.join(HARNESS_ROOT, 'scratch', 'playtest');
 export const POOL_FILE = path.join(POOL_DIR, 'pool.json');
 
 /** Bump when the shape or the filters change, so a stale pool is rebuilt rather than trusted. */
-export const POOL_VERSION = 4;
+export const POOL_VERSION = 5;
 
 export type PoolColor = 'W' | 'U' | 'B' | 'R' | 'G';
 
 /** One card, flattened to exactly what `setup.PlayCard` wants. */
 export interface PoolCard {
   id: string;
+  /**
+   * Scryfall `oracle_id`. `id` is a PRINTING; this is the card.
+   *
+   * The ported XMage behaviour table is keyed by oracle id and nothing else, so
+   * a pool without this field deals every game a board the port cannot be
+   * looked up for. Added at POOL_VERSION 5, after a table built the way the app
+   * builds one was measured running 0 of 60 cards it should have run.
+   */
+  oracleId: string;
   name: string;
   manaCost: string;
   cmc: number;
@@ -271,6 +280,7 @@ function toPoolCard(row: Row): PoolCard {
 
   const card: PoolCard = {
     id: str(row.id),
+    oracleId: str(row.oracle_id),
     name: str(row.name),
     manaCost: manaCostFor(row),
     cmc: typeof row.cmc === 'number' ? row.cmc : 0,

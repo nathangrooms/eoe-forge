@@ -110,6 +110,9 @@ import { ManualDuties } from '@/components/play/ManualDuties';
 import { CommanderChoiceBar } from '@/components/play/CommanderChoiceBar';
 import { MulliganBar } from '@/components/play/MulliganBar';
 import { StackStrip } from '@/components/play/StackStrip';
+import { TriggerTargetBar } from '@/components/play/TriggerTargetBar';
+import { AimLayer } from '@/components/play/AimLayer';
+import { useAimRequest } from '@/components/play/useAiming';
 import { ZoneTravelLayer } from '@/components/play/ZoneTravelLayer';
 import { GameMenu } from '@/components/play/GameMenu';
 import { useCastSpotlight, useLifeDeltas } from '@/components/play/useTableMotion';
@@ -146,6 +149,7 @@ import {
   seatingVariants,
   spellToAnswer,
   stackOf,
+  triggerAwaitingTargets,
   type BotOptions,
   type BuiltTable,
   type CardInstance,
@@ -154,6 +158,7 @@ import {
   type PlayDeck,
   type ResponseOption,
   type PlayerId,
+  type StackTarget,
   type SeatingVariant,
   type Zone,
 } from '@/lib/game';
@@ -648,7 +653,7 @@ export default function Play() {
   /* ---------------------------------------------------------------------- */
 
   const handleCast = useCallback(
-    (card: CardInstance, hostId?: InstanceId) => {
+    (card: CardInstance, hostId?: InstanceId, targets?: StackTarget[]) => {
       if (!state || opening !== null) return;
       /*
        * Onto the STACK, not straight onto the battlefield.
@@ -678,6 +683,16 @@ export default function Play() {
         // refuses and says so, rather than putting an Aura onto the battlefield
         // attached to nothing for CR 704.5m to bin.
         ...(hostId ? { hostId } : {}),
+        /*
+         * CR 601.2c, the other half — every spell that is not an Aura names its
+         * targets as it is cast, and `SpellTargetPanel` is what asks.
+         *
+         * This field is the one CLAUDE.md called the largest blocker left:
+         * `CastOptions.targets` reached the stack object and nothing outside
+         * the bot ever filled it, so a human's Lightning Bolt resolved aimed at
+         * nobody. It is filled here now, from a control a person pressed.
+         */
+        ...(targets && targets.length > 0 ? { targets } : {}),
       });
       if (!plan.ok) {
         toast.error(plan.reason);
@@ -687,6 +702,19 @@ export default function Play() {
       setInspectId(null);
     },
     [state, dispatch, freeCast, opening]
+  );
+
+  /**
+   * Cast a spell at what the preview just aimed it at.
+   *
+   * A thin adapter rather than a second cast path, deliberately: the timing
+   * check, the plan, the refusal toast and the stack announcement are all
+   * `handleCast`'s, so a targeted spell and an untargeted one cannot come to be
+   * cast by two different sets of rules.
+   */
+  const handleCastAtTargets = useCallback(
+    (card: CardInstance, targets: StackTarget[]) => handleCast(card, undefined, targets),
+    [handleCast]
   );
 
   /* ---------------------------------------------------------------------- */
@@ -1087,6 +1115,20 @@ export default function Play() {
     changeView('table');
   }, [decision, canAttack, handleAttack, changeView]);
 
+  /*
+   * Is anything on this table asking what it is aimed at?
+   *
+   * True for a waiting trigger, for a spell being cast at something, and for an
+   * activated ability, because all three publish through the same channel now.
+   * The page does not care which: what it draws for the answer is identical,
+   * which is what fixing the seam once bought.
+   *
+   * Read HERE, above the two early returns below, because it is a hook. There
+   * is no state yet on some of the frames this runs on, and `useAimRequest`
+   * takes that: no table means no question.
+   */
+  const aiming = useAimRequest(state?.id, HUMAN_SEAT);
+
   /* ---------------------------------------------------------------------- */
   /* Render                                                                 */
   /* ---------------------------------------------------------------------- */
@@ -1406,6 +1448,16 @@ export default function Play() {
   const yourPriority = state.priorityPlayerId === HUMAN_SEAT;
   const responses =
     stack.length > 0 && yourPriority ? responseOptions(state, HUMAN_SEAT, { freeCast }) : [];
+  /*
+   * CR 603.3d — a triggered ability of this seat's is waiting to be aimed.
+   *
+   * It outranks the stack strip in the band below, and that is not a taste
+   * call: `drainTriggers` has genuinely STOPPED, so nothing else in the game is
+   * going to move until this is answered. Drawing anything over it would be
+   * drawing a control for a game that is not currently accepting one.
+   */
+  const triggerAsk = triggerAwaitingTargets(state);
+  const aimingTrigger = !!triggerAsk && triggerAsk.playerId === HUMAN_SEAT;
   const openingOwed = opening
     ? cardsToBottom(
         opening.taken,
@@ -1484,6 +1536,9 @@ export default function Play() {
                     state={state}
                     viewerPlayerId={HUMAN_SEAT}
                     freeCast={freeCast}
+                    /* The answer is on the mat, so the fan steps back and stops
+                       taking presses until the question is closed. */
+                    receded={!!aiming}
                     cardWidth={hand.cardWidth}
                     selectedId={bottoming ? null : inspectId}
                     markedIds={bottoming ? opening?.chosen : undefined}
@@ -1537,6 +1592,17 @@ export default function Play() {
         <TurnBanner state={state} viewerPlayerId={HUMAN_SEAT} />
 
         {/*
+          A WAITING TRIGGER, MOUNTED FOR ITS QUESTION RATHER THAN FOR ITS BOX.
+
+          This draws nothing. It works out what CR 603.3d has stopped the game
+          on and publishes it to the table, and `AimLayer` below is what appears.
+          It has to be mounted OUTSIDE that band or the two would deadlock: the
+          band only opens once something is asking, and nothing is asking until
+          this is mounted.
+        */}
+        <TriggerTargetBar state={state} viewerPlayerId={HUMAN_SEAT} onDispatch={dispatch} />
+
+        {/*
           The opening hand, and the things the engine will not do for you.
 
           Both live in the same band under the HUD, both are made of the mat's
@@ -1544,7 +1610,7 @@ export default function Play() {
           They are mutually exclusive in practice: the mulligan is answered
           before the first untap, and a duty cannot arrive until an upkeep.
         */}
-        {(opening !== null || dutiesShowing || commanderChoiceShowing || stack.length > 0) && (
+        {(opening !== null || aiming || aimingTrigger || dutiesShowing || commanderChoiceShowing || stack.length > 0) && (
           <div
             className="pointer-events-none absolute inset-x-0 z-[45] flex justify-center px-2"
             style={{ top: HUD_INSET + 8 }}
@@ -1560,6 +1626,18 @@ export default function Play() {
                 onKeep={handleKeep}
                 onConfirmBottom={handleConfirmBottom}
               />
+            ) : aiming || aimingTrigger ? (
+              /* Something is asking what it is aimed at, and until it has an
+                 answer it outranks everything else this band can hold. For a
+                 trigger that is not a taste call: `drainTriggers` has genuinely
+                 STOPPED (CR 603.3d) and nothing in the game moves until it is
+                 answered. For a spell or an ability the player is mid gesture
+                 and the board is lit up for it.
+
+                 The names that used to sit here are gone. What is left is what
+                 the board cannot say: the card that is asking, its clause, a
+                 control for each legal seat, and the way out. */
+              <AimLayer state={state} viewerPlayerId={HUMAN_SEAT} />
             ) : stack.length > 0 ? (
               <StackStrip
                 state={state}
@@ -1651,6 +1729,7 @@ export default function Play() {
             topInset={HUD_INSET}
             bottomInset={showHand ? hand.inset : FEED_INSET}
             onCast={handleCast}
+            onCastAtTargets={handleCastAtTargets}
             onPlayLand={handlePlayLand}
             onTapToggle={handleTapToggle}
             onAttack={handleAttackOne}

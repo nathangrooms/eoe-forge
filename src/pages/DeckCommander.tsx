@@ -35,15 +35,35 @@ export default function DeckCommander() {
   const storeCommander = useDeckStore(state => state.commander);
   const [rows, setRows] = useState<DeckCardRow[]>([]);
   const [saving, setSaving] = useState(false);
+  /*
+   * This page used to swallow a failed read into `console.error` and carry on,
+   * which left a picker sitting over a deck it had not managed to open: pick a
+   * commander there and the write goes to a deck whose current commander is
+   * unknown, so the old one is never removed. Its four sibling routes all had a
+   * state for this and this one did not.
+   *
+   * `loading` starts false when there is no `:id`, because then there is
+   * nothing to wait for — see the note above about the generator.
+   */
+  const [loading, setLoading] = useState(Boolean(id));
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
     fetchDeckCards(id)
       .then(result => {
         if (!cancelled) setRows(result);
       })
-      .catch(error => console.error('Could not read the deck:', error));
+      .catch(error => {
+        console.error('Could not read the deck:', error);
+        if (!cancelled) setLoadError('Could not read this deck, so its commander cannot be changed.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -83,8 +103,10 @@ export default function DeckCommander() {
       description="Pick the legendary creature that leads this deck."
       backTo={from}
       backLabel="Back to deck"
+      loading={loading}
+      error={loadError}
     >
-      <div className="rounded-xl bg-card p-4 shadow-sm md:p-5" aria-busy={saving}>
+      <div className="rounded-lg bg-card p-4 shadow-lg shadow-black/20 md:p-5" aria-busy={saving}>
         <CommanderSelector
           currentCommander={
             current

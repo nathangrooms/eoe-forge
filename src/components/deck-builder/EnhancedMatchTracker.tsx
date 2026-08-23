@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FIELD } from '@/components/listing';
+import { EmptyState, FIELD, MetricRow } from '@/components/listing';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
-import { Trophy, Target, TrendingUp, Calendar, Plus, BarChart3 } from 'lucide-react';
+import { Calendar, Plus } from 'lucide-react';
 
 interface Match {
   id: string;
@@ -104,10 +104,13 @@ export function EnhancedMatchTracker({ deckId, deckName }: EnhancedMatchTrackerP
 
   const winRate = stats.total > 0 ? ((stats.wins / stats.total) * 100).toFixed(1) : '0';
 
+  /* Borderless. These read `border-border` and `border-destructive/40` before,
+     which is a hairline on a chip inside a row that also drew one. A loss is
+     the one result worth marking, and the tint alone says so. */
   const resultColors = {
-    win: 'bg-muted text-foreground border-border',
-    loss: 'bg-destructive/10 text-destructive border-destructive/40',
-    draw: 'bg-muted text-foreground border-border',
+    win: 'border-0 bg-muted text-foreground',
+    loss: 'border-0 bg-destructive/10 text-destructive',
+    draw: 'border-0 bg-muted text-foreground',
   };
 
   return (
@@ -207,50 +210,82 @@ export function EnhancedMatchTracker({ deckId, deckName }: EnhancedMatchTrackerP
             </form>
           )}
 
-          <div className="grid gap-4 sm:grid-cols-4 mb-6">
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-              <BarChart3 className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <div className="text-2xl font-bold">{stats.total}</div>
-                <div className="text-xs text-muted-foreground">Total Matches</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted">
-              <Trophy className="h-5 w-5 text-foreground" />
-              <div>
-                <div className="text-2xl font-bold text-foreground">{stats.wins}</div>
-                <div className="text-xs text-muted-foreground">Wins</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-destructive/10">
-              <Target className="h-5 w-5 text-destructive" />
-              <div>
-                <div className="text-2xl font-bold text-destructive">{stats.losses}</div>
-                <div className="text-xs text-muted-foreground">Losses</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-primary/10">
-              <TrendingUp className="h-5 w-5 text-primary" />
-              <div>
-                <div className="text-2xl font-bold text-primary">{winRate}%</div>
-                <div className="text-xs text-muted-foreground">Win Rate</div>
-              </div>
-            </div>
-          </div>
+          {/*
+            Four figures, four different grounds and an icon on each.
+
+            This row had a colour per tile — `bg-muted/50`, `bg-muted`,
+            `bg-destructive/10`, `bg-primary/10` — with the number tinted to
+            match, so a deck that had lost more than it won drew a red panel and
+            a deck that had never played drew a 0% in primary. That is emphasis
+            spent on the tile it happened to be, not on anything the reader
+            needs to act on, and it is the same monochrome rule the rest of the
+            product keeps. The icons are the thing the owner ruled out on this
+            exact kind of tile, and the labels were Title Case where every other
+            row in the product is sentence case.
+
+            The one real reading is the win rate, and it stays the last tile
+            with its denominator under it rather than being coloured.
+          */}
+          <MetricRow
+            on="card"
+            columns={4}
+            className="mb-6"
+            metrics={[
+              {
+                id: 'total',
+                label: 'Matches',
+                value: stats.total.toLocaleString(),
+                raw: stats.total,
+              },
+              { id: 'wins', label: 'Wins', value: stats.wins.toLocaleString(), raw: stats.wins },
+              {
+                id: 'losses',
+                label: 'Losses',
+                value: stats.losses.toLocaleString(),
+                raw: stats.losses,
+              },
+              {
+                id: 'rate',
+                label: 'Win rate',
+                /* A dash, not 0%. A deck with no matches has not won nothing,
+                   it has not played. */
+                value: stats.total > 0 ? `${winRate}%` : '—',
+                raw: stats.total > 0 ? Number(winRate) : undefined,
+                subtext: stats.total > 0 ? `${stats.wins} of ${stats.total}` : 'no matches yet',
+              },
+            ]}
+          />
 
           {loading ? (
-            <div className="text-center text-muted-foreground py-8">Loading matches...</div>
+            <div
+              className="h-32 animate-pulse rounded-lg bg-muted/30 motion-reduce:animate-none"
+              role="status"
+              aria-label="Loading matches"
+            />
           ) : matches.length === 0 ? (
-            <div className="text-center text-muted-foreground py-8">
-              No matches recorded yet. Click "Record Match" to get started!
-            </div>
+            /* Was a bare centred line reading `No matches recorded yet. Click
+               "Record Match" to get started!` — which named a button by a label
+               that button does not have, and ended on the kind of exclamation
+               the copy rules rule out. The shared panel, and the way out is the
+               control rather than a sentence describing it. */
+            <EmptyState
+              title="No matches yet"
+              description="Once you have played some games with this deck, its record and win rate build up here."
+              action={{ label: 'Record a match', onClick: () => setFormOpen(true) }}
+            />
           ) : (
+            /* Each row is `bg-muted/30`, not `border bg-card`. A hairline round
+               every row of a ten-row list is the one thing the design law names
+               outright, and a recessed ground separates them without it. */
             <div className="space-y-3">
               {matches.slice(0, 10).map((match) => (
-                <div key={match.id} className="flex items-start justify-between p-3 rounded-lg border bg-card">
+                <div key={match.id} className="flex items-start justify-between rounded-lg bg-muted/30 p-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <Badge variant="outline" className={resultColors[match.result as keyof typeof resultColors]}>
+                      <Badge
+                        variant="secondary"
+                        className={resultColors[match.result as keyof typeof resultColors]}
+                      >
                         {match.result.toUpperCase()}
                       </Badge>
                       <span className="text-xs text-muted-foreground flex items-center gap-1">

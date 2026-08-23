@@ -152,7 +152,7 @@ export function DeckNotesPanel({ deckId }: DeckNotesPanelProps) {
           ) : (
             <div className="space-y-3 pr-4">
               {notes.map((note) => (
-                <div key={note.id} className="p-3 rounded-lg border bg-card">
+                <div key={note.id} className="rounded-lg bg-muted/30 p-3">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">

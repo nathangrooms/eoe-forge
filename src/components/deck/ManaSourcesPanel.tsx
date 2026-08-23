@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ManaPip } from '@/components/ui/mana-cost';
+import { MetricRow } from '@/components/listing';
 import { cn } from '@/lib/utils';
 import type { DeckPlayability, ManaProfile } from '@/lib/deck/playability';
 import {
@@ -32,26 +33,6 @@ interface ManaSourcesPanelProps {
   profile: ManaProfile;
   result: DeckPlayability;
   className?: string;
-}
-
-function Stat({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-}) {
-  return (
-    <div className="min-w-0 rounded-lg bg-muted/40 p-4">
-      <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-1 text-2xl font-bold tabular-nums">{value}</p>
-      {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
-    </div>
-  );
 }
 
 export function ManaSourcesPanel({ profile, result, className }: ManaSourcesPanelProps) {
@@ -90,31 +71,54 @@ export function ManaSourcesPanel({ profile, result, className }: ManaSourcesPane
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Stat
-              label="Average"
-              value={result.averagePct === null ? '—' : `${result.averagePct.toFixed(1)}%`}
-              hint={`across ${result.scoredCount} scored ${result.scoredCount === 1 ? 'card' : 'cards'}`}
-            />
-            <Stat
-              label="Median"
-              value={result.medianPct === null ? '—' : `${result.medianPct.toFixed(1)}%`}
-              /* Not "half the deck": the median is taken over the scored
-                 spells only. On a 49-card deck with 32 lands that is 17 cards,
-                 and "half the deck is above 99.7%" was simply false. */
-              hint="half the scored spells are above this"
-            />
-            <Stat
-              label={`Under ${result.threshold}%`}
-              value={String(result.belowThresholdCount)}
-              hint="more often stuck in hand than cast on curve"
-            />
-            <Stat
-              label="Mana sources"
-              value={String(profile.sources.length)}
-              hint={`${profile.landCount} lands · ${profile.rockCount} rocks · ${profile.dorkCount} dorks`}
-            />
-          </div>
+          {/*
+            The four figures were a local `Stat`: `bg-muted/40`, an uppercase
+            letterspaced label, and `text-2xl font-bold` where every figure the
+            shared row draws is `font-semibold`. It was the Mana tab's own idea
+            of a metric, which is the drift `MetricRow` exists to end, and this
+            is the tab the audit named as the one that reads least finished.
+
+            Nothing was dropped: `label` is the label, `value` the value, and
+            the `hint` line is `subtext`, which is the slot it was already
+            imitating. `on="card"` because this sits inside a raised `Card`.
+          */}
+          <MetricRow
+            on="card"
+            columns={4}
+            metrics={[
+              {
+                id: 'average',
+                label: 'Average',
+                value: result.averagePct === null ? '—' : `${result.averagePct.toFixed(1)}%`,
+                raw: result.averagePct ?? undefined,
+                subtext: `across ${result.scoredCount} scored ${result.scoredCount === 1 ? 'card' : 'cards'}`,
+              },
+              {
+                id: 'median',
+                label: 'Median',
+                value: result.medianPct === null ? '—' : `${result.medianPct.toFixed(1)}%`,
+                raw: result.medianPct ?? undefined,
+                /* Not "half the deck": the median is taken over the scored
+                   spells only. On a 49-card deck with 32 lands that is 17 cards,
+                   and "half the deck is above 99.7%" was simply false. */
+                subtext: 'half the scored spells are above this',
+              },
+              {
+                id: 'below',
+                label: `Under ${result.threshold}%`,
+                value: String(result.belowThresholdCount),
+                raw: result.belowThresholdCount,
+                subtext: 'more often stuck in hand than cast on curve',
+              },
+              {
+                id: 'sources',
+                label: 'Mana sources',
+                value: String(profile.sources.length),
+                raw: profile.sources.length,
+                subtext: `${profile.landCount} lands · ${profile.rockCount} rocks · ${profile.dorkCount} dorks`,
+              },
+            ]}
+          />
 
           <PlayabilityLegend />
 

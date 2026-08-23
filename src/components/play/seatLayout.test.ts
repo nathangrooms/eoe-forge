@@ -79,8 +79,16 @@ test('both rows are the same height, so the creature row is not half the mana ro
      drew 62px cards — the floor, where a card is a coloured rectangle — while
      the mana row beside it drew 134px. Creatures are the row every other player
      at the table has to read. */
+  /* This asserted the two rows were EQUAL, which was the first fix for the
+     starved creature row. The split is now 55/45 in the creature row's favour
+     (165 against 135 of a 300px band), which serves the same intent harder:
+     creatures are the row every other player at the table has to read, and
+     lands are the row you glance at to count mana.
+
+     So the property is "creatures are never the smaller row", not "the rows are
+     identical". Equality was one way to satisfy it and not the only one. */
   const { creatureHeight, landHeight } = splitBands(300);
-  assert.ok(Math.abs(creatureHeight - landHeight) <= 1);
+  assert.ok(creatureHeight >= landHeight, 'creatures never get the smaller row');
   assert.equal(creatureHeight + landHeight, 300, 'and the band is spent exactly');
 });
 
@@ -344,7 +352,11 @@ test('a widening block never resizes a card on the rows beside it', () => {
 test('the rail is sized by the tiles it has to stack, not by width alone', () => {
   /* Four card-shaped piles down a short quadrant: a rail set purely as a
      fraction of the width is a wide empty strip. */
-  assert.ok(railWidth(948, 369) <= 128);
+  /* The cap was 128. It is 224 now, because the zones behind it were measured
+     at a size where the art was unreadable and widening them was the point.
+     218 on a 948px seat is 23% of the width, which is the most this should ever
+     take and is why the cap moved rather than being removed. */
+  assert.ok(railWidth(948, 369) <= 224);
   assert.ok(railWidth(628, 264) < railWidth(948, 369), 'a shorter seat gets a narrower rail');
   assert.ok(railWidth(300, 200) >= 52, 'and it never disappears');
 });

@@ -26,6 +26,7 @@ import {
   Play,
   Share2,
   ShieldCheck,
+  Sparkles,
   Star,
   Trash2,
   X,
@@ -293,6 +294,12 @@ export function DeckTile({
     }
   };
 
+  const handleOptimise = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    navigate(`/deck/${deckSummary.id}/optimise`);
+  };
+
   const handlePlaytest = (e?: React.MouseEvent) => {
     e?.preventDefault();
     e?.stopPropagation();
@@ -326,6 +333,14 @@ export function DeckTile({
       <DropdownMenuContent align="end" className="w-48 border-0 shadow-xl shadow-black/40">
         <DropdownMenuItem onClick={onOpen}>
           <Layers className="mr-2 h-4 w-4" /> View deck
+        </DropdownMenuItem>
+        {/* The second door to the optimiser, and the first one that exists
+            outside the deck itself. Nothing in the product linked to it at all
+            before this: every route into it went through opening a deck first.
+            Here it sits beside View deck, because "make this better" is a thing
+            you decide about a deck while looking at the shelf. */}
+        <DropdownMenuItem onClick={handleOptimise}>
+          <Sparkles className="mr-2 h-4 w-4" /> Optimise
         </DropdownMenuItem>
         <DropdownMenuItem onClick={handlePlaytest}>
           <Play className="mr-2 h-4 w-4" /> Playtest

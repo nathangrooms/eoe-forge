@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Crown, Search, X, Loader2, SlidersHorizontal } from 'lucide-react';
+import { Crown, X } from 'lucide-react';
 import { useDeckStore } from '@/stores/deckStore';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { ManaCost, ColorIdentity } from '@/components/ui/mana-cost';
 import { CardGrid, CardGridSkeleton, CardImage, CardSizeSlider, useCardSize } from '@/components/cards';
 import { ActiveFilterChips, CardFilterSheet, useCardFilterState } from '@/components/filters';
+import { EmptyState, FilterBar, FilterButton, ListingSearch } from '@/components/listing';
 
 interface CommanderSelectorProps {
   currentCommander?: any;
@@ -38,6 +38,20 @@ interface ScryfallCard {
  * 64px thumbnails beside a name. The narrowing controls are the shared
  * `CardFilterPanel`, which matters more here than anywhere: "at most these
  * colours" is *the* question when picking a commander, and it is one click.
+ *
+ * ## It is a listing, so it uses the listing vocabulary
+ *
+ * This is the whole of `/deck/:id/commander`, and it had grown its own copies
+ * of four things that exist once: the search field, the filter trigger and its
+ * count badge, the row they sit in, and the panel drawn when nothing matches.
+ * They are `ListingSearch`, `FilterButton`, `FilterBar` and `EmptyState` now.
+ * Nothing was taken away by that and two things arrived for free, because the
+ * shared field has them and the local copy did not: Enter commits without
+ * waiting out the debounce, and Escape clears the box.
+ *
+ * What stays local is the part no other listing has: the commander-legal query
+ * that is ANDed onto every search, and the EDHREC-ranked wall shown before you
+ * have asked for anything.
  */
 export function CommanderSelector({ currentCommander, onSelect }: CommanderSelectorProps) {
   const { setCommander } = useDeckStore();
@@ -275,54 +289,76 @@ export function CommanderSelector({ currentCommander, onSelect }: CommanderSelec
         </div>
       )}
 
-      {/* Search + the shared filter */}
-      <div className="flex flex-wrap items-center gap-2">
-        <CommanderSearchBox value={filters.state.text ?? ''} onCommit={commitText} />
+      {/*
+        Search + the shared filter, as one band.
 
-        <CardFilterSheet
-          controller={filters}
-          showSort={false}
-          showChips={false}
-          trigger={
-            <Button variant="secondary" className="shrink-0 gap-2">
-              <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-              Filters
-              {filters.activeCount > 0 && (
-                <span className="rounded-full bg-primary px-1.5 py-0.5 text-[0.65rem] font-bold leading-none text-primary-foreground">
-                  {filters.activeCount}
-                </span>
-              )}
-            </Button>
-          }
-        />
-
-        <CardSizeSlider
-          storageKey="commander-picker"
-          value={cardWidth}
-          onValueChange={setCardWidth}
-          showValue={false}
-          className="ml-auto hidden sm:flex"
-        />
-      </div>
-
-      {filters.activeCount > 0 && <ActiveFilterChips controller={filters} />}
+        Four separate pieces of the shared listing vocabulary were written out
+        again here: the search box (a 250ms debounce, a magnifier inset left and
+        a clear button, which is `ListingSearch` line for line, minus its
+        Enter-to-commit and its Escape-to-clear), the filter trigger and its
+        count badge (`FilterButton`, and this copy drew the badge at a different
+        size), the loose row they sat in (`FilterBar`), and the empty panel
+        below (`EmptyState`). This is the only surface `/deck/:id/commander`
+        has, so all four of them were the sub page the owner was looking at.
+      */}
+      <FilterBar
+        search={
+          <ListingSearch
+            value={filters.state.text ?? ''}
+            onCommit={commitText}
+            placeholder="Search commanders, backgrounds and partners…"
+            label="Search commanders"
+          />
+        }
+        filters={
+          <CardFilterSheet
+            controller={filters}
+            showSort={false}
+            showChips={false}
+            trigger={<FilterButton count={filters.activeCount} />}
+          />
+        }
+        trailing={
+          <CardSizeSlider
+            storageKey="commander-picker"
+            value={cardWidth}
+            onValueChange={setCardWidth}
+            showValue={false}
+            className="hidden sm:flex"
+          />
+        }
+        chips={
+          filters.activeCount > 0 ? (
+            <ActiveFilterChips controller={filters} showClear={false} />
+          ) : undefined
+        }
+        activeCount={filters.activeCount}
+        onClear={filters.reset}
+      />
 
       {loading && <CardGridSkeleton width={cardWidth} count={8} />}
 
       {!loading && hasCriteria && searchResults.length === 0 && (
-        <div className="rounded-lg bg-muted/30 py-10 text-center">
-          <p className="text-sm text-muted-foreground">
-            No commander matches these filters.
-          </p>
-        </div>
+        <EmptyState
+          title="No commander matches"
+          description="Nothing legal to lead a deck came back for this search and these filters."
+          onClearFilters={filters.activeCount > 0 ? filters.reset : undefined}
+        />
       )}
 
+      {/*
+        The grid scrolls with the page, not inside a 448px window.
+
+        `max-h-[28rem] overflow-y-auto` was correct when this was the body of a
+        `max-h-[90vh]` dialog and something had to give. It is a route now, and
+        the cap meant sixty commanders were being read three rows at a time
+        through an inner scrollbar while the page behind them did not move — on
+        the one screen in the product whose entire job is looking at card art.
+      */}
       {!loading && searchResults.length > 0 && (
-        <div className="max-h-[28rem] overflow-y-auto pr-1">
-          <CardGrid width={cardWidth}>
-            {searchResults.slice(0, 60).map(card => renderResult(card))}
-          </CardGrid>
-        </div>
+        <CardGrid width={cardWidth}>
+          {searchResults.slice(0, 60).map(card => renderResult(card))}
+        </CardGrid>
       )}
 
       {/* Most played — real EDHREC ordering from Scryfall, not invented percentages */}
@@ -335,72 +371,16 @@ export function CommanderSelector({ currentCommander, onSelect }: CommanderSelec
           {topLoading ? (
             <CardGridSkeleton width={cardWidth} count={8} />
           ) : topError || topCommanders.length === 0 ? (
-            <p className="py-4 text-sm text-muted-foreground">
-              Could not reach Scryfall. Search by name above instead.
-            </p>
+            <EmptyState
+              title="Could not reach Scryfall"
+              description="The most-played list comes from Scryfall and it did not answer. Searching by name above still works."
+            />
           ) : (
             <CardGrid width={cardWidth}>
               {topCommanders.map((c, i) => renderResult(c, i + 1))}
             </CardGrid>
           )}
         </div>
-      )}
-    </div>
-  );
-}
-
-/** Debounced name box, feeding the same `text` facet the filter panel edits. */
-function CommanderSearchBox({
-  value,
-  onCommit,
-}: {
-  value: string;
-  onCommit: (next: string | undefined) => void;
-}) {
-  const [draft, setDraft] = useState(value);
-  const [committed, setCommitted] = useState(value);
-
-  useEffect(() => {
-    if (value !== committed) {
-      setCommitted(value);
-      setDraft(value);
-    }
-    // Adopts external changes (chip removal, clear all) without stomping typing.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
-
-  useEffect(() => {
-    if (draft === committed) return;
-    const id = window.setTimeout(() => {
-      setCommitted(draft);
-      onCommit(draft.trim() ? draft : undefined);
-    }, 250);
-    return () => window.clearTimeout(id);
-  }, [draft, committed, onCommit]);
-
-  return (
-    <div className="relative min-w-0 flex-1">
-      <Search
-        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-        aria-hidden="true"
-      />
-      <Input
-        placeholder="Search commanders, backgrounds and partners…"
-        value={draft}
-        onChange={e => setDraft(e.target.value)}
-        spellCheck={false}
-        className="border-0 bg-muted/50 pl-9 pr-9 focus-visible:ring-1 focus-visible:ring-offset-0"
-      />
-      {draft && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
-          onClick={() => setDraft('')}
-          aria-label="Clear search"
-        >
-          <X className="h-4 w-4" />
-        </Button>
       )}
     </div>
   );

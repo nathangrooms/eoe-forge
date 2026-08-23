@@ -1,14 +1,12 @@
 import { useState, useEffect } from 'react';
-import { FIELD } from '@/components/listing';
-import { cn } from '@/lib/utils';
+import { EmptyState, FacetChip, FilterBar, ListingSearch } from '@/components/listing';
 import { readAmount } from '@/lib/pricing';
 import { fetchCardsByIds, type DeckCardDetail } from '@/lib/deck/deckCards';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { CardImage } from '@/components/cards';
-import { Search, Plus, Heart, DollarSign, Package, Printer, ShoppingCart, Loader2 } from 'lucide-react';
+import { Plus, Heart, DollarSign, Package, Printer, ShoppingCart, Loader2 } from 'lucide-react';
 import { AddToListButton } from '@/components/shopping';
 import { showListItemCount, useCardLists, type ListKind } from '@/lib/shopping';
 import { supabase } from '@/integrations/supabase/client';
@@ -318,45 +316,65 @@ export function MissingCardsPanel({ deckId, deckName }: MissingCardsPanelProps) 
         </div>
       </div>
 
-      {/* Search and Filters */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative min-w-[200px] flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search missing cards..."
+      {/*
+        Search and the price bands, as one band.
+
+        The field had no debounce, so every keystroke re-filtered the list —
+        one of the four surfaces the consistency audit counted doing that.
+        `ListingSearch` commits on the shared 250ms, and Enter commits at once
+        for somebody who has finished typing. The price bands are this panel's
+        own facets and stay exactly as they are, as `FacetChip`s in the slot
+        `FilterBar` has for a page's own narrowing controls.
+      */}
+      <FilterBar
+        search={
+          <ListingSearch
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className={cn(FIELD, 'pl-10')}
+            onCommit={next => setSearchQuery(next ?? '')}
+            placeholder="Name or type"
+            label="Search the cards you are missing"
           />
-        </div>
-        <div className="flex gap-1">
-          {(['all', 'high', 'medium', 'low'] as const).map((f) => (
-            <Button
-              key={f}
-              variant={filter === f ? 'default' : 'secondary'}
-              size="sm"
-              onClick={() => setFilter(f)}
-              className="capitalize"
-            >
-              {f === 'all' ? 'All' : `$${f === 'high' ? '10+' : f === 'medium' ? '2-10' : '<2'}`}
-            </Button>
-          ))}
-        </div>
-      </div>
+        }
+        facets={(['all', 'high', 'medium', 'low'] as const).map(f => (
+          <FacetChip key={f} selected={filter === f} onClick={() => setFilter(f)}>
+            {f === 'all' ? 'All' : `$${f === 'high' ? '10+' : f === 'medium' ? '2-10' : '<2'}`}
+          </FacetChip>
+        ))}
+        activeCount={(searchQuery ? 1 : 0) + (filter === 'all' ? 0 : 1)}
+        onClear={() => {
+          setSearchQuery('');
+          setFilter('all');
+        }}
+      />
 
       {/* Missing Cards List */}
       {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <div className="h-8 w-8 animate-spin rounded-full ring-2 ring-muted-foreground ring-offset-0 border-t-transparent" />
-        </div>
+        <div
+          className="h-64 animate-pulse rounded-lg bg-muted/30 motion-reduce:animate-none"
+          role="status"
+          aria-label="Working out what this deck is missing"
+        />
       ) : filteredCards.length === 0 ? (
-        <div className="rounded-xl bg-card py-16 text-center shadow-sm">
-          <Package className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-          <h3 className="mb-2 text-lg font-medium">No missing cards found</h3>
-          <p className="text-muted-foreground">
-            {searchQuery ? 'Try adjusting your search or filters' : 'You own all cards in this deck!'}
-          </p>
-        </div>
+        /* Two different situations and they were sharing one panel and one
+           heading. Nothing matching a search is a filter result and offers a
+           way to clear it; owning the whole deck is an achievement and says so
+           without an exclamation mark. */
+        searchQuery || filter !== 'all' ? (
+          <EmptyState
+            title="Nothing matches"
+            description="No card you are missing matches this search and this price band."
+            onClearFilters={() => {
+              setSearchQuery('');
+              setFilter('all');
+            }}
+          />
+        ) : (
+          <EmptyState
+            icon={Package}
+            title="You own every card in this deck"
+            description="Nothing here is missing from your collection."
+          />
+        )
       ) : (
         <div className="space-y-3">
           {filteredCards.map((card) => (

@@ -330,6 +330,8 @@ function chooseSpells(
 function toPlayCard(card: PoolCard, identity: readonly PoolColor[]): PlayCard {
   return {
     cardId: card.id,
+    // Keyed on by the ported behaviour table. See `PoolCard.oracleId`.
+    oracleId: card.oracleId,
     name: card.name,
     manaCost: card.manaCost || undefined,
     cmc: card.cmc,

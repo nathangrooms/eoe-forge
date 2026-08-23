@@ -40,11 +40,13 @@
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { cn } from '@/lib/utils';
-import { SeatMat } from './SeatMat';
+import { SeatMat, type SeatAim } from './SeatMat';
 import { Playmat } from './Playmat';
 import { GameStateProvider } from './GameStateContext';
 import { CombatBar } from './CombatBar';
 import { useLiveSession } from './liveSession';
+import { boardTargets } from './aiming';
+import { useAimRequest } from './useAiming';
 import { cardCombatFor, combatSentence, combatStageFor } from './combatUi';
 import type { CombatChipProps, Lunge } from './GameCardView';
 import type { LifeDeltaMap } from './useTableMotion';
@@ -198,6 +200,44 @@ export function PlayTable({
   const session = useLiveSession(state.id, viewerPlayerId);
   const dispatch = session?.dispatch ?? null;
   const stage = combatStageFor(state, viewerPlayerId);
+
+  /* ---------------------------------------------------------------------- */
+  /* Targeting, answered on this board                                      */
+  /* ---------------------------------------------------------------------- */
+
+  /*
+   * The same trade as the dispatcher above, for the same reason: the gesture is
+   * a press on a CARD, and the thing asking the question is a sibling of this
+   * component rather than an ancestor of it. `aiming.ts` carries it sideways and
+   * states the whole argument; the guard is the same pair of ids, so a watched
+   * game and an opponent's quadrant get nothing.
+   */
+  const aim = useAimRequest(state.id, viewerPlayerId);
+
+  /* Which permanents the engine will accept, as a set, computed once for the
+     whole table rather than once per seat. Legality is not decided here and
+     must never be: this is a filter over the ids `chooseTargetsFor` produced,
+     split by whether the card is drawn on a mat at all. */
+  const aimTargets = useMemo(
+    () => (aim ? boardTargets(state, aim.instanceIds) : null),
+    [aim, state]
+  );
+
+  const seatAim = useCallback(
+    (playerId: PlayerId): SeatAim | null => {
+      if (!aim || !aimTargets) return null;
+      return {
+        targetIds: aimTargets,
+        seatIsTarget: aim.playerIds.indexOf(playerId) !== -1,
+        sourceName: aim.sourceName,
+        /* The board says WHICH. What that means as a target, zone snapshot and
+           all, is built by the asker. See `targetForCard`. */
+        onPickCard: card => aim.answerCard(card.instanceId),
+        onPickSeat: () => aim.answerPlayer(playerId),
+      };
+    },
+    [aim, aimTargets]
+  );
 
   /** The blocker picked up and not yet put in front of anything. UI only. */
   const [armedBlockerId, setArmedBlockerId] = useState<string | null>(null);
@@ -501,6 +541,7 @@ export function PlayTable({
               lifeDeltas={lifeDeltas?.[focused.id]}
               side="left"
               showHandBacks={focused.id !== viewerPlayerId}
+              aim={seatAim(focused.id)}
             />
           </div>
         ) : (
@@ -531,7 +572,10 @@ export function PlayTable({
                   onTapCard={isViewer ? onTapCard : undefined}
                   onOpenZone={onOpenZone}
                   combatFor={combatFor}
-                  onFocusSeat={isViewer ? undefined : onFocusSeat}
+                  /* Not while a question is open. Giving one seat the whole
+                     viewport mid-announcement would take the other seats'
+                     legal targets off the screen. */
+                  onFocusSeat={isViewer || aim ? undefined : onFocusSeat}
                   attackerIds={attackerIds}
                   blockerIds={blockerIds}
                   inspectedId={inspectedId}
@@ -539,6 +583,7 @@ export function PlayTable({
                   lifeDeltas={lifeDeltas?.[player.id]}
                   side={seat.rect.x + seat.rect.w / 2 <= 0.5 ? 'left' : 'right'}
                   showHandBacks={!isViewer}
+                  aim={seatAim(player.id)}
                 />
               </div>
             );
@@ -564,7 +609,10 @@ export function PlayTable({
         className="pointer-events-none absolute inset-x-0 z-40 flex justify-center px-2 pt-1"
         style={{ top: topInset }}
       >
-        {stage && dispatch && (
+        {/* Stood down while a target is being chosen. The two strips share this
+            band, and a question the game is stopped on outranks a declaration
+            the player has not started making. */}
+        {stage && dispatch && !aim && (
           <CombatBar
             stage={stage}
             sentence={combatSentence(state, viewerPlayerId)}

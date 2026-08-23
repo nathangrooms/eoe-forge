@@ -14,6 +14,7 @@ import {
   type IncomingCard,
 } from '@/lib/deck/deckMutations';
 import { maxCopiesFor } from '@/components/deck-builder/deck-categories';
+import { scryfallAPI } from '@/lib/api/scryfall';
 import type { DeckPower } from '@/lib/deck/power';
 
 /**
@@ -76,6 +77,56 @@ export type DeckSaveState = 'idle' | 'saving' | 'saved' | 'error';
 
 /** How long a burst of edits is allowed to coalesce before the record write. */
 const RECORD_SAVE_MS = 1200;
+
+/**
+ * The gap Scryfall asks for between requests.
+ *
+ * Going faster does not fail loudly. A rate-limited reply carries no
+ * access-control header, so the browser reports it as CORS and the card is
+ * simply never added, which reads as an apply that silently skipped things.
+ */
+const SCRYFALL_GAP_MS = 120;
+
+/**
+ * One line of an incoming edit: take this card out, put that card in.
+ *
+ * Both halves are names, because that is what the optimiser deals in. An empty
+ * `add` means take the card out and put nothing in, and an empty `remove` means
+ * put the card in and take nothing out. `addCard` is the resolved card when the
+ * caller already holds one, which spares a lookup for a card that has already
+ * been fetched to draw its art.
+ */
+export interface DeckReplacement {
+  remove: string;
+  add: string;
+  addCard?: unknown;
+}
+
+/**
+ * What could not be done, said once, in the words of the thing that refused.
+ *
+ * Refusals and failed lookups are different facts and get different sentences.
+ * A card outside the commander's colours was understood and turned down; a card
+ * the catalogue could not find was never understood at all. Reporting them
+ * together as "some cards failed" is how a colour identity mistake gets read as
+ * a network problem.
+ */
+function report(refused: string[], unresolved: string[]) {
+  if (refused.length > 0) {
+    showError(
+      refused.length === 1 ? 'One card could not go in' : `${refused.length} cards could not go in`,
+      refused.slice(0, 2).join(' ')
+    );
+  }
+  if (unresolved.length > 0) {
+    showError(
+      unresolved.length === 1
+        ? 'One card could not be found'
+        : `${unresolved.length} cards could not be found`,
+      `${unresolved.slice(0, 3).join(', ')}${unresolved.length > 3 ? ' and others' : ''} stayed as they were.`
+    );
+  }
+}
 
 export function useDeckEditor(deckId: string | undefined) {
   const [deck, setDeck] = useState<DeckEditorRecord | null>(null);
@@ -146,18 +197,31 @@ export function useDeckEditor(deckId: string | undefined) {
    * is worse than one that flickers.
    */
   const commit = useCallback(
-    async (next: DeckCardRow[], write: () => Promise<void>, failure: string) => {
+    async (
+      next: DeckCardRow[],
+      write: () => Promise<void>,
+      failure: string,
+      /**
+       * `silent` leaves the reporting to the caller, for a caller with
+       * something more exact to say than "nothing was changed". It still
+       * reverts and still sets the error state; it withholds only the toast, so
+       * one failure cannot be announced twice in two different wordings.
+       */
+      options: { silent?: boolean } = {}
+    ): Promise<boolean> => {
       const previous = rows;
       setRows(next);
       setSaveState('saving');
       try {
         await write();
         setSaveState('saved');
+        return true;
       } catch (error) {
         console.error(failure, error);
         setRows(previous);
         setSaveState('error');
-        showError(failure, 'Nothing was changed.');
+        if (!options.silent) showError(failure, 'Nothing was changed.');
+        return false;
       }
     },
     [rows]
@@ -449,6 +513,189 @@ export function useDeckEditor(deckId: string | undefined) {
     [deckId, rows, commit]
   );
 
+  /**
+   * A whole set of replacements, applied as ONE change to the deck.
+   *
+   * ## The bug this exists to remove, measured
+   *
+   * The optimiser hands over a list. The deck page used to walk it and call
+   * `replaceCard` once per row, awaiting each one. Every call in that loop is
+   * the SAME function instance, closed over the SAME `rows`, because React has
+   * not re-rendered while the loop is running — so each iteration computed its
+   * next list from the deck as it was BEFORE the first swap and handed that to
+   * `setRows`. The last row to write won, and the eight before it were painted
+   * over.
+   *
+   * Measured on the built bundle with `scripts/optimiser-apply-measure.mjs`,
+   * nine swaps applied in one press:
+   *
+   * ```
+   * WRITTEN   9 of 9 landed        every swap really was in deck_cards
+   * ON SCREEN 1 of 9 landed        the decklist showed eight of the old cards
+   * requests  28
+   * ```
+   *
+   * That is the owner's "apply 9 swaps does nothing": the deck was rewritten
+   * and the page went on drawing the deck they already had. The auto pass had
+   * it worse, because its receipt is a diff of the decklist it can see — it
+   * applied nine changes and then reported **16 cards did not move**, and
+   * offered an undo that would have reversed one of them and left the other
+   * eight in place for good.
+   *
+   * ## So: resolve everything, work out the whole list, write once
+   *
+   * One snapshot, advanced locally across the whole batch, then two writes and
+   * a read. Same measurement after: 4 requests instead of 28, and the decklist
+   * is not this function's arithmetic — it is `fetchDeckCards`, so what is on
+   * screen when it finishes IS what the database holds.
+   *
+   * Three rules are kept exactly, because each one was learned by losing cards:
+   *
+   *   - **`add: ''` is the removal sentinel.** Asking Scryfall for the empty
+   *     string produced fifteen HTTP 400s and spent the budget for the real
+   *     lookups.
+   *   - **Nothing comes out before its replacement is in hand.** Every lookup
+   *     happens first, the upsert goes before the delete, and a row whose
+   *     incoming card could not be resolved is skipped whole, leaving the card
+   *     it would have replaced alone.
+   *   - **Scryfall wants 50-100ms between requests**, and a rate-limited reply
+   *     carries no access-control header, so the browser reports CORS and the
+   *     card is silently never added. The gap stays, and it is now only paid
+   *     for cards the caller could not already supply.
+   */
+  const applyReplacements = useCallback(
+    async (list: DeckReplacement[]): Promise<void> => {
+      if (!deckId || !deck || list.length === 0) return;
+
+      /* ---- 1. every incoming card in hand, before anything is taken out --- */
+
+      const resolved: Array<{ remove: string; card: IncomingCard | null }> = [];
+      const unresolved: string[] = [];
+      let lookups = 0;
+
+      for (const item of list) {
+        const wanted = (item.add ?? '').trim();
+        if (!wanted) {
+          resolved.push({ remove: item.remove ?? '', card: null });
+          continue;
+        }
+
+        /* The caller may already hold the card. The optimiser fetched it to
+           draw the art, so asking for it again is a request that buys nothing
+           and one more chance to be rate-limited on a card we have. */
+        const held = item.addCard as IncomingCard | undefined;
+        if (held && typeof held.id === 'string' && typeof held.name === 'string') {
+          resolved.push({ remove: item.remove ?? '', card: held });
+          continue;
+        }
+
+        if (lookups > 0) await new Promise(resolve => setTimeout(resolve, SCRYFALL_GAP_MS));
+        lookups += 1;
+        try {
+          const card = (await scryfallAPI.getCardByName(wanted)) as IncomingCard | null;
+          if (card?.id) resolved.push({ remove: item.remove ?? '', card });
+          else unresolved.push(wanted);
+        } catch (error) {
+          console.error(`Could not look up ${wanted}`, error);
+          unresolved.push(wanted);
+        }
+      }
+
+      /* ---- 2. the whole change, worked out against one moving snapshot ---- */
+
+      const nameOf = (row: DeckCardRow) => row.card?.name ?? row.card_name;
+      /* Copied, not aliased. Quantities are edited in place below, and `rows`
+         is the list `commit` holds as the version to put back. */
+      let next = rows.map(row => ({ ...row }));
+      const doomed = new Map<string, DeckCardRow>();
+      const touched = new Set<string>();
+      const refused: string[] = [];
+
+      for (const { remove, card } of resolved) {
+        const outgoing = remove
+          ? next.find(row => nameOf(row) === remove && !row.is_commander && !row.is_sideboard)
+          : undefined;
+
+        if (!card) {
+          if (outgoing) {
+            doomed.set(outgoing.id, outgoing);
+            next = next.filter(row => row !== outgoing);
+          }
+          continue;
+        }
+
+        // Swapping a card for itself is not a change, and treating it as one
+        // would delete the row it is also about to write.
+        if (outgoing && outgoing.card_id === card.id) continue;
+
+        const already = next.find(row => row.card_id === card.id && !row.is_sideboard);
+        const wanted = (already?.quantity ?? 0) + (outgoing?.quantity ?? 1);
+
+        const problem = refuse(card, wanted);
+        if (problem) {
+          refused.push(problem);
+          continue;
+        }
+
+        if (outgoing) {
+          doomed.set(outgoing.id, outgoing);
+          next = next.filter(row => row !== outgoing);
+        }
+        if (already) already.quantity = wanted;
+        else next.push(optimisticRow(card, { quantity: wanted }));
+        touched.add(card.id);
+      }
+
+      if (doomed.size === 0 && touched.size === 0) {
+        report(refused, unresolved);
+        // Nothing could be done at all, so the caller must not report success.
+        if (refused.length > 0 || unresolved.length > 0) {
+          throw new Error('No replacement in that list could be applied.');
+        }
+        return;
+      }
+
+      /* A card is only deleted if it is not also in the finished deck. Two
+         replacements can trade the same card out and back in, and a delete
+         issued after the upsert would take the row the upsert just wrote. */
+      const survivors = new Set(next.map(row => row.card_id));
+      const doomedIds = [...doomed.values()]
+        .filter(row => !survivors.has(row.card_id))
+        .map(row => row.id);
+
+      const upserts = next
+        .filter(row => touched.has(row.card_id) && !row.is_commander && !row.is_sideboard)
+        .map(row => ({
+          card_id: row.card_id,
+          card_name: row.card_name,
+          quantity: row.quantity,
+          is_commander: false,
+          is_sideboard: false,
+        }));
+
+      const ok = await commit(
+        next,
+        async () => {
+          // In before out, so a refused write leaves the deck as it was.
+          if (upserts.length > 0) await upsertDeckCards(deckId, upserts);
+          if (doomedIds.length > 0) await deleteDeckCards(doomedIds);
+          /* Read back rather than trusting the arithmetic above. A bulk upsert
+             does not hand back ids, and more to the point this whole function
+             exists because a decklist and a database disagreed — so the
+             decklist ends up BEING the database rather than a second opinion
+             about it. It is the same reason `importCards` reads back. */
+          setRows(await fetchDeckCards(deckId));
+        },
+        'Could not apply those changes',
+        { silent: true }
+      );
+
+      if (!ok) throw new Error('The deck could not be written.');
+      report(refused, unresolved);
+    },
+    [deckId, deck, rows, refuse, commit]
+  );
+
   /* -------------------------------------------------- the deck's own record */
 
   const rename = useCallback(
@@ -548,6 +795,7 @@ export function useDeckEditor(deckId: string | undefined) {
     removeOne,
     deleteAll,
     replaceCard,
+    applyReplacements,
     chooseCommander,
     importCards,
     rename,

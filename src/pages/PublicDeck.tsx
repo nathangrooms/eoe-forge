@@ -10,7 +10,7 @@ import { DeckCardTable } from '@/components/deck/DeckCardTable';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MetricRow, PageTabs, type Metric } from '@/components/listing';
+import { EmptyState, MetricRow, PageTabs, type Metric } from '@/components/listing';
 import { ColorIdentity } from '@/components/ui/mana-cost';
 import { Copy, Download, ExternalLink, Eye, LayoutGrid, Loader2, Rows3 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -351,14 +351,13 @@ export default function PublicDeck() {
 
         <div className="w-full max-w-full px-3 py-4 md:px-6 md:py-6">
           {rows.length === 0 ? (
-            <Card>
-              <CardContent className="p-10 text-center">
-                <p className="font-medium">This deck has no cards</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Nothing has been added to it yet.
-                </p>
-              </CardContent>
-            </Card>
+            /* The shared panel. This was the last `Card` + `p-10 text-center`
+               in the deck folder, and it was on the one page people who do not
+               have an account ever see. */
+            <EmptyState
+              title="This deck has no cards"
+              description="Nothing has been added to it yet."
+            />
           ) : (
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[360px_1fr]">
               <aside className="space-y-4">

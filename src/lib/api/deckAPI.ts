@@ -54,9 +54,36 @@ export interface DeckSummary {
   favorite: boolean;
 }
 
+/**
+ * Deck ids per `compute_deck_summaries` call.
+ *
+ * The function refuses more than 200, because walking a thousand decks inside
+ * one statement is a different kind of outage from the one this replaces. Fifty
+ * keeps a single call comfortably inside the 8 second statement timeout the web
+ * role carries, and a library big enough to need a second call is rare enough
+ * that a second call is fine.
+ */
+const SUMMARY_CHUNK = 50;
+
 export class DeckAPI {
   /**
-   * Get list of deck summaries for current user (optimized - uses DB function)
+   * Every deck summary for the signed-in user.
+   *
+   * ## One request for the set, not one per deck
+   *
+   * This ran `compute_deck_summary` once per deck inside a `Promise.all`, and
+   * each of those walks that deck's `deck_cards`. Measured in a browser against
+   * a built bundle: 57 requests for 9 decks, 145 for 25. `Promise.all` was not
+   * making it cheaper; it was making every one of those calls arrive at the
+   * database together.
+   *
+   * `compute_deck_summaries` takes the list and returns the same payloads, by
+   * calling the same one-deck function per id, so the two paths cannot drift
+   * and the visibility gate inside it still decides every row. One request per
+   * fifty decks.
+   *
+   * `usePlayDecks` names this function as the surviving example of the bad
+   * shape in its header comment. It is not one any more.
    */
   static async getDeckSummaries(): Promise<DeckSummary[]> {
     try {
@@ -75,20 +102,31 @@ export class DeckAPI {
       if (error) throw error;
       if (!decks || decks.length === 0) return [];
 
-      // Use the optimized RPC function for each deck
-      const summaries = await Promise.all(
-        decks.map(async ({ id }) => {
-          try {
-            const summary = await this.getDeckSummary(id);
-            return summary;
-          } catch (error) {
-            console.error(`Error loading summary for deck ${id}:`, error);
-            return null;
-          }
-        })
-      );
+      const ids = decks.map(({ id }) => id);
+      const summaries: DeckSummary[] = [];
 
-      return summaries.filter(Boolean) as DeckSummary[];
+      for (let i = 0; i < ids.length; i += SUMMARY_CHUNK) {
+        const slice = ids.slice(i, i + SUMMARY_CHUNK);
+        const { data, error: rpcError } = await supabase.rpc(
+          'compute_deck_summaries' as any,
+          { p_deck_ids: slice } as any
+        );
+
+        if (rpcError) {
+          console.error('Error loading summaries for decks:', slice, rpcError);
+          throw rpcError;
+        }
+
+        /* The function returns the summaries in the order it was given the ids
+           and drops the ones it will not show, which is exactly what the old
+           `filter(Boolean)` did after the per-deck calls. */
+        for (const row of (data ?? []) as unknown[]) {
+          const summary = row as unknown as DeckSummary;
+          summaries.push({ ...summary, power: deckPowerFromSummary(row) });
+        }
+      }
+
+      return summaries;
     } catch (error) {
       console.error('Error fetching deck summaries:', error);
       throw error;

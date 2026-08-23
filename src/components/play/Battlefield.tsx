@@ -141,10 +141,16 @@ export interface ZoneRowProps {
   /** Width the band has, for the overlap arithmetic. */
   available: number;
   /**
-   * Alternate bands carry a faint surface tint. That is the *only* thing
-   * separating them — surface and spacing, never a border.
+   * The printed bed this row sits in, as a surface. Never a border.
+   *
+   * A real playmat has its areas PRINTED on it. Until now only the mana row
+   * carried one and the creature row was bare mat, which is part of why the
+   * surface read as one undifferentiated field. Both rows have a bed now, at
+   * different weights: two identical beds four pixels apart read as one bed
+   * rather than as two areas, and that difference is the whole of "separated by
+   * surface and spacing, never a line".
    */
-  tinted?: boolean;
+  bed?: 'none' | 'soft' | 'strong';
   /**
    * Room to keep clear at each end of the row, in px.
    *
@@ -197,13 +203,20 @@ const LABEL_MIN_WIDTH = 30;
 export const ROW_LABEL_GUTTER = 18;
 
 /** One band of a seat's mat: a labelled, tinted strip that holds its height. */
+/** The two printed beds, and bare mat. See `ZoneRowProps.bed`. */
+const BED: Record<'none' | 'soft' | 'strong', string> = {
+  none: '',
+  soft: 'bg-foreground/[0.03]',
+  strong: 'bg-foreground/[0.07]',
+};
+
 export function ZoneRow({
   label,
   cards,
   cardWidth,
   height,
   available,
-  tinted,
+  bed = 'none',
   insetStart = 0,
   insetEnd = 0,
   labelInset,
@@ -218,8 +231,8 @@ export function ZoneRow({
         /* `justify-start`, not centre: the run inside is already laid from the
            left at a constant pitch, and centring the WRAPPER would undo that
            the moment the run's width changed. */
-        'relative flex w-full shrink-0 items-stretch justify-start overflow-visible rounded-lg',
-        tinted && 'bg-foreground/[0.045]',
+        'relative flex w-full shrink-0 items-stretch justify-start overflow-visible rounded-xl',
+        BED[bed],
         className
       )}
       style={{ height, paddingLeft: insetStart || undefined, paddingRight: insetEnd || undefined }}

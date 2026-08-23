@@ -73,8 +73,9 @@ import {
   blockCardWidth,
 } from './Battlefield';
 import {
+  PILE_COLUMNS,
   identityBandHeight,
-  railWidth,
+  pileGrid,
   seatCardWidth,
   splitBands,
   supportBlockWidth,
@@ -90,6 +91,7 @@ import {
   outgoingAttack,
   outgoingSentence,
 } from './seatCombat';
+import { Crosshair } from 'lucide-react';
 import { GameCardView, type CombatChipProps, type Lunge } from './GameCardView';
 import { useMeasuredSize } from './useMeasure';
 import type { LifeDelta } from './useTableMotion';
@@ -109,6 +111,25 @@ import {
 
 /** Gap between the two rows, and between the rows and the support block. */
 const BAND_GAP = 4;
+
+/**
+ * What this mat does while something on the table is asking what it is aimed at.
+ *
+ * The mat does not work out legality. `chooseTargetsFor` already did, the answer
+ * arrived through `aiming.ts`, and `PlayTable` split it into the set below.
+ * A second opinion here is the bug this whole seam exists to remove: a name on
+ * screen that the engine will refuse.
+ */
+export interface SeatAim {
+  /** Every permanent on the table the engine will accept. Anywhere, any seat. */
+  targetIds: ReadonlySet<string>;
+  /** True when this seat's PLAYER is a legal answer. */
+  seatIsTarget: boolean;
+  /** What is asking, for the label on each control. */
+  sourceName: string;
+  onPickCard: (card: CardInstance) => void;
+  onPickSeat: () => void;
+}
 
 export interface SeatMatProps {
   state: GameState;
@@ -168,6 +189,12 @@ export interface SeatMatProps {
   side?: 'left' | 'right';
   /** Draw this seat's hand as card backs in its identity strip. */
   showHandBacks?: boolean;
+  /**
+   * A target is being chosen. Legal permanents on this mat take the press and
+   * everything else recedes, including this seat's own combat chips: there is
+   * one question on the table and the board should offer one answer to it.
+   */
+  aim?: SeatAim | null;
   className?: string;
 }
 
@@ -186,7 +213,7 @@ function ZoneTile({
   onClick,
   children,
 }: {
-  /** Drawn on the tile. Short, because the column is one card wide. */
+  /** Drawn on the tile. `roomy` decides whether it can be the full word. */
   label: string;
   /** Said in full to a screen reader and on hover. */
   title: string;
@@ -198,17 +225,36 @@ function ZoneTile({
   onClick?: () => void;
   children: React.ReactNode;
 }) {
+  /*
+   * The label and the count are sized to the TILE.
+   *
+   * They were a 7px label and a 9px count, chosen for a 116 x 72 tile. The
+   * tiles are now roughly twice that on a two-seat table, and type that does
+   * not grow with its box reads as a rendering fault rather than as restraint.
+   * Both thresholds are the tile width, which is a function of the mat, so
+   * nothing here can change during a game.
+   */
+  const roomy = width >= 92;
+
   const body = (
     <>
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute left-1 top-0.5 max-w-[calc(100%-0.5rem)] select-none truncate text-[7px] font-medium uppercase tracking-[0.14em] text-foreground/30 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]"
+        className={cn(
+          'pointer-events-none absolute left-1.5 top-0.5 max-w-[calc(100%-0.75rem)] select-none truncate font-medium uppercase tracking-[0.14em] text-foreground/35 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]',
+          roomy ? 'text-[9px]' : 'text-[7px]'
+        )}
       >
         {label}
       </span>
-      <span className="flex h-full w-full items-center justify-center pt-2">{children}</span>
+      <span className="flex h-full w-full items-center justify-center pt-2.5">{children}</span>
       {showCount && (
-        <span className="pointer-events-none absolute bottom-0.5 right-1 rounded-full bg-background/75 px-1 text-[9px] font-semibold leading-4 tabular-nums text-foreground shadow-sm shadow-black/50 backdrop-blur-sm">
+        <span
+          className={cn(
+            'pointer-events-none absolute bottom-1 right-1.5 rounded-full bg-background/80 px-1.5 font-semibold tabular-nums text-foreground shadow-sm shadow-black/50 backdrop-blur-sm',
+            roomy ? 'text-[12px] leading-5' : 'text-[9px] leading-4'
+          )}
+        >
           {count}
         </span>
       )}
@@ -278,6 +324,7 @@ export function SeatMat({
   lifeDeltas,
   side = 'left',
   showHandBacks = true,
+  aim = null,
   className,
 }: SeatMatProps) {
   const [matRef, mat] = useMeasuredSize<HTMLElement>();
@@ -358,12 +405,14 @@ export function SeatMat({
   const width = mat.width || 480;
   const height = mat.height || 300;
 
-  /* The rail down the seat's outer edge: identity at the top, then the four
-     piles. Constant for a given mat. */
-  const sideWidth = railWidth(width, height);
+  /* The rail down the seat's outer edge: four piles, two across and two down.
+     Constant for a given mat, and it reads the mat and nothing else — see
+     `pileGrid`, and the measurement of the 44px postage stamps it replaces. */
+  const piles = pileGrid(width, height);
+  const sideWidth = piles.rail;
   const bandHeight = identityBandHeight(height);
-  const tileHeight = Math.max(30, Math.floor((height - bandHeight - 16) / 4) - 3);
-  const tileCardWidth = Math.max(18, Math.round((tileHeight - 10) * CARD_RATIO));
+  const tileHeight = piles.tileHeight;
+  const tileCardWidth = piles.cardWidth;
 
   /* The life badge is sized to the band it now sits in rather than to the mat,
      because the band is the thing it has to fit inside. Measured at 1280x800
@@ -388,12 +437,26 @@ export function SeatMat({
   const bandsUsable = Math.max(40, bandsHeight - BAND_GAP);
   const { creatureHeight, landHeight } = splitBands(bandsUsable);
 
-  /* One card size for the whole seat, from the row height and the player's
-     ceiling. Both rows are the same height, so both draw the same card — and
-     neither of them can change size when a permanent arrives. */
-  const boardCardWidth = seatCardWidth(creatureHeight, cardWidth);
-  const creatureCardWidth = boardCardWidth;
-  const landCardWidth = boardCardWidth;
+  /*
+   * A card size per ROW, each from that row's own height and the player's
+   * ceiling, and neither of them can change when a permanent arrives.
+   *
+   * The two rows are no longer the same height. `splitBands` gives the creature
+   * row 55% because a creature is the card every other player at the table has
+   * to read and a land is a card you count; the note there has the measurement
+   * and the trade. Measured at 1920 x 1080, two seats: creatures 105 -> 128,
+   * lands 105 -> 104.
+   *
+   * `renderCard` already takes the width it is drawn at as an argument, and
+   * `tapChipFits` already judges per card rather than per mat, precisely so the
+   * two rows may differ.
+   */
+  const creatureCardWidth = seatCardWidth(creatureHeight, cardWidth);
+  const landCardWidth = seatCardWidth(landHeight, cardWidth);
+  /* The support block takes the creature row's ceiling: it holds the cards a
+     player reads rather than counts, and `blockLayout` comes down from this to
+     whatever the block's own box will hold. */
+  const boardCardWidth = creatureCardWidth;
 
   /*
    * The support block's width: a fifth of the mat when it is empty, and one of
@@ -482,43 +545,84 @@ export function SeatMat({
        steps — so the board is unchanged until there is a decision to make. */
     const combat = combatFor?.(card) ?? null;
 
+    /*
+     * ONE QUESTION AT A TIME.
+     *
+     * While something is asking what it is aimed at, this permanent is either
+     * an answer or it is out of the way, and every OTHER control it carries
+     * goes quiet: no tap chip, no sword, no shield, and a press does not open
+     * the preview. A card that offered four different meanings for one press
+     * while the game was stopped on a question would be the row of names again
+     * with extra steps.
+     */
+    const aimState = aim ? (aim.targetIds.has(card.instanceId) ? 'legal' : 'receded') : null;
+    const legal = aimState === 'legal';
+
     return (
       <GameCardView
         card={card}
         width={renderWidth}
         entering
-        role={roleOf(card)}
-        lunge={lunges?.[card.instanceId] ?? null}
-        selected={inspectedId === card.instanceId}
+        role={aim ? null : roleOf(card)}
+        lunge={aim ? null : lunges?.[card.instanceId] ?? null}
+        selected={!aim && inspectedId === card.instanceId}
+        aiming={aimState}
         /* A creature that cannot swing or cannot block is greyed out in exactly
            the language the hand uses for a card you cannot cast. The hourglass
            `GameCardView` already draws says WHY; this says "not this one". */
-        dimmed={combat?.dimmed ?? false}
-        onClick={onInspect ? () => onInspect(card) : undefined}
-        onTap={onTapCard && tapChipFits(renderWidth) ? () => onTapCard(card) : undefined}
-        combat={renderWidth >= 44 ? combat?.chip ?? null : null}
+        dimmed={!aim && (combat?.dimmed ?? false)}
+        onClick={
+          aim
+            ? legal
+              ? () => aim.onPickCard(card)
+              : undefined
+            : onInspect
+              ? () => onInspect(card)
+              : undefined
+        }
+        onTap={!aim && onTapCard && tapChipFits(renderWidth) ? () => onTapCard(card) : undefined}
+        combat={!aim && renderWidth >= 44 ? combat?.chip ?? null : null}
         /* Who it is hitting, or what it is holding. Drawn on EVERY seat, not
            just the viewer's: an attacker swinging at you is on somebody else's
            mat, and "who is attacking whom" is unanswerable if only your own
            creatures say anything. */
-        combatNote={combatMarkFor(state, card.instanceId, viewerId)}
-        title={card.name}
+        combatNote={aim ? null : combatMarkFor(state, card.instanceId, viewerId)}
+        title={legal ? `Aim ${aim?.sourceName} at ${card.name}` : card.name}
       />
     );
   };
 
+  /*
+   * The four piles, two across and two down.
+   *
+   * They used to stack in a single column, which gave each tile a quarter of
+   * the mat's height and drew the card inside it at 44px — measured, and below
+   * `MIN_BOARD_CARD`, which is the size at which the art stops reading. Two
+   * columns hand each tile half the height instead of a quarter and the card
+   * roughly doubles. `pileGrid` has the numbers and the cap.
+   *
+   * The reading order is the one on a real mat: library and graveyard together
+   * on the top row, exile and the command zone below them.
+   */
+  /* The full word once the tile is wide enough to print it. A three letter
+     abbreviation on a 117px tile is a habit from a 116px column. */
+  const pileLabel = (long: string, short: string) => (piles.tileWidth >= 92 ? long : short);
+
   const pileColumn = (
     <aside
-      className="flex h-full shrink-0 flex-col items-center justify-start gap-1 py-1"
-      style={{ width: sideWidth }}
+      className="grid h-full shrink-0 content-start justify-center gap-1 py-1"
+      style={{
+        width: sideWidth,
+        gridTemplateColumns: `repeat(${PILE_COLUMNS}, ${piles.tileWidth}px)`,
+      }}
       aria-label={`${player.name}'s zones`}
     >
       <ZoneTile
-        label="Lib"
+        label={pileLabel('Library', 'Lib')}
         title="Library"
         count={player.zones.library.length}
         height={tileHeight}
-        width={sideWidth - 4}
+        width={piles.tileWidth}
         showCount={player.zones.library.length === 0}
         onClick={onOpenZone ? () => onOpenZone(player.id, 'library') : undefined}
       >
@@ -535,11 +639,11 @@ export function SeatMat({
       </ZoneTile>
 
       <ZoneTile
-        label="Yard"
+        label={pileLabel('Graveyard', 'Yard')}
         title="Graveyard"
         count={player.zones.graveyard.length}
         height={tileHeight}
-        width={sideWidth - 4}
+        width={piles.tileWidth}
         onClick={onOpenZone ? () => onOpenZone(player.id, 'graveyard') : undefined}
       >
         {graveyardTop ? (
@@ -550,11 +654,11 @@ export function SeatMat({
       </ZoneTile>
 
       <ZoneTile
-        label="Exile"
+        label={pileLabel('Exile', 'Exile')}
         title="Exile"
         count={player.zones.exile.length}
         height={tileHeight}
-        width={sideWidth - 4}
+        width={piles.tileWidth}
         onClick={onOpenZone ? () => onOpenZone(player.id, 'exile') : undefined}
       >
         {exileTop ? (
@@ -570,7 +674,7 @@ export function SeatMat({
       </ZoneTile>
 
       <ZoneTile
-        label="Cmd"
+        label={pileLabel('Command', 'Cmd')}
         title={
           commandTax > 0
             ? `Command zone, ${commandTax} more mana in commander tax`
@@ -578,7 +682,7 @@ export function SeatMat({
         }
         count={player.zones.command.length}
         height={tileHeight}
-        width={sideWidth - 4}
+        width={piles.tileWidth}
         onClick={
           commandTop && onInspect
             ? () => onInspect(commandTop)
@@ -634,7 +738,10 @@ export function SeatMat({
                  floating identity strip; the strip is a band now, above the
                  board, so neither row owes it anything. */
               available={rowWidth}
-              tinted={row.id === 'lands'}
+              /* Both rows are printed areas on the mat now, at two weights so
+                 they read as two. Bare mat between them was one of the reasons
+                 the surface read as a flat field. */
+              bed={creatures ? 'soft' : 'strong'}
               renderCard={renderCard}
             />
           );
@@ -671,11 +778,47 @@ export function SeatMat({
   const identityBand = (
     <div
       className={cn(
-        'flex shrink-0 items-center gap-2 rounded-lg px-2',
+        'relative flex shrink-0 items-center gap-2 rounded-lg px-2',
         attacked && !dead ? 'bg-destructive/25' : 'bg-foreground/[0.045]'
       )}
       style={{ height: bandHeight }}
     >
+      {/*
+        A PLAYER IS A TARGET WITH NOWHERE TO STAND.
+
+        Every other legal answer is a card on a mat, and this one is a person.
+        The band already carries their name and their life total, which is what
+        a player looks at when they decide to point a burn spell at a face, so
+        the band is where the press goes. `AimLayer` carries the same control as
+        a chip for anyone who looks there first; both call the same answer.
+
+        Drawn over the band rather than around it: the band already contains a
+        button (look at that seat's board) and a button inside a button is not
+        valid, so this covers it for as long as the question is open.
+
+        Opaque, and that is a correction. At 14% it was translucent and the name
+        and life total underneath printed straight through the ones on top: a
+        1920 screenshot read "40Yeva" over "40 Yeva BOT" on both seats. The same
+        two facts twice, half a pixel apart, is worse than either alone.
+      */}
+      {aim?.seatIsTarget && (
+        <button
+          type="button"
+          onClick={aim.onPickSeat}
+          title={`Aim ${aim.sourceName} at ${player.name}`}
+          aria-label={`Aim ${aim.sourceName} at ${player.name}`}
+          className={cn(
+            'absolute inset-0 z-20 flex items-center gap-2 rounded-lg bg-background/95 px-3 backdrop-blur-md',
+            'text-[11px] font-semibold text-foreground transition-colors hover:bg-background/80',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+          )}
+        >
+          <Crosshair aria-hidden="true" className="h-4 w-4 shrink-0" strokeWidth={2.5} />
+          <span className="truncate">{player.name}</span>
+          <span className="ml-auto shrink-0 tabular-nums text-muted-foreground">{player.life}</span>
+        </button>
+      )}
+
       <LifeBadge
         life={player.life}
         size={lifeSize}

@@ -4,35 +4,23 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { 
-  Zap, 
-  Scale, 
-  Clock, 
-  Crosshair, 
-  Target, 
-  Gamepad2,
+/* Eleven icon imports went with the two metric rows this panel used to build
+   by hand. `MetricRow` has no `icon` prop, which is the owner's ruling about
+   metric tiles kept by construction rather than by memory. */
+import {
+  Zap,
   ExternalLink,
   RefreshCw,
   Loader2,
   Shield,
-  Swords,
   AlertTriangle,
   Trophy,
   Mountain,
-  Infinity,
   Sparkles,
-  TrendingUp,
-  TrendingDown,
-  Droplets
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { bandForScore, powerTextClass } from '@/lib/deck/power';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { MetricRow } from '@/components/listing';
 
 export interface EdhMetrics {
   powerLevel: number | null;
@@ -227,103 +215,64 @@ export function EdhAnalysisPanel({ data, isLoading, needsRefresh, onRefresh }: E
             </div>
           </div>
 
-          {/* Metrics Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Card className="p-3 bg-muted border-border cursor-help">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Scale className="h-4 w-4 text-foreground" />
-                      <span className="text-xs text-muted-foreground">Tipping Point</span>
-                    </div>
-                    <div className="text-xl font-bold text-foreground">
-                      {metrics?.tippingPoint ?? '--'}
-                    </div>
-                  </Card>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="max-w-xs">The turn when your deck reaches critical mass and starts dominating</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+          {/*
+            The five headline figures.
 
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Card className="p-3 bg-muted border-border cursor-help">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Clock className="h-4 w-4 text-foreground" />
-                      <span className="text-xs text-muted-foreground">Efficiency</span>
-                    </div>
-                    <div className="text-xl font-bold text-foreground">
-                      {metrics?.efficiency ? `${metrics.efficiency.toFixed(1)}/10` : '--'}
-                    </div>
-                  </Card>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="max-w-xs">How well your deck converts mana into impact</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            Each was a `Card p-3 bg-muted border-border` with an icon, an 20px
+            bold value and a Radix tooltip wrapped round the whole tile — five
+            `TooltipProvider`s, one per tile, for five one-line explanations.
+            The explanations were the only part worth keeping and they are the
+            `title` on each metric, which is the slot `MetricRow` has for
+            exactly this. The hairline and the icons go, and the figures come up
+            to the size every other figure in the product is drawn at.
 
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Card className="p-3 bg-muted border-border cursor-help">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Crosshair className="h-4 w-4 text-foreground" />
-                      <span className="text-xs text-muted-foreground">Impact</span>
-                    </div>
-                    <div className="text-xl font-bold text-foreground">
-                      {metrics?.impact?.toFixed(0) ?? '--'}
-                    </div>
-                  </Card>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="max-w-xs">Total power contribution from all cards</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Card className="p-3 bg-muted border-border cursor-help">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Target className="h-4 w-4 text-foreground" />
-                      <span className="text-xs text-muted-foreground">Score</span>
-                    </div>
-                    <div className="text-xl font-bold text-foreground">
-                      {metrics?.score ? `${metrics.score}/1000` : '--'}
-                    </div>
-                  </Card>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="max-w-xs">Overall competitive score based on card quality</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Card className="p-3 bg-muted border-border cursor-help">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Gamepad2 className="h-4 w-4 text-foreground" />
-                      <span className="text-xs text-muted-foreground">Playability</span>
-                    </div>
-                    <div className="text-xl font-bold text-foreground">
-                      {metrics?.playability ? `${metrics.playability}%` : '--'}
-                    </div>
-                  </Card>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="max-w-xs">Average card usability across typical game states</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
+            `value: null` while `metrics` has not been worked out, which draws
+            the tile's bar rather than a `--`: a row that is still computing
+            looks like one, and the row holds its height either way.
+          */}
+          <MetricRow
+            columns={5}
+            metrics={[
+              {
+                id: 'tipping-point',
+                label: 'Tipping point',
+                value: metrics ? String(metrics.tippingPoint ?? '—') : null,
+                raw: metrics?.tippingPoint,
+                subtext: 'turn',
+                title: 'The turn this deck reaches critical mass',
+              },
+              {
+                id: 'efficiency',
+                label: 'Efficiency',
+                value: metrics ? (metrics.efficiency ? metrics.efficiency.toFixed(1) : '—') : null,
+                raw: metrics?.efficiency,
+                suffix: metrics?.efficiency ? '/10' : undefined,
+                title: 'How well this deck converts mana into impact',
+              },
+              {
+                id: 'impact',
+                label: 'Impact',
+                value: metrics ? (metrics.impact?.toFixed(0) ?? '—') : null,
+                raw: metrics?.impact,
+                title: 'Total power contribution from all cards',
+              },
+              {
+                id: 'score',
+                label: 'Score',
+                value: metrics ? (metrics.score ? String(metrics.score) : '—') : null,
+                raw: metrics?.score,
+                suffix: metrics?.score ? '/1000' : undefined,
+                title: 'Overall competitive score, from card quality',
+              },
+              {
+                id: 'playability',
+                label: 'Playability',
+                value: metrics ? (metrics.playability ? `${metrics.playability}%` : '—') : null,
+                raw: metrics?.playability,
+                title: 'Average card usability across typical game states',
+              },
+            ]}
+          />
         </TabsContent>
 
         {/* Bracket Tab */}
@@ -380,33 +329,51 @@ export function EdhAnalysisPanel({ data, isLoading, needsRefresh, onRefresh }: E
                   <AlertTriangle className="h-4 w-4" />
                   Bracket Requirement Tracker
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                  <div className="text-center p-2 rounded bg-muted/30">
-                    <Infinity className="h-4 w-4 mx-auto mb-1 text-foreground" />
-                    <div className="text-lg font-bold">{bracket.extraTurns}</div>
-                    <div className="text-[10px] text-muted-foreground">Extra Turns</div>
-                  </div>
-                  <div className="text-center p-2 rounded bg-muted/30">
-                    <Mountain className="h-4 w-4 mx-auto mb-1 text-destructive" />
-                    <div className="text-lg font-bold">{bracket.massLandDenial}</div>
-                    <div className="text-[10px] text-muted-foreground">Mass Land Denial</div>
-                  </div>
-                  <div className="text-center p-2 rounded bg-muted/30">
-                    <Swords className="h-4 w-4 mx-auto mb-1 text-foreground" />
-                    <div className="text-lg font-bold">{bracket.earlyTwoCardCombos}</div>
-                    <div className="text-[10px] text-muted-foreground">Early Combos</div>
-                  </div>
-                  <div className="text-center p-2 rounded bg-muted/30">
-                    <Swords className="h-4 w-4 mx-auto mb-1 text-foreground" />
-                    <div className="text-lg font-bold">{bracket.lateTwoCardCombos}</div>
-                    <div className="text-[10px] text-muted-foreground">Late Combos</div>
-                  </div>
-                  <div className="text-center p-2 rounded bg-muted/30">
-                    <Trophy className="h-4 w-4 mx-auto mb-1 text-foreground" />
-                    <div className="text-lg font-bold">{bracket.gameChangers}</div>
-                    <div className="text-[10px] text-muted-foreground">Game Changers</div>
-                  </div>
-                </div>
+                {/*
+                  Five bracket counts. They were 18px bold figures under a
+                  centred icon on a `p-2` pad, at 10px labels — the smallest
+                  metric treatment anywhere in the deck folder, for the numbers
+                  that decide which bracket a Commander deck is legal in. The
+                  shared tile, at the size every other figure gets.
+                */}
+                <MetricRow
+                  on="card"
+                  columns={5}
+                  metrics={[
+                    {
+                      id: 'extra-turns',
+                      label: 'Extra turns',
+                      value: String(bracket.extraTurns),
+                      raw: bracket.extraTurns,
+                    },
+                    {
+                      id: 'land-denial',
+                      label: 'Mass land denial',
+                      value: String(bracket.massLandDenial),
+                      raw: bracket.massLandDenial,
+                    },
+                    {
+                      id: 'early-combos',
+                      label: 'Early combos',
+                      value: String(bracket.earlyTwoCardCombos),
+                      raw: bracket.earlyTwoCardCombos,
+                      subtext: 'two-card, before turn 8',
+                    },
+                    {
+                      id: 'late-combos',
+                      label: 'Late combos',
+                      value: String(bracket.lateTwoCardCombos),
+                      raw: bracket.lateTwoCardCombos,
+                      subtext: 'two-card, turn 8 or later',
+                    },
+                    {
+                      id: 'game-changers',
+                      label: 'Game changers',
+                      value: String(bracket.gameChangers),
+                      raw: bracket.gameChangers,
+                    },
+                  ]}
+                />
               </Card>
             </>
           ) : (
@@ -482,67 +449,73 @@ export function EdhAnalysisPanel({ data, isLoading, needsRefresh, onRefresh }: E
         <TabsContent value="lands" className="p-4 space-y-4">
           {landAnalysis ? (
             <>
-              {/* Land Count */}
-              <Card className="p-4">
-                <div className="text-sm font-medium mb-3">Land Distribution</div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center p-3 rounded bg-muted/30">
-                    <Mountain className="h-5 w-5 mx-auto mb-2 text-foreground" />
-                    <div className="text-2xl font-bold">{landAnalysis.landCount}</div>
-                    <div className="text-xs text-muted-foreground">Lands</div>
-                  </div>
-                  <div className="text-center p-3 rounded bg-muted/30">
-                    <Sparkles className="h-5 w-5 mx-auto mb-2 text-primary" />
-                    <div className="text-2xl font-bold">{landAnalysis.nonLandCount}</div>
-                    <div className="text-xs text-muted-foreground">Non-Lands</div>
-                  </div>
-                </div>
-              </Card>
+              {/*
+                Land count and the three opening-hand probabilities, on the
+                shared tile.
 
-              {/* Probability Stats */}
-              <div className="grid grid-cols-3 gap-3">
-                <Card className="p-4 bg-destructive/10 border-destructive/40">
-                  <div className="flex items-center gap-2 mb-2">
-                    <TrendingDown className="h-4 w-4 text-destructive" />
-                    <span className="text-xs text-muted-foreground">Mana Screw</span>
-                  </div>
-                  <div className="text-2xl font-bold text-destructive">
-                    {landAnalysis.manaScrewPct !== null ? `${landAnalysis.manaScrewPct.toFixed(1)}%` : 'N/A'}
-                  </div>
-                  <Progress 
-                    value={landAnalysis.manaScrewPct ?? 0} 
-                    className="h-1.5 mt-2"
-                  />
-                </Card>
+                Three things went with the hand-built version. The tiles carried
+                `border-destructive/40` and `border-border`, which are hairlines
+                the design law rules out. Each figure had an icon over it, which
+                is the treatment the owner ruled out on metric tiles. And an
+                unknown probability printed `N/A`, which is an abbreviation for
+                a reader who did not ask a question — a dash says the same thing
+                and is what every other figure in the product prints.
 
-                <Card className="p-4 bg-muted border-border">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Droplets className="h-4 w-4 text-foreground" />
-                    <span className="text-xs text-muted-foreground">Mana Flood</span>
-                  </div>
-                  <div className="text-2xl font-bold text-foreground">
-                    {landAnalysis.manaFloodPct !== null ? `${landAnalysis.manaFloodPct.toFixed(1)}%` : 'N/A'}
-                  </div>
-                  <Progress 
-                    value={landAnalysis.manaFloodPct ?? 0} 
-                    className="h-1.5 mt-2"
-                  />
-                </Card>
-
-                <Card className="p-4 bg-muted border-border">
-                  <div className="flex items-center gap-2 mb-2">
-                    <TrendingUp className="h-4 w-4 text-foreground" />
-                    <span className="text-xs text-muted-foreground">Sweet Spot</span>
-                  </div>
-                  <div className="text-2xl font-bold text-foreground">
-                    {landAnalysis.sweetSpotPct !== null ? `${landAnalysis.sweetSpotPct.toFixed(1)}%` : 'N/A'}
-                  </div>
-                  <Progress 
-                    value={landAnalysis.sweetSpotPct ?? 0} 
-                    className="h-1.5 mt-2"
-                  />
-                </Card>
-              </div>
+                The three bars are `Metric.meter`, which is the same hairline
+                drawn once. It is legitimate here because each of these really
+                is a percentage of a whole, which is the only thing `meter` is
+                for.
+              */}
+              <MetricRow
+                columns={5}
+                metrics={[
+                  {
+                    id: 'lands',
+                    label: 'Lands',
+                    value: String(landAnalysis.landCount),
+                    raw: landAnalysis.landCount,
+                  },
+                  {
+                    id: 'nonlands',
+                    label: 'Non-lands',
+                    value: String(landAnalysis.nonLandCount),
+                    raw: landAnalysis.nonLandCount,
+                  },
+                  {
+                    id: 'screw',
+                    label: 'Mana screw',
+                    value:
+                      landAnalysis.manaScrewPct !== null
+                        ? `${landAnalysis.manaScrewPct.toFixed(1)}%`
+                        : '—',
+                    raw: landAnalysis.manaScrewPct ?? undefined,
+                    meter: landAnalysis.manaScrewPct ?? 0,
+                    subtext: 'of opening hands',
+                  },
+                  {
+                    id: 'flood',
+                    label: 'Mana flood',
+                    value:
+                      landAnalysis.manaFloodPct !== null
+                        ? `${landAnalysis.manaFloodPct.toFixed(1)}%`
+                        : '—',
+                    raw: landAnalysis.manaFloodPct ?? undefined,
+                    meter: landAnalysis.manaFloodPct ?? 0,
+                    subtext: 'of opening hands',
+                  },
+                  {
+                    id: 'sweet',
+                    label: 'Sweet spot',
+                    value:
+                      landAnalysis.sweetSpotPct !== null
+                        ? `${landAnalysis.sweetSpotPct.toFixed(1)}%`
+                        : '—',
+                    raw: landAnalysis.sweetSpotPct ?? undefined,
+                    meter: landAnalysis.sweetSpotPct ?? 0,
+                    subtext: 'of opening hands',
+                  },
+                ]}
+              />
 
               <p className="text-xs text-muted-foreground text-center">
                 Probabilities based on standard 7-card opening hand + mulligans

@@ -18,6 +18,7 @@ import {
   HUD_INSET,
   MIN_HAND_CARD,
   MIN_VIEWPORT_HEIGHT,
+  handBandFor,
   handMetrics,
 } from './tableMetrics.ts';
 
@@ -27,9 +28,20 @@ test('the ceiling wins on a tall screen, so a slider setting is honoured', () =>
 });
 
 test('a short screen comes down from the ceiling rather than overflowing it', () => {
+  /* This used to pin `height * 0.25 * CARD_RATIO`, which was the formula before
+     the fan learned to lap the board. The band no longer costs a whole card
+     height: only the top `HAND_REVEAL` of each card is drawn above the edge,
+     plus `HAND_LIFT`. Pinning the old arithmetic made this fail at 131 against
+     129 for a layout that was deliberately changed.
+
+     So it asserts the PROPERTY the test is named for, and derives the number
+     from the same constants the implementation uses rather than from a second
+     copy of them. */
   const short = handMetrics(720, HAND_CARD_DEFAULT, false);
-  assert.ok(short.cardWidth < HAND_CARD_DEFAULT);
-  assert.equal(short.cardWidth, Math.round(720 * 0.25 * CARD_RATIO));
+  assert.ok(short.cardWidth < HAND_CARD_DEFAULT, 'a short window comes down from the ceiling');
+
+  // the fan's revealed part fits the band it was given
+  assert.ok(handBandFor(short.cardWidth) <= Math.round(720 * 0.19) + 1);
 });
 
 test('the fan never shrinks past readable, however short the window', () => {
@@ -49,9 +61,14 @@ test('the one-seat view gets a bigger hand than the four-seat table', () => {
   assert.ok(focused.cardWidth > table.cardWidth);
 });
 
-test('the table reserves a full card height, so the fan laps only the mana row', () => {
+test('the band the fan costs the board is its revealed part, not a whole card', () => {
+  /* Renamed and re-aimed. It used to assert the table reserved a FULL card
+     height. It does not any more, and that is the point of the change: the fan
+     sits low in its band so the board keeps the difference. `handBandFor` is
+     the one place that arithmetic lives. */
   const table = handMetrics(1050, HAND_CARD_DEFAULT, false);
-  assert.equal(table.inset, Math.round(table.cardWidth / CARD_RATIO));
+  assert.equal(table.inset, handBandFor(table.cardWidth));
+  assert.ok(table.inset < Math.round(table.cardWidth / CARD_RATIO), 'costs less than a card');
 });
 
 test('the one-seat view laps further, reserving less than a card', () => {

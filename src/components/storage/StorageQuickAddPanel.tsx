@@ -14,7 +14,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Search, Layers, Check, ArrowRight, Library, Loader2 } from 'lucide-react';
-import { StorageAPI } from '@/lib/api/storageAPI';
+import { StorageAPI, fileCardsIntoContainer } from '@/lib/api/storageAPI';
+import { addCardsByName } from '@/lib/api/collectionBatch';
 import { CollectionAPI } from '@/server/routes/collection';
 import { useDeckManagementStore } from '@/stores/deckManagementStore';
 import { useCollectionStore } from '@/features/collection/store';
@@ -163,35 +164,55 @@ export function StorageQuickAddPanel({
       const deck = decks.find(d => d.id === selectedDeck);
       if (!deck) throw new Error('Deck not found');
 
-      let successCount = 0;
-      let errorCount = 0;
+      /*
+       * THE WHOLE DECK IN A HANDFUL OF REQUESTS, not eleven per card.
+       *
+       * This was a loop over `deck.cards` calling `CollectionAPI.addCardByName`
+       * and then `StorageAPI.assignCard`. Nothing in it looks like a query —
+       * `deck.cards` reads like the local array it is — but neither helper is
+       * one request. Measured at 1,100 requests for one press of this button on
+       * a 100 card Commander deck, exactly 11 per card, 300 of them round trips
+       * to the auth server for a user id the client already held.
+       *
+       * `addCardsByName` resolves every name in one query and writes the
+       * collection in two. `fileCardsIntoContainer` reads what is owned and
+       * what is already filed, then writes the container. Both chunk their
+       * `.in()` lists, because ten thousand ids in one URL is its own outage.
+       *
+       * This also used to pass `card.image_uris?.normal` as the SET CODE, so
+       * every lookup carried a URL where a three-letter code belongs and
+       * matched nothing. Resolving by name alone gets the printing we hold.
+       */
+      const added = await withTimeout(
+        addCardsByName(deck.cards.map(card => ({ name: card.name, quantity: card.quantity || 1 })))
+      );
 
-      for (const card of deck.cards) {
-        try {
-          /* Was passing `card.image_uris?.normal` as the SET CODE, so every
-             lookup carried a URL where a three-letter code belongs and matched
-             nothing. Resolving by name alone gets the printing we hold. */
-          const added = await withTimeout(
-            CollectionAPI.addCardByName(card.name, undefined, card.quantity || 1)
-          );
-          if (added.error || !added.data) throw new Error(added.error || 'not in the catalogue');
-
-          await withTimeout(
-            StorageAPI.assignCard({
-              container_id: containerId,
-              slot_id: slotId,
-              card_id: added.data.card_id,
-              qty: card.quantity || 1,
-              foil: false,
-            })
-          );
-
-          successCount++;
-        } catch (error) {
-          console.error(`Failed to add ${card.name}:`, error);
-          errorCount++;
-        }
+      for (const row of added) {
+        if (row.error) console.error(`Failed to add ${row.name}:`, row.error);
       }
+
+      const intoCollection = added.filter(row => !row.error && row.cardId);
+      const filed = await withTimeout(
+        fileCardsIntoContainer(
+          containerId,
+          intoCollection.map(row => ({
+            card_id: row.cardId as string,
+            qty: row.quantity,
+            foil: false,
+          })),
+          slotId
+        )
+      );
+
+      /* A card counts as added when it reached the CONTAINER, which is what
+         this button says it does. Both legs still count as a failure: a name
+         that resolved to nothing and a card that could not be filed are each
+         one that "could not be". */
+      const refused = new Set(filed.failed.map(failure => failure.card_id));
+      const successCount = intoCollection.filter(
+        row => !refused.has(row.cardId as string)
+      ).length;
+      const errorCount = deck.cards.length - successCount;
 
       /* "Deck filed, 0 cards added" was still a success message. If nothing
          landed, nothing was filed, and the screen has to say so. */
@@ -217,30 +238,24 @@ export function StorageQuickAddPanel({
 
     try {
       setProcessing(true);
-      let successCount = 0;
-      let failed = 0;
-      let firstReason = '';
 
-      for (const cardId of selectedCards) {
-        try {
-          await withTimeout(
-            StorageAPI.assignCard({
-              container_id: containerId,
-              slot_id: slotId,
-              card_id: cardId,
-              qty: quantity,
-              foil: false,
-            })
-          );
-          successCount++;
-        } catch (error) {
-          console.error(`Failed to assign card ${cardId}:`, error);
-          failed++;
-          if (!firstReason) {
-            firstReason = error instanceof Error ? error.message : 'Something went wrong';
-          }
-        }
+      /* One batch, not one assign per picked card. `StorageAPI.assignCard` is
+         five requests each, so picking 100 rows was 500. */
+      const filed = await withTimeout(
+        fileCardsIntoContainer(
+          containerId,
+          selectedCards.map(cardId => ({ card_id: cardId, qty: quantity, foil: false })),
+          slotId
+        )
+      );
+
+      for (const failure of filed.failed) {
+        console.error(`Failed to assign card ${failure.card_id}:`, failure.reason);
       }
+
+      const failed = filed.failed.length;
+      const successCount = selectedCards.length - failed;
+      const firstReason = filed.failed[0]?.reason ?? '';
 
       /* Say what actually happened. This reported "N cards are in this
          container" from the success count alone, so a run where every single

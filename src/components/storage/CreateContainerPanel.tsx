@@ -53,14 +53,16 @@ export function CreateContainerPanel({
       const container = await StorageAPI.createContainer({ name: name.trim(), type });
 
       if (template?.slots?.length) {
-        await Promise.all(
-          template.slots.map(slot =>
-            StorageAPI.createSlot({
-              container_id: container.id,
-              name: slot.name,
-              position: slot.position,
-            })
-          )
+        /* One insert of every page, not one insert per page. `Promise.all`
+           around a per-row write is still a per-row write; it only makes them
+           arrive together, which is worse for the database. The largest
+           template has 26 slots, so creating a binder was 27 requests. */
+        await StorageAPI.createSlots(
+          template.slots.map(slot => ({
+            container_id: container.id,
+            name: slot.name,
+            position: slot.position,
+          }))
         );
       }
 

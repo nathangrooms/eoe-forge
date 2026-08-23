@@ -67,7 +67,9 @@ import { actionsForCard, cardNotes, type CardAction } from './cardActions';
 import { ManualPanel } from './ManualPanel';
 import { AbilityPanel } from './AbilityPanel';
 import { AttachmentPanel } from './AttachmentPanel';
+import { SpellTargetPanel } from './SpellTargetPanel';
 import { CommanderPanel } from './CommanderPanel';
+import { useAimRequest } from './useAiming';
 import { ManaCost } from '@/components/ui/mana-cost';
 import {
   activationsFor,
@@ -79,6 +81,7 @@ import {
   type GameState,
   type InstanceId,
   type PlayerId,
+  type StackTarget,
   type Zone,
 } from '@/lib/game';
 
@@ -129,6 +132,19 @@ export interface CenterPreviewProps {
    * afterwards, so it rides on the cast rather than on a second control.
    */
   onCast?: (card: CardInstance, hostId?: InstanceId) => void;
+  /**
+   * Cast this card AT something. The other half of CR 601.2c, for every spell
+   * that is not an Aura: `SpellTargetPanel` collects the answers and hands the
+   * finished `StackTarget[]` back here, and the page puts it on
+   * `CastOptions.targets`.
+   *
+   * A second prop rather than a wider `onCast`, because they are different
+   * announcements. An Aura's host is one permanent chosen by the attachment
+   * rules; a spell's targets are a positional list indexed by `TargetSpec.ref`,
+   * and squeezing the two through one parameter is how a caller ends up passing
+   * a host where a ref-0 target was expected.
+   */
+  onCastAtTargets?: (card: CardInstance, targets: StackTarget[]) => void;
   onPlayLand?: (card: CardInstance) => void;
   onTapToggle?: (card: CardInstance) => void;
   onAttack?: (card: CardInstance, defenderPlayerId: PlayerId) => void;
@@ -209,6 +225,7 @@ export function CenterPreview({
   readOnly = false,
   holdReason,
   onCast,
+  onCastAtTargets,
   onPlayLand,
   onTapToggle,
   onAttack,
@@ -235,6 +252,35 @@ export function CenterPreview({
    * click on another card sets the next one, which is what makes clicking
    * straight from one card to another feel like one gesture instead of two.
    */
+  /*
+   * A QUESTION ASKED FROM THIS PANEL IS ANSWERED ON THE BOARD, SO THE PANEL
+   * STANDS ASIDE AND STOPS LISTENING.
+   *
+   * `SpellTargetPanel` and `AbilityPanel` live inside here, and while one of
+   * them is asking what a spell or an ability is aimed at, the answer is a
+   * press on a card several hundred pixels away. Two things would otherwise go
+   * wrong at that press, and both of them silently:
+   *
+   *   - `away` would fire first and close the preview, which UNMOUNTS the asker
+   *     and takes its half-collected answers with it. The card's own click then
+   *     lands on nothing, because by the time the click resolves the button it
+   *     was aimed at has gone. Targeting from the board would simply not work;
+   *   - and the preview would stay open under it, because a question that has
+   *     had no answers given yet has nothing for its own cancel to clear. That
+   *     was measured: one press of Escape mid-announcement left the aim strip
+   *     up and all nine press targets still live on the board. A prompt that
+   *     will not close on Escape is the trap this seam is supposed to avoid.
+   *
+   * So the pointer is yielded and the key is NOT. Escape does both halves at
+   * once: `AimLayer` clears the answers given so far and this closes the panel
+   * that was asking, which withdraws the question. Between them that is the
+   * whole announcement rewound, which is what CR 601.2 does to one that cannot
+   * be completed. A waiting trigger has no panel to close and keeps only the
+   * first half, correctly: CR 603.3d put it on the stack and Escape does not
+   * take it off again.
+   */
+  const aiming = useAimRequest(state.id, viewerPlayerId);
+
   useEffect(() => {
     const away = (event: PointerEvent) => {
       const node = panelRef.current;
@@ -244,13 +290,13 @@ export function CenterPreview({
     const escape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
-    document.addEventListener('pointerdown', away);
+    if (!aiming) document.addEventListener('pointerdown', away);
     document.addEventListener('keydown', escape);
     return () => {
       document.removeEventListener('pointerdown', away);
       document.removeEventListener('keydown', escape);
     };
-  }, [onClose]);
+  }, [onClose, aiming]);
 
   const { actions, blocked, moves } = actionsForCard(state, viewerPlayerId, card, {
     freeCast,
@@ -399,9 +445,28 @@ export function CenterPreview({
           transition={
             reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 320, damping: 28, mass: 0.7 }
           }
-          className="pointer-events-auto relative flex max-h-full flex-col overflow-hidden rounded-2xl"
+          className={cn(
+            'pointer-events-auto relative flex max-h-full flex-col overflow-hidden rounded-2xl',
+            /*
+             * OUT OF THE WAY WHILE YOU AIM, WITHOUT UNMOUNTING.
+             *
+             * This panel sits in the middle of the mat and the legal targets are
+             * spread across it, so it would be standing on some of the answers.
+             * It cannot simply be removed: the component asking the question is
+             * inside it and holds the answers given so far, and unmounting it
+             * throws a half-announced two-target spell away.
+             *
+             * `invisible` is `visibility: hidden`, which keeps the element
+             * mounted and its state alive while taking it out of the picture,
+             * out of the tab order and out of the way of a pointer. `AimLayer`
+             * is carrying this card and its clause in the meantime, so nothing
+             * a player needs has left the screen.
+             */
+            aiming && 'invisible'
+          )}
           style={{ width: panelWidth }}
           role="group"
+          aria-hidden={aiming ? true : undefined}
           aria-label={`${card.name}, ${ZONE_LABEL[card.zone]}`}
         >
           {/* Glass over the table rather than another slab of it. The mat
@@ -556,6 +621,24 @@ export function CenterPreview({
               viewerPlayerId={viewerPlayerId}
               card={card}
               onCastAt={!readOnly && !holdReason ? onCast : undefined}
+              className="shrink-0"
+            />
+
+            {/* WHAT THIS SPELL IS BEING CAST AT (CR 601.2c).
+                Beside the Aura's host row rather than instead of it, because
+                they are the same question asked of two different card types and
+                each one draws only for the cards it is about. This is the
+                control `cardActions.ts` withholds the plain Cast button for: a
+                targeted spell is cast FROM here, aimed, or it is not cast. */}
+            <SpellTargetPanel
+              state={state}
+              viewerPlayerId={viewerPlayerId}
+              card={card}
+              onCastAt={
+                !readOnly && !holdReason && onCastAtTargets
+                  ? (target, options) => onCastAtTargets(target, options.targets ?? [])
+                  : undefined
+              }
               className="shrink-0"
             />
 

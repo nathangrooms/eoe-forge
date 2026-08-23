@@ -29,8 +29,10 @@ import { ContainerObject } from './ContainerObject';
  * was removing it from one and adding it to the other, which is two writes and
  * a gap: a failure in the gap loses the card, and the re-add re-derives the
  * printing rather than carrying the one you actually own. So every move on this
- * panel goes through `StorageAPI.moveCards`, which is one database statement.
- * Three copies in a box, move one, two stay.
+ * panel goes through `storage_move_cards`, which is one database statement.
+ * Three copies in a box, move one, two stay. A selection goes through
+ * `StorageAPI.moveCardsBatch`, which runs each move through that same statement
+ * inside one request rather than one request per picked row.
  *
  * Design law item 3: this is an action taken WITHOUT leaving the container you
  * are looking at, so it is a right-hand panel and the container stays on screen
@@ -153,18 +155,36 @@ export function StorageMovePanel({
     let moved = 0;
     const failures: string[] = [];
 
-    for (const item of items) {
-      const copies = single ? qty : item.qty;
-      try {
-        await StorageAPI.moveCards({
+    /* One request for the whole selection, not one per picked row. Each move
+       still runs through `storage_move_cards` on the server, inside its own
+       exception block, so one card that cannot go where it was asked leaves the
+       rest moved and comes back with its own reason. */
+    const asked = items.map(item => ({
+      item,
+      copies: single ? qty : item.qty,
+    }));
+
+    try {
+      const outcomes = await StorageAPI.moveCardsBatch(
+        asked.map(({ item, copies }) => ({
           item_id: item.id,
           qty: copies,
           to_container_id: targetId,
           to_slot_id: slotId,
           to_pocket: pocket,
-        });
-        moved += copies;
-      } catch (error) {
+        }))
+      );
+
+      outcomes.forEach((outcome, index) => {
+        const { item, copies } = asked[index];
+        if (outcome.error) {
+          failures.push(`${item.card?.name ?? 'A card'}: ${outcome.error}`);
+        } else {
+          moved += copies;
+        }
+      });
+    } catch (error) {
+      for (const { item } of asked) {
         failures.push(
           `${item.card?.name ?? 'A card'}: ${
             error instanceof Error ? error.message : 'could not be moved'

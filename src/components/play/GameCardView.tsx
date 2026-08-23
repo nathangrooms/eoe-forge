@@ -19,7 +19,7 @@
 
 import { memo, type CSSProperties, type MouseEvent } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { RotateCcw, RotateCw, Hourglass, Zap, Swords, Shield, ShieldPlus, Hand, Link2 } from 'lucide-react';
+import { RotateCcw, RotateCw, Hourglass, Zap, Swords, Shield, ShieldPlus, Hand, Link2, Crosshair } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ManaCost } from '@/components/ui/mana-cost';
 import { CardImage } from '@/components/cards/CardImage';
@@ -116,6 +116,22 @@ export interface GameCardViewProps {
    * and merely stops competing with the ones you can actually cast.
    */
   dimmed?: boolean;
+  /**
+   * This card's part in a target being chosen somewhere else on the table.
+   *
+   * Something is asking what it is aimed at, and the answer is a press on a
+   * card rather than a press on a list of names. `legal` means this permanent
+   * is one the engine will accept: it stays at full strength, lifts, and takes
+   * the press. `receded` is every other card on the table, and it steps back so
+   * the legal ones are the only thing the eye lands on.
+   *
+   * RECEDE IS NOT DESATURATE. Opacity and scale, and nothing else. Scryfall's
+   * terms forbid altering a card image's colour and this project has been
+   * pulled up for it twice, most recently for the `saturate-0` that used to sit
+   * on this very element (see `dimmed` below). Both channels here are also the
+   * two the project's own motion rule allows, so nothing moves the layout.
+   */
+  aiming?: 'legal' | 'receded' | null;
   /**
    * Tap or untap this permanent, straight from the card.
    *
@@ -219,6 +235,7 @@ export const GameCardView = memo(function GameCardView({
   hidden,
   selected,
   dimmed,
+  aiming = null,
   onTap,
   combat,
   role,
@@ -386,23 +403,39 @@ export const GameCardView = memo(function GameCardView({
   const lift = role === 'attacker' ? -10 : role === 'blocker' ? -5 : selected ? -6 : 0;
 
   /*
-   * `opacity: 1` is not decoration — it is required.
+   * OPACITY IS AN ANIMATED VALUE, NOT A CLASS, AND IT HAS TO BE.
    *
-   * The entrance below starts the card at `opacity: 0`. Framer only animates
-   * the keys named in `animate`, so a card that mounted with an entrance and no
-   * opacity target stayed invisible forever: its counters and its power/toughness
-   * badge (which live outside this element) rendered onto an empty mat. That is
-   * exactly what happened every time a seat was re-mounted — switching to view
-   * mode drew an opponent's board as a set of floating 1/1 pips.
+   * The entrance below starts the card at `opacity: 0`, so `animate` has to
+   * name an opacity target or the card stays invisible forever: its counters
+   * and its power/toughness badge live outside this element and rendered onto
+   * an empty mat. That happened every time a seat re-mounted, and switching to
+   * view mode drew an opponent's board as a set of floating 1/1 pips.
+   *
+   * The consequence is that this is the ONLY place a card's opacity can be set.
+   * Framer writes the animated value to `style.opacity` on the element, and an
+   * inline style beats any class, so `dimmed` naming `opacity-50` in the
+   * className below could never have taken effect while `animate` named
+   * `opacity: 1`. Every state that wants a card quieter states it here.
+   *
+   * `receded` is stronger than `dimmed` on purpose. `dimmed` says "not this
+   * turn" over a board a player is still reading; `receded` says "not part of
+   * this question" while exactly a handful of cards are.
    */
+  const opacity = aiming === 'receded' ? 0.34 : aiming === 'legal' ? 1 : dimmed ? 0.5 : 1;
+
+  /* One scale, chosen once. A legal target lifts toward the player, everything
+     else settles back. Both are transforms on this inner element, which does
+     not carry the layout box, so nothing on the mat moves. */
+  const aimScale = aiming === 'legal' ? 1.06 : aiming === 'receded' ? 0.95 : null;
+
   const animate = reduceMotion
-    ? { opacity: 1, rotate: tapped ? 90 : 0, x: 0, y: 0, scale: 1 }
+    ? { opacity, rotate: tapped ? 90 : 0, x: 0, y: 0, scale: aimScale ?? 1 }
     : {
-        opacity: 1,
+        opacity,
         rotate: tapped ? 90 : 0,
         x: lunge?.x ?? 0,
-        y: (lunge?.y ?? 0) + lift,
-        scale: role === 'attacker' || selected ? 1.05 : 1,
+        y: (lunge?.y ?? 0) + (aiming === 'legal' ? -8 : aiming === 'receded' ? 0 : lift),
+        scale: aimScale ?? (role === 'attacker' || selected ? 1.05 : 1),
       };
 
   return (
@@ -438,26 +471,26 @@ export const GameCardView = memo(function GameCardView({
         className={cn(
           'relative w-full origin-center',
           /*
-           * Cannot be cast, cannot attack, cannot block: said with OPACITY and
-           * nothing else.
+           * Cannot be cast, cannot attack, cannot block, not part of the
+           * question being asked: all said with OPACITY and nothing else.
            *
            * This was `saturate-0 brightness-[0.52] contrast-[0.92]`, applied
            * over the Scryfall image of every uncastable card in hand and every
            * creature that cannot attack or block. That is desaturating and
            * colour shifting a card image, which Scryfall's terms forbid and
-           * which this project has already been pulled up for twice —
+           * which this project has already been pulled up for twice.
            * `Playmat.tsx` records taking exactly that filter off the mat for
            * exactly that reason.
            *
            * It also made a first hand look broken. On turn one nothing is
            * castable, so the first thing a new player saw was seven grey cards.
            *
-           * Opacity is the one channel this project's own rules already bless
-           * for a state change, it reads as unlit against the mat, and it does
-           * not alter a single pixel's colour relative to its neighbours.
+           * The value itself is in `animate` above, not here, because Framer
+           * writes an inline opacity onto this element and an inline style
+           * beats a class. See the comment on `opacity`.
            */
-          dimmed && 'opacity-50',
           role === 'attacker' && 'drop-shadow-[0_10px_18px_rgba(0,0,0,0.65)]',
+          aiming === 'legal' && 'drop-shadow-[0_12px_22px_rgba(0,0,0,0.7)]',
           selected && 'drop-shadow-[0_8px_16px_rgba(0,0,0,0.6)]'
         )}
       >
@@ -513,13 +546,63 @@ export const GameCardView = memo(function GameCardView({
           />
         )}
 
-        {/* Tapped cards sit in shade — the rotation says "spent", this agrees. */}
+        {/* Tapped cards sit in shade. The rotation says "spent", this agrees. */}
         {tapped && (
           <span
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 bg-black/35"
             style={{ borderRadius: CARD_RADIUS }}
           />
+        )}
+
+        {/*
+          THE CARD IS THE BUTTON.
+
+          Something is asking what it is aimed at and this permanent is a legal
+          answer, so the whole card takes the press. A real `<button>` over the
+          art rather than a handler on it, for two reasons:
+
+            - `CardImage` owns the click on the art and is not this workstream's
+              file. Wrapping is the change that is available, and it is also the
+              better one;
+            - it puts every legal target in the tab order with an accessible
+              name, so the question can be answered from the keyboard. A prompt
+              that stops the game and can only be answered with a mouse is the
+              same trap as a prompt with no way out.
+
+          Inside the rotated element, so a tapped land's hit area is the
+          rectangle the eye sees rather than the upright box it was laid out in.
+          The crosshair turns back the other way so it stays upright.
+        */}
+        {aiming === 'legal' && onClick && (
+          <button
+            type="button"
+            onClick={event => {
+              event.preventDefault();
+              event.stopPropagation();
+              onClick();
+            }}
+            onDoubleClick={event => event.stopPropagation()}
+            title={title ?? `Aim at ${card.name}`}
+            aria-label={`Aim at ${card.name}`}
+            className={cn(
+              'absolute inset-0 z-30 flex items-center justify-center bg-foreground/[0.14]',
+              'transition-colors hover:bg-foreground/[0.26]',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+            )}
+            style={{ borderRadius: CARD_RADIUS }}
+          >
+            <Crosshair
+              aria-hidden="true"
+              className="text-foreground drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)]"
+              strokeWidth={2.5}
+              style={{
+                width: Math.min(46, Math.max(18, Math.round(renderedWidth * 0.3))),
+                height: Math.min(46, Math.max(18, Math.round(renderedWidth * 0.3))),
+                transform: tapped ? 'rotate(-90deg)' : undefined,
+              }}
+            />
+          </button>
         )}
 
       </motion.div>

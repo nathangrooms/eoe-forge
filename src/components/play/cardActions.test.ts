@@ -540,3 +540,75 @@ test('the cast label prices the tax in mana, on the button', () => {
   assert.equal(cast?.label, 'Cast commander, 2 more mana');
   assert.match(cast.hint, /2 of the cost is commander tax/);
 });
+
+/* -------------------------------------------------------------------------- */
+/* CR 601.2c — a spell that names a target is not offered a bare Cast          */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * The rule is the same one an Aura has always been held to, and the reason is
+ * the same: a plain Cast would announce the spell aimed at nobody. Lightning
+ * Bolt would reach the top of the stack with an empty `targets` list, resolve,
+ * deal its damage to nothing and go to the graveyard — which is precisely what
+ * happened until 23 Aug 2026 and read as an engine that had not implemented the
+ * card. `SpellTargetPanel` is where a targeted spell is cast from instead.
+ */
+
+test('a targeted spell offers no bare Cast button', () => {
+  const state = inMyMain(
+    put(
+      table(),
+      'bolt',
+      {
+        name: 'Lightning Bolt',
+        typeLine: 'Instant',
+        manaCost: '{R}',
+        oracleText: 'Lightning Bolt deals 3 damage to any target.',
+      },
+      'hand'
+    )
+  );
+  const { actions, blocked } = actionsForCard(state, 'p1', state.cards.bolt, { freeCast: true });
+
+  assert.ok(
+    !ids(actions).includes('cast'),
+    'a bare Cast here would put it on the stack aimed at nobody'
+  );
+  assert.equal(blocked.length, 0, 'and it is not a refusal either — the panel below can cast it');
+});
+
+test('a spell that names nothing still offers Cast', () => {
+  const state = inMyMain(
+    put(
+      table(),
+      'div',
+      { name: 'Divination', typeLine: 'Sorcery', manaCost: '{2}{U}', oracleText: 'Draw two cards.' },
+      'hand'
+    )
+  );
+  const { actions } = actionsForCard(state, 'p1', state.cards.div, { freeCast: true });
+  assert.ok(ids(actions).includes('cast'));
+});
+
+test('a targeted spell that cannot be paid for still says why', () => {
+  const state = inMyMain(
+    put(
+      table(),
+      'bolt',
+      {
+        name: 'Lightning Bolt',
+        typeLine: 'Instant',
+        manaCost: '{R}',
+        oracleText: 'Lightning Bolt deals 3 damage to any target.',
+      },
+      'hand'
+    )
+  );
+  // No mana, no free cast: the cost refusal is a different question from the
+  // target one and must survive it, or a player with an empty board reads
+  // silence where they used to read a sentence.
+  const { actions, blocked } = actionsForCard(state, 'p1', state.cards.bolt);
+  assert.equal(actions.length, 0);
+  assert.equal(blocked.length, 1);
+  assert.match(blocked[0].reason, /mana/i);
+});

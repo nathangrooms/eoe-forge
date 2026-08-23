@@ -20,11 +20,31 @@
  * ## Choosing a target happens in place
  *
  * `planActivation` refuses to guess which creature you meant, so an ability
- * with more than one legal target comes back with the question attached. The
- * question is drawn here as a row of names to press, and pressing one answers
- * it and uses the ability in the same gesture. Answers accumulate, so an
- * ability asking two things asks them one after the other without ever leaving
- * the card.
+ * with more than one legal target comes back with the question attached.
+ *
+ * A TARGET is asked on the table: `TargetChoiceRow` publishes it, the legal
+ * permanents light up where they already are, and pressing one answers the
+ * question and uses the ability in the same gesture. Same seam as a cast spell
+ * and a waiting trigger, so the three cannot drift apart.
+ *
+ * A COST that names cards is still a row here. "Sacrifice two creatures" is not
+ * targeting, it takes more than one answer before anything happens, and the
+ * legality behind it is a different function; pretending otherwise on the board
+ * would say the wrong thing about what the press means. It is the next thing
+ * this seam should take, not something to fake in the meantime.
+ *
+ * Answers accumulate either way, so an ability asking two things asks them one
+ * after the other without ever leaving the card.
+ *
+ * ## One question at a time, even here
+ *
+ * A permanent can carry two abilities that both want a target, and both would
+ * be asked at once by the list below. Two published questions would light the
+ * board up for whichever rendered last, which is the board saying something the
+ * player did not ask. So exactly one option ever takes the table: the one with
+ * answers already given, or the only one asking. Anything else falls back to
+ * the row of names, which is the honest drawing of "the interface cannot tell
+ * which ability you mean yet".
  *
  * ## And a refusal is a sentence, never a dead button
  *
@@ -35,6 +55,7 @@
 
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { TargetChoiceRow } from './TargetChoice';
 import {
   activationsFor,
   planActivation,
@@ -167,6 +188,17 @@ export function AbilityPanel({
   const nameOf = (instanceId: string) => state.cards[instanceId]?.name ?? 'That card';
   const seatOf = (playerId: string) => state.players.find(p => p.id === playerId)?.name ?? 'A player';
 
+  /*
+   * WHICH ability gets the table.
+   *
+   * The one the player has already started answering, otherwise the only one
+   * asking for a target. Two at once is not a tie to break, it is a question
+   * the interface genuinely cannot ask yet, and the row of names is the honest
+   * drawing of that.
+   */
+  const asking = options.filter(option => !option.ok && option.pending[0]?.kind === 'target');
+  const aimed = asking.find(option => answers[option.id]) ?? (asking.length === 1 ? asking[0] : undefined);
+
   return (
     <div className={cn('w-full space-y-2', className)}>
       <div className="flex items-baseline gap-2">
@@ -205,9 +237,42 @@ export function AbilityPanel({
               </button>
             )}
 
-            {/* The question, answered in place. Pressing a name finishes the
-                ability rather than opening anything. */}
-            {!option.ok && choice && (
+            {/* A TARGET: asked on the table. `TargetChoiceRow` publishes it and
+                draws nothing, and the card the player presses is the answer.
+                CR 400.7's zone snapshot is taken there, once, rather than being
+                rebuilt by hand here as it used to be. */}
+            {!option.ok && choice && choice.kind === 'target' && (
+              <TargetChoiceRow
+                state={state}
+                choice={choice}
+                onAnswer={target => answer(option, choice, target)}
+                className="mt-1.5"
+                aim={
+                  option.id === aimed?.id
+                    ? {
+                        seatId: viewerPlayerId,
+                        sourceName: card.name,
+                        sourceInstanceId: card.instanceId,
+                        /* The ability's own text, not the card's whole box. It
+                           is the clause the player is checking the engine
+                           against. */
+                        clause: option.text,
+                        cancelLabel: 'Do not use it',
+                        onCancel: () =>
+                          setAnswers(current => {
+                            const next = { ...current };
+                            delete next[option.id];
+                            return next;
+                          }),
+                      }
+                    : null
+                }
+              />
+            )}
+
+            {/* A COST that names cards. Not targeting, so not on the board:
+                see the note at the top of this file. */}
+            {!option.ok && choice && choice.kind !== 'target' && (
               <div className="mt-1.5 space-y-1.5">
                 <p className="text-[10px] leading-snug text-muted-foreground">{choice.prompt}</p>
                 <div className="flex flex-wrap gap-1">
@@ -218,28 +283,13 @@ export function AbilityPanel({
                       onClick={() => answer(option, choice, { kind: 'player', playerId })}
                     />
                   ))}
-                  {choice.instanceIds.map(instanceId =>
-                    choice.kind === 'target' ? (
-                      <Chip
-                        key={`c:${instanceId}`}
-                        label={nameOf(instanceId)}
-                        onClick={() =>
-                          answer(option, choice, {
-                            kind: 'card',
-                            instanceId,
-                            zone: state.cards[instanceId]?.zone,
-                            zoneChangeCounter: state.cards[instanceId]?.zoneChangeCounter ?? 0,
-                          })
-                        }
-                      />
-                    ) : (
-                      <Chip
-                        key={`x:${instanceId}`}
-                        label={nameOf(instanceId)}
-                        onClick={() => answer(option, choice, instanceId)}
-                      />
-                    )
-                  )}
+                  {choice.instanceIds.map(instanceId => (
+                    <Chip
+                      key={`x:${instanceId}`}
+                      label={nameOf(instanceId)}
+                      onClick={() => answer(option, choice, instanceId)}
+                    />
+                  ))}
                 </div>
               </div>
             )}

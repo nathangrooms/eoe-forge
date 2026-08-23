@@ -7,6 +7,8 @@ import { Shuffle, Play, RotateCcw, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { CardImage } from '@/components/cards/CardImage';
 import { getBestCardImage } from '@/lib/scryfall/card-utils';
+import { MetricRow } from '@/components/listing';
+import { cn } from '@/lib/utils';
 
 interface DeckCard {
   id: string;
@@ -86,20 +88,47 @@ export function QuickDeckTester({ deck }: QuickDeckTesterProps) {
     }
   };
 
-  const getHandQuality = (stats: HandStats): { quality: string; color: string; message: string } => {
+  /**
+   * The read on the opening hand.
+   *
+   * ## Two things were broken here and neither was visible in a diff
+   *
+   * This returned a `color` that was interpolated into a class name —
+   * ``bg-${quality.color}/5 border-${quality.color}/20`` — and Tailwind reads
+   * source files for literal strings and cannot see a template. None of those
+   * eight classes was ever generated, so the panel drew `p-3 rounded-lg border`
+   * and nothing else: a bare hairline box, which is the one thing the design
+   * law rules out, and the only styling on it was the part that should not have
+   * been there.
+   *
+   * The same value was passed to `Badge variant=`, and two of the four values
+   * it can take — `warning` and `success` — are not Badge variants and are not
+   * tokens in this palette at all. A good hand and a risky hand both fell
+   * through to the default badge, so the two states in the middle were
+   * indistinguishable.
+   *
+   * `tone` is a literal class now, so Tailwind can see it, and it is monochrome
+   * apart from `destructive`, which is the one reading that is a real warning.
+   */
+  const getHandQuality = (
+    stats: HandStats
+  ): { quality: string; tone: string; badge: 'secondary' | 'destructive'; message: string } => {
+    const plain = { tone: 'bg-muted/40', badge: 'secondary' as const };
+    const bad = { tone: 'bg-destructive/10', badge: 'destructive' as const };
+
     if (stats.lands < 2) {
-      return { quality: 'Poor', color: 'destructive', message: 'Too few lands - likely mulligan' };
+      return { quality: 'Poor', ...bad, message: 'Too few lands, so this is likely a mulligan' };
     }
     if (stats.lands > 5) {
-      return { quality: 'Poor', color: 'destructive', message: 'Too many lands - consider mulligan' };
+      return { quality: 'Poor', ...bad, message: 'Too many lands, so this is worth a mulligan' };
     }
     if (stats.lands === 2 && stats.avgCmc > 4) {
-      return { quality: 'Risky', color: 'warning', message: 'Low lands with high curve' };
+      return { quality: 'Risky', ...plain, message: 'Two lands under a high curve' };
     }
     if (stats.lands >= 3 && stats.lands <= 4) {
-      return { quality: 'Good', color: 'success', message: 'Keepable hand!' };
+      return { quality: 'Good', ...plain, message: 'A keepable hand' };
     }
-    return { quality: 'Average', color: 'secondary', message: 'Borderline - consider your deck strategy' };
+    return { quality: 'Average', ...plain, message: 'Borderline, and it depends on the deck' };
   };
 
   return (
@@ -146,35 +175,57 @@ export function QuickDeckTester({ deck }: QuickDeckTesterProps) {
                 {(() => {
                   const quality = getHandQuality(handStats);
                   return (
-                    <div className={`p-3 rounded-lg border bg-${quality.color}/5 border-${quality.color}/20`}>
+                    <div className={cn('rounded-lg p-3', quality.tone)}>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="font-semibold">Hand Quality</span>
-                        <Badge variant={quality.color as any}>{quality.quality}</Badge>
+                        <span className="font-semibold">Hand quality</span>
+                        <Badge variant={quality.badge}>{quality.quality}</Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">{quality.message}</p>
                     </div>
                   );
                 })()}
 
-                {/* Stats Grid */}
-                <div className="grid grid-cols-4 gap-2">
-                  <div className="text-center p-2 bg-muted rounded">
-                    <p className="text-2xl font-bold">{handStats.lands}</p>
-                    <p className="text-xs text-muted-foreground">Lands</p>
-                  </div>
-                  <div className="text-center p-2 bg-muted rounded">
-                    <p className="text-2xl font-bold">{handStats.creatures}</p>
-                    <p className="text-xs text-muted-foreground">Creatures</p>
-                  </div>
-                  <div className="text-center p-2 bg-muted rounded">
-                    <p className="text-2xl font-bold">{handStats.spells}</p>
-                    <p className="text-xs text-muted-foreground">Spells</p>
-                  </div>
-                  <div className="text-center p-2 bg-muted rounded">
-                    <p className="text-2xl font-bold">{handStats.avgCmc.toFixed(1)}</p>
-                    <p className="text-xs text-muted-foreground">Avg CMC</p>
-                  </div>
-                </div>
+                {/*
+                  What is actually in the seven.
+
+                  Four `text-2xl font-bold` figures on a `p-2 bg-muted` pad with
+                  the label underneath — the deck folder's last hand-built metric
+                  row, and it is the body of `/deck/:id/testhand`, so it was one
+                  of the sub pages that had stopped matching the deck page.
+                  `MetricRow` puts the label above the figure and the figure at
+                  the weight every other figure in the product uses.
+
+                  "Avg CMC" is "Avg mana value" now: the deck page's own tile
+                  has said mana value since the merge, and the same number
+                  reading two different names on two screens of the same deck is
+                  the drift this pass is about. `on="card"` because this sits in
+                  a raised panel.
+                */}
+                <MetricRow
+                  on="card"
+                  columns={4}
+                  metrics={[
+                    { id: 'lands', label: 'Lands', value: String(handStats.lands), raw: handStats.lands },
+                    {
+                      id: 'creatures',
+                      label: 'Creatures',
+                      value: String(handStats.creatures),
+                      raw: handStats.creatures,
+                    },
+                    {
+                      id: 'spells',
+                      label: 'Spells',
+                      value: String(handStats.spells),
+                      raw: handStats.spells,
+                    },
+                    {
+                      id: 'cmc',
+                      label: 'Avg mana value',
+                      value: handStats.avgCmc.toFixed(1),
+                      raw: handStats.avgCmc,
+                    },
+                  ]}
+                />
 
                 {/* Mana Curve in Hand */}
                 <div className="space-y-2">

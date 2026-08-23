@@ -300,7 +300,7 @@ This reads your decklist. Ask me anything about your deck's strategy, card inter
           
           <div className="flex items-center gap-3">
             {/* Response Style Toggle */}
-            <div className="flex items-center gap-2 border px-3 py-1.5 rounded-lg bg-background/50">
+            <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-1.5">
               <Label htmlFor="ai-detailed-toggle" className="text-xs font-medium cursor-pointer">
                 {detailedResponses ? "Detailed" : "Quick"}
               </Label>

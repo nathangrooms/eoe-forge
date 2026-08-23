@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { useParams } from 'react-router-dom';
 import { DeckSubpageLayout, useDeckReturn } from '@/components/deck/DeckSubpageLayout';
 import { DeckProxyGenerator } from '@/components/deck-builder/DeckProxyGenerator';
 import { useDeckRecord } from '@/components/deck/useDeckRecord';
@@ -19,10 +17,17 @@ import { fetchDeckCards, toCardObject, type DeckCardRow } from '@/lib/deck/deckC
  * The cards come from `fetchDeckCards`, the one loader that joins the `cards`
  * table, rather than from a store: a proxy sheet is about art, and art is the
  * first thing a metadata-free query loses.
+ *
+ * ## Why this one passes no figures to the shell
+ *
+ * The numbers that matter on a print job are the selection, the sheet count and
+ * the dpi, and every one of them moves as you tick a card or change the paper.
+ * They belong to the generator, which is what recomputes them, so it draws them
+ * — on `MetricRow`, the same tile as everywhere else. A second strip up in the
+ * header would be a copy that lags the one below it.
  */
 export default function DeckProxies() {
   const { id } = useParams();
-  const navigate = useNavigate();
   /* The deck, on the tab it was open on, when that is where this came from. */
   const backTo = useDeckReturn(id);
   const { deck, loading: deckLoading, error } = useDeckRecord(id);
@@ -59,20 +64,10 @@ export default function DeckProxies() {
       description="Pick the cards, the paper and the guides, then print or save a PDF."
       backTo={backTo}
       backLabel="Back to deck"
+      loading={loading}
+      error={loading ? null : (error ?? (deck ? null : 'This deck could not be found.'))}
     >
-      {loading ? (
-        <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Loading deck…
-        </div>
-      ) : error || !deck ? (
-        <div className="rounded-xl bg-card p-10 text-center shadow-sm">
-          <p className="text-sm text-muted-foreground">{error ?? 'This deck could not be found.'}</p>
-          <Button className="mt-4" variant="secondary" onClick={() => navigate('/decks')}>
-            Back to decks
-          </Button>
-        </div>
-      ) : (
+      {deck && (
         <DeckProxyGenerator
           deckCards={deckCards}
           deckName={deck.name}

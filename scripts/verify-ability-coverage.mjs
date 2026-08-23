@@ -43,6 +43,7 @@ import { probeBehaviour, probeEffects } from '../src/lib/game/abilities/behaviou
 import { addCard, applyActions, createGame } from '../src/lib/game/rules.ts';
 import { castSpellAction } from '../src/lib/game/stack.ts';
 import { activationsFor, planActivation } from '../src/lib/game/activate.ts';
+import { triggerAwaitingTargets } from '../src/lib/game/announce.ts';
 import { powerIn } from '../src/lib/game/characteristics.ts';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -485,6 +486,66 @@ function measureActivatedTargetIsAsked() {
 }
 
 /*
+ * DOES THE ENGINE ASK FOR A TRIGGERED ABILITY'S TARGET, AND DO WHAT IT IS TOLD?
+ *
+ * The twin of the probe above, and it is a probe rather than a claim for the
+ * same reason: this decides thousands of card verdicts, so it is run on a real
+ * board through the real reducer instead of asserted in a comment.
+ *
+ * Flametongue Kavu is played with two creatures already out, so the choice is
+ * genuinely a choice. Three things are checked, in the order they can fail:
+ * the drain STOPPED rather than guessing, the question came with its
+ * candidates, and the announcement landed on the one that was named and not on
+ * its neighbour.
+ */
+function measureTriggerTargetIsAsked() {
+  try {
+    let state = addCard(probeBoard(), {
+      // Six toughness, deliberately: four damage has to be READABLE afterwards,
+      // and a 2/2 that took it is in a graveyard with its damage cleared, which
+      // reads identically to a trigger that did nothing.
+      instanceId: 'bear', cardId: 'bear', name: 'Grizzly Bears',
+      ownerId: 'p2', typeLine: 'Creature — Bear', oracleText: '',
+      power: '2', toughness: '6', summoningSick: false,
+    }, 'battlefield');
+    state = addCard(state, {
+      instanceId: 'wall', cardId: 'wall', name: 'Stone Wall',
+      ownerId: 'p2', typeLine: 'Creature — Wall', oracleText: '',
+      power: '0', toughness: '5', summoningSick: false,
+    }, 'battlefield');
+    state = addCard(state, {
+      instanceId: 'ftk', cardId: 'ftk', name: 'Flametongue Kavu',
+      ownerId: 'p1', typeLine: 'Creature — Kavu',
+      oracleText: 'When this creature enters, it deals 4 damage to target creature.',
+      power: '4', toughness: '2',
+    }, 'hand');
+
+    state = applyActions(state, [{ type: 'PLAY', instanceId: 'ftk', to: 'battlefield' }]);
+
+    const ask = triggerAwaitingTargets(state);
+    if (!ask) return { ok: false, detail: 'the trigger resolved without anybody being asked' };
+    if (ask.choice.instanceIds.length === 0) {
+      return { ok: false, detail: 'asked, but with nothing to choose from' };
+    }
+
+    const after = applyActions(state, [
+      {
+        type: 'ANNOUNCE_TRIGGER_TARGETS',
+        triggerId: ask.trigger.id,
+        targets: [{ kind: 'card', instanceId: 'bear', zone: 'battlefield', zoneChangeCounter: state.cards.bear?.zoneChangeCounter ?? 0 }],
+      },
+    ]);
+    const hit = after.cards.bear?.damage ?? 0;
+    const missed = after.cards.wall?.damage ?? 0;
+    return hit === 4 && missed === 0
+      ? { ok: true, detail: 'Flametongue Kavu offered its candidates and burned the one chosen' }
+      : { ok: false, detail: `aimed at the Bears: ${hit} damage there, ${missed} on the Wall` };
+  } catch (err) {
+    return { ok: false, detail: `threw: ${err.message}` };
+  }
+}
+
+/*
  * DOES ANY SURFACE ANNOUNCE A TARGET FOR A SPELL?
  *
  * A grep, run here rather than written in a comment, because every other
@@ -495,9 +556,27 @@ function measureActivatedTargetIsAsked() {
  * `stack.test.ts` does exactly that, hundreds of times, which is why tests are
  * excluded: a test constructing an action by hand is the precise thing that
  * proves nothing about whether a player can reach it.
+ *
+ * ## `src/lib/game` CAME OFF THE ROOT LIST ON 23 Aug 2026, AND IT WAS THE WHOLE
+ * ## QUESTION
+ *
+ * The engine folder used to be scanned too, and the engine folder contains
+ * `cast-targets.ts`, whose entire job is to fill `CastOptions.targets`. So this
+ * measurement had been answering YES since the day `bot.ts` got its targeting
+ * policy, and every caller it was finding was the bot. The figure it produced
+ * credited a seam only a bot could use, which is the exact failure this project
+ * has shipped before and CLAUDE.md names twice.
+ *
+ * `measureModeAnsweredBySurface` below was already held to the right standard —
+ * a SHIPPED SURFACE, in `src/components`, `src/pages` or `src/hooks` — and this
+ * is held to the same one now. A caller inside `src/lib/game` does not count,
+ * however correct it is: "the engine supports it" and "a player can do it" are
+ * different claims, and only the second is what somebody at the table
+ * experiences.
  */
-function measureSpellTargetsAnnounced() {
-  const roots = [join(ROOT, 'src', 'components'), join(ROOT, 'src', 'lib', 'game'), join(ROOT, 'src', 'pages')];
+const SURFACE_ROOTS = ['components', 'pages', 'hooks'];
+
+function surfaceFiles() {
   const files = [];
   const walk = dir => {
     let entries = [];
@@ -508,13 +587,80 @@ function measureSpellTargetsAnnounced() {
       else if (/\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name)) files.push(full);
     }
   };
-  for (const root of roots) walk(root);
+  for (const root of SURFACE_ROOTS) walk(join(ROOT, 'src', root));
+  return files;
+}
 
-  for (const file of files) {
-    const text = readFileSync(file, 'utf8');
-    for (const call of text.matchAll(/(planCastFromHand|castSpellAction)\s*\(([\s\S]{0,600}?)\)\s*[;,)]/g)) {
-      if (/\btargets\s*:/.test(call[2])) return true;
+/**
+ * The argument list of a call, found by BALANCING PARENTHESES.
+ *
+ * The old version took "up to 600 characters, then the first `)` followed by a
+ * comma or a semicolon", and that is not where a call ends. It is where the
+ * first nested expression ends, which in real code is very soon:
+ * `Play.tsx` writes `...(hostId ? { hostId } : {}),` inside its options object,
+ * and the lazy match stopped dead on that closing bracket — three lines before
+ * the `targets:` it was looking for. The measurement then reported NO shipped
+ * surface, which was false, and the direction of the error is the dangerous one
+ * for the opposite reason to usual: it would have had somebody "fix" a wired
+ * seam by rewiring it.
+ *
+ * Empty string when the brackets never balance, which is the honest answer for
+ * a file this cannot parse.
+ */
+function callArguments(text, open) {
+  let depth = 0;
+  for (let i = open; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '(') depth++;
+    else if (ch === ')') {
+      depth--;
+      if (depth === 0) return text.slice(open + 1, i);
     }
+  }
+  return '';
+}
+
+/*
+ * `targets` being SUPPLIED, in any of the three ways JavaScript spells it.
+ *
+ * `targets:` was the only one recognised, and shorthand — `{ targets }` — is
+ * the ordinary way to write it when the variable already has the right name,
+ * which is exactly what a surface holding an answer from `planSpellTargets`
+ * does. A measurement that misses the idiomatic spelling reports a wired seam
+ * as unwired.
+ */
+const SUPPLIES_TARGETS = /\btargets\s*[:,}]/;
+
+function measureSpellTargetsAnnounced() {
+  for (const file of surfaceFiles()) {
+    const text = readFileSync(file, 'utf8');
+    for (const call of text.matchAll(/(planCastFromHand|castSpellAction)\s*\(/g)) {
+      const open = call.index + call[0].length - 1;
+      if (SUPPLIES_TARGETS.test(callArguments(text, open))) return true;
+    }
+  }
+  return false;
+}
+
+/*
+ * DOES ANY SURFACE ANNOUNCE A TARGET FOR A TRIGGERED ABILITY?
+ *
+ * The other half of the same seam, held to the same bar, and it decides whether
+ * a targeted trigger is graded PROMPTED (a decision the engine offers and
+ * somebody can answer) or PROMPTABLE (a decision nothing offers yet).
+ *
+ * `announce.ts` builds the action and `drainTriggers` halts until it arrives,
+ * so an engine with no surface for it would be an engine that STOPS. That makes
+ * this grep stricter in effect than the spell one: without a consumer the
+ * feature is not merely unreachable, it is a hang. It looks for a shipped file
+ * that reads `triggerAwaitingTargets` or builds the announcement.
+ */
+function measureTriggerTargetsAnnounced() {
+  for (const file of surfaceFiles()) {
+    const text = readFileSync(file, 'utf8');
+    if (/\btriggerAwaitingTargets\b/.test(text)) return true;
+    if (/\bannounceTriggerTargetsAction\b/.test(text)) return true;
+    if (/type:\s*'ANNOUNCE_TRIGGER_TARGETS'/.test(text)) return true;
   }
   return false;
 }
@@ -581,11 +727,17 @@ const MODE_DRAWN_BY_A_SURFACE = measureModeAnsweredBySurface();
    be able to see the options and press one. Both, or it is not a prompt. */
 const MODE_ASKED = MODE_PROBE.ok && MODE_DRAWN_BY_A_SURFACE;
 const TARGET_PROBE = measureActivatedTargetIsAsked();
+const TRIGGER_TARGET_PROBE = measureTriggerTargetIsAsked();
+const TRIGGER_TARGET_DRAWN_BY_A_SURFACE = measureTriggerTargetsAnnounced();
+/* Same two halves as a mode: the engine has to offer the decision with its
+   options, AND a shipped surface has to draw it. Either alone is not a prompt. */
+const TRIGGER_TARGET_ASKED = TRIGGER_TARGET_PROBE.ok && TRIGGER_TARGET_DRAWN_BY_A_SURFACE;
 
 /** Which decisions this run found the engine willing to ask. Printed, never guessed. */
 const PROMPT_BASIS = (() => {
   const asked = [];
   if (TARGET_PROBE.ok) asked.push('an activated ability\'s target');
+  if (TRIGGER_TARGET_ASKED) asked.push('a triggered ability\'s target');
   if (MODE_ASKED) asked.push('a modal choice');
   return asked.length === 0
     ? 'nothing offers a decision with its options, so nothing can be answered'
@@ -638,6 +790,25 @@ function abilityVerdict(ability, ownsTriggers, scryfallKeywords, STRICT_GRANTS) 
        */
       if (!ownsTriggers) return { s: 'dead', why: `trigger not owned: ${unrunnableReason(ability) ?? 'another clause on the card disqualified it'}` };
       if (ability.optional) return { s: 'decision', why: 'optional trigger' };
+      /*
+       * A TARGETED TRIGGER IS A DECISION, NOT A RUN. Added 23 Aug 2026, and it
+       * is the SAME bar the activated case a few lines down has always used.
+       *
+       * `announce.ts` lets a triggered ability carry an announced target now,
+       * and `drainTriggers` settles a forced one itself — so on many boards
+       * nobody is asked at all. But this script grades CARDS and not boards,
+       * and the card cannot say how many legal targets there will be. Grading
+       * it AUTOMATED would be claiming that a card whose ability halts the game
+       * to ask a question resolves on its own.
+       *
+       * `asked` is measured, not assumed, and it takes both halves: the engine
+       * offering the decision with its candidates (`TRIGGER_TARGET_PROBE`) and
+       * a shipped surface drawing it (`measureTriggerTargetsAnnounced`). PROMPTED
+       * when both, PROMPTABLE when not.
+       */
+      if ((ability.targets ?? []).length > 0) {
+        return { s: 'decision', why: 'trigger: the target is asked for', asked: TRIGGER_TARGET_ASKED };
+      }
       if (decision) return { s: 'decision', why: `trigger contains ${decision}` };
       return { s: 'run', why: 'triggers.ts:468 ownedTriggersOf' };
 
@@ -1024,7 +1195,7 @@ for (const [verb, probed] of Object.entries(VERB_PROBE_RESULT)) {
   say(`  ${verb.padEnd(16)} ${verdict}`);
 }
 say(`  ${'spell resolution'.padEnd(16)} ${SPELL_RUNS_ON_RESOLUTION ? 'a cast Divination drew its two cards' : 'a cast Divination drew nothing'}`);
-say(`  ${'spell targets'.padEnd(16)} ${SPELL_TARGETS_ANNOUNCED ? 'some non-test caller announces targets for a spell' : 'NO non-test caller announces a target for a spell'}`);
+say(`  ${'spell targets'.padEnd(16)} ${SPELL_TARGETS_ANNOUNCED ? 'a SHIPPED SURFACE announces targets for a spell' : 'NO shipped surface announces a target for a spell'}`);
 say(`  ${'activated'.padEnd(16)} ${ACTIVATED_PROBE.detail}`);
 if (FORCE_ACTIVATED_DEAD) {
   say(`  ${''.padEnd(16)} DM_ACTIVATED_DEAD=1 is set, so the activated verdict is forced back to dead`);
@@ -1032,6 +1203,8 @@ if (FORCE_ACTIVATED_DEAD) {
 say(`  ${'mode asked'.padEnd(16)} ${MODE_PROBE.detail}`);
 say(`  ${'mode drawn'.padEnd(16)} ${MODE_DRAWN_BY_A_SURFACE ? 'a shipped surface draws the options and hands an answer back' : 'NO shipped surface draws a mode choice, so nothing can answer it'}`);
 say(`  ${'target asked'.padEnd(16)} ${TARGET_PROBE.detail}`);
+say(`  ${'trigger asked'.padEnd(16)} ${TRIGGER_TARGET_PROBE.detail}`);
+say(`  ${'trigger drawn'.padEnd(16)} ${TRIGGER_TARGET_DRAWN_BY_A_SURFACE ? 'a shipped surface draws a waiting trigger and hands an answer back' : 'NO shipped surface draws one, so the drain would halt with nobody to ask'}`);
 say('');
 say('--- THE THREE METRICS, my rule (an unplaceable paragraph fails the card) ---');
 say(`AUTOMATED   ${String(automated).padStart(6)}  ${pct(automated, N)}%   (${preAutomated} before the probe, ${downgraded} downgraded)`);

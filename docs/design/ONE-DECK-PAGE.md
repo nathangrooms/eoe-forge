@@ -788,6 +788,15 @@ Only implementations that are duplicates of a better one, never a capability:
 - `EnhancedDeckAnalysisPanel`'s Validation sub tab, which asserts legality as an
   input, and its Suggestions sub tab, which is the optimiser with less in it
 
+  > **Corrected 23 Aug 2026, against the shipped page.** This is what was
+  > planned and not what happened. Validation did go. Suggestions **stayed**,
+  > and **Mana Curve** and **Land Base** went instead, both because the Mana tab
+  > answers them. The three drops are governed by the `sections` prop on
+  > `EnhancedDeckAnalysisPanel`, which still defaults to all six for the deck
+  > generator, so nothing is deleted and only this page unmounts them.
+  > `DECK-PAGE-AUDIT.md` section 3.2 measured it; this line is the doc it said
+  > disagreed with the code.
+
 `VisualDeckView` itself **cannot** be deleted yet: `AIGeneratedDeckList.tsx:380`
 mounts it for the deck generator, whose deck is not saved and has no
 `DeckCardRow` shape. Either the generator moves to the merged panel first, or

@@ -18,6 +18,13 @@ import { useAuth } from '@/components/AuthProvider';
 import { resolveParsedLines } from '@/lib/decklist';
 import { StorageAPI, fileCardsIntoContainer } from '@/lib/api/storageAPI';
 
+/**
+ * Rows per write. The read side of this file chunks its `.in()` lists at 150
+ * because a URL has a length; a request body is roomier, and 200 keeps one
+ * statement's worth of work to something the 8 second timeout can finish.
+ */
+const WRITE_CHUNK = 200;
+
 /** A card that made it in, kept so the run can show its work. */
 interface ImportedCard {
   id: string;
@@ -232,88 +239,152 @@ export function CollectionImportPanel({ onImported, onCancel }: CollectionImport
         }
       }
 
+      /* AND ONE WRITE PER SHAPE, not one write per line.
+         --------------------------------------------------------------
+         The read side of this file was already right and its comment above says
+         why. The write side was not: it inserted or updated once per line,
+         sequentially, so a 100 line paste was 100 writes on top of the reads.
+         Everything is decided here in one pass over the lines, in hand, and
+         then written in one statement per shape. */
+
+      /** Rows to write, and the lines each of them stands for. */
+      const deckRows: { card_id: string; card_name: string; quantity: number }[] = [];
+      const storageRows: { card_id: string; qty: number; foil: boolean }[] = [];
+      const collectionRows = new Map<
+        string,
+        {
+          card: any;
+          existingId: string | null;
+          quantity: number;
+          foil: number;
+        }
+      >();
+      /** Which pasted lines a card id is carrying, so a failed write names them. */
+      const linesFor = new Map<string, string[]>();
+
       for (const [index, line] of parsed.entries()) {
-        try {
-          const card = resolved[index]?.card ?? null;
+        const card = resolved[index]?.card ?? null;
 
-          if (!card) {
-            errors.push(`${line.raw} — no match found`);
-            continue;
-          }
-
-          /* A deck or a box takes the card straight; only the collection has
-             to merge with what is already held. */
-          if (destination === 'deck') {
-            await supabase.from('deck_cards').insert({
-              deck_id: targetId,
-              card_id: card.id,
-              card_name: card.name,
-              quantity: line.quantity,
-              is_commander: false,
-            });
-            added++;
-            landed.push({ id: card.id, name: card.name, quantity: line.quantity, foil: line.foil, card });
-            continue;
-          }
-
-          if (destination === 'storage') {
-            const filed = await fileCardsIntoContainer(targetId, [
-              { card_id: card.id, qty: line.quantity, foil: line.foil },
-            ]);
-            if (filed.failed.length > 0) {
-              errors.push(`${line.raw} — ${filed.failed[0].reason}`);
-              continue;
-            }
-            added++;
-            landed.push({ id: card.id, name: card.name, quantity: line.quantity, foil: line.foil, card });
-            continue;
-          }
-
-          const existing = held.get(card.id) ?? null;
-
-          if (existing) {
-            await supabase
-              .from('user_collections')
-              .update({
-                quantity: existing.quantity + (line.foil ? 0 : line.quantity),
-                foil: existing.foil + (line.foil ? line.quantity : 0),
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', existing.id);
-          } else {
-            await supabase.from('user_collections').insert({
-              user_id: user.id,
-              card_id: card.id,
-              card_name: card.name,
-              set_code: card.set,
-              quantity: line.foil ? 0 : line.quantity,
-              foil: line.foil ? line.quantity : 0,
-              condition: 'near_mint',
-              price_usd: parseFloat(card.prices?.usd || '0'),
-            });
-          }
-
-          /* A paste can name the same card twice. Record what we just wrote so
-             the second line adds to it rather than overwriting the first. */
-          held.set(card.id, {
-            id: existing?.id ?? card.id,
-            quantity: (existing?.quantity ?? 0) + (line.foil ? 0 : line.quantity),
-            foil: (existing?.foil ?? 0) + (line.foil ? line.quantity : 0),
-          });
-
-          added++;
-          landed.push({
-            id: card.id,
-            name: card.name,
-            quantity: line.quantity,
-            foil: line.foil,
-            card,
-          });
-        } catch (err) {
-          console.error(`Error importing "${line.raw}":`, err);
-          errors.push(`${line.raw} — import failed`);
-        } finally {
+        if (!card) {
+          errors.push(`${line.raw} — no match found`);
           setProgress(p => ({ ...p, done: p.done + 1 }));
+          continue;
+        }
+
+        linesFor.set(card.id, [...(linesFor.get(card.id) ?? []), line.raw]);
+
+        if (destination === 'deck') {
+          deckRows.push({ card_id: card.id, card_name: card.name, quantity: line.quantity });
+        } else if (destination === 'storage') {
+          storageRows.push({ card_id: card.id, qty: line.quantity, foil: line.foil });
+        } else {
+          /* A paste can name the same card twice. Accumulate, so the second
+             line adds to the first rather than overwriting it — which is what
+             the sequential version did by re-reading its own running map. */
+          const existing = held.get(card.id) ?? null;
+          const running = collectionRows.get(card.id) ?? {
+            card,
+            existingId: existing?.id ?? null,
+            quantity: existing?.quantity ?? 0,
+            foil: existing?.foil ?? 0,
+          };
+          running.quantity += line.foil ? 0 : line.quantity;
+          running.foil += line.foil ? line.quantity : 0;
+          collectionRows.set(card.id, running);
+        }
+
+        added++;
+        landed.push({
+          id: card.id,
+          name: card.name,
+          quantity: line.quantity,
+          foil: line.foil,
+          card,
+        });
+        setProgress(p => ({ ...p, done: p.done + 1 }));
+      }
+
+      /** A write that failed takes its lines out of the count and names them. */
+      const writeFailed = (cardIds: Iterable<string>, reason: string) => {
+        for (const cardId of cardIds) {
+          for (const raw of linesFor.get(cardId) ?? []) {
+            errors.push(`${raw} — ${reason}`);
+            added--;
+          }
+          for (let i = landed.length - 1; i >= 0; i -= 1) {
+            if (landed[i].id === cardId) landed.splice(i, 1);
+          }
+        }
+      };
+
+      if (destination === 'deck' && deckRows.length > 0) {
+        for (let i = 0; i < deckRows.length; i += WRITE_CHUNK) {
+          const slice = deckRows.slice(i, i + WRITE_CHUNK);
+          const { error } = await supabase.from('deck_cards').insert(
+            slice.map(row => ({
+              deck_id: targetId,
+              card_id: row.card_id,
+              card_name: row.card_name,
+              quantity: row.quantity,
+              is_commander: false,
+            }))
+          );
+          if (error) writeFailed(slice.map(row => row.card_id), 'import failed');
+        }
+      }
+
+      if (destination === 'storage' && storageRows.length > 0) {
+        /* One call for the whole paste. `fileCardsIntoContainer` batches its
+           own reads and writes, and it was being called once per line. */
+        const filed = await fileCardsIntoContainer(targetId, storageRows);
+        for (const failure of filed.failed) {
+          writeFailed([failure.card_id], failure.reason);
+        }
+      }
+
+      if (destination === 'collection' && collectionRows.size > 0) {
+        const updates = [...collectionRows.entries()]
+          .filter(([, row]) => row.existingId)
+          .map(([cardId, row]) => ({
+            id: row.existingId as string,
+            user_id: user.id,
+            card_id: cardId,
+            card_name: row.card.name,
+            /* The resolver answers with `set_code`. This read `card.set`, which
+               is not a key it returns, so every NEW collection row was written
+               with no set code at all. */
+            set_code: row.card.set_code ?? row.card.set ?? '',
+            quantity: row.quantity,
+            foil: row.foil,
+            price_usd: parseFloat(row.card.prices?.usd || '0'),
+            updated_at: new Date().toISOString(),
+          }));
+
+        const inserts = [...collectionRows.entries()]
+          .filter(([, row]) => !row.existingId)
+          .map(([cardId, row]) => ({
+            user_id: user.id,
+            card_id: cardId,
+            card_name: row.card.name,
+            set_code: row.card.set_code ?? row.card.set ?? '',
+            quantity: row.quantity,
+            foil: row.foil,
+            condition: 'near_mint',
+            price_usd: parseFloat(row.card.prices?.usd || '0'),
+          }));
+
+        for (let i = 0; i < updates.length; i += WRITE_CHUNK) {
+          const slice = updates.slice(i, i + WRITE_CHUNK);
+          const { error } = await supabase
+            .from('user_collections')
+            .upsert(slice, { onConflict: 'id' });
+          if (error) writeFailed(slice.map(row => row.card_id), error.message);
+        }
+
+        for (let i = 0; i < inserts.length; i += WRITE_CHUNK) {
+          const slice = inserts.slice(i, i + WRITE_CHUNK);
+          const { error } = await supabase.from('user_collections').insert(slice);
+          if (error) writeFailed(slice.map(row => row.card_id), error.message);
         }
       }
 

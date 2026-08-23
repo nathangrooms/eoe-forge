@@ -43,6 +43,7 @@ import {
   isUnderAttack,
   planCastFromHand,
   planLandDrop,
+  spellNeedsATarget,
   statLineIn,
   type CardInstance,
   type GameState,
@@ -232,9 +233,25 @@ export function actionsForCard(
     /* The timing refusal wins when both fail. "Needs 2 mana" is the wrong
        sentence to read on the opponent's untap step, because paying for it
        would not help. */
+    /*
+     * A SPELL THAT NAMES A TARGET IS NOT OFFERED A PLAIN CAST BUTTON.
+     *
+     * CR 601.2c — targets are chosen as the spell is cast, and a plain Cast
+     * would announce it aimed at nobody: Lightning Bolt on the stack, no target
+     * on the object, resolves and deals damage to nothing. That is exactly what
+     * happened until 23 Aug 2026, and it looked like an engine that had not
+     * implemented the card.
+     *
+     * `SpellTargetPanel` is where it is cast from instead, and this is the same
+     * rule `CenterPreview` already applies to an Aura for the same reason: an
+     * Aura is cast AT something and its host row is where that is chosen. Both
+     * refusals point at a control that is on screen, so nothing goes silent.
+     */
+    const needsTarget = spellNeedsATarget(card);
+
     if (!timing.ok) {
       blocked.push({ id: 'cast', reason: timing.reason });
-    } else if (plan.ok) {
+    } else if (plan.ok && !needsTarget) {
       actions.push({
         id: 'cast',
         kind: 'cast',
@@ -244,7 +261,7 @@ export function actionsForCard(
           : `Cast ${card.name}`,
         tone: 'primary',
       });
-    } else {
+    } else if (!plan.ok) {
       blocked.push({ id: 'cast', reason: plan.reason });
     }
   }

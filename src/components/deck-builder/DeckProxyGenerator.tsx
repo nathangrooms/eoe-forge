@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FIELD } from '@/components/listing';
+import { FIELD, MetricRow } from '@/components/listing';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -426,31 +426,62 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
             </div>
           </div>
 
-          {/* Stats — every number here is counted off the sheet that will print. */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-center">
-            <div className="p-2 rounded bg-muted/30">
-              <div className="text-xs text-muted-foreground">Selected</div>
-              <div className="font-bold">
-                {selectedCards.size}/{allCards.length}
-              </div>
-            </div>
-            <div className="p-2 rounded bg-muted/30">
-              <div className="text-xs text-muted-foreground">Cards to print</div>
-              <div className="font-bold">{slots.length}</div>
-            </div>
-            <div className="p-2 rounded bg-muted/30">
-              <div className="text-xs text-muted-foreground">Pages</div>
-              <div className="font-bold">{totalPages}</div>
-            </div>
-            <div className="p-2 rounded bg-muted/30">
-              <div className="text-xs text-muted-foreground">Extra faces</div>
-              <div className="font-bold">{extraFaces}</div>
-            </div>
-            <div className="p-2 rounded bg-muted/30">
-              <div className="text-xs text-muted-foreground">Print dpi</div>
-              <div className="font-bold">{proxyDpi(quality)}</div>
-            </div>
-          </div>
+          {/*
+            Stats — every number here is counted off the sheet that will print.
+
+            These were five hand-built pads, `p-2 rounded bg-muted/30` with a
+            16px bold value, which is a sixteenth of the size the same kind of
+            figure gets on the deck page and on My Decks. It was the last metric
+            row in the deck folder still drawing its own tile, and it was on a
+            sub page, which is exactly where the owner said the theming stopped.
+            `MetricRow` now, so a print figure is a 24px number on the shared
+            tile like every other figure in the product.
+
+            `on="card"` because this sits inside a raised `CardContent`: the
+            page-level tile is `bg-card`, and a `bg-card` tile on a `bg-card`
+            panel is not a subtle tile, it is no tile at all.
+          */}
+          <MetricRow
+            on="card"
+            columns={5}
+            metrics={[
+              {
+                id: 'selected',
+                label: 'Selected',
+                value: selectedCards.size.toLocaleString(),
+                raw: selectedCards.size,
+                suffix: `/ ${allCards.length}`,
+              },
+              {
+                id: 'slots',
+                label: 'Cards to print',
+                value: slots.length.toLocaleString(),
+                raw: slots.length,
+                subtext: 'copies, not names',
+              },
+              {
+                id: 'pages',
+                label: 'Sheets',
+                value: totalPages.toLocaleString(),
+                raw: totalPages,
+                subtext: `${PROXY_PER_PAGE} per ${PAPER[paperSize].label}`,
+              },
+              {
+                id: 'faces',
+                label: 'Extra faces',
+                value: extraFaces.toLocaleString(),
+                raw: extraFaces,
+                subtext: 'backs of double-faced cards',
+              },
+              {
+                id: 'dpi',
+                label: 'Print dpi',
+                value: String(proxyDpi(quality)),
+                raw: proxyDpi(quality),
+                subtext: 'at real card size',
+              },
+            ]}
+          />
 
           {/* Selection controls + output */}
           <div className="flex gap-2 items-center flex-wrap">

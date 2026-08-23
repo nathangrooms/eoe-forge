@@ -359,7 +359,7 @@ const optimizations = useMemo(() => {
             </CardHeader>
             <CardContent>
               {aiAnalysisFocus === 'curve' && (
-                <div className="mb-4 p-3 border rounded bg-muted/30">
+                <div className="mb-4 rounded-lg bg-muted/30 p-3">
                   {inlineLoading ? (
                     <div className="text-sm text-muted-foreground">Analysing...</div>
                   ) : inlineAI.text ? (
@@ -475,7 +475,7 @@ const optimizations = useMemo(() => {
             </CardHeader>
             <CardContent>
               {aiAnalysisFocus === 'lands' && (
-                <div className="mb-4 p-3 border rounded bg-muted/30">
+                <div className="mb-4 rounded-lg bg-muted/30 p-3">
                   {inlineLoading ? (
                     <div className="text-sm text-muted-foreground">Analysing...</div>
                   ) : inlineAI.text ? (
@@ -507,7 +507,7 @@ const optimizations = useMemo(() => {
                   <h4 className="font-medium mb-3">Color Requirements</h4>
                   <div className="space-y-3">
                     {analysis.landBase.colorRequirements.map((req, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 border rounded">
+                      <div key={index} className="flex items-center justify-between rounded-lg bg-muted/30 p-3">
                         <div className="flex items-center space-x-2">
                           <div 
                             className="w-4 h-4 rounded-full"
@@ -537,7 +537,7 @@ const optimizations = useMemo(() => {
                   <h4 className="font-medium mb-3">Recommended Lands</h4>
                   <div className="space-y-2">
                     {analysis.landBase.recommendations.slice(0, 5).map((rec, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 border rounded">
+                      <div key={index} className="flex items-center justify-between rounded-lg bg-muted/30 p-2">
                         <div>
                           <div className="font-medium text-sm">{rec.name}</div>
                           <div className="text-xs text-muted-foreground">{rec.reason}</div>
@@ -593,7 +593,7 @@ const optimizations = useMemo(() => {
             </CardHeader>
             <CardContent>
               {aiAnalysisFocus === 'synergy' && (
-                <div className="mb-4 p-3 border rounded bg-muted/30">
+                <div className="mb-4 rounded-lg bg-muted/30 p-3">
                   {inlineLoading ? (
                     <div className="text-sm text-muted-foreground">Analysing...</div>
                   ) : inlineAI.text ? (
@@ -625,7 +625,7 @@ const optimizations = useMemo(() => {
                   <h4 className="font-medium mb-3">Archetype Matches</h4>
                   <div className="space-y-3">
                     {analysis.synergy.archetypeMatches.slice(0, 4).map((match, index) => (
-                      <div key={index} className="p-3 border rounded">
+                      <div key={index} className="rounded-lg bg-muted/30 p-3">
                         <div className="flex items-center justify-between mb-2">
                           <div className="font-medium">{match.name}</div>
                           <Badge variant={match.confidence > 70 ? "default" : "secondary"}>
@@ -646,7 +646,7 @@ const optimizations = useMemo(() => {
                   <h4 className="font-medium mb-3">Mechanic Clusters</h4>
                   <div className="space-y-2">
                     {analysis.synergy.mechanicClusters.slice(0, 5).map((cluster, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 border rounded">
+                      <div key={index} className="flex items-center justify-between rounded-lg bg-muted/30 p-2">
                         <div>
                           <div className="font-medium text-sm capitalize">{cluster.mechanic}</div>
                           <div className="text-xs text-muted-foreground">
@@ -669,7 +669,7 @@ const optimizations = useMemo(() => {
                 <h4 className="font-medium mb-3">Strongest Synergies</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {analysis.synergy.strongestSynergies.slice(0, 6).map((synergy, index) => (
-                    <div key={index} className="p-3 border rounded">
+                    <div key={index} className="rounded-lg bg-muted/30 p-3">
                       <div className="flex items-center justify-between mb-1">
                         <Badge variant="outline" className="text-xs">
                           {synergy.synergyType}
@@ -718,7 +718,7 @@ const optimizations = useMemo(() => {
             </CardHeader>
             <CardContent>
               {aiAnalysisFocus === 'validation' && (
-                <div className="mb-4 p-3 border rounded bg-muted/30">
+                <div className="mb-4 rounded-lg bg-muted/30 p-3">
                   {inlineLoading ? (
                     <div className="text-sm text-muted-foreground">Analysing...</div>
                   ) : inlineAI.text ? (
@@ -746,7 +746,7 @@ const optimizations = useMemo(() => {
               )}
               <div className="space-y-4">
                 {/* Overall Status */}
-                <div className="flex items-center space-x-2 p-4 border rounded">
+                <div className="flex items-center space-x-2 rounded-lg bg-muted/30 p-4">
                   {analysis.formatValidation.isValid ? (
                     <>
                       <CheckCircle className="h-6 w-6 text-foreground" />
@@ -779,7 +779,7 @@ const optimizations = useMemo(() => {
                     </h4>
                     <div className="space-y-2">
                       {analysis.formatValidation.errors.map((error, index) => (
-                        <div key={index} className="p-3 bg-destructive/10 border border-destructive/40 rounded">
+                        <div key={index} className="rounded-lg bg-destructive/10 p-3">
                           <div className="text-sm text-destructive">{error}</div>
                         </div>
                       ))}
@@ -796,7 +796,7 @@ const optimizations = useMemo(() => {
                     </h4>
                     <div className="space-y-2">
                       {analysis.formatValidation.warnings.map((warning, index) => (
-                        <div key={index} className="p-3 bg-muted border border-border rounded">
+                        <div key={index} className="rounded-lg bg-muted p-3">
                           <div className="text-sm text-foreground">{warning}</div>
                         </div>
                       ))}
@@ -832,7 +832,7 @@ const optimizations = useMemo(() => {
             </CardHeader>
             <CardContent>
               {aiAnalysisFocus === 'suggestions' && (
-                <div className="mb-4 p-3 border rounded bg-muted/30">
+                <div className="mb-4 rounded-lg bg-muted/30 p-3">
                   {inlineLoading ? (
                     <div className="text-sm text-muted-foreground">Analysing...</div>
                   ) : inlineAI.text ? (
@@ -865,7 +865,7 @@ const optimizations = useMemo(() => {
                     <h4 className="font-medium mb-3">Mana Curve Optimization</h4>
                     <div className="space-y-2">
                       {optimizations.swapSuggestions.slice(0, 3).map((suggestion, index) => (
-                        <div key={index} className="p-3 border rounded">
+                        <div key={index} className="rounded-lg bg-muted/30 p-3">
                           <div className="text-sm font-medium mb-1">{suggestion.reason}</div>
                           <div className="text-sm text-muted-foreground">
                             Remove {suggestion.remove.count} cards at {suggestion.remove.cmc} CMC, 
@@ -883,7 +883,7 @@ const optimizations = useMemo(() => {
                     <h4 className="font-medium mb-3">Synergy Improvements</h4>
                     <div className="space-y-2">
                       {analysis.synergy.improvementSuggestions.slice(0, 3).map((suggestion, index) => (
-                        <div key={index} className="p-3 border rounded">
+                        <div key={index} className="rounded-lg bg-muted/30 p-3">
                           <div className="flex items-center justify-between mb-1">
                             <Badge variant={
                               suggestion.type === 'add' ? 'default' :
@@ -909,7 +909,7 @@ const optimizations = useMemo(() => {
                     <h4 className="font-medium mb-3">Land Base Improvements</h4>
                     <div className="space-y-2">
                       {analysis.landBase.improvements.slice(0, 3).map((improvement, index) => (
-                        <div key={index} className="p-3 border rounded">
+                        <div key={index} className="rounded-lg bg-muted/30 p-3">
                           <div className="text-sm">{improvement}</div>
                         </div>
                       ))}

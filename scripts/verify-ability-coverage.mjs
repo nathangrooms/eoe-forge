@@ -36,7 +36,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { compileWithTrace, assertClausesAccounted } from '../src/lib/cards/abilities/compiler.ts';
-import { hasManualEffect, effectsOf, watchQueriesIn } from '../src/lib/cards/abilities/dsl.ts';
+import { hasManualEffect, effectsOf, watchQueriesIn, deriveCoverage } from '../src/lib/cards/abilities/dsl.ts';
+import { XMAGE_LOWERED } from '../src/lib/cards/xmage/lowered.generated.ts';
 import { unrunnableReason } from '../src/lib/game/abilities/trigger-bridge.ts';
 import { keywordSupport } from '../src/lib/game/keywords.ts';
 import { probeBehaviour, probeEffects } from '../src/lib/game/abilities/behaviour-probe.ts';
@@ -55,7 +56,9 @@ const OUT = join(
   'scratch',
   process.env.DM_ACTIVATED_DEAD === '1'
     ? 'verify-ability-coverage-activated-dead.json'
-    : 'verify-ability-coverage.json'
+    : process.env.DM_XMAGE_FORCE === '1'
+      ? 'verify-ability-coverage-xmage-forced.json'
+      : 'verify-ability-coverage.json'
 );
 
 const bump = (m, k, n = 1) => m.set(k, (m.get(k) ?? 0) + n);
@@ -197,6 +200,24 @@ function deadGrant(modification) {
 function decisionIn(effects) {
   for (const e of effects ?? []) {
     if (e.do === 'may' || e.do === 'choose-mode' || e.do === 'unless-pays') return e.do;
+    /*
+     * "You may pay {2}. If you do, draw a card." A decision, on the identical
+     * terms as `may`: nothing enumerates a yes and a no for it and nothing
+     * consumes an answer, so a card carrying one is PROMPTABLE and not
+     * PROMPTED. Grading it as a run would count a card the engine cannot
+     * resolve without asking somebody.
+     */
+    if (e.do === 'do-if-cost-paid') return e.do;
+    /*
+     * Scry and surveil are decisions in the same sense: look at N, put any
+     * number somewhere else, the rest back in an order you pick. No board makes
+     * that forced. `library-order.ts` says so in its own header and defers on
+     * every card, so counting one as automation would be counting a card whose
+     * whole text is a question nobody answered.
+     */
+    if (e.do === 'scry' || e.do === 'surveil') return e.do;
+    // Which cards are taken, and often the order the rest go back in. Same bar.
+    if (e.do === 'look-and-pick') return e.do;
     if (e.do === 'if') { const r = decisionIn(e.then) ?? decisionIn(e.else); if (r) return r; }
     if (e.do === 'for-each' || e.do === 'repeat') { const r = decisionIn(e.effects); if (r) return r; }
   }
@@ -1065,8 +1086,66 @@ function withoutReminders(text) {
   return String(text ?? '').replace(/\([^()]*\)/g, ' ');
 }
 
+/*
+ * DM_XMAGE_FORCE=1 — A MEASUREMENT, NOT A SETTING, AND IT SHIPS NOWHERE.
+ *
+ * `xmageSwapFor` refuses a card when the compiler's coverage reads 'full'. On
+ * 4,916 in-pool cards holding a record that sentence fires, and the shipped
+ * verdict passes 3,557 of them and refuses 1,359. 'full' says the compiler read
+ * every printed paragraph. It does not say the compiler beat the port, and no
+ * structural test available INSIDE the compiler separates the two groups:
+ * `port-open-gate-census.mjs` scored four and they fire on nothing or on cards
+ * whose failure both sources share.
+ *
+ * So the only decision-grade way to price a gate opening is to run one. With
+ * this flag the port's record replaces the compiler's answer on EVERY card that
+ * has one and a playable front face, coverage ignored, and the whole verdict
+ * pipeline downstream is untouched. The run says exactly what the port would
+ * buy and exactly what it would cost, card by card.
+ *
+ * This is the opposite direction to DM_ACTIVATED_DEAD and DM_XMAGE_OFF, both of
+ * which can only make the engine claim less. This one makes it claim MORE, so
+ * it lives here in the measuring script and NOT in `src/lib/cards/xmage/
+ * lowered.ts`, whose header says there is no switch in that direction and must
+ * go on saying it. Nothing the shipped app loads can reach this function.
+ *
+ * The three lines that build the swapped list mirror `xmageSwapFor`'s tail.
+ * `lowered.ts` is the source of truth for them; this copy exists because the
+ * real one is unreachable behind the very sentence being priced.
+ */
+const FORCE_XMAGE = process.env.DM_XMAGE_FORCE === '1';
+const forcedSwaps = { swapped: 0, noRecord: 0, backFace: 0, alreadyXmage: 0 };
+
+function forceSwap(trace) {
+  if (!FORCE_XMAGE) return trace;
+  const result = trace.result;
+  if (result.source === 'xmage') { forcedSwaps.alreadyXmage++; return trace; }
+  const stored = XMAGE_LOWERED[result.oracleId];
+  if (!stored || !stored.length) { forcedSwaps.noRecord++; return trace; }
+  const paragraphs = trace.normalized.paragraphs;
+  if (!paragraphs.length) { forcedSwaps.noRecord++; return trace; }
+  if (paragraphs.some(p => p.face > 0)) { forcedSwaps.backFace++; return trace; }
+
+  const text = paragraphs.map(p => p.raw).join('\n');
+  forcedSwaps.swapped++;
+  return {
+    ...trace,
+    result: {
+      ...result,
+      abilities: stored.map(a => ({ ...a, text })),
+      unparsed: [],
+      source: 'xmage',
+      coverage: deriveCoverage(stored, []),
+      // `compilerCoverage` is deliberately left as the compiler wrote it: it is
+      // the value the shipped rule tests and a forced run must not forge it.
+    },
+    consumedSpans: paragraphs.map(p => p.span),
+    ruleHits: ['xmage-forced'],
+  };
+}
+
 for (const card of pool) {
-  const trace = compileWithTrace(card);
+  const trace = forceSwap(compileWithTrace(card));
   const result = trace.result;
 
   try { assertClausesAccounted(trace); }
@@ -1523,8 +1602,20 @@ console.log(`\nwrote ${OUT}`);
  * because that is what a player would see, and a file that disagreed with the
  * AUTOMATED line above would be a third number nobody asked for.
  */
+if (FORCE_XMAGE) {
+  console.log('');
+  console.log('DM_XMAGE_FORCE=1 — the port replaced the compiler wherever it had a record:');
+  console.log('  swapped', forcedSwaps.swapped, ' already swapped by the shipped rule', forcedSwaps.alreadyXmage,
+              ' no record or no text', forcedSwaps.noRecord, ' back face', forcedSwaps.backFace);
+}
+
 if (cardDump) {
-  const DUMP = join(ROOT, 'scratch', 'verify-card-verdicts.json');
+  // A forced run must never overwrite the shipped figure's dump: two files or
+  // the next reader compares a measurement against itself.
+  const DUMP = join(ROOT, 'scratch',
+    FORCE_XMAGE ? 'verify-card-verdicts-xmage-forced.json'
+    : process.env.DM_XMAGE_OFF === '1' ? 'verify-card-verdicts-xmage-off.json'
+    : 'verify-card-verdicts.json');
   let moved = 0;
   for (const row of cardDump) {
     if (row.v === 'AUTOMATED' && downgradedNames.has(row.n)) { row.v = 'SILENT'; moved++; }

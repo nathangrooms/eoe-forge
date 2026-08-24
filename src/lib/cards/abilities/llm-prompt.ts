@@ -143,7 +143,12 @@ type Effect =
   | { do:'lose-game'|'win-game'; who:PlayerSelector }
   | { do:'attach'; what:Selector; to:Selector }   // equip / an Aura entering attached
   | { do:'counter'; what:Selector }
-  | { do:'unless-pays'; who:PlayerSelector; cost:Cost[]; effects:Effect[] }
+  | { do:'scry'; who:PlayerSelector; count:ValueExpr }        // CR 701.18, top N, any number to the BOTTOM
+  | { do:'surveil'; who:PlayerSelector; count:ValueExpr }     // CR 701.44, top N, any number to the GRAVEYARD
+  | { do:'look-and-pick'; who:PlayerSelector; look:ValueExpr; pick:ValueExpr; upTo:boolean;
+      what?:CardFilter; pickedTo:CardDestination; restTo:CardDestination }   // look at the top N, take some, the rest go where it says
+  | { do:'unless-pays'; who:PlayerSelector; cost:Cost[]; effects:Effect[] }   // somebody ELSE is offered the cost; effects run if they decline
+  | { do:'do-if-cost-paid'; who:PlayerSelector; cost:Cost[]; optional:boolean; then:Effect[]; else?:Effect[] }   // "you may pay {2}. If you do, ..."; then runs if they PAY
   | { do:'if'; condition:Condition; then:Effect[]; else?:Effect[] }
   | { do:'for-each'; over:Selector|PlayerSelector; effects:Effect[] }
   | { do:'repeat'; times:ValueExpr; effects:Effect[] }

@@ -32,6 +32,7 @@
 
 import type {
   Ability,
+  CardDestination,
   CardFilter,
   Condition,
   Cost,
@@ -111,6 +112,21 @@ function renderWatchedEvent(event: WatchedEvent): string {
 /* ------------------------------------------------------------------ *
  * Filters, selectors, players
  * ------------------------------------------------------------------ */
+
+/** Where a group of cards ends up, in a player's words. */
+export function renderDestination(where: CardDestination): string {
+  if (where.zone === 'library') {
+    const end = where.position === 'top' ? 'on top of their library' : 'on the bottom of their library';
+    return where.order ? `${end} in ${where.order === 'random' ? 'a random' : 'any'} order` : end;
+  }
+  if (where.zone === 'battlefield') {
+    return where.tapped ? 'onto the battlefield tapped' : 'onto the battlefield';
+  }
+  if (where.zone === 'hand') return 'into their hand';
+  if (where.zone === 'graveyard') return 'into their graveyard';
+  if (where.zone === 'exile') return 'into exile';
+  return `into ${where.zone}`;
+}
 
 export function renderFilter(filter: CardFilter): string {
   switch (filter.is) {
@@ -313,6 +329,20 @@ export function renderEffect(effect: Effect): string {
         `put into ${zoneWords(effect.to)}`, effect.tapped && 'tapped', effect.thenShuffle && 'then shuffle',
       ]);
     case 'shuffle': return `${renderPlayer(effect.who)} shuffles`;
+    /* Named, not described. "Scry 2" is the printed wording and the reminder
+     * text in brackets after it is Wizards', not this project's to write. */
+    case 'scry': return `${renderPlayer(effect.who)} scries ${renderValue(effect.count)}`;
+    case 'surveil': return `${renderPlayer(effect.who)} surveils ${renderValue(effect.count)}`;
+    /* Both destinations are printed. `roundtrip.ts` compares this against the
+     * oracle text, and a rendering that named only what was taken would let
+     * "the rest on the bottom" and "the rest into your graveyard" read alike. */
+    case 'look-and-pick':
+      return join([
+        renderPlayer(effect.who), 'looks at the top', renderValue(effect.look), ', puts',
+        effect.upTo ? 'up to' : undefined, renderValue(effect.pick),
+        effect.what ? `matching ${renderFilter(effect.what)}` : 'of them',
+        renderDestination(effect.pickedTo), 'and the rest', renderDestination(effect.restTo),
+      ]);
     case 'create-token':
       return join([
         renderPlayer(effect.who), 'creates', renderValue(effect.count), renderToken(effect.token), 'token',
@@ -353,6 +383,18 @@ export function renderEffect(effect: Effect): string {
     case 'counter': return `counter ${renderSelector(effect.what)}`;
     case 'unless-pays':
       return `${renderEffects(effect.effects)} unless ${renderPlayer(effect.who)} pays ${effect.cost.map(renderCost).join(' and ')}`;
+    /* The polarity is the whole point, so both halves are spelled out rather
+     * than shortened to "if paid". `roundtrip.ts` compares what comes back here
+     * against the printed card, and "pays" and "does not pay" are the two
+     * halves that would let a swapped pair go through unnoticed. */
+    case 'do-if-cost-paid':
+      return join([
+        renderPlayer(effect.who),
+        effect.optional ? 'may pay' : 'pays',
+        effect.cost.map(renderCost).join(' and '),
+        ';', 'if they do,', renderEffects(effect.then),
+        effect.else?.length ? `; if they do not, ${renderEffects(effect.else)}` : undefined,
+      ]);
     case 'if':
       return join([
         'if', renderCondition(effect.condition), ',', renderEffects(effect.then),

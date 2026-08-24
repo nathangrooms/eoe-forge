@@ -451,16 +451,6 @@ const REFUSALS = [
     'Its parameter is a filter and `KeywordAbility.parameter` is printed text. Writing "from red" would be this project inventing rules text it takes from Scryfall.',
   ],
   [
-    'xmage:ScryEffect, xmage:SurveilEffect',
-    'lower.ts',
-    '`dsl.ts` has neither member. Scrying is a hidden choice that reorders the library, and doing nothing is not a conservative approximation of it.',
-  ],
-  [
-    'xmage:DoIfCostPaid',
-    'lower.ts',
-    'Needs `{do:"do-if-cost-paid"}`. `{do:"unless-pays"}` is the opposite polarity, so reusing it resolves every one of these cards backwards.',
-  ],
-  [
     'xmage:ConditionalOneShotEffect, xmage:ConditionalContinuousEffect',
     'lower.ts and modifications.ts',
     'Need the condition table. `{do:"if"}` and `StaticAbility.condition` both already exist; the mapping from an XMage `Condition` does not. This is the largest remaining item that needs no new DSL member.',
@@ -468,7 +458,12 @@ const REFUSALS = [
   [
     'xmage:RegenerateSourceEffect',
     'lower.ts',
-    'Regeneration is a replacement shield the reducer does not model, so a destroy would quietly happen anyway.',
+    'Regeneration is a replacement shield the reducer does not model, so a destroy would quietly happen anyway. `primitives/extended-dsl.ts` stages the verb and `primitives/regenerate.ts` builds the shield; what is missing is anything that SPENDS one.',
+  ],
+  [
+    'four `PutCards` members inside xmage:LookLibraryAndPickControllerEffect',
+    'lower.ts',
+    '`BATTLEFIELD_TAPPED_ATTACKING` and `BATTLEFIELD_TRANSFORMED` name board states `CardDestination` cannot spell, `TOP_OR_BOTTOM` is a second decision per card on top of which cards were taken, and `SHUFFLE` is a zone followed by an action a destination does not carry. The other eight members have entries.',
   ],
   [
     'xmage:TargetCreaturePermanentAmount, xmage:TargetAnyTargetAmount',
@@ -504,6 +499,31 @@ const REFUSALS = [
     'any ability whose effects read a target it does not announce',
     'lower.ts',
     'A modal ability keeps its targets on each MODE, so the ability-level target list came out empty while every mode still read `{sel:"target", ref:0}`. Dawnbringer Cleric is the example. Checked structurally on the finished ability, so it catches any other shape that loses a spec the same way.',
+  ],
+  [
+    'any effect or ability carrying a chained call nothing reads',
+    'chained-calls.ts',
+    'XMage writes a lot of a card after the constructor closes. `CreateTokenEffect(...).withAdditionalTokens(a, b)` is three tokens and Triplicate Titan was making one; `.withOtherwiseEffect(...)` on a look-and-pick is a printed sentence and Contagious Vorrac was losing it; `.addLieutenantEffect(...)` is half of Thunderfoot Baloth. So a chained call is now either READ by a lowering, or listed as INERT with the argument for why it carries no rules meaning, or the whole thing REFUSES. All three lowering paths consult the one list, and `scripts/xmage/port-refute-mod-census.mjs` reports what is left: zero shipped cards.',
+  ],
+  [
+    'any ability whose XMage class extends SpellAbility',
+    'lower.ts',
+    '30 classes, from `PayMoreToCastAsThoughtItHadFlashAbility` to `FlashbackAbility`. Every one is an alternative way to CAST the card, and every one is also classified `activated-ability` by the extraction because its Java class implements `ActivatedAbility` as well. Lowering one gives the card a repeatable ability it does not have: Saproling Symbiosis came out as "{2}: Create a 1/1 green Saproling creature token for each creature you control", with no zone and no limit.',
+  ],
+  [
+    'ForecastAbility, BoastAbility, LieutenantAbility',
+    'lower.ts',
+    'Three classes that write their printed restrictions into their own CONSTRUCTOR BODY, where the record — which holds a class name and its arguments — cannot see them. Forecast is hand-zone, upkeep-only, once a turn and reveal-as-a-cost, and lowered to none of the four. Lieutenant builds a +2/+2 of its own and wraps everything it is given in "as long as you control your commander". `scripts/xmage/port-refute-class-restriction-census.mjs` reads every ability class XMage has and reports the rest: zero shipped cards.',
+  ],
+  [
+    'a filter or a TargetController the record CARRIED and this port could not read',
+    'costs.ts, triggers.ts',
+    'An argument the card wrote and this port did not resolve is a HOLE, never an absence. Read as an absence it widens the card: Sanctum Spirit\'s "Discard a historic card" became "discard a card", and Fevered Visions\' `TargetController.EACH_PLAYER` became "your end step", so at a four-player table it fired once where it should fire four times. `values.ts` already drew this distinction for one reader; the cost and trigger readers draw it now too.',
+  ],
+  [
+    'a token that arrives ATTACKING, and a cost or target confined to ONE graveyard',
+    'lower.ts, costs.ts, targets.ts',
+    '`{do:"create-token"}` carries `tapped` and has nothing for "and attacking", so Falconer Adept\'s Bird was made beside the attack rather than in it. `Selector` names a set and cannot say "and all of them from the same one of these sets", so Night Soil\'s "two creature cards from a single graveyard" was payable with one card from each of two.',
   ],
 ];
 
@@ -600,11 +620,18 @@ one:
   together block ${blocked('xmage:ConditionalContinuousEffect') + blocked('xmage:ConditionalOneShotEffect')} cards and need a condition table. \`{do:'if'}\` and
   \`StaticAbility.condition\` already exist, so this needs no new DSL member and
   is the clear next item.
-- \`xmage:DoIfCostPaid\` (${blocked('xmage:DoIfCostPaid')}), \`xmage:ScryEffect\` (${blocked('xmage:ScryEffect')}) and
-  \`xmage:SurveilEffect\` (${blocked('xmage:SurveilEffect')}) need new \`Effect\` members. \`dsl.ts\`'s \`Effect\`
-  union is exhaustively switched by \`src/lib/game/**\`, which another workflow
-  owns this session, so adding a member is that owner's decision and not a table
-  entry.
+- \`xmage:DoIfCostPaid\` (${blocked('xmage:DoIfCostPaid')}), \`xmage:ScryEffect\` (${blocked('xmage:ScryEffect')}),
+  \`xmage:SurveilEffect\` (${blocked('xmage:SurveilEffect')}) and
+  \`xmage:LookLibraryAndPickControllerEffect\` (${blocked('xmage:LookLibraryAndPickControllerEffect')}) each needed a new
+  \`Effect\` member and each has one now: \`{do:'do-if-cost-paid'}\`, \`{do:'scry'}\`,
+  \`{do:'surveil'}\` and \`{do:'look-and-pick'}\`, added 24 Aug 2026 and written up
+  in \`docs/engine/PORT-DSL-GROWTH.md\`. Every one of the four is a DECISION, so
+  the cards they unlock are PROMPTABLE and not PROMPTED, and the headline did
+  not move. What is still missing is the two that need engine STATE rather than
+  vocabulary: \`xmage:CreateDelayedTriggeredAbilityEffect\`
+  (${blocked('xmage:CreateDelayedTriggeredAbilityEffect')}), which needs somewhere for a trigger that belongs to no
+  card to live, and \`xmage:RegenerateSourceEffect\` (${blocked('xmage:RegenerateSourceEffect')}), which needs the
+  destruction path to spend a shield.
 - Most of the rest is alternative casting costs: cycling ${blocked('xmage:CyclingAbility')}, flashback
   ${blocked('xmage:FlashbackAbility')}, morph ${blocked('xmage:MorphAbility')}, kicker ${blocked('keyword:Kicker')}. \`docs/engine/CARD-SEMANTICS.md\`
   section 7 already names those as a boundary of the RECORD shape, not of the

@@ -13,16 +13,19 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import type { ExtendedEffect } from './extended-dsl.ts';
+// Both verbs were promoted out of `extended-dsl.ts` into the shipped `Effect`
+// union on 24 Aug 2026. The types are read from there now; nothing else in this
+// file changed, which is the point of the promotion order.
+import type { Effect } from '../../../cards/abilities/dsl.ts';
 import { libraryTop, scryToActions, surveilToActions } from './library-order.ts';
 import { assertOracleContains, board, ctxFor, env } from './harness.testlib.ts';
 
-const scry = (count: number): Extract<ExtendedEffect, { do: 'scry' }> => ({
+const scry = (count: number): Extract<Effect, { do: 'scry' }> => ({
   do: 'scry',
   who: { who: 'you' },
   count,
 });
-const surveil = (count: number): Extract<ExtendedEffect, { do: 'surveil' }> => ({
+const surveil = (count: number): Extract<Effect, { do: 'surveil' }> => ({
   do: 'surveil',
   who: { who: 'you' },
   count,

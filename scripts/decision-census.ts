@@ -429,6 +429,8 @@ interface EngineFlags {
   manual: boolean;
   optionalTrigger: boolean;
   targeted: boolean;
+  /** "You may pay {2}. If you do, …" — the controller's own optional cost. */
+  doIfCostPaid: boolean;
 }
 
 function walk(effects: readonly Effect[], flags: EngineFlags): void {
@@ -445,6 +447,11 @@ function walk(effects: readonly Effect[], flags: EngineFlags): void {
       case 'unless-pays':
         flags.unlessPays = true;
         walk(e.effects, flags);
+        break;
+      case 'do-if-cost-paid':
+        flags.doIfCostPaid = true;
+        walk(e.then, flags);
+        if (e.else) walk(e.else, flags);
         break;
       case 'manual':
         flags.manual = true;
@@ -465,7 +472,7 @@ function walk(effects: readonly Effect[], flags: EngineFlags): void {
 
 function engineFlagsOf(result: CardAbilities): EngineFlags {
   const flags: EngineFlags = {
-    may: false, chooseMode: false, unlessPays: false,
+    may: false, chooseMode: false, unlessPays: false, doIfCostPaid: false,
     manual: false, optionalTrigger: false, targeted: false,
   };
   for (const a of result.abilities as Ability[]) {

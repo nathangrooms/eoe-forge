@@ -338,6 +338,83 @@ export type Effect =
   | { do: 'return-from'; zone: Zone; who: PlayerSelector; what: Selector; count: ValueExpr; to: Zone }
   | { do: 'search-library'; who: PlayerSelector; what: Selector; count: ValueExpr; to: Zone; thenShuffle: boolean; tapped?: boolean }
   | { do: 'shuffle'; who: PlayerSelector }
+  /*
+   * CR 701.18. Look at the top N cards of your library, then put any number of
+   * them on the bottom and the rest back on top in any order.
+   *
+   * PROMOTED from `src/lib/game/abilities/primitives/extended-dsl.ts`, which is
+   * the staging file for verbs whose handler is written and gated before the
+   * union grows. The order it states is: verb staged, primitive written and
+   * passing, member moves here, the one switch in `to-actions.ts` fails to
+   * compile, the new case delegates to the primitive that already worked. This
+   * is that last step. `scryToActions` is unchanged by the move.
+   *
+   * ## What this member does NOT claim
+   *
+   * Scry is a DECISION, and adding the verb does not automate it. There is no
+   * board on which the choice is forced, not even scry 1 with one card left,
+   * because top and bottom are different games. The engine defers it and says
+   * whose library and how many, which is a typed question a surface can draw
+   * instead of a sentence quoted out of the oracle text.
+   *
+   * What it buys is that the card stops being unreadable. 367 cards in the
+   * XMage corpus name `ScryEffect` as a blocker and 195 name nothing else, and
+   * every one of them was refused whole rather than lowered with a question
+   * attached.
+   */
+  | { do: 'scry'; who: PlayerSelector; count: ValueExpr }
+  /*
+   * CR 701.44. Look at the top N, then put any number into your graveyard and
+   * the rest back on top in any order.
+   *
+   * The same decision shape as scry with a different destination, and a
+   * SEPARATE verb rather than a parameter on scry. A player reading the log has
+   * to be able to tell which one happened: cards in the graveyard are cards a
+   * dozen other mechanics can reach, and cards on the bottom of the library are
+   * gone. One verb with a flag would make those two the same line.
+   */
+  | { do: 'surveil'; who: PlayerSelector; count: ValueExpr }
+  /*
+   * "Look at the top four cards of your library. Put one of them into your hand
+   * and the rest on the bottom of your library in a random order."
+   *
+   * 245 cards in the XMage corpus name this shape as a blocker and 130 name
+   * nothing else, which makes it the largest remaining thing the port cannot
+   * say. It is not `{do:'search-library'}` with different numbers: a search
+   * looks at the WHOLE library and takes what it names, and this looks at a
+   * fixed few and has to say where the ones NOT taken go. Three quantities and
+   * two destinations against one of each.
+   *
+   * Both destinations are carried because losing either one changes the card.
+   * "The rest on the bottom" and "the rest into your graveyard" are the
+   * difference between a card that filters and a card that fills a graveyard on
+   * purpose, and a member that recorded only what was taken would make those
+   * two the same shape.
+   *
+   * Like scry and surveil this is a DECISION and the engine defers it. What the
+   * member buys is that the question is typed: who, how many, out of what, and
+   * where each half ends up.
+   */
+  | {
+      do: 'look-and-pick';
+      who: PlayerSelector;
+      /** How many cards are looked at, from the top of that player's library. */
+      look: ValueExpr;
+      /** How many of the looked cards are taken. */
+      pick: ValueExpr;
+      /**
+       * True when FEWER than `pick` may be taken, down to none. False is the
+       * printed shape with no "up to" in it, where the cards are taken if there
+       * are cards there to take.
+       */
+      upTo: boolean;
+      /** Which of the looked cards may be taken. Absent means any of them. */
+      what?: CardFilter;
+      /** Where the taken cards go. */
+      pickedTo: CardDestination;
+      /** Where the ones not taken go. */
+      restTo: CardDestination;
+    }
   /* permanents */
   | { do: 'create-token'; who: PlayerSelector; token: TokenSpec; count: ValueExpr; tapped?: boolean }
   | { do: 'tap' | 'untap'; what: Selector }
@@ -393,6 +470,38 @@ export type Effect =
    * thing on yes; this asks somebody else and does the thing on no, and getting
    * the polarity wrong resolves the card backwards. */
   | { do: 'unless-pays'; who: PlayerSelector; cost: Cost[]; effects: Effect[] }
+  /* a CONTROLLER-facing optional cost, offered while the ability resolves.
+   *
+   * "You may pay {2}. If you do, draw a card." "You may discard a card. If you
+   * do, draw two cards." "When this creature dies, you may exile it. If you do,
+   * search your library for an enchantment card." One printed shape, and the
+   * single largest thing stopping the XMage port from lowering a record: 588
+   * cards name its class as a blocker and 310 name nothing else.
+   *
+   * `then` runs only when the cost is paid, `else` only when it is not. Both
+   * are LISTS rather than one effect each, because the class this comes from
+   * takes more of each through chained calls and reading only the first would
+   * run half the card.
+   *
+   * `optional` is required and has no default. `true` is the printed "you may";
+   * `false` is the shape with no "may" in it, where the cost is paid if it can
+   * be paid. A default would either turn a mandatory payment into a question or
+   * take a payment the player never agreed to, and which of the two it did
+   * would depend on which default somebody picked. So it is always carried.
+   *
+   * THIS IS NOT `{do:'unless-pays'}` INVERTED. That one asks a player who is
+   * not the controller and runs its effects when they DECLINE. This one asks
+   * the controller and runs `then` when they ACCEPT. Same two English words,
+   * opposite polarity, and using either in place of the other resolves every
+   * card carrying it backwards. */
+  | {
+      do: 'do-if-cost-paid';
+      who: PlayerSelector;
+      cost: Cost[];
+      optional: boolean;
+      then: Effect[];
+      else?: Effect[];
+    }
   /* control flow */
   | { do: 'if'; condition: Condition; then: Effect[]; else?: Effect[] }
   | { do: 'for-each'; over: Selector | PlayerSelector; effects: Effect[] }
@@ -422,6 +531,29 @@ export type Effect =
    * reader and a grep do not have to split it. The runtime reads `key`.
    */
   | { do: 'xmage-body'; key: string; card: string; effect: string };
+
+/**
+ * Where a group of cards ends up, for `{do:'look-and-pick'}`.
+ *
+ * A zone is not enough on its own. The library has two ends, and a card put on
+ * the bottom is gone while a card put on top is the next draw; a permanent that
+ * arrives tapped cannot attack this turn.
+ *
+ * `order` is the difference between "the rest on the bottom in any order",
+ * where the player decides what they will draw last, and "in a random order",
+ * where nobody knows. Neither changes which zone the cards are in and both
+ * change how the card is played, so the field is carried rather than folded
+ * away. Absent means the card says nothing about order.
+ */
+export interface CardDestination {
+  zone: Zone;
+  /** Only meaningful for `zone: 'library'`. */
+  position?: 'top' | 'bottom';
+  /** Only meaningful for `zone: 'library'`. */
+  order?: 'any' | 'random';
+  /** Only meaningful for `zone: 'battlefield'`. */
+  tapped?: boolean;
+}
 
 /* ------------------------------------------------------------------ *
  * E8 — what restricted mana may be spent on (CR 106.6)
@@ -695,8 +827,34 @@ export interface CardAbilities {
   source: 'compiler' | 'book' | 'book-partial' | 'xmage';
   /** Hash of the normalised oracle text this was derived from. */
   oracleHash: string;
-  /** DERIVED by `deriveCoverage`, never hand-set. */
+  /**
+   * DERIVED by `deriveCoverage`, never hand-set.
+   *
+   * WHAT THIS RECORD ACCOUNTS FOR, whoever wrote it. On a `compiler` record
+   * `'full'` means the oracle-text compiler read every printed paragraph. On an
+   * `xmage` record it means the ported record replaced the whole card and the
+   * `unparsed` list was emptied to say so. Both are true statements, they are
+   * not the same statement, and that is why `compilerCoverage` sits below.
+   */
   coverage: Coverage;
+  /**
+   * WHAT THE ORACLE-TEXT COMPILER ALONE MADE OF THE PRINTED CARD.
+   *
+   * Set once, from the compiler's own abilities and its own unparsed list,
+   * before any second source is consulted, and carried through a swap
+   * unchanged. NOTHING DOWNSTREAM MAY REWRITE IT.
+   *
+   * It exists because `coverage` is not stable across the swap while the
+   * precedence rule turns on it. `xmageSwapFor` asks "did the compiler fully
+   * understand the printed card", and before this field the only value it could
+   * ask was one the swap rewrites a few lines later. Inside a single
+   * `compileWithTrace` call statement order saved it — measured, zero
+   * disagreements over 32,469 cards — but correct by accident of ordering is
+   * not correct by construction, and putting a finished record back through the
+   * same rule reversed the answer on every swapped card. A rule that depends on
+   * nobody ever asking it twice is not a rule.
+   */
+  compilerCoverage: Coverage;
 }
 
 export type Coverage = 'full' | 'partial' | 'manual' | 'none';
@@ -715,6 +873,7 @@ export function hasManualEffect(effects: readonly Effect[] | undefined): boolean
     if (e.do === 'repeat' && hasManualEffect(e.effects)) return true;
     if (e.do === 'may' && hasManualEffect(e.effects)) return true;
     if (e.do === 'unless-pays' && hasManualEffect(e.effects)) return true;
+    if (e.do === 'do-if-cost-paid' && (hasManualEffect(e.then) || hasManualEffect(e.else))) return true;
     if (e.do === 'choose-mode' && e.modes.some((m) => hasManualEffect(m.effects))) return true;
   }
   return false;
@@ -735,6 +894,7 @@ export function hasManualEffect(effects: readonly Effect[] | undefined): boolean
 function childEffectLists(effect: Effect): Effect[][] {
   switch (effect.do) {
     case 'if':
+    case 'do-if-cost-paid':
       return effect.else ? [effect.then, effect.else] : [effect.then];
     case 'for-each':
     case 'repeat':

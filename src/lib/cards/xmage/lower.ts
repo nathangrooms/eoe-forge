@@ -62,6 +62,8 @@
 import type {
   Ability,
   ActivatedAbility,
+  CardDestination,
+  CardFilter,
   Condition,
   Cost,
   Duration,
@@ -92,6 +94,7 @@ import { lowerCondition } from './conditions.ts';
 import { lowerTrigger } from './triggers.ts';
 import { lowerTargets } from './targets.ts';
 import { lowerCosts } from './costs.ts';
+import { unreadChainedCall } from './chained-calls.ts';
 import { counterFrom, lowerValueSlot } from './values.ts';
 import { lowerModifications } from './modifications.ts';
 import { XMAGE_TOKENS } from './tokens.generated.ts';
@@ -337,13 +340,108 @@ function targetIsPlayer(ctx: LowerContext, index = 0): boolean {
  * not as recursion machinery.
  * ------------------------------------------------------------------ */
 
-/** Every slot a chained call such as `.addEffect(x)` contributed. */
+/**
+ * Every slot a chained call contributed, such as `.addOtherwiseEffect(x)`.
+ *
+ * NOT `.addEffect(x)`. The extraction intercepts that one method by name
+ * (`extract-effects.mjs` `applyMod`) and files what it was given under the
+ * construction's `children.effects` instead of leaving it in `mods`, so
+ * `modArgs(invocation, 'addEffect')` has always returned an empty list on every
+ * card in the corpus. Two lowerings in this file asked for it, and both were
+ * reading a list the record never fills. `unnamedChildEffects` below is where
+ * those effects actually are.
+ */
 function modArgs(invocation: Invocation, name: string): Slot[] {
   const out: Slot[] = [];
   for (const m of invocation.mods ?? []) {
     if (m.m === name) out.push(...(m.args ?? []));
   }
   return out;
+}
+
+/**
+ * `.setTiming(TimingRule.X)` on an ability, as a `dsl.ts` timing, or `null`.
+ *
+ * `SORCERY` is the only member with a home: `ActivatedAbility.timing` says
+ * sorcery or nothing, and `INSTANT` is the absence of a restriction rather than
+ * a restriction of its own. Anything else returns `'refuse'` so the ability
+ * refuses instead of quietly keeping instant speed.
+ */
+function abilityTiming(ability: AbilityRecord): 'sorcery' | 'instant' | 'refuse' | null {
+  const m = (ability.via.mods ?? []).find((x) => x.m === 'setTiming');
+  if (!m) return null;
+  const carried = m.args?.[0]?.carried;
+  if (carried?.c !== 'enum' || carried.enumName !== 'TimingRule') return 'refuse';
+  if (carried.member === 'SORCERY') return 'sorcery';
+  if (carried.member === 'INSTANT') return 'instant';
+  return 'refuse';
+}
+
+/**
+ * The effects a construction carries that its NAMED arguments do not account
+ * for, as slots ready for `lowerNested`, or `null` meaning refuse.
+ *
+ * ## The bug this exists to close
+ *
+ * `children.effects` is the extraction's complete list for one construction:
+ * every constructor argument whose role ends in `-effect`, in argument order,
+ * followed by everything handed to `.addEffect(...)`. A lowering that reads
+ * only the constructor arguments therefore drops every added effect WITHOUT
+ * SAYING SO, and produces a card that resolves and does less than it prints.
+ * Measured over the corpus before this was written: 204 `DoIfCostPaid`, 56
+ * `ConditionalOneShotEffect` and 14 `ConditionalContinuousEffect`
+ * constructions, across 160 cards. Lorthos, the Tidemaker tapped up to eight
+ * permanents and let every one of them untap on schedule, which is the half of
+ * that card people build decks around.
+ *
+ * ## Why POSITION and not object identity
+ *
+ * `Normaliser.invocation` builds `children` by reusing the object it already
+ * built for the matching constructor argument, so in memory a child and its
+ * argument are the same object and `===` would separate them exactly. That was
+ * the first version of this function and it was wrong for a reason worth
+ * writing down: a `CardRecord` is JSON, and JSON has no shared references. The
+ * frozen fixtures in `port.fixtures.generated.ts` are the same records after a
+ * round trip through `JSON.stringify`, so every identity check failed there
+ * while passing on the live extraction. A rule that holds in one process and
+ * not in the file that process wrote is not a rule.
+ *
+ * So the split is positional, which survives serialisation. `hoist` fills the
+ * list from the constructor arguments in order and `applyMod` appends to it
+ * afterwards, so the constructor effects are a PREFIX. This function checks
+ * that prefix class by class and returns the tail.
+ *
+ * It refuses, rather than guessing, whenever the prefix does not line up:
+ * fewer children than constructor effects, a class in the wrong position, or a
+ * constructor effect the caller did not name. Lowering the tail on a record
+ * whose prefix does not match would run the card's own text twice.
+ */
+function unnamedChildEffects(invocation: Invocation, named: readonly string[]): Slot[] | null {
+  const children = invocation.children?.effects ?? [];
+  if (children.length === 0) return [];
+
+  const fromArguments: Invocation[] = [];
+  for (const slot of invocation.args ?? []) {
+    if (slot.value?.k !== 'invoke') continue;
+    if (!(slot.value.invocation.role ?? '').endsWith('-effect')) continue;
+    fromArguments.push(slot.value.invocation);
+  }
+
+  // Every constructor effect has to be one the caller reads by name, or the
+  // caller would drop it and this function would call it an addition.
+  let namedCount = 0;
+  for (const name of named) {
+    if (arg(invocation, name)?.value?.k === 'invoke') namedCount += 1;
+  }
+  if (namedCount !== fromArguments.length) return null;
+
+  if (children.length < fromArguments.length) return null;
+  for (let i = 0; i < fromArguments.length; i++) {
+    if (children[i].prim !== fromArguments[i].prim) return null;
+  }
+  return children
+    .slice(fromArguments.length)
+    .map((invocationOfChild) => ({ value: { k: 'invoke', invocation: invocationOfChild } }) as Slot);
 }
 
 /**
@@ -383,9 +481,59 @@ function lowerNested(slots: Array<Slot | undefined>, ctx: LowerContext): Effect[
       ctx.blame?.refused.push({ prim: inner.prim, why: describeUnresolved(inner) });
       return null;
     }
+    // Checked AFTER the lowering, so an effect that already refuses for a
+    // reason of its own keeps that reason. See `chained-calls.ts`.
+    const unread = unreadChainedCall(inner);
+    if (unread) {
+      ctx.blame?.refused.push({
+        prim: inner.prim,
+        why: `the card chains .${unread}(...) onto this effect and no lowering reads it`,
+      });
+      return null;
+    }
     out.push(...produced);
   }
   return out;
+}
+
+/**
+ * XMage's `PutCards` enum, which says where a group of cards ends up.
+ *
+ * Four of its twelve members are ABSENT on purpose and each one costs cards:
+ *
+ *   `BATTLEFIELD_TAPPED_ATTACKING` — `CardDestination` has no "and attacking",
+ *       and a creature that arrives tapped but not attacking is a different
+ *       board.
+ *   `BATTLEFIELD_TRANSFORMED` — the engine does not play a back face.
+ *   `TOP_OR_BOTTOM` — a SECOND decision, per card, on top of which cards were
+ *       taken. Picking an end for the player resolves half the card for them.
+ *   `SHUFFLE` — "shuffled into your library" is a zone and then a shuffle, and
+ *       a destination carries no second action. Reading it as "into the library"
+ *       would leave the cards findable in a known place.
+ *
+ * Measured over the corpus: 2, 0, 0 and 6 constructions respectively.
+ */
+const PUT_CARDS: Record<string, CardDestination> = {
+  HAND: { zone: 'hand' },
+  GRAVEYARD: { zone: 'graveyard' },
+  EXILED: { zone: 'exile' },
+  BATTLEFIELD: { zone: 'battlefield' },
+  BATTLEFIELD_TAPPED: { zone: 'battlefield', tapped: true },
+  TOP_ANY: { zone: 'library', position: 'top', order: 'any' },
+  BOTTOM_ANY: { zone: 'library', position: 'bottom', order: 'any' },
+  BOTTOM_RANDOM: { zone: 'library', position: 'bottom', order: 'random' },
+};
+
+/** One `PutCards` argument, or `undefined` for a member with no entry. */
+function cardDestination(invocation: Invocation, name: string): CardDestination | undefined {
+  const slot = arg(invocation, name);
+  const member = slot?.carried?.c === 'enum' ? slot.carried.member : undefined;
+  if (!member) return undefined;
+  const found = PUT_CARDS[member];
+  // A fresh object each time. The table's entries are shared, and an effect
+  // holding one would let a later edit to one card's destination reach every
+  // other card that named the same member.
+  return found ? { ...found } : undefined;
 }
 
 /** The condition on a decorator, reporting what is missing when there is none. */
@@ -419,7 +567,21 @@ export const LOWERINGS: Record<PrimId, Lowering> = {
     // `effect` and `otherwiseEffect` are constructor arguments; `addEffect` and
     // `addOtherwiseEffect` are chained calls that add more of each. Reading only
     // the constructor would drop the added ones and run half the card.
-    const thenSlots = [arg(invocation, 'effect'), ...modArgs(invocation, 'addEffect')];
+    //
+    // The two halves arrive by DIFFERENT routes, and the difference is not a
+    // style choice: the extraction files `.addEffect` under `children.effects`
+    // and leaves `.addOtherwiseEffect` in `mods`. This line used to ask
+    // `modArgs` for both, so the added `then` effects were dropped on 56
+    // constructions across 52 cards and nothing said so.
+    const added = unnamedChildEffects(invocation, ['effect', 'otherwiseEffect']);
+    if (added === null) {
+      ctx.blame?.refused.push({
+        prim: invocation.prim,
+        why: 'the record holds effects on this construction that its arguments do not account for, and they cannot be told apart',
+      });
+      return null;
+    }
+    const thenSlots = [arg(invocation, 'effect'), ...added];
     const elseSlots = [arg(invocation, 'otherwiseEffect'), ...modArgs(invocation, 'addOtherwiseEffect')];
 
     const then = lowerNested(thenSlots, ctx);
@@ -452,9 +614,239 @@ export const LOWERINGS: Record<PrimId, Lowering> = {
     if (arg(invocation, 'otherwiseEffect')) return null;
     const condition = lowerConditionInto(arg(invocation, 'condition'), ctx, invocation.prim);
     if (!condition) return null;
-    const then = lowerNested([arg(invocation, 'effect')], ctx);
+    // Same route, same reason, as the entry above: `.addEffect` lands in
+    // `children.effects`, and reading only the constructor argument dropped it
+    // on 14 constructions across 8 cards.
+    const added = unnamedChildEffects(invocation, ['effect', 'otherwiseEffect']);
+    if (added === null) {
+      ctx.blame?.refused.push({
+        prim: invocation.prim,
+        why: 'the record holds effects on this construction that its arguments do not account for, and they cannot be told apart',
+      });
+      return null;
+    }
+    const then = lowerNested([arg(invocation, 'effect'), ...added], ctx);
     if (then === null || then.length === 0) return null;
     return [{ do: 'if', condition, then }];
+  },
+
+  /* ---------------- an optional cost the controller is offered ----------- *
+   *
+   * `DoIfCostPaid` is 588 cards, rank 1 of the current
+   * `docs/engine/EFFECT-CLASS-ORDER.md` re-run, and 310 of them name nothing
+   * else. Like the two decorators above it is not an effect: it is one XMage
+   * class standing in front of any other effect in the corpus, with a COST
+   * deciding whether that effect happens.
+   *
+   * Everything about the refusal rule for the decorators applies here and one
+   * thing more. Dropping the CONDITION on a `ConditionalOneShotEffect` gives a
+   * card that runs when it should not. Dropping the COST here gives a card that
+   * runs for FREE, every time, which is the same failure with a discount
+   * attached. So the cost has to lower in full or the whole thing refuses, and
+   * `lowerCosts` is already all-or-nothing for that reason.
+   * -------------------------------------------------------------- */
+
+  'xmage:DoIfCostPaid': (invocation, ctx) => {
+    /*
+     * The paying player is the CONTROLLER, read off `getPayingPlayer` in
+     * DoIfCostPaid.java rather than assumed. The one subclass that pays from
+     * somewhere else overrides that method and arrives under its own class
+     * name, so it never reaches this entry.
+     */
+    const costSlot = arg(invocation, 'cost');
+    if (costSlot?.value?.k !== 'invoke') {
+      ctx.blame?.refused.push({
+        prim: invocation.prim,
+        why: 'the cost is not an invocation this record resolved, and an unread cost is a free card',
+      });
+      return null;
+    }
+    const lowered = lowerCosts([costSlot.value.invocation]);
+    if (!lowered.ok || lowered.costs.length === 0) {
+      for (const p of lowered.missing) ctx.blame?.missing.push(p);
+      for (const r of lowered.refused) ctx.blame?.refused.push(r);
+      if (lowered.ok) {
+        ctx.blame?.refused.push({ prim: invocation.prim, why: 'the cost lowered to nothing at all' });
+      }
+      return null;
+    }
+
+    /*
+     * `optional` is READ, and a card whose flag this record cannot read is
+     * refused rather than defaulted. XMage's own default is true across five of
+     * its six constructors, so defaulting would be right most of the time and
+     * would silently turn the sixth shape's mandatory payment into a question.
+     * Most of the time is the standard this port does not work to.
+     */
+    const optional = present(invocation, 'optional') ? bool(invocation, 'optional') : true;
+    if (optional === undefined) return null;
+
+    // Same two pairs as `ConditionalOneShotEffect`, and the same split between
+    // where each half of the record puts them. `.addEffect` effects belong to
+    // the PAID branch and to nothing else: `otherwiseEffects` is non-empty only
+    // when `effectOnNotPaid` or `.addOtherwiseEffect` was passed, and both of
+    // those are accounted for by name.
+    const added = unnamedChildEffects(invocation, ['effectOnPaid', 'effectOnNotPaid']);
+    if (added === null) {
+      ctx.blame?.refused.push({
+        prim: invocation.prim,
+        why: 'the record holds effects on this construction that its arguments do not account for, and they cannot be told apart',
+      });
+      return null;
+    }
+    const then = lowerNested([arg(invocation, 'effectOnPaid'), ...added], ctx);
+    if (then === null) return null;
+    const otherwise = lowerNested(
+      [arg(invocation, 'effectOnNotPaid'), ...modArgs(invocation, 'addOtherwiseEffect')],
+      ctx,
+    );
+    if (otherwise === null) return null;
+
+    // A payment that buys nothing is a card that lowered and does nothing on
+    // both branches. XMage tolerates it; this is the silent-success failure.
+    if (then.length === 0) return null;
+
+    const effect: Effect = {
+      do: 'do-if-cost-paid',
+      who: { who: 'you' },
+      cost: lowered.costs,
+      optional,
+      then,
+    };
+    if (otherwise.length > 0) (effect as { else?: Effect[] }).else = otherwise;
+    return [effect];
+  },
+
+  /* ---------------- the top of the library: 367 + 190 cards ------------- *
+   *
+   * Both are the CONTROLLER's own library, read off `apply` in ScryEffect.java
+   * and SurveilEffect.java, which each call the method on
+   * `game.getPlayer(source.getControllerId())` and on nobody else. So `who` is
+   * `{who:'you'}` from the class, not from an argument, and there is no shape in
+   * which one of these scries an opponent.
+   *
+   * `showEffectHint` is XMage's client display flag, the same kind of argument
+   * as `MenaceAbility`'s. It decides whether the reminder text in brackets is
+   * printed and has nothing to do with the rules, so it is read and discarded
+   * rather than surfaced. The reminder text itself is Wizards' wording and is
+   * never copied out of XMage.
+   * -------------------------------------------------------------- */
+
+  'xmage:ScryEffect': (invocation) => {
+    // `scryNumber` on the int constructors and `amount` on the DynamicValue
+    // ones. Both are read, so "scry X" is not quietly refused for being
+    // computed and a fixed scry is not quietly read as one.
+    const count = amount(invocation, 'scryNumber') ?? amount(invocation, 'amount');
+    if (count === undefined) return null;
+    return [{ do: 'scry', who: { who: 'you' }, count }];
+  },
+
+  'xmage:SurveilEffect': (invocation) => {
+    const count = amount(invocation, 'surveilNumber') ?? amount(invocation, 'amount');
+    if (count === undefined) return null;
+    return [{ do: 'surveil', who: { who: 'you' }, count }];
+  },
+
+  /* ---------------- look at N, take some: 245 cards --------------------- *
+   *
+   * `LookLibraryAndPickControllerEffect` is the longer relative of scry: look
+   * at the top few, take some of them, and the ones NOT taken go somewhere the
+   * card names. 245 cards name it as a blocker and 130 name nothing else.
+   *
+   * It is the controller's own library, read off `LookLibraryControllerEffect`,
+   * which resolves the player from `source.getControllerId()` and from nowhere
+   * else.
+   * -------------------------------------------------------------- */
+
+  'xmage:LookLibraryAndPickControllerEffect': (invocation, ctx) => {
+    const look = amount(invocation, 'numberOfCards');
+    if (look === undefined) return null;
+
+    /*
+     * `.withOtherwiseEffect(...)` is a whole printed sentence: Contagious
+     * Vorrac's "If you didn't put a card into your hand this way, proliferate."
+     * `{do:'look-and-pick'}` carries the two destinations and no else branch,
+     * and there is nowhere for a second effect that runs only when nothing was
+     * picked. It was being dropped without a word on 5 cards, every one of
+     * which had already shipped.
+     */
+    if (modArgs(invocation, 'withOtherwiseEffect').length > 0) {
+      ctx.blame?.refused.push({
+        prim: invocation.prim,
+        why: 'the card names an effect that happens when nothing was picked, and `look-and-pick` has no else branch',
+      });
+      return null;
+    }
+
+    const pickedTo = cardDestination(invocation, 'putPickedCards');
+    const restTo = cardDestination(invocation, 'putLookedCards');
+    if (!pickedTo || !restTo) {
+      ctx.blame?.refused.push({
+        prim: invocation.prim,
+        why: 'one of the two destinations is a `PutCards` member `dsl.ts` cannot spell',
+      });
+      return null;
+    }
+
+    /*
+     * `upTo` and `optional` are DERIVED, and which way round depends on which
+     * constructor ran. Read out of LookLibraryAndPickControllerEffect.java
+     * rather than assumed:
+     *
+     *   no `filter` argument — `this.upTo = upTo || numberToPick == MAX_VALUE`,
+     *                          and `optional` is false.
+     *   a `filter` argument — `this.upTo = (numberToPick > 1)` and `optional`
+     *                          defaults to TRUE.
+     *
+     * The two families disagree about the same field, so a single default here
+     * would be right for one of them and would force a choice on the player in
+     * the other. The `filter` slot is what tells them apart, and it is present
+     * on one family and absent on the other by construction.
+     */
+    const filterSlot = arg(invocation, 'filter');
+    const numberToPick = int(invocation, 'numberToPick');
+    if (numberToPick === undefined) return null;
+
+    // `Integer.MAX_VALUE` is XMage's spelling of "any number of them", which is
+    // exactly `pick = look` with `upTo`. Left as a giant number it would be a
+    // count no board could satisfy.
+    const anyNumber = numberToPick >= 2147483647;
+    let pick: ValueExpr = anyNumber ? look : numberToPick;
+    let upTo: boolean;
+    if (filterSlot) {
+      const optional = bool(invocation, 'optional') ?? true;
+      // `optional` with `numberToPick` of one is the same statement as "up to
+      // one": take it or do not. For more than one the class already sets upTo.
+      upTo = numberToPick > 1 || optional || anyNumber;
+    } else {
+      upTo = (bool(invocation, 'upTo') ?? false) || anyNumber;
+    }
+    if (!anyNumber && numberToPick < 1) return null;
+
+    const effect: Effect = {
+      do: 'look-and-pick',
+      who: { who: 'you' },
+      look,
+      pick,
+      upTo,
+      pickedTo,
+      restTo,
+    };
+
+    // A filter argument this port cannot read is NOT "any card". It would widen
+    // what may be taken, which is the same failure the target table names.
+    if (filterSlot) {
+      const value = filterSlot.value;
+      if (value?.k !== 'objects') {
+        ctx.blame?.refused.push({
+          prim: invocation.prim,
+          why: 'the filter argument did not resolve, and ignoring it would widen what may be taken',
+        });
+        return null;
+      }
+      (effect as { what?: CardFilter }).what = value.filter;
+    }
+    return [effect];
   },
 
   /* ---------------- tokens: 2,164 cards blocked ---------------- */
@@ -477,19 +869,53 @@ export const LOWERINGS: Record<PrimId, Lowering> = {
    * made one Pegasus. Hare Apparent made one Rabbit. 77 cards were counted as
    * fully lowered on that basis. An `amount` argument the record carries and
    * this port cannot read is a hole, so the whole effect is refused.
+   *
+   * ## A card that makes THREE DIFFERENT tokens says so after the constructor
+   *
+   * `new CreateTokenEffect(new WolfToken()).withAdditionalTokens(new
+   * BeastToken(), new Beast44Token())` is one effect and three tokens. The
+   * chained call is on `Invocation.mods`, and this reader used to look only at
+   * the constructor argument, so Somberwald Beastmaster made a Wolf and no
+   * Beasts, Triplicate Titan made one Golem of three, and Forbidden Friendship
+   * made a Dinosaur and no Human Soldier. All three RAN, which is worse than
+   * refusing. Found by hand-checking a fresh fifty-card sample; 20 card files
+   * in the corpus use the call and 9 of them had already shipped.
+   *
+   * `amount` applies to EVERY token in the list, not to the first: XMage builds
+   * `CreateTokenEffect(source, controllerId, amount, tokens)` and
+   * `putOntoBattlefieldHelper` walks the whole map with the same count, checked
+   * in TokenImpl.java rather than assumed. So the count is copied onto each.
    */
   'xmage:CreateTokenEffect': (invocation) => {
     const slot = arg(invocation, 'token');
     if (slot?.value?.k !== 'invoke') return null;
-    const cls = slot.value.invocation.prim.replace(/^xmage:/, '');
-    const entry = XMAGE_TOKENS[cls];
-    if (!entry || entry.otherAbilities.length > 0) return null;
     const read = amount(invocation, 'amount');
     if (present(invocation, 'amount') && read === undefined) return null;
     const count = read ?? 1;
-    const effect: Effect = { do: 'create-token', who: { who: 'you' }, token: entry.spec, count };
-    if (bool(invocation, 'tapped')) (effect as { tapped?: boolean }).tapped = true;
-    return [effect];
+    const tapped = bool(invocation, 'tapped');
+    /*
+     * "Tapped AND ATTACKING" is a different board from "tapped".
+     * `CreateTokenEffect(token, amount, tapped, attacking)` has a fourth
+     * argument and `{do:'create-token'}` has `tapped` and nothing for the
+     * other half, so a token that should arrive in combat was arriving beside
+     * it. Falconer Adept's Bird and Hanweir's two Eldrazi Horrors were made
+     * tapped and left out of the attack, which is the whole card. Refused,
+     * because there is nowhere to put it.
+     */
+    if (bool(invocation, 'attacking')) return null;
+
+    const tokenSlots: Slot[] = [slot, ...modArgs(invocation, 'withAdditionalTokens')];
+    const out: Effect[] = [];
+    for (const each of tokenSlots) {
+      if (each.value?.k !== 'invoke') return null;
+      const cls = each.value.invocation.prim.replace(/^xmage:/, '');
+      const entry = XMAGE_TOKENS[cls];
+      if (!entry || entry.otherAbilities.length > 0) return null;
+      const effect: Effect = { do: 'create-token', who: { who: 'you' }, token: entry.spec, count };
+      if (tapped) (effect as { tapped?: boolean }).tapped = true;
+      out.push(effect);
+    }
+    return out;
   },
 
   /* ---------------- auras and equipment: 1,265 cards ---------------- */
@@ -1048,9 +1474,33 @@ export const LOWERINGS: Record<PrimId, Lowering> = {
  * because searching your own library does not use the targeting rules. That is
  * why it is read here and not through `lowerTargets`.
  */
+/**
+ * Search target classes whose WHOLE meaning is their filter and their counts.
+ *
+ * A whitelist and not a fallthrough, because the classes outside it carry a
+ * restriction in the class itself that the filter does not mention. Found by
+ * hand-checking Shared Summons: "Search your library for up to two creature
+ * cards WITH DIFFERENT NAMES" arrives as
+ * `TargetCardWithDifferentNameInLibrary(0, 2, FilterCreatureCard)`, and reading
+ * the filter and the counts alone gave a search for any two creature cards,
+ * which fetches two copies of the same card the printed line forbids.
+ */
+const PLAIN_SEARCH_TARGETS = new Set<PrimId>([
+  'xmage:TargetCardInLibrary',
+  'xmage:TargetCreatureCardInLibrary',
+  'xmage:TargetArtifactCardInLibrary',
+  'xmage:TargetEnchantmentCardInLibrary',
+  'xmage:TargetBasicLandCardInLibrary',
+  'xmage:TargetLandCardInLibrary',
+  'xmage:TargetPermanentCardInLibrary',
+  'xmage:TargetNonlandCardInLibrary',
+  'xmage:TargetSpellCardInLibrary',
+]);
+
 function searchTarget(invocation: Invocation): { selector: Selector; count: number } | null {
   const target = arg(invocation, 'target')?.value;
   if (target?.k !== 'invoke') return null;
+  if (!PLAIN_SEARCH_TARGETS.has(target.invocation.prim)) return null;
   const filter = arg(target.invocation, 'filter')?.value;
   if (filter?.k !== 'objects') return null;
   const count =
@@ -1071,11 +1521,6 @@ function searchTarget(invocation: Invocation): { selector: Selector; count: numb
  * to rediscover it.
  */
 export const REFUSED_EFFECTS: Record<PrimId, string> = {
-  'xmage:ScryEffect':
-    '335 cards. `dsl.ts` has no `scry` member and no `surveil`. Both are proposed in docs/engine/CARD-SEMANTICS.md section 8 and neither can be faked: scrying is a hidden choice that changes the top of the library, and doing nothing is not a conservative approximation of it.',
-  'xmage:SurveilEffect': '186 cards. Same.',
-  'xmage:DoIfCostPaid':
-    '580 cards. Needs `{do:"do-if-cost-paid"}`, proposed in the same section. `{do:"unless-pays"}` is the OPPOSITE polarity: it asks somebody else and runs the effects on refusal. Reusing it would resolve every one of these cards backwards.',
   'xmage:InvestigateEffect':
     '115 cards. Creates a Clue, and a Clue is "{2}, Sacrifice this artifact: Draw a card" — the sacrifice ability is the whole token. `tokens.generated.ts` records it as `otherAbilities: ["ClueAbility"]`, which `CreateTokenEffect` already refuses by name. Emitting the token without it puts a blank artifact on the battlefield that the deck builder would count as card draw. Same call, same reason, written out here so this class stops reading as work nobody got to.',
   'xmage:AmassEffect':
@@ -1086,8 +1531,6 @@ export const REFUSED_EFFECTS: Record<PrimId, string> = {
     'A linked pair: exile now, return when the source leaves. The link is state between two effects and no `Effect` member carries it.',
   'xmage:RegenerateSourceEffect':
     '161 cards. Regeneration is a replacement shield the reducer does not model, so a destroy would quietly happen anyway.',
-  'xmage:LookLibraryAndPickControllerEffect':
-    '241 cards. Look at N, take some, the rest go somewhere else. Three quantities and two destinations; `search-library` carries one of each.',
 };
 
 /* ------------------------------------------------------------------ *
@@ -1307,6 +1750,18 @@ export const ABILITY_RULES: Record<PrimId, AbilityRule> = {
   'xmage:ColorlessManaAbility': manaAbility('{C}'),
 
   /** 235 cards. Only the plain form; a cost argument means a different ability. */
+  /*
+   * The tap is the class's own and is not in the record's cost list. Anything
+   * that IS in that list was added with `ability.addCost(...)` after the
+   * constructor ran, and dropping it makes the ability cheaper than the card.
+   *
+   * Springleaf Drum prints "{T}, Tap an untapped creature you control: Add one
+   * mana of any color" and was lowering to "{T}: Add one mana of any color",
+   * which is a different card and a considerably better one. The constructor
+   * argument was already refused; the ADDED cost was not, because it does not
+   * arrive as an argument. Found by hand-checking the disagreement census,
+   * where the compiler had it and the port did not.
+   */
   'xmage:AnyColorManaAbility': (ability) => {
     if (ability.via.args.some((a) => a.name === 'cost')) {
       return fail(
@@ -1314,12 +1769,20 @@ export const ABILITY_RULES: Record<PrimId, AbilityRule> = {
         [{ prim: 'xmage:AnyColorManaAbility', why: 'takes an activation cost this rule does not read' }],
       );
     }
+    const added = lowerCosts(ability.costs ?? []);
+    if (!added.ok) {
+      return fail(
+        added.missing,
+        [{ prim: 'xmage:AnyColorManaAbility', why: 'an added activation cost did not lower' }],
+      );
+    }
+    const costs: Cost[] = [{ pay: 'tap' }, ...added.costs];
     const lowered: ManaAbility = {
       id: ability.id,
       text: '',
       confidence: 'exact',
       kind: 'mana',
-      costs: [{ pay: 'tap' }],
+      costs,
       activeZones: ['battlefield'],
       effects: [ANY_COLOUR],
     };
@@ -1442,6 +1905,94 @@ export const ABILITY_RULES: Record<PrimId, AbilityRule> = {
  * is a real free ability and the generic path's "no cost means an extraction
  * gap" rule would refuse it.
  */
+/**
+ * Ability classes that construct part of their own cost or restriction from an
+ * argument the record does not hold. Each one costs real cards and each is a
+ * decision, in the same spirit as `REFUSED_KEYWORDS` and `REFUSED_EFFECTS`.
+ *
+ * Found by hand-checking Skoa, Embermage against Scryfall. "Grandeur — Discard
+ * another card named Skoa, Embermage, Sacrifice two Mountains: Skoa deals 4
+ * damage to any target." `GrandeurAbility(effect, cardName)` builds the discard
+ * cost itself out of `cardName`, and the extraction records that argument as
+ * omitted text, so the record's cost list held only the sacrifice. The ability
+ * lowered, ran, and dealt 4 damage for two Mountains and no discard: a
+ * grandeur ability at half its printed price, which is the "runs and is wrong"
+ * failure the port refuses everywhere else.
+ *
+ * 7 cards in the corpus construct a `GrandeurAbility`.
+ */
+export const REFUSED_ABILITY_CLASSES: Record<PrimId, string> = {
+  'xmage:GrandeurAbility':
+    'the class builds a "discard another card named this card" cost out of a card name the record records as omitted text, so the cost list is short by exactly that cost',
+  'xmage:PowerUpAbility':
+    '37 cards. The class carries TWO printed restrictions and the record can express neither: "Activate each power-up ability only once", which is per game and per ABILITY rather than per card so `limit` cannot say it, and "Reduce the cost by its mana cost if it entered this turn", which is a conditional discount on an activation cost. Found by hand-checking Bold Biochemist, Serpent Specialist and Extremis Elite, all three of which were offering a once-per-game ability as often as the player liked.',
+  'xmage:CastFromGraveyardOnceDuringEachOfYourTurnAbility':
+    '10 cards. Permission to CAST the card from a zone it is not normally cast from, once a turn. PORT-LOG.md section 5 already names alternative casting permissions as a boundary of the RECORD shape rather than of the lowering tables, and there is no ability kind that grants one.',
+  'xmage:ForecastAbility':
+    '11 cards, 3 of them already shipped. CR 702.56: a forecast ability is activated from the HAND, only during its owner\'s upkeep, only once each turn, and revealing the card is part of the cost. The class sets all four in its own constructor body from literals, so the record — which holds a class name and its ARGUMENTS — cannot see any of them, and the generic path produced an ability with the mana cost alone. Steeling Stance became "{W}: Target creature gets +1/+1 until end of turn", at any time, as often as the player liked. `Cost` has no member for revealing a card from hand, so this cannot be mapped either.',
+  'xmage:BoastAbility':
+    '18 cards, 1 of them already shipped. Boast is "Activate only if this creature attacked this turn and only once each turn", and the class writes both into its constructor body rather than taking them as arguments. `limit` could carry the second and no `Condition` in this port can say the first, so half of it would be lowered and half dropped, which is the failure this file exists to refuse.',
+  'xmage:LieutenantAbility':
+    'The class builds a "+2/+2 to this creature" of its own AND wraps every effect it is given in "as long as you control your commander". The record holds the class name and the argument effect, so all three of those were lost: Thunderfoot Baloth\'s "Lieutenant — As long as you control your commander, this creature gets +2/+2 and other creatures you control get +2/+2 and have trample" lowered to an UNCONDITIONAL "other creatures you control get +2/+2", which is a strictly better card than the one printed and is on the battlefield whether the commander is or not.',
+};
+
+/**
+ * ABILITIES THAT ARE A WAY OF CASTING THE CARD, NOT AN ABILITY ON IT.
+ *
+ * Every class here extends `mage.abilities.SpellAbility` in XMage and every one
+ * of them is nevertheless classified `activated-ability` by the extraction,
+ * because its Java class also implements `ActivatedAbility`. That is true of
+ * XMage and false of this engine: an `ActivatedAbility` here is a thing a
+ * permanent DOES on the battlefield, and lowering one of these into it invents
+ * a repeatable ability the printed card does not have.
+ *
+ * Saproling Symbiosis is the card that showed it. "You may cast this spell as
+ * though it had flash if you pay {2} more to cast it" arrives as
+ * `PayMoreToCastAsThoughtItHadFlashAbility(this, {2})` carrying the spell's own
+ * token effect, and it lowered to "{2}: Create a 1/1 green Saproling creature
+ * token for each creature you control", with no limit and no zone. The card
+ * ran, and it ran a second copy of itself for two mana.
+ *
+ * The list is not typed from memory. It is every class in
+ * `scripts/coverage/.data/xmage-engine-index.json` whose `chain` contains
+ * `mage.abilities.SpellAbility` and whose `role` is `activated-ability`, which
+ * is 30 of them, checked by `scripts/xmage/port-refute-defect-census.mjs`.
+ * `PORT-LOG.md` section 5 already names alternative casting costs as a boundary
+ * of the RECORD shape; this is the same boundary, enforced instead of assumed.
+ */
+export const CASTING_ABILITY_CLASSES: ReadonlySet<PrimId> = new Set<PrimId>([
+  'xmage:AdventureCardSpellAbility',
+  'xmage:AwakenAbility',
+  'xmage:BestowAbility',
+  'xmage:BlitzAbility',
+  'xmage:CastFromGraveyardAbility',
+  'xmage:CleaveAbility',
+  'xmage:DisguiseAbility',
+  'xmage:DisturbAbility',
+  'xmage:EmergeAbility',
+  'xmage:EscapeAbility',
+  'xmage:FlashbackAbility',
+  'xmage:ForetellCostAbility',
+  'xmage:HarmonizeAbility',
+  'xmage:JumpStartAbility',
+  'xmage:MayhemAbility',
+  'xmage:MoreThanMeetsTheEyeAbility',
+  'xmage:MorphAbility',
+  'xmage:MutateAbility',
+  'xmage:OmenCardSpellAbility',
+  'xmage:OverloadAbility',
+  'xmage:PayMoreToCastAsThoughtItHadFlashAbility',
+  'xmage:PlotSpellAbility',
+  'xmage:PrototypeAbility',
+  'xmage:RetraceAbility',
+  'xmage:SneakAbility',
+  'xmage:SpectacleAbility',
+  'xmage:SpellTransformedAbility',
+  'xmage:SurgeAbility',
+  'xmage:WarpAbility',
+  'xmage:WebSlingingAbility',
+]);
+
 export const ABILITY_COSTS: Record<PrimId, (ability: AbilityRecord) => Cost[] | null> = {
   /**
    * 324 cards. Every planeswalker ability. `LoyaltyAbility(effect, loyalty)`
@@ -1554,6 +2105,58 @@ export function lowerAbility(
     );
   }
 
+  // An ability class that BUILDS PART OF ITSELF out of an argument the record
+  // cannot hold. Same failure as `fromHelper` one line up, and refused for the
+  // same reason, but the extra work is inside the ability's own constructor
+  // rather than in a helper that wrapped it.
+  const refusedClass = REFUSED_ABILITY_CLASSES[ability.via.prim];
+  if (refusedClass) {
+    return fail([ability.via.prim], [{ prim: ability.via.prim, why: refusedClass }]);
+  }
+
+  /*
+   * A CHAINED CALL ON THE ABILITY that nothing reads, refused for exactly the
+   * reason the effect-level guard refuses one. Thunderfoot Baloth writes half
+   * its text as `.addLieutenantEffect(...)` and lost "and have trample"; Saga
+   * chapters arrive as `.addChapterEffect(...)` and would lose every chapter.
+   * `EFFECT_MODS_READ` and `EFFECT_MODS_INERT` are shared between the two
+   * guards because a call means the same thing wherever it is chained.
+   */
+  const unreadOnAbility = unreadChainedCall(ability.via);
+  if (unreadOnAbility) {
+    return fail(
+      [`mod:${unreadOnAbility}`],
+      [
+        {
+          prim: ability.via.prim,
+          why: `the card chains .${unreadOnAbility}(...) onto this ability and no lowering reads it`,
+        },
+      ],
+    );
+  }
+
+  // `.setTiming(...)` with a member `ActivatedAbility.timing` cannot say.
+  if (abilityTiming(ability) === 'refuse') {
+    return fail(
+      ['dsl:ActivatedAbility.timing'],
+      [{ prim: ability.via.prim, why: 'the card sets a timing rule this ability shape cannot carry' }],
+    );
+  }
+
+  // An ability that is a way of CASTING this card rather than an ability the
+  // card has. See `CASTING_ABILITY_CLASSES`.
+  if (CASTING_ABILITY_CLASSES.has(ability.via.prim)) {
+    return fail(
+      [ability.via.prim],
+      [
+        {
+          prim: ability.via.prim,
+          why: 'a SpellAbility subclass: this is an alternative way to CAST the card, and lowering it as an activated ability invents a repeatable ability the card does not have',
+        },
+      ],
+    );
+  }
+
   // An adjuster is a Java object XMage attaches to an ability that rewrites its
   // targets or its cost AT CAST TIME. The record holds the adjuster's class
   // name and nothing about what it does, so an ability carrying one is an
@@ -1565,6 +2168,30 @@ export function lowerAbility(
   // spell that taps exactly one creature. It ran, it tapped something, and it
   // was wrong. Same failure class as Cyclonic Rift and found the same way, by
   // walking a real card through.
+  /*
+   * "ANY PLAYER MAY ACTIVATE THIS ABILITY." 42 cards.
+   *
+   * `setMayActivate(TargetController.ANY)` is a modifier and the lowering read
+   * it nowhere, so Excavation's "{1}, Sacrifice a land: Draw a card. Any player
+   * may activate this ability" and Flailing Ogre's two pump abilities lowered as
+   * ordinary abilities only their controller can use. `ActivatedAbility` has no
+   * field naming who may activate it, and `activate.ts` offers an ability to the
+   * card's controller and nobody else, so there is nothing to write the fact
+   * into. Half a card, refused for the same reason as every other half card here.
+   */
+  const mayActivate = (ability.via.mods ?? []).find((m) => m.m === 'setMayActivate');
+  if (mayActivate) {
+    return fail(
+      ['dsl:ActivatedAbility.mayActivate'],
+      [
+        {
+          prim: ability.via.prim,
+          why: 'the card says another player may activate this ability and no ability shape names who may activate one',
+        },
+      ],
+    );
+  }
+
   const adjuster = (ability.via.mods ?? []).find(
     (m) => m.m === 'setTargetAdjuster' || m.m === 'setCostAdjuster',
   );
@@ -1687,6 +2314,91 @@ function lowerStatic(ability: AbilityRecord): LowerResult {
   return { ok: true, ability: result, effects: [], missing: [], refused: [] };
 }
 
+/**
+ * Every condition an ability's own CONSTRUCTION carries, in source order.
+ *
+ * Two places, and neither of them is `ability.interveningIf`, which reads the
+ * `withInterveningIf` modifier and only that:
+ *
+ *   - a constructor argument whose Java parameter type is `Condition`. The
+ *     record keeps the parameter type on `Slot.of`, so this is read off the
+ *     extraction rather than guessed from a position or a class name.
+ *   - the `withTriggerCondition` modifier.
+ *
+ * `withInterveningIf` is deliberately NOT in this list: it already has a field
+ * and reading it twice would AND a condition with itself.
+ */
+function conditionSlotsOf(ability: AbilityRecord): Slot[] {
+  const out: Slot[] = [];
+  for (const slot of ability.via.args) if (slot.of === 'Condition') out.push(slot);
+  for (const m of ability.via.mods ?? []) {
+    if (m.m !== 'withTriggerCondition') continue;
+    const first = m.args?.[0];
+    if (first) out.push(first);
+  }
+  return out;
+}
+
+/**
+ * HOW MANY TIMES A CARD SAYS ONE OF ITS ABILITIES MAY BE USED, or `undefined`.
+ *
+ * Three places state it and the lowering read none of them, which is how
+ * Vampire Bats' "{B}: This creature gets +1/+0 until end of turn. Activate no
+ * more than twice each turn" became an unlimited pump, and how Dramatic
+ * Finale's "This ability triggers only once each turn" became once per creature
+ * that died. Both RAN and both did more than the printed card allows.
+ *
+ *   the CLASS      `LimitedTimesPerTurnActivatedAbility`, its mana-ability twin
+ *                  and `ActivateOncePerGameActivatedAbility`. XMage's limited
+ *                  classes default to ONE activation when the count argument is
+ *                  left off the constructor, which is why the fallback below is
+ *                  1 rather than a refusal: 82 of the 109 cards using the first
+ *                  of those classes omit the argument.
+ *   an ARGUMENT    `maxActivationsPerTurn`, and the mana twin's spelling of it.
+ *   a MODIFIER     `setMaxActivationsPerTurn(n)`, `setTriggersLimitEachTurn(n)`,
+ *                  `setDoOnlyOnceEachTurn()`, `setOnce()`.
+ *
+ * `ActivatedAbility.limit` and `TriggeredAbility.limit` are the fields for it
+ * and both engines already read them, so this is a mapping and not a judgement.
+ */
+function usageLimitOf(ability: AbilityRecord): { per: 'turn' | 'game'; count: number } | undefined {
+  const intArg = (name: string): number | undefined => {
+    const value = arg(ability.via, name)?.value;
+    return value?.k === 'int' ? value.n : undefined;
+  };
+  const modCount = (name: string): number | undefined => {
+    const m = (ability.via.mods ?? []).find((x) => x.m === name);
+    if (!m) return undefined;
+    const value = m.args?.[0]?.value;
+    return value?.k === 'int' ? value.n : 1;
+  };
+
+  if (ability.via.prim === 'xmage:ActivateOncePerGameActivatedAbility') return { per: 'game', count: 1 };
+  /*
+   * Exhaust. `ExhaustAbility`'s copy constructor sets `maxActivationsPerGame =
+   * 1` and nothing on the card says it, so the limit is in the CLASS the same
+   * way "activate only as a sorcery" is. Liliana the Repentant's
+   * "Exhaust -- {5}{B}: ... (Activate each exhaust ability only once.)" was
+   * being offered every turn, and at instant speed as well; the timing half is
+   * read from the `activateAsSorcery` argument at the activated branch below.
+   * 36 card files, 11 of them already in the shipped table.
+   */
+  if (ability.via.prim === 'xmage:ExhaustAbility') return { per: 'game', count: 1 };
+  if (
+    ability.via.prim === 'xmage:LimitedTimesPerTurnActivatedAbility' ||
+    ability.via.prim === 'xmage:LimitedTimesPerTurnActivatedManaAbility'
+  ) {
+    return { per: 'turn', count: intArg('maxActivationsPerTurn') ?? intArg('maxActivationPerTurn') ?? 1 };
+  }
+
+  const perTurn =
+    modCount('setMaxActivationsPerTurn') ??
+    modCount('setTriggersLimitEachTurn') ??
+    modCount('setDoOnlyOnceEachTurn') ??
+    modCount('setOnce');
+  return perTurn === undefined ? undefined : { per: 'turn', count: perTurn };
+}
+
 /** A spell, triggered, activated or mana ability: something that resolves. */
 function lowerResolving(
   ability: AbilityRecord,
@@ -1722,6 +2434,16 @@ function lowerResolving(
         } else {
           refused.push({ prim: invocation.prim, why: describeUnresolved(invocation) });
         }
+        continue;
+      }
+      // Checked AFTER the lowering, so an effect that already refuses for a
+      // reason of its own keeps that reason. See `chained-calls.ts`.
+      const unread = unreadChainedCall(invocation);
+      if (unread) {
+        refused.push({
+          prim: invocation.prim,
+          why: `the card chains .${unread}(...) onto this effect and no lowering reads it`,
+        });
         continue;
       }
       out.push(...produced);
@@ -1828,6 +2550,112 @@ function lowerResolving(
         prim: lowered.missing ?? ability.via.prim,
         why: lowered.why ?? 'intervening if condition did not lower',
       });
+    }
+  }
+
+  /*
+   * A RESTRICTION THE RECORD CARRIES AND THIS FILE WAS DROPPING. Added after a
+   * hand check of 30 cards found eight wrong and seven of the eight were this.
+   *
+   * `ability.interveningIf` above reads exactly one thing: the
+   * `withInterveningIf` MODIFIER. XMage states a restriction in three other
+   * places and every one of them was falling on the floor:
+   *
+   *   a constructor argument whose parameter type is `Condition`
+   *       ActivateIfConditionActivatedAbility(effect, cost, condition)
+   *       BeginningOfEndStepTriggeredAbility(who, effect, optional, condition)
+   *   the `withTriggerCondition` modifier
+   *       AttacksTriggeredAbility(...).withTriggerCondition(FerociousCondition)
+   *   the `setTriggersLimitEachTurn` modifier
+   *       DiesCreatureTriggeredAbility(...).setTriggersLimitEachTurn(1)
+   *
+   * Each one produced a card that RAN and did MORE than the printed card allows,
+   * which PORT-LOG.md section 7 already names as the worst outcome available:
+   *
+   *   Stern Marshal      "Activate only during your turn, before attackers are
+   *                      declared" -> offered at instant speed on any turn
+   *   Fungus Elemental   "Activate only if this creature entered this turn"
+   *                      -> activate whenever you like
+   *   Nighthowl Pursuer  ferocious -> the pump fired on every attack
+   *   Owlbear Shepherd   "if creatures you control have total power 8 or
+   *                      greater" -> drew a card every end step
+   *   Dramatic Finale    "This ability triggers only once each turn" -> once
+   *                      per creature that died
+   *
+   * Note the class names. `ActivateIfConditionActivatedAbility` exists FOR the
+   * condition, and the lowering read its effect and its cost and ignored the
+   * third argument. The record was never short of the fact; nothing asked for it.
+   *
+   * `conditions.ts` lowers what it can and names what it cannot, so a condition
+   * with a table entry becomes `ability.condition` — the field `dslConditionHolds`
+   * in `trigger-bridge.ts` and `activate.ts` both gate on — and one without an
+   * entry REFUSES the whole card. Refusing is the same choice this file already
+   * makes for adjusters, helpers and additional costs, for the same reason: a
+   * card that does nothing says so out loud, and a card that runs the wrong half
+   * says nothing at all.
+   */
+  let carriedCondition: Condition | undefined;
+  const conditionSlots = conditionSlotsOf(ability);
+  if (conditionSlots.length > 0) {
+    if (ability.kind === 'spell' || ability.kind === 'mana') {
+      // Same shape of gap as the additional cost below: `SpellAbility` and
+      // `ManaAbility` have no `condition` field, so `dsl:` names the hole in the
+      // ability shape rather than `xmage:` naming a table entry that exists.
+      missing.push(`dsl:${ability.kind === 'spell' ? 'SpellAbility' : 'ManaAbility'}.condition`);
+      refused.push({
+        prim: ability.via.prim,
+        why: "the ability's construction carries a condition and this ability shape has no condition to carry it",
+      });
+    } else {
+      const parts: Condition[] = [];
+      for (const slot of conditionSlots) {
+        const lowered = lowerCondition(slot);
+        if (lowered.ok) parts.push(lowered.condition);
+        else {
+          if (lowered.missing) missing.push(lowered.missing);
+          refused.push({
+            prim: lowered.missing ?? ability.via.prim,
+            why: lowered.why ?? "a condition on the ability's construction did not lower",
+          });
+        }
+      }
+      // Two restrictions on one ability are both true at once, and `{if:'and'}`
+      // is that statement exactly. Refusing here instead would throw away a
+      // condition this file has already proved it can read.
+      if (parts.length === conditionSlots.length) {
+        carriedCondition = parts.length === 1 ? parts[0] : { if: 'and', of: parts };
+      }
+    }
+  }
+
+  /*
+   * HOW MANY TIMES THE CARD SAYS THIS MAY BE USED. `usageLimitOf` reads it and
+   * `limit` is a field both engines already act on.
+   *
+   * On an ACTIVATED ability `activate.ts` counts uses and stops offering it,
+   * which is the card doing what it says. On a TRIGGERED ability
+   * `unrunnableReasons` in `trigger-bridge.ts` refuses a limited trigger
+   * outright, because game state carries no per-turn trigger count, so
+   * honouring the limit makes the CARD refuse rather than making it right. That
+   * is still the right move: before this the trigger fired without its limit,
+   * which is the card doing MORE than it says, and a refusal is visible in the
+   * log where a silent extra trigger is not.
+   */
+  const declared = usageLimitOf(ability);
+  let usageLimit: { per: 'turn' | 'game'; count: number } | undefined;
+  if (declared) {
+    // `TriggeredAbility` and `ActivatedAbility` both carry `limit`.
+    // `SpellAbility` and `ManaAbility` do not, so a limit on either of those has
+    // nowhere to go and the ability refuses rather than losing the restriction:
+    // the same `dsl:` shaped hole as the additional cost and the condition above.
+    if (ability.kind !== 'triggered' && ability.kind !== 'activated') {
+      missing.push(`dsl:${ability.kind === 'spell' ? 'SpellAbility' : 'ManaAbility'}.limit`);
+      refused.push({
+        prim: ability.via.prim,
+        why: `the card limits this to ${declared.count} use(s) per ${declared.per} and this ability shape has no limit to carry it`,
+      });
+    } else {
+      usageLimit = declared;
     }
   }
 
@@ -1939,6 +2767,33 @@ function lowerResolving(
     );
   }
 
+  /*
+   * ONE `condition` FIELD, and up to two true statements to put in it: the
+   * intervening if from `withInterveningIf`, and whatever the construction
+   * itself carried. Both restrict the same ability at the same time, so the
+   * conjunction is the honest answer and dropping either one would be the
+   * defect this whole block exists to remove.
+   */
+  const condition: Condition | undefined =
+    interveningIf && carriedCondition
+      ? { if: 'and', of: [interveningIf, carriedCondition] }
+      : (interveningIf ?? carriedCondition);
+
+  /*
+   * WHICH ZONE THE ABILITY IS ACTIVE IN, which was read for statics and dropped
+   * for everything else.
+   *
+   * `lowerStatic` has read `arg(ability.via, 'zone')` since it was written.
+   * `lowerResolving` never did, so `SimpleActivatedAbility(Zone.GRAVEYARD, ...)`
+   * lowered to an ability with no `activeZones`, which `activate.ts` defaults to
+   * the battlefield: offered in a zone the card cannot be used from and not
+   * offered in the one it can. Kraul Swarm and Nearheath Chaplain are both that.
+   * The zone is one enum in the record and `activeZones` is one array, so this
+   * is a mapping and not a judgement.
+   */
+  const zoneValue = arg(ability.via, 'zone')?.value;
+  const activeZones = zoneValue?.k === 'zone' ? [zoneValue.zone] : undefined;
+
   if (ability.kind === 'triggered' && trigger?.event) {
     const lowered: TriggeredAbility = { ...base, kind: 'triggered', event: trigger.event, effects };
     if (targets.length > 0) lowered.targets = targets;
@@ -1948,13 +2803,36 @@ function lowerResolving(
      * returns true when it is absent. It is never the old boolean marker again.
      * That marker was read by nothing in `src/lib/game`, which is precisely what
      * made a dropped condition invisible for as long as it was. */
-    if (interveningIf) lowered.condition = interveningIf;
+    if (condition) lowered.condition = condition;
+    if (usageLimit) lowered.limit = usageLimit;
+    if (activeZones) lowered.activeZones = activeZones;
     return { ok: true, ability: lowered, effects, missing: [], refused: [] };
   }
   if (ability.kind === 'activated') {
     const lowered: ActivatedAbility = { ...base, kind: 'activated', costs, effects };
-    if (interveningIf) lowered.condition = interveningIf;
+    if (condition) lowered.condition = condition;
+    if (usageLimit) lowered.limit = usageLimit;
     if (targets.length > 0) lowered.targets = targets;
+    if (activeZones) lowered.activeZones = activeZones;
+    /*
+     * "Activate only as a sorcery" is the CLASS, not an argument.
+     * `ActivateAsSorceryActivatedAbility` exists for that one restriction and
+     * nothing else, so reading the class name is reading the card. Before this,
+     * Nearheath Chaplain's graveyard ability was offered at instant speed.
+     */
+    if (ability.via.prim === 'xmage:ActivateAsSorceryActivatedAbility') lowered.timing = 'sorcery';
+    // `.setTiming(TimingRule.SORCERY)` says the same thing as a chained call.
+    if (abilityTiming(ability) === 'sorcery') lowered.timing = 'sorcery';
+    /*
+     * Exhaust says it on the SAME ability rather than in a class of its own:
+     * `ExhaustAbility(effect, cost, withReminderText, activateAsSorcery)` sets
+     * `TimingRule.SORCERY` when the fourth argument is true. The extraction
+     * names that argument, so this reads the name rather than a position. The
+     * once-per-game half is in `usageLimitOf`.
+     */
+    if (ability.via.prim === 'xmage:ExhaustAbility' && bool(ability.via, 'activateAsSorcery')) {
+      lowered.timing = 'sorcery';
+    }
     if (ability.via.prim === 'xmage:LoyaltyAbility') {
       lowered.isLoyalty = true;
       lowered.timing = 'sorcery';
@@ -1964,6 +2842,7 @@ function lowerResolving(
   }
   if (ability.kind === 'mana') {
     const lowered: ManaAbility = { ...base, kind: 'mana', costs, effects };
+    if (activeZones) lowered.activeZones = activeZones;
     return { ok: true, ability: lowered, effects, missing: [], refused: [] };
   }
   const lowered: SpellAbility = { ...base, kind: 'spell', effects };

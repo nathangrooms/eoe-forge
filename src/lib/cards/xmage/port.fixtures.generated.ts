@@ -12,7 +12,7 @@
  * and is the source this project uses for a card's words. Forge is GPL-3.0 and
  * was not fetched, read or referenced.
  *
- * 57 cards. XMage commit 07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d.
+ * 81 cards. XMage commit 07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d.
  */
 
 import type { CardRecord } from './record.ts';
@@ -103,7 +103,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/a/AbbeyGargoyles.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -285,7 +285,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/a/AcademyDrake.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -294,6 +294,450 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
    "manaCost": "{2}{U}",
    "typeLine": "Creature — Drake",
    "oracleText": "Kicker {4} (You may pay an additional {4} as you cast this spell.)\nFlying\nIf this creature was kicked, it enters with two +1/+1 counters on it."
+  }
+ },
+ "AcademyRector": {
+  "record": {
+   "oracleId": "e3c85068-b4b6-40b9-a16c-5c3b2d059ec4",
+   "name": "Academy Rector",
+   "layout": "normal",
+   "faces": [
+    {
+     "index": 0,
+     "kind": "main",
+     "name": "Academy Rector",
+     "mana": "{3}{W}",
+     "types": [
+      "Creature"
+     ],
+     "subtypes": [
+      "Human",
+      "Cleric"
+     ],
+     "supertypes": [],
+     "abilities": [
+      {
+       "id": "f0a0",
+       "kind": "triggered",
+       "via": {
+        "prim": "xmage:DiesSourceTriggeredAbility",
+        "role": "triggered-ability",
+        "args": [
+         {
+          "value": {
+           "k": "invoke",
+           "invocation": {
+            "prim": "xmage:DoIfCostPaid",
+            "role": "one-shot-effect",
+            "args": [
+             {
+              "value": {
+               "k": "invoke",
+               "invocation": {
+                "prim": "xmage:SearchLibraryPutInPlayEffect",
+                "role": "one-shot-effect",
+                "args": [
+                 {
+                  "value": {
+                   "k": "invoke",
+                   "invocation": {
+                    "prim": "xmage:TargetCardInLibrary",
+                    "role": "target",
+                    "args": [
+                     {
+                      "value": {
+                       "k": "objects",
+                       "filter": {
+                        "is": "type",
+                        "value": "Enchantment"
+                       }
+                      },
+                      "name": "filter",
+                      "of": "FilterCard"
+                     }
+                    ],
+                    "paramMatch": "unique"
+                   }
+                  },
+                  "name": "target",
+                  "of": "TargetCardInLibrary"
+                 },
+                 {
+                  "value": {
+                   "k": "bool",
+                   "b": false
+                  },
+                  "name": "tapped",
+                  "of": "boolean"
+                 },
+                 {
+                  "value": {
+                   "k": "bool",
+                   "b": true
+                  },
+                  "name": "textThatCard",
+                  "of": "boolean"
+                 }
+                ],
+                "paramMatch": "unique",
+                "children": {
+                 "targets": [
+                  {
+                   "prim": "xmage:TargetCardInLibrary",
+                   "role": "target",
+                   "args": [
+                    {
+                     "value": {
+                      "k": "objects",
+                      "filter": {
+                       "is": "type",
+                       "value": "Enchantment"
+                      }
+                     },
+                     "name": "filter",
+                     "of": "FilterCard"
+                    }
+                   ],
+                   "paramMatch": "unique"
+                  }
+                 ]
+                }
+               }
+              },
+              "name": "effectOnPaid",
+              "of": "Effect"
+             },
+             {
+              "value": {
+               "k": "invoke",
+               "invocation": {
+                "prim": "xmage:ExileSourceFromGraveCost",
+                "role": "cost",
+                "args": []
+               }
+              },
+              "name": "cost",
+              "of": "Cost"
+             },
+             {
+              "carried": {
+               "c": "text",
+               "length": 35
+              },
+              "name": "chooseUseText",
+              "of": "String"
+             }
+            ],
+            "paramMatch": "by-type",
+            "children": {
+             "effects": [
+              {
+               "prim": "xmage:SearchLibraryPutInPlayEffect",
+               "role": "one-shot-effect",
+               "args": [
+                {
+                 "value": {
+                  "k": "invoke",
+                  "invocation": {
+                   "prim": "xmage:TargetCardInLibrary",
+                   "role": "target",
+                   "args": [
+                    {
+                     "value": {
+                      "k": "objects",
+                      "filter": {
+                       "is": "type",
+                       "value": "Enchantment"
+                      }
+                     },
+                     "name": "filter",
+                     "of": "FilterCard"
+                    }
+                   ],
+                   "paramMatch": "unique"
+                  }
+                 },
+                 "name": "target",
+                 "of": "TargetCardInLibrary"
+                },
+                {
+                 "value": {
+                  "k": "bool",
+                  "b": false
+                 },
+                 "name": "tapped",
+                 "of": "boolean"
+                },
+                {
+                 "value": {
+                  "k": "bool",
+                  "b": true
+                 },
+                 "name": "textThatCard",
+                 "of": "boolean"
+                }
+               ],
+               "paramMatch": "unique",
+               "children": {
+                "targets": [
+                 {
+                  "prim": "xmage:TargetCardInLibrary",
+                  "role": "target",
+                  "args": [
+                   {
+                    "value": {
+                     "k": "objects",
+                     "filter": {
+                      "is": "type",
+                      "value": "Enchantment"
+                     }
+                    },
+                    "name": "filter",
+                    "of": "FilterCard"
+                   }
+                  ],
+                  "paramMatch": "unique"
+                 }
+                ]
+               }
+              }
+             ],
+             "costs": [
+              {
+               "prim": "xmage:ExileSourceFromGraveCost",
+               "role": "cost",
+               "args": []
+              }
+             ]
+            }
+           }
+          },
+          "name": "effect",
+          "of": "Effect"
+         },
+         {
+          "value": {
+           "k": "bool",
+           "b": false
+          },
+          "name": "optional",
+          "of": "boolean"
+         }
+        ],
+        "paramMatch": "unique"
+       },
+       "effects": [
+        {
+         "prim": "xmage:DoIfCostPaid",
+         "role": "one-shot-effect",
+         "args": [
+          {
+           "value": {
+            "k": "invoke",
+            "invocation": {
+             "prim": "xmage:SearchLibraryPutInPlayEffect",
+             "role": "one-shot-effect",
+             "args": [
+              {
+               "value": {
+                "k": "invoke",
+                "invocation": {
+                 "prim": "xmage:TargetCardInLibrary",
+                 "role": "target",
+                 "args": [
+                  {
+                   "value": {
+                    "k": "objects",
+                    "filter": {
+                     "is": "type",
+                     "value": "Enchantment"
+                    }
+                   },
+                   "name": "filter",
+                   "of": "FilterCard"
+                  }
+                 ],
+                 "paramMatch": "unique"
+                }
+               },
+               "name": "target",
+               "of": "TargetCardInLibrary"
+              },
+              {
+               "value": {
+                "k": "bool",
+                "b": false
+               },
+               "name": "tapped",
+               "of": "boolean"
+              },
+              {
+               "value": {
+                "k": "bool",
+                "b": true
+               },
+               "name": "textThatCard",
+               "of": "boolean"
+              }
+             ],
+             "paramMatch": "unique",
+             "children": {
+              "targets": [
+               {
+                "prim": "xmage:TargetCardInLibrary",
+                "role": "target",
+                "args": [
+                 {
+                  "value": {
+                   "k": "objects",
+                   "filter": {
+                    "is": "type",
+                    "value": "Enchantment"
+                   }
+                  },
+                  "name": "filter",
+                  "of": "FilterCard"
+                 }
+                ],
+                "paramMatch": "unique"
+               }
+              ]
+             }
+            }
+           },
+           "name": "effectOnPaid",
+           "of": "Effect"
+          },
+          {
+           "value": {
+            "k": "invoke",
+            "invocation": {
+             "prim": "xmage:ExileSourceFromGraveCost",
+             "role": "cost",
+             "args": []
+            }
+           },
+           "name": "cost",
+           "of": "Cost"
+          },
+          {
+           "carried": {
+            "c": "text",
+            "length": 35
+           },
+           "name": "chooseUseText",
+           "of": "String"
+          }
+         ],
+         "paramMatch": "by-type",
+         "children": {
+          "effects": [
+           {
+            "prim": "xmage:SearchLibraryPutInPlayEffect",
+            "role": "one-shot-effect",
+            "args": [
+             {
+              "value": {
+               "k": "invoke",
+               "invocation": {
+                "prim": "xmage:TargetCardInLibrary",
+                "role": "target",
+                "args": [
+                 {
+                  "value": {
+                   "k": "objects",
+                   "filter": {
+                    "is": "type",
+                    "value": "Enchantment"
+                   }
+                  },
+                  "name": "filter",
+                  "of": "FilterCard"
+                 }
+                ],
+                "paramMatch": "unique"
+               }
+              },
+              "name": "target",
+              "of": "TargetCardInLibrary"
+             },
+             {
+              "value": {
+               "k": "bool",
+               "b": false
+              },
+              "name": "tapped",
+              "of": "boolean"
+             },
+             {
+              "value": {
+               "k": "bool",
+               "b": true
+              },
+              "name": "textThatCard",
+              "of": "boolean"
+             }
+            ],
+            "paramMatch": "unique",
+            "children": {
+             "targets": [
+              {
+               "prim": "xmage:TargetCardInLibrary",
+               "role": "target",
+               "args": [
+                {
+                 "value": {
+                  "k": "objects",
+                  "filter": {
+                   "is": "type",
+                   "value": "Enchantment"
+                  }
+                 },
+                 "name": "filter",
+                 "of": "FilterCard"
+                }
+               ],
+               "paramMatch": "unique"
+              }
+             ]
+            }
+           }
+          ],
+          "costs": [
+           {
+            "prim": "xmage:ExileSourceFromGraveCost",
+            "role": "cost",
+            "args": []
+           }
+          ]
+         }
+        }
+       ],
+       "costs": [],
+       "targets": []
+      }
+     ],
+     "pt": {
+      "power": "1",
+      "toughness": "2"
+     }
+    }
+   ],
+   "commanderLegal": true,
+   "provenance": {
+    "xmageClass": "AcademyRector",
+    "xmagePath": "Mage.Sets/src/mage/cards/a/AcademyRector.java",
+    "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
+    "builtBy": "scripts/xmage/build-records.mjs",
+    "builtAt": "2026-08-24T03:40:45.560Z",
+    "join": "exact"
+   }
+  },
+  "scryfall": {
+   "name": "Academy Rector",
+   "manaCost": "{3}{W}",
+   "typeLine": "Creature — Human Cleric",
+   "oracleText": "When this creature dies, you may exile it. If you do, search your library for an enchantment card, put that card onto the battlefield, then shuffle."
   }
  },
  "AcademyRuins": {
@@ -435,7 +879,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/a/AcademyRuins.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -512,7 +956,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/a/AlleyStrangler.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -645,7 +1089,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/a/AncestorsAid.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -710,7 +1154,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/a/AngelsMercy.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -1062,7 +1506,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/a/Anger.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -1335,7 +1779,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/a/AnimistsMight.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -1344,6 +1788,97 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
    "manaCost": "{2}{G}",
    "typeLine": "Sorcery",
    "oracleText": "This spell costs {2} less to cast if it targets a legendary creature you control.\nTarget creature you control deals damage equal to twice its power to target creature or planeswalker you don't control."
+  }
+ },
+ "Anticipate": {
+  "record": {
+   "oracleId": "a97da5a9-17fc-4367-81e1-17ff81601a63",
+   "name": "Anticipate",
+   "layout": "normal",
+   "faces": [
+    {
+     "index": 0,
+     "kind": "main",
+     "name": "Anticipate",
+     "mana": "{1}{U}",
+     "types": [
+      "Instant"
+     ],
+     "subtypes": [],
+     "supertypes": [],
+     "abilities": [
+      {
+       "id": "f0a0",
+       "kind": "spell",
+       "via": {
+        "prim": "xmage:SpellAbility",
+        "role": "spell-ability",
+        "args": []
+       },
+       "effects": [
+        {
+         "prim": "xmage:LookLibraryAndPickControllerEffect",
+         "role": "one-shot-effect",
+         "args": [
+          {
+           "value": {
+            "k": "int",
+            "n": 3
+           },
+           "name": "numberOfCards",
+           "of": "int"
+          },
+          {
+           "value": {
+            "k": "int",
+            "n": 1
+           },
+           "name": "numberToPick",
+           "of": "int"
+          },
+          {
+           "carried": {
+            "c": "enum",
+            "enumName": "PutCards",
+            "member": "HAND"
+           },
+           "name": "putPickedCards",
+           "of": "PutCards"
+          },
+          {
+           "carried": {
+            "c": "enum",
+            "enumName": "PutCards",
+            "member": "BOTTOM_ANY"
+           },
+           "name": "putLookedCards",
+           "of": "PutCards"
+          }
+         ],
+         "paramMatch": "by-type"
+        }
+       ],
+       "costs": [],
+       "targets": []
+      }
+     ]
+    }
+   ],
+   "commanderLegal": true,
+   "provenance": {
+    "xmageClass": "Anticipate",
+    "xmagePath": "Mage.Sets/src/mage/cards/a/Anticipate.java",
+    "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
+    "builtBy": "scripts/xmage/build-records.mjs",
+    "builtAt": "2026-08-24T03:40:45.560Z",
+    "join": "exact"
+   }
+  },
+  "scryfall": {
+   "name": "Anticipate",
+   "manaCost": "{1}{U}",
+   "typeLine": "Instant",
+   "oracleText": "Look at the top three cards of your library. Put one of them into your hand and the rest on the bottom of your library in any order."
   }
  },
  "AnuridBarkripper": {
@@ -1595,7 +2130,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/a/AnuridBarkripper.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -1709,7 +2244,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/a/ArborElf.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -1819,7 +2354,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/a/ArborbackStomper.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -1996,7 +2531,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/a/AttuneWithAether.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -2086,7 +2621,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/b/BattleOfWits.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -2255,7 +2790,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/b/BattleSliver.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -2327,7 +2862,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/b/Battlegrowth.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -2521,7 +3056,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/b/BishopOfWings.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -2601,7 +3136,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/b/BlightRot.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -2760,7 +3295,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/b/BlinkOfAnEye.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -2921,7 +3456,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/b/BlistercoilWeird.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -3088,7 +3623,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/b/BlurSliver.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -3233,7 +3768,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/b/BoaConstrictor.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -3421,7 +3956,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/b/Bonesplitter.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -3508,7 +4043,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/b/BullRush.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -3577,7 +4112,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/c/CallOfTheConclave.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -3586,6 +4121,313 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
    "manaCost": "{G}{W}",
    "typeLine": "Sorcery",
    "oracleText": "Create a 3/3 green Centaur creature token."
+  }
+ },
+ "CommuneWithNature": {
+  "record": {
+   "oracleId": "d4ed4260-5f38-4b55-ba6e-9f54f04d2360",
+   "name": "Commune with Nature",
+   "layout": "normal",
+   "faces": [
+    {
+     "index": 0,
+     "kind": "main",
+     "name": "Commune with Nature",
+     "mana": "{G}",
+     "types": [
+      "Sorcery"
+     ],
+     "subtypes": [],
+     "supertypes": [],
+     "abilities": [
+      {
+       "id": "f0a0",
+       "kind": "spell",
+       "via": {
+        "prim": "xmage:SpellAbility",
+        "role": "spell-ability",
+        "args": []
+       },
+       "effects": [
+        {
+         "prim": "xmage:LookLibraryAndPickControllerEffect",
+         "role": "one-shot-effect",
+         "args": [
+          {
+           "value": {
+            "k": "int",
+            "n": 5
+           },
+           "name": "numberOfCards",
+           "of": "int"
+          },
+          {
+           "value": {
+            "k": "int",
+            "n": 1
+           },
+           "name": "numberToPick",
+           "of": "int"
+          },
+          {
+           "value": {
+            "k": "objects",
+            "filter": {
+             "is": "type",
+             "value": "Creature"
+            }
+           },
+           "name": "filter",
+           "of": "FilterCard"
+          },
+          {
+           "carried": {
+            "c": "enum",
+            "enumName": "PutCards",
+            "member": "HAND"
+           },
+           "name": "putPickedCards",
+           "of": "PutCards"
+          },
+          {
+           "carried": {
+            "c": "enum",
+            "enumName": "PutCards",
+            "member": "BOTTOM_ANY"
+           },
+           "name": "putLookedCards",
+           "of": "PutCards"
+          }
+         ],
+         "paramMatch": "by-type"
+        }
+       ],
+       "costs": [],
+       "targets": []
+      }
+     ]
+    }
+   ],
+   "commanderLegal": true,
+   "provenance": {
+    "xmageClass": "CommuneWithNature",
+    "xmagePath": "Mage.Sets/src/mage/cards/c/CommuneWithNature.java",
+    "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
+    "builtBy": "scripts/xmage/build-records.mjs",
+    "builtAt": "2026-08-24T03:40:45.560Z",
+    "join": "exact"
+   }
+  },
+  "scryfall": {
+   "name": "Commune with Nature",
+   "manaCost": "{G}",
+   "typeLine": "Sorcery",
+   "oracleText": "Look at the top five cards of your library. You may reveal a creature card from among them and put it into your hand. Put the rest on the bottom of your library in any order."
+  }
+ },
+ "ContagiousVorrac": {
+  "record": {
+   "oracleId": "1b6da140-0d91-4fae-a3ee-33e6808acf34",
+   "name": "Contagious Vorrac",
+   "layout": "normal",
+   "faces": [
+    {
+     "index": 0,
+     "kind": "main",
+     "name": "Contagious Vorrac",
+     "mana": "{2}{G}",
+     "types": [
+      "Creature"
+     ],
+     "subtypes": [
+      "Phyrexian",
+      "Boar",
+      "Beast"
+     ],
+     "supertypes": [],
+     "abilities": [
+      {
+       "id": "f0a0",
+       "kind": "triggered",
+       "via": {
+        "prim": "xmage:EntersBattlefieldTriggeredAbility",
+        "role": "triggered-ability",
+        "args": [
+         {
+          "value": {
+           "k": "invoke",
+           "invocation": {
+            "prim": "xmage:LookLibraryAndPickControllerEffect",
+            "role": "one-shot-effect",
+            "args": [
+             {
+              "value": {
+               "k": "int",
+               "n": 4
+              },
+              "name": "numberOfCards",
+              "of": "int"
+             },
+             {
+              "value": {
+               "k": "int",
+               "n": 1
+              },
+              "name": "numberToPick",
+              "of": "int"
+             },
+             {
+              "value": {
+               "k": "objects",
+               "filter": {
+                "is": "type",
+                "value": "Land"
+               }
+              },
+              "name": "filter",
+              "of": "FilterCard"
+             },
+             {
+              "carried": {
+               "c": "enum",
+               "enumName": "PutCards",
+               "member": "HAND"
+              },
+              "name": "putPickedCards",
+              "of": "PutCards"
+             },
+             {
+              "carried": {
+               "c": "enum",
+               "enumName": "PutCards",
+               "member": "BOTTOM_RANDOM"
+              },
+              "name": "putLookedCards",
+              "of": "PutCards"
+             }
+            ],
+            "paramMatch": "by-type",
+            "mods": [
+             {
+              "m": "withOtherwiseEffect",
+              "args": [
+               {
+                "value": {
+                 "k": "invoke",
+                 "invocation": {
+                  "prim": "xmage:ProliferateEffect",
+                  "role": "one-shot-effect",
+                  "args": []
+                 }
+                }
+               }
+              ]
+             }
+            ]
+           }
+          },
+          "name": "effect",
+          "of": "Effect"
+         }
+        ],
+        "paramMatch": "unique"
+       },
+       "effects": [
+        {
+         "prim": "xmage:LookLibraryAndPickControllerEffect",
+         "role": "one-shot-effect",
+         "args": [
+          {
+           "value": {
+            "k": "int",
+            "n": 4
+           },
+           "name": "numberOfCards",
+           "of": "int"
+          },
+          {
+           "value": {
+            "k": "int",
+            "n": 1
+           },
+           "name": "numberToPick",
+           "of": "int"
+          },
+          {
+           "value": {
+            "k": "objects",
+            "filter": {
+             "is": "type",
+             "value": "Land"
+            }
+           },
+           "name": "filter",
+           "of": "FilterCard"
+          },
+          {
+           "carried": {
+            "c": "enum",
+            "enumName": "PutCards",
+            "member": "HAND"
+           },
+           "name": "putPickedCards",
+           "of": "PutCards"
+          },
+          {
+           "carried": {
+            "c": "enum",
+            "enumName": "PutCards",
+            "member": "BOTTOM_RANDOM"
+           },
+           "name": "putLookedCards",
+           "of": "PutCards"
+          }
+         ],
+         "paramMatch": "by-type",
+         "mods": [
+          {
+           "m": "withOtherwiseEffect",
+           "args": [
+            {
+             "value": {
+              "k": "invoke",
+              "invocation": {
+               "prim": "xmage:ProliferateEffect",
+               "role": "one-shot-effect",
+               "args": []
+              }
+             }
+            }
+           ]
+          }
+         ]
+        }
+       ],
+       "costs": [],
+       "targets": []
+      }
+     ],
+     "pt": {
+      "power": "3",
+      "toughness": "3"
+     }
+    }
+   ],
+   "commanderLegal": true,
+   "provenance": {
+    "xmageClass": "ContagiousVorrac",
+    "xmagePath": "Mage.Sets/src/mage/cards/c/ContagiousVorrac.java",
+    "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
+    "builtBy": "scripts/xmage/build-records.mjs",
+    "builtAt": "2026-08-24T03:40:45.560Z",
+    "join": "exact"
+   }
+  },
+  "scryfall": {
+   "name": "Contagious Vorrac",
+   "manaCost": "{2}{G}",
+   "typeLine": "Creature — Phyrexian Boar Beast",
+   "oracleText": "When this creature enters, look at the top four cards of your library. You may reveal a land card from among them and put it into your hand. Put the rest on the bottom of your library in a random order. If you didn't put a card into your hand this way, proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)"
   }
  },
  "Cultivate": {
@@ -3731,7 +4573,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/c/Cultivate.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -3898,7 +4740,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/c/CyclonicRift.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -4103,7 +4945,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/d/DeadWeight.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -4158,7 +5000,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/d/DiregrafGhoul.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -4280,7 +5122,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/d/DocksideExtortionist.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -4357,7 +5199,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/d/DragonFodder.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -4436,7 +5278,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/e/EarlyFrost.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -4492,7 +5334,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/e/ElvishMystic.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -4606,7 +5448,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/e/EpicConfrontation.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -4615,6 +5457,303 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
    "manaCost": "{1}{G}",
    "typeLine": "Sorcery",
    "oracleText": "Target creature you control gets +1/+2 until end of turn. It fights target creature you don't control. (Each deals damage equal to its power to the other.)"
+  }
+ },
+ "FalconerAdept": {
+  "record": {
+   "oracleId": "e2106eba-15f5-42b5-b797-6582ae94f3de",
+   "name": "Falconer Adept",
+   "layout": "normal",
+   "faces": [
+    {
+     "index": 0,
+     "kind": "main",
+     "name": "Falconer Adept",
+     "mana": "{3}{W}",
+     "types": [
+      "Creature"
+     ],
+     "subtypes": [
+      "Human",
+      "Soldier"
+     ],
+     "supertypes": [],
+     "abilities": [
+      {
+       "id": "f0a0",
+       "kind": "triggered",
+       "via": {
+        "prim": "xmage:AttacksTriggeredAbility",
+        "role": "triggered-ability",
+        "args": [
+         {
+          "value": {
+           "k": "invoke",
+           "invocation": {
+            "prim": "xmage:CreateTokenEffect",
+            "role": "one-shot-effect",
+            "args": [
+             {
+              "value": {
+               "k": "invoke",
+               "invocation": {
+                "prim": "xmage:BirdToken",
+                "role": "token",
+                "args": []
+               }
+              },
+              "name": "token",
+              "of": "Token"
+             },
+             {
+              "value": {
+               "k": "int",
+               "n": 1
+              },
+              "name": "amount",
+              "of": "int"
+             },
+             {
+              "value": {
+               "k": "bool",
+               "b": true
+              },
+              "name": "tapped",
+              "of": "boolean"
+             },
+             {
+              "value": {
+               "k": "bool",
+               "b": true
+              },
+              "name": "attacking",
+              "of": "boolean"
+             }
+            ],
+            "paramMatch": "by-type"
+           }
+          },
+          "name": "effect",
+          "of": "Effect"
+         },
+         {
+          "value": {
+           "k": "bool",
+           "b": false
+          },
+          "name": "optional",
+          "of": "boolean"
+         }
+        ],
+        "paramMatch": "unique"
+       },
+       "effects": [
+        {
+         "prim": "xmage:CreateTokenEffect",
+         "role": "one-shot-effect",
+         "args": [
+          {
+           "value": {
+            "k": "invoke",
+            "invocation": {
+             "prim": "xmage:BirdToken",
+             "role": "token",
+             "args": []
+            }
+           },
+           "name": "token",
+           "of": "Token"
+          },
+          {
+           "value": {
+            "k": "int",
+            "n": 1
+           },
+           "name": "amount",
+           "of": "int"
+          },
+          {
+           "value": {
+            "k": "bool",
+            "b": true
+           },
+           "name": "tapped",
+           "of": "boolean"
+          },
+          {
+           "value": {
+            "k": "bool",
+            "b": true
+           },
+           "name": "attacking",
+           "of": "boolean"
+          }
+         ],
+         "paramMatch": "by-type"
+        }
+       ],
+       "costs": [],
+       "targets": []
+      }
+     ],
+     "pt": {
+      "power": "2",
+      "toughness": "3"
+     }
+    }
+   ],
+   "commanderLegal": true,
+   "provenance": {
+    "xmageClass": "FalconerAdept",
+    "xmagePath": "Mage.Sets/src/mage/cards/f/FalconerAdept.java",
+    "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
+    "builtBy": "scripts/xmage/build-records.mjs",
+    "builtAt": "2026-08-24T03:40:45.560Z",
+    "join": "exact"
+   }
+  },
+  "scryfall": {
+   "name": "Falconer Adept",
+   "manaCost": "{3}{W}",
+   "typeLine": "Creature — Human Soldier",
+   "oracleText": "Whenever this creature attacks, create a 1/1 white Bird creature token with flying that's tapped and attacking."
+  }
+ },
+ "FamishedGhoul": {
+  "record": {
+   "oracleId": "22c74e4b-b1fe-4a35-acd8-fa4840af3c06",
+   "name": "Famished Ghoul",
+   "layout": "normal",
+   "faces": [
+    {
+     "index": 0,
+     "kind": "main",
+     "name": "Famished Ghoul",
+     "mana": "{3}{B}",
+     "types": [
+      "Creature"
+     ],
+     "subtypes": [
+      "Zombie"
+     ],
+     "supertypes": [],
+     "abilities": [
+      {
+       "id": "f0a0",
+       "kind": "activated",
+       "via": {
+        "prim": "xmage:SimpleActivatedAbility",
+        "role": "activated-ability",
+        "args": [
+         {
+          "value": {
+           "k": "invoke",
+           "invocation": {
+            "prim": "xmage:ExileTargetEffect",
+            "role": "one-shot-effect",
+            "args": []
+           }
+          },
+          "name": "effect",
+          "of": "Effect"
+         },
+         {
+          "value": {
+           "k": "invoke",
+           "invocation": {
+            "prim": "xmage:ManaCostsImpl",
+            "role": "other",
+            "args": [
+             {
+              "value": {
+               "k": "mana",
+               "cost": "{1}{B}"
+              },
+              "name": "mana",
+              "of": "String"
+             }
+            ],
+            "paramMatch": "unique"
+           }
+          },
+          "name": "cost",
+          "of": "Cost"
+         }
+        ],
+        "paramMatch": "unique"
+       },
+       "effects": [
+        {
+         "prim": "xmage:ExileTargetEffect",
+         "role": "one-shot-effect",
+         "args": []
+        }
+       ],
+       "costs": [
+        {
+         "prim": "xmage:SacrificeSourceCost",
+         "role": "cost",
+         "args": []
+        }
+       ],
+       "targets": [
+        {
+         "prim": "xmage:TargetCardInASingleGraveyard",
+         "role": "target",
+         "args": [
+          {
+           "value": {
+            "k": "int",
+            "n": 0
+           },
+           "name": "minNumTargets",
+           "of": "int"
+          },
+          {
+           "value": {
+            "k": "int",
+            "n": 2
+           },
+           "name": "maxNumTargets",
+           "of": "int"
+          },
+          {
+           "value": {
+            "k": "objects",
+            "filter": {
+             "is": "any"
+            }
+           },
+           "name": "filter",
+           "of": "FilterCard"
+          }
+         ],
+         "paramMatch": "unique"
+        }
+       ]
+      }
+     ],
+     "pt": {
+      "power": "3",
+      "toughness": "2"
+     }
+    }
+   ],
+   "commanderLegal": true,
+   "provenance": {
+    "xmageClass": "FamishedGhoul",
+    "xmagePath": "Mage.Sets/src/mage/cards/f/FamishedGhoul.java",
+    "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
+    "builtBy": "scripts/xmage/build-records.mjs",
+    "builtAt": "2026-08-24T03:40:45.560Z",
+    "join": "exact"
+   }
+  },
+  "scryfall": {
+   "name": "Famished Ghoul",
+   "manaCost": "{3}{B}",
+   "typeLine": "Creature — Zombie",
+   "oracleText": "{1}{B}, Sacrifice this creature: Exile up to two target cards from a single graveyard."
   }
  },
  "FelidarSovereign": {
@@ -4797,7 +5936,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/f/FelidarSovereign.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -4806,6 +5945,90 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
    "manaCost": "{4}{W}{W}",
    "typeLine": "Creature — Cat Beast",
    "oracleText": "Vigilance (Attacking doesn't cause this creature to tap.)\nLifelink (Damage dealt by this creature also causes you to gain that much life.)\nAt the beginning of your upkeep, if you have 40 or more life, you win the game."
+  }
+ },
+ "FeveredVisions": {
+  "record": {
+   "oracleId": "70763549-4b4e-4cb8-8c02-0639ba18bb1a",
+   "name": "Fevered Visions",
+   "layout": "normal",
+   "faces": [
+    {
+     "index": 0,
+     "kind": "main",
+     "name": "Fevered Visions",
+     "mana": "{1}{U}{R}",
+     "types": [
+      "Enchantment"
+     ],
+     "subtypes": [],
+     "supertypes": [],
+     "abilities": [
+      {
+       "id": "f0a0",
+       "kind": "triggered",
+       "via": {
+        "prim": "xmage:BeginningOfEndStepTriggeredAbility",
+        "role": "triggered-ability",
+        "args": [
+         {
+          "value": {
+           "k": "players",
+           "who": {
+            "who": "each-player"
+           }
+          },
+          "name": "targetController",
+          "of": "TargetController"
+         },
+         {
+          "hole": {
+           "reason": "card-local-class",
+           "declared": "OneShotEffect",
+           "localName": "FeveredVisionsEffect"
+          },
+          "name": "effect",
+          "of": "Effect"
+         },
+         {
+          "value": {
+           "k": "bool",
+           "b": false
+          },
+          "name": "optional",
+          "of": "boolean"
+         }
+        ],
+        "paramMatch": "unique"
+       },
+       "effects": [
+        {
+         "prim": "local:FeveredVisionsEffect",
+         "role": "one-shot-effect",
+         "args": []
+        }
+       ],
+       "costs": [],
+       "targets": []
+      }
+     ]
+    }
+   ],
+   "commanderLegal": true,
+   "provenance": {
+    "xmageClass": "FeveredVisions",
+    "xmagePath": "Mage.Sets/src/mage/cards/f/FeveredVisions.java",
+    "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
+    "builtBy": "scripts/xmage/build-records.mjs",
+    "builtAt": "2026-08-24T03:40:45.560Z",
+    "join": "exact"
+   }
+  },
+  "scryfall": {
+   "name": "Fevered Visions",
+   "manaCost": "{1}{U}{R}",
+   "typeLine": "Enchantment",
+   "oracleText": "At the beginning of each player's end step, that player draws a card. If the player is your opponent and has four or more cards in hand, this enchantment deals 2 damage to that player."
   }
  },
  "FyndhornElder": {
@@ -4898,7 +6121,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/f/FyndhornElder.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -5059,7 +6282,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/g/GaeasAnthem.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -5186,7 +6409,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
              {
               "value": {
                "k": "int",
-               "n": 4
+               "n": 2
               },
               "name": "amount",
               "of": "int"
@@ -5216,7 +6439,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/g/GalvanicBlast.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -5513,7 +6736,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/g/GarrukWildspeaker.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -5614,7 +6837,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/g/GiantGrowth.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -5890,7 +7113,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/h/HareApparent.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -6095,7 +7318,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/h/HolyStrength.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -6178,7 +7401,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/j/Jump.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -6360,7 +7583,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/k/KrenkoMobBoss.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -6431,7 +7654,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/l/LightningBolt.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -6440,6 +7663,926 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
    "manaCost": "{R}",
    "typeLine": "Instant",
    "oracleText": "Lightning Bolt deals 3 damage to any target."
+  }
+ },
+ "LilianaTheRepentant": {
+  "record": {
+   "oracleId": "5eb4403f-f199-4f75-a7c6-e76783f9b07d",
+   "name": "Liliana the Repentant",
+   "layout": "normal",
+   "faces": [
+    {
+     "index": 0,
+     "kind": "main",
+     "name": "Liliana the Repentant",
+     "mana": "{1}{B}",
+     "types": [
+      "Creature"
+     ],
+     "subtypes": [
+      "Human",
+      "Warlock"
+     ],
+     "supertypes": [
+      "Legendary"
+     ],
+     "abilities": [
+      {
+       "id": "f0a0",
+       "kind": "triggered",
+       "via": {
+        "prim": "xmage:EntersBattlefieldControlledTriggeredAbility",
+        "role": "triggered-ability",
+        "args": [
+         {
+          "value": {
+           "k": "invoke",
+           "invocation": {
+            "prim": "xmage:MillCardsControllerEffect",
+            "role": "one-shot-effect",
+            "args": [
+             {
+              "value": {
+               "k": "int",
+               "n": 2
+              },
+              "name": "numberCards",
+              "of": "int"
+             }
+            ],
+            "paramMatch": "by-type"
+           }
+          },
+          "name": "effect",
+          "of": "Effect"
+         },
+         {
+          "value": {
+           "k": "objects",
+           "filter": {
+            "is": "and",
+            "of": [
+             {
+              "is": "or",
+              "of": [
+               {
+                "is": "type",
+                "value": "Creature"
+               },
+               {
+                "is": "type",
+                "value": "Planeswalker"
+               }
+              ]
+             },
+             {
+              "is": "other"
+             }
+            ]
+           },
+           "controller": {
+            "who": "you"
+           },
+           "zone": "battlefield"
+          },
+          "name": "filter",
+          "of": "FilterPermanent"
+         }
+        ],
+        "paramMatch": "unique"
+       },
+       "effects": [
+        {
+         "prim": "xmage:MillCardsControllerEffect",
+         "role": "one-shot-effect",
+         "args": [
+          {
+           "value": {
+            "k": "int",
+            "n": 2
+           },
+           "name": "numberCards",
+           "of": "int"
+          }
+         ],
+         "paramMatch": "by-type"
+        }
+       ],
+       "costs": [],
+       "targets": []
+      },
+      {
+       "id": "f0a1",
+       "kind": "activated",
+       "via": {
+        "prim": "xmage:ExhaustAbility",
+        "role": "activated-ability",
+        "args": [
+         {
+          "value": {
+           "k": "invoke",
+           "invocation": {
+            "prim": "xmage:ReturnFromGraveyardToBattlefieldTargetEffect",
+            "role": "one-shot-effect",
+            "args": []
+           }
+          },
+          "name": "effect",
+          "of": "Effect"
+         },
+         {
+          "value": {
+           "k": "invoke",
+           "invocation": {
+            "prim": "xmage:ManaCostsImpl",
+            "role": "other",
+            "args": [
+             {
+              "value": {
+               "k": "mana",
+               "cost": "{5}{B}"
+              },
+              "name": "mana",
+              "of": "String"
+             }
+            ],
+            "paramMatch": "unique"
+           }
+          },
+          "name": "cost",
+          "of": "Cost"
+         },
+         {
+          "value": {
+           "k": "bool",
+           "b": true
+          },
+          "name": "withReminderText",
+          "of": "boolean"
+         },
+         {
+          "value": {
+           "k": "bool",
+           "b": true
+          },
+          "name": "activateAsSorcery",
+          "of": "boolean"
+         }
+        ],
+        "paramMatch": "unique"
+       },
+       "effects": [
+        {
+         "prim": "xmage:ReturnFromGraveyardToBattlefieldTargetEffect",
+         "role": "one-shot-effect",
+         "args": []
+        },
+        {
+         "prim": "xmage:AddCountersSourceEffect",
+         "role": "one-shot-effect",
+         "args": [
+          {
+           "carried": {
+            "c": "factory",
+            "on": "P1P1",
+            "method": "createInstance"
+           },
+           "name": "counter",
+           "of": "Counter"
+          }
+         ],
+         "paramMatch": "unique"
+        }
+       ],
+       "costs": [],
+       "targets": [
+        {
+         "prim": "xmage:TargetCardInYourGraveyard",
+         "role": "target",
+         "args": [
+          {
+           "value": {
+            "k": "objects",
+            "filter": {
+             "is": "or",
+             "of": [
+              {
+               "is": "type",
+               "value": "Creature"
+              },
+              {
+               "is": "type",
+               "value": "Planeswalker"
+              }
+             ]
+            }
+           },
+           "name": "filter",
+           "of": "FilterCard"
+          }
+         ],
+         "paramMatch": "by-type"
+        }
+       ],
+       "keyword": {
+        "name": "Exhaust",
+        "parameter": {
+         "value": {
+          "k": "invoke",
+          "invocation": {
+           "prim": "xmage:ReturnFromGraveyardToBattlefieldTargetEffect",
+           "role": "one-shot-effect",
+           "args": []
+          }
+         },
+         "name": "effect",
+         "of": "Effect"
+        }
+       }
+      }
+     ],
+     "pt": {
+      "power": "2",
+      "toughness": "2"
+     }
+    }
+   ],
+   "commanderLegal": false,
+   "provenance": {
+    "xmageClass": "LilianaTheRepentant",
+    "xmagePath": "Mage.Sets/src/mage/cards/l/LilianaTheRepentant.java",
+    "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
+    "builtBy": "scripts/xmage/build-records.mjs",
+    "builtAt": "2026-08-24T03:40:45.560Z",
+    "join": "exact"
+   }
+  },
+  "scryfall": {
+   "name": "Liliana the Repentant",
+   "manaCost": "{1}{B}",
+   "typeLine": "Legendary Creature — Human Warlock",
+   "oracleText": "Whenever another creature or planeswalker you control enters, mill two cards.\nExhaust — {5}{B}: Return target creature or planeswalker card from your graveyard to the battlefield. Put a +1/+1 counter on Liliana. Activate only as a sorcery. (Activate each exhaust ability only once.)"
+  }
+ },
+ "LorthosTheTidemaker": {
+  "record": {
+   "oracleId": "d9fd4ff3-5ada-40f4-b949-6fe65624a0c4",
+   "name": "Lorthos, the Tidemaker",
+   "layout": "normal",
+   "faces": [
+    {
+     "index": 0,
+     "kind": "main",
+     "name": "Lorthos, the Tidemaker",
+     "mana": "{5}{U}{U}{U}",
+     "types": [
+      "Creature"
+     ],
+     "subtypes": [
+      "Octopus"
+     ],
+     "supertypes": [
+      "Legendary"
+     ],
+     "abilities": [
+      {
+       "id": "f0a0",
+       "kind": "triggered",
+       "via": {
+        "prim": "xmage:AttacksTriggeredAbility",
+        "role": "triggered-ability",
+        "args": [
+         {
+          "value": {
+           "k": "invoke",
+           "invocation": {
+            "prim": "xmage:DoIfCostPaid",
+            "role": "one-shot-effect",
+            "args": [
+             {
+              "value": {
+               "k": "invoke",
+               "invocation": {
+                "prim": "xmage:TapTargetEffect",
+                "role": "one-shot-effect",
+                "args": []
+               }
+              },
+              "name": "effectOnPaid",
+              "of": "Effect"
+             },
+             {
+              "value": {
+               "k": "invoke",
+               "invocation": {
+                "prim": "xmage:GenericManaCost",
+                "role": "mana-cost",
+                "args": [
+                 {
+                  "value": {
+                   "k": "int",
+                   "n": 8
+                  },
+                  "name": "mana",
+                  "of": "int"
+                 }
+                ],
+                "paramMatch": "unique"
+               }
+              },
+              "name": "cost",
+              "of": "Cost"
+             },
+             {
+              "carried": {
+               "c": "text",
+               "length": 107
+              },
+              "name": "chooseUseText",
+              "of": "String"
+             }
+            ],
+            "paramMatch": "by-type",
+            "children": {
+             "effects": [
+              {
+               "prim": "xmage:TapTargetEffect",
+               "role": "one-shot-effect",
+               "args": []
+              },
+              {
+               "prim": "xmage:DontUntapInControllersNextUntapStepTargetEffect",
+               "role": "continuous-effect",
+               "args": []
+              }
+             ],
+             "costs": [
+              {
+               "prim": "xmage:GenericManaCost",
+               "role": "mana-cost",
+               "args": [
+                {
+                 "value": {
+                  "k": "int",
+                  "n": 8
+                 },
+                 "name": "mana",
+                 "of": "int"
+                }
+               ],
+               "paramMatch": "unique"
+              }
+             ]
+            }
+           }
+          },
+          "name": "effect",
+          "of": "Effect"
+         },
+         {
+          "value": {
+           "k": "bool",
+           "b": false
+          },
+          "name": "optional",
+          "of": "boolean"
+         }
+        ],
+        "paramMatch": "unique"
+       },
+       "effects": [
+        {
+         "prim": "xmage:DoIfCostPaid",
+         "role": "one-shot-effect",
+         "args": [
+          {
+           "value": {
+            "k": "invoke",
+            "invocation": {
+             "prim": "xmage:TapTargetEffect",
+             "role": "one-shot-effect",
+             "args": []
+            }
+           },
+           "name": "effectOnPaid",
+           "of": "Effect"
+          },
+          {
+           "value": {
+            "k": "invoke",
+            "invocation": {
+             "prim": "xmage:GenericManaCost",
+             "role": "mana-cost",
+             "args": [
+              {
+               "value": {
+                "k": "int",
+                "n": 8
+               },
+               "name": "mana",
+               "of": "int"
+              }
+             ],
+             "paramMatch": "unique"
+            }
+           },
+           "name": "cost",
+           "of": "Cost"
+          },
+          {
+           "carried": {
+            "c": "text",
+            "length": 107
+           },
+           "name": "chooseUseText",
+           "of": "String"
+          }
+         ],
+         "paramMatch": "by-type",
+         "children": {
+          "effects": [
+           {
+            "prim": "xmage:TapTargetEffect",
+            "role": "one-shot-effect",
+            "args": []
+           },
+           {
+            "prim": "xmage:DontUntapInControllersNextUntapStepTargetEffect",
+            "role": "continuous-effect",
+            "args": []
+           }
+          ],
+          "costs": [
+           {
+            "prim": "xmage:GenericManaCost",
+            "role": "mana-cost",
+            "args": [
+             {
+              "value": {
+               "k": "int",
+               "n": 8
+              },
+              "name": "mana",
+              "of": "int"
+             }
+            ],
+            "paramMatch": "unique"
+           }
+          ]
+         }
+        }
+       ],
+       "costs": [],
+       "targets": [
+        {
+         "prim": "xmage:TargetPermanent",
+         "role": "target",
+         "args": [
+          {
+           "value": {
+            "k": "int",
+            "n": 0
+           },
+           "name": "minNumTargets",
+           "of": "int"
+          },
+          {
+           "value": {
+            "k": "int",
+            "n": 8
+           },
+           "name": "maxNumTargets",
+           "of": "int"
+          },
+          {
+           "value": {
+            "k": "objects",
+            "filter": {
+             "is": "any"
+            },
+            "zone": "battlefield"
+           },
+           "name": "filter",
+           "of": "FilterPermanent"
+          },
+          {
+           "value": {
+            "k": "bool",
+            "b": false
+           },
+           "name": "notTarget",
+           "of": "boolean"
+          }
+         ],
+         "paramMatch": "unique"
+        }
+       ]
+      }
+     ],
+     "pt": {
+      "power": "8",
+      "toughness": "8"
+     }
+    }
+   ],
+   "commanderLegal": true,
+   "provenance": {
+    "xmageClass": "LorthosTheTidemaker",
+    "xmagePath": "Mage.Sets/src/mage/cards/l/LorthosTheTidemaker.java",
+    "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
+    "builtBy": "scripts/xmage/build-records.mjs",
+    "builtAt": "2026-08-24T03:40:45.560Z",
+    "join": "exact"
+   }
+  },
+  "scryfall": {
+   "name": "Lorthos, the Tidemaker",
+   "manaCost": "{5}{U}{U}{U}",
+   "typeLine": "Legendary Creature — Octopus",
+   "oracleText": "Whenever Lorthos attacks, you may pay {8}. If you do, tap up to eight target permanents. Those permanents don't untap during their controllers' next untap steps."
+  }
+ },
+ "MasterSkald": {
+  "record": {
+   "oracleId": "34bccfc0-453d-4d1a-8046-70f9c3065e88",
+   "name": "Master Skald",
+   "layout": "normal",
+   "faces": [
+    {
+     "index": 0,
+     "kind": "main",
+     "name": "Master Skald",
+     "mana": "{4}{W}",
+     "types": [
+      "Creature"
+     ],
+     "subtypes": [
+      "Dwarf",
+      "Warrior"
+     ],
+     "supertypes": [],
+     "abilities": [
+      {
+       "id": "f0a0",
+       "kind": "triggered",
+       "via": {
+        "prim": "xmage:EntersBattlefieldTriggeredAbility",
+        "role": "triggered-ability",
+        "args": [
+         {
+          "value": {
+           "k": "invoke",
+           "invocation": {
+            "prim": "xmage:DoIfCostPaid",
+            "role": "one-shot-effect",
+            "args": [
+             {
+              "value": {
+               "k": "invoke",
+               "invocation": {
+                "prim": "xmage:ReturnFromGraveyardToHandTargetEffect",
+                "role": "one-shot-effect",
+                "args": []
+               }
+              },
+              "name": "effectOnPaid",
+              "of": "Effect"
+             },
+             {
+              "value": {
+               "k": "invoke",
+               "invocation": {
+                "prim": "xmage:ExileFromGraveCost",
+                "role": "cost",
+                "args": [
+                 {
+                  "value": {
+                   "k": "invoke",
+                   "invocation": {
+                    "prim": "xmage:TargetCardInYourGraveyard",
+                    "role": "target",
+                    "args": [
+                     {
+                      "value": {
+                       "k": "objects",
+                       "filter": {
+                        "is": "type",
+                        "value": "Creature"
+                       }
+                      },
+                      "name": "filter",
+                      "of": "FilterCard"
+                     }
+                    ],
+                    "paramMatch": "by-type"
+                   }
+                  },
+                  "name": "target",
+                  "of": "TargetCardInYourGraveyard"
+                 }
+                ],
+                "paramMatch": "by-type",
+                "children": {
+                 "targets": [
+                  {
+                   "prim": "xmage:TargetCardInYourGraveyard",
+                   "role": "target",
+                   "args": [
+                    {
+                     "value": {
+                      "k": "objects",
+                      "filter": {
+                       "is": "type",
+                       "value": "Creature"
+                      }
+                     },
+                     "name": "filter",
+                     "of": "FilterCard"
+                    }
+                   ],
+                   "paramMatch": "by-type"
+                  }
+                 ]
+                }
+               }
+              },
+              "name": "cost",
+              "of": "Cost"
+             }
+            ],
+            "paramMatch": "unique",
+            "children": {
+             "effects": [
+              {
+               "prim": "xmage:ReturnFromGraveyardToHandTargetEffect",
+               "role": "one-shot-effect",
+               "args": []
+              }
+             ],
+             "costs": [
+              {
+               "prim": "xmage:ExileFromGraveCost",
+               "role": "cost",
+               "args": [
+                {
+                 "value": {
+                  "k": "invoke",
+                  "invocation": {
+                   "prim": "xmage:TargetCardInYourGraveyard",
+                   "role": "target",
+                   "args": [
+                    {
+                     "value": {
+                      "k": "objects",
+                      "filter": {
+                       "is": "type",
+                       "value": "Creature"
+                      }
+                     },
+                     "name": "filter",
+                     "of": "FilterCard"
+                    }
+                   ],
+                   "paramMatch": "by-type"
+                  }
+                 },
+                 "name": "target",
+                 "of": "TargetCardInYourGraveyard"
+                }
+               ],
+               "paramMatch": "by-type",
+               "children": {
+                "targets": [
+                 {
+                  "prim": "xmage:TargetCardInYourGraveyard",
+                  "role": "target",
+                  "args": [
+                   {
+                    "value": {
+                     "k": "objects",
+                     "filter": {
+                      "is": "type",
+                      "value": "Creature"
+                     }
+                    },
+                    "name": "filter",
+                    "of": "FilterCard"
+                   }
+                  ],
+                  "paramMatch": "by-type"
+                 }
+                ]
+               }
+              }
+             ]
+            }
+           }
+          },
+          "name": "effect",
+          "of": "Effect"
+         }
+        ],
+        "paramMatch": "unique"
+       },
+       "effects": [
+        {
+         "prim": "xmage:DoIfCostPaid",
+         "role": "one-shot-effect",
+         "args": [
+          {
+           "value": {
+            "k": "invoke",
+            "invocation": {
+             "prim": "xmage:ReturnFromGraveyardToHandTargetEffect",
+             "role": "one-shot-effect",
+             "args": []
+            }
+           },
+           "name": "effectOnPaid",
+           "of": "Effect"
+          },
+          {
+           "value": {
+            "k": "invoke",
+            "invocation": {
+             "prim": "xmage:ExileFromGraveCost",
+             "role": "cost",
+             "args": [
+              {
+               "value": {
+                "k": "invoke",
+                "invocation": {
+                 "prim": "xmage:TargetCardInYourGraveyard",
+                 "role": "target",
+                 "args": [
+                  {
+                   "value": {
+                    "k": "objects",
+                    "filter": {
+                     "is": "type",
+                     "value": "Creature"
+                    }
+                   },
+                   "name": "filter",
+                   "of": "FilterCard"
+                  }
+                 ],
+                 "paramMatch": "by-type"
+                }
+               },
+               "name": "target",
+               "of": "TargetCardInYourGraveyard"
+              }
+             ],
+             "paramMatch": "by-type",
+             "children": {
+              "targets": [
+               {
+                "prim": "xmage:TargetCardInYourGraveyard",
+                "role": "target",
+                "args": [
+                 {
+                  "value": {
+                   "k": "objects",
+                   "filter": {
+                    "is": "type",
+                    "value": "Creature"
+                   }
+                  },
+                  "name": "filter",
+                  "of": "FilterCard"
+                 }
+                ],
+                "paramMatch": "by-type"
+               }
+              ]
+             }
+            }
+           },
+           "name": "cost",
+           "of": "Cost"
+          }
+         ],
+         "paramMatch": "unique",
+         "children": {
+          "effects": [
+           {
+            "prim": "xmage:ReturnFromGraveyardToHandTargetEffect",
+            "role": "one-shot-effect",
+            "args": []
+           }
+          ],
+          "costs": [
+           {
+            "prim": "xmage:ExileFromGraveCost",
+            "role": "cost",
+            "args": [
+             {
+              "value": {
+               "k": "invoke",
+               "invocation": {
+                "prim": "xmage:TargetCardInYourGraveyard",
+                "role": "target",
+                "args": [
+                 {
+                  "value": {
+                   "k": "objects",
+                   "filter": {
+                    "is": "type",
+                    "value": "Creature"
+                   }
+                  },
+                  "name": "filter",
+                  "of": "FilterCard"
+                 }
+                ],
+                "paramMatch": "by-type"
+               }
+              },
+              "name": "target",
+              "of": "TargetCardInYourGraveyard"
+             }
+            ],
+            "paramMatch": "by-type",
+            "children": {
+             "targets": [
+              {
+               "prim": "xmage:TargetCardInYourGraveyard",
+               "role": "target",
+               "args": [
+                {
+                 "value": {
+                  "k": "objects",
+                  "filter": {
+                   "is": "type",
+                   "value": "Creature"
+                  }
+                 },
+                 "name": "filter",
+                 "of": "FilterCard"
+                }
+               ],
+               "paramMatch": "by-type"
+              }
+             ]
+            }
+           }
+          ]
+         }
+        }
+       ],
+       "costs": [],
+       "targets": [
+        {
+         "prim": "xmage:TargetCardInYourGraveyard",
+         "role": "target",
+         "args": [
+          {
+           "carried": {
+            "c": "construct",
+            "prim": "xmage:FilterArtifactOrEnchantmentCard",
+            "role": "filter",
+            "args": [
+             {
+              "carried": {
+               "c": "text",
+               "length": 48
+              },
+              "name": "name",
+              "of": "String"
+             }
+            ]
+           },
+           "name": "filter",
+           "of": "FilterCard"
+          }
+         ],
+         "paramMatch": "by-type"
+        }
+       ]
+      }
+     ],
+     "pt": {
+      "power": "4",
+      "toughness": "4"
+     }
+    }
+   ],
+   "commanderLegal": true,
+   "provenance": {
+    "xmageClass": "MasterSkald",
+    "xmagePath": "Mage.Sets/src/mage/cards/m/MasterSkald.java",
+    "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
+    "builtBy": "scripts/xmage/build-records.mjs",
+    "builtAt": "2026-08-24T03:40:45.560Z",
+    "join": "exact"
+   }
+  },
+  "scryfall": {
+   "name": "Master Skald",
+   "manaCost": "{4}{W}",
+   "typeLine": "Creature — Dwarf Warrior",
+   "oracleText": "When this creature enters, you may exile a creature card from your graveyard. If you do, return target artifact or enchantment card from your graveyard to your hand."
   }
  },
  "MurderersAxe": {
@@ -6599,7 +8742,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/m/MurderersAxe.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -6608,6 +8751,948 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
    "manaCost": "{4}",
    "typeLine": "Artifact — Equipment",
    "oracleText": "Equipped creature gets +2/+2.\nEquip—Discard a card."
+  }
+ },
+ "NightSoil": {
+  "record": {
+   "oracleId": "3165fe8f-52d7-40f7-bb14-8f4300a564e6",
+   "name": "Night Soil",
+   "layout": "normal",
+   "faces": [
+    {
+     "index": 0,
+     "kind": "main",
+     "name": "Night Soil",
+     "mana": "{G}{G}",
+     "types": [
+      "Enchantment"
+     ],
+     "subtypes": [],
+     "supertypes": [],
+     "abilities": [
+      {
+       "id": "f0a0",
+       "kind": "activated",
+       "via": {
+        "prim": "xmage:SimpleActivatedAbility",
+        "role": "activated-ability",
+        "args": [
+         {
+          "value": {
+           "k": "invoke",
+           "invocation": {
+            "prim": "xmage:CreateTokenEffect",
+            "role": "one-shot-effect",
+            "args": [
+             {
+              "value": {
+               "k": "invoke",
+               "invocation": {
+                "prim": "xmage:SaprolingToken",
+                "role": "token",
+                "args": []
+               }
+              },
+              "name": "token",
+              "of": "Token"
+             }
+            ],
+            "paramMatch": "unique"
+           }
+          },
+          "name": "effect",
+          "of": "Effect"
+         },
+         {
+          "value": {
+           "k": "invoke",
+           "invocation": {
+            "prim": "xmage:GenericManaCost",
+            "role": "mana-cost",
+            "args": [
+             {
+              "value": {
+               "k": "int",
+               "n": 1
+              },
+              "name": "mana",
+              "of": "int"
+             }
+            ],
+            "paramMatch": "unique"
+           }
+          },
+          "name": "cost",
+          "of": "Cost"
+         }
+        ],
+        "paramMatch": "unique"
+       },
+       "effects": [
+        {
+         "prim": "xmage:CreateTokenEffect",
+         "role": "one-shot-effect",
+         "args": [
+          {
+           "value": {
+            "k": "invoke",
+            "invocation": {
+             "prim": "xmage:SaprolingToken",
+             "role": "token",
+             "args": []
+            }
+           },
+           "name": "token",
+           "of": "Token"
+          }
+         ],
+         "paramMatch": "unique"
+        }
+       ],
+       "costs": [
+        {
+         "prim": "xmage:GenericManaCost",
+         "role": "mana-cost",
+         "args": [
+          {
+           "value": {
+            "k": "int",
+            "n": 1
+           },
+           "name": "mana",
+           "of": "int"
+          }
+         ],
+         "paramMatch": "unique"
+        },
+        {
+         "prim": "xmage:ExileFromGraveCost",
+         "role": "cost",
+         "args": [
+          {
+           "value": {
+            "k": "invoke",
+            "invocation": {
+             "prim": "xmage:TargetCardInASingleGraveyard",
+             "role": "target",
+             "args": [
+              {
+               "value": {
+                "k": "int",
+                "n": 2
+               },
+               "name": "minNumTargets",
+               "of": "int"
+              },
+              {
+               "value": {
+                "k": "int",
+                "n": 2
+               },
+               "name": "maxNumTargets",
+               "of": "int"
+              },
+              {
+               "value": {
+                "k": "objects",
+                "filter": {
+                 "is": "type",
+                 "value": "Creature"
+                }
+               },
+               "name": "filter",
+               "of": "FilterCard"
+              }
+             ],
+             "paramMatch": "unique"
+            }
+           },
+           "name": "target",
+           "of": "TargetCardInASingleGraveyard"
+          }
+         ],
+         "paramMatch": "by-type",
+         "children": {
+          "targets": [
+           {
+            "prim": "xmage:TargetCardInASingleGraveyard",
+            "role": "target",
+            "args": [
+             {
+              "value": {
+               "k": "int",
+               "n": 2
+              },
+              "name": "minNumTargets",
+              "of": "int"
+             },
+             {
+              "value": {
+               "k": "int",
+               "n": 2
+              },
+              "name": "maxNumTargets",
+              "of": "int"
+             },
+             {
+              "value": {
+               "k": "objects",
+               "filter": {
+                "is": "type",
+                "value": "Creature"
+               }
+              },
+              "name": "filter",
+              "of": "FilterCard"
+             }
+            ],
+            "paramMatch": "unique"
+           }
+          ]
+         }
+        }
+       ],
+       "targets": []
+      }
+     ]
+    }
+   ],
+   "commanderLegal": true,
+   "provenance": {
+    "xmageClass": "NightSoil",
+    "xmagePath": "Mage.Sets/src/mage/cards/n/NightSoil.java",
+    "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
+    "builtBy": "scripts/xmage/build-records.mjs",
+    "builtAt": "2026-08-24T03:40:45.560Z",
+    "join": "exact"
+   }
+  },
+  "scryfall": {
+   "name": "Night Soil",
+   "manaCost": "{G}{G}",
+   "typeLine": "Enchantment",
+   "oracleText": "{1}, Exile two creature cards from a single graveyard: Create a 1/1 green Saproling creature token."
+  }
+ },
+ "OloroAgelessAscetic": {
+  "record": {
+   "oracleId": "620ff5f2-7d3f-467f-943d-3b62c2135023",
+   "name": "Oloro, Ageless Ascetic",
+   "layout": "normal",
+   "faces": [
+    {
+     "index": 0,
+     "kind": "main",
+     "name": "Oloro, Ageless Ascetic",
+     "mana": "{3}{W}{U}{B}",
+     "types": [
+      "Creature"
+     ],
+     "subtypes": [
+      "Giant",
+      "Soldier"
+     ],
+     "supertypes": [
+      "Legendary"
+     ],
+     "abilities": [
+      {
+       "id": "f0a0",
+       "kind": "triggered",
+       "via": {
+        "prim": "xmage:BeginningOfUpkeepTriggeredAbility",
+        "role": "triggered-ability",
+        "args": [
+         {
+          "value": {
+           "k": "invoke",
+           "invocation": {
+            "prim": "xmage:GainLifeEffect",
+            "role": "one-shot-effect",
+            "args": [
+             {
+              "value": {
+               "k": "int",
+               "n": 2
+              },
+              "name": "life",
+              "of": "int"
+             }
+            ],
+            "paramMatch": "by-type"
+           }
+          },
+          "name": "effect",
+          "of": "Effect"
+         }
+        ],
+        "paramMatch": "unique"
+       },
+       "effects": [
+        {
+         "prim": "xmage:GainLifeEffect",
+         "role": "one-shot-effect",
+         "args": [
+          {
+           "value": {
+            "k": "int",
+            "n": 2
+           },
+           "name": "life",
+           "of": "int"
+          }
+         ],
+         "paramMatch": "by-type"
+        }
+       ],
+       "costs": [],
+       "targets": []
+      },
+      {
+       "id": "f0a1",
+       "kind": "triggered",
+       "via": {
+        "prim": "xmage:GainLifeControllerTriggeredAbility",
+        "role": "triggered-ability",
+        "args": [
+         {
+          "value": {
+           "k": "invoke",
+           "invocation": {
+            "prim": "xmage:DoIfCostPaid",
+            "role": "one-shot-effect",
+            "args": [
+             {
+              "value": {
+               "k": "invoke",
+               "invocation": {
+                "prim": "xmage:DrawCardSourceControllerEffect",
+                "role": "one-shot-effect",
+                "args": [
+                 {
+                  "value": {
+                   "k": "int",
+                   "n": 1
+                  },
+                  "name": "amount",
+                  "of": "int"
+                 }
+                ],
+                "paramMatch": "by-type"
+               }
+              },
+              "name": "effectOnPaid",
+              "of": "Effect"
+             },
+             {
+              "value": {
+               "k": "invoke",
+               "invocation": {
+                "prim": "xmage:GenericManaCost",
+                "role": "mana-cost",
+                "args": [
+                 {
+                  "value": {
+                   "k": "int",
+                   "n": 1
+                  },
+                  "name": "mana",
+                  "of": "int"
+                 }
+                ],
+                "paramMatch": "unique"
+               }
+              },
+              "name": "cost",
+              "of": "Cost"
+             }
+            ],
+            "paramMatch": "unique",
+            "children": {
+             "effects": [
+              {
+               "prim": "xmage:DrawCardSourceControllerEffect",
+               "role": "one-shot-effect",
+               "args": [
+                {
+                 "value": {
+                  "k": "int",
+                  "n": 1
+                 },
+                 "name": "amount",
+                 "of": "int"
+                }
+               ],
+               "paramMatch": "by-type"
+              },
+              {
+               "prim": "xmage:LoseLifeOpponentsEffect",
+               "role": "one-shot-effect",
+               "args": [
+                {
+                 "value": {
+                  "k": "int",
+                  "n": 1
+                 },
+                 "name": "amount",
+                 "of": "int"
+                }
+               ],
+               "paramMatch": "by-type"
+              }
+             ],
+             "costs": [
+              {
+               "prim": "xmage:GenericManaCost",
+               "role": "mana-cost",
+               "args": [
+                {
+                 "value": {
+                  "k": "int",
+                  "n": 1
+                 },
+                 "name": "mana",
+                 "of": "int"
+                }
+               ],
+               "paramMatch": "unique"
+              }
+             ]
+            }
+           }
+          },
+          "name": "effect",
+          "of": "Effect"
+         },
+         {
+          "value": {
+           "k": "bool",
+           "b": false
+          },
+          "name": "optional",
+          "of": "boolean"
+         }
+        ],
+        "paramMatch": "unique"
+       },
+       "effects": [
+        {
+         "prim": "xmage:DoIfCostPaid",
+         "role": "one-shot-effect",
+         "args": [
+          {
+           "value": {
+            "k": "invoke",
+            "invocation": {
+             "prim": "xmage:DrawCardSourceControllerEffect",
+             "role": "one-shot-effect",
+             "args": [
+              {
+               "value": {
+                "k": "int",
+                "n": 1
+               },
+               "name": "amount",
+               "of": "int"
+              }
+             ],
+             "paramMatch": "by-type"
+            }
+           },
+           "name": "effectOnPaid",
+           "of": "Effect"
+          },
+          {
+           "value": {
+            "k": "invoke",
+            "invocation": {
+             "prim": "xmage:GenericManaCost",
+             "role": "mana-cost",
+             "args": [
+              {
+               "value": {
+                "k": "int",
+                "n": 1
+               },
+               "name": "mana",
+               "of": "int"
+              }
+             ],
+             "paramMatch": "unique"
+            }
+           },
+           "name": "cost",
+           "of": "Cost"
+          }
+         ],
+         "paramMatch": "unique",
+         "children": {
+          "effects": [
+           {
+            "prim": "xmage:DrawCardSourceControllerEffect",
+            "role": "one-shot-effect",
+            "args": [
+             {
+              "value": {
+               "k": "int",
+               "n": 1
+              },
+              "name": "amount",
+              "of": "int"
+             }
+            ],
+            "paramMatch": "by-type"
+           },
+           {
+            "prim": "xmage:LoseLifeOpponentsEffect",
+            "role": "one-shot-effect",
+            "args": [
+             {
+              "value": {
+               "k": "int",
+               "n": 1
+              },
+              "name": "amount",
+              "of": "int"
+             }
+            ],
+            "paramMatch": "by-type"
+           }
+          ],
+          "costs": [
+           {
+            "prim": "xmage:GenericManaCost",
+            "role": "mana-cost",
+            "args": [
+             {
+              "value": {
+               "k": "int",
+               "n": 1
+              },
+              "name": "mana",
+              "of": "int"
+             }
+            ],
+            "paramMatch": "unique"
+           }
+          ]
+         }
+        }
+       ],
+       "costs": [],
+       "targets": []
+      },
+      {
+       "id": "f0a2",
+       "kind": "triggered",
+       "via": {
+        "prim": "xmage:BeginningOfUpkeepTriggeredAbility",
+        "role": "triggered-ability",
+        "args": [
+         {
+          "value": {
+           "k": "zone",
+           "zone": "command"
+          },
+          "name": "zone",
+          "of": "Zone"
+         },
+         {
+          "value": {
+           "k": "players",
+           "who": {
+            "who": "you"
+           }
+          },
+          "name": "targetController",
+          "of": "TargetController"
+         },
+         {
+          "value": {
+           "k": "invoke",
+           "invocation": {
+            "prim": "xmage:GainLifeEffect",
+            "role": "one-shot-effect",
+            "args": [
+             {
+              "carried": {
+               "c": "factory",
+               "on": "StaticValue",
+               "method": "get",
+               "args": [
+                {
+                 "value": {
+                  "k": "int",
+                  "n": 2
+                 }
+                }
+               ]
+              },
+              "name": "life",
+              "of": "DynamicValue"
+             },
+             {
+              "carried": {
+               "c": "text",
+               "length": 49
+              },
+              "name": "rule",
+              "of": "String"
+             }
+            ],
+            "paramMatch": "unique"
+           }
+          },
+          "name": "effect",
+          "of": "Effect"
+         },
+         {
+          "value": {
+           "k": "bool",
+           "b": false
+          },
+          "name": "optional",
+          "of": "boolean"
+         }
+        ],
+        "paramMatch": "unique"
+       },
+       "effects": [
+        {
+         "prim": "xmage:GainLifeEffect",
+         "role": "one-shot-effect",
+         "args": [
+          {
+           "carried": {
+            "c": "factory",
+            "on": "StaticValue",
+            "method": "get",
+            "args": [
+             {
+              "value": {
+               "k": "int",
+               "n": 2
+              }
+             }
+            ]
+           },
+           "name": "life",
+           "of": "DynamicValue"
+          },
+          {
+           "carried": {
+            "c": "text",
+            "length": 49
+           },
+           "name": "rule",
+           "of": "String"
+          }
+         ],
+         "paramMatch": "unique"
+        }
+       ],
+       "costs": [],
+       "targets": []
+      }
+     ],
+     "pt": {
+      "power": "4",
+      "toughness": "5"
+     }
+    }
+   ],
+   "commanderLegal": true,
+   "provenance": {
+    "xmageClass": "OloroAgelessAscetic",
+    "xmagePath": "Mage.Sets/src/mage/cards/o/OloroAgelessAscetic.java",
+    "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
+    "builtBy": "scripts/xmage/build-records.mjs",
+    "builtAt": "2026-08-24T03:40:45.560Z",
+    "join": "exact"
+   }
+  },
+  "scryfall": {
+   "name": "Oloro, Ageless Ascetic",
+   "manaCost": "{3}{W}{U}{B}",
+   "typeLine": "Legendary Creature — Giant Soldier",
+   "oracleText": "At the beginning of your upkeep, you gain 2 life.\nWhenever you gain life, you may pay {1}. If you do, draw a card and each opponent loses 1 life.\nAt the beginning of your upkeep, if Oloro is in the command zone, you gain 2 life."
+  }
+ },
+ "OrazcaPuzzleDoor": {
+  "record": {
+   "oracleId": "6bcf21ef-6641-4752-a0da-937a9277c812",
+   "name": "Orazca Puzzle-Door",
+   "layout": "normal",
+   "faces": [
+    {
+     "index": 0,
+     "kind": "main",
+     "name": "Orazca Puzzle-Door",
+     "mana": "{U}",
+     "types": [
+      "Artifact"
+     ],
+     "subtypes": [],
+     "supertypes": [],
+     "abilities": [
+      {
+       "id": "f0a0",
+       "kind": "activated",
+       "via": {
+        "prim": "xmage:SimpleActivatedAbility",
+        "role": "activated-ability",
+        "args": [
+         {
+          "value": {
+           "k": "invoke",
+           "invocation": {
+            "prim": "xmage:LookLibraryAndPickControllerEffect",
+            "role": "one-shot-effect",
+            "args": [
+             {
+              "value": {
+               "k": "int",
+               "n": 2
+              },
+              "name": "numberOfCards",
+              "of": "int"
+             },
+             {
+              "value": {
+               "k": "int",
+               "n": 1
+              },
+              "name": "numberToPick",
+              "of": "int"
+             },
+             {
+              "carried": {
+               "c": "enum",
+               "enumName": "PutCards",
+               "member": "HAND"
+              },
+              "name": "putPickedCards",
+              "of": "PutCards"
+             },
+             {
+              "carried": {
+               "c": "enum",
+               "enumName": "PutCards",
+               "member": "GRAVEYARD"
+              },
+              "name": "putLookedCards",
+              "of": "PutCards"
+             }
+            ],
+            "paramMatch": "by-type"
+           }
+          },
+          "name": "effect",
+          "of": "Effect"
+         },
+         {
+          "value": {
+           "k": "invoke",
+           "invocation": {
+            "prim": "xmage:GenericManaCost",
+            "role": "mana-cost",
+            "args": [
+             {
+              "value": {
+               "k": "int",
+               "n": 1
+              },
+              "name": "mana",
+              "of": "int"
+             }
+            ],
+            "paramMatch": "unique"
+           }
+          },
+          "name": "cost",
+          "of": "Cost"
+         }
+        ],
+        "paramMatch": "unique"
+       },
+       "effects": [
+        {
+         "prim": "xmage:LookLibraryAndPickControllerEffect",
+         "role": "one-shot-effect",
+         "args": [
+          {
+           "value": {
+            "k": "int",
+            "n": 2
+           },
+           "name": "numberOfCards",
+           "of": "int"
+          },
+          {
+           "value": {
+            "k": "int",
+            "n": 1
+           },
+           "name": "numberToPick",
+           "of": "int"
+          },
+          {
+           "carried": {
+            "c": "enum",
+            "enumName": "PutCards",
+            "member": "HAND"
+           },
+           "name": "putPickedCards",
+           "of": "PutCards"
+          },
+          {
+           "carried": {
+            "c": "enum",
+            "enumName": "PutCards",
+            "member": "GRAVEYARD"
+           },
+           "name": "putLookedCards",
+           "of": "PutCards"
+          }
+         ],
+         "paramMatch": "by-type"
+        }
+       ],
+       "costs": [
+        {
+         "prim": "xmage:GenericManaCost",
+         "role": "mana-cost",
+         "args": [
+          {
+           "value": {
+            "k": "int",
+            "n": 1
+           },
+           "name": "mana",
+           "of": "int"
+          }
+         ],
+         "paramMatch": "unique"
+        },
+        {
+         "prim": "xmage:TapSourceCost",
+         "role": "cost",
+         "args": []
+        },
+        {
+         "prim": "xmage:SacrificeSourceCost",
+         "role": "cost",
+         "args": []
+        }
+       ],
+       "targets": []
+      }
+     ]
+    }
+   ],
+   "commanderLegal": true,
+   "provenance": {
+    "xmageClass": "OrazcaPuzzleDoor",
+    "xmagePath": "Mage.Sets/src/mage/cards/o/OrazcaPuzzleDoor.java",
+    "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
+    "builtBy": "scripts/xmage/build-records.mjs",
+    "builtAt": "2026-08-24T03:40:45.560Z",
+    "join": "exact"
+   }
+  },
+  "scryfall": {
+   "name": "Orazca Puzzle-Door",
+   "manaCost": "{U}",
+   "typeLine": "Artifact",
+   "oracleText": "{1}, {T}, Sacrifice this artifact: Look at the top two cards of your library. Put one of those cards into your hand and the other into your graveyard."
+  }
+ },
+ "Preordain": {
+  "record": {
+   "oracleId": "ac641490-ca14-48d7-8cc4-b69ce984befa",
+   "name": "Preordain",
+   "layout": "normal",
+   "faces": [
+    {
+     "index": 0,
+     "kind": "main",
+     "name": "Preordain",
+     "mana": "{U}",
+     "types": [
+      "Sorcery"
+     ],
+     "subtypes": [],
+     "supertypes": [],
+     "abilities": [
+      {
+       "id": "f0a0",
+       "kind": "spell",
+       "via": {
+        "prim": "xmage:SpellAbility",
+        "role": "spell-ability",
+        "args": []
+       },
+       "effects": [
+        {
+         "prim": "xmage:ScryEffect",
+         "role": "one-shot-effect",
+         "args": [
+          {
+           "value": {
+            "k": "int",
+            "n": 2
+           },
+           "name": "scryNumber",
+           "of": "int"
+          },
+          {
+           "value": {
+            "k": "bool",
+            "b": false
+           },
+           "name": "showEffectHint",
+           "of": "boolean"
+          }
+         ],
+         "paramMatch": "by-type"
+        },
+        {
+         "prim": "xmage:DrawCardSourceControllerEffect",
+         "role": "one-shot-effect",
+         "args": [
+          {
+           "value": {
+            "k": "int",
+            "n": 1
+           },
+           "name": "amount",
+           "of": "int"
+          }
+         ],
+         "paramMatch": "by-type"
+        }
+       ],
+       "costs": [],
+       "targets": []
+      }
+     ]
+    }
+   ],
+   "commanderLegal": true,
+   "provenance": {
+    "xmageClass": "Preordain",
+    "xmagePath": "Mage.Sets/src/mage/cards/p/Preordain.java",
+    "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
+    "builtBy": "scripts/xmage/build-records.mjs",
+    "builtAt": "2026-08-24T03:40:45.560Z",
+    "join": "exact"
+   }
+  },
+  "scryfall": {
+   "name": "Preordain",
+   "manaCost": "{U}",
+   "typeLine": "Sorcery",
+   "oracleText": "Scry 2, then draw a card. (To scry 2, look at the top two cards of your library, then put any number of them on the bottom and the rest on top in any order.)"
   }
  },
  "RelicBarrier": {
@@ -6692,7 +9777,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/r/RelicBarrier.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -6794,7 +9879,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/r/RhysticStudy.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -6803,6 +9888,419 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
    "manaCost": "{2}{U}",
    "typeLine": "Enchantment",
    "oracleText": "Whenever an opponent casts a spell, you may draw a card unless that player pays {1}."
+  }
+ },
+ "SanctumSpirit": {
+  "record": {
+   "oracleId": "1e640846-8f50-4a94-b7aa-f228124290d3",
+   "name": "Sanctum Spirit",
+   "layout": "normal",
+   "faces": [
+    {
+     "index": 0,
+     "kind": "main",
+     "name": "Sanctum Spirit",
+     "mana": "{3}{W}",
+     "types": [
+      "Creature"
+     ],
+     "subtypes": [
+      "Spirit"
+     ],
+     "supertypes": [],
+     "abilities": [
+      {
+       "id": "f0a0",
+       "kind": "keyword",
+       "via": {
+        "prim": "xmage:LifelinkAbility",
+        "role": "static-ability",
+        "args": []
+       },
+       "effects": [],
+       "costs": [],
+       "targets": [],
+       "keyword": {
+        "name": "Lifelink"
+       }
+      },
+      {
+       "id": "f0a1",
+       "kind": "activated",
+       "via": {
+        "prim": "xmage:SimpleActivatedAbility",
+        "role": "activated-ability",
+        "args": [
+         {
+          "value": {
+           "k": "invoke",
+           "invocation": {
+            "prim": "xmage:GainAbilitySourceEffect",
+            "role": "continuous-effect",
+            "args": [
+             {
+              "value": {
+               "k": "invoke",
+               "invocation": {
+                "prim": "xmage:IndestructibleAbility",
+                "role": "static-ability",
+                "args": []
+               }
+              },
+              "name": "ability",
+              "of": "Ability"
+             },
+             {
+              "value": {
+               "k": "duration",
+               "duration": "end-of-turn"
+              },
+              "name": "duration",
+              "of": "Duration"
+             }
+            ],
+            "paramMatch": "unique"
+           }
+          },
+          "name": "effect",
+          "of": "Effect"
+         },
+         {
+          "value": {
+           "k": "invoke",
+           "invocation": {
+            "prim": "xmage:DiscardCardCost",
+            "role": "cost",
+            "args": [
+             {
+              "carried": {
+               "c": "construct",
+               "prim": "xmage:FilterCard",
+               "role": "filter",
+               "args": [
+                {
+                 "carried": {
+                  "c": "text",
+                  "length": 15
+                 },
+                 "name": "name",
+                 "of": "String"
+                }
+               ],
+               "mods": [
+                {
+                 "m": "add",
+                 "args": [
+                  {
+                   "carried": {
+                    "c": "enum",
+                    "enumName": "HistoricPredicate",
+                    "member": "instance"
+                   }
+                  }
+                 ]
+                }
+               ]
+              },
+              "name": "filter",
+              "of": "FilterCard"
+             }
+            ],
+            "paramMatch": "by-type"
+           }
+          },
+          "name": "cost",
+          "of": "Cost"
+         }
+        ],
+        "paramMatch": "unique"
+       },
+       "effects": [
+        {
+         "prim": "xmage:GainAbilitySourceEffect",
+         "role": "continuous-effect",
+         "args": [
+          {
+           "value": {
+            "k": "invoke",
+            "invocation": {
+             "prim": "xmage:IndestructibleAbility",
+             "role": "static-ability",
+             "args": []
+            }
+           },
+           "name": "ability",
+           "of": "Ability"
+          },
+          {
+           "value": {
+            "k": "duration",
+            "duration": "end-of-turn"
+           },
+           "name": "duration",
+           "of": "Duration"
+          }
+         ],
+         "paramMatch": "unique"
+        }
+       ],
+       "costs": [
+        {
+         "prim": "xmage:DiscardCardCost",
+         "role": "cost",
+         "args": [
+          {
+           "carried": {
+            "c": "construct",
+            "prim": "xmage:FilterCard",
+            "role": "filter",
+            "args": [
+             {
+              "carried": {
+               "c": "text",
+               "length": 15
+              },
+              "name": "name",
+              "of": "String"
+             }
+            ],
+            "mods": [
+             {
+              "m": "add",
+              "args": [
+               {
+                "carried": {
+                 "c": "enum",
+                 "enumName": "HistoricPredicate",
+                 "member": "instance"
+                }
+               }
+              ]
+             }
+            ]
+           },
+           "name": "filter",
+           "of": "FilterCard"
+          }
+         ],
+         "paramMatch": "by-type"
+        }
+       ],
+       "targets": []
+      }
+     ],
+     "pt": {
+      "power": "3",
+      "toughness": "2"
+     }
+    }
+   ],
+   "commanderLegal": true,
+   "provenance": {
+    "xmageClass": "SanctumSpirit",
+    "xmagePath": "Mage.Sets/src/mage/cards/s/SanctumSpirit.java",
+    "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
+    "builtBy": "scripts/xmage/build-records.mjs",
+    "builtAt": "2026-08-24T03:40:45.560Z",
+    "join": "exact"
+   }
+  },
+  "scryfall": {
+   "name": "Sanctum Spirit",
+   "manaCost": "{3}{W}",
+   "typeLine": "Creature — Spirit",
+   "oracleText": "Lifelink\nDiscard a historic card: This creature gains indestructible until end of turn. (Artifacts, legendaries, and Sagas are historic.)"
+  }
+ },
+ "SaprolingSymbiosis": {
+  "record": {
+   "oracleId": "69d22037-fbf7-44d2-81a7-7ce8e32f06ec",
+   "name": "Saproling Symbiosis",
+   "layout": "normal",
+   "faces": [
+    {
+     "index": 0,
+     "kind": "main",
+     "name": "Saproling Symbiosis",
+     "mana": "{3}{G}",
+     "types": [
+      "Sorcery"
+     ],
+     "subtypes": [],
+     "supertypes": [],
+     "abilities": [
+      {
+       "id": "f0a0",
+       "kind": "activated",
+       "via": {
+        "prim": "xmage:PayMoreToCastAsThoughtItHadFlashAbility",
+        "role": "activated-ability",
+        "args": [
+         {
+          "carried": {
+           "c": "self",
+           "what": "source"
+          },
+          "name": "card",
+          "of": "Card"
+         },
+         {
+          "value": {
+           "k": "invoke",
+           "invocation": {
+            "prim": "xmage:ManaCostsImpl",
+            "role": "other",
+            "args": [
+             {
+              "value": {
+               "k": "mana",
+               "cost": "{2}"
+              },
+              "name": "mana",
+              "of": "String"
+             }
+            ],
+            "paramMatch": "unique"
+           }
+          },
+          "name": "costsToAdd",
+          "of": "Cost"
+         }
+        ],
+        "paramMatch": "unique"
+       },
+       "effects": [
+        {
+         "prim": "xmage:CreateTokenEffect",
+         "role": "one-shot-effect",
+         "args": [
+          {
+           "value": {
+            "k": "invoke",
+            "invocation": {
+             "prim": "xmage:SaprolingToken",
+             "role": "token",
+             "args": []
+            }
+           },
+           "name": "token",
+           "of": "Token"
+          },
+          {
+           "value": {
+            "k": "invoke",
+            "invocation": {
+             "prim": "xmage:PermanentsOnBattlefieldCount",
+             "role": "dynamic-value",
+             "args": [
+              {
+               "value": {
+                "k": "objects",
+                "filter": {
+                 "is": "type",
+                 "value": "Creature"
+                },
+                "controller": {
+                 "who": "you"
+                },
+                "zone": "battlefield"
+               },
+               "name": "filter",
+               "of": "FilterPermanent"
+              }
+             ],
+             "paramMatch": "unique"
+            }
+           },
+           "name": "amount",
+           "of": "DynamicValue"
+          }
+         ],
+         "paramMatch": "by-type"
+        }
+       ],
+       "costs": [],
+       "targets": []
+      },
+      {
+       "id": "f0a1",
+       "kind": "spell",
+       "via": {
+        "prim": "xmage:SpellAbility",
+        "role": "spell-ability",
+        "args": []
+       },
+       "effects": [
+        {
+         "prim": "xmage:CreateTokenEffect",
+         "role": "one-shot-effect",
+         "args": [
+          {
+           "value": {
+            "k": "invoke",
+            "invocation": {
+             "prim": "xmage:SaprolingToken",
+             "role": "token",
+             "args": []
+            }
+           },
+           "name": "token",
+           "of": "Token"
+          },
+          {
+           "value": {
+            "k": "invoke",
+            "invocation": {
+             "prim": "xmage:PermanentsOnBattlefieldCount",
+             "role": "dynamic-value",
+             "args": [
+              {
+               "value": {
+                "k": "objects",
+                "filter": {
+                 "is": "type",
+                 "value": "Creature"
+                },
+                "controller": {
+                 "who": "you"
+                },
+                "zone": "battlefield"
+               },
+               "name": "filter",
+               "of": "FilterPermanent"
+              }
+             ],
+             "paramMatch": "unique"
+            }
+           },
+           "name": "amount",
+           "of": "DynamicValue"
+          }
+         ],
+         "paramMatch": "by-type"
+        }
+       ],
+       "costs": [],
+       "targets": []
+      }
+     ]
+    }
+   ],
+   "commanderLegal": true,
+   "provenance": {
+    "xmageClass": "SaprolingSymbiosis",
+    "xmagePath": "Mage.Sets/src/mage/cards/s/SaprolingSymbiosis.java",
+    "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
+    "builtBy": "scripts/xmage/build-records.mjs",
+    "builtAt": "2026-08-24T03:40:45.560Z",
+    "join": "exact"
+   }
+  },
+  "scryfall": {
+   "name": "Saproling Symbiosis",
+   "manaCost": "{3}{G}",
+   "typeLine": "Sorcery",
+   "oracleText": "You may cast this spell as though it had flash if you pay {2} more to cast it. (You may cast it any time you could cast an instant.)\nCreate a 1/1 green Saproling creature token for each creature you control."
   }
  },
  "SerraAngel": {
@@ -6867,7 +10365,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/s/SerraAngel.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -7049,7 +10547,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/s/ShivanDragon.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -7211,7 +10709,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/s/SkyshroudClaim.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -7220,6 +10718,594 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
    "manaCost": "{3}{G}",
    "typeLine": "Sorcery",
    "oracleText": "Search your library for up to two Forest cards, put them onto the battlefield, then shuffle."
+  }
+ },
+ "SomberwaldBeastmaster": {
+  "record": {
+   "oracleId": "df35bf19-4cbf-4624-925d-ceca6bff596e",
+   "name": "Somberwald Beastmaster",
+   "layout": "normal",
+   "faces": [
+    {
+     "index": 0,
+     "kind": "main",
+     "name": "Somberwald Beastmaster",
+     "mana": "{6}{G}",
+     "types": [
+      "Creature"
+     ],
+     "subtypes": [
+      "Human",
+      "Ranger"
+     ],
+     "supertypes": [],
+     "abilities": [
+      {
+       "id": "f0a0",
+       "kind": "triggered",
+       "via": {
+        "prim": "xmage:EntersBattlefieldTriggeredAbility",
+        "role": "triggered-ability",
+        "args": [
+         {
+          "value": {
+           "k": "invoke",
+           "invocation": {
+            "prim": "xmage:CreateTokenEffect",
+            "role": "one-shot-effect",
+            "args": [
+             {
+              "value": {
+               "k": "invoke",
+               "invocation": {
+                "prim": "xmage:WolfToken",
+                "role": "token",
+                "args": []
+               }
+              },
+              "name": "token",
+              "of": "Token"
+             }
+            ],
+            "paramMatch": "unique",
+            "mods": [
+             {
+              "m": "withAdditionalTokens",
+              "args": [
+               {
+                "value": {
+                 "k": "invoke",
+                 "invocation": {
+                  "prim": "xmage:BeastToken",
+                  "role": "token",
+                  "args": []
+                 }
+                }
+               },
+               {
+                "value": {
+                 "k": "invoke",
+                 "invocation": {
+                  "prim": "xmage:Beast44Token",
+                  "role": "token",
+                  "args": []
+                 }
+                }
+               }
+              ]
+             }
+            ]
+           }
+          },
+          "name": "effect",
+          "of": "Effect"
+         }
+        ],
+        "paramMatch": "unique"
+       },
+       "effects": [
+        {
+         "prim": "xmage:CreateTokenEffect",
+         "role": "one-shot-effect",
+         "args": [
+          {
+           "value": {
+            "k": "invoke",
+            "invocation": {
+             "prim": "xmage:WolfToken",
+             "role": "token",
+             "args": []
+            }
+           },
+           "name": "token",
+           "of": "Token"
+          }
+         ],
+         "paramMatch": "unique",
+         "mods": [
+          {
+           "m": "withAdditionalTokens",
+           "args": [
+            {
+             "value": {
+              "k": "invoke",
+              "invocation": {
+               "prim": "xmage:BeastToken",
+               "role": "token",
+               "args": []
+              }
+             }
+            },
+            {
+             "value": {
+              "k": "invoke",
+              "invocation": {
+               "prim": "xmage:Beast44Token",
+               "role": "token",
+               "args": []
+              }
+             }
+            }
+           ]
+          }
+         ]
+        }
+       ],
+       "costs": [],
+       "targets": []
+      },
+      {
+       "id": "f0a1",
+       "kind": "static",
+       "via": {
+        "prim": "xmage:SimpleStaticAbility",
+        "role": "static-ability",
+        "args": [
+         {
+          "value": {
+           "k": "invoke",
+           "invocation": {
+            "prim": "xmage:GainAbilityControlledEffect",
+            "role": "continuous-effect",
+            "args": [
+             {
+              "value": {
+               "k": "invoke",
+               "invocation": {
+                "prim": "xmage:DeathtouchAbility",
+                "role": "static-ability",
+                "args": []
+               }
+              },
+              "name": "ability",
+              "of": "Ability"
+             },
+             {
+              "value": {
+               "k": "duration",
+               "duration": "while-source-on-battlefield"
+              },
+              "name": "duration",
+              "of": "Duration"
+             },
+             {
+              "value": {
+               "k": "objects",
+               "filter": {
+                "is": "and",
+                "of": [
+                 {
+                  "is": "type",
+                  "value": "Creature"
+                 },
+                 {
+                  "is": "token"
+                 }
+                ]
+               },
+               "zone": "battlefield"
+              },
+              "name": "filter",
+              "of": "FilterPermanent"
+             }
+            ],
+            "paramMatch": "by-type"
+           }
+          },
+          "name": "effect",
+          "of": "Effect"
+         }
+        ],
+        "paramMatch": "unique"
+       },
+       "effects": [
+        {
+         "prim": "xmage:GainAbilityControlledEffect",
+         "role": "continuous-effect",
+         "args": [
+          {
+           "value": {
+            "k": "invoke",
+            "invocation": {
+             "prim": "xmage:DeathtouchAbility",
+             "role": "static-ability",
+             "args": []
+            }
+           },
+           "name": "ability",
+           "of": "Ability"
+          },
+          {
+           "value": {
+            "k": "duration",
+            "duration": "while-source-on-battlefield"
+           },
+           "name": "duration",
+           "of": "Duration"
+          },
+          {
+           "value": {
+            "k": "objects",
+            "filter": {
+             "is": "and",
+             "of": [
+              {
+               "is": "type",
+               "value": "Creature"
+              },
+              {
+               "is": "token"
+              }
+             ]
+            },
+            "zone": "battlefield"
+           },
+           "name": "filter",
+           "of": "FilterPermanent"
+          }
+         ],
+         "paramMatch": "by-type"
+        }
+       ],
+       "costs": [],
+       "targets": []
+      }
+     ],
+     "pt": {
+      "power": "1",
+      "toughness": "1"
+     }
+    }
+   ],
+   "commanderLegal": true,
+   "provenance": {
+    "xmageClass": "SomberwaldBeastmaster",
+    "xmagePath": "Mage.Sets/src/mage/cards/s/SomberwaldBeastmaster.java",
+    "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
+    "builtBy": "scripts/xmage/build-records.mjs",
+    "builtAt": "2026-08-24T03:40:45.560Z",
+    "join": "exact"
+   }
+  },
+  "scryfall": {
+   "name": "Somberwald Beastmaster",
+   "manaCost": "{6}{G}",
+   "typeLine": "Creature — Human Ranger",
+   "oracleText": "When this creature enters, create a 2/2 green Wolf creature token, a 3/3 green Beast creature token, and a 4/4 green Beast creature token.\nCreature tokens you control have deathtouch. (Any amount of damage they deal to a creature is enough to destroy it.)"
+  }
+ },
+ "SpringleafDrum": {
+  "record": {
+   "oracleId": "bdeb440d-a714-40e8-9038-f651e6ae45fb",
+   "name": "Springleaf Drum",
+   "layout": "normal",
+   "faces": [
+    {
+     "index": 0,
+     "kind": "main",
+     "name": "Springleaf Drum",
+     "mana": "{1}",
+     "types": [
+      "Artifact"
+     ],
+     "subtypes": [],
+     "supertypes": [],
+     "abilities": [
+      {
+       "id": "f0a0",
+       "kind": "mana",
+       "via": {
+        "prim": "xmage:AnyColorManaAbility",
+        "role": "mana-ability",
+        "args": []
+       },
+       "effects": [],
+       "costs": [
+        {
+         "prim": "xmage:TapTargetCost",
+         "role": "cost",
+         "args": [
+          {
+           "value": {
+            "k": "objects",
+            "filter": {
+             "is": "and",
+             "of": [
+              {
+               "is": "type",
+               "value": "Creature"
+              },
+              {
+               "is": "untapped"
+              }
+             ]
+            },
+            "controller": {
+             "who": "you"
+            },
+            "zone": "battlefield"
+           },
+           "name": "filter",
+           "of": "FilterControlledPermanent"
+          }
+         ],
+         "paramMatch": "by-type"
+        }
+       ],
+       "targets": []
+      }
+     ]
+    }
+   ],
+   "commanderLegal": true,
+   "provenance": {
+    "xmageClass": "SpringleafDrum",
+    "xmagePath": "Mage.Sets/src/mage/cards/s/SpringleafDrum.java",
+    "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
+    "builtBy": "scripts/xmage/build-records.mjs",
+    "builtAt": "2026-08-24T03:40:45.560Z",
+    "join": "exact"
+   }
+  },
+  "scryfall": {
+   "name": "Springleaf Drum",
+   "manaCost": "{1}",
+   "typeLine": "Artifact",
+   "oracleText": "{T}, Tap an untapped creature you control: Add one mana of any color."
+  }
+ },
+ "SteelingStance": {
+  "record": {
+   "oracleId": "c454d5af-5617-4ddf-a9be-dd7d154b55ad",
+   "name": "Steeling Stance",
+   "layout": "normal",
+   "faces": [
+    {
+     "index": 0,
+     "kind": "main",
+     "name": "Steeling Stance",
+     "mana": "{1}{W}{W}",
+     "types": [
+      "Instant"
+     ],
+     "subtypes": [],
+     "supertypes": [],
+     "abilities": [
+      {
+       "id": "f0a0",
+       "kind": "activated",
+       "via": {
+        "prim": "xmage:ForecastAbility",
+        "role": "activated-ability",
+        "args": [
+         {
+          "value": {
+           "k": "invoke",
+           "invocation": {
+            "prim": "xmage:BoostTargetEffect",
+            "role": "continuous-effect",
+            "args": [
+             {
+              "value": {
+               "k": "int",
+               "n": 1
+              },
+              "name": "power",
+              "of": "int"
+             },
+             {
+              "value": {
+               "k": "int",
+               "n": 1
+              },
+              "name": "toughness",
+              "of": "int"
+             },
+             {
+              "value": {
+               "k": "duration",
+               "duration": "end-of-turn"
+              },
+              "name": "duration",
+              "of": "Duration"
+             }
+            ],
+            "paramMatch": "by-type"
+           }
+          },
+          "name": "effect",
+          "of": "Effect"
+         },
+         {
+          "value": {
+           "k": "invoke",
+           "invocation": {
+            "prim": "xmage:ManaCostsImpl",
+            "role": "other",
+            "args": [
+             {
+              "value": {
+               "k": "mana",
+               "cost": "{W}"
+              },
+              "name": "mana",
+              "of": "String"
+             }
+            ],
+            "paramMatch": "unique"
+           }
+          },
+          "name": "cost",
+          "of": "Cost"
+         }
+        ],
+        "paramMatch": "unique"
+       },
+       "effects": [
+        {
+         "prim": "xmage:BoostTargetEffect",
+         "role": "continuous-effect",
+         "args": [
+          {
+           "value": {
+            "k": "int",
+            "n": 1
+           },
+           "name": "power",
+           "of": "int"
+          },
+          {
+           "value": {
+            "k": "int",
+            "n": 1
+           },
+           "name": "toughness",
+           "of": "int"
+          },
+          {
+           "value": {
+            "k": "duration",
+            "duration": "end-of-turn"
+           },
+           "name": "duration",
+           "of": "Duration"
+          }
+         ],
+         "paramMatch": "by-type"
+        }
+       ],
+       "costs": [],
+       "targets": [
+        {
+         "prim": "xmage:TargetCreaturePermanent",
+         "role": "target",
+         "args": []
+        }
+       ],
+       "keyword": {
+        "name": "Forecast",
+        "parameter": {
+         "value": {
+          "k": "invoke",
+          "invocation": {
+           "prim": "xmage:BoostTargetEffect",
+           "role": "continuous-effect",
+           "args": [
+            {
+             "value": {
+              "k": "int",
+              "n": 1
+             },
+             "name": "power",
+             "of": "int"
+            },
+            {
+             "value": {
+              "k": "int",
+              "n": 1
+             },
+             "name": "toughness",
+             "of": "int"
+            },
+            {
+             "value": {
+              "k": "duration",
+              "duration": "end-of-turn"
+             },
+             "name": "duration",
+             "of": "Duration"
+            }
+           ],
+           "paramMatch": "by-type"
+          }
+         },
+         "name": "effect",
+         "of": "Effect"
+        }
+       }
+      },
+      {
+       "id": "f0a1",
+       "kind": "spell",
+       "via": {
+        "prim": "xmage:SpellAbility",
+        "role": "spell-ability",
+        "args": []
+       },
+       "effects": [
+        {
+         "prim": "xmage:BoostControlledEffect",
+         "role": "continuous-effect",
+         "args": [
+          {
+           "value": {
+            "k": "int",
+            "n": 1
+           },
+           "name": "power",
+           "of": "int"
+          },
+          {
+           "value": {
+            "k": "int",
+            "n": 1
+           },
+           "name": "toughness",
+           "of": "int"
+          },
+          {
+           "value": {
+            "k": "duration",
+            "duration": "end-of-turn"
+           },
+           "name": "duration",
+           "of": "Duration"
+          }
+         ],
+         "paramMatch": "by-type"
+        }
+       ],
+       "costs": [],
+       "targets": []
+      }
+     ]
+    }
+   ],
+   "commanderLegal": true,
+   "provenance": {
+    "xmageClass": "SteelingStance",
+    "xmagePath": "Mage.Sets/src/mage/cards/s/SteelingStance.java",
+    "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
+    "builtBy": "scripts/xmage/build-records.mjs",
+    "builtAt": "2026-08-24T03:40:45.560Z",
+    "join": "exact"
+   }
+  },
+  "scryfall": {
+   "name": "Steeling Stance",
+   "manaCost": "{1}{W}{W}",
+   "typeLine": "Instant",
+   "oracleText": "Creatures you control get +1/+1 until end of turn.\nForecast — {W}, Reveal this card from your hand: Target creature gets +1/+1 until end of turn. (Activate only during your upkeep and only once each turn.)"
   }
  },
  "StoneRain": {
@@ -7286,7 +11372,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/s/StoneRain.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -7364,7 +11450,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/s/StormHerd.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -7373,6 +11459,215 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
    "manaCost": "{8}{W}{W}",
    "typeLine": "Sorcery",
    "oracleText": "Create X 1/1 white Pegasus creature tokens with flying, where X is your life total."
+  }
+ },
+ "TerrorTide": {
+  "record": {
+   "oracleId": "12be58f4-1c12-4bca-8069-1f049cd8a90c",
+   "name": "Terror Tide",
+   "layout": "normal",
+   "faces": [
+    {
+     "index": 0,
+     "kind": "main",
+     "name": "Terror Tide",
+     "mana": "{2}{B}{B}",
+     "types": [
+      "Sorcery"
+     ],
+     "subtypes": [],
+     "supertypes": [],
+     "abilities": [
+      {
+       "id": "f0a0",
+       "kind": "spell",
+       "via": {
+        "prim": "xmage:SpellAbility",
+        "role": "spell-ability",
+        "args": []
+       },
+       "effects": [
+        {
+         "prim": "xmage:BoostAllEffect",
+         "role": "continuous-effect",
+         "args": [
+          {
+           "value": {
+            "k": "invoke",
+            "invocation": {
+             "prim": "xmage:CardsInControllerGraveyardCount",
+             "role": "dynamic-value",
+             "args": [
+              {
+               "value": {
+                "k": "objects",
+                "filter": {
+                 "is": "or",
+                 "of": [
+                  {
+                   "is": "type",
+                   "value": "Creature"
+                  },
+                  {
+                   "is": "type",
+                   "value": "Artifact"
+                  },
+                  {
+                   "is": "type",
+                   "value": "Enchantment"
+                  },
+                  {
+                   "is": "type",
+                   "value": "Land"
+                  },
+                  {
+                   "is": "type",
+                   "value": "Planeswalker"
+                  },
+                  {
+                   "is": "type",
+                   "value": "Battle"
+                  }
+                 ]
+                }
+               },
+               "name": "filter",
+               "of": "FilterCard"
+              },
+              {
+               "value": {
+                "k": "int",
+                "n": -1
+               },
+               "name": "multiplier",
+               "of": "Integer"
+              }
+             ],
+             "paramMatch": "unique"
+            }
+           },
+           "name": "power",
+           "of": "DynamicValue"
+          },
+          {
+           "value": {
+            "k": "invoke",
+            "invocation": {
+             "prim": "xmage:CardsInControllerGraveyardCount",
+             "role": "dynamic-value",
+             "args": [
+              {
+               "value": {
+                "k": "objects",
+                "filter": {
+                 "is": "or",
+                 "of": [
+                  {
+                   "is": "type",
+                   "value": "Creature"
+                  },
+                  {
+                   "is": "type",
+                   "value": "Artifact"
+                  },
+                  {
+                   "is": "type",
+                   "value": "Enchantment"
+                  },
+                  {
+                   "is": "type",
+                   "value": "Land"
+                  },
+                  {
+                   "is": "type",
+                   "value": "Planeswalker"
+                  },
+                  {
+                   "is": "type",
+                   "value": "Battle"
+                  }
+                 ]
+                }
+               },
+               "name": "filter",
+               "of": "FilterCard"
+              },
+              {
+               "value": {
+                "k": "int",
+                "n": -1
+               },
+               "name": "multiplier",
+               "of": "Integer"
+              }
+             ],
+             "paramMatch": "unique"
+            }
+           },
+           "name": "toughness",
+           "of": "DynamicValue"
+          },
+          {
+           "value": {
+            "k": "duration",
+            "duration": "end-of-turn"
+           },
+           "name": "duration",
+           "of": "Duration"
+          },
+          {
+           "value": {
+            "k": "objects",
+            "filter": {
+             "is": "type",
+             "value": "Creature"
+            },
+            "zone": "battlefield"
+           },
+           "name": "filter",
+           "of": "FilterPermanent"
+          },
+          {
+           "value": {
+            "k": "bool",
+            "b": false
+           },
+           "name": "excludeSource",
+           "of": "boolean"
+          },
+          {
+           "carried": {
+            "c": "text",
+            "length": 101
+           },
+           "name": "rule",
+           "of": "String"
+          }
+         ],
+         "paramMatch": "by-type"
+        }
+       ],
+       "costs": [],
+       "targets": []
+      }
+     ]
+    }
+   ],
+   "commanderLegal": true,
+   "provenance": {
+    "xmageClass": "TerrorTide",
+    "xmagePath": "Mage.Sets/src/mage/cards/t/TerrorTide.java",
+    "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
+    "builtBy": "scripts/xmage/build-records.mjs",
+    "builtAt": "2026-08-24T03:40:45.560Z",
+    "join": "exact"
+   }
+  },
+  "scryfall": {
+   "name": "Terror Tide",
+   "manaCost": "{2}{B}{B}",
+   "typeLine": "Sorcery",
+   "oracleText": "Fathomless descent — All creatures get -X/-X until end of turn, where X is the number of permanent cards in your graveyard."
   }
  },
  "ThreeVisits": {
@@ -7486,7 +11781,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/t/ThreeVisits.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -7495,6 +11790,437 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
    "manaCost": "{1}{G}",
    "typeLine": "Sorcery",
    "oracleText": "Search your library for a Forest card, put it onto the battlefield, then shuffle."
+  }
+ },
+ "ThunderfootBaloth": {
+  "record": {
+   "oracleId": "f55334d9-1ec2-4667-bf28-5a0384d6f053",
+   "name": "Thunderfoot Baloth",
+   "layout": "normal",
+   "faces": [
+    {
+     "index": 0,
+     "kind": "main",
+     "name": "Thunderfoot Baloth",
+     "mana": "{4}{G}{G}",
+     "types": [
+      "Creature"
+     ],
+     "subtypes": [
+      "Beast"
+     ],
+     "supertypes": [],
+     "abilities": [
+      {
+       "id": "f0a0",
+       "kind": "keyword",
+       "via": {
+        "prim": "xmage:TrampleAbility",
+        "role": "static-ability",
+        "args": []
+       },
+       "effects": [],
+       "costs": [],
+       "targets": [],
+       "keyword": {
+        "name": "Trample"
+       }
+      },
+      {
+       "id": "f0a1",
+       "kind": "static",
+       "via": {
+        "prim": "xmage:LieutenantAbility",
+        "role": "static-ability",
+        "args": [
+         {
+          "value": {
+           "k": "invoke",
+           "invocation": {
+            "prim": "xmage:BoostControlledEffect",
+            "role": "continuous-effect",
+            "args": [
+             {
+              "value": {
+               "k": "int",
+               "n": 2
+              },
+              "name": "power",
+              "of": "int"
+             },
+             {
+              "value": {
+               "k": "int",
+               "n": 2
+              },
+              "name": "toughness",
+              "of": "int"
+             },
+             {
+              "value": {
+               "k": "duration",
+               "duration": "while-source-on-battlefield"
+              },
+              "name": "duration",
+              "of": "Duration"
+             },
+             {
+              "value": {
+               "k": "bool",
+               "b": true
+              },
+              "name": "excludeSource",
+              "of": "boolean"
+             }
+            ],
+            "paramMatch": "by-type"
+           }
+          },
+          "name": "effect",
+          "of": "ContinuousEffect"
+         },
+         {
+          "carried": {
+           "c": "text",
+           "length": 41
+          },
+          "name": "text",
+          "of": "String"
+         }
+        ],
+        "paramMatch": "unique",
+        "mods": [
+         {
+          "m": "addLieutenantEffect",
+          "args": [
+           {
+            "value": {
+             "k": "invoke",
+             "invocation": {
+              "prim": "xmage:GainAbilityAllEffect",
+              "role": "continuous-effect",
+              "args": [
+               {
+                "value": {
+                 "k": "invoke",
+                 "invocation": {
+                  "prim": "xmage:TrampleAbility",
+                  "role": "static-ability",
+                  "args": []
+                 }
+                },
+                "name": "ability",
+                "of": "Ability"
+               },
+               {
+                "value": {
+                 "k": "duration",
+                 "duration": "while-source-on-battlefield"
+                },
+                "name": "duration",
+                "of": "Duration"
+               },
+               {
+                "value": {
+                 "k": "objects",
+                 "filter": {
+                  "is": "type",
+                  "value": "Creature"
+                 },
+                 "controller": {
+                  "who": "you"
+                 },
+                 "zone": "battlefield"
+                },
+                "name": "filter",
+                "of": "FilterPermanent"
+               },
+               {
+                "value": {
+                 "k": "bool",
+                 "b": true
+                },
+                "name": "excludeSource",
+                "of": "boolean"
+               }
+              ],
+              "paramMatch": "by-type"
+             }
+            }
+           }
+          ]
+         }
+        ]
+       },
+       "effects": [
+        {
+         "prim": "xmage:BoostControlledEffect",
+         "role": "continuous-effect",
+         "args": [
+          {
+           "value": {
+            "k": "int",
+            "n": 2
+           },
+           "name": "power",
+           "of": "int"
+          },
+          {
+           "value": {
+            "k": "int",
+            "n": 2
+           },
+           "name": "toughness",
+           "of": "int"
+          },
+          {
+           "value": {
+            "k": "duration",
+            "duration": "while-source-on-battlefield"
+           },
+           "name": "duration",
+           "of": "Duration"
+          },
+          {
+           "value": {
+            "k": "bool",
+            "b": true
+           },
+           "name": "excludeSource",
+           "of": "boolean"
+          }
+         ],
+         "paramMatch": "by-type"
+        }
+       ],
+       "costs": [],
+       "targets": []
+      }
+     ],
+     "pt": {
+      "power": "5",
+      "toughness": "5"
+     }
+    }
+   ],
+   "commanderLegal": true,
+   "provenance": {
+    "xmageClass": "ThunderfootBaloth",
+    "xmagePath": "Mage.Sets/src/mage/cards/t/ThunderfootBaloth.java",
+    "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
+    "builtBy": "scripts/xmage/build-records.mjs",
+    "builtAt": "2026-08-24T03:40:45.560Z",
+    "join": "exact"
+   }
+  },
+  "scryfall": {
+   "name": "Thunderfoot Baloth",
+   "manaCost": "{4}{G}{G}",
+   "typeLine": "Creature — Beast",
+   "oracleText": "Trample\nLieutenant — As long as you control your commander, this creature gets +2/+2 and other creatures you control get +2/+2 and have trample."
+  }
+ },
+ "TriplicateTitan": {
+  "record": {
+   "oracleId": "56e05b17-aa1d-483d-857c-4cab4f12aa8a",
+   "name": "Triplicate Titan",
+   "layout": "normal",
+   "faces": [
+    {
+     "index": 0,
+     "kind": "main",
+     "name": "Triplicate Titan",
+     "mana": "{9}",
+     "types": [
+      "Artifact",
+      "Creature"
+     ],
+     "subtypes": [
+      "Golem"
+     ],
+     "supertypes": [],
+     "abilities": [
+      {
+       "id": "f0a0",
+       "kind": "keyword",
+       "via": {
+        "prim": "xmage:FlyingAbility",
+        "role": "static-ability",
+        "args": []
+       },
+       "effects": [],
+       "costs": [],
+       "targets": [],
+       "keyword": {
+        "name": "Flying"
+       }
+      },
+      {
+       "id": "f0a1",
+       "kind": "keyword",
+       "via": {
+        "prim": "xmage:VigilanceAbility",
+        "role": "static-ability",
+        "args": []
+       },
+       "effects": [],
+       "costs": [],
+       "targets": [],
+       "keyword": {
+        "name": "Vigilance"
+       }
+      },
+      {
+       "id": "f0a2",
+       "kind": "keyword",
+       "via": {
+        "prim": "xmage:TrampleAbility",
+        "role": "static-ability",
+        "args": []
+       },
+       "effects": [],
+       "costs": [],
+       "targets": [],
+       "keyword": {
+        "name": "Trample"
+       }
+      },
+      {
+       "id": "f0a3",
+       "kind": "triggered",
+       "via": {
+        "prim": "xmage:DiesSourceTriggeredAbility",
+        "role": "triggered-ability",
+        "args": [
+         {
+          "value": {
+           "k": "invoke",
+           "invocation": {
+            "prim": "xmage:CreateTokenEffect",
+            "role": "one-shot-effect",
+            "args": [
+             {
+              "value": {
+               "k": "invoke",
+               "invocation": {
+                "prim": "xmage:GolemFlyingToken",
+                "role": "token",
+                "args": []
+               }
+              },
+              "name": "token",
+              "of": "Token"
+             }
+            ],
+            "paramMatch": "unique",
+            "mods": [
+             {
+              "m": "withAdditionalTokens",
+              "args": [
+               {
+                "value": {
+                 "k": "invoke",
+                 "invocation": {
+                  "prim": "xmage:GolemVigilanceToken",
+                  "role": "token",
+                  "args": []
+                 }
+                }
+               },
+               {
+                "value": {
+                 "k": "invoke",
+                 "invocation": {
+                  "prim": "xmage:GolemTrampleToken",
+                  "role": "token",
+                  "args": []
+                 }
+                }
+               }
+              ]
+             }
+            ]
+           }
+          },
+          "name": "effect",
+          "of": "Effect"
+         }
+        ],
+        "paramMatch": "unique"
+       },
+       "effects": [
+        {
+         "prim": "xmage:CreateTokenEffect",
+         "role": "one-shot-effect",
+         "args": [
+          {
+           "value": {
+            "k": "invoke",
+            "invocation": {
+             "prim": "xmage:GolemFlyingToken",
+             "role": "token",
+             "args": []
+            }
+           },
+           "name": "token",
+           "of": "Token"
+          }
+         ],
+         "paramMatch": "unique",
+         "mods": [
+          {
+           "m": "withAdditionalTokens",
+           "args": [
+            {
+             "value": {
+              "k": "invoke",
+              "invocation": {
+               "prim": "xmage:GolemVigilanceToken",
+               "role": "token",
+               "args": []
+              }
+             }
+            },
+            {
+             "value": {
+              "k": "invoke",
+              "invocation": {
+               "prim": "xmage:GolemTrampleToken",
+               "role": "token",
+               "args": []
+              }
+             }
+            }
+           ]
+          }
+         ]
+        }
+       ],
+       "costs": [],
+       "targets": []
+      }
+     ],
+     "pt": {
+      "power": "9",
+      "toughness": "9"
+     }
+    }
+   ],
+   "commanderLegal": true,
+   "provenance": {
+    "xmageClass": "TriplicateTitan",
+    "xmagePath": "Mage.Sets/src/mage/cards/t/TriplicateTitan.java",
+    "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
+    "builtBy": "scripts/xmage/build-records.mjs",
+    "builtAt": "2026-08-24T03:40:45.560Z",
+    "join": "exact"
+   }
+  },
+  "scryfall": {
+   "name": "Triplicate Titan",
+   "manaCost": "{9}",
+   "typeLine": "Artifact Creature — Golem",
+   "oracleText": "Flying, vigilance, trample\nWhen this creature dies, create a 3/3 colorless Golem artifact creature token with flying, a 3/3 colorless Golem artifact creature token with vigilance, and a 3/3 colorless Golem artifact creature token with trample."
   }
  },
  "Unmake": {
@@ -7547,7 +12273,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/u/Unmake.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -7632,7 +12358,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/u/UnnaturalSpeed.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -7641,6 +12367,125 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
    "manaCost": "{R}",
    "typeLine": "Instant — Arcane",
    "oracleText": "Target creature gains haste until end of turn."
+  }
+ },
+ "WhisperAgent": {
+  "record": {
+   "oracleId": "2ed76a99-fe5c-4d68-b572-a30848055c8a",
+   "name": "Whisper Agent",
+   "layout": "normal",
+   "faces": [
+    {
+     "index": 0,
+     "kind": "main",
+     "name": "Whisper Agent",
+     "mana": "{1}{U/B}{U/B}",
+     "types": [
+      "Creature"
+     ],
+     "subtypes": [
+      "Human",
+      "Rogue"
+     ],
+     "supertypes": [],
+     "abilities": [
+      {
+       "id": "f0a0",
+       "kind": "keyword",
+       "via": {
+        "prim": "xmage:FlashAbility",
+        "role": "static-ability",
+        "args": []
+       },
+       "effects": [],
+       "costs": [],
+       "targets": [],
+       "keyword": {
+        "name": "Flash"
+       }
+      },
+      {
+       "id": "f0a1",
+       "kind": "triggered",
+       "via": {
+        "prim": "xmage:EntersBattlefieldTriggeredAbility",
+        "role": "triggered-ability",
+        "args": [
+         {
+          "value": {
+           "k": "invoke",
+           "invocation": {
+            "prim": "xmage:SurveilEffect",
+            "role": "one-shot-effect",
+            "args": [
+             {
+              "value": {
+               "k": "int",
+               "n": 1
+              },
+              "name": "surveilNumber",
+              "of": "int"
+             }
+            ],
+            "paramMatch": "unique"
+           }
+          },
+          "name": "effect",
+          "of": "Effect"
+         },
+         {
+          "value": {
+           "k": "bool",
+           "b": false
+          },
+          "name": "optional",
+          "of": "boolean"
+         }
+        ],
+        "paramMatch": "unique"
+       },
+       "effects": [
+        {
+         "prim": "xmage:SurveilEffect",
+         "role": "one-shot-effect",
+         "args": [
+          {
+           "value": {
+            "k": "int",
+            "n": 1
+           },
+           "name": "surveilNumber",
+           "of": "int"
+          }
+         ],
+         "paramMatch": "unique"
+        }
+       ],
+       "costs": [],
+       "targets": []
+      }
+     ],
+     "pt": {
+      "power": "3",
+      "toughness": "2"
+     }
+    }
+   ],
+   "commanderLegal": true,
+   "provenance": {
+    "xmageClass": "WhisperAgent",
+    "xmagePath": "Mage.Sets/src/mage/cards/w/WhisperAgent.java",
+    "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
+    "builtBy": "scripts/xmage/build-records.mjs",
+    "builtAt": "2026-08-24T03:40:45.560Z",
+    "join": "exact"
+   }
+  },
+  "scryfall": {
+   "name": "Whisper Agent",
+   "manaCost": "{1}{U/B}{U/B}",
+   "typeLine": "Creature — Human Rogue",
+   "oracleText": "Flash\nWhen this creature enters, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)"
   }
  },
  "WordOfBinding": {
@@ -7720,7 +12565,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/w/WordOfBinding.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -7797,7 +12642,7 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
     "xmagePath": "Mage.Sets/src/mage/cards/w/WrathOfGod.java",
     "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
     "builtBy": "scripts/xmage/build-records.mjs",
-    "builtAt": "2026-08-23T14:46:04.731Z",
+    "builtAt": "2026-08-24T03:40:45.560Z",
     "join": "exact"
    }
   },
@@ -7806,6 +12651,183 @@ export const PORT_FIXTURES: Record<string, Fixture> = {
    "manaCost": "{2}{W}{W}",
    "typeLine": "Sorcery",
    "oracleText": "Destroy all creatures. They can't be regenerated."
+  }
+ },
+ "WurmcoilEngine": {
+  "record": {
+   "oracleId": "d1a60f44-7696-49ee-91fb-cab5b3102962",
+   "name": "Wurmcoil Engine",
+   "layout": "normal",
+   "faces": [
+    {
+     "index": 0,
+     "kind": "main",
+     "name": "Wurmcoil Engine",
+     "mana": "{6}",
+     "types": [
+      "Artifact",
+      "Creature"
+     ],
+     "subtypes": [
+      "Phyrexian",
+      "Wurm"
+     ],
+     "supertypes": [],
+     "abilities": [
+      {
+       "id": "f0a0",
+       "kind": "keyword",
+       "via": {
+        "prim": "xmage:DeathtouchAbility",
+        "role": "static-ability",
+        "args": []
+       },
+       "effects": [],
+       "costs": [],
+       "targets": [],
+       "keyword": {
+        "name": "Deathtouch"
+       }
+      },
+      {
+       "id": "f0a1",
+       "kind": "keyword",
+       "via": {
+        "prim": "xmage:LifelinkAbility",
+        "role": "static-ability",
+        "args": []
+       },
+       "effects": [],
+       "costs": [],
+       "targets": [],
+       "keyword": {
+        "name": "Lifelink"
+       }
+      },
+      {
+       "id": "f0a2",
+       "kind": "triggered",
+       "via": {
+        "prim": "xmage:DiesSourceTriggeredAbility",
+        "role": "triggered-ability",
+        "args": [
+         {
+          "value": {
+           "k": "invoke",
+           "invocation": {
+            "prim": "xmage:CreateTokenEffect",
+            "role": "one-shot-effect",
+            "args": [
+             {
+              "value": {
+               "k": "invoke",
+               "invocation": {
+                "prim": "xmage:WurmWithDeathtouchToken",
+                "role": "token",
+                "args": []
+               }
+              },
+              "name": "token",
+              "of": "Token"
+             }
+            ],
+            "paramMatch": "unique",
+            "mods": [
+             {
+              "m": "withAdditionalTokens",
+              "args": [
+               {
+                "value": {
+                 "k": "invoke",
+                 "invocation": {
+                  "prim": "xmage:WurmWithLifelinkToken",
+                  "role": "token",
+                  "args": []
+                 }
+                }
+               }
+              ]
+             }
+            ]
+           }
+          },
+          "name": "effect",
+          "of": "Effect"
+         },
+         {
+          "value": {
+           "k": "bool",
+           "b": false
+          },
+          "name": "optional",
+          "of": "boolean"
+         }
+        ],
+        "paramMatch": "unique"
+       },
+       "effects": [
+        {
+         "prim": "xmage:CreateTokenEffect",
+         "role": "one-shot-effect",
+         "args": [
+          {
+           "value": {
+            "k": "invoke",
+            "invocation": {
+             "prim": "xmage:WurmWithDeathtouchToken",
+             "role": "token",
+             "args": []
+            }
+           },
+           "name": "token",
+           "of": "Token"
+          }
+         ],
+         "paramMatch": "unique",
+         "mods": [
+          {
+           "m": "withAdditionalTokens",
+           "args": [
+            {
+             "value": {
+              "k": "invoke",
+              "invocation": {
+               "prim": "xmage:WurmWithLifelinkToken",
+               "role": "token",
+               "args": []
+              }
+             }
+            }
+           ]
+          }
+         ]
+        }
+       ],
+       "costs": [],
+       "targets": []
+      }
+     ],
+     "pt": {
+      "power": "6",
+      "toughness": "6"
+     }
+    }
+   ],
+   "commanderLegal": true,
+   "provenance": {
+    "xmageClass": "WurmcoilEngine",
+    "xmagePath": "Mage.Sets/src/mage/cards/w/WurmcoilEngine.java",
+    "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
+    "builtBy": "scripts/xmage/build-records.mjs",
+    "builtAt": "2026-08-24T03:40:45.560Z",
+    "join": "exact"
+   }
+  },
+  "scryfall": {
+   "name": "Wurmcoil Engine",
+   "manaCost": "{6}",
+   "typeLine": "Artifact Creature — Phyrexian Wurm",
+   "oracleText": "Deathtouch, lifelink\nWhen this creature dies, create a 3/3 colorless Phyrexian Wurm artifact creature token with deathtouch and a 3/3 colorless Phyrexian Wurm artifact creature token with lifelink."
   }
  }
 } as unknown as Record<string, Fixture>;

@@ -570,8 +570,22 @@ export function abilityEngineOwns(card: CardInstance | null | undefined): boolea
   if (!card) return false;
 
   const record = abilitiesFor(card);
-  // The compiler dropped no text and left no manual marker. Anything less and
-  // the old detector may still be seeing something this engine cannot.
+  /*
+   * NO TEXT ON THIS CARD IS UNACCOUNTED FOR, whoever accounted for it.
+   *
+   * That is the question ownership actually asks, and `coverage` is the field
+   * that answers it. Anything less and the old detector in `effects.ts` may
+   * still be seeing a clause this bridge cannot.
+   *
+   * Which is why this reads `coverage` and NOT `compilerCoverage`. On a swapped
+   * card those two disagree by design: `compilerCoverage` says the oracle-text
+   * compiler did not finish the card, and `coverage` says the ported record
+   * replaced the whole of it, so there is no unread clause left for the old
+   * detector to be seeing. 587 cards with triggers sit on that difference, and
+   * before `compilerCoverage` existed a reader here could not tell which of the
+   * two meanings one word was handing them. Now they can, and this line names
+   * the one it wants.
+   */
   if (record.coverage !== 'full') return false;
 
   const triggered = triggeredAbilitiesOf(card);

@@ -4,6 +4,13 @@
  * These are not "does the type compile" tests. Each one pins a decision the
  * design argues for in `docs/engine/CARD-SEMANTICS.md`, so that if somebody
  * later loosens one of them the test says which argument they are reversing.
+ *
+ * The shape under test is derived from **XMage**, which is MIT licensed,
+ * `Copyright (c) 2010 betasteward@gmail.com`, https://github.com/magefree/mage.
+ * The clone is read in place and nothing from it is vendored here. XMage's
+ * display strings are never copied: the fixtures below are written by hand to
+ * pin a decision, and card wording anywhere in this port comes from Scryfall.
+ * Forge is GPL-3.0 and was not fetched, read or referenced.
  */
 
 import test from 'node:test';

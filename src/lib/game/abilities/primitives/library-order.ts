@@ -28,9 +28,9 @@
  */
 
 import type { GameState, InstanceId, PlayerId } from '../../types.ts';
+import type { Effect } from '../../../cards/abilities/dsl.ts';
 import type { AbilityContext } from '../context.ts';
 import { evalValue, playerOf, resolvePlayers } from '../context.ts';
-import type { ExtendedEffect } from './extended-dsl.ts';
 import type { PrimitiveEnv, PrimitiveResult } from './contract.ts';
 import { nothing } from './contract.ts';
 
@@ -51,7 +51,7 @@ export function libraryTop(state: GameState, playerId: PlayerId, count: number):
 
 /** P08. Spec: `scripts/primitives/specs/P08.spec.json`. */
 export function scryToActions(
-  effect: Extract<ExtendedEffect, { do: 'scry' }>,
+  effect: Extract<Effect, { do: 'scry' }>,
   ctx: AbilityContext,
   env: PrimitiveEnv
 ): PrimitiveResult {
@@ -75,7 +75,7 @@ export function scryToActions(
 
 /** P09. Spec: `scripts/primitives/specs/P09.spec.json`. */
 export function surveilToActions(
-  effect: Extract<ExtendedEffect, { do: 'surveil' }>,
+  effect: Extract<Effect, { do: 'surveil' }>,
   ctx: AbilityContext,
   env: PrimitiveEnv
 ): PrimitiveResult {

@@ -43,10 +43,34 @@ function boolArg(invocation: Invocation, name: string): boolean | undefined {
   return value?.k === 'bool' ? value.b : undefined;
 }
 
-/** A player argument XMage spells as `TargetController`. Already normalised. */
-function whoseArg(invocation: Invocation, name = 'targetController'): PlayerSelector | undefined {
-  const value = arg(invocation, name)?.value;
-  return value?.k === 'players' ? value.who : undefined;
+/**
+ * A player argument XMage spells as `TargetController`, or `null` when the card
+ * wrote one this port could not read.
+ *
+ * `undefined` and `null` are different answers and the difference is load
+ * bearing, exactly as in `filterSelector` below: `undefined` means the card
+ * passed no controller and the class's own default applies; `null` means it
+ * passed one the record left CARRIED, and substituting the default in that case
+ * silently narrows the trigger.
+ *
+ * This used to return `undefined` for both, and every caller then wrote
+ * `?? { who: 'you' }`. Fevered Visions prints "At the beginning of each
+ * player's end step, that player draws a card" and was firing on YOUR end step
+ * alone, so at a four-player table it did a quarter of what it says. It RAN, so
+ * nothing downstream could see it. Found by hand check;
+ * `scripts/xmage/port-refute-controller-census.mjs` counts the rest.
+ */
+function whoseArg(invocation: Invocation, name = 'targetController'): PlayerSelector | null | undefined {
+  const slot = arg(invocation, name);
+  if (!slot) return undefined;
+  return slot.value?.k === 'players' ? slot.value.who : null;
+}
+
+/** A step trigger, refused whole when its controller argument did not resolve. */
+function stepTrigger(invocation: Invocation, step: Step): TriggerEvent | null {
+  const read = whoseArg(invocation);
+  if (read === null) return null;
+  return { on: 'step', step, whose: read ?? { who: 'you' } };
 }
 
 /**
@@ -88,25 +112,14 @@ export const TRIGGER_RULES: Record<string, TriggerRule> = {
   'xmage:EntersBattlefieldTriggeredAbility': () => ({ on: 'enters', who: SELF }),
 
   /** 982. Your upkeep unless the card says otherwise. */
-  'xmage:BeginningOfUpkeepTriggeredAbility': (invocation) => ({
-    on: 'step',
-    step: 'upkeep',
-    whose: whoseArg(invocation) ?? { who: 'you' },
-  }),
+  'xmage:BeginningOfUpkeepTriggeredAbility': (invocation) => stepTrigger(invocation, 'upkeep'),
 
   /** 602. */
-  'xmage:BeginningOfEndStepTriggeredAbility': (invocation) => ({
-    on: 'step',
-    step: 'end',
-    whose: whoseArg(invocation) ?? { who: 'you' },
-  }),
+  'xmage:BeginningOfEndStepTriggeredAbility': (invocation) => stepTrigger(invocation, 'end'),
 
   /** 322. */
-  'xmage:BeginningOfCombatTriggeredAbility': (invocation) => ({
-    on: 'step',
-    step: 'begin_combat' as Step,
-    whose: whoseArg(invocation) ?? { who: 'you' },
-  }),
+  'xmage:BeginningOfCombatTriggeredAbility': (invocation) =>
+    stepTrigger(invocation, 'begin_combat' as Step),
 
   /** 976. */
   'xmage:AttacksTriggeredAbility': () => ({ on: 'attacks', who: SELF }),

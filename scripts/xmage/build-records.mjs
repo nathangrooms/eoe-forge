@@ -244,11 +244,35 @@ function describePredicate(node) {
   return node.t ?? 'unknown';
 }
 
+/*
+ * `TargetController` members that `PlayerSelector` in `dsl.ts` can spell
+ * EXACTLY. Anything absent from this table stays CARRIED, and the port refuses
+ * rather than substituting the class's default.
+ *
+ * `EACH_PLAYER` was absent and cost real cards. Fevered Visions is written
+ * `BeginningOfEndStepTriggeredAbility(TargetController.EACH_PLAYER, ...)` and
+ * prints "At the beginning of each player's end step"; with the member carried,
+ * `whoseArg` in `triggers.ts` read no argument, the caller substituted its
+ * default of "your step", and the card fired on one end step in four at a
+ * four-player table. It is the same word `ANY` already maps to and it is not a
+ * judgement: XMage's step triggers treat both as "every player's step".
+ *
+ * `ACTIVE` and `MONARCH` are added for the same reason, each having its own
+ * `PlayerSelector` member. The rest are deliberately left out because
+ * `PlayerSelector` has no member for them and guessing one would be this port
+ * inventing a rule: `NEXT` is a delayed trigger rather than a player, `TEAM`
+ * needs two-headed giant, and `ENCHANTED`, `CONTROLLER_ATTACHED_TO`, `OWNER`,
+ * `SOURCE_TARGETS`, `SOURCE_CONTROLLER` and `INACTIVE` all name a player by
+ * their relationship to an object the selector cannot point at.
+ */
 const CONTROLLERS = {
   YOU: { who: 'you' },
   OPPONENT: { who: 'each-opponent' },
   NOT_YOU: { who: 'each-opponent' },
   ANY: { who: 'each-player' },
+  EACH_PLAYER: { who: 'each-player' },
+  ACTIVE: { who: 'active' },
+  MONARCH: { who: 'monarch' },
 };
 
 function titleCase(s) {
@@ -671,9 +695,10 @@ class Normaliser {
     // Same rule as at ability level: the extraction states one construction
     // twice, so `children` reuses the object already built inside `args` rather
     // than making a second copy of it. Object identity is what lets the census
-    // walkers count it once.
+    // walkers count it once. Each occurrence is spent once — see
+    // `spendingReuse` for why handing the first one to every sibling was wrong.
     const fromArgs = indexByPrim(inv);
-    const reuse = (raw) => fromArgs.get(`xmage:${raw.cls}`) ?? fromArgs.get(`local:${raw.cls}`) ?? this.invocation(raw);
+    const reuse = spendingReuse(fromArgs, (raw) => this.invocation(raw));
     const children = {};
     if (obj.effects) children.effects = obj.effects.map(reuse);
     if (obj.targets) children.targets = obj.targets.map(reuse);
@@ -739,19 +764,80 @@ function layoutOf(base) {
   }
 }
 
-/** Every invocation reachable from one invocation's arguments, keyed by primitive. */
+/**
+ * Every invocation reachable from one invocation's arguments, grouped by
+ * primitive, IN VISIT ORDER, with every occurrence kept.
+ *
+ * This used to keep only the first occurrence per primitive and hand it to
+ * every later sibling of the same class. That is the sibling collapse recorded
+ * in `docs/engine/PORT-PRIMARY.md` section 6: an ability constructing two or
+ * more effects of one class had the second and later constructions replaced by
+ * a COPY OF THE FIRST, arguments and all. Wayward Angel's threshold static
+ * builds four `ConditionalContinuousEffect`s wrapping, in printed order, a
+ * boost, a colour change and two ability grants; the record held four copies of
+ * the boost, the card ran, and it gave +12/+12 instead of +3/+3. Worse, the
+ * colour change is in `REFUSED_MODIFICATIONS` and would have blocked the card
+ * outright, so the collapse also defeated the port's own refusal discipline.
+ *
+ * Keeping every occurrence is what lets `reuse` below hand out each one once.
+ */
+/*
+ * ONE LEVEL, NOT THE WHOLE TREE. Corrected 24 Aug 2026.
+ *
+ * This used to recurse, so a construction nested three levels down inside a
+ * constructor argument could be handed to a list entry at the top. It cannot be
+ * the same thing: a list entry is filled by `hoist` from a DIRECT constructor
+ * argument or by a chained `.addTarget` / `.addEffect` call, and neither
+ * reaches into an argument's arguments.
+ *
+ * The reuse matches on CLASS NAME, so the recursion made a deep construction of
+ * the same class look like the shallow one. Master Skald is the card that found
+ * it: "you may exile a creature card from your graveyard. If you do, return
+ * target artifact or enchantment card from your graveyard to your hand" builds
+ * a `TargetCardInYourGraveyard` twice, once inside the cost with a creature
+ * filter and once on the ability with an artifact-or-enchantment filter. The
+ * ability's target was handed the cost's object and the card returned a
+ * CREATURE card, which is a card that runs and is wrong.
+ *
+ * Census over all 32,168 records and 60,968 abilities: exactly ONE list entry
+ * anywhere in the corpus was satisfied only by a deeper occurrence, and it is
+ * that one. So this narrowing costs no deduplication that was doing real work.
+ * Same family as the sibling collapse `spendingReuse` fixed, one axis over:
+ * that one confused siblings, this one confused nesting levels.
+ */
 function indexByPrim(invocation) {
   const out = new Map();
-  const visit = (node) => {
-    for (const slot of node.args ?? []) {
-      const inner = slot.value?.k === 'invoke' ? slot.value.invocation : null;
-      if (!inner) continue;
-      if (!out.has(inner.prim)) out.set(inner.prim, inner);
-      visit(inner);
-    }
-  };
-  visit(invocation);
+  for (const slot of invocation.args ?? []) {
+    const inner = slot.value?.k === 'invoke' ? slot.value.invocation : null;
+    if (!inner) continue;
+    const bucket = out.get(inner.prim);
+    if (bucket) bucket.push(inner);
+    else out.set(inner.prim, [inner]);
+  }
   return out;
+}
+
+/**
+ * A `reuse` that spends each indexed occurrence exactly once.
+ *
+ * The extraction states one construction twice: once as an argument to the
+ * enclosing constructor, and once in its own `effects` / `targets` / `costs`
+ * list. Reusing the already-normalised object keeps ONE object for one thing,
+ * which is what the census walkers deduplicate on. That is still true and is
+ * still what this does.
+ *
+ * What changed is arity. The index is a QUEUE per primitive and each call
+ * shifts the head, so N siblings of one class consume N distinct occurrences in
+ * order rather than N copies of the first. When the queue for a class runs out,
+ * the sibling is normalised fresh, which is the honest answer: there was no
+ * earlier construction for it to be the same thing as.
+ */
+function spendingReuse(index, normalise) {
+  return (raw) => {
+    const bucket = index.get(`xmage:${raw.cls}`) ?? index.get(`local:${raw.cls}`);
+    if (bucket && bucket.length) return bucket.shift();
+    return normalise(raw);
+  };
 }
 
 function buildRecord(raw, norm, meta) {
@@ -831,9 +917,10 @@ function buildRecord(raw, norm, meta) {
     // `costs` list. Both are true. Normalising each separately would produce two
     // objects for one thing, and the slot census would count it twice, so the
     // already-normalised object inside `via` is reused where it exists. Object
-    // identity is then what lets the walkers deduplicate.
+    // identity is then what lets the walkers deduplicate. Each occurrence is
+    // spent once — see `spendingReuse`.
     const fromVia = indexByPrim(via);
-    const reuse = (raw) => fromVia.get(`xmage:${raw.cls}`) ?? fromVia.get(`local:${raw.cls}`) ?? norm.invocation(raw);
+    const reuse = spendingReuse(fromVia, (raw) => norm.invocation(raw));
 
     const ability = {
       id: `f${fi}a${i}`,

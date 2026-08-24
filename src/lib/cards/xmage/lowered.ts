@@ -59,8 +59,31 @@
  * `CLAUDE.md`'s standing position is that oracle text wins and the
  * disagreement is recorded. This does not depart from it. It says WHERE the
  * question arises: only on a card the compiler already admits it has not
- * finished, which is `coverage !== 'full'` — a value `deriveCoverage` computes
- * and nothing hand-sets.
+ * finished, which is `compilerCoverage !== 'full'` — a value `deriveCoverage`
+ * computes, nothing hand-sets, and NOTHING REWRITES. It is not `coverage`.
+ * `coverage` describes whatever record is in front of you, so a swap sets it to
+ * 'full' and a rule reading it would refuse on a second pass every card it
+ * accepted on the first. `compilerCoverage` is the compiler's reading of the
+ * printed card and it survives the swap unchanged, which is the only reason
+ * this rule is idempotent.
+ *
+ * ### What the rule refuses that it maybe should not, sized
+ *
+ * `compilerCoverage === 'full'` says the compiler read every printed paragraph.
+ * It does not say the card WORKS. 4,916 in-pool cards hold a record and are
+ * refused by that sentence; the shipped verdict passes 3,557 of them and
+ * refuses 1,359, and on that 1,359 the compiler read the card and the engine
+ * still has no consumer for what it produced. The tempting widening is to
+ * consult the port there too. It was measured rather than argued:
+ * `DM_XMAGE_FORCE=1` in `scripts/verify-ability-coverage.mjs` puts the port in
+ * front of the compiler on all 4,916 and takes the whole pool to the verdict.
+ * It wins 20 cards and loses 224, of which 207 lose for one reason — the port
+ * lowers "{T}: Add {G}" to a MANA ability and `mana.ts` counts untapped sources
+ * instead of reading compiled mana abilities, while the compiler's shape
+ * happens to land on a live consumer. So the widening is not blocked by this
+ * rule being timid. It is blocked by an engine gap that costs the port eleven
+ * cards for every one it gains, and it is that gap and not this sentence that
+ * the next phase should move.
  *
  * ### Why the compiler wins where it is complete
  *
@@ -172,8 +195,31 @@ export function xmageSwapFor(
 ): { swap: XmageSwap } | { refused: SwapRefusal } {
   if (XMAGE_OFF) return { refused: 'DM_XMAGE_OFF=1' };
 
-  // THE RULE, first line, before anything else is looked at.
-  if (compiled.coverage === 'full') return { refused: 'compiler understands this card completely' };
+  /*
+   * THE RULE, first line, before anything else is looked at.
+   *
+   * The port is consulted only for a card the ORACLE-TEXT COMPILER did not
+   * fully read, and "did not fully read" is `compilerCoverage`: the value
+   * `deriveCoverage` computed from the compiler's own abilities and its own
+   * unparsed list, set once before this function was called and carried through
+   * the swap unchanged. It is deliberately NOT `coverage`, which the swap
+   * rewrites to 'full' on every card it speaks for, so a rule reading
+   * `coverage` answers one way on a fresh record and the opposite way on a
+   * finished one. Reading a value the decision cannot change is what makes this
+   * a rule rather than an artefact of the order two statements happen to be
+   * written in, and it is why handing a swapped record back to this function
+   * now returns the answer it returned the first time. What the sentence does
+   * NOT claim is that the compiler's answer WORKS: full coverage says every
+   * printed paragraph was read, and on 1,359 cards that hold a record it was
+   * read and the card still does nothing on a board, because the engine has no
+   * consumer for what the compiler produced. Widening the sentence to reach
+   * those was measured end to end with DM_XMAGE_FORCE=1 over all 32,469 cards
+   * and it loses 224 cards to win 20, so the sentence stays as written and
+   * those 1,359 are an engine-consumer gap rather than a precedence question.
+   */
+  if (compiled.compilerCoverage === 'full') {
+    return { refused: 'compiler understands this card completely' };
+  }
 
   const oracleId = compiled.oracleId;
   if (!Object.prototype.hasOwnProperty.call(XMAGE_LOWERED, oracleId)) {

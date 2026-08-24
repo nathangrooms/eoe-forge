@@ -35,8 +35,10 @@ import assert from 'node:assert/strict';
 
 import type { Ability, ActivatedAbility, CardFilter, Effect, KeywordAbility, ManaAbility, ReplacementAbility, StaticAbility, TriggeredAbility } from '../abilities/dsl.ts';
 import { assertSerialisable } from '../abilities/dsl.ts';
-import { lowerCard } from './lower.ts';
-import { abilitiesOf, invocationsInAbility } from './record.ts';
+import { lowerAbility, lowerCard } from './lower.ts';
+import { TRIGGER_RULES } from './triggers.ts';
+import { unreadChainedCall } from './chained-calls.ts';
+import { type Slot, abilitiesOf, invocationsInAbility } from './record.ts';
 import { fixture, PORT_FIXTURES } from './port.fixtures.generated.ts';
 
 /* ------------------------------------------------------------------ *
@@ -1065,11 +1067,34 @@ test('xmage:DamageWithPowerFromOneToAnotherTargetEffect — Animist\'s Might kee
   // One damage, not two: this is the one-way fight. The multiplier is the half
   // that is invisible once wrong — the card still resolves, still kills things,
   // and does half the damage it says.
-  const list = abilities(
+  //
+  // THE CARD AS A WHOLE NOW REFUSES, and that is the first half of this test.
+  // Its printed first line is "This spell costs {2} less to cast if it targets a
+  // legendary creature you control", and until the round 2 hand check the
+  // condition on that discount was dropped: the card lowered and offered an
+  // unconditional {2} off. `SourceTargetsPermanentCondition` asks about THIS
+  // SPELL'S OWN TARGETS, `conditions.ts` has no entry for it, so the discount
+  // refuses and takes the whole card with it.
+  //
+  // The multiplier is then asserted on the spell ability by itself, because it
+  // is what this entry exists to pin and a refusal one line above it must not
+  // quietly stop testing it.
+  const { fixture: f, lowered } = card(
     'AnimistsMight',
     "This spell costs {2} less to cast if it targets a legendary creature you control.\nTarget creature you control deals damage equal to twice its power to target creature or planeswalker you don't control.",
   );
-  const damages = list.flatMap(effectsOf).filter((e) => e.do === 'damage');
+  assert.equal(lowered.ok, false, 'the conditional cost reduction should refuse the card');
+  assert.ok(
+    lowered.blocked.some((b) =>
+      (b.result.refused ?? []).some((r) => r.why.includes('no entry in the condition table')),
+    ),
+    `expected a condition-table refusal, got ${JSON.stringify(lowered.blocked.map((b) => b.result.refused))}`,
+  );
+
+  const spell = abilitiesOf(f.record).find((a) => a.kind === 'spell')!;
+  const one = lowerAbility(spell, f.record);
+  assert.equal(one.ok, true, `the spell ability itself should still lower: ${JSON.stringify(one)}`);
+  const damages = effectsOf(one.ability!).filter((e) => e.do === 'damage');
   assert.equal(damages.length, 1);
   assert.deepEqual(damages[0], {
     do: 'damage',
@@ -1092,5 +1117,567 @@ test('xmage:GetEnergyCountersControllerEffect — energy is a PLAYER counter', (
   assert.deepEqual(
     effectsOf(ability).find((e) => e.do === 'player-counter'),
     { do: 'player-counter', who: { who: 'you' }, counter: 'energy', count: 2 },
+  );
+});
+
+/* ------------------------------------------------------------------ *
+ * `{do:'do-if-cost-paid'}` — a cost the CONTROLLER is offered
+ * ------------------------------------------------------------------ */
+
+test("xmage:DoIfCostPaid — Academy Rector", () => {
+  // "When this creature dies, you may exile it. If you do, search your library
+  //  for an enchantment card, put that card onto the battlefield, then shuffle."
+  //
+  // The polarity is the whole test. `{do:'unless-pays'}` asks somebody who is
+  // NOT the controller and runs its effects when they DECLINE, so lowering this
+  // into one would search the library for every player who refused to exile a
+  // card they do not control.
+  const ability = only(
+    'AcademyRector',
+    'When this creature dies, you may exile it. If you do, search your library for an enchantment card, put that card onto the battlefield, then shuffle.',
+  );
+  const offer = effectsOf(ability).find((e) => e.do === 'do-if-cost-paid');
+  assert.ok(offer, `no {do:'do-if-cost-paid'} in ${JSON.stringify(effectsOf(ability))}`);
+  assert.deepEqual(offer, {
+    do: 'do-if-cost-paid',
+    who: { who: 'you' },
+    cost: [{ pay: 'exile', from: 'graveyard', what: { sel: 'self' }, count: 1 }],
+    // "you may" on the printed card. The flag is carried and never defaulted:
+    // a false here is a card that exiles itself whether the player agreed or not.
+    optional: true,
+    then: [
+      {
+        do: 'search-library',
+        who: { who: 'you' },
+        what: {
+          sel: 'all',
+          where: { is: 'type', value: 'Enchantment' },
+          zone: 'library',
+          controller: { who: 'you' },
+        },
+        count: 1,
+        to: 'battlefield',
+        thenShuffle: true,
+      },
+    ],
+  });
+});
+
+test('an effect added by .addEffect is on the PAID branch — Oloro, Ageless Ascetic', () => {
+  // "Whenever you gain life, you may pay {1}. If you do, draw a card and each
+  //  opponent loses 1 life."
+  //
+  // TWO effects on the paid branch, and only the first is a constructor
+  // argument. The second arrives through a chained `.addEffect`, which the
+  // extraction files under the construction's `children.effects` rather than in
+  // `mods`. Every lowering here used to ask `modArgs(invocation, 'addEffect')`
+  // for it, a list the record never fills, so the drain half of this card was
+  // dropped in silence. 204 `DoIfCostPaid`, 56 `ConditionalOneShotEffect` and 14
+  // `ConditionalContinuousEffect` constructions across 160 cards were affected.
+  const list = abilities(
+    'OloroAgelessAscetic',
+    'At the beginning of your upkeep, you gain 2 life.\nWhenever you gain life, you may pay {1}. If you do, draw a card and each opponent loses 1 life.\nAt the beginning of your upkeep, if Oloro is in the command zone, you gain 2 life.',
+  );
+  const offer = list.flatMap(effectsOf).find((e) => e.do === 'do-if-cost-paid');
+  assert.ok(offer, 'Oloro lowered without the optional cost');
+  assert.deepEqual((offer as { cost: unknown }).cost, [{ pay: 'mana', cost: '{1}' }]);
+  assert.deepEqual((offer as { then: unknown }).then, [
+    { do: 'draw', who: { who: 'you' }, count: 1 },
+    { do: 'lose-life', who: { who: 'each-opponent' }, amount: 1 },
+  ]);
+});
+
+test('an added effect with no lowering REFUSES the whole card — Lorthos, the Tidemaker', () => {
+  // "Whenever Lorthos attacks, you may pay {8}. If you do, tap up to eight
+  //  target permanents. Those permanents don't untap during their controllers'
+  //  next untap steps."
+  //
+  // The refusal is the test, and it is the second half of the bug above. Once
+  // the added effect is READ, this card names an effect class with no entry, so
+  // it refuses. Before it was read, Lorthos lowered to a plain `tap` and every
+  // one of those eight permanents untapped on schedule: a card that ran, looked
+  // fine, and threw away the reason anybody plays it.
+  const { lowered } = card(
+    'LorthosTheTidemaker',
+    "Whenever Lorthos attacks, you may pay {8}. If you do, tap up to eight target permanents. Those permanents don't untap during their controllers' next untap steps.",
+  );
+  assert.equal(lowered.ok, false, 'Lorthos lowered, so the added effect is being dropped again');
+  const named = lowered.blocked.flatMap((b) => b.result.missing);
+  assert.ok(
+    named.includes('xmage:DontUntapInControllersNextUntapStepTargetEffect'),
+    `the refusal does not name the effect it is missing: ${JSON.stringify(named)}`,
+  );
+});
+
+test('a target is not reused across nesting levels — Master Skald', () => {
+  // "When this creature enters, you may exile a creature card from your
+  //  graveyard. If you do, return target artifact or enchantment card from your
+  //  graveyard to your hand."
+  //
+  // Two `TargetCardInYourGraveyard`s: one inside the COST with a creature
+  // filter, one on the ABILITY with an artifact-or-enchantment filter. The
+  // record builder's reuse index matched them by class name through every level
+  // of nesting, so the ability was handed the cost's object and the card
+  // returned a CREATURE card from the graveyard. This is the only card in the
+  // corpus where a list entry was satisfied by a deeper occurrence, measured
+  // over all 32,168 records.
+  //
+  // It refuses now, on the filter it genuinely cannot read, which is the honest
+  // answer rather than the wrong one.
+  const { lowered } = card(
+    'MasterSkald',
+    'When this creature enters, you may exile a creature card from your graveyard. If you do, return target artifact or enchantment card from your graveyard to your hand.',
+  );
+  assert.equal(lowered.ok, false, 'Master Skald lowered, so check which target it was given');
+  const filters = JSON.stringify(lowered.abilities);
+  assert.ok(
+    !filters.includes('"Creature"') || lowered.abilities.length === 0,
+    'the creature filter from the cost reached the ability again',
+  );
+});
+
+/* ------------------------------------------------------------------ *
+ * `{do:'scry'}` and `{do:'surveil'}` — promoted out of the staging file
+ * ------------------------------------------------------------------ */
+
+test('xmage:ScryEffect — Preordain, and the count is READ', () => {
+  // "Scry 2, then draw a card. (To scry 2, look at the top two cards of your
+  //  library, then put any number of them on the bottom and the rest on top in
+  //  any order.)"
+  //
+  // The count is the whole risk in this lowering. XMage has four constructors
+  // and two of them take a DynamicValue, so a reader that only understood an
+  // int would refuse every "scry X" while quietly passing every fixed one. Both
+  // argument names are read and a count that does not resolve refuses.
+  const ability = only(
+    'Preordain',
+    'Scry 2, then draw a card. (To scry 2, look at the top two cards of your library, then put any number of them on the bottom and the rest on top in any order.)',
+  );
+  assert.deepEqual(effectsOf(ability), [
+    { do: 'scry', who: { who: 'you' }, count: 2 },
+    { do: 'draw', who: { who: 'you' }, count: 1 },
+  ]);
+});
+
+test('xmage:SurveilEffect is its OWN verb — Whisper Agent', () => {
+  // "Flash / When this creature enters, surveil 1. (Look at the top card of your
+  //  library. You may put it into your graveyard.)"
+  //
+  // Not scry with a flag. The cards go to the GRAVEYARD, which a dozen other
+  // mechanics can reach, and scry puts them on the bottom, where nothing can.
+  // One verb with a destination argument would make those the same log line.
+  const list = abilities(
+    'WhisperAgent',
+    'Flash\nWhen this creature enters, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)',
+  );
+  const trigger = list.find((a) => a.kind === 'triggered') as TriggeredAbility;
+  assert.ok(trigger, 'Whisper Agent lowered without a triggered ability');
+  assert.deepEqual(trigger.effects, [{ do: 'surveil', who: { who: 'you' }, count: 1 }]);
+});
+
+/* ------------------------------------------------------------------ *
+ * `{do:'look-and-pick'}` — look at the top few, take some, the rest go
+ * somewhere the card names
+ * ------------------------------------------------------------------ */
+
+test('xmage:LookLibraryAndPickControllerEffect — Anticipate', () => {
+  // "Look at the top three cards of your library. Put one of them into your
+  //  hand and the rest on the bottom of your library in any order."
+  //
+  // `upTo` is false: the card says "put one of them into your hand", with no
+  // "up to" and no "may", so the card is taken if there is one to take.
+  const ability = only(
+    'Anticipate',
+    'Look at the top three cards of your library. Put one of them into your hand and the rest on the bottom of your library in any order.',
+  );
+  assert.deepEqual(effectsOf(ability), [
+    {
+      do: 'look-and-pick',
+      who: { who: 'you' },
+      look: 3,
+      pick: 1,
+      upTo: false,
+      pickedTo: { zone: 'hand' },
+      restTo: { zone: 'library', position: 'bottom', order: 'any' },
+    },
+  ]);
+});
+
+test('the OTHER constructor family derives upTo — Commune with Nature', () => {
+  // "Look at the top five cards of your library. You may reveal a creature card
+  //  from among them and put it into your hand. Put the rest on the bottom of
+  //  your library in any order."
+  //
+  // Same XMage class as Anticipate, a different constructor, and the two
+  // families disagree about the same field. The one with a filter argument sets
+  // `optional` to TRUE by default and derives `upTo` from the count; the one
+  // without sets `optional` false and reads `upTo` off an argument. A single
+  // default here would force this card's "you may" and would invent Anticipate's.
+  const ability = only(
+    'CommuneWithNature',
+    'Look at the top five cards of your library. You may reveal a creature card from among them and put it into your hand. Put the rest on the bottom of your library in any order.',
+  );
+  const effect = effectsOf(ability)[0];
+  assert.equal((effect as { do: string }).do, 'look-and-pick');
+  assert.equal((effect as { upTo: boolean }).upTo, true, 'the printed "you may" was lost');
+  assert.deepEqual((effect as { what: CardFilter }).what, { is: 'type', value: 'Creature' });
+  assert.deepEqual((effect as { look: unknown }).look, 5);
+});
+
+test('the cards NOT taken carry their own destination — Orazca Puzzle-Door', () => {
+  // "{1}, {T}, Sacrifice this artifact: Look at the top two cards of your
+  //  library. Put one of those cards into your hand and the other into your
+  //  graveyard."
+  //
+  // The second destination is the test. A member that recorded only what was
+  // taken would make this card and Anticipate the same shape, and they are not:
+  // one of them fills a graveyard on purpose and the other hides a card at the
+  // bottom of the library where nothing can reach it.
+  const ability = only(
+    'OrazcaPuzzleDoor',
+    '{1}, {T}, Sacrifice this artifact: Look at the top two cards of your library. Put one of those cards into your hand and the other into your graveyard.',
+  );
+  const effect = effectsOf(ability)[0];
+  assert.deepEqual((effect as { pickedTo: unknown }).pickedTo, { zone: 'hand' });
+  assert.deepEqual((effect as { restTo: unknown }).restTo, { zone: 'graveyard' });
+});
+
+/* ------------------------------------------------------------------ *
+ * The eleven cards a fresh fifty-card hand check caught, August 2026
+ *
+ * Every one of these RAN before the fix and did something the printed card does
+ * not say, which is the failure this port keeps making and keeps writing down.
+ * Six are now lowered correctly and five refuse. They are grouped by the DEFECT
+ * rather than by the primitive, because the primitive was not the problem in
+ * any of them: the problem was a fact the record carried and the lowering did
+ * not read.
+ * ------------------------------------------------------------------ */
+
+test('a chained .withAdditionalTokens is part of the effect — Triplicate Titan', () => {
+  // "Flying, vigilance, trample
+  //  When this creature dies, create a 3/3 colorless Golem artifact creature
+  //  token with flying, a 3/3 colorless Golem artifact creature token with
+  //  vigilance, and a 3/3 colorless Golem artifact creature token with trample."
+  //
+  // Three tokens, and the lowering read only the constructor argument, so the
+  // card made one Golem and shipped that way.
+  const list = abilities(
+    'TriplicateTitan',
+    'Flying, vigilance, trample\nWhen this creature dies, create a 3/3 colorless Golem artifact creature token with flying, a 3/3 colorless Golem artifact creature token with vigilance, and a 3/3 colorless Golem artifact creature token with trample.',
+  );
+  const trigger = list[3] as TriggeredAbility;
+  assert.equal(trigger.effects.length, 3, 'a token was dropped');
+  assert.deepEqual(
+    trigger.effects.map((e) => (e as { token: { keywords?: string[] } }).token.keywords),
+    [['flying'], ['vigilance'], ['trample']],
+  );
+});
+
+test('the additional tokens can differ in size — Somberwald Beastmaster', () => {
+  // "When this creature enters, create a 2/2 green Wolf creature token, a 3/3
+  //  green Beast creature token, and a 4/4 green Beast creature token.
+  //  Creature tokens you control have deathtouch. (Any amount of damage they
+  //  deal to a creature is enough to destroy it.)"
+  const list = abilities(
+    'SomberwaldBeastmaster',
+    'When this creature enters, create a 2/2 green Wolf creature token, a 3/3 green Beast creature token, and a 4/4 green Beast creature token.\nCreature tokens you control have deathtouch. (Any amount of damage they deal to a creature is enough to destroy it.)',
+  );
+  const trigger = list[0] as TriggeredAbility;
+  assert.deepEqual(
+    trigger.effects.map((e) => {
+      const t = (e as { token: { name: string; power: string; toughness: string } }).token;
+      return `${t.name} ${t.power}/${t.toughness}`;
+    }),
+    ['Wolf 2/2', 'Beast 3/3', 'Beast 4/4'],
+  );
+});
+
+test('two tokens, same name, different keyword — Wurmcoil Engine', () => {
+  // "Deathtouch, lifelink
+  //  When this creature dies, create a 3/3 colorless Phyrexian Wurm artifact
+  //  creature token with deathtouch and a 3/3 colorless Phyrexian Wurm artifact
+  //  creature token with lifelink."
+  //
+  // The two tokens share a name, so a reader that de-duplicated by name would
+  // pass the test above and fail this one.
+  const list = abilities(
+    'WurmcoilEngine',
+    'Deathtouch, lifelink\nWhen this creature dies, create a 3/3 colorless Phyrexian Wurm artifact creature token with deathtouch and a 3/3 colorless Phyrexian Wurm artifact creature token with lifelink.',
+  );
+  const trigger = list[2] as TriggeredAbility;
+  assert.deepEqual(
+    trigger.effects.map((e) => (e as { token: { keywords?: string[] } }).token.keywords),
+    [['deathtouch'], ['lifelink']],
+  );
+});
+
+test('a value multiplier is the SIGN and survives a filter — Terror Tide', () => {
+  // "Fathomless descent — All creatures get -X/-X until end of turn, where X is
+  //  the number of permanent cards in your graveyard."
+  //
+  // `CardsInControllerGraveyardCount(filter, -1)`. The filtered branch of the
+  // value reader returned before it looked at the multiplier, so every creature
+  // on the table got +X/+X and the card was exactly backwards.
+  const ability = only(
+    'TerrorTide',
+    'Fathomless descent — All creatures get -X/-X until end of turn, where X is the number of permanent cards in your graveyard.',
+  );
+  const pump = effectsOf(ability)[0] as unknown as { power: { v: string; of: unknown[] } };
+  assert.equal(pump.power.v, 'mul');
+  assert.equal(pump.power.of[1], -1, 'the sign was dropped, so the card pumps instead of shrinking');
+});
+
+test('exhaust carries its once-per-game limit and its timing — Liliana the Repentant', () => {
+  // "Whenever another creature or planeswalker you control enters, mill two cards.
+  //  Exhaust — {5}{B}: Return target creature or planeswalker card from your
+  //  graveyard to the battlefield. Put a +1/+1 counter on Liliana. Activate only
+  //  as a sorcery. (Activate each exhaust ability only once.)"
+  //
+  // Both restrictions live in `ExhaustAbility` and not on the card's own
+  // arguments: the copy constructor sets `maxActivationsPerGame` and the fourth
+  // constructor argument sets the timing. The ability was being offered every
+  // turn and at instant speed.
+  const list = abilities(
+    'LilianaTheRepentant',
+    'Whenever another creature or planeswalker you control enters, mill two cards.\nExhaust — {5}{B}: Return target creature or planeswalker card from your graveyard to the battlefield. Put a +1/+1 counter on Liliana. Activate only as a sorcery. (Activate each exhaust ability only once.)',
+  );
+  const exhaust = list[1] as ActivatedAbility;
+  assert.deepEqual(exhaust.limit, { per: 'game', count: 1 });
+  assert.equal(exhaust.timing, 'sorcery');
+});
+
+test('a step trigger keeps whose step it is — Fevered Visions', () => {
+  // "At the beginning of each player's end step, that player draws a card. If
+  //  the player is your opponent and has four or more cards in hand, this
+  //  enchantment deals 2 damage to that player."
+  //
+  // `TargetController.EACH_PLAYER` had no entry in the record's controller
+  // table, so the argument stayed carried, the reader saw no argument, and the
+  // caller substituted the class default of "your step". At a four-player table
+  // the card did a quarter of what it prints.
+  //
+  // The whole card does not lower — its effect is a class the card file
+  // declares for itself — so the trigger rule is put the question directly,
+  // with the card's own recorded invocation. That is what was wrong and that is
+  // what is asserted.
+  const { fixture: f } = card(
+    'FeveredVisions',
+    "At the beginning of each player's end step, that player draws a card. If the player is your opponent and has four or more cards in hand, this enchantment deals 2 damage to that player.",
+  );
+  const via = abilitiesOf(f.record)[0].via;
+  assert.equal(via.prim, 'xmage:BeginningOfEndStepTriggeredAbility');
+  assert.deepEqual(TRIGGER_RULES[via.prim](via), {
+    on: 'step',
+    step: 'end',
+    whose: { who: 'each-player' },
+  });
+});
+
+test('a step trigger REFUSES a controller nothing can spell', () => {
+  // `TargetController.NEXT` is a delayed trigger and not a player, so there is
+  // no `PlayerSelector` for it. Before this, the reader returned `undefined`
+  // for an argument it could not read and the caller substituted "your step",
+  // which is the same silent narrowing Fevered Visions suffered. The invocation
+  // is written out here rather than taken from a card because the point is the
+  // SHAPE of the argument — a carried enum in the controller slot — and not any
+  // one card.
+  const rule = TRIGGER_RULES['xmage:BeginningOfEndStepTriggeredAbility'];
+  assert.equal(
+    rule({
+      prim: 'xmage:BeginningOfEndStepTriggeredAbility',
+      role: 'triggered-ability',
+      args: [
+        {
+          name: 'targetController',
+          of: 'TargetController',
+          carried: { c: 'enum', enumName: 'TargetController', member: 'NEXT' },
+        },
+      ],
+    }),
+    null,
+  );
+});
+
+test('forecast refuses: four printed restrictions, none of them on an argument', () => {
+  // "Creatures you control get +1/+1 until end of turn.
+  //  Forecast — {W}, Reveal this card from your hand: Target creature gets +1/+1
+  //  until end of turn. (Activate only during your upkeep and only once each turn.)"
+  //
+  // It lowered to "{W}: Target creature gets +1/+1 until end of turn" with no
+  // zone, no limit, no upkeep condition and no reveal cost.
+  const { lowered } = card(
+    'SteelingStance',
+    'Creatures you control get +1/+1 until end of turn.\nForecast — {W}, Reveal this card from your hand: Target creature gets +1/+1 until end of turn. (Activate only during your upkeep and only once each turn.)',
+  );
+  assert.equal(lowered.ok, false);
+  assert.ok(lowered.blocked.some((b) => b.result.missing.includes('xmage:ForecastAbility')));
+});
+
+test('a cost filter the port cannot read is a refusal, not "any card" — Sanctum Spirit', () => {
+  // "Lifelink
+  //  Discard a historic card: This creature gains indestructible until end of
+  //  turn. (Artifacts, legendaries, and Sagas are historic.)"
+  //
+  // The filter is a Java predicate the record carries and does not resolve, and
+  // the cost reader treated that as no filter, so any card in hand paid for it.
+  const { lowered } = card(
+    'SanctumSpirit',
+    'Lifelink\nDiscard a historic card: This creature gains indestructible until end of turn. (Artifacts, legendaries, and Sagas are historic.)',
+  );
+  assert.equal(lowered.ok, false);
+});
+
+test('"from a single graveyard" refuses rather than widening the cost — Night Soil', () => {
+  // "{1}, Exile two creature cards from a single graveyard: Create a 1/1 green
+  //  Saproling creature token."
+  //
+  // A `Selector` names a set. It cannot say "and all of them from the same one
+  // of these sets", so the cost was payable with one card from each of two
+  // opponents' graveyards.
+  const { lowered } = card(
+    'NightSoil',
+    '{1}, Exile two creature cards from a single graveyard: Create a 1/1 green Saproling creature token.',
+  );
+  assert.equal(lowered.ok, false);
+});
+
+test('an alternative way to CAST the card is not an activated ability — Saproling Symbiosis', () => {
+  // "You may cast this spell as though it had flash if you pay {2} more to cast
+  //  it. (You may cast it any time you could cast an instant.)
+  //  Create a 1/1 green Saproling creature token for each creature you control."
+  //
+  // `PayMoreToCastAsThoughtItHadFlashAbility` extends `SpellAbility` and carries
+  // the spell's own effect, so it lowered to "{2}: Create a 1/1 green Saproling
+  // creature token for each creature you control", repeatable, with no zone.
+  const { lowered } = card(
+    'SaprolingSymbiosis',
+    'You may cast this spell as though it had flash if you pay {2} more to cast it. (You may cast it any time you could cast an instant.)\nCreate a 1/1 green Saproling creature token for each creature you control.',
+  );
+  assert.equal(lowered.ok, false);
+  assert.ok(
+    lowered.blocked.some((b) =>
+      b.result.refused.some((r) => r.why.includes('alternative way to CAST')),
+    ),
+    JSON.stringify(lowered.blocked),
+  );
+});
+
+test('the sentence that runs when nothing was picked is not dropped — Contagious Vorrac', () => {
+  // "When this creature enters, look at the top four cards of your library. You
+  //  may reveal a land card from among them and put it into your hand. Put the
+  //  rest on the bottom of your library in a random order. If you didn't put a
+  //  card into your hand this way, proliferate."
+  //
+  // The last sentence arrives as `.withOtherwiseEffect(new ProliferateEffect())`
+  // and `{do:'look-and-pick'}` has no else branch, so it was being dropped
+  // without a word.
+  const { lowered } = card(
+    'ContagiousVorrac',
+    "When this creature enters, look at the top four cards of your library. You may reveal a land card from among them and put it into your hand. Put the rest on the bottom of your library in a random order. If you didn't put a card into your hand this way, proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)",
+  );
+  assert.equal(lowered.ok, false);
+  assert.ok(
+    lowered.blocked.some((b) => b.result.refused.some((r) => r.why.includes('no else branch'))),
+    JSON.stringify(lowered.blocked),
+  );
+});
+
+test('a cost added after the constructor is still a cost — Springleaf Drum', () => {
+  // "{T}, Tap an untapped creature you control: Add one mana of any color."
+  //
+  // `AnyColorManaAbility` owns its tap, so the record's cost list is empty on
+  // Birds of Paradise and holds the SECOND cost here, added with
+  // `ability.addCost(...)` after the constructor ran. The rule refused a cost
+  // passed as a constructor ARGUMENT and read no list at all, so the card
+  // lowered to "{T}: Add one mana of any color" and every Springleaf Drum in
+  // the corpus was a strictly better card than the one printed. Found by
+  // hand-checking the disagreement census, where the compiler had both costs
+  // and the port had one.
+  const ability = only(
+    'SpringleafDrum',
+    '{T}, Tap an untapped creature you control: Add one mana of any color.',
+  ) as ManaAbility;
+  assert.equal(ability.costs.length, 2, 'the added cost was dropped');
+  assert.deepEqual(ability.costs[0], { pay: 'tap' });
+  assert.equal((ability.costs[1] as { pay: string }).pay, 'tap-others');
+});
+
+/* ------------------------------------------------------------------ *
+ * Round three of the same hand check, and the guard that generalises it
+ *
+ * Three more cards that RAN and were wrong, all of the same shape as the
+ * eleven above: a fact the record carried and no lowering read. The fourth
+ * test is the guard itself, which is what stops the next one shipping.
+ * ------------------------------------------------------------------ */
+
+test('a token that arrives ATTACKING is not a token that arrives tapped — Falconer Adept', () => {
+  // "Whenever this creature attacks, create a 1/1 white Bird creature token
+  //  with flying that's tapped and attacking."
+  //
+  // `CreateTokenEffect(token, amount, tapped, attacking)`. The lowering read
+  // `tapped` and walked past `attacking`, so the Bird arrived beside the attack
+  // instead of in it and dealt no combat damage. `{do:'create-token'}` has
+  // nowhere to put the second half, so the card refuses.
+  const { lowered } = card(
+    'FalconerAdept',
+    "Whenever this creature attacks, create a 1/1 white Bird creature token with flying that's tapped and attacking.",
+  );
+  assert.equal(lowered.ok, false);
+});
+
+test('lieutenant refuses: the class writes its own condition and its own effect', () => {
+  // "Trample
+  //  Lieutenant — As long as you control your commander, this creature gets
+  //  +2/+2 and other creatures you control get +2/+2 and have trample."
+  //
+  // `LieutenantAbility` builds a +2/+2 for the source inside its own
+  // constructor, wraps whatever effect it is handed in "as long as you control
+  // your commander", and takes the rest through `.addLieutenantEffect(...)`.
+  // The record holds a class name and one argument, so the card lowered to an
+  // UNCONDITIONAL "other creatures you control get +2/+2": no commander clause,
+  // no boost to itself, no trample.
+  const { lowered } = card(
+    'ThunderfootBaloth',
+    'Trample\nLieutenant — As long as you control your commander, this creature gets +2/+2 and other creatures you control get +2/+2 and have trample.',
+  );
+  assert.equal(lowered.ok, false);
+  assert.ok(lowered.blocked.some((b) => b.result.missing.includes('xmage:LieutenantAbility')));
+});
+
+test('"from a single graveyard" refuses as a TARGET too — Famished Ghoul', () => {
+  // "{1}{B}, Sacrifice this creature: Exile up to two target cards from a
+  //  single graveyard."
+  //
+  // The class had a target entry and the entry kept "a single graveyard" in its
+  // PROMPT and nowhere else. A prompt is words a player reads; the selector is
+  // what the engine checks for legality, and it said "any card in any
+  // graveyard", so two cards from two different graveyards were a legal choice.
+  const { lowered } = card(
+    'FamishedGhoul',
+    '{1}{B}, Sacrifice this creature: Exile up to two target cards from a single graveyard.',
+  );
+  assert.equal(lowered.ok, false);
+});
+
+test('an unread chained call refuses wherever it is chained', () => {
+  // The guard itself, asserted rather than trusted. `unreadChainedCall` is what
+  // three lowering paths consult, and the two lists it reads are the only place
+  // a call can be declared read or inert. A name in neither list is a printed
+  // clause nobody is handling, and it must come back as the offender's name.
+  const carried = { carried: { c: 'text', length: 3 } } as unknown as Slot;
+  assert.equal(
+    unreadChainedCall({ prim: 'xmage:DamageTargetEffect', role: 'one-shot-effect', args: [], mods: [{ m: 'withTargetDescription', args: [carried] }] }),
+    null,
+    'a call this project has written down as inert must not refuse',
+  );
+  assert.equal(
+    unreadChainedCall({ prim: 'xmage:CreateTokenEffect', role: 'one-shot-effect', args: [], mods: [{ m: 'withAdditionalTokens', args: [] }] }),
+    null,
+    'a call a lowering reads must not refuse',
+  );
+  assert.equal(
+    unreadChainedCall({ prim: 'xmage:SagaAbility', role: 'static-ability', args: [], mods: [{ m: 'addChapterEffect', args: [] }] }),
+    'addChapterEffect',
+    'a call in neither list must be named',
   );
 });

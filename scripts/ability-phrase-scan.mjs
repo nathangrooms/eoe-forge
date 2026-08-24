@@ -199,6 +199,10 @@ const DEFERRED_EFFECT_VERBS = new Set([
   'choose-mode',    // to-actions.ts case 'choose-mode'   — a decision
   'may',            // to-actions.ts case 'may'           — a decision
   'unless-pays',    // to-actions.ts case 'unless-pays'   — an opponent's decision
+  'do-if-cost-paid',// to-actions.ts case 'do-if-cost-paid' — the controller's own, with a price
+  'scry',           // to-actions.ts case 'scry'           — which cards go to the bottom
+  'surveil',        // to-actions.ts case 'surveil'        — which cards go to the graveyard
+  'look-and-pick',  // to-actions.ts case 'look-and-pick'  — which cards are taken
 ]);
 // `manual` is deliberately NOT on the list. Every ability in this cohort has one
 // by definition — it is the thing being taught away — so counting it would mark
@@ -208,7 +212,7 @@ const DEFERRED_EFFECT_VERBS = new Set([
 function hasDeferredVerb(effects) {
   for (const e of effects ?? []) {
     if (DEFERRED_EFFECT_VERBS.has(e.do)) return true;
-    if (e.do === 'if' && (hasDeferredVerb(e.then) || hasDeferredVerb(e.else))) return true;
+    if ((e.do === 'if' || e.do === 'do-if-cost-paid') && (hasDeferredVerb(e.then) || hasDeferredVerb(e.else))) return true;
     if ((e.do === 'for-each' || e.do === 'repeat') && hasDeferredVerb(e.effects)) return true;
   }
   return false;

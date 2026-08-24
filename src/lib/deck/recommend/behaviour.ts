@@ -427,6 +427,15 @@ function readEffect(effect: Effect, out: Set<Facet>): void {
       readEffects(effect.then, out);
       readEffects(effect.else, out);
       return;
+    /* Both branches are read, and the verb itself is recorded, because a deck
+     * built around "you may pay 2 life: draw a card" is built around a
+     * repeatable optional cost, and a reader that saw only the draw would price
+     * it as a cantrip. */
+    case 'do-if-cost-paid':
+      out.add('eff:do-if-cost-paid');
+      readEffects(effect.then, out);
+      readEffects(effect.else, out);
+      return;
     case 'for-each':
     case 'repeat':
     case 'may':
@@ -541,6 +550,9 @@ function readEffect(effect: Effect, out: Set<Facet>): void {
     case 'set-life':
     case 'poison':
     case 'shuffle':
+    case 'scry':
+    case 'surveil':
+    case 'look-and-pick':
     case 'attach':
     case 'set-monarch':
     case 'win-game':

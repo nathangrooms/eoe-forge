@@ -678,6 +678,14 @@ export function compileWithTrace(card: AbilityCard): CompileTrace {
     });
   }
 
+  /*
+   * Derived ONCE, here, from this function's own two lists, and read twice
+   * below under two different names. `compilerCoverage` is the value the
+   * precedence rule tests and it is never recomputed; `coverage` is the
+   * record's description of itself and the swap does rewrite it.
+   */
+  const compilerCoverage = deriveCoverage(abilities, unparsed);
+
   const result: CardAbilities = {
     oracleId: abilityKey(card),
     name: String(card.name ?? ''),
@@ -685,7 +693,8 @@ export function compileWithTrace(card: AbilityCard): CompileTrace {
     unparsed,
     source: 'compiler',
     oracleHash: normalized.hash,
-    coverage: deriveCoverage(abilities, unparsed),
+    coverage: compilerCoverage,
+    compilerCoverage,
   };
 
   /*
@@ -705,6 +714,13 @@ export function compileWithTrace(card: AbilityCard): CompileTrace {
    * are all in `../xmage/lowered.ts`. The short version is that the compiler
    * wins whenever it fully understands the card, so the line below can only
    * ever fire on a card this function has already marked incomplete.
+   *
+   * The rule reads `result.compilerCoverage`, which is the value computed above
+   * and which the swap below does not touch. `result.coverage` IS rewritten by
+   * the swap, so asking the rule a second time on a finished record used to
+   * reverse its answer on every swapped card. It no longer can: put a swapped
+   * record back in and the rule reads the same `compilerCoverage` it read the
+   * first time and reaches the same decision.
    */
   const decision = xmageSwapFor(result, normalized);
   if ('swap' in decision) {
@@ -713,6 +729,13 @@ export function compileWithTrace(card: AbilityCard): CompileTrace {
       abilities: decision.swap.abilities,
       unparsed: [],
       source: 'xmage',
+      /*
+       * Recomputed on purpose, and it means something different from the value
+       * it replaces: "the ported record accounts for this whole card", not "the
+       * compiler read this whole card". `compilerCoverage` is spread through
+       * from `result` above and still carries the second meaning, so both are
+       * on the record and neither has to be inferred from the other.
+       */
       coverage: deriveCoverage(decision.swap.abilities, []),
     };
     return {

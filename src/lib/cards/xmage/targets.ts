@@ -78,17 +78,14 @@ export const XMAGE_TARGETS: Record<string, TargetEntry> = {
   'xmage:TargetCardInHand': { what: 'card', filter: { is: 'any' }, zone: 'hand', controller: { who: 'you' }, prompt: 'card in your hand' }, // 179
   'xmage:TargetNonlandPermanent': { what: 'card', filter: NOT(T('Land')), zone: 'battlefield', prompt: 'nonland permanent' }, // 151
   'xmage:TargetCreatureOrPlaneswalker': { what: 'card', filter: OR(T('Creature'), T('Planeswalker')), zone: 'battlefield', prompt: 'creature or planeswalker' }, // 140
-  'xmage:TargetPlayerOrPlaneswalker': { what: 'any', filter: T('Planeswalker'), prompt: 'player or planeswalker' }, // 124
   'xmage:TargetEnchantmentPermanent': { what: 'card', filter: T('Enchantment'), zone: 'battlefield', prompt: 'enchantment' }, // 104
   'xmage:TargetAttackingCreature': { what: 'card', filter: AND(T('Creature'), { is: 'attacking' }), zone: 'battlefield', prompt: 'attacking creature' }, // 90
   'xmage:TargetAttackingOrBlockingCreature': { what: 'card', filter: AND(T('Creature'), OR({ is: 'attacking' }, { is: 'blocking' })), zone: 'battlefield', prompt: 'attacking or blocking creature' }, // 61
   'xmage:TargetCardInOpponentsGraveyard': { what: 'card', filter: { is: 'any' }, zone: 'graveyard', controller: { who: 'each-opponent' }, prompt: "card in an opponent's graveyard" }, // 37
-  'xmage:TargetOpponentOrPlaneswalker': { what: 'any', filter: T('Planeswalker'), controller: { who: 'each-opponent' }, prompt: 'opponent or planeswalker' }, // 36
   'xmage:TargetControlledLandPermanent': { what: 'card', filter: T('Land'), zone: 'battlefield', controller: { who: 'you' }, prompt: 'land you control' }, // 34
   'xmage:TargetPermanentOrPlayer': { what: 'any', filter: { is: 'any' }, prompt: 'permanent or player' }, // 32
   'xmage:TargetControlledArtifactPermanent': { what: 'card', filter: T('Artifact'), zone: 'battlefield', controller: { who: 'you' }, prompt: 'artifact you control' },
   'xmage:TargetCreatureCard': { what: 'card', filter: T('Creature'), prompt: 'creature card' },
-  'xmage:TargetCardInASingleGraveyard': { what: 'card', filter: { is: 'any' }, zone: 'graveyard', prompt: 'card in a single graveyard' }, // 29
   'xmage:TargetArtifactOrEnchantmentPermanent': { what: 'card', filter: OR(T('Artifact'), T('Enchantment')), zone: 'battlefield', prompt: 'artifact or enchantment' },
 };
 
@@ -100,6 +97,8 @@ export const XMAGE_TARGETS: Record<string, TargetEntry> = {
  * make an illegal choice the engine then honoured.
  */
 export const REFUSED_TARGETS: Record<string, string> = {
+  'xmage:TargetCardInASingleGraveyard':
+    '29 cards. Every card taken has to come from ONE graveyard, and a TargetSpec names a set of legal choices rather than a partition of one. It HAD an entry, and the entry kept the restriction in its PROMPT and nowhere else, so Famished Ghoul offered "up to two target cards from a single graveyard" and would have accepted one from each of two. A prompt is text a player reads; the selector is what the engine checks, and only the second decides what is legal.',
   'xmage:TargetCreaturePermanentAmount':
     '55 cards. Divided damage: the player splits an amount among the targets as they are chosen. `TargetSpec` has a count of targets and no amount per target.',
   'xmage:TargetAnyTargetAmount': '42 cards. Same.',
@@ -107,6 +106,9 @@ export const REFUSED_TARGETS: Record<string, string> = {
     '37 cards. Targets a spell OR an ability on the stack. `TargetSpec` filters cards; an ability on the stack is not a card.',
   'xmage:TargetSacrifice':
     'A target the CONTROLLER chooses as a cost rather than as a target of the ability. Recording it as a target would put it on the stack, where an opponent could respond to a choice that has already happened.',
+  'xmage:TargetPlayerOrPlaneswalker':
+    "124 cards. It had an entry, `{what:'any', filter: Planeswalker}`, and the entry could not be addressed. `{do:'damage'}` takes `Selector | PlayerSelector` and the two are different shapes, so `lower.ts` has to decide which one a target is BEFORE it knows what the player picked: `targetIsPlayer` said player, and Vulshok Replica's \"It deals 3 damage to target player or planeswalker\" lowered to damage aimed at a player. Point it at a planeswalker and the damage does not go where the card sends it. There is no `dsl.ts` member for a target that is either, so the honest answer is a refusal until there is one.",
+  'xmage:TargetOpponentOrPlaneswalker': '36 cards. Same shape, same refusal.',
 };
 
 /**

@@ -125,7 +125,39 @@ const CARDS = [
   'AcademyRuins',
   'AttuneWithAether',
   'BlistercoilWeird',
+  /* `{do:'do-if-cost-paid'}`, the controller's own optional cost.
+     Academy Rector is the plain shape, one effect on the paid branch. Oloro is
+     the shape that found the dropped-addEffect bug: "draw a card AND each
+     opponent loses 1 life" is two effects, and only the first was a constructor
+     argument, so the port ran half the card and said nothing. */
+  'AcademyRector',
+  'OloroAgelessAscetic',
+  /* `{do:'scry'}` and `{do:'surveil'}`, promoted out of the primitives folder's
+     staging file. Preordain is scry with a count above one, which is the number
+     the lowering has to read rather than assume; Whisper Agent is the surveil
+     side, so the two destinations cannot be collapsed into one verb unnoticed. */
+  'Preordain',
+  'WhisperAgent',
+  /* `{do:'look-and-pick'}`. Anticipate is the plain shape and takes exactly
+     one; Commune with Nature is the same class through the OTHER constructor
+     family, where `upTo` is derived rather than passed and a filter
+     narrows what may be taken. Orazca Puzzle-Door is the one where the cards
+     not taken do not go back to the library at all. */
+  'Anticipate',
+  'CommuneWithNature',
+  'OrazcaPuzzleDoor',
   /* cards that must refuse, each for a different reason */
+  /* Lorthos taps up to eight permanents AND stops them untapping. The second
+     half arrived through `.addEffect`, was invisible to the lowering, and the
+     card ran doing less than it prints. It now refuses, because the effect that
+     stops them untapping has no entry. */
+  'LorthosTheTidemaker',
+  /* Master Skald builds `TargetCardInYourGraveyard` twice, once inside its cost
+     with a creature filter and once on the ability with an artifact-or-
+     enchantment one. The reuse index matched them by class name across nesting
+     levels and handed the ability the cost's object, so the card returned a
+     CREATURE card. It now refuses on the filter it cannot read. */
+  'MasterSkald',
   'BlinkOfAnEye',
   'StormHerd',
   'HareApparent',
@@ -136,6 +168,38 @@ const CARDS = [
   'CyclonicRift',
   'RhysticStudy',
   'DocksideExtortionist',
+  /* The eleven cards a fresh fifty-card hand check caught in August 2026, every
+     one of which RAN and was wrong. Three create several tokens through
+     `.withAdditionalTokens`; one inverts a sign through a multiplier the
+     filtered branch of a value reader skipped; one is an exhaust ability with
+     neither its once-per-game limit nor its sorcery timing; one is a forecast
+     ability with none of its four restrictions; one is a step trigger whose
+     `TargetController` the record carried and the port read as "you"; one is a
+     cost narrowed to a single graveyard; one is a cost narrowed by a predicate
+     the record could not read; one is an alternative way to CAST the card that
+     lowered as a repeatable activated ability; and one drops the sentence that
+     says what happens when nothing was picked. */
+  'TriplicateTitan',
+  'SomberwaldBeastmaster',
+  'WurmcoilEngine',
+  'TerrorTide',
+  'LilianaTheRepentant',
+  'SteelingStance',
+  'FeveredVisions',
+  'NightSoil',
+  'SanctumSpirit',
+  'SaprolingSymbiosis',
+  'ContagiousVorrac',
+  /* And one the disagreement census caught rather than the sample: a mana
+     ability whose second cost was added after its constructor ran. */
+  'SpringleafDrum',
+  /* Round three of the same hand check, three more of the same shape: a token
+     argument nothing read, an ability class that writes its own condition and
+     its own second effect, and a target class whose restriction lived only in
+     the prompt a player reads. */
+  'FalconerAdept',
+  'ThunderfootBaloth',
+  'FamishedGhoul',
   'Cultivate',
   'BattleOfWits',
 ];

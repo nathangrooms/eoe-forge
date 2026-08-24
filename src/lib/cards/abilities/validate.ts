@@ -29,6 +29,7 @@
 
 import type {
   Ability,
+  CardDestination,
   CardFilter,
   Condition,
   Cost,
@@ -222,6 +223,18 @@ const duration = isEnum(DURATIONS);
 
 const selector: Check<Selector> = (v, p, e) => selectorImpl(v, p, e);
 const cardFilter: Check<CardFilter> = (v, p, e) => cardFilterImpl(v, p, e);
+
+/**
+ * Where a group of cards ends up. Every field but `zone` is optional, because
+ * "into their hand" says all there is to say and "on the bottom in a random
+ * order" needs three.
+ */
+const cardDestination: Check<CardDestination> = object({
+  zone: req(zone),
+  position: opt(isEnum(['top', 'bottom'] as const)),
+  order: opt(isEnum(['any', 'random'] as const)),
+  tapped: opt(isBool),
+});
 const playerSelector: Check<PlayerSelector> = (v, p, e) => playerSelectorImpl(v, p, e);
 const valueExpr: Check<ValueExpr> = (v, p, e) => valueExprImpl(v, p, e);
 const condition: Check<Condition> = (v, p, e) => conditionImpl(v, p, e);
@@ -473,8 +486,24 @@ const effectImpl = union<Effect>('do', {
   'lose-game': object({ who: req(playerSelector) }, 'do'),
   'win-game': object({ who: req(playerSelector) }, 'do'),
   counter: object({ what: req(selector) }, 'do'),
+  scry: object({ who: req(playerSelector), count: req(valueExpr) }, 'do'),
+  /* `upTo` is REQUIRED and both destinations are REQUIRED. An absent `upTo`
+   * reads as falsy and turns "put up to two into your hand" into a forced two;
+   * an absent destination loses half of what the card says happens. */
+  'look-and-pick': object({
+    who: req(playerSelector), look: req(valueExpr), pick: req(valueExpr), upTo: req(isBool),
+    what: opt(cardFilter), pickedTo: req(cardDestination), restTo: req(cardDestination),
+  }, 'do'),
+  surveil: object({ who: req(playerSelector), count: req(valueExpr) }, 'do'),
   'unless-pays': object({
     who: req(playerSelector), cost: req(isArrayOf(cost, 1)), effects: req(isArrayOf(effect, 1)),
+  }, 'do'),
+  /* `optional` is REQUIRED, never `opt`. An absent flag would validate and then
+   * read as `undefined`, which is falsy, which turns every printed "you may
+   * pay" into a payment the player never agreed to. */
+  'do-if-cost-paid': object({
+    who: req(playerSelector), cost: req(isArrayOf(cost, 1)), optional: req(isBool),
+    then: req(isArrayOf(effect, 1)), else: opt(isArrayOf(effect, 1)),
   }, 'do'),
   if: object({ condition: req(condition), then: req(isArrayOf(effect, 1)), else: opt(isArrayOf(effect, 1)) }, 'do'),
   'for-each': object({ over: req(selectorOrPlayer), effects: req(isArrayOf(effect, 1)) }, 'do'),
@@ -738,8 +767,8 @@ export const ACCEPTED_TAGS: Readonly<Record<string, readonly string[]>> = Object
     'gain-life', 'lose-life', 'set-life', 'damage', 'poison', 'draw', 'mill', 'discard', 'move-zone',
     'destroy', 'sacrifice', 'exile', 'return-from', 'search-library', 'shuffle', 'create-token', 'tap',
     'untap', 'add-counters', 'remove-counters', 'pump', 'gain-control', 'attach', 'add-mana', 'player-counter',
-    'set-monarch', 'lose-game', 'win-game', 'counter', 'unless-pays', 'if', 'for-each', 'repeat',
-    'choose-mode', 'may',
+    'set-monarch', 'lose-game', 'win-game', 'counter', 'scry', 'surveil', 'look-and-pick',
+    'unless-pays', 'do-if-cost-paid', 'if', 'for-each', 'repeat', 'choose-mode', 'may',
     // ReplacementResult shares the `do` key.
     'enters-tapped', 'enters-with-counters', 'enters-under-control', 'prevent', 'redirect', 'multiply',
     'replace-zone', 'skip', 'additional',

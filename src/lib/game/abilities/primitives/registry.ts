@@ -112,12 +112,33 @@ export type PlayerChoiceDo =
    * asks somebody else whether to pay, and `dsl.ts` warns in its own comment that
    * getting the polarity wrong resolves the card backwards. Nothing may guess it.
    *
-   * NOTE, and it is a live one: `to-actions.ts` has no `case 'unless-pays'`, so
-   * `runEffect` reaches its `default` and throws for any card carrying it. That
-   * is the designed loud failure rather than a silent no-op, but it is a runtime
-   * throw where this file gives a compile error.
+   * The NOTE that used to sit here said `to-actions.ts` had no
+   * `case 'unless-pays'` and threw on any card carrying one. That has not been
+   * true since the case was written: it now names the player, names what is
+   * owed, and previews what they are buying out of. Left as a correction rather
+   * than deleted, because a stale warning in a guard file is read as a live one.
    */
-  | 'unless-pays';
+  | 'unless-pays'
+  /**
+   * "You may pay {2}. If you do, draw a card."
+   *
+   * A player decision for the same reason `may` is one, with a price attached.
+   * Taking it would hand the controller the `then` branch without the payment,
+   * which is a card that resolves and cheats; declining it for them decides they
+   * refused. No primitive will ever "implement" this either. What it waits on is
+   * the same decision protocol.
+   */
+  | 'do-if-cost-paid'
+  /**
+   * "Look at the top four cards of your library. Put one of them into your hand
+   * and the rest on the bottom in a random order."
+   *
+   * WHICH one is the player's, on every board there is, and on many of these
+   * cards the ORDER the rest go back in is a second choice on top of it. No
+   * primitive will implement this either; what it waits on is the same decision
+   * protocol as `may` and `choose-mode`.
+   */
+  | 'look-and-pick';
 
 /**
  * The one verb that is not a verb.

@@ -48,6 +48,7 @@ import type {
   ValueExpr,
 } from '../abilities/dsl.ts';
 import { type Invocation, arg } from './record.ts';
+import { unreadChainedCall } from './chained-calls.ts';
 import { lowerValueSlot } from './values.ts';
 import { grantedKeywordFrom } from './keywords.ts';
 import { lowerCondition } from './conditions.ts';
@@ -234,7 +235,7 @@ export const MODIFICATION_RULES: Record<string, ModificationRule> = {
    * would make every cost reducer a tax. The sign flip is the whole content of
    * this entry and it is the kind of thing that is invisible once wrong.
    */
-  'xmage:SpellsCostReductionControllerEffect': (invocation) => {
+  'xmage:SpellsCostReductionControllerEffect': (invocation, blame) => {
     const amount = lowerValueSlot(arg(invocation, 'amount'));
     if (amount === null || typeof amount !== 'number') return null;
     const slot = arg(invocation, 'filter');
@@ -243,11 +244,14 @@ export const MODIFICATION_RULES: Record<string, ModificationRule> = {
       slot?.value?.k === 'objects'
         ? { sel: 'all', where: slot.value.filter, zone: 'stack' }
         : { sel: 'all', where: { is: 'any' }, zone: 'stack' };
+    const gate = costReductionCondition(invocation, blame);
+    if (gate === REFUSE) return null;
     return {
       affects: applies,
       modifications: [
         { layer: 'cost-modify', applies, delta: -amount, genericOnly: true, forWhom: { who: 'you' } },
       ],
+      ...(gate ? { condition: gate } : {}),
     };
   },
   /**
@@ -303,17 +307,62 @@ export const MODIFICATION_RULES: Record<string, ModificationRule> = {
     return { ...produced, condition: condition.condition };
   },
 
-  'xmage:SpellCostReductionSourceEffect': (invocation) => {
+  'xmage:SpellCostReductionSourceEffect': (invocation, blame) => {
     const amount = lowerValueSlot(arg(invocation, 'amount'));
     if (amount === null || typeof amount !== 'number') return null;
+    const gate = costReductionCondition(invocation, blame);
+    if (gate === REFUSE) return null;
     return {
       affects: SELF,
       modifications: [
         { layer: 'cost-modify', applies: SELF, delta: -amount, genericOnly: true, forWhom: { who: 'you' } },
       ],
+      ...(gate ? { condition: gate } : {}),
     };
   },
 };
+
+/** The sentinel `costReductionCondition` returns when the whole effect must refuse. */
+const REFUSE = Symbol('cost-reduction-condition-refused');
+
+/**
+ * THE CONDITION ON A CONDITIONAL COST REDUCTION, which was being dropped.
+ *
+ * `docs/engine/PORT-PRIMARY.md` section 5 group B named five cards that print a
+ * conditional discount and lowered to a `cost-modify` with no condition at all:
+ * Dusk Feaster's delirium, Mental Modulation's "during your turn", Ride's End's
+ * "if it targets a tapped permanent", Out of the Way's "if it targets a green
+ * permanent", Prehistoric Turtlesaurus's "+1/+1 counter" clause. Fate of the
+ * Sun-Cryst is the sixth, found in the round 2 hand check: "This spell costs
+ * {2} less to cast if it targets a tapped creature" was reading as an
+ * unconditional {2} discount.
+ *
+ * That document also records why they do not over-claim TODAY, and it is not a
+ * mercy: `scanStatics` never scans a card in hand, so the discount is not
+ * applied at all. The record is wrong either way and only the SIGN of the error
+ * changes, so the moment cost reduction from hand becomes reachable these turn
+ * into unconditional discounts. Reading the condition now removes the trap
+ * rather than waiting for it to spring.
+ *
+ * `StaticAbility.condition` carries what `conditions.ts` can read. A condition
+ * about THIS SPELL'S OWN TARGETS, which is what Fate of the Sun-Cryst has, is
+ * not one of those and has no spelling in `dsl.ts`, so it refuses.
+ */
+function costReductionCondition(
+  invocation: Invocation,
+  blame?: Blame,
+): Condition | undefined | typeof REFUSE {
+  const slot = arg(invocation, 'condition');
+  if (!slot) return undefined;
+  const lowered = lowerCondition(slot);
+  if (lowered.ok) return lowered.condition;
+  if (lowered.missing) blame?.missing.push(lowered.missing);
+  blame?.refused.push({
+    prim: lowered.missing ?? invocation.prim,
+    why: lowered.why ?? 'the cost reduction is conditional and the condition did not lower',
+  });
+  return REFUSE;
+}
 
 /**
  * Continuous effects deliberately left out, with the reason. Counts are cards.
@@ -366,6 +415,27 @@ export function lowerModifications(effects: readonly Invocation[]): {
       } else {
         refused.push({ prim: invocation.prim, why: 'arguments did not resolve into a modification' });
       }
+      continue;
+    }
+    /*
+     * The third lowering path, and it needed the same guard as the other two.
+     * A continuous effect carries chained calls exactly as a one-shot does and
+     * this path never looked at them, so `SpellCostReductionSourceEffect`'s
+     * `.setCanWorksOnStackOnly(...)` — which narrows WHICH casts the reduction
+     * applies to — was dropped here while the identical shape was refused on
+     * the resolving path. `chained-calls.ts` holds the one list all three read.
+     *
+     * Checked AFTER the rule rather than before it, so an effect that already
+     * refuses for a reason of its own keeps that reason. Both refusals are
+     * true; the specific one is the more useful of the two and the work order
+     * is built out of these strings.
+     */
+    const unread = unreadChainedCall(invocation);
+    if (unread) {
+      refused.push({
+        prim: invocation.prim,
+        why: `the card chains .${unread}(...) onto this effect and no lowering reads it`,
+      });
       continue;
     }
     sets.push(produced);

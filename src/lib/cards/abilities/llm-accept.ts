@@ -274,6 +274,11 @@ export function acceptModelResult(card: AbilityCard, raw: unknown): AcceptOutcom
       source: unparsed.length === 0 ? 'book' : 'book-partial',
       oracleHash: base.oracleHash,
       coverage,
+      // A book row never passed through the oracle-text compiler, so there is
+      // no compiler reading of this card to record. Same value, and it means
+      // "not applicable" rather than "the compiler finished it": `xmageSwapFor`
+      // is never handed one of these, because nothing calls it above this layer.
+      compilerCoverage: coverage,
     },
     unparsed,
     needs,

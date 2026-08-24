@@ -45,7 +45,7 @@
  */
 
 import type { GameAction, GameState, InstanceId, PlayerId } from '../types.ts';
-import type { Effect, PlayerSelector, Selector } from '../../cards/abilities/dsl.ts';
+import type { CardDestination, Effect, PlayerSelector, Selector } from '../../cards/abilities/dsl.ts';
 import { watchQueriesIn } from '../../cards/abilities/dsl.ts';
 import type { AbilityContext } from './context.ts';
 import {
@@ -63,6 +63,7 @@ import { gainControlToContinuous, pumpToContinuous } from './primitives/continuo
 import { damageToPermanent } from './primitives/damage.ts';
 import { returnFromForced, searchLibraryForced } from './primitives/zones.ts';
 import { counterTargetSpell } from './primitives/stack.ts';
+import { scryToActions, surveilToActions } from './primitives/library-order.ts';
 import { addManaToActions } from './primitives/mana.ts';
 /*
  * The translated XMage bodies, and the one function that runs one.
@@ -79,6 +80,27 @@ import { addManaToActions } from './primitives/mana.ts';
  */
 import { TRANSLATED_BODIES } from '../xmage/bodies.generated.ts';
 import { runXmageEffect, type XmageRun } from '../xmage/index.ts';
+
+/**
+ * A `CardDestination` in a player's words, for the note `look-and-pick` leaves.
+ *
+ * Assembled from the fields rather than looked up in a table of sentences, so a
+ * destination the DSL can spell always has words, and a field added later
+ * cannot leave a blank in the middle of a line somebody reads at the table.
+ */
+function placeOf(where: CardDestination): string {
+  if (where.zone === 'library') {
+    const end = where.position === 'top' ? 'on top of their library' : 'on the bottom of their library';
+    return where.order ? `${end} in ${where.order === 'random' ? 'a random' : 'any'} order` : end;
+  }
+  if (where.zone === 'battlefield') {
+    return where.tapped ? 'onto the battlefield tapped' : 'onto the battlefield';
+  }
+  if (where.zone === 'hand') return 'into their hand';
+  if (where.zone === 'graveyard') return 'into their graveyard';
+  if (where.zone === 'exile') return 'into exile';
+  return `into ${where.zone}`;
+}
 
 /* -------------------------------------------------------------------------- */
 /* Result                                                                     */
@@ -597,6 +619,55 @@ function runEffect(effect: Effect, ctx: AbilityContext, scope: RunScope): void {
       merge(scope, searchLibraryForced(effect, ctx, envFor(ctx, scope)));
       break;
 
+    /*
+     * CR 701.18 and CR 701.44. Both defer, and both are supposed to.
+     *
+     * The primitives are unchanged from the day they were written and gated:
+     * they read the top of the library so the deferral can say how many cards
+     * are actually there, and they decide nothing. Which cards go to the bottom
+     * or to the graveyard is the player's call on every board, so an engine that
+     * picked would be resolving the card for them.
+     *
+     * A card whose only effect is one of these therefore produces no action and
+     * reads SILENT on the probe, exactly as it did while the verb was staged.
+     * The number this buys is a lowering number and not an automation number,
+     * and the two must not be added together.
+     */
+    case 'scry':
+      merge(scope, scryToActions(effect, ctx, envFor(ctx, scope)));
+      break;
+
+    case 'surveil':
+      merge(scope, surveilToActions(effect, ctx, envFor(ctx, scope)));
+      break;
+
+    case 'look-and-pick': {
+      /*
+       * WHICH cards are taken is the player's, on every board, and so is the
+       * order the rest go back in when the card gives them one. So this
+       * produces no actions and says out loud what is on offer, in the same
+       * shape as `discard`: the numbers are evaluated here, against the library
+       * the player actually has, so the note cannot promise four cards off a
+       * two-card library.
+       */
+      const look = evalValue(effect.look, ctx);
+      const pick = evalValue(effect.pick, ctx);
+      if (look <= 0) break;
+      for (const playerId of resolvePlayers(effect.who, ctx)) {
+        const library = playerOf(state, playerId)?.zones.library ?? [];
+        const seen = Math.min(look, library.length);
+        if (seen === 0) continue;
+        const taken = Math.min(pick, seen);
+        scope.deferred.push(
+          `${nameOf(state, playerId)} looks at the top ${seen} card${seen === 1 ? '' : 's'}` +
+            `${seen < look ? ` (${look} asked for, ${library.length} in library)` : ''}` +
+            `, puts ${effect.upTo ? 'up to ' : ''}${taken} of them ${placeOf(effect.pickedTo)}` +
+            ` and the rest ${placeOf(effect.restTo)}`
+        );
+      }
+      break;
+    }
+
     case 'shuffle':
       for (const playerId of resolvePlayers(effect.who, ctx)) {
         scope.out.push({ type: 'SHUFFLE', playerId, ...m });
@@ -911,6 +982,49 @@ function runEffect(effect: Effect, ctx: AbilityContext, scope: RunScope): void {
         }
         for (const decision of preview.deferred) scope.deferred.push(`  if not paid: ${decision}`);
       }
+      break;
+    }
+
+    case 'do-if-cost-paid': {
+      /*
+       * "You may pay {2}. If you do, draw a card."
+       *
+       * The decision belongs to the CONTROLLER, and a pure interpreter cannot
+       * take it for them for the same reason it cannot take a `{do:'may'}`:
+       * running `then` gives them a card they never paid for, and running
+       * `else` decides they refused. So the table is told what is on offer and
+       * both branches are previewed, in the words of the actions they would
+       * produce, because "you may pay {2}" says nothing about the stakes.
+       *
+       * `answerMayYes` deliberately does NOT reach here. That flag is a
+       * measuring bias for a free choice; this choice has a price, and running
+       * `then` without paying is a card that resolves and cheats. A measurement
+       * that took it would be counting cards that do more than they print,
+       * which is the failure this port refuses everywhere else.
+       */
+      const payerIds = resolvePlayers(effect.who, ctx);
+      const owed = effect.cost
+        .map(cost => (cost.pay === 'mana' ? cost.cost : cost.pay))
+        .join(', ');
+      const payer = payerIds.length
+        ? payerIds.map(playerId => nameOf(state, playerId)).join(', ')
+        : 'the controller (not identified — no player was bound)';
+      scope.deferred.push(
+        effect.optional
+          ? `${payer} may pay ${owed}; if they do, the rest of the ability happens`
+          : `${payer} pays ${owed} if able; if they do, the rest of the ability happens`
+      );
+      const preview = (label: string, effects: readonly Effect[]): void => {
+        for (const inner of effects) {
+          const run = runEffects([inner], ctx, scope.options);
+          for (const action of run.actions) {
+            scope.deferred.push(`  ${label}: ${action.type.toLowerCase().replace(/_/g, ' ')}`);
+          }
+          for (const decision of run.deferred) scope.deferred.push(`  ${label}: ${decision}`);
+        }
+      };
+      preview('if paid', effect.then);
+      preview('if not paid', effect.else ?? []);
       break;
     }
 

@@ -24,29 +24,21 @@
  * `never` is the signal that this file has done its job.
  */
 
-import type { Effect, PlayerSelector, Selector, ValueExpr } from '../../../cards/abilities/dsl.ts';
+import type { Effect, Selector, ValueExpr } from '../../../cards/abilities/dsl.ts';
 
-/**
- * CR 701.18. Look at the top N of your library, then put any number of them on
- * the bottom and the rest back on top in any order.
+/*
+ * `ScryEffect` and `SurveilEffect` used to be declared here. They were promoted
+ * into `dsl.ts`'s `Effect` union on 24 Aug 2026, by the route this file's
+ * header sets out: staged here, primitive written and gated, member moved,
+ * `to-actions.ts` failed to compile, its new cases delegate to the primitives
+ * that already passed. `library-order.ts` is unchanged apart from where it
+ * imports its argument type from.
+ *
+ * `RegenerateEffect` stays. Its primitive builds the shield and nothing in
+ * `sba.ts` spends one, so promoting it would put a verb in the shipped union
+ * that makes a card look saved and lets it die. The verb moves when the
+ * destruction path spends the shield, and not before.
  */
-export interface ScryEffect {
-  do: 'scry';
-  who: PlayerSelector;
-  count: ValueExpr;
-}
-
-/**
- * CR 701.44. Look at the top N, then put any number into your graveyard and the
- * rest back on top in any order. Same decision shape as scry, different
- * destination — and a player reading the log has to be able to tell which one
- * happened, so they are two verbs and not one parameterised verb.
- */
-export interface SurveilEffect {
-  do: 'surveil';
-  who: PlayerSelector;
-  count: ValueExpr;
-}
 
 /**
  * CR 701.15. The next time this permanent would be destroyed this turn, instead
@@ -61,7 +53,7 @@ export interface RegenerateEffect {
   count: ValueExpr;
 }
 
-export type ExtendedEffect = ScryEffect | SurveilEffect | RegenerateEffect;
+export type ExtendedEffect = RegenerateEffect;
 
 /** Every verb a primitive in this folder can handle, shipped or staged. */
 export type AnyEffect = Effect | ExtendedEffect;

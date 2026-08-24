@@ -126,18 +126,30 @@ export const VALUE_RULES: Record<string, ValueRule> = {
    * `dsl.ts`'s `{v:'cards-in'}` counts a zone with no filter, so a filtered
    * form is refused rather than counted as if the filter were not there. The
    * unfiltered default, `StaticFilters.FILTER_CARD`, is the common case.
+   *
+   * ## THE MULTIPLIER IS THE SIGN, and the filtered branch used to skip it
+   *
+   * `CardsInControllerGraveyardCount(filter, multiplier)` multiplies the count,
+   * checked in that file's `calculate`, and a multiplier of -1 is how XMage
+   * writes "gets -X/-X where X is ...". This reader had the multiplier line
+   * AFTER an early return for the filtered form, so Terror Tide's
+   * "All creatures get -X/-X until end of turn, where X is the number of
+   * permanent cards in your graveyard" came out as +X/+X and every creature on
+   * the table grew instead of dying. The multiplier is now read once, before
+   * the branch, and applied to whichever shape comes out.
    */
   'xmage:CardsInControllerGraveyardCount': (invocation) => {
     const objects = objectsArg(invocation, 'filter');
     const filtered = objects && objects.filter.is !== 'any';
+    const multiplier = intArg(invocation, 'multiplier');
+    const scaled = (base: ValueExpr): ValueExpr =>
+      multiplier === null || multiplier === 1 ? base : { v: 'mul', of: [base, multiplier] };
     if (filtered) {
       const sel: Selector = { sel: 'all', where: objects.filter, zone: 'graveyard', controller: { who: 'you' } };
-      return { v: 'count', of: sel };
+      return scaled({ v: 'count', of: sel });
     }
     if (invocation.args.some((a) => a.name === 'filter' && a.value === undefined)) return null;
-    const base: ValueExpr = { v: 'cards-in', zone: 'graveyard', of: { who: 'you' } };
-    const multiplier = intArg(invocation, 'multiplier');
-    return multiplier === null || multiplier === 1 ? base : { v: 'mul', of: [base, multiplier] };
+    return scaled({ v: 'cards-in', zone: 'graveyard', of: { who: 'you' } });
   },
 
   /** 70 cards. */
@@ -193,11 +205,6 @@ export const VALUE_RULES: Record<string, ValueRule> = {
     return { v: 'count', of: sel };
   },
 
-  /** 10 cards. Equipment attached to the source. */
-  'xmage:EquipmentAttachedCount': () => ({
-    v: 'count',
-    of: { sel: 'all', where: { is: 'subtype', value: 'Equipment' }, zone: 'battlefield' },
-  }),
 };
 
 /**
@@ -215,6 +222,8 @@ export const REFUSED_VALUES: Record<string, string> = {
     '10 cards. A maximum over a computed attribute of a set; `{v:"max"}` takes a fixed list of expressions, not a fold over a selector.',
   'xmage:EffectKeyValue':
     '9 cards. Reads a value another effect stashed under a string key. That is a channel between effects the DSL deliberately does not have.',
+  'xmage:EquipmentAttachedCount':
+    "10 cards. It had an entry and the entry was wrong TWICE, found by hand-checking Goblin Gaveleer: \"This creature gets +2/+0 for each Equipment attached to it\" was counting every Equipment on the battlefield rather than the ones attached to this creature, and was dropping the class's `multiplier` argument, so a Gaveleer wearing one Equipment while an opponent wore three read +4/+0 instead of +2/+0. No `Selector` means \"objects attached to the source\" — `{sel:'attached'}` points the other way, at what this card is attached TO — so the set cannot be spelled and a quantity wrong in two directions at once is exactly what this file refuses for.",
 };
 
 /**

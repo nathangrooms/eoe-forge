@@ -602,6 +602,32 @@ export function planForCommander(commander: {
     add(f, TYPE_ECHO_WEIGHT, `${commander.name} triggers on ${type} spells`);
   }
 
+  /* SUBTYPES the commander's own filters name, when they are NOT a tribe.
+     ------------------------------------------------------------------
+     `cares:type:` had a rule and `cares:sub:` did not, except through the
+     tribe branch below, which requires the subtype to be on the commander's
+     own type line. That is right for Edgar Markov, a Vampire who counts
+     Vampires. It silently drops every commander that cares about a subtype it
+     does not have.
+
+     Sram, Senior Edificer is the case that found it: "whenever you cast an
+     Aura, Equipment, or Vehicle spell, draw a card". He produces
+     `cares:sub:aura`, `cares:sub:equipment` and `cares:sub:vehicle` correctly,
+     he is a Dwarf Advisor so there is no tribe, and all three wants were
+     dropped. Measured on the built deck: 5 of his 56 nonland cards could
+     trigger him at all, and the other 51 were white instants and mana rocks.
+
+     A card that IS the subtype is what the commander wants; a card that CARES
+     about it is a payoff and worth slightly less, which is the same shape the
+     tribe branch uses. */
+  for (const f of facets) {
+    if (!f.startsWith('cares:sub:')) continue;
+    const sub = f.slice('cares:sub:'.length);
+    if (!sub) continue;
+    add(`sub:${sub}`, TRIBE_MEMBER_WEIGHT, `${commander.name} triggers on ${sub} spells`);
+    add(f, TYPE_ECHO_WEIGHT, `${commander.name} triggers on ${sub} spells`);
+  }
+
   // The tribe, if there is one.
   const tribe = tribeOf(commander.typeLine, facets);
   if (tribe) {

@@ -23,7 +23,7 @@ import type { ManaProfile } from '../playability/castability.ts';
 // Type-only, and the cycle it closes is type-only too: `behaviour.ts` reads
 // `Role` and the card shapes from here. Both sides are erased at compile time,
 // so no module actually depends on the other at run time.
-import type { CommanderPlan } from '../knowledge/behaviour.ts';
+import type { ArchetypeInfluence, CommanderPlan } from '../knowledge/behaviour.ts';
 
 /** The five colour-identity letters actually stored in `cards.color_identity`. */
 export type Color = 'W' | 'U' | 'B' | 'R' | 'G';
@@ -189,6 +189,18 @@ export interface DeckProfile {
    */
   commanderPlan?: CommanderPlan | null;
   /**
+   * What the ARCHETYPE the player asked for is for, on its own axis.
+   *
+   * Separate from `commanderPlan` and deliberately so: the archetype modifies
+   * the commander rather than competing with it, so it scores as a second,
+   * smaller signal that is added to the first. Folding it into the commander's
+   * want list was measured and did not work, and `withArchetype` in
+   * `knowledge/behaviour.ts` records why. Absent means the player asked for no
+   * archetype, or asked for one this catalogue holds no shell for, and then the
+   * `archetype-fit` signal does not fire at all.
+   */
+  archetype?: ArchetypeInfluence | null;
+  /**
    * How many of the cards this profile was built from carried a record.
    *
    * Carried on the profile so a caller can report the fallback rate without
@@ -208,6 +220,7 @@ export interface Signal {
   kind:
     | 'role-gap'
     | 'commander-fit'
+    | 'archetype-fit'
     | 'tag-synergy'
     | 'curve-fit'
     | 'budget-fit'

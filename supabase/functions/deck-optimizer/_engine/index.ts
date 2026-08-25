@@ -85,17 +85,40 @@ export {
   gapRoles,
   type DeckProfileInput,
 } from './advise/profile.ts';
-export { rankCandidates, scoreCandidate, ineligibility, WEIGHTS } from './advise/rank.ts';
+export {
+  rankCandidates,
+  scoreCandidate,
+  ineligibility,
+  popularityCoverage,
+  WEIGHTS,
+} from './advise/rank.ts';
 export {
   servesRole,
   cardRole,
   roleTargetsFor,
-  creatureTargetFor,
+  styleFor,
   ROLE_TAGS,
-  CREATURE_TARGETS,
+  YARDSTICK_WHEN_NO_SHAPE_WAS_DERIVED,
   DECK_STYLES,
   type DeckStyle,
 } from './advise/roles.ts';
+
+/*
+ * How many of each thing THIS commander's deck wants.
+ *
+ * The replacement for the role-target table, and the entry point anything
+ * BUILDING a deck uses instead of `roleTargetsFor`. Exported whole because a
+ * caller that wants to explain a deck needs the sentences in
+ * `DeckShape.because`, each of which names what produced its number.
+ */
+export {
+  deriveDeckShape,
+  copiesToSeeOne,
+  type DeckShape,
+  type ShapeCard,
+  type ShapeEvidence,
+  type ShapeInput,
+} from './build/shape.ts';
 
 /*
  * What a card DOES, and what a commander is FOR.
@@ -109,6 +132,12 @@ export {
 export {
   planForCommander,
   planFit,
+  // The archetype the player asked for, read off the cards that shell is made
+  // of and folded into the commander's plan as a modifier. See `withArchetype`.
+  planForArchetype,
+  withArchetype,
+  archetypeFit,
+  facetBackground,
   behaviourSimilarity,
   describeSharedFacets,
   facetsOf,
@@ -122,6 +151,11 @@ export {
   REC_PARTIAL,
   type Facet,
   type CommanderPlan,
+  type ArchetypeExemplar,
+  type ArchetypeInput,
+  type ArchetypePlan,
+  type ArchetypeInfluence,
+  type FacetBackground,
   type Want,
   type PlanFit,
   type RoleSubject,

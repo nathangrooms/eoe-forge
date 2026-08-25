@@ -6,7 +6,11 @@ import { AlertCircle, Check, ChevronRight } from 'lucide-react';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { AIGeneratedDeckList } from '@/components/deck-builder/AIGeneratedDeckList';
 import { CommanderStage, type CommanderSource } from '@/components/ai-builder/CommanderStage';
-import { ConfigureStage, type BuildConfig } from '@/components/ai-builder/ConfigureStage';
+import {
+  ConfigureStage,
+  type ArchetypeOption,
+  type BuildConfig,
+} from '@/components/ai-builder/ConfigureStage';
 import { BuildStage, type BuildPhase } from '@/components/ai-builder/BuildStage';
 import { useCommanderBrowse } from '@/components/ai-builder/useCommanderBrowse';
 import {
@@ -23,6 +27,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { CommanderIntelligence } from '@/lib/deckbuilder/commander-intelligence';
 import { scoreDeckById, computeDeckPower, entriesFromStoreCards } from '@/lib/deck/power';
 import { comparePower, logDivergence } from '@/lib/deck/powerCalibration';
+import { DECK_ARCHETYPES, type DeckArchetype } from '@/lib/deck/archetypeShells';
 import { cn } from '@/lib/utils';
 
 /**
@@ -67,6 +72,9 @@ const POPULAR_URL = commanderSearchUrl('is:commander legal:commander', 'edhrec')
 
 const DEFAULT_CONFIG: BuildConfig = {
   archetype: '',
+  // The engine's own default, named here rather than left empty, so the page
+  // and `roles.ts` cannot disagree about what "no choice" means.
+  style: 'balanced',
   targetPower: 6,
   maxBudget: 500,
   customPrompt: '',
@@ -177,31 +185,69 @@ export default function AIBuilder() {
    */
   const requestedArchetype = searchParams.get('archetype');
 
-  const generateLocalArchetypes = (cmdr: any) => {
+  /*
+   * EVERY OPTION OFFERED HERE HAS TO BE ONE THE BUILDER CAN ACT ON.
+   *
+   * The archetype now shapes the build: the generator looks the chosen name up
+   * in `DECK_ARCHETYPES`, reads what that shell's own cards do, and folds it
+   * into the commander's plan. A name that is not in the catalogue reaches the
+   * planner's prompt and changes nothing about the ninety-nine cards.
+   *
+   * That is why these options are BUILT FROM the catalogue rather than typed out
+   * beside it. The list here used to hold `midrange`, which no shell matches and
+   * which the builder cannot act on, and `Token Strategy`, whose label differs
+   * from the shell it means. Both were choices a player could make that did
+   * nothing, which is the failure this whole change is about.
+   */
+  const optionFor = (shell: DeckArchetype, synergy: string): ArchetypeOption => ({
+    value: shell.id,
+    label: shell.name,
+    description: shell.description,
+    synergy,
+    // The shell's own target, halfway through the range a well-built one scores.
+    powerLevel: Math.round((shell.targetPower.min + shell.targetPower.max) / 2),
+  });
+
+  const shellById = (id: string) => DECK_ARCHETYPES.find(s => s.id === id);
+
+  /** Words in the commander's own text, and the shell each one points at. */
+  const TEXT_HINTS: Array<{ words: string[]; id: string; synergy: string }> = [
+    { words: ['token', 'create'], id: 'tokens', synergy: 'This commander makes or rewards tokens' },
+    { words: ['sacrifice', 'dies'], id: 'aristocrats', synergy: 'This commander rewards things dying' },
+    { words: ['+1/+1'], id: 'counters', synergy: 'This commander works with counters' },
+    { words: ['draw'], id: 'value', synergy: 'This commander draws you cards' },
+    { words: ['graveyard'], id: 'value', synergy: 'This commander plays out of the graveyard' },
+    { words: ['search your library'], id: 'big-mana', synergy: 'This commander finds its own lands' },
+    { words: ['counter target'], id: 'control', synergy: 'This commander is already interacting' },
+  ];
+
+  /** Shells offered to every commander, so there are always four to choose from. */
+  const ALWAYS_OFFERED: Array<{ id: string; synergy: string }> = [
+    { id: 'value', synergy: 'Works with any commander: spend every card twice' },
+    { id: 'control', synergy: 'Works with any commander: answer the table first' },
+    { id: 'big-mana', synergy: 'Works with any commander: more mana, bigger threats' },
+    { id: 'aristocrats', synergy: 'Works with any commander: drain the table a point at a time' },
+    { id: 'tokens', synergy: 'Works with any commander: go wide' },
+    { id: 'compact-combo', synergy: 'Works with any commander: assemble two cards and win' },
+  ];
+
+  const generateLocalArchetypes = (cmdr: any): ArchetypeOption[] => {
     const text = (cmdr.oracle_text || '').toLowerCase();
-    const archetypes: any[] = [];
+    const out: ArchetypeOption[] = [];
+    const take = (id: string, synergy: string) => {
+      if (out.some(o => o.value === id)) return;
+      const shell = shellById(id);
+      if (shell) out.push(optionFor(shell, synergy));
+    };
 
-    if (text.includes('token') || text.includes('create')) {
-      archetypes.push({ value: 'tokens', label: 'Token Strategy', description: 'Generate creature tokens for wide board presence', synergy: 'Commander creates or benefits from tokens', powerLevel: 6 });
+    for (const hint of TEXT_HINTS) {
+      if (hint.words.some(w => text.includes(w))) take(hint.id, hint.synergy);
     }
-    if (text.includes('sacrifice') || text.includes('dies')) {
-      archetypes.push({ value: 'aristocrats', label: 'Aristocrats', description: 'Sacrifice creatures for value and damage', synergy: 'Commander rewards sacrifice effects', powerLevel: 7 });
+    for (const filler of ALWAYS_OFFERED) {
+      if (out.length >= 4) break;
+      take(filler.id, filler.synergy);
     }
-    if (text.includes('+1/+1') || text.includes('counter')) {
-      archetypes.push({ value: 'counters', label: '+1/+1 Counters', description: 'Build and distribute counters for growing threats', synergy: 'Commander interacts with counters', powerLevel: 6 });
-    }
-    if (text.includes('draw') || text.includes('card')) {
-      archetypes.push({ value: 'value', label: 'Value Engine', description: 'Generate card advantage through commander', synergy: 'Commander provides card draw', powerLevel: 7 });
-    }
-
-    if (archetypes.length < 4) {
-      archetypes.push({ value: 'midrange', label: 'Midrange', description: 'Balanced approach with efficient threats', synergy: 'Versatile strategy for any commander', powerLevel: 6 });
-      archetypes.push({ value: 'control', label: 'Control', description: 'Counter threats and control the game', synergy: 'Protect your commander while disrupting opponents', powerLevel: 7 });
-      archetypes.push({ value: 'aggro', label: 'Aggro', description: 'Fast, aggressive creature strategy', synergy: 'Pressure opponents early', powerLevel: 5 });
-      archetypes.push({ value: 'combo', label: 'Combo', description: 'Build towards game-winning combinations', synergy: 'Commander enables or protects combos', powerLevel: 8 });
-    }
-
-    return archetypes.slice(0, 4);
+    return out.slice(0, 4);
   };
 
   /** Preselect the archetype `/decks` asked for, when the commander offers one like it. */
@@ -243,14 +289,14 @@ export default function AIBuilder() {
           Color Identity: ${selectedCommander.color_identity?.join('') || 'Colorless'}
           Abilities: ${selectedCommander.oracle_text || 'None'}
 
-          Suggest exactly 4 specific archetypes that synergize with this commander.
-          For each archetype, provide:
-          1. Name
-          2. Brief description (1 sentence)
-          3. Why it synergizes with this commander
-          4. Recommended power level (1-10)
+          Pick the 4 strategies from this list that best suit this commander, best first.
+          You may only use these ids, and you may not invent others:
+          ${DECK_ARCHETYPES.map(s => `${s.id} (${s.name}): ${s.description}`).join('\n          ')}
 
-          Format as JSON array: [{"name": "", "description": "", "synergy": "", "powerLevel": 6}]`,
+          For each one, say in one sentence why it suits THIS commander specifically,
+          naming the ability of its that makes it work.
+
+          Format as JSON array: [{"id": "", "synergy": ""}]`,
           cards: [],
         },
       });
@@ -260,17 +306,39 @@ export default function AIBuilder() {
           const jsonMatch = data.message.match(/\[[\s\S]*\]/);
           if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[0]);
-            const archetypes = parsed.map((a: any) => ({
-              value: a.name.toLowerCase().replace(/\s+/g, '-'),
-              label: a.name,
-              description: a.description,
-              synergy: a.synergy,
-              powerLevel: a.powerLevel || 6,
-            }));
-            setSuggestedArchetypes(archetypes);
-            applyRequestedArchetype(archetypes);
-            setStage('configure');
-            return;
+            /*
+             * GROUNDED IN THE CATALOGUE, THE SAME WAY THE PLANNER IS GROUNDED
+             * IN THE SHORTLIST.
+             *
+             * The model is asked for ids and anything that is not an id in
+             * `DECK_ARCHETYPES` is dropped, because an archetype the builder
+             * cannot look up is an option that does nothing to the deck. Only
+             * the SYNERGY sentence is the model's own, which is the part it is
+             * actually good at and the part nothing else can write.
+             *
+             * The label, the description and the power target come from the
+             * shell, so the name on the button is the name the builder resolves.
+             */
+            const archetypes: ArchetypeOption[] = [];
+            for (const a of Array.isArray(parsed) ? parsed : []) {
+              const shell = shellById(String(a?.id ?? '').trim().toLowerCase());
+              if (!shell || archetypes.some(o => o.value === shell.id)) continue;
+              archetypes.push(
+                optionFor(shell, typeof a?.synergy === 'string' ? a.synergy : shell.description)
+              );
+            }
+            // Short answers are topped up rather than shown short, from the same
+            // catalogue, so the player always has four real choices.
+            for (const option of localArchetypesFor(selectedCommander)) {
+              if (archetypes.length >= 4) break;
+              if (!archetypes.some(o => o.value === option.value)) archetypes.push(option);
+            }
+            if (archetypes.length > 0) {
+              setSuggestedArchetypes(archetypes.slice(0, 4));
+              applyRequestedArchetype(archetypes);
+              setStage('configure');
+              return;
+            }
           }
         } catch {
           console.log('Failed to parse AI archetypes, using local analysis');
@@ -407,6 +475,14 @@ export default function AIBuilder() {
             colors: commander.colors || [],
           },
           archetype: config.archetype,
+          /*
+           * The player's deck shape, reaching the generator as a number it
+           * acts on. Everything else in this body is either a filter or prompt
+           * text; this is the one field that changes what `generateDeck`
+           * builds. Before it existed, creature mode reached the language
+           * model as a sentence and the engine never heard about it.
+           */
+          style: config.style,
           powerLevel: config.targetPower,
           budget: config.maxBudget,
           customPrompt: config.customPrompt,

@@ -15,7 +15,11 @@ import type { DeckCard, DeckProfile, Role } from '../core/types.ts';
 import { ROLES } from '../core/types.ts';
 import { roleTargetsFor, cardRole } from './roles.ts';
 import { normalizeIdentity } from './query.ts';
-import { hasRecord, type CommanderPlan } from '../knowledge/behaviour.ts';
+import {
+  hasRecord,
+  type ArchetypeInfluence,
+  type CommanderPlan,
+} from '../knowledge/behaviour.ts';
 
 export interface DeckProfileInput {
   format: string;
@@ -36,6 +40,12 @@ export interface DeckProfileInput {
    * deck rather than of any one candidate.
    */
   commanderPlan?: CommanderPlan | null;
+  /**
+   * The archetype the player asked for, already placed against that commander
+   * by `withArchetype`. A second and smaller axis rather than more commander
+   * wants, for the reason recorded there. See `DeckProfile.archetype`.
+   */
+  archetype?: ArchetypeInfluence | null;
 }
 
 /** Does this type line describe a land? */
@@ -109,6 +119,7 @@ export function deriveDeckProfile(input: DeckProfileInput): DeckProfile {
     ownedOracleIds,
     manaProfile: input.manaProfile ?? null,
     commanderPlan: input.commanderPlan ?? null,
+    archetype: input.archetype ?? null,
     facetCoverage: { withRecord, total: cards.length },
   };
 }

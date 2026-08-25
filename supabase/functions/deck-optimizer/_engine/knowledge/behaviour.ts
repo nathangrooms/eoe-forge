@@ -392,6 +392,14 @@ export interface CommanderPlan {
   commanderName: string;
   wants: readonly Want[];
   /**
+   * The archetype folded into those wants, or null when none was asked for.
+   *
+   * Set only by {@link withArchetype}. `planForCommander` never sets it, so a
+   * plan that carries one has been through the combination rule and a plan that
+   * does not is the commander on its own.
+   */
+  archetype?: ArchetypeInfluence | null;
+  /**
    * A creature subtype the commander is built around, or null.
    *
    * The rule is deliberately strict: the subtype has to appear BOTH on the
@@ -694,6 +702,529 @@ function describeFacet(facet: Facet): string {
 }
 
 /* ------------------------------------------------------------------ *
+ * The archetype the player asked for
+ * ------------------------------------------------------------------ *
+ *
+ * "Decks must be custom to them, as well as the archetype" - the owner.
+ *
+ * `request.archetype` used to go to the language model's prompt and nowhere
+ * else, so a player who picked Aristocrats and a player who picked Control got
+ * the same ninety-nine cards ranked by the same numbers and a different
+ * sentence in a prompt. This is the half that was missing.
+ *
+ * AN ARCHETYPE IS READ THE SAME WAY A COMMANDER IS
+ * ------------------------------------------------
+ * There is no table mapping `aristocrats` to a list of facets, and adding one
+ * would be the quota table again in a different column: somebody's opinion
+ * about what Aristocrats wants, written down once, unable to disagree with
+ * itself when the catalogue changes.
+ *
+ * `src/lib/deck/archetypeShells.ts` already holds what an archetype is made of,
+ * as CARDS: Aristocrats is Viscera Seer, Blood Artist, Bitterblossom and nine
+ * others. Those are real cards, so they have oracle text, so the same producer
+ * that reads a commander reads them too. The facets that RECUR across a shell's
+ * own cards are what that shell does. Aristocrats comes back wanting
+ * `trig:dies`, `eff:lose-life` and `eff:create-token` because four of its
+ * twelve cards trigger on something dying and four drain life; nobody wrote
+ * that down, and if somebody swaps a card in the shell the wants move with it.
+ *
+ * WHAT A SHELL IS ALLOWED TO WANT, AND WHY THE LIST IS SHORT
+ * ----------------------------------------------------------
+ * Only `eff:`, `cares:` and `trig:` facets: the verb, the verb's argument, and
+ * when it happens. Everything else about an example card is the SHAPE of the
+ * card somebody chose to write down rather than the shell's behaviour, and
+ * reading it produces nonsense that was measured on the real catalogue before
+ * this rule was written:
+ *
+ *   `type:` Seven of the eleven cards in the Tokens shell are enchantments,
+ *     because doublers and anthems are enchantments. Read, `type:enchantment`
+ *     became the shell's LOUDEST want and a Tokens deck would have been built
+ *     to want enchantments ahead of tokens.
+ *   `tok:` Two of the Tokens shell's cards are Hordeling Outburst and Dragon
+ *     Fodder, so `tok:goblin` recurred, and every Tokens deck in the format
+ *     would have wanted Goblins because two examples happened to be red.
+ *   `sub:` and `kw:` The same accident: three Aristocrats cards are Humans.
+ *
+ * A commander's `sub:` and `tok:` facets are not an accident in the same way,
+ * which is why {@link tribeOf} still reads them: a commander is ONE card, and
+ * its own type line is a fact about the deck rather than a sampling artefact.
+ */
+
+/** One card of a shell, already read by the producer. */
+export interface ArchetypeExemplar {
+  name: string;
+  facets: readonly Facet[];
+}
+
+/** A shell, as the engine receives it. The names are resolved by the caller. */
+export interface ArchetypeInput {
+  id: string;
+  /** What a player would call it. Appears in the reason under a card. */
+  name: string;
+  /** How many cards the shell names, whether or not the catalogue had them. */
+  named: number;
+  /** The ones that resolved, in the caller's order. */
+  exemplars: readonly ArchetypeExemplar[];
+}
+
+export interface ArchetypePlan {
+  id: string;
+  name: string;
+  /**
+   * Wants, strongest first.
+   *
+   * `weight` is a LIFT, not a share and not a score: how many times more often
+   * the shell's own cards carry the facet than the cards in this pool do. It is
+   * therefore usually greater than 1, which no other `Want` in the engine is.
+   * That is safe because an `ArchetypePlan` never reaches `planFit` directly:
+   * {@link withArchetype} rescales the whole list against the commander first,
+   * and this number stays a plain measurement that can be printed.
+   */
+  wants: readonly Want[];
+  /** Cards the catalogue resolved, against cards the shell names. */
+  read: number;
+  named: number;
+  /** Cards that resolved and produced no ability record at all. */
+  withoutRecord: number;
+  /**
+   * Facets that recurred across the shell and were dropped anyway, and why.
+   *
+   * Reported because a silent shell and a shell whose every want was thrown out
+   * are different failures. `common` was carried by too much of the pool to
+   * separate anything, `rare` by too little of it to fill slots.
+   */
+  dropped: readonly { facet: Facet; reason: 'common' | 'rare'; poolCards: number }[];
+}
+
+/**
+ * How often each facet turns up in the cards this deck may actually play.
+ *
+ * The denominator that turns "the shell's cards share this" into "the shell's
+ * cards share this MORE THAN CARDS IN GENERAL DO", which is the difference
+ * between a want that ranks something and a want that ranks everything. See
+ * {@link planForArchetype}.
+ */
+export interface FacetBackground {
+  /** Cards counted over. */
+  cards: number;
+  /** How many of them carry each facet. */
+  count: ReadonlyMap<Facet, number>;
+  /**
+   * The fewest pool cards a want may be satisfiable by.
+   *
+   * Derived by the caller from the deck size rather than declared here: a want
+   * that fewer cards than the deck holds can satisfy cannot shape the deck, it
+   * can only decorate a few slots, and letting it set the shell's loudest want
+   * would quiet every want that could.
+   */
+  minCards: number;
+}
+
+/** Count facets across a population. One count per card, not per occurrence. */
+export function facetBackground(
+  cards: readonly FacetCarrier[],
+  minCards: number
+): FacetBackground {
+  const count = new Map<Facet, number>();
+  for (const card of cards) {
+    for (const facet of new Set(facetsOf(card))) {
+      count.set(facet, (count.get(facet) ?? 0) + 1);
+    }
+  }
+  return { cards: cards.length, count, minCards: Math.max(0, minCards) };
+}
+
+/**
+ * An {@link ArchetypePlan} placed against one particular commander's plan.
+ *
+ * `wants` here are SCALED, and that is the difference from `ArchetypePlan`:
+ * the lifts have been divided through so the shell's strongest want sits at
+ * {@link ARCHETYPE_SHARE} of the commander's strongest, which puts them back on
+ * the 0 to 1 scale every other `Want` in the engine uses. These are the weights
+ * that rank cards.
+ */
+export interface ArchetypeInfluence {
+  id: string;
+  name: string;
+  wants: readonly Want[];
+  read: number;
+  named: number;
+  withoutRecord: number;
+  dropped: ArchetypePlan['dropped'];
+  /** What every lift was multiplied by to get the weights above. */
+  scale: number;
+  /** Wants the shell added, meaning facets the commander had not named. */
+  added: number;
+  /**
+   * True when the commander produced no wants of its own, so the shell is the
+   * whole plan. Muldrotha, the Gravetide is the standing case.
+   */
+  alone: boolean;
+}
+
+/**
+ * How many of a shell's cards have to share a facet before it is a want.
+ *
+ * Two. A facet on one card of a shell is a fact about that card: Altar of
+ * Dementia mills, and Aristocrats decks do not particularly want to mill. Two
+ * is the smallest number that can be called recurrence at all, and the shells
+ * hold seven to twelve cards, so anything larger would silence the shells with
+ * three-card packages entirely.
+ */
+const ARCHETYPE_MIN_EXEMPLARS = 2;
+
+/** The only prefixes a shell may want. See the header above for the measurements. */
+const ARCHETYPE_WANT_PREFIXES: readonly string[] = ['eff:', 'cares:', 'trig:'];
+
+/**
+ * How loud the archetype is allowed to be next to the commander.
+ *
+ * THE COMBINATION RULE IN ONE NUMBER, and it is declared policy. The owner's
+ * requirement is that "Aristocrats Krenko is still Goblins", which is a
+ * statement about ORDER rather than about a weight: whatever else changes, the
+ * cards that do the commander's job have to outrank the cards that do the
+ * archetype's. So the shell's strongest want is placed at this fraction of the
+ * commander's strongest want and the rest of the shell follows in proportion.
+ *
+ * Being a fraction of the commander's own top want rather than a fixed number
+ * is what makes it a modifier: a commander with a loud plan keeps the archetype
+ * in proportion behind it, and a commander with a quiet one is not drowned out
+ * by a shell that happens to have twelve cards.
+ *
+ * 0.6 rather than 0.3 or 0.9, and the sweep that chose it is
+ * `scratch/archetype-share-sweep.mjs`: three commanders through the real
+ * pipeline at each value, three archetypes each, everything else held still.
+ * Two numbers decide it. OVERLAP is how much of a commander's three archetype
+ * decks is the same cards, so lower means the archetype did something. OWN is
+ * how many of Meren's nonland cards still do MEREN's job rather than the
+ * shell's, across her aristocrats, control and big-mana builds, against 15 with
+ * no archetype asked for, so higher means the commander still decides.
+ *
+ *          Krenko overlap   Meren overlap   Meren own
+ *   0.30        62.4%           51.5%        11/15/15
+ *   0.45        47.1%           33.1%         7/15/15
+ *   0.60        42.8%           22.6%         5/12/15
+ *   0.75        36.7%           16.1%         4/ 7/11
+ *   0.90        31.5%           12.3%         1/ 5/ 7
+ *
+ * Below 0.6 the archetype is barely audible: at 0.3 Krenko's three decks are
+ * nearly the same deck. Above it the commander starts losing, and it goes
+ * quickly: between 0.6 and 0.75 Meren's control build drops from 12 of her own
+ * cards to 7 and her big-mana build from all 15 to 11. 0.6 is the last value at
+ * which two of her three builds keep essentially her whole plan.
+ *
+ * Krenko's Goblin count barely moves anywhere in that range, 17 to 27 against
+ * 26 with no archetype asked for, which is the combination rule holding: the
+ * shell chooses WHICH Goblins rather than whether there are Goblins.
+ */
+const ARCHETYPE_SHARE = 0.6;
+
+/**
+ * Read a shell: what do the cards it is made of do that other cards do not?
+ *
+ * No knowledge of any particular archetype, here or anywhere in the engine.
+ * Hand it twelve cards and it reports what they share; the answer for
+ * Aristocrats is an aristocrats answer because the cards are aristocrats cards.
+ *
+ * RECURRENCE ALONE WAS THE FIRST VERSION AND IT DID NOT WORK, which is worth
+ * keeping because the failure looked exactly like success. Weighted by how much
+ * of the shell carried a facet, the Aristocrats shell's joint loudest want came
+ * back `cares:type:creature`, on 5 of its 12 cards. So did Control's, and so did
+ * Big mana's, because half the cards in Magic that do anything at all do it to a
+ * creature. Measured on the 2026-08-19 catalogue: `cares:type:creature` is
+ * carried by 1,581 of the 7,496 cards a mono-red commander may play, 21% of the
+ * pool. A want carried by a fifth of the pool does not rank a fifth of the pool
+ * above the rest, it ranks everything, and the three archetype decks for Krenko
+ * came out 88.5% the same cards.
+ *
+ * So a want is weighted by LIFT: the share of the SHELL carrying the facet
+ * divided by the share of the POOL carrying it. `trig:dies` is on 33% of the
+ * Aristocrats shell and 2.6% of a mono-red pool, a lift of 12.7;
+ * `cares:type:creature` is on 42% of the shell and 21% of the pool, a lift of
+ * 2.0. Death triggers are what makes Aristocrats Aristocrats and creatures are
+ * what makes Magic Magic, and lift is the arithmetic that knows the difference.
+ *
+ * Two bounds, and both are the same statement about being able to shape a deck:
+ *
+ *   LIFT MUST EXCEED 1. A facet the shell carries LESS often than the pool does
+ *     is evidence against the shell, not for it, and asking for it would build
+ *     an averagely-shaped deck on purpose.
+ *   THE POOL MUST HOLD `minCards` OF THEM. A want fewer cards can satisfy than
+ *     the deck has slots cannot shape the deck, and because lift divides by a
+ *     small number it would otherwise arrive enormous and quiet every want that
+ *     can. This is what stops Big mana from asking a mono-red deck for
+ *     `cares:sub:forest`, which nine cards in that pool satisfy.
+ *
+ * With no background the lift is 1 for everything and this falls back to plain
+ * recurrence, which is the right behaviour for a caller that has no pool: worse
+ * ordering, never a wrong one.
+ *
+ * LIFT ALONE DID NOT FIX KRENKO, and saying so here is the point of writing any
+ * of this down. It fixed the commanders whose plans leave the deck room: Meren
+ * went from 46.6% to 24.6% mean overlap between her three archetype decks and
+ * Muldrotha from 16.9% to 2.2%. Krenko went the wrong way, 88.5% to 95.1%,
+ * because a narrower shell is a quieter shell and his own plan was already
+ * loud enough to fill the deck on its own. What fixed Krenko was giving the
+ * shell its own axis instead of merging it into his wants: see
+ * {@link withArchetype}. Both changes were needed and neither was sufficient.
+ */
+export function planForArchetype(
+  input: ArchetypeInput,
+  background?: FacetBackground | null
+): ArchetypePlan {
+  const count = new Map<Facet, number>();
+  const example = new Map<Facet, string>();
+  let withoutRecord = 0;
+
+  for (const card of input.exemplars) {
+    if (!hasRecord(card)) withoutRecord += 1;
+    // Deduped per card, so a card carrying `eff:draw` twice still counts once.
+    for (const facet of new Set(card.facets)) {
+      if (PLAN_IGNORED.has(facet)) continue;
+      if (!ARCHETYPE_WANT_PREFIXES.some(p => facet.startsWith(p))) continue;
+      count.set(facet, (count.get(facet) ?? 0) + 1);
+      if (!example.has(facet)) example.set(facet, card.name);
+    }
+  }
+
+  const read = input.exemplars.length;
+  const wants: Want[] = [];
+  const dropped: { facet: Facet; reason: 'common' | 'rare'; poolCards: number }[] = [];
+
+  for (const [facet, n] of count) {
+    if (n < ARCHETYPE_MIN_EXEMPLARS) continue;
+    const inShell = n / Math.max(1, read);
+
+    if (!background || background.cards === 0) {
+      wants.push({ facet, weight: inShell, because: shellClause(input, facet, n, read, example) });
+      continue;
+    }
+
+    const poolCards = background.count.get(facet) ?? 0;
+    if (poolCards < background.minCards) {
+      dropped.push({ facet, reason: 'rare', poolCards });
+      continue;
+    }
+    const lift = inShell / (poolCards / background.cards);
+    if (lift <= 1) {
+      dropped.push({ facet, reason: 'common', poolCards });
+      continue;
+    }
+    wants.push({ facet, weight: lift, because: shellClause(input, facet, n, read, example) });
+  }
+
+  wants.sort((a, b) => b.weight - a.weight || a.facet.localeCompare(b.facet));
+  dropped.sort((a, b) => b.poolCards - a.poolCards || a.facet.localeCompare(b.facet));
+
+  return {
+    id: input.id,
+    name: input.name,
+    wants,
+    read,
+    named: input.named,
+    withoutRecord,
+    dropped,
+  };
+}
+
+/** The sentence a shell want carries under a card. Built from the shell, never invented. */
+function shellClause(
+  input: ArchetypeInput,
+  facet: Facet,
+  n: number,
+  read: number,
+  example: ReadonlyMap<Facet, string>
+): string {
+  return (
+    `${input.name} decks want this: ${n} of the ${read} cards that make up the shell ` +
+    `${describeWant(facet)}, ${example.get(facet)} among them`
+  );
+}
+
+/**
+ * THE COMBINATION. An archetype modifies a commander's plan; it never replaces it.
+ *
+ * A SEPARATE AXIS, NOT A COMPETING WANT, and that is the whole design. The
+ * first version merged the shell's wants into the commander's one list and
+ * `planFit` combined them, which sounds right and measured wrong: `planFit`
+ * gives every want after the best only `EXTRA_WANT_DECAY` of its weight, so for
+ * Krenko a Goblin scored 0.90 and a Goblin that also dies for value scored
+ * 0.92. Two hundredths of a point, against a popularity spread worth ten times
+ * that. The archetype could not reorder the Goblins at all, and asking for
+ * Aristocrats moved three cards of sixty-one.
+ *
+ * So the shell scores on its own axis and the two are ADDED by `rank.ts`. What
+ * that buys is exactly the sentence the owner asked for. For Krenko:
+ *
+ *     a Goblin that dies for value   commander 1.98 + shell 1.19
+ *     a Goblin                       commander 1.98
+ *     a sacrifice outlet that is not a Goblin        shell 1.19
+ *
+ * Aristocrats Krenko is still Goblins, and it is the Goblins that die. The
+ * shell reorders inside what the commander already wanted and can only win a
+ * slot outright where the commander wanted nothing.
+ *
+ * Three rules set the axis:
+ *
+ *   1. THE COMMANDER SETS THE SCALE. The shell's strongest want is placed at
+ *      {@link ARCHETYPE_SHARE} of the commander's strongest and the rest follow
+ *      in proportion to their lift, so the shell's whole axis is capped below
+ *      the commander's however loud the shell's own numbers were.
+ *   2. A COMMANDER WANT IS NEVER LOWERED. The merged list the SHAPE reads keeps
+ *      the larger weight where both name a facet, which by rule 1 is always the
+ *      commander's, and with it the commander's own sentence.
+ *   3. A COMMANDER WITH NOTHING TO SAY LETS THE SHELL SPEAK AT FULL VOLUME.
+ *      With no commander want there is nothing to be a fraction of, so the
+ *      anchor is 1. That is the Muldrotha case: her record produces no wants at
+ *      all, and before this her deck was picked on roles and popularity. It is
+ *      reported as `alone` rather than left to be inferred.
+ *
+ * The returned plan's `wants` are the MERGED list, which is what
+ * `deriveDeckShape` measures the deck's composition against: a card that does
+ * either job is a card this deck is made of, whichever half asked for it. The
+ * separate axis lives on `plan.archetype.wants` and is what `rank.ts` scores.
+ *
+ * Returns the commander's own plan unchanged when there is no archetype or the
+ * shell produced nothing, so a caller can always call this.
+ */
+export function withArchetype(
+  plan: CommanderPlan,
+  archetype: ArchetypePlan | null | undefined
+): CommanderPlan {
+  if (!archetype || archetype.wants.length === 0) return plan;
+
+  const commanderTop = plan.wants.reduce((best, w) => Math.max(best, w.weight), 0);
+  const shellTop = archetype.wants[0].weight;
+  const anchor = commanderTop > 0 ? commanderTop : 1;
+  const scale = shellTop > 0 ? (anchor * ARCHETYPE_SHARE) / shellTop : 0;
+
+  const scaled: Want[] = archetype.wants.map(w => ({
+    facet: w.facet,
+    weight: w.weight * scale,
+    because: w.because,
+  }));
+
+  const merged = new Map<Facet, Want>();
+  for (const want of plan.wants) merged.set(want.facet, want);
+
+  let added = 0;
+  for (const want of scaled) {
+    const already = merged.get(want.facet);
+    if (!already) added += 1;
+    // Rule 2. The commander's weight wins on a tie as well, because its
+    // sentence is about this deck and the shell's is about the format.
+    if (already && already.weight >= want.weight) continue;
+    merged.set(want.facet, want);
+  }
+
+  return {
+    ...plan,
+    wants: [...merged.values()].sort(
+      (a, b) => b.weight - a.weight || a.facet.localeCompare(b.facet)
+    ),
+    archetype: {
+      id: archetype.id,
+      name: archetype.name,
+      wants: scaled,
+      read: archetype.read,
+      named: archetype.named,
+      withoutRecord: archetype.withoutRecord,
+      dropped: archetype.dropped,
+      scale,
+      added,
+      alone: commanderTop === 0,
+    },
+  };
+}
+
+/**
+ * How much this card does the ARCHETYPE's job, on the archetype's own axis.
+ *
+ * The same arithmetic as {@link planFit} over a different list of wants, which
+ * is what keeps the two signals comparable in `rank.ts`. Silent when no
+ * archetype was asked for, the same way castability is silent when the mana
+ * base is unknown: no signal at all rather than a zero that reads as a verdict.
+ */
+export function archetypeFit(
+  archetype: ArchetypeInfluence | null | undefined,
+  card: FacetCarrier
+): PlanFit {
+  if (!archetype || archetype.wants.length === 0) return NO_FIT;
+  return planFit(
+    { commanderName: archetype.name, wants: archetype.wants, tribe: null, fromTagsOnly: false },
+    card
+  );
+}
+
+/**
+ * The clause a shell want carries into the reason under a card.
+ *
+ * Built from the facet and never invented, the same rule `describeSharedFacets`
+ * follows, but phrased for "N of the shell's cards ___" rather than for "this
+ * card ___", so it needs the plural verb. A facet with no phrase falls back to
+ * naming itself, which is honest and rare: every `eff:` verb has a phrase.
+ */
+function describeWant(facet: Facet): string {
+  if (facet.startsWith('eff:')) {
+    const phrase = EFFECT_PHRASES[facet.slice(4)];
+    if (phrase) return depluralise(phrase);
+  }
+  if (facet.startsWith('trig:')) {
+    const event = facet.slice(5);
+    return TRIGGER_PHRASES[event] ?? `trigger on ${event}`;
+  }
+  if (facet.startsWith('cares:type:')) return `are about ${facet.slice('cares:type:'.length)}s`;
+  if (facet.startsWith('cares:sub:')) return `are about ${facet.slice('cares:sub:'.length)}s`;
+  if (facet.startsWith('cares:zone:')) return `use the ${facet.slice('cares:zone:'.length)}`;
+  return `carry ${facet}`;
+}
+
+/**
+ * A trigger event, said the way a player would say it.
+ *
+ * `trig:dies` reads "trigger on dies" without this, which is the raw event name
+ * from the DSL's `TriggerEvent` union showing through into copy a player reads
+ * under a card. Only the events a shell has actually produced are here; anything
+ * else falls back to naming the event, which is ugly and true rather than
+ * invented.
+ */
+const TRIGGER_PHRASES: Readonly<Record<string, string>> = {
+  dies: 'trigger on something dying',
+  enters: 'trigger on something arriving',
+  leaves: 'trigger on something leaving',
+  cast: 'trigger on a spell being cast',
+  attacks: 'trigger on an attack',
+  blocks: 'trigger on a block',
+  step: 'trigger at a point in the turn',
+  sacrificed: 'trigger on a sacrifice',
+  'zone-change': 'trigger on a card changing zones',
+  'deals-damage': 'trigger on dealing damage',
+  'dealt-damage': 'trigger on taking damage',
+  'counter-added': 'trigger on a counter being placed',
+  'draws-card': 'trigger on a card being drawn',
+  'gains-life': 'trigger on life being gained',
+  'loses-life': 'trigger on life being lost',
+};
+
+/**
+ * "drains life" to "drain life". The phrases in {@link EFFECT_PHRASES} are
+ * written for one card and these sentences have several, so the verb loses its
+ * third-person ending. Only the first word is a verb, and none of them is
+ * irregular, so this is the whole of the grammar.
+ */
+function depluralise(phrase: string): string {
+  const space = phrase.indexOf(' ');
+  const verb = space < 0 ? phrase : phrase.slice(0, space);
+  const rest = space < 0 ? '' : phrase.slice(space);
+  if (verb.endsWith('ies')) return `${verb.slice(0, -3)}y${rest}`;
+  if (verb.endsWith('es') && (verb.endsWith('shes') || verb.endsWith('ches'))) {
+    return `${verb.slice(0, -2)}${rest}`;
+  }
+  if (verb.endsWith('s')) return `${verb.slice(0, -1)}${rest}`;
+  return phrase;
+}
+
+/* ------------------------------------------------------------------ *
  * Scoring a candidate against the plan
  * ------------------------------------------------------------------ */
 
@@ -719,6 +1250,18 @@ export interface PlanFit {
  * the result is bounded by 1 without a clamp, and the order is strict. A card
  * that IS the deck's plan beats a card that brushes three lesser parts of it,
  * which is the trade this signal exists to make.
+ *
+ * A WANT OF EXACTLY 1.0 SATURATES THIS, and it is left saturating on purpose.
+ * `TRIBE_MEMBER_WEIGHT` is 1.0, so for Krenko, Mob Boss every one of the 1,520
+ * Goblins in a mono-red pool comes back at fit exactly 1.0 and this signal
+ * cannot order them. That was diagnosed while connecting the archetype and a
+ * ceiling below 1 was written, measured and REMOVED: the archetype scores on
+ * its own axis and is ADDED to this one, so it orders the Goblins without
+ * needing room inside this number, and the ceiling measured slightly worse on
+ * every commander tried. `scratch/archetype-ceiling-sweep.mjs`, Krenko across
+ * three archetypes: no ceiling gave 39.9% mean overlap between the three decks
+ * and kept all 61 of the cards doing Krenko's own job in every one of them; a
+ * ceiling of 0.9 gave 42.8% and dropped one build to 59.
  */
 export function planFit(plan: CommanderPlan | null, card: FacetCarrier): PlanFit {
   if (!plan || plan.wants.length === 0) return NO_FIT;
@@ -742,6 +1285,7 @@ export function planFit(plan: CommanderPlan | null, card: FacetCarrier): PlanFit
 
 /** Each want after the best counts for this much of what it would alone. */
 const EXTRA_WANT_DECAY = 0.35;
+
 
 function clamp01(n: number): number {
   return n < 0 ? 0 : n > 1 ? 1 : n;

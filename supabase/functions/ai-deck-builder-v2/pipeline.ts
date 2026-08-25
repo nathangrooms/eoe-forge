@@ -14,7 +14,7 @@
  */
 
 import { Catalog, normalizeName, type CatalogRow } from './catalog.ts';
-import { getAdminConfig, AI_PROMPTS } from './admin-config.ts';
+import { loadAdminConfig, AI_PROMPTS } from './admin-config.ts';
 import {
   buildCandidateQuery,
   deriveDeckProfile,
@@ -23,11 +23,19 @@ import {
   type CandidateQuery,
 } from './_engine/advise/index.ts';
 import { generateDeck, type BuildCard, type GeneratedDeck } from './_engine/build/generate.ts';
+import { popularityCoverage } from './_engine/advise/rank.ts';
+import type { ArchetypeExemplar, ArchetypeInput } from './_engine/knowledge/behaviour.ts';
 import { evaluateDeck } from './_engine/evaluate.ts';
 import type { EngineCard } from './_engine/core/card.ts';
+import { facetsForCard, type FacetCensus } from './_lib/deck/recommend/behaviour.ts';
+import {
+  shellCardNames,
+  shellForRequestedArchetype,
+  type DeckArchetype,
+} from './_lib/deck/archetypeShells.ts';
 
 /** Bumped whenever the grounding or the assembly rules change. */
-export const ENGINE_VERSION = 'ai-deck-builder-v2/6-grounded';
+export const ENGINE_VERSION = 'ai-deck-builder-v2/7-behaviour';
 
 /** A Commander deck is the commander plus this many. A rule, not a policy. */
 const DECK_SLOTS = 99;
@@ -58,12 +66,195 @@ export interface BuildRequest {
     color_identity?: string[];
     colors?: string[];
   };
+  /**
+   * The strategy the player picked, as a name: `aristocrats`, `tokens`, and so on.
+   *
+   * IT REACHES THE ENGINE NOW. Until this pass it went to the language model's
+   * prompt and nowhere else, so the same commander produced the same
+   * ninety-nine cards whichever archetype was chosen and the choice showed up
+   * only as a different sentence in the planner's instructions. The name is
+   * matched against `DECK_ARCHETYPES` by `shellForRequestedArchetype`, the
+   * shell's own cards are read into behaviour facets, and the engine folds what
+   * they have in common into the commander's plan as a modifier.
+   *
+   * A name that matches no shell still reaches the planner exactly as before,
+   * and the log says which name did not match so the gap can be counted.
+   */
   archetype?: string;
+  /**
+   * The deck style the player picked: `creatures`, `balanced` or `spells`.
+   *
+   * Separate from `archetype` on purpose, and the two are not the same
+   * question. An archetype names a strategy, which is a claim about what the
+   * deck is trying to do; a style says how much of the deck should have a body,
+   * which is a claim about its composition. Both reach the engine now and they
+   * reach it by different doors: an archetype adds WANTS to the commander's
+   * plan, a style TILTS the creature share that plan produces.
+   *
+   * Optional, and absent means `balanced`. An unrecognised name also means
+   * `balanced`, decided in `roles.ts` rather than here, and the response says
+   * which was used.
+   */
+  style?: string;
   powerLevel?: number;
   budget?: number;
   customPrompt?: string;
   useAIPlanning?: boolean;
 }
+
+/* ------------------------------------------------------------------ *
+ * Behaviour facets for the pool
+ * ------------------------------------------------------------------ */
+
+/**
+ * Compiled facets, kept across invocations of a warm function instance.
+ *
+ * WHY THE FACETS ARE COMPUTED HERE AND NOT STORED ON THE ROW
+ *
+ * A `facets text[]` column on `cards` was the other candidate and it is the
+ * cheaper one per request. It was not chosen, for three reasons and the first
+ * is the one that decides it:
+ *
+ *   1. Facets are a pure function of `oracle_text` and of the compiler's
+ *      current rules, and the compiler is under active development — 7,400 of
+ *      31,833 commander-legal cards still produce no record at all. A stored
+ *      column is a cache with no invalidation hook, so every improvement to
+ *      the compiler would stop short of the generator until a human remembered
+ *      to re-run a backfill. That is the same failure this pass is fixing:
+ *      something correct, built, and not reaching anyone.
+ *   2. `cards_unique` is a materialized view that freezes its column list, so
+ *      adding a column to `cards` does not add it to the view, and the view
+ *      cannot be refreshed from a PostgREST request at all.
+ *   3. It would put the write in `scryfall-sync`, which is a different owner's
+ *      file, to serve a reader in this one.
+ *
+ * WHAT IT COSTS, MEASURED on the 2026-08-19 catalogue snapshot, five colours,
+ * all 31,833 commander-legal rows: 4.93 MB of `oracle_text` added to a pool
+ * query that already ships those rows, and 3.34 s to compile them. Both are
+ * worst-case: a mono-coloured commander's pool is a fraction of that, and this
+ * map means a warm instance pays the compile once per card rather than once
+ * per request.
+ */
+const FACET_MEMO = new Map<string, readonly string[]>();
+
+/**
+ * Facets for a pool, and an honest census of where they came from.
+ *
+ * The census is not decoration. A card with no record falls back to tags
+ * invisibly, so a caller that does not know how often that happened cannot
+ * tell a behaviour-driven deck from a word-matched one. It goes in the log and
+ * in the response.
+ */
+function facetsForPoolRows(
+  rows: readonly CatalogRow[],
+  /**
+   * Did these rows actually carry `oracle_text`?
+   *
+   * The memo is keyed on `oracle_id` alone, so a caller that read a pool
+   * WITHOUT the text column would write "this card was read and does nothing"
+   * against ids that were merely never read, and every later request on the
+   * same warm instance would trust it. Worse than a slow cache: the compiler
+   * reports `rec:full` for a card with no text, and `rec:full` is the facet
+   * that turns an absence into a positive answer.
+   *
+   * Caught by `scratch/reach-measure.mjs`, which built one set of decks from a
+   * text-less pool and a second from a full one and got byte-identical decks
+   * out of both. The second run never compiled anything; it read the first
+   * run's answers.
+   *
+   * `poolFor({ withOracleText: true })` is the only caller, so this is always
+   * true today. It is a parameter rather than an assumption because the day it
+   * stops being true the failure is silent and permanent.
+   */
+  rowsCarryOracleText: boolean
+): {
+  byOracleId: Map<string, readonly string[]>;
+  census: FacetCensus;
+  cached: number;
+  ms: number;
+} {
+  const startedAt = Date.now();
+  const byOracleId = new Map<string, readonly string[]>();
+  const census: FacetCensus = { cards: 0, compiler: 0, xmage: 0, none: 0, facets: 0 };
+  let cached = 0;
+
+  for (const row of rows) {
+    const id = row.oracle_id;
+    if (!id || byOracleId.has(id)) continue;
+
+    const memo = rowsCarryOracleText ? FACET_MEMO.get(id) : undefined;
+    if (memo) {
+      byOracleId.set(id, memo);
+      census.cards += 1;
+      census.facets += memo.length;
+      // A memo hit cannot say which source spoke, because only the facets were
+      // kept. Counted separately rather than guessed at, so the census stays
+      // true: `compiler + xmage + none` is the number of cards compiled now.
+      cached += 1;
+      continue;
+    }
+
+    const result = facetsForCard(row);
+    if (rowsCarryOracleText) FACET_MEMO.set(id, result.facets);
+    byOracleId.set(id, result.facets);
+    census.cards += 1;
+    census[result.source] += 1;
+    census.facets += result.facets.length;
+  }
+
+  return { byOracleId, census, cached, ms: Date.now() - startedAt };
+}
+
+/* ------------------------------------------------------------------ *
+ * The archetype the player asked for, as cards
+ * ------------------------------------------------------------------ */
+
+/**
+ * Read an archetype shell into the shape the engine takes.
+ *
+ * The engine is handed FACETS, never an archetype id, and the reason is the
+ * same one that keeps the facet producer out of `src/engine/`: a table mapping
+ * `aristocrats` to a list of effects would be one person's opinion about what
+ * Aristocrats is, frozen where nothing can check it. `DECK_ARCHETYPES` already
+ * says what the shell is made of, as real cards, and a real card can be read.
+ *
+ * Cards the catalogue does not hold are dropped and COUNTED rather than
+ * ignored: `named` is what the shell claims and `exemplars.length` is what was
+ * found, so `planForArchetype` can report both and a shell that has quietly
+ * stopped resolving is visible instead of merely quiet.
+ *
+ * One row per name. `cardsByName` returns every printing, and twelve names can
+ * come back as forty rows; counting a card once per printing would weight the
+ * shell by how many times a card has been reprinted.
+ */
+function archetypeFor(shell: DeckArchetype, rows: readonly CatalogRow[]): ArchetypeInput {
+  const names = shellCardNames(shell);
+  const wanted = new Map(names.map(name => [normalizeName(name), name]));
+  const seen = new Set<string>();
+  const exemplars: ArchetypeExemplar[] = [];
+
+  for (const row of rows) {
+    const key = normalizeName(row.name ?? '');
+    const name = wanted.get(key);
+    if (!name || seen.has(key)) continue;
+    seen.add(key);
+    exemplars.push({ name, facets: facetsForCard(row).facets });
+  }
+
+  return { id: shell.id, name: shell.name, named: names.length, exemplars };
+}
+
+/*
+ * There is deliberately NO `resolveStyle` helper here.
+ *
+ * `styleFor` in `roles.ts` already decides what an unrecognised style
+ * name means, and `generateDeck` already reports the answer on
+ * `evidence.styleAsked` / `evidence.styleUsed`. A second copy of that rule in
+ * this file would be a second opinion about the same question, free to drift,
+ * which is the exact failure `vendor-engine.mjs` exists to prevent. So the raw
+ * request value goes straight to the engine and the resolved value is read back
+ * off the build.
+ */
 
 const countCopies = (deck: { quantity?: number }[]): number =>
   deck.reduce((sum, c) => sum + (Number(c?.quantity) || 1), 0);
@@ -92,15 +283,38 @@ export type BuildOutcome =
 
 export async function build(input: BuildInput): Promise<BuildOutcome> {
   const { catalog, request, startedAt } = input;
-  const config = getAdminConfig();
+  const { config, explicit } = loadAdminConfig();
 
   const format = 'commander';
   const commanderName = request.commander.name;
   const targetBudget = request.budget && request.budget > 0 ? request.budget : null;
+  /** Passed to the engine as it arrived. `roles.ts` decides what it means. */
+  const style = request.style ?? null;
+
+  /*
+   * THE ARCHETYPE IS RESOLVED HERE, BEFORE ANYTHING IS FETCHED.
+   *
+   * `shellForRequestedArchetype` is deliberately exact rather than fuzzy: a
+   * shell decides what the deck is built out of, so guessing at a name would
+   * build a strategy the player did not ask for. An unmatched name is logged
+   * with the list of shells that do exist, because the gap between what
+   * `AIBuilder.tsx` offers and what this catalogue holds is a real one and
+   * counting it is how it gets closed.
+   */
+  const shell = shellForRequestedArchetype(request.archetype ?? '');
 
   console.log('='.repeat(60));
   console.log(`${ENGINE_VERSION} — ${commanderName}`);
-  console.log(`archetype=${request.archetype ?? 'none'} budget=${targetBudget ?? 'none'}`);
+  console.log(
+    `archetype=${request.archetype ?? 'none'} budget=${targetBudget ?? 'none'} ` +
+      `style=${style ?? 'none'}`
+  );
+  if (request.archetype && !shell) {
+    console.log(
+      `  archetype "${request.archetype}" matches no shell in DECK_ARCHETYPES, so it reaches ` +
+        `the planner as prompt text and shapes nothing`
+    );
+  }
 
   /* --- 1. Resolve the commander against OUR catalogue --------------- */
   // Not against what the client sent. The client's commander comes from the
@@ -117,10 +331,23 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
         `Run a card sync, or pick another commander.`
     );
   }
-  const commander = toBuildCard(commanderRow, format);
+  /*
+   * The commander is read FIRST and read the same way every other card is.
+   *
+   * `planForCommander` derives the whole build's wants from these facets, so a
+   * commander handed in with `facets: null` produces an empty plan no matter
+   * how good the rest of the wiring is. `cardsByName` already selects
+   * `oracle_text`, so this costs one card's compile.
+   */
+  const commanderFacets = facetsForCard(commanderRow);
+  const commander = toBuildCard(commanderRow, format, commanderFacets.facets);
   // The commander's own row is the authority on colour identity.
   const commanderIdentity = commander.colorIdentity;
   console.log(`  identity: ${commanderIdentity.join('') || 'colourless'}`);
+  console.log(
+    `  commander read by: ${commanderFacets.source} ` +
+      `(${commanderFacets.facets.length} facets, coverage ${commanderFacets.coverage})`
+  );
 
   /* --- 2. Retrieve. The whole pool, never a slice. ------------------ */
   const profileForQuery = deriveDeckProfile({
@@ -131,27 +358,112 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
   const query: CandidateQuery = buildCandidateQuery(profileForQuery);
 
   const poolStarted = Date.now();
-  const [spellRows, landRows, basicRows] = await Promise.all([
-    catalog.poolFor(query),
+  const [spellRows, landRows, basicRows, shellRows] = await Promise.all([
+    // WITH oracle text. The generator compiles it into behaviour facets, and
+    // without them every card in the pool reaches the ranker claiming to do
+    // nothing. The optimiser's own call is unchanged and still pays nothing.
+    catalog.poolFor(query, { withOracleText: true }),
     catalog.landPoolFor(query),
     catalog.cardsByName([...BASIC_LANDS], format),
+    /*
+     * The archetype shell's own cards, by name.
+     *
+     * A separate lookup rather than a filter over the pool, and the reason is
+     * that the shell must not be read through the commander's colours. Blood
+     * Artist is what Aristocrats means whether or not the deck can play it, so
+     * a mono-red Krenko asking for Aristocrats reads the same shell a Golgari
+     * commander does and then gets the red half of it, because the POOL is
+     * still filtered by identity and the shell only supplies wants.
+     *
+     * Eleven or twelve names, one round trip, run beside the pool query rather
+     * than after it. Nothing when no shell matched.
+     */
+    shell ? catalog.cardsByName(shellCardNames(shell), format) : Promise.resolve([]),
   ]);
   const poolMs = Date.now() - poolStarted;
 
-  // The land rows carry oracle text and the pool rows do not, so where a card
-  // appears in both the land row wins. That is the only difference between
-  // them, and it is the difference the mana base is chosen on.
+  const archetype = shell ? archetypeFor(shell, shellRows) : null;
+  if (shell && archetype) {
+    console.log(
+      `  archetype: ${shell.name}, ${archetype.exemplars.length} of ${archetype.named} of its ` +
+        `cards found in the card database`
+    );
+  }
+
+  // Both halves now carry oracle text, so where a card appears in both either
+  // row would do. The land row still wins, because it is the one whose text was
+  // fetched for the mana base and keeping that precedence costs nothing.
   const byId = new Map<string, CatalogRow>();
   for (const row of spellRows) byId.set(row.id, row);
   for (const row of landRows) byId.set(row.id, row);
 
-  const pool: BuildCard[] = [...byId.values()]
-    .filter(hasPersistableId)
-    .map(row => toBuildCard(row, format));
+  /* --- 2a. Read what every card in the pool DOES -------------------- */
+  /*
+   * The step that was missing. Everything downstream — `planFit`, `cardRole`,
+   * the creature floor, the commander-fit signal — reads facets, and until now
+   * nothing put any on a pool row.
+   */
+  const poolRows = [...byId.values()].filter(hasPersistableId);
+  const facets = facetsForPoolRows(poolRows, true);
+  const pool: BuildCard[] = poolRows.map(row =>
+    toBuildCard(row, format, facets.byOracleId.get(row.oracle_id ?? '') ?? null)
+  );
+
+  /*
+   * HOW MUCH OF THIS POOL THE POPULARITY PRIOR CAN ACTUALLY SEE.
+   *
+   * `edhrec_rank` is the only evidence in this schema about which cards people
+   * really play, and `rank.ts` leans on it hardest for exactly this caller,
+   * because a build that starts from a commander and nothing else has no deck
+   * to measure role gaps against. So a pool where the column is largely absent
+   * produces a ranking that separates cards on the signals that remain, and
+   * nobody finds out.
+   *
+   * On 2026-08-25 that is not hypothetical. `cards_unique` is a materialized
+   * view over `cards`, its `refreshed_at` reads 2026-08-20, and its scheduled
+   * rebuild has been skipping every night since: `cards-unique-refresh` fires
+   * at 04:40 UTC, the catalogue sync starts at 04:15, and
+   * `refresh_cards_unique()` returns 'skipped: catalogue sync in progress'
+   * every time. The sync then requests a refresh through PostgREST, gets
+   * `authenticator`'s 8 s timeout, and defers to a cron tick that will not come
+   * for another 24 hours, by which time the sync is running again. The view is
+   * therefore frozen mid-alphabet: `edhrec_rank` is present on 13,183 of 13,758
+   * rows whose name begins A-H, on 245 of 868 beginning I, and on 0 of the
+   * 19,254 rows beginning J-Z. Sol Ring reads rank 1 in `cards` and NULL here.
+   *
+   * Measured effect, eight commanders built through this function that day:
+   * every nonbasic land in every deck had a name beginning A-I, against pools
+   * that are 42-46% A-I, and the decks held a mean 3.3 of the 60 most-played
+   * cards in their own colours. The same eight builds with this one column
+   * repaired from `cards` came back at 35-49% A-I, matching their pools, and
+   * 6.0 of 60.
+   *
+   * This counts it and says so, in the log and in the player's own change log.
+   * It does not refuse the build: a deck ranked on a partial prior is worse
+   * than one ranked on a whole prior and far better than none, and the repair
+   * is a database operation this function cannot perform. What it must not do
+   * is stay silent, which is what let a ranking on the first letter of a card's
+   * name ship, and survive three passes of engine work aimed at the symptom.
+   */
+  const popularity = popularityCoverage(pool);
+  console.log(
+    `  popularity prior: ${popularity.ranked} of ${pool.length} cards carry edhrec_rank ` +
+      `(A-I ${Math.round(popularity.earlyShare * 100)}%, ` +
+      `J-Z ${Math.round(popularity.lateShare * 100)}%)` +
+      (popularity.skewedByName
+        ? '. SKEWED BY NAME: cards_unique is stale, so this build is partly ranked on the ' +
+          'first letter of a card name. Run: select public.refresh_cards_unique(true);'
+        : '')
+  );
 
   console.log(
     `  pool: ${spellRows.length} rows + ${landRows.length} land rows -> ` +
       `${pool.length} printings in ${poolMs} ms`
+  );
+  console.log(
+    `  facets: ${facets.census.facets} on ${facets.census.cards} cards in ${facets.ms} ms ` +
+      `(compiler ${facets.census.compiler}, xmage ${facets.census.xmage}, ` +
+      `no record ${facets.census.none}, cached ${facets.cached})`
   );
 
   const basics = resolveBasics(basicRows, commanderIdentity, format);
@@ -169,7 +481,45 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
     );
   }
 
-  const landTarget = clamp(config.minLandCount ?? 36, 30, 42);
+  /*
+   * THE LAND COUNT IS NOT SET HERE ANY MORE, and that is the connection.
+   *
+   * This line used to read `clamp(config.minLandCount ?? 36, 30, 42)`.
+   * `minLandCount` has a default of 35 and nothing ever changed it, so every
+   * deck this function has ever built ran 35 lands: Krenko's two-drops and a
+   * seven-mana reanimator deck, the same number, because the number came from a
+   * config file rather than from either deck. `generateDeck` now solves it per
+   * commander against the curve that commander's own plan implies, and a
+   * `landTarget` passed from here would override that solve.
+   *
+   * It is still overridable, but only by a human who actually set it: `explicit`
+   * holds the keys present in `AI_BUILDER_CONFIG`, so an admin who types a land
+   * count still gets it and a default nobody chose no longer speaks.
+   */
+  const landTarget = explicit.has('minLandCount')
+    ? clamp(config.minLandCount, 30, 42)
+    : undefined;
+
+  /*
+   * THE THREE ROLE MINIMUMS WERE DECLARED AND NEVER READ, so here they are.
+   *
+   * `minRampCount`, `minDrawCount` and `minRemovalCount` have sat in
+   * `AdminConfig` since it was written, with defaults of 10, 10 and 8, and
+   * nothing in this function has ever looked at any of them. That is the same
+   * pattern as the rest of this work: a setting that exists, appears to be
+   * doing something, and is not connected to anything.
+   *
+   * They are connected now, under the same rule as the land count: only when an
+   * admin actually set one. A default nobody chose must not override a floor
+   * the commander's own curve produced, and connecting the defaults would put
+   * ramp 10 / draw 10 / removal 8 straight back on every deck in the format,
+   * which is the table this change exists to delete.
+   */
+  const roleTargets: Partial<Record<'ramp' | 'draw' | 'removal', number>> = {};
+  if (explicit.has('minRampCount')) roleTargets.ramp = Math.max(0, config.minRampCount);
+  if (explicit.has('minDrawCount')) roleTargets.draw = Math.max(0, config.minDrawCount);
+  if (explicit.has('minRemovalCount')) roleTargets.removal = Math.max(0, config.minRemovalCount);
+  const roleOverrides = Object.keys(roleTargets).length > 0 ? roleTargets : undefined;
 
   /* --- 3. Rank once, so the planner has something real to choose from */
   // A first build with no planner input. Its top entries are the shortlist the
@@ -182,7 +532,16 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
     basics,
     slots: DECK_SLOTS,
     landTarget,
+    roleTargets: roleOverrides,
     budgetUsd: targetBudget,
+    // The style has to be on BOTH builds. This one produces the shortlist the
+    // planner chooses from, so a shortlist ranked without it would hand the
+    // model a spells-shaped list and then ask the second build for creatures.
+    style,
+    // And so does the archetype, for the same reason and a second one: the
+    // planner is asked to make the archetype's plan work, so a shortlist ranked
+    // without it would be a list of cards for a different deck.
+    archetype,
   });
 
   /* --- 4. Ground the model in that shortlist ------------------------ */
@@ -209,7 +568,10 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
           basics,
           slots: DECK_SLOTS,
           landTarget,
+          roleTargets: roleOverrides,
           budgetUsd: targetBudget,
+          style,
+          archetype,
           preferOracleIds: plan.preferOracleIds,
           avoidOracleIds: plan.avoidOracleIds,
         })
@@ -391,6 +753,24 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
             fitScore: cut.fitScore,
           })),
           roleFill: deck.roleFill,
+          /*
+           * How this deck was actually decided, so "behaviour drove it" is
+           * checkable from the response rather than asserted in a comment.
+           * `deck.evidence` is the generator's own account: the commander plan
+           * it read, how many pool and chosen cards carried a record, and the
+           * style it used against the style it was asked for.
+           */
+          evidence: {
+            ...deck.evidence,
+            poolFacets: {
+              cards: facets.census.cards,
+              compiler: facets.census.compiler,
+              xmage: facets.census.xmage,
+              none: facets.census.none,
+              cached: facets.cached,
+              ms: facets.ms,
+            },
+          },
           typeBreakdown,
           manaCurve,
           avgCmc,
@@ -404,7 +784,24 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
           `${validation.totalCards}/99 cards (+ commander = ${validation.totalCards + 1})`,
           `Colours: ${commanderIdentity.join('') || 'colourless'}`,
           `Lands: ${typeBreakdown.lands} (${sumBy(c => c.isBasicLand)} basic)`,
-          `Chosen from ${pool.length} legal printings, all of them ranked`,
+          /*
+           * This line used to read "all of them ranked", which was true of the
+           * engine's own ranking and read as a claim about the data. It was
+           * not one: on the day it was replaced, 40% of the pool carried the
+           * popularity column at all, and which 40% depended on the first
+           * letter of the card's name. A change log that a player reads has to
+           * say what the build actually knew.
+           */
+          `Chosen from ${pool.length} legal cards, ${popularity.ranked} of them with a ` +
+            `popularity figure`,
+          ...(popularity.skewedByName
+            ? [
+                'The card database is mid-rebuild, so how often a card is played is known for ' +
+                  `${Math.round(popularity.earlyShare * 100)}% of names starting A to I and ` +
+                  `${Math.round(popularity.lateShare * 100)}% of the rest. Some well-known ` +
+                  'cards will be missing from this deck until it finishes.',
+              ]
+            : []),
           ...deck.notes,
           ...(plan
             ? [
@@ -447,11 +844,30 @@ function clamp(n: number, lo: number, hi: number): number {
  * Card shapes
  * ------------------------------------------------------------------ */
 
-function toBuildCard(row: CatalogRow, format: string): BuildCard {
+function toBuildCard(
+  row: CatalogRow,
+  format: string,
+  facets: readonly string[] | null = null
+): BuildCard {
   return {
     ...normalizeRow(row, format),
     oracleText: row.oracle_text ?? null,
     keywords: row.keywords ?? null,
+    /*
+     * THE FIELD THIS PASS EXISTS TO FILL.
+     *
+     * `normalizeRow` has never set it, so every card the generator ranked
+     * arrived with `facets: undefined`. `planFit` reads facets and nothing
+     * else, so it returned no fit for any card in the pool, and a commander
+     * plan that correctly said "Atraxa wants proliferate and counters" was
+     * matched against thirty thousand cards that claimed to do nothing at all.
+     * The plan was computed, reported in the notes, and then had nothing to
+     * work on.
+     *
+     * Null means what it always meant — no record — and `hasRecord` still
+     * separates that from a card that was read and found to do nothing.
+     */
+    facets: facets ?? null,
   };
 }
 

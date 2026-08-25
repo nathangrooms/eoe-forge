@@ -53,11 +53,18 @@ import { ROLES } from '../core/types.ts';
 import type { EngineCard, EngineDeckEntry } from '../core/card.ts';
 import { deriveDeckProfile } from '../advise/profile.ts';
 import { rankCandidates } from '../advise/rank.ts';
-import { roleTargetsFor, cardRole, creatureTargetFor, type DeckStyle } from '../advise/roles.ts';
+import { cardRole, styleFor, type DeckStyle } from '../advise/roles.ts';
+import { deriveDeckShape, type DeckShape } from './shape.ts';
 import { normalizeIdentity } from '../advise/query.ts';
 import {
+  facetBackground,
   facetCoverage,
+  planForArchetype,
   planForCommander,
+  withArchetype,
+  type ArchetypeInfluence,
+  type ArchetypeInput,
+  type ArchetypePlan,
   type CommanderPlan,
 } from '../knowledge/behaviour.ts';
 import {
@@ -141,25 +148,53 @@ export interface GenerateDeckInput {
   basics: Readonly<Partial<Record<BasicColour, BuildCard>>>;
   /** Cards in the deck excluding the commander. 99 for Commander. */
   slots?: number;
-  /** Overrides the declared land target. Defaults to `roles.ts`. */
+  /**
+   * A land count the CALLER insists on. Leave it out, which is the normal case.
+   *
+   * Omitted, the land count is solved per commander against the curve its own
+   * plan implies — see `build/shape.ts`. Supplying a number here overrides that
+   * solve, and the shape reports both so a caller can see what it overruled.
+   * `pipeline.ts` used to pass 35 unconditionally, which meant every deck in
+   * the format ran 35 lands whatever it was made of.
+   */
   landTarget?: number;
+  /**
+   * Role counts the CALLER insists on. Leave it out, which is the normal case.
+   *
+   * Same rule as `landTarget`: the floors are derived per commander and an
+   * explicit number is a caller who knows what they want.
+   */
   roleTargets?: Partial<Record<Role, number>>;
   /**
    * The deck style the user picked: `creatures`, `balanced` or `spells`.
    *
-   * It sets ONE number, the creature floor in `roles.ts`, and the generator
-   * reports which style it actually used in `notes` so "you asked for creature
-   * mode and got a creature deck" is checkable rather than assumed. An
-   * unrecognised name falls back to `balanced` and says so; it never throws,
+   * A TILT, no longer a number. It used to set the creature floor outright —
+   * 32, 24 or 12 — and that is one of the fixed numbers this engine no longer
+   * holds: the creature count is derived from what the commander's own record
+   * asks for, and the style moves that derived share a quarter in either
+   * direction. So creature mode makes a Talrand deck a little more creature
+   * heavy than Talrand implies and cannot make Talrand a creature deck, which
+   * is right, because Talrand is not one.
+   *
+   * An unrecognised name falls back to `balanced` and says so; it never throws,
    * because this arrives from a request body and a bad style must still produce
    * a deck.
-   *
-   * Before this existed the owner's creature mode reached the language model
-   * planner as prompt text and nothing else — `pipeline.ts` passed `archetype`
-   * to `planFromShortlist` and never to `generateDeck` — which is why creature
-   * mode produced Atraxa 7 creatures, Krenko 3, Talrand 4 and Muldrotha 7.
    */
   style?: DeckStyle | string | null;
+  /**
+   * The archetype the player asked for, as the cards that shell is made of.
+   *
+   * NOT A NAME. `aristocrats` means nothing to the engine and a table turning
+   * it into something would be somebody's opinion frozen in a column. The
+   * caller resolves the shell's card names against the catalogue, reads each
+   * one with the same producer that reads the pool, and hands the facets over;
+   * `planForArchetype` works out what the shell wants from what its own cards
+   * do, and `withArchetype` folds that into the commander's plan as a modifier.
+   *
+   * Absent, which is the normal case for an optimiser or a test, and the build
+   * is shaped by the commander alone exactly as before.
+   */
+  archetype?: ArchetypeInput | null;
   /** Whole-deck price ceiling in USD, or null for no ceiling. */
   budgetUsd?: number | null;
   /**
@@ -179,6 +214,16 @@ export type Bucket = 'land' | 'basic' | Role | 'flex';
 export interface BuildEvidence {
   /** The plan read off the commander, or null when its record was empty. */
   plan: CommanderPlan | null;
+  /**
+   * The archetype shell that was folded into that plan, or null.
+   *
+   * Carried separately from `plan.archetype` so a caller can tell "no archetype
+   * was asked for" from "one was asked for and its cards produced nothing".
+   * The second happens: a shell whose cards the catalogue cannot resolve, or
+   * whose cards the compiler cannot read, has no wants to contribute, and a
+   * response that showed only the merged plan would look identical either way.
+   */
+  archetype: ArchetypePlan | null;
   /** Pool cards carrying an ability record, and the pool size. */
   poolWithRecord: number;
   poolSize: number;
@@ -188,6 +233,14 @@ export interface BuildEvidence {
   /** The style asked for, and the one used. They differ when the name was unknown. */
   styleAsked: string | null;
   styleUsed: DeckStyle;
+  /**
+   * How many of each thing this commander asked for, and why.
+   *
+   * The replacement for the role-target table, carried out to the caller so the
+   * numbers a deck was built to can be read beside the deck. `shape.because`
+   * holds one sentence per number, each built from what produced it.
+   */
+  shape: DeckShape;
 }
 
 export interface GeneratedEntry {
@@ -322,19 +375,90 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
    * before — visibly, through `evidence.plan.fromTagsOnly`, rather than
    * silently.
    */
-  const plan = planForCommander({
+  const commanderPlan = planForCommander({
     name: input.commander.name,
     typeLine: input.commander.typeLine,
     facets: input.commander.facets ?? null,
     tags: input.commander.tags,
   });
 
-  const style = creatureTargetFor(input.style ?? null);
-  const targets = roleTargetsFor(format, input.roleTargets, input.style ?? null);
-  const landTarget = clamp(input.landTarget ?? targets.land, 0, slots);
+  /*
+   * THEN THE ARCHETYPE, ON TOP OF THE COMMANDER RATHER THAN INSTEAD OF IT.
+   *
+   * `request.archetype` used to reach the language model's prompt and nothing
+   * else, so the same commander built the same ninety-nine cards whichever
+   * strategy the player picked. `planForArchetype` reads the shell's own cards
+   * the way `planForCommander` reads the commander's, and `withArchetype`
+   * places the shell's loudest want below the commander's loudest so an
+   * Aristocrats Krenko is still a Goblin deck. Everything downstream reads one
+   * plan and needs to know nothing about archetypes: the ranker, the creature
+   * share, the implied curve and the land solve all move because the wants
+   * moved.
+   */
+  /*
+   * The shell is read AGAINST THIS POOL, not in the abstract, and that is what
+   * keeps a want from ranking everything. `cares:type:creature` is on five of
+   * the Aristocrats shell's twelve cards and on 21% of every card a mono-red
+   * commander may play, so it separates nothing; `trig:dies` is on four of the
+   * twelve and 2.6% of the pool, so it separates a deck. See
+   * `planForArchetype`. The lands are left out because the wants are used to
+   * pick spells and to measure what share of the deck has a body; the mana base
+   * is chosen with no plan at all.
+   */
+  const archetypePlan = input.archetype
+    ? planForArchetype(
+        input.archetype,
+        facetBackground(
+          input.pool.filter(c => !isLandCandidate(c)),
+          slots
+        )
+      )
+    : null;
+  const plan = withArchetype(commanderPlan, archetypePlan);
+
+  const style = styleFor(input.style ?? null);
   const identity = normalizeIdentity(input.commander.colorIdentity);
   const preferred = new Set(input.preferOracleIds ?? []);
   const avoided = new Set(input.avoidOracleIds ?? []);
+
+  /*
+   * THEN DERIVE THE SHAPE, and this is where the table used to be.
+   *
+   * `roleTargetsFor` returned ramp 10, draw 10, removal 8, interaction 4,
+   * wincon 3, land 36 and a creature floor of 24 for every commander in the
+   * format. It is not called from here any more. `deriveDeckShape` reads the
+   * plan above against the real pool and answers the same questions per
+   * commander: how many of the cards that do THIS commander's job are
+   * creatures, how many lands does the curve those cards imply actually need,
+   * and how few of each other job can a 99-card deck hold and still expect to
+   * have drawn one. Everything it returns carries the sentence that produced
+   * it, in `shape.because`.
+   */
+  const shape = deriveDeckShape({
+    slots,
+    commander: input.commander,
+    plan,
+    identity,
+    pool: input.pool,
+    style: input.style ?? null,
+    landTarget: input.landTarget ?? null,
+    roleTargets: input.roleTargets ?? null,
+  });
+
+  const landTarget = shape.landTarget;
+  /*
+   * The floors, plus the two roles the floors deliberately do not hold.
+   *
+   * `land` is the solved count and `creature` is the derived target. Both are
+   * put back on this record because the ranker measures a role GAP against it:
+   * a deck that wants forty creatures should rank creatures higher than a deck
+   * that wants six, and that is exactly the difference this number carries.
+   */
+  const targets = {
+    ...shape.roleFloors,
+    land: landTarget,
+    creature: shape.creatureTarget,
+  } as Record<Role, number>;
 
   const notes: string[] = [];
   const shortfalls: string[] = [];
@@ -401,6 +525,9 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
     { ...input.commander, tags: [], facets: null },
     null,
     { ...zeroRoleTargets(), land: landTarget },
+    null,
+    // A land is picked for the mana it makes, and that is as true of the
+    // archetype as it is of the commander. See the note above.
     null
   );
 
@@ -440,10 +567,27 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
   const spellSlots = Math.max(0, slots - landTarget);
   const spellPool = pool.filter(c => !isLandCandidate(c));
 
-  const roleProfile = seedProfile(format, identity, input.commander, provisionalMana, {
-    ...targets,
-    land: 0, // lands are done; a land quota here would re-open it
-  }, plan);
+  /*
+   * THE COMMANDER'S OWN PLAN, and the archetype BESIDE it rather than inside it.
+   *
+   * `plan` is the merged list and it is what `deriveDeckShape` measured the
+   * composition against, because a card that does either job is a card this
+   * deck is made of. Ranking is the other question, and there the two have to
+   * stay apart so they can be added: see `withArchetype` for the measurement
+   * that made that necessary and `rank.ts` for the addition.
+   */
+  const roleProfile = seedProfile(
+    format,
+    identity,
+    input.commander,
+    provisionalMana,
+    {
+      ...targets,
+      land: 0, // lands are done; a land quota here would re-open it
+    },
+    commanderPlan,
+    plan.archetype ?? null
+  );
   const rankedSpells = rankCandidates(spellPool, roleProfile, rankOptions);
 
   const shortlist = rankedSpells.slice(0, SHORTLIST).map(r => r.card as BuildCard);
@@ -519,13 +663,19 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
   }
 
   /* ---------------------------------------------------------------- *
-   * 2b. The creature floor.
+   * 2b. The creature count the commander asked for.
    * ---------------------------------------------------------------- *
    *
-   * THE FIX FOR "IT BARELY ADDS ANY CREATURES, EVEN WHEN I DO CREATURE MODE".
+   * THE FIX FOR "IT BARELY ADDS ANY CREATURES, EVEN WHEN I DO CREATURE MODE",
+   * and no longer a fixed number: `shape.creatureTarget` is what fraction of
+   * the cards that do THIS commander's job turn out to be creatures, applied to
+   * the slots the floors left. Krenko's plan wants Goblins and nearly every
+   * Goblin is a creature, so it comes out high; Talrand's plan wants instants
+   * and sorceries, so it comes out low; and neither number was written down by
+   * anybody.
    *
    * Counted across everything already picked, not filled from zero. The role
-   * quotas above take mana dorks, removal creatures and Craterhoof Behemoths
+   * floors above take mana dorks, removal creatures and Craterhoof Behemoths
    * without being asked to, and every one of those is a creature; topping up
    * from zero would run the deck to sixty bodies and starve the rest of it.
    *
@@ -533,9 +683,9 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
    * the same reasons any other card is — including the commander-fit signal,
    * which is what makes Krenko's creature slots fill with Goblins rather than
    * with whatever creature happens to be popular. It only ever ADDS creatures
-   * up to the floor; it never cuts a non-creature to make room, because the
-   * five role quotas are the deck's job list and a creature count is not worth
-   * a missing sweeper.
+   * up to the target; it never cuts a non-creature to make room, because the
+   * floors are the deck's job list and a creature count is not worth a missing
+   * sweeper. The CEILING is enforced later, in the flex pass.
    */
   const creatureFloor = targets.creature;
   const colourFloor = colouredFloorFor(identity, spellSlots);
@@ -666,28 +816,71 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
     // The profile now has real tags, a real curve and real role counts, so
     // synergy and curve fit finally have something to measure against. At the
     // seed profile `spellCount` is 0 and curve fit cannot fire at all.
-    const nowProfile = deckProfileFrom(format, identity, input.commander, picked, provisionalMana, targets, plan);
+    const nowProfile = deckProfileFrom(
+      format,
+      identity,
+      input.commander,
+      picked,
+      provisionalMana,
+      targets,
+      commanderPlan,
+      plan.archetype ?? null
+    );
     const rerank = rankCandidates(
       shortlist.filter(c => !takenOracleIds.has(c.oracleId)),
       nowProfile,
       rankOptions
     );
-    for (const rec of orderPreferredFirst(rerank, preferred)) {
-      if (picked.length - chosenLands.length >= spellSlots) break;
-      const card = rec.card as BuildCard;
-      if (takenOracleIds.has(card.oracleId)) continue;
-      if (overColourlessCap(card)) continue;
-      takenOracleIds.add(card.oracleId);
-      if (hasColour(card)) colouredPicked += 1;
-      else colourlessPicked += 1;
-      picked.push({
-        card,
-        quantity: 1,
-        reason: rec.reason,
-        score: rec.score,
-        bucket: 'flex',
-        preferred: preferred.has(card.oracleId),
-      });
+
+    /*
+     * THE CREATURE TARGET IS A CEILING HERE, AND THAT HALF IS NEW.
+     *
+     * The floor above answers "it barely adds any creatures". This answers the
+     * opposite failure, which was measured and left open in
+     * `docs/design/ENGINE-PICKS.md` handover 4: Edgar Markov came back with 58
+     * creatures out of 64 nonland cards and essentially no interaction, because
+     * `commanderFit` at 2.2 applied to `sub:vampire` beats every other signal
+     * in a mono-tribal pool and this pass had nothing telling it to stop. A
+     * derived number that only ever pushes one way is half a derivation.
+     *
+     * Two passes rather than a hard refusal. The first spends the flex slots on
+     * everything that is NOT a creature once the target is met, which is where
+     * a tribal deck picks up its sweepers and its card draw. The second exists
+     * because a ceiling must never leave the deck short: if the pool has
+     * nothing else to give, more creatures beat empty slots, and the deck says
+     * so through the note below rather than silently.
+     */
+    const takeFlex = (wanted: (card: BuildCard) => boolean) => {
+      for (const rec of orderPreferredFirst(rerank, preferred)) {
+        if (picked.length - chosenLands.length >= spellSlots) break;
+        const card = rec.card as BuildCard;
+        if (takenOracleIds.has(card.oracleId)) continue;
+        if (overColourlessCap(card)) continue;
+        if (!wanted(card)) continue;
+        takenOracleIds.add(card.oracleId);
+        if (cardRole(card, 'creature')) creaturesPicked += 1;
+        if (hasColour(card)) colouredPicked += 1;
+        else colourlessPicked += 1;
+        picked.push({
+          card,
+          quantity: 1,
+          reason: rec.reason,
+          score: rec.score,
+          bucket: 'flex',
+          preferred: preferred.has(card.oracleId),
+        });
+      }
+    };
+
+    takeFlex(card => !cardRole(card, 'creature') || creaturesPicked < creatureFloor);
+    const beforeOverflow = creaturesPicked;
+    takeFlex(() => true);
+    if (creaturesPicked > beforeOverflow) {
+      notes.push(
+        `${creaturesPicked - beforeOverflow} creature${creaturesPicked - beforeOverflow === 1 ? '' : 's'} ` +
+          `over the ${creatureFloor} this commander asked for, because the pool had nothing ` +
+          `else left that this deck could use`
+      );
     }
   }
 
@@ -780,10 +973,19 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
   const poolCoverage = facetCoverage(pool);
 
   notes.push(
-    `${finalCreatures} creatures against a floor of ${creatureFloor} for the ` +
-      `${style.style} style` +
+    `${finalCreatures} creatures against the ${creatureFloor} this commander's own record ` +
+      `asked for, ${style.style} style` +
       (style.matchedStyle ? '' : ` (you asked for "${String(input.style)}", which is not a style)`)
   );
+  /*
+   * The shape's own argument, verbatim, on the object the caller already reads.
+   *
+   * Every number in it is derived and every sentence says what derived it, so
+   * a player asking "why 38 lands" and an engineer asking "why did this deck
+   * come out with six creatures" read the same answer. This is the line that
+   * makes the derivation checkable instead of merely present.
+   */
+  for (const line of shape.because) notes.push(line);
   /*
    * "No wants" and "no record" are different failures and this used to print
    * the second when it meant the first. Kaalia of the Vast has a record — the
@@ -792,18 +994,60 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
    * player there is no record for her is not true, and it points at the wrong
    * thing to fix.
    */
+  /*
+   * THE COMMANDER'S OWN WANTS, not the merged ones.
+   *
+   * `plan.wants` now holds the archetype's as well, and printing those after
+   * this commander's name would put words in the commander's mouth: a Krenko
+   * deck would report that Krenko wants `trig:dies`, which Krenko does not. The
+   * archetype gets its own line below.
+   */
   notes.push(
-    plan.wants.length === 0
-      ? plan.fromTagsOnly
+    commanderPlan.wants.length === 0
+      ? commanderPlan.fromTagsOnly
         ? `no ability record for ${input.commander.name}, so this deck was picked on tags alone`
         : `${input.commander.name} has an ability record but nothing in it says what the deck ` +
           `should do, so this deck was picked on roles and tags alone`
-      : `${input.commander.name} wants ${plan.wants
+      : `${input.commander.name} wants ${commanderPlan.wants
           .slice(0, 4)
           .map(w => w.facet)
           .join(', ')}${plan.tribe ? `, tribe ${plan.tribe}` : ''}` +
-          (plan.fromTagsOnly ? ' (read from tags, not from a record)' : '')
+          (commanderPlan.fromTagsOnly ? ' (read from tags, not from a record)' : '')
   );
+  /*
+   * WHAT THE ARCHETYPE ACTUALLY DID, in the change log the player can open.
+   *
+   * Three different things can happen and they must not read alike: no
+   * archetype asked for, one asked for whose cards said nothing, and one that
+   * moved the plan. The third line names the wants it added, so a player who
+   * picked Aristocrats and got a deck that is not one can see whether the
+   * archetype was silent or was simply outvoted by the commander.
+   */
+  if (archetypePlan) {
+    const arch = plan.archetype;
+    notes.push(
+      arch && arch.wants.length > 0
+        ? `${archetypePlan.name} shaped this build: ${archetypePlan.read} of its ` +
+          `${archetypePlan.named} cards were read, and ${arch.wants.length} things they have in ` +
+          `common became wants, ${arch.added} of them things ${input.commander.name} had not ` +
+          `asked for. Strongest first: ` +
+          `${arch.wants
+            .slice(0, 4)
+            .map(w => w.facet)
+            .join(', ')}. ` +
+          (arch.alone
+            ? `${input.commander.name} asked for nothing, so the archetype is the whole plan`
+            : `The shell is capped below ${input.commander.name}'s own strongest want, so the ` +
+              `commander still decides what this deck is`)
+        : `${archetypePlan.name} changed nothing: ${archetypePlan.read} of its ` +
+          `${archetypePlan.named} cards were found, ${archetypePlan.withoutRecord} of those ` +
+          `have no ability record, and of what the rest share, ` +
+          `${archetypePlan.dropped.filter(d => d.reason === 'rare').length} things are too rare ` +
+          `in these colours to fill a deck and ` +
+          `${archetypePlan.dropped.filter(d => d.reason === 'common').length} are too common to ` +
+          `mean anything. This deck was shaped by ${input.commander.name} alone`
+    );
+  }
   notes.push(
     `${pickedCoverage.withRecord} of ${pickedCoverage.total} chosen spells had an ability ` +
       `record (${pickedCoverage.pct.toFixed(0)}%); the rest fell back to tags. Pool: ` +
@@ -859,12 +1103,14 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
     evaluation,
     evidence: {
       plan: plan.wants.length > 0 ? plan : null,
+      archetype: archetypePlan,
       poolWithRecord: poolCoverage.withRecord,
       poolSize: poolCoverage.total,
       pickedWithRecord: pickedCoverage.withRecord,
       pickedSpells: pickedCoverage.total,
       styleAsked: input.style == null ? null : String(input.style),
       styleUsed: style.style,
+      shape,
     },
   };
 }
@@ -902,7 +1148,8 @@ function seedProfile(
   commander: BuildCard,
   manaProfile: ManaProfile | null,
   roleTargets: Partial<Record<Role, number>>,
-  commanderPlan: CommanderPlan | null
+  commanderPlan: CommanderPlan | null,
+  archetype: ArchetypeInfluence | null
 ): DeckProfile {
   return deriveDeckProfile({
     format,
@@ -911,6 +1158,7 @@ function seedProfile(
     roleTargets,
     manaProfile,
     commanderPlan,
+    archetype,
   });
 }
 
@@ -921,7 +1169,8 @@ function deckProfileFrom(
   picked: readonly GeneratedEntry[],
   manaProfile: ManaProfile | null,
   roleTargets: Partial<Record<Role, number>>,
-  commanderPlan: CommanderPlan | null
+  commanderPlan: CommanderPlan | null,
+  archetype: ArchetypeInfluence | null
 ): DeckProfile {
   return deriveDeckProfile({
     format,
@@ -930,6 +1179,7 @@ function deckProfileFrom(
     roleTargets,
     manaProfile,
     commanderPlan,
+    archetype,
   });
 }
 
@@ -1041,9 +1291,48 @@ function pickLands<T extends { card: CandidateCard }>(
   identity: readonly string[]
 ): T[] {
   if (limit <= 0) return [];
-  const order = orderPreferredFirst(ranked, preferred);
   const deckColourMask = coloursToMask(identity);
   const wanted = maskToColours(deckColourMask);
+
+  /*
+   * "UNTAPPED FIRST" WAS TRIED HERE ON 2026-08-25 AND MEASURED WORSE. THE
+   * NUMBERS, SO NOBODY BUILDS IT AGAIN.
+   *
+   * The reasoning is good and the result is not. A land that enters tapped does
+   * nothing the turn you play it, `mana` in `power/subscores.ts` already docks a
+   * finished deck for exactly that, and this function was choosing mana bases
+   * with no idea which lands entered tapped. So the obvious move is to order
+   * untapped before tapped inside each tier, reading the printed text with a
+   * sentence-scoped test (needed because "As Breeding Pool enters, you may pay
+   * 2 life. If you don't, it enters tapped" is not a tapland, and Gateway
+   * Plaza's second-sentence "unless" is not an escape clause).
+   *
+   * Eight commanders, built through the live edge function both ways:
+   *
+   *              taplands/38   castable   mana subscore   land staples
+   *   before          4.9        82.7%        94.9          7.3 / 25
+   *   untapped-first  0.0        82.8%        95.1          7.0 / 25
+   *
+   * and with the popularity column repaired from `cards`, which is the state
+   * this engine will be in once the catalogue view is rebuilt:
+   *
+   *   before          3.8        83.4%        95.1         13.6 / 25
+   *   untapped-first  0.0        83.6%        95.1         12.4 / 25
+   *
+   * "land staples" is how many of the 25 most-played lands in that commander's
+   * colours the deck holds, counted from `public.cards`. So the rule buys two
+   * tenths of a point of castability and costs a card of real quality per deck.
+   * What it actually dropped was Bojuka Bog, Azorius Chancery, Golgari Rot
+   * Farm, Barren Moor, Forgotten Cave and the Guildgates, and what it put in
+   * their place was Abstergo Entertainment, Daily Bugle Building, Heap Gate,
+   * Holdout Settlement and Gond Gate — untapped, and worse.
+   *
+   * The reason is that the scorer's own tolerance is 30% taplands and these
+   * mana bases sit at 13%. There was no tapland problem to solve. The junk in
+   * these mana bases is not tapped, it is unranked: see `popularityCoverage` in
+   * the pipeline for what was actually wrong with them that day.
+   */
+  const order = orderPreferredFirst(ranked, preferred);
 
   const have = { W: 0, U: 0, B: 0, R: 0, G: 0 } as Record<ManaColour, number>;
   const chosen: T[] = [];
@@ -1121,7 +1410,8 @@ function pickLands<T extends { card: CandidateCard }>(
      * Fixing every colour and entering tapped is not better than fixing two and
      * entering untapped, and this function cannot see the difference. Inside a
      * tier the popularity order already puts Command Tower first, so the
-     * refinement was buying nothing and paying for it.
+     * refinement was buying nothing and paying for it. Reading "enters tapped"
+     * off the text was tried too, and the note above `order` has its numbers.
      */
     if (colours.some(c => wanted.includes(c))) return 0;
     if (colours.length > 0) return 1;

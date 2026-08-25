@@ -26,12 +26,16 @@ import {
   facetCoverage,
   behaviourSimilarity,
   describeSharedFacets,
+  archetypeFit,
+  facetBackground,
+  planForArchetype,
+  withArchetype,
 } from './behaviour.ts';
 import {
   servesRole,
   cardRole,
-  CREATURE_TARGETS,
-  creatureTargetFor,
+  styleFor,
+  DECK_STYLES,
   roleTargetsFor,
 } from '../advise/roles.ts';
 import { ROLES } from '../core/types.ts';
@@ -333,46 +337,38 @@ describe('scoring a card against the plan', () => {
   });
 });
 
-describe('the creature floor is a declared number, and the style picks it', () => {
-  it('the three styles are the three numbers', () => {
-    assert.deepEqual(CREATURE_TARGETS, { creatures: 32, balanced: 24, spells: 12 });
-  });
-
-  it('creature mode asks for more creatures than balanced, which asks for more than spells', () => {
-    assert.ok(CREATURE_TARGETS.creatures > CREATURE_TARGETS.balanced);
-    assert.ok(CREATURE_TARGETS.balanced > CREATURE_TARGETS.spells);
+describe('a style is a name, and no longer a creature number', () => {
+  it('the three styles are the three names', () => {
+    assert.deepEqual([...DECK_STYLES], ['creatures', 'balanced', 'spells']);
   });
 
   it('an unknown style builds a deck and says it was not recognised', () => {
-    const r = creatureTargetFor('goblins go wide');
+    const r = styleFor('goblins go wide');
     assert.equal(r.matchedStyle, false);
     assert.equal(r.style, 'balanced');
-    assert.equal(r.target, CREATURE_TARGETS.balanced);
   });
 
   it('a missing style is the balanced default', () => {
-    assert.equal(creatureTargetFor(null).target, CREATURE_TARGETS.balanced);
-    assert.equal(creatureTargetFor(undefined).target, CREATURE_TARGETS.balanced);
+    assert.equal(styleFor(null).style, 'balanced');
+    assert.equal(styleFor(undefined).style, 'balanced');
   });
 
   it('the style name is matched case-insensitively and trimmed', () => {
-    assert.equal(creatureTargetFor('  Creatures ').target, CREATURE_TARGETS.creatures);
+    assert.equal(styleFor('  Creatures ').style, 'creatures');
   });
 
-  it('the style scales with the format, like every other target', () => {
-    // 32 of 99 and 32 of 60 are different decks. The floor goes through
-    // `roleTargetsFor` so it scales with the rest rather than beside it.
-    assert.equal(roleTargetsFor('commander', undefined, 'creatures').creature, 32);
-    assert.equal(roleTargetsFor('modern', undefined, 'creatures').creature, 19);
-    assert.equal(roleTargetsFor('modern', undefined, 'spells').creature, 7);
+  it('the yardstick asks for no creatures at all, and that is the point', () => {
+    // There was never a defensible universal creature count. Grading a deck
+    // somebody typed in must not claim one is missing.
+    assert.equal(roleTargetsFor('commander').creature, 0);
+    assert.equal(roleTargetsFor('modern').creature, 0);
   });
 
-  it('an explicit override still beats the style', () => {
-    assert.equal(roleTargetsFor('commander', { creature: 5 }, 'creatures').creature, 5);
-  });
-
-  it('no style leaves the balanced default in place', () => {
-    assert.equal(roleTargetsFor('commander').creature, CREATURE_TARGETS.balanced);
+  it('the yardstick is only for a deck nobody derived a shape for', () => {
+    // It still scales by format, because the decks it grades still do.
+    assert.equal(roleTargetsFor('commander').ramp, 10);
+    assert.equal(roleTargetsFor('modern').ramp, 6);
+    assert.equal(roleTargetsFor('commander', { ramp: 5 }).ramp, 5);
   });
 });
 
@@ -710,5 +706,233 @@ describe('behaviourSimilarity separates what the verb was done to', () => {
       behaviourSimilarity(wrath, armageddon).score,
       behaviourSimilarity(armageddon, wrath).score
     );
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * The archetype the player asked for
+ * ------------------------------------------------------------------ */
+
+/**
+ * Shell cards as the producer printed them, 2026-08-25, off the 2026-08-19
+ * catalogue snapshot by `scratch/probe-names.mjs`. Same rule as `CARDS` above:
+ * nothing here was written from memory.
+ */
+const SHELL_CARDS = {
+  bloodArtist: {
+    name: 'Blood Artist',
+    facets: [
+      'cares:type:creature',
+      'eff:gain-life',
+      'eff:lose-life',
+      'rec:full',
+      'scope:all',
+      'sub:vampire',
+      'trig:dies',
+      'type:creature',
+    ],
+  },
+  zulaportCutthroat: {
+    name: 'Zulaport Cutthroat',
+    facets: [
+      'cares:type:creature',
+      'eff:gain-life',
+      'eff:lose-life',
+      'rec:full',
+      'scope:all',
+      'sub:ally',
+      'sub:human',
+      'sub:rogue',
+      'trig:dies',
+      'type:creature',
+    ],
+  },
+  bitterblossom: {
+    name: 'Bitterblossom',
+    facets: [
+      'cares:sub:faerie',
+      'eff:create-token',
+      'eff:lose-life',
+      'rec:full',
+      'sub:faerie',
+      'tok:faerie',
+      'tok:rogue',
+      'trig:step',
+      'type:enchantment',
+    ],
+  },
+  cultivate: {
+    // The compiler reads nothing on this card: `source: none`, type line only.
+    name: 'Cultivate',
+    facets: ['type:sorcery'],
+  },
+};
+
+const ARISTOCRATS = {
+  id: 'aristocrats',
+  name: 'Aristocrats',
+  named: 4,
+  exemplars: [
+    SHELL_CARDS.bloodArtist,
+    SHELL_CARDS.zulaportCutthroat,
+    SHELL_CARDS.bitterblossom,
+    SHELL_CARDS.cultivate,
+  ],
+};
+
+/** A pool where every facet is equally common, so lift is decided by the shell. */
+function flatBackground(perFacet: number, cards: number, minCards = 1) {
+  const count = new Map<string, number>();
+  for (const card of ARISTOCRATS.exemplars) for (const f of card.facets) count.set(f, perFacet);
+  return { cards, count, minCards };
+}
+
+describe('reading an archetype off the cards it is made of', () => {
+  it('what recurs across the shell becomes a want', () => {
+    const plan = planForArchetype(ARISTOCRATS, flatBackground(10, 1000));
+    const facets = plan.wants.map(w => w.facet);
+    // Three of the four drain life; two of them trigger on something dying.
+    assert.ok(facets.includes('eff:lose-life'), facets.join(' '));
+    assert.ok(facets.includes('trig:dies'), facets.join(' '));
+  });
+
+  it('a facet on ONE card of the shell is that card, not the shell', () => {
+    const plan = planForArchetype(ARISTOCRATS, flatBackground(10, 1000));
+    // Only Bitterblossom makes tokens in this four-card shell.
+    assert.equal(plan.wants.some(w => w.facet === 'eff:create-token'), false);
+  });
+
+  it('a shell may not want a card TYPE, a SUBTYPE or a KEYWORD', () => {
+    // Measured reason, in the header of `planForArchetype`: seven of the eleven
+    // cards in the Tokens shell are enchantments, so reading `type:` made a
+    // Tokens deck want enchantments ahead of tokens.
+    const plan = planForArchetype(ARISTOCRATS, flatBackground(10, 1000));
+    for (const w of plan.wants) {
+      assert.ok(
+        w.facet.startsWith('eff:') || w.facet.startsWith('cares:') || w.facet.startsWith('trig:'),
+        `${w.facet} is not a behaviour facet`
+      );
+    }
+  });
+
+  it('a facet the whole pool already carries is dropped as common', () => {
+    // `cares:type:creature` is on half this shell and on 60% of the pool, so
+    // wanting it would rank 60% of the pool rather than any part of the shell.
+    const count = new Map<string, number>([['cares:type:creature', 600]]);
+    const plan = planForArchetype(ARISTOCRATS, { cards: 1000, count, minCards: 1 });
+    assert.equal(plan.wants.some(w => w.facet === 'cares:type:creature'), false);
+    assert.ok(plan.dropped.some(d => d.facet === 'cares:type:creature' && d.reason === 'common'));
+  });
+
+  it('a facet too rare in the pool to fill a deck is dropped as rare', () => {
+    const plan = planForArchetype(ARISTOCRATS, flatBackground(10, 1000, 99));
+    assert.deepEqual([...plan.wants], []);
+    assert.ok(plan.dropped.length > 0);
+    assert.ok(plan.dropped.every(d => d.reason === 'rare'));
+  });
+
+  it('with no pool to compare against it falls back to plain recurrence', () => {
+    const plan = planForArchetype(ARISTOCRATS);
+    assert.ok(plan.wants.length > 0);
+    // Three of four cards, so the share is 0.75 rather than a lift.
+    const drain = plan.wants.find(w => w.facet === 'eff:lose-life');
+    assert.equal(drain?.weight, 0.75);
+  });
+
+  it('it counts what it could not read rather than hiding it', () => {
+    const plan = planForArchetype(ARISTOCRATS, flatBackground(10, 1000));
+    assert.equal(plan.read, 4);
+    assert.equal(plan.named, 4);
+    // Cultivate compiles to nothing, so its type line is all there is.
+    assert.equal(plan.withoutRecord, 1);
+  });
+});
+
+describe('an archetype modifies the commander, and never replaces it', () => {
+  const shell = () => planForArchetype(ARISTOCRATS, flatBackground(10, 1000));
+
+  /**
+   * What `rank.ts` actually adds up, and the two halves have to be taken from
+   * two different objects.
+   *
+   * The COMMANDER-only plan scores commander fit and the influence scores
+   * archetype fit. Using the merged plan for the first half would count every
+   * shell want twice, which is why `generate.ts` hands the ranker
+   * `commanderPlan` and `plan.archetype` rather than the merged plan.
+   */
+  const score = (
+    commanderPlan: ReturnType<typeof planForCommander>,
+    combined: ReturnType<typeof withArchetype>,
+    card: { facets: string[] }
+  ) => planFit(commanderPlan, card).fit + archetypeFit(combined.archetype, card).fit;
+
+  it("the shell's loudest want sits below the commander's loudest", () => {
+    const krenko = planForCommander(CARDS.krenko);
+    const combined = withArchetype(krenko, shell());
+    const commanderTop = Math.max(...krenko.wants.map(w => w.weight));
+    const shellTop = Math.max(...(combined.archetype?.wants ?? []).map(w => w.weight));
+    assert.ok(shellTop < commanderTop, `${shellTop} should be under ${commanderTop}`);
+  });
+
+  it('a Goblin still beats a sacrifice outlet that is not one', () => {
+    const krenko = planForCommander(CARDS.krenko);
+    const combined = withArchetype(krenko, shell());
+    const goblin = { facets: ['sub:goblin', 'type:creature', 'rec:full'] };
+    const drainer = { facets: ['eff:lose-life', 'trig:dies', 'rec:full'] };
+    assert.ok(
+      score(krenko, combined, goblin) > score(krenko, combined, drainer),
+      `${score(krenko, combined, goblin)} should beat ${score(krenko, combined, drainer)}`
+    );
+  });
+
+  it('a Goblin that drains beats a Goblin that does not, which is the whole point', () => {
+    const krenko = planForCommander(CARDS.krenko);
+    const combined = withArchetype(krenko, shell());
+    const goblin = { facets: ['sub:goblin', 'type:creature', 'rec:full'] };
+    const both = {
+      facets: ['sub:goblin', 'type:creature', 'eff:lose-life', 'trig:dies', 'rec:full'],
+    };
+    assert.ok(
+      score(krenko, combined, both) > score(krenko, combined, goblin),
+      `${score(krenko, combined, both)} should beat ${score(krenko, combined, goblin)}`
+    );
+  });
+
+  it('a commander want is never lowered by the shell', () => {
+    const krenko = planForCommander(CARDS.krenko);
+    const combined = withArchetype(krenko, shell());
+    for (const own of krenko.wants) {
+      const after = combined.wants.find(w => w.facet === own.facet);
+      assert.ok(after && after.weight >= own.weight, `${own.facet} was lowered`);
+    }
+  });
+
+  it('a commander with no wants of its own lets the shell speak, and says so', () => {
+    const combined = withArchetype(planForCommander(CARDS.muldrotha), shell());
+    assert.equal(combined.archetype?.alone, true);
+    assert.ok(combined.wants.length > 0);
+    // Every want in the merged plan came from the shell.
+    assert.equal(combined.wants.length, combined.archetype?.wants.length);
+  });
+
+  it('no archetype leaves the commander plan exactly as it was', () => {
+    const krenko = planForCommander(CARDS.krenko);
+    assert.equal(withArchetype(krenko, null), krenko);
+    assert.equal(withArchetype(krenko, { ...shell(), wants: [] }), krenko);
+  });
+
+  it('archetypeFit is silent when no archetype was asked for', () => {
+    assert.deepEqual(archetypeFit(null, SHELL_CARDS.bloodArtist), { fit: 0, matched: [] });
+  });
+});
+
+describe('facetBackground counts cards, not occurrences', () => {
+  it('a card carrying a facet twice counts once', () => {
+    const bg = facetBackground(
+      [{ facets: ['eff:draw', 'eff:draw'] }, { facets: ['eff:draw'] }, { facets: [] }],
+      1
+    );
+    assert.equal(bg.cards, 3);
+    assert.equal(bg.count.get('eff:draw'), 2);
   });
 });

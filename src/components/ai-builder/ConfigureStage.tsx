@@ -23,6 +23,17 @@ import { cn } from '@/lib/utils';
 
 export interface BuildConfig {
   archetype: string;
+  /**
+   * How much of the deck should be creatures: `creatures`, `balanced`, `spells`.
+   *
+   * The one control on this screen the ENGINE acts on directly. Archetype,
+   * target power and the custom prompt all reach a language model as text;
+   * this reaches `generateDeck` as `style` and tilts the shape derived in
+   * `build/shape.ts`. It is here because until now a player had no way to ask
+   * for a creature deck at all, and asking for one in the prompt box changed
+   * nothing about what the builder did.
+   */
+  style: DeckStyleValue;
   targetPower: number;
   maxBudget: number;
   customPrompt: string;
@@ -30,6 +41,46 @@ export interface BuildConfig {
   prioritizeSynergy: boolean;
   includeBasics: boolean;
 }
+
+/** The three names `src/engine/advise/roles.ts` recognises. Nothing else. */
+export type DeckStyleValue = 'creatures' | 'balanced' | 'spells';
+
+/**
+ * What each style means.
+ *
+ * NO NUMBERS, AND THAT IS THE CHANGE. These used to read "at least 32
+ * creatures", "at least 24", "at least 12", quoting the creature floors from
+ * `CREATURE_TARGETS`. Those floors are gone: how many creatures a deck wants is
+ * derived from the commander's own record in `build/shape.ts`, so the same
+ * style produces a different count for every commander and any number printed
+ * here would be a promise the builder cannot keep. A Talrand deck in creature
+ * mode holds about eighteen creatures and a Krenko deck in spell mode holds
+ * about twenty-nine, which is right, and neither is 24.
+ *
+ * The finished deck says what it actually did, in its own words, so the count
+ * appears where it can be true rather than where it has to be guessed.
+ */
+export const DECK_STYLE_OPTIONS: ReadonlyArray<{
+  value: DeckStyleValue;
+  label: string;
+  detail: string;
+}> = [
+  {
+    value: 'creatures',
+    label: 'Creatures',
+    detail: 'Lean on the board. More bodies than this commander would take by default.',
+  },
+  {
+    value: 'balanced',
+    label: 'Balanced',
+    detail: 'Whatever your commander asks for. The default.',
+  },
+  {
+    value: 'spells',
+    label: 'Spells',
+    detail: 'Lean on instants and sorceries. Fewer bodies than the default.',
+  },
+];
 
 export interface ArchetypeOption {
   value: string;
@@ -136,11 +187,20 @@ export function ConfigureStage({
         </aside>
 
         <div className="space-y-4">
+          {/*
+            The hint says what the choice DOES, because it does something now.
+            It used to read "Read from the commander's own rules text", which
+            described where the options came from and not what picking one
+            changed, and the honest answer to that second question was
+            "nothing": the archetype went to the planner's prompt and no
+            further. It shapes the cards now, so the hint says so.
+          */}
           <Panel
             title="Strategy"
             hint={
               archetypes.length > 0
-                ? `Read from ${commander?.name ?? 'the commander'}'s own rules text.`
+                ? `Picked for ${commander?.name ?? 'this commander'}. The one you choose changes ` +
+                  `which cards the builder takes, on top of what the commander already wants.`
                 : undefined
             }
           >
@@ -198,6 +258,45 @@ export function ConfigureStage({
                 })}
               </div>
             )}
+          </Panel>
+
+          <Panel
+            title="Deck style"
+            hint="How much of the deck is creatures. This one goes straight to the builder."
+          >
+            <div className="grid gap-2 sm:grid-cols-3">
+              {DECK_STYLE_OPTIONS.map(option => {
+                const active = config.style === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => patch({ style: option.value })}
+                    aria-pressed={active}
+                    className={cn(
+                      'rounded-lg p-3 text-left transition-colors',
+                      active
+                        ? 'bg-foreground/10 text-foreground'
+                        : 'bg-muted/40 text-muted-foreground hover:bg-muted/70'
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        'text-sm font-semibold',
+                        active ? 'text-foreground' : 'text-foreground/80'
+                      )}
+                    >
+                      {option.label}
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">{option.detail}</p>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              A floor, not a quota. A commander that wants more creatures than this gets
+              more, and the finished list reports what it actually built.
+            </p>
           </Panel>
 
           <div className="grid gap-4 md:grid-cols-2">
@@ -316,6 +415,10 @@ export function ConfigureStage({
             {[
               ['Commander', commander?.name ?? '—'],
               ['Strategy', chosen?.label ?? 'Pick one'],
+              [
+                'Style',
+                DECK_STYLE_OPTIONS.find(o => o.value === config.style)?.label ?? 'Balanced',
+              ],
               ['Target', `${config.targetPower}/10`],
               ['Budget', `$${config.maxBudget.toLocaleString()}`],
             ].map(([term, value]) => (

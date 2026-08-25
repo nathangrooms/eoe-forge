@@ -57,18 +57,46 @@ export const DEFAULT_CONFIG: AdminConfig = {
   verboseLogging: true
 };
 
+/**
+ * Which settings an admin actually SET, as opposed to which have a default.
+ *
+ * This distinction is load-bearing now, and it was not before. Every field
+ * above carries a default, so `config.minLandCount` reads as 35 whether an
+ * admin chose 35 or nobody chose anything, and `pipeline.ts` passed that 35 to
+ * the generator on every build. The result was that every deck in the format
+ * ran 35 lands: the land count the generator solves per commander was
+ * overridden by a default that nobody had ever set.
+ *
+ * So the pipeline asks this instead of the value, and only overrides a derived
+ * number when a human really did type one.
+ */
+export type ConfigKey = keyof AdminConfig;
+
+export interface LoadedAdminConfig {
+  config: AdminConfig;
+  /** Keys present in `AI_BUILDER_CONFIG`. Empty when nothing was set. */
+  explicit: ReadonlySet<ConfigKey>;
+}
+
 // Get config from environment or use defaults
 export function getAdminConfig(): AdminConfig {
+  return loadAdminConfig().config;
+}
+
+export function loadAdminConfig(): LoadedAdminConfig {
   try {
     const envConfig = Deno.env.get('AI_BUILDER_CONFIG');
     if (envConfig) {
       const parsed = JSON.parse(envConfig);
-      return { ...DEFAULT_CONFIG, ...parsed };
+      const explicit = new Set(
+        Object.keys(parsed ?? {}).filter(k => k in DEFAULT_CONFIG)
+      ) as Set<ConfigKey>;
+      return { config: { ...DEFAULT_CONFIG, ...parsed }, explicit };
     }
   } catch (e) {
     console.log('Using default admin config');
   }
-  return DEFAULT_CONFIG;
+  return { config: DEFAULT_CONFIG, explicit: new Set<ConfigKey>() };
 }
 
 /**

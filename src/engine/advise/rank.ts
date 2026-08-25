@@ -35,7 +35,7 @@ import { ROLES } from '../core/types.ts';
 import { isLegalIn, withinIdentity } from './query.ts';
 import { roleShortfall } from './profile.ts';
 import { cardRole } from './roles.ts';
-import { planFit } from '../knowledge/behaviour.ts';
+import { archetypeFit, planFit } from '../knowledge/behaviour.ts';
 
 /* ------------------------------------------------------------------ *
  * Weights
@@ -402,6 +402,39 @@ export function scoreCandidate(
     });
   }
 
+  /* --- Archetype fit ------------------------------------------------ */
+  /*
+   * "Decks must be custom to them, as well as the archetype" - the owner.
+   *
+   * ADDED TO COMMANDER FIT RATHER THAN COMPETING WITH IT, and the addition is
+   * the combination rule. `withArchetype` has already capped this axis below
+   * the commander's, so a card that does only the archetype's job never
+   * outranks one that does the commander's; a card that does BOTH collects both
+   * and outranks either. That is what makes an Aristocrats Krenko a deck of the
+   * Goblins that die rather than a deck of Goblins or a deck of sacrifice
+   * outlets that are not Goblins.
+   *
+   * It shares `WEIGHTS.commanderFit` on purpose. The two signals ask the same
+   * question of two different plans, so a weight of its own would be a second
+   * place deciding how loud the archetype is, free to disagree with
+   * `ARCHETYPE_SHARE`, which is the one place that decides it.
+   *
+   * Silent when the player asked for no archetype, or asked for one no shell
+   * matched. Same rule as castability: unknown produces no signal at all.
+   */
+  const archFit = archetypeFit(profile.archetype ?? null, card);
+  if (archFit.fit > 0) {
+    const best = archFit.matched[0];
+    signals.push({
+      kind: 'archetype-fit',
+      score: WEIGHTS.commanderFit * archFit.fit,
+      detail:
+        archFit.matched.length === 1
+          ? best.because
+          : `${best.because}, and this does ${archFit.matched.length} of what the shell wants`,
+    });
+  }
+
   /* --- Tag synergy -------------------------------------------------- */
   const shared = sharedSignalTags(profile.signalTags, card.tags);
   const raw = sharedTagScore(profile.signalTags, card.tags);
@@ -636,4 +669,93 @@ export function rankCandidates(
   // 5. Only now.
   const limit = options.limit;
   return typeof limit === 'number' && limit >= 0 ? scored.slice(0, limit) : scored;
+}
+
+/* ------------------------------------------------------------------ *
+ * Is the popularity prior fit to rank with?
+ * ------------------------------------------------------------------ */
+
+/**
+ * Whether `edhrecRank` can be trusted to order this pool, and whether what is
+ * missing from it is missing for a reason the ranking will pick up.
+ *
+ * WHY THIS EXISTS. `scoreCandidate` above adds a popularity signal for a card
+ * that carries a rank and nothing for a card that does not, on the stated
+ * ground that unknown is not unpopular. That holds only while the absences are
+ * unrelated to anything else about the card. When they are not, the prior stops
+ * being a weak tilt toward what people play and becomes a strong tilt toward
+ * whatever the absences correlate with — and every caller downstream, including
+ * the deck generator, which raises this weight higher than any other caller
+ * precisely because it has no deck to measure against, ranks on that instead.
+ *
+ * WHAT HAPPENED. Measured on the live catalogue on 2026-08-25: `cards_unique`,
+ * the relation both the generator and the optimiser read their pool from, is a
+ * materialized view whose last successful rebuild was 2026-08-20 and whose
+ * scheduled rebuild has been skipping every night since. It froze mid-alphabet.
+ * `edhrec_rank` was present on 13,183 of the 13,758 rows whose name begins A-H,
+ * on 245 of the 868 beginning I, and on **0 of the 19,254 beginning J-Z**. Sol
+ * Ring reads rank 1 in `cards` and NULL in the view.
+ *
+ * Eight commanders built through the live edge function that day came back with
+ * **every nonbasic land in every deck** having a name beginning A-I, against
+ * pools that are 42-46% A-I, because a land scores identically to every other
+ * land on everything else the ranker measures and popularity was the only thing
+ * separating them. The same eight builds with that one column repaired from
+ * `cards` landed at 35-49%, on top of their pools, and went from a mean 3.3 to
+ * 6.0 of the 60 most-played cards in their own colours.
+ *
+ * WHY IT COMPARES RATHER THAN COUNTS. Coverage alone cannot tell those two
+ * worlds apart: 40% coverage is what both look like. What separates them is
+ * whether the missing rows are missing for a reason the ranker can see. So this
+ * splits the pool on the one property that has no business predicting how often
+ * a card is played — the first letter of its name — and compares the coverage
+ * of the halves. In a catalogue whose sync does not care about names they must
+ * land on each other.
+ *
+ * The 2x cut is not tuned. On pools of six to twenty-five thousand cards a gap
+ * that size cannot be sampling noise, and the healthy figure in `cards`, the
+ * table the column is written to, is 86% to 99% for every letter of the
+ * alphabet. Anything approaching 2x is a broken write path.
+ *
+ * This reports. It does not change any score: a deck ranked on a partial prior
+ * is worse than one ranked on a whole prior and far better than one ranked on
+ * none, and the repair is a database operation no code path here can perform.
+ * What must not happen again is the silence.
+ */
+export function popularityCoverage(pool: readonly CandidateCard[]): {
+  ranked: number;
+  earlyShare: number;
+  lateShare: number;
+  skewedByName: boolean;
+} {
+  let early = 0;
+  let earlyRanked = 0;
+  let late = 0;
+  let lateRanked = 0;
+
+  for (const card of pool) {
+    const initial = (card.name ?? '').charAt(0).toUpperCase();
+    const ranked = card.edhrecRank !== null && card.edhrecRank > 0;
+    if (initial >= 'A' && initial <= 'I') {
+      early++;
+      if (ranked) earlyRanked++;
+    } else {
+      late++;
+      if (ranked) lateRanked++;
+    }
+  }
+
+  const earlyShare = early ? earlyRanked / early : 0;
+  const lateShare = late ? lateRanked / late : 0;
+  const bigger = Math.max(earlyShare, lateShare);
+  const smaller = Math.min(earlyShare, lateShare);
+
+  return {
+    ranked: earlyRanked + lateRanked,
+    earlyShare,
+    lateShare,
+    // Both halves have to hold something before they can be compared, and a
+    // pool with no ranks at all is not skewed — it separates nobody.
+    skewedByName: early > 0 && late > 0 && bigger > 0 && smaller < bigger / 2,
+  };
 }

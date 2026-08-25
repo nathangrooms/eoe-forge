@@ -105,15 +105,19 @@ export interface CatalogRow extends RawCardRow {
   set_code?: string | null;
   rarity?: string | null;
   /**
-   * Selected for the deck's OWN cards only, never for the 30,000-row pool.
+   * Selected for the deck's own cards, for lands, and for a pool that asks.
    *
    * The castability engine reads it to classify mana sources: without it a
    * Command Tower is a land that makes nothing and a Signet is not a source at
    * all, so every non-basic source disappears and the whole deck reads as
-   * uncastable. The ranker never touches it, which is why `poolFor` leaves it
-   * out and pays nothing for it.
+   * uncastable. LANDS therefore always carry it — see `landPoolFor`.
    *
-   * LANDS are the one exception to "never for the pool" — see `landPoolFor`.
+   * It used to say "never for the 30,000-row pool", and for the optimiser that
+   * is still true: it ranks on tags and would pay for a column it never reads.
+   * The generator is the exception and `poolFor({ withOracleText: true })` is
+   * how it says so, because behaviour facets are compiled FROM this text and a
+   * pool without it reaches the ranker as 30,000 cards whose behaviour is
+   * unknown. Measured cost is on `poolFor`.
    */
   oracle_text?: string | null;
   keywords?: string[] | null;
@@ -317,8 +321,27 @@ export class Catalog {
    * `query.limit` is `null` by construction and there is no relevance filter.
    * Relevance is a ranking question, and ranking happens only once every
    * candidate is in hand.
+   *
+   * `withOracleText` is OFF by default, and the default is the old behaviour to
+   * the byte. It exists because the two consumers now want different things
+   * from the same pool and neither should pay for the other's needs:
+   *
+   *   - The OPTIMISER ranks against tags and never reads oracle text, so it
+   *     leaves this alone and its query is unchanged.
+   *   - The GENERATOR compiles oracle text into behaviour facets, because
+   *     `planFit` cannot tell what a card does without them. Before this, its
+   *     pool rows carried no text, so every row reached the ranker with
+   *     `facets: null` and the commander plan had nothing to match against.
+   *
+   * Measured on the 2026-08-19 catalogue snapshot, five-colour identity, all
+   * 31,833 commander-legal rows: `oracle_text` adds 4.93 MB to a pool that
+   * already ships those rows. That is the price of the column, paid by the one
+   * caller that reads it.
    */
-  async poolFor(query: CandidateQuery): Promise<CatalogRow[]> {
+  async poolFor(
+    query: CandidateQuery,
+    opts?: { withOracleText?: boolean }
+  ): Promise<CatalogRow[]> {
     const fmt = query.legalityFilter.key;
     const identity = `{${query.colorIdentityFilter.containedBy.join(',')}}`;
 
@@ -335,6 +358,7 @@ export class Catalog {
       'mana_cost',
       // A popularity prior for the ranker. Cheap: one integer column.
       'edhrec_rank',
+      ...(opts?.withOracleText ? ['oracle_text'] : []),
       'usd:prices->>usd',
       `legal_in_format:legalities->>${fmt}`,
     ].join(',');

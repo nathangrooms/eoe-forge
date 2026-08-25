@@ -92,11 +92,95 @@ export const VENDOR_SUBDIR = '_engine';
  * import out of a function's own root has never been verified in this repo. A
  * sibling copy needs no such assumption.
  */
+/**
+ * The facet producer, and why it has to be mirrored too.
+ *
+ * `src/engine/knowledge/behaviour.ts` declares the facet vocabulary and reads
+ * facets off a card, but it cannot PRODUCE one: producing a facet means
+ * compiling oracle text, and the compiler lives in `src/lib/cards/` where the
+ * engine is forbidden to reach. So the producer sits in
+ * `src/lib/deck/recommend/behaviour.ts`, outside the engine, and until now the
+ * edge function had no copy of it. That is the whole reason
+ * `ai-deck-builder-v2` ranked its pool with `facets: null` on every row: the
+ * code that turns a card into facets simply was not in the bundle.
+ *
+ * Mirrored on exactly the terms the engine is: one source, byte-identical
+ * copies, `--check` fails on drift, and `engine-parity.test.ts` asserts each
+ * pair. The target paths preserve the source tree's shape under `_lib/`, so
+ * every relative specifier inside these files resolves unchanged and no file
+ * has to be rewritten on the way in.
+ *
+ * THE ONE EDGE THAT DOES NOT RESOLVE, and the one-line shim that fixes it:
+ * `deck/recommend/behaviour.ts` has a single import that points out of
+ * `src/lib` — `import type { Facet } from '../../../engine/knowledge/behaviour.ts'`.
+ * From `_lib/deck/recommend/` that path lands on `_lib/engine/knowledge/`, so
+ * `FACET_SHIM` is written there and re-exports the type from the vendored
+ * engine. It is a type-only re-export of `type Facet = string`; it carries no
+ * logic and cannot drift into a second opinion about anything.
+ *
+ * WHAT IT COSTS: 3.68 MB of source, of which 3.16 MB is
+ * `xmage/lowered.generated.ts`, the ported XMage record table. That table is
+ * what speaks for the 2,201 cards the oracle-text compiler cannot fully read,
+ * Wrath of God and Damnation among them, so dropping it to save the bundle
+ * would take removal staples out of every generated deck.
+ */
+/**
+ * `deck/archetypeShells.ts` is not a facet producer, and is mirrored with them
+ * anyway because it has the same problem for the same reason.
+ *
+ * It is the catalogue of what each archetype is made of, as card names, and the
+ * generator now reads those names to find out what the archetype a player asked
+ * for actually wants. It cannot live under `src/engine/`, because the engine may
+ * not import outward and this is content rather than logic, edited by whoever is
+ * arguing about what Aristocrats is made of. It must not be re-typed into the
+ * function either: two lists of card names free to disagree is exactly the drift
+ * `--check` exists to catch. It imports nothing, so it mirrors unchanged.
+ */
+const FACET_SOURCES = [
+  'deck/archetypeShells.ts',
+  'deck/recommend/behaviour.ts',
+  'cards/abilities/clause-rules.ts',
+  'cards/abilities/compiler.ts',
+  'cards/abilities/dsl.ts',
+  'cards/abilities/effect-rules.ts',
+  'cards/abilities/grammar.ts',
+  'cards/abilities/normalize.ts',
+  'cards/xmage/compare.ts',
+  'cards/xmage/lowered.generated.ts',
+  'cards/xmage/lowered.ts',
+  'cards/xmage/record.ts',
+  'cards/xmage/roles.ts',
+];
+
+/** Where the facet producer lands inside the generator. */
+export const FACET_SUBDIR = 'supabase/functions/ai-deck-builder-v2/_lib';
+
+export const FACET_SHIM = {
+  path: `${FACET_SUBDIR}/engine/knowledge/behaviour.ts`,
+  body: `/**
+ * GENERATED FILE — do not edit. Written by scripts/vendor-engine.mjs.
+ *
+ * \`_lib/deck/recommend/behaviour.ts\` is a byte-identical copy of
+ * \`src/lib/deck/recommend/behaviour.ts\`, and that file names the facet type as
+ * \`../../../engine/knowledge/behaviour.ts\`. In the source tree that is the
+ * engine; under \`_lib/\` it is this path. Re-exporting the type here is what
+ * lets the copy stay byte-identical instead of being rewritten on the way in.
+ *
+ * Type-only. \`Facet\` is \`string\`. There is no logic here to drift.
+ */
+export type { Facet } from '../../../_engine/knowledge/behaviour.ts';
+`,
+};
+
 export const SHARED_FILES = [
   {
     from: 'supabase/functions/deck-optimizer/catalog.ts',
     to: 'supabase/functions/ai-deck-builder-v2/catalog.ts',
   },
+  ...FACET_SOURCES.map(rel => ({
+    from: `src/lib/${rel}`,
+    to: `${FACET_SUBDIR}/${rel}`,
+  })),
 ];
 
 /* ------------------------------------------------------------------ *
@@ -358,6 +442,22 @@ if (isMain) {
       fs.mkdirSync(path.dirname(dst), { recursive: true });
       fs.writeFileSync(dst, a);
       console.log('shared   ', `${from} -> ${to}`);
+    }
+  }
+
+  // 5. The one generated file the facet mirror needs. See FACET_SHIM.
+  {
+    const dst = path.join(ROOT, FACET_SHIM.path);
+    const before = fs.existsSync(dst) ? fs.readFileSync(dst, 'utf8') : null;
+    if (before !== FACET_SHIM.body) {
+      if (CHECK_ONLY) stale.push(`${FACET_SHIM.path} (generated shim is stale)`);
+      else {
+        fs.mkdirSync(path.dirname(dst), { recursive: true });
+        fs.writeFileSync(dst, FACET_SHIM.body);
+        console.log('generated', FACET_SHIM.path);
+      }
+    } else if (!CHECK_ONLY) {
+      console.log('unchanged', FACET_SHIM.path);
     }
   }
 

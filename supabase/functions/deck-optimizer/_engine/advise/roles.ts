@@ -83,45 +83,25 @@ const ROLE_TAG_SETS: Readonly<Record<Role, ReadonlySet<string>>> = (() => {
 })();
 
 /**
- * How many creatures a deck wants, by the style the owner picked.
+ * The three styles a player may ask for.
  *
- * DECLARED POLICY. The numbers are choices, so here is the arithmetic behind
- * each one rather than a bare figure to take on trust.
+ * A style used to BE a number: `creatures` meant a creature floor of 32,
+ * `balanced` 24, `spells` 12. Those numbers are gone, and the reason is the
+ * owner's:
  *
- * A Commander deck is 99 cards besides the commander. The generator's land
- * target is 35, which leaves 64 nonland slots, and the other five quotas ask
- * for 35 of those. Creatures OVERLAP those quotas: a mana dork is ramp, a
- * Craterhoof Behemoth is a win condition, an Eternal Witness is recursion. So
- * the creature number is a FLOOR taken across the whole deck rather than a
- * sixth quota competing for slots, and `generateDeck` counts what the earlier
- * passes already picked and tops up only the difference.
+ *   "we cannot force a specific amount of creatures/artifacts/sorceries etc —
+ *    every commander is completely different"
  *
- *   `creatures`  32  The mode the owner means by "creature mode". Half the
- *                    nonland slots, and inside the 30 to 35 range a creature
- *                    precon runs.
- *   `balanced`   24  The default. Just over a third of the nonland slots, which
- *                    leaves the five role quotas free to be filled by the best
- *                    card rather than by the best creature.
- *   `spells`     12  A deck made of instants and sorceries still needs bodies
- *                    to block with and something to carry the win. Twelve is
- *                    the floor at which a deck can still defend itself.
- *
- * A style changes this ONE number and nothing else, so picking one cannot
- * quietly reshape the rest of the deck.
+ * A style is now a TILT applied to a share the commander's own record produced.
+ * `build/shape.ts` owns that arithmetic; this module owns only the name, so
+ * there is one place an unrecognised style is turned into a recognised one.
  */
-export const CREATURE_TARGETS = {
-  creatures: 32,
-  balanced: 24,
-  spells: 12,
-} as const;
-
-/** The deck styles a caller may ask for. */
-export type DeckStyle = keyof typeof CREATURE_TARGETS;
+export type DeckStyle = 'creatures' | 'balanced' | 'spells';
 
 export const DECK_STYLES: readonly DeckStyle[] = ['creatures', 'balanced', 'spells'];
 
 /**
- * The creature floor for a style name.
+ * Resolve a style name off a request body.
  *
  * Unknown names fall back to `balanced` rather than throwing, because the name
  * arrives from a request body and an unrecognised style must produce a deck
@@ -129,37 +109,48 @@ export const DECK_STYLES: readonly DeckStyle[] = ['creatures', 'balanced', 'spel
  * caller can report "you asked for X and got the default" instead of silently
  * building something else.
  */
-export function creatureTargetFor(style: string | null | undefined): {
-  target: number;
+export function styleFor(style: string | null | undefined): {
   style: DeckStyle;
   matchedStyle: boolean;
 } {
   const key = (style ?? '').trim().toLowerCase();
-  if (key in CREATURE_TARGETS) {
-    return { target: CREATURE_TARGETS[key as DeckStyle], style: key as DeckStyle, matchedStyle: true };
+  if (key === 'creatures' || key === 'balanced' || key === 'spells') {
+    return { style: key, matchedStyle: true };
   }
-  return { target: CREATURE_TARGETS.balanced, style: 'balanced', matchedStyle: false };
+  return { style: 'balanced', matchedStyle: false };
 }
 
 /**
- * Default role targets for a 100-card Commander deck.
+ * The yardstick for grading a deck NOBODY DERIVED A SHAPE FOR.
  *
- * These are DECLARED POLICY, not a measurement. They are the conventional
- * deck-building targets this engine aims at, written down here so they can be
- * argued with and overridden per call, rather than buried in a scoring
- * expression. The *gap* the engine reports is real — it is measured from the
- * deck's own cards — but the target it is measured against is a choice.
+ * READ THE NAME BEFORE USING THIS. It is not what the generator builds to any
+ * more, and putting it back there would undo the whole of `build/shape.ts`.
+ * These numbers exist for the other half of the engine: `power/subscores.ts`
+ * grading a list the user typed in, and the add-a-card panel measuring a deck
+ * that already exists. Both are handed a pile of cards with no legal pool to
+ * measure against and often no commander record to read, so "how much ramp is
+ * enough" has no derivable answer there, and a stated convention is the honest
+ * substitute for one.
  *
- * Non-commander formats run 60 cards, so the targets scale in `roleTargetsFor`.
+ * They are DECLARED POLICY and conventional — the numbers a deck-building
+ * article gives — and the *gap* reported against them is real, because it is
+ * counted off the deck's own cards. Anything that CAN derive a shape must,
+ * through `deriveDeckShape`, and must not read this.
+ *
+ * `creature` is 0 and stays 0. There was never a defensible universal creature
+ * count, which is the whole of what this change is about, and a deck with no
+ * creatures is not short of any.
+ *
+ * Non-commander formats run 60 cards, so the numbers scale in `roleTargetsFor`.
  */
-export const COMMANDER_ROLE_TARGETS: Readonly<Record<Role, number>> = {
+export const YARDSTICK_WHEN_NO_SHAPE_WAS_DERIVED: Readonly<Record<Role, number>> = {
   ramp: 10,
   draw: 10,
   removal: 8,
   interaction: 4,
   wincon: 3,
   land: 36,
-  creature: CREATURE_TARGETS.balanced,
+  creature: 0,
 };
 
 /** Deck sizes used to scale the declared targets. */
@@ -198,34 +189,31 @@ export function cardRole(subject: RoleSubject, role: Role): boolean {
 }
 
 /**
- * Targets for a format, scaled from the declared Commander policy.
+ * Targets for a format, scaled from the declared yardstick.
+ *
+ * FOR GRADING A DECK THAT ALREADY EXISTS. The generator does not call this any
+ * more — it calls `deriveDeckShape`, which reads the commander instead. See
+ * {@link YARDSTICK_WHEN_NO_SHAPE_WAS_DERIVED} for why the yardstick still has
+ * to exist and where it is allowed.
  *
  * Commander is singleton and 100 cards; a 60-card constructed deck needs
- * proportionally fewer of everything, so the targets scale by deck size and
+ * proportionally fewer of everything, so the numbers scale by deck size and
  * round to the nearest card.
  *
- * `style` picks the creature floor, and it is taken here rather than applied by
- * the caller so it goes through the SAME scaling as every other target. A
- * caller that set `creature` itself would ask a 60-card deck for 32 creatures
- * out of 60, which is a different deck from the 32 out of 99 the style means.
- *
- * An explicit `overrides.creature` still wins over the style, because an
- * explicit number is a caller who knows what they want.
+ * The `style` parameter went with the creature floor it used to pick. An
+ * explicit override still wins, because an explicit number is a caller who
+ * knows what they want.
  */
 export function roleTargetsFor(
   format: string,
-  overrides?: Partial<Record<Role, number>>,
-  style?: string | null
+  overrides?: Partial<Record<Role, number>>
 ): Record<Role, number> {
   const commanderish = isCommanderFormat(format);
   const scale = commanderish ? 1 : CONSTRUCTED_DECK_SIZE / COMMANDER_DECK_SIZE;
 
   const out = {} as Record<Role, number>;
   for (const role of ROLES) {
-    out[role] = Math.round(COMMANDER_ROLE_TARGETS[role] * scale);
-  }
-  if (style != null) {
-    out.creature = Math.round(creatureTargetFor(style).target * scale);
+    out[role] = Math.round(YARDSTICK_WHEN_NO_SHAPE_WAS_DERIVED[role] * scale);
   }
   if (overrides) {
     for (const role of ROLES) {

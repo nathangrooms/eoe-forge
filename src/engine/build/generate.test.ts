@@ -614,3 +614,118 @@ test('the notes say how much of the deck the score could not decide', () => {
   assert.ok(line, deck.notes.join('\n'));
   assert.match(line as string, /^\d+ of \d+ spells/);
 });
+
+/* ------------------------------------------------------------------ *
+ * The archetype the player asked for reaches the deck
+ * ------------------------------------------------------------------ */
+
+/**
+ * Cards that do an archetype's job, and nothing else in this pool does.
+ *
+ * `fillerPool` carries no facets at all, so a card that carries `trig:dies` and
+ * `eff:lose-life` is doing something no other card in the pool does. That is
+ * what makes the assertion below about the archetype rather than about luck.
+ *
+ * There have to be more of them than the deck has slots. `planForArchetype`
+ * drops a want that fewer pool cards than that can satisfy, on the argument
+ * that such a want cannot shape a deck, and a synthetic pool is the one place
+ * that bound is easy to trip by accident.
+ */
+function drainPool(count: number): BuildCard[] {
+  const out: BuildCard[] = [];
+  for (let i = 0; i < count; i++) {
+    const colour = IDENTITY[i % IDENTITY.length];
+    out.push({
+      ...card({
+        id: `drain-${i}`,
+        oracle_id: `drain-${i}`,
+        name: `Drainer ${String(i).padStart(3, '0')}`,
+        type_line: 'Creature — Vampire',
+        cmc: '2',
+        mana_cost: `{1}{${colour}}`,
+        color_identity: [colour],
+        tags: ['creature'],
+        prices: { usd: '0.25' },
+      }),
+      facets: ['eff:lose-life', 'trig:dies', 'rec:full', 'type:creature'],
+    });
+  }
+  return out;
+}
+
+/** A shell made of cards that drain, the way `pipeline.ts` builds one. */
+const DRAIN_SHELL = {
+  id: 'aristocrats',
+  name: 'Aristocrats',
+  named: 3,
+  exemplars: [
+    { name: 'Blood Artist', facets: ['eff:lose-life', 'trig:dies', 'rec:full', 'type:creature'] },
+    { name: 'Zulaport Cutthroat', facets: ['eff:lose-life', 'trig:dies', 'rec:full', 'type:creature'] },
+    { name: 'Bastion of Remembrance', facets: ['eff:lose-life', 'rec:full', 'type:enchantment'] },
+  ],
+};
+
+test('the archetype the player asked for changes which cards are taken', () => {
+  const pool = [...POOL, ...drainPool(120)];
+  const drainers = (deck: ReturnType<typeof generateDeck>) =>
+    deck.entries.filter(e => e.card.name.startsWith('Drainer')).length;
+
+  const without = generateDeck({
+    format: 'commander',
+    commander: ATRAXA,
+    pool,
+    basics: BASICS,
+  });
+  const with_ = generateDeck({
+    format: 'commander',
+    commander: ATRAXA,
+    pool,
+    basics: BASICS,
+    archetype: DRAIN_SHELL,
+  });
+
+  assert.ok(
+    drainers(with_) > drainers(without),
+    `asking for Aristocrats took ${drainers(with_)} drainers, not asking took ${drainers(without)}`
+  );
+  assert.equal(with_.totalCopies, 99, 'the archetype changed the deck size');
+});
+
+test('an archetype whose cards say nothing changes nothing, and says so', () => {
+  const pool = [...POOL, ...drainPool(120)];
+  const silent = generateDeck({
+    format: 'commander',
+    commander: ATRAXA,
+    pool,
+    basics: BASICS,
+    // Three cards that share no behaviour facet with each other.
+    archetype: {
+      id: 'nothing',
+      name: 'Nothing',
+      named: 3,
+      exemplars: [
+        { name: 'A', facets: ['type:artifact', 'rec:full'] },
+        { name: 'B', facets: ['type:instant', 'rec:full'] },
+        { name: 'C', facets: ['type:land'] },
+      ],
+    },
+  });
+  const plain = generateDeck({ format: 'commander', commander: ATRAXA, pool, basics: BASICS });
+
+  assert.deepEqual(
+    silent.entries.map(e => e.card.name),
+    plain.entries.map(e => e.card.name)
+  );
+  assert.equal(silent.evidence.archetype?.wants.length, 0);
+  assert.ok(silent.notes.some(n => n.includes('Nothing changed nothing')), silent.notes.join('\n'));
+});
+
+test('no archetype asked for is reported as none, not as an empty one', () => {
+  const deck = build();
+  assert.equal(deck.evidence.archetype, null);
+  assert.equal(
+    deck.notes.some(n => /shell|archetype/i.test(n)),
+    false,
+    'a build with no archetype talked about one'
+  );
+});

@@ -729,3 +729,120 @@ test('no archetype asked for is reported as none, not as an empty one', () => {
     'a build with no archetype talked about one'
   );
 });
+
+/* ------------------------------------------------------------------ *
+ * The budget pass may not pay for itself out of the mana base
+ * ------------------------------------------------------------------ */
+
+test('a cheaper land has to be a land the deck can actually use', () => {
+  /*
+   * `trimToBudget` replaced an expensive card with the first cheap enough row
+   * of the same kind, and "same kind" meant `isLandCandidate`. Nothing asked
+   * whether the cheaper land made mana.
+   *
+   * Measured on the live catalogue on 2026-08-28, Grand Arbiter Augustin IV in
+   * Azorius on a $400 budget, four of the swaps it made:
+   *
+   *   Misty Rainforest $35.59 -> Wooded Foothills  $17.05
+   *   Scalding Tarn    $37.64 -> Bloodstained Mire $17.34
+   *   Arid Mesa        $31.19 -> Yavimaya          $15.53
+   *   Mana Confluence  $35.25 -> Verdant Catacombs $28.76
+   *
+   * Every card on the left makes or finds white or blue; not one on the right
+   * does. The deck came in under budget by trading four working lands for four
+   * blanks. Fifteen such lands were in ten decks built that day, and none
+   * survives this rule.
+   */
+  const pricyDual = card(
+    {
+      id: 'pricy-dual',
+      oracle_id: 'pricy-dual',
+      name: 'Pricy Dual',
+      type_line: 'Land',
+      cmc: '0',
+      color_identity: [],
+      tags: ['land'],
+      edhrec_rank: 1,
+      prices: { usd: '400.00' },
+    },
+    '{T}: Add {W} or {U}.'
+  );
+  // Cheap, highly ranked, and unable to find anything ATRAXA plays: its
+  // identity is W/U/B/G, so a Mountain is not in this deck.
+  const offColourFetch = card(
+    {
+      id: 'off-fetch',
+      oracle_id: 'off-fetch',
+      name: 'Aaa Off Colour Fetch',
+      type_line: 'Land',
+      cmc: '0',
+      color_identity: [],
+      tags: ['land'],
+      edhrec_rank: 1,
+      prices: { usd: '0.10' },
+    },
+    '{T}, Pay 1 life, Sacrifice this land: Search your library for a Mountain card, put it onto the battlefield, then shuffle.'
+  );
+
+  const deck = generateDeck({
+    format: 'commander',
+    commander: ATRAXA,
+    pool: [pricyDual, offColourFetch, ...fillerLands(60, true), ...fillerPool(400)],
+    basics: BASICS,
+    budgetUsd: 60,
+  });
+
+  const landNames = deck.entries
+    .filter(e => e.bucket === 'land' || e.bucket === 'basic')
+    .map(e => e.card.name);
+  assert.equal(
+    landNames.includes('Aaa Off Colour Fetch'),
+    false,
+    `a fetchland that finds nothing this deck plays is not a mana base: ${landNames.join(', ')}`
+  );
+  assert.equal(deck.totalCopies, 99, 'the budget pass changed the deck size');
+});
+
+test('a land that makes no mana is never taken, and the slot becomes a basic', () => {
+  /*
+   * Stronger than "picked last", which is what the tier order gave. A tier the
+   * ranking cannot reject always fills, because `nonBasicRoom` asks for
+   * `landTarget` minus two basics per colour whether or not that many lands
+   * are worth playing. A basic is free, untapped, makes the colour and can be
+   * fetched, so a land that makes nothing is strictly worse than the card that
+   * would otherwise fill the slot.
+   */
+  const deadLand = card(
+    {
+      id: 'dead-land-2',
+      oracle_id: 'dead-land-2',
+      name: 'Aaa Blank Land',
+      type_line: 'Land',
+      cmc: '0',
+      color_identity: [],
+      tags: ['land'],
+      edhrec_rank: 1,
+      prices: { usd: '0.25' },
+    },
+    'Each land is a Forest in addition to its other land types.'
+  );
+  const deck = generateDeck({
+    format: 'commander',
+    commander: ATRAXA,
+    // Deliberately fewer real lands than the nonbasic room, so the blank would
+    // be taken by anything that merely sorts it last.
+    pool: [deadLand, ...fillerLands(8, true), ...fillerPool(400)],
+    basics: BASICS,
+  });
+  const lands = deck.entries.filter(e => e.bucket === 'land' || e.bucket === 'basic');
+  assert.equal(
+    lands.some(e => e.card.name === 'Aaa Blank Land'),
+    false,
+    lands.map(e => e.card.name).join(', ')
+  );
+  const basics = lands
+    .filter(e => e.bucket === 'basic')
+    .reduce((n, e) => n + e.quantity, 0);
+  assert.ok(basics > 0, 'the refused slot has to come back as a basic, not vanish');
+  assert.equal(deck.totalCopies, 99);
+});

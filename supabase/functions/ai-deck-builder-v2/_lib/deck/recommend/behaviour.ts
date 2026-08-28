@@ -59,6 +59,9 @@ import type {
   ValueExpr,
 } from '../../cards/abilities/dsl.ts';
 import { compileCardAbilities } from '../../cards/abilities/compiler.ts';
+// The compiler's own subtype vocabulary, so a word is a subtype in exactly one
+// place in this repository. See `readNamedSubtypesInRules`.
+import { isSubtypeWord } from '../../cards/abilities/grammar.ts';
 import { normalizeCard, type AbilityCard } from '../../cards/abilities/normalize.ts';
 import { xmageSwapFor } from '../../cards/xmage/lowered.ts';
 import { parseCost } from '../../cards/xmage/compare.ts';
@@ -166,8 +169,146 @@ export function facetsForCard(row: FacetInput): FacetResult {
   else if (abilities.length > 0) out.add('rec:partial');
 
   readOwnTypeInRules(row, out);
+  readNamedSubtypesInRules(row, out);
 
   return { facets: [...out].sort(), source, coverage };
+}
+
+/**
+ * SUBTYPES THIS CARD'S RULES TEXT NAMES, WHETHER OR NOT IT HAS THEM.
+ *
+ * KAALIA OF THE VAST IS WHY THIS EXISTS, and she is a different failure from
+ * the one `readOwnTypeInRules` handles. Her whole ability is "whenever Kaalia
+ * attacks an opponent, you may put an Angel, Demon, or Dragon creature card
+ * from your hand onto the battlefield tapped and attacking that opponent", and
+ * the compiler returns ONE ability for her: the flying keyword. The trigger is
+ * refused whole, `unparsed: [{ reason: 'ambiguous' }]`, so there is no filter
+ * to read, no selector to read, and no object to read one off. She reaches
+ * `planForCommander` carrying `kw:flying rec:partial sub:cleric sub:human
+ * type:creature type:legendary` and comes back with `wants: []`.
+ *
+ * Measured, before this: an end-to-end build for Kaalia against the live
+ * database on 2026-08-28 returned 28 creatures and NOT ONE Angel, Demon or
+ * Dragon among them. It returned Guttersnipe, Firebrand Archer, Electrostatic
+ * Field, Purphoros and Impact Tremors, which is a competent mono-red burn deck
+ * with a white-black-red mana base, and it is not a Kaalia deck. The three
+ * creature types that are the entire point of the card were never extracted, so
+ * nothing downstream could act on them.
+ *
+ * `readOwnTypeInRules` cannot reach this. Its rule is that the subtype has to
+ * be on the card's OWN type line, which is right for the tribe question — Krenko
+ * is a Goblin who counts Goblins — and Kaalia is a Human Cleric. Angel, Demon
+ * and Dragon are not hers.
+ *
+ * So this asks the weaker printed question, the one that is still true: does
+ * this card's rules text NAME a subtype. That is Scryfall's half of the job
+ * under CLAUDE.md, "printed truth: names, costs, type lines, oracle text", and
+ * it is not an attempt to work out what the card DOES with them, which stays
+ * with the compiler and the ported records.
+ *
+ * WHAT IT EMITS AND WHAT IT DELIBERATELY CANNOT. `cares:sub:` and nothing else
+ * — never `tok:`, never an `eff:`, never a tribe. `tribeOf` in the engine still
+ * requires the subtype on the commander's own type line, so Kaalia gains three
+ * wants and stays `tribe: null`, which is right: she is not a tribal commander,
+ * she is a commander who cheats three specific creature types into play. The
+ * engine rule that turns these into wants is the one Sram already uses, so
+ * nothing new was needed on that side.
+ *
+ * THE VOCABULARY IS NOT INVENTED HERE. `isSubtypeWord` in
+ * `cards/abilities/grammar.ts` is the compiler's own list, derived from the
+ * catalogue and already filtered by the blocklist of subtypes that are ordinary
+ * English words ("Time", "Will", "Lord"). Sharing it means a word is a subtype
+ * in exactly one place in this repository.
+ *
+ * TWO THINGS ARE STRIPPED BEFORE THE TEXT IS READ, and both are false positives
+ * that were measured rather than imagined:
+ *
+ *   Reminder text. "(This card is every creature type.)" explains changeling;
+ *                  it is not a Shapeshifter payoff. Already stripped by
+ *                  `rulesTextOf`.
+ *   The card's own NAME. Oracle text spells a card's own name out in full, and
+ *                  plenty of names contain a subtype: Devil's Play reads
+ *                  "Devil's Play deals X damage to any target" and would
+ *                  otherwise claim to care about Devils. `Rhino, Wrecker of
+ *                  Walls` is the same trap, and `normalize.ts` guards against
+ *                  it for the compiler for the same reason.
+ *
+ * BASIC LAND TYPES ARE EXCLUDED. Forest, Island, Swamp, Mountain and Plains are
+ * in the vocabulary because a land's type line carries them, but a rules text
+ * naming one is talking about the mana base, and the mana base is chosen by the
+ * castability engine from what a land produces rather than by behaviour facets.
+ * Leaving them in would put `cares:sub:forest` on every fetch and every ramp
+ * spell in the format and buy nothing.
+ */
+const BASIC_LAND_TYPES: ReadonlySet<string> = new Set([
+  'forest',
+  'island',
+  'swamp',
+  'mountain',
+  'plains',
+]);
+
+function readNamedSubtypesInRules(row: FacetInput, out: Set<Facet>): void {
+  const text = rulesTextOf(row, { stripOwnName: true });
+  if (!text) return;
+
+  /*
+   * A SUBTYPE THE CARD MAKES A TOKEN OF IS NOT A SUBTYPE THE CARD IS ABOUT, and
+   * this is the line between the two commanders that look alike from here.
+   *
+   * Talrand, Sky Summoner reads "create a 2/2 blue Drake creature token with
+   * flying". The word Drake is in his text, so without this he would want DRAKE
+   * CARDS at full tribe weight, and a Talrand deck is about instants and
+   * sorceries — that is the exact rule `readOwnTypeInRules` was written not to
+   * break, arriving from the other side. The compiler already read that clause
+   * and already said what it does with Drakes: `tok:drake`. A record that spoke
+   * is not overruled by a word.
+   *
+   * It costs nothing on the commanders that do care. Krenko makes Goblin tokens
+   * AND counts Goblins, but Goblin is on his own type line, so
+   * `readOwnTypeInRules` supplies `cares:sub:goblin` before this runs and the
+   * suppression never reaches it. Same for Edgar Markov and Vampires, and for
+   * Lathril and Elves. Kaalia has no `tok:` facet at all, because she makes no
+   * tokens, so all three of hers survive.
+   */
+  const madeAsTokens = new Set(
+    [...out].filter(f => f.startsWith('tok:')).map(f => f.slice('tok:'.length))
+  );
+
+  /* One pass over the words the text actually contains, rather than a pass over
+     the whole vocabulary: the vocabulary is about 280 words and a rules text is
+     about 30, so this is the cheap direction and the pool is 30,000 rows. */
+  const seen = new Set<string>();
+  for (const raw of text.split(/[^a-z'-]+/)) {
+    const word = raw.replace(/^[-']+|[-']+$/g, '');
+    if (word.length < 2 || seen.has(word)) continue;
+    seen.add(word);
+    const sub = singularSubtype(word);
+    if (!sub || BASIC_LAND_TYPES.has(sub) || madeAsTokens.has(sub)) continue;
+    out.add(`cares:sub:${sub}`);
+  }
+}
+
+/**
+ * The subtype this word names, in whatever form the text printed it.
+ *
+ * Oracle text says "Dragons you control" and "each Elf", so the plural has to
+ * resolve to the same subtype as the singular. The irregulars Magic actually
+ * prints are listed in `IRREGULAR_PLURALS`; everything else is `s` or `es`, and
+ * a word that is a subtype as printed is taken as printed first so that
+ * "Praetors" cannot be read as a plural of a subtype that does not exist.
+ */
+function singularSubtype(word: string): string | null {
+  if (isSubtypeWord(word)) return word;
+  for (const [singular, plural] of Object.entries(IRREGULAR_PLURALS)) {
+    if (word === plural) return isSubtypeWord(singular) ? singular : null;
+  }
+  for (const suffix of ['es', 's']) {
+    if (!word.endsWith(suffix)) continue;
+    const stem = word.slice(0, -suffix.length);
+    if (stem.length >= 2 && isSubtypeWord(stem)) return stem;
+  }
+  return null;
 }
 
 /**
@@ -238,15 +379,36 @@ function readOwnTypeInRules(row: FacetInput, out: Set<Facet>): void {
   }
 }
 
-/** Every face's rules text, with bracketed reminder text removed. */
-function rulesTextOf(row: FacetInput): string {
+/**
+ * Every face's rules text, with bracketed reminder text removed.
+ *
+ * `stripOwnName` additionally removes the card's printed name, and every comma
+ * separated part of it, before the text is read. Oracle text spells a card's
+ * own name out in full, so "Devil's Play deals X damage to any target" contains
+ * the word "Devil" and "Rhino, Wrecker of Walls" contains both "Rhino" and
+ * "Walls". A card naming itself is not a card naming a subtype, and only the
+ * reader that scans for arbitrary subtypes needs the distinction — the own-type
+ * reader is asking about the type line it already has.
+ */
+function rulesTextOf(row: FacetInput, opts?: { stripOwnName?: boolean }): string {
   const parts: string[] = [];
   if (typeof row.oracle_text === 'string') parts.push(row.oracle_text);
   const faces = (row as { card_faces?: { oracle_text?: string | null }[] | null }).card_faces;
   for (const face of faces ?? []) {
     if (typeof face?.oracle_text === 'string') parts.push(face.oracle_text);
   }
-  return parts.join('\n').replace(/\([^)]*\)/g, ' ').toLowerCase();
+  let text = parts.join('\n').replace(/\([^)]*\)/g, ' ').toLowerCase();
+  if (opts?.stripOwnName) {
+    const name = typeof row.name === 'string' ? row.name.toLowerCase() : '';
+    // Longest first, so "rhino, wrecker of walls" is removed before "rhino"
+    // would match inside it and leave the rest of the name behind.
+    const pieces = [name, ...name.split(/\s*\/\/\s*/), ...name.split(/\s*,\s*/)]
+      .map(p => p.trim())
+      .filter(p => p.length >= 2)
+      .sort((a, b) => b.length - a.length);
+    for (const piece of pieces) text = text.split(piece).join(' ');
+  }
+  return text;
 }
 
 /**
@@ -316,7 +478,87 @@ function readTypeLine(typeLine: string | null, out: Set<Facet>): void {
  * The record
  * ------------------------------------------------------------------ */
 
+/**
+ * EVERY TYPE OR SUBTYPE FILTER IN THE ABILITY, WHEREVER IT SITS.
+ *
+ * `readAbility` below walks the ability by hand, position by position, because
+ * most positions contribute more than a filter — a selector also decides
+ * `scope:all`, an effect also contributes its verb, a trigger also contributes
+ * `trig:`. That hand walk is right for those facets and it was WRONG for
+ * `cares:type:` and `cares:sub:`, because it only reached a filter in the
+ * positions somebody had remembered to visit.
+ *
+ * MEASURED, on all 31,833 commander-legal rows in the 2026-08-19 catalogue
+ * (`scratch/filter-position-census.mjs`, which deep-walks the compiled ability
+ * graph and diffs it against a faithful re-tracing of `readAbility`'s route):
+ *
+ *     rows with at least one compiled ability      24,433
+ *     rows carrying a type or subtype filter        9,127
+ *       reader dropped at least one of them         1,430
+ *       reader dropped every one of them            1,176
+ *
+ * Where those 1,430 sat, by card count:
+ *
+ *     activation cost      "Sacrifice a creature:"          497   Phyrexian Tower
+ *     ability condition    "if you control an artifact"     283   Roadside Reliquary
+ *     count expression     "for each Goblin you control"    238   Gaea's Cradle
+ *     static modification  "+1/+1 for each enchantment"     204   Helm of the Gods
+ *     effect object        "put a creature card into hand"  113   Memorial to Unity
+ *     trigger event        `event.source`, never visited     67   Grenzo, Havoc Raiser
+ *     effect condition     "if you control an artifact"      41   Galvanic Blast
+ *
+ * The brief that opened this said the compiler read a filter on a TRIGGER and
+ * not one on the OBJECT AN EFFECT ACTS ON. Measured, that is not what was
+ * happening. Effect objects were the position most nearly right: 1,534 cards
+ * carry a filter there and the reader already reached 1,421 of them, because
+ * `destroy`, `pump`, `sacrifice`, `search-library`, `exile`, `tap`, `untap`,
+ * `move-zone`, `return-from`, `gain-control`, `add-counters` and `damage` all
+ * hand their selector to `readSelector`. `look-and-pick` was the one effect
+ * whose object filter was dropped, and `event.source` was a TRIGGER filter
+ * being dropped, which is the opposite way round from the brief.
+ *
+ * WHY THIS IS A SWEEP AND NOT SEVENTEEN MORE HAND-WRITTEN CASES. The DSL fixes
+ * the meaning of `{is:'type'}` and `{is:'subtype'}` independently of where the
+ * member sits: it always names a card characteristic. So the answer to "does
+ * this card care about Dragons" does not depend on the path taken to the
+ * filter, and a reader that walks to it by name will go stale again the next
+ * time `dsl.ts` grows a member. It grew `look-and-pick` and `attach` since this
+ * file was written and both were missed. This walk cannot go stale.
+ *
+ * WHAT IT DELIBERATELY DOES NOT DO. It emits `cares:type:` and `cares:sub:` and
+ * nothing else. Not `kw:` from a keyword filter, not `ctr:` from a counter
+ * filter, not `scope:all`, not `eff:`. Those stay with the hand walk, which
+ * knows the position they mean something in. So this sweep can only ADD
+ * `cares:` facets to a card and can never remove or change one, which is the
+ * property that makes it safe to land on a vocabulary five other files read.
+ *
+ * `text`, `prompt` and `hint` are skipped: they hold verbatim oracle prose, no
+ * filter is ever nested inside a string, and walking them is wasted work.
+ */
+const PROSE_FIELDS: ReadonlySet<string> = new Set(['text', 'prompt', 'hint']);
+
+function readCaresFilters(node: unknown, out: Set<Facet>): void {
+  if (node === null || typeof node !== 'object') return;
+  if (Array.isArray(node)) {
+    for (const item of node) readCaresFilters(item, out);
+    return;
+  }
+  const rec = node as Record<string, unknown>;
+  if (typeof rec.value === 'string') {
+    if (rec.is === 'type') out.add(`cares:type:${rec.value.toLowerCase()}`);
+    else if (rec.is === 'subtype') out.add(`cares:sub:${rec.value.toLowerCase()}`);
+  }
+  for (const [key, value] of Object.entries(rec)) {
+    if (PROSE_FIELDS.has(key)) continue;
+    readCaresFilters(value, out);
+  }
+}
+
 function readAbility(ability: Ability, out: Set<Facet>): void {
+  // Every filter, whatever position it sits in. Runs alongside the hand walk
+  // below rather than replacing it: see `readCaresFilters`.
+  readCaresFilters(ability, out);
+
   if (ability.kind === 'keyword') {
     out.add(`kw:${ability.keyword.toLowerCase()}`);
     // Four keywords ARE effects the deck builder cares about and have no

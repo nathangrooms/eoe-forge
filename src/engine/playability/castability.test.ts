@@ -31,6 +31,7 @@ import {
   createPlayabilityEngine,
   deckPlayability,
   hypergeometricAtLeast,
+  manaSourceFor,
   parseManaCost,
   type PlayabilityCardInput,
 } from './castability.ts';
@@ -789,4 +790,91 @@ test('a five-colour cost on a full five-colour base is still exact, and still fa
   assert.equal(result.approximate, false, 'Progenitus must not need the fallback');
   assert.ok(result.probability > 0 && result.probability < 1);
   assert.ok(elapsed < 2000, `Progenitus took ${elapsed}ms`);
+});
+
+/* ------------------------------------------------------------------ *
+ * A fetchland cannot find a basic the deck does not play
+ * ------------------------------------------------------------------ */
+
+/*
+ * The untyped case ("search your library for a basic land card") was already
+ * intersected with the deck's colours. The TYPED case was not, so a fetchland
+ * that names its basic types was credited with those colours in every deck.
+ *
+ * Found by reading a generated Talrand list: mono blue, and the mana base held
+ * Windswept Heath, which taps for nothing and finds nothing there. It sorted
+ * ahead of real lands because `pickLands` asks this function which of the
+ * deck's colours a land makes and got "white and green".
+ */
+
+const WINDSWEPT_HEATH: PlayabilityCardInput = {
+  name: 'Windswept Heath',
+  type_line: 'Land',
+  mana_cost: '',
+  cmc: 0,
+  oracle_text:
+    '{T}, Pay 1 life, Sacrifice Windswept Heath: Search your library for a Forest or Plains card, put it onto the battlefield, then shuffle.',
+  color_identity: [],
+};
+
+const POLLUTED_DELTA: PlayabilityCardInput = {
+  name: 'Polluted Delta',
+  type_line: 'Land',
+  mana_cost: '',
+  cmc: 0,
+  oracle_text:
+    '{T}, Pay 1 life, Sacrifice Polluted Delta: Search your library for an Island or Swamp card, put it onto the battlefield, then shuffle.',
+  color_identity: [],
+};
+
+const EVOLVING_WILDS: PlayabilityCardInput = {
+  name: 'Evolving Wilds',
+  type_line: 'Land',
+  mana_cost: '',
+  cmc: 0,
+  oracle_text:
+    '{T}, Sacrifice Evolving Wilds: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.',
+  color_identity: [],
+};
+
+const maskOf = (...colours: string[]) =>
+  colours.reduce((m, c) => m | { W: 1, U: 2, B: 4, R: 8, G: 16 }[c]!, 0);
+
+test('a typed fetchland with nothing to find is not a source of the colours it names', () => {
+  const source = manaSourceFor(WINDSWEPT_HEATH, maskOf('U'));
+  // Still a land, so still a land drop. It just makes no coloured mana.
+  assert.equal(source?.kind, 'land');
+  assert.equal(source?.colourMask, 0, 'Windswept Heath makes no blue and there is nothing else');
+});
+
+test('a typed fetchland keeps only the half the deck can actually find', () => {
+  const source = manaSourceFor(POLLUTED_DELTA, maskOf('W', 'B'));
+  assert.equal(source?.colourMask, maskOf('B'), 'Orzhov fetches a Swamp, never an Island');
+});
+
+test('a typed fetchland in its own colours is unchanged', () => {
+  const source = manaSourceFor(POLLUTED_DELTA, maskOf('U', 'B'));
+  assert.equal(source?.colourMask, maskOf('U', 'B'));
+});
+
+test('an untyped fetchland still reads the deck it is in', () => {
+  assert.equal(manaSourceFor(EVOLVING_WILDS, maskOf('R'))?.colourMask, maskOf('R'));
+  assert.equal(
+    manaSourceFor(EVOLVING_WILDS, maskOf('W', 'U', 'B'))?.colourMask,
+    maskOf('W', 'U', 'B')
+  );
+});
+
+test('the mana profile stops counting sources of colours the deck does not play', () => {
+  const deck = [
+    ...repeat(ISLAND, 20),
+    ...repeat(WINDSWEPT_HEATH, 10),
+    ...FILLER(69, 'mono-u'),
+  ];
+  const profile = buildManaProfile(deck);
+  assert.equal(profile.sourcesByColour.W, 0, 'there is no Plains in this deck');
+  assert.equal(profile.sourcesByColour.G, 0, 'there is no Forest in this deck');
+  assert.equal(profile.sourcesByColour.U, 20);
+  // The land count is unchanged: a blank fetchland is still a land drop.
+  assert.equal(profile.landCount, 30);
 });

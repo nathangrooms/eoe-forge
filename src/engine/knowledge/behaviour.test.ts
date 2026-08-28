@@ -567,7 +567,26 @@ const COMMANDERS = {
     name: 'Kaalia of the Vast',
     typeLine: 'Legendary Creature — Human Cleric',
     tags: ['creature', 'evasion'],
-    facets: ['kw:flying', 'rec:partial', 'sub:cleric', 'sub:human', 'type:creature', 'type:legendary'],
+    /*
+     * Producer output as of 2026-08-28. The three `cares:sub:` facets are new
+     * and they are the whole card: the compiler returns only her flying keyword
+     * and refuses "you may put an Angel, Demon, or Dragon creature card from
+     * your hand onto the battlefield" whole, so the printed read in
+     * `lib/deck/recommend/behaviour.ts` is the only thing that reaches them.
+     * Before it did, this plan had NO WANTS and the deck the generator built
+     * for her against the live database held no Angel, no Demon and no Dragon.
+     */
+    facets: [
+      'cares:sub:angel',
+      'cares:sub:demon',
+      'cares:sub:dragon',
+      'kw:flying',
+      'rec:partial',
+      'sub:cleric',
+      'sub:human',
+      'type:creature',
+      'type:legendary',
+    ],
   },
   yuriko: {
     name: "Yuriko, the Tiger's Shadow",
@@ -628,13 +647,33 @@ describe('the tribe rule, on commanders the tuning never saw', () => {
     assert.ok(plan.wants.some(w => w.facet === 'type:instant'));
   });
 
-  it('Kaalia gets no tribe, because the types she names are not her own', () => {
-    // Angel, Demon and Dragon are in her text and none of them is on her type
-    // line, so a rule that read "any creature type in the text" would have
-    // given her three tribes. She is not a tribal commander and gets none.
+  it('Kaalia wants Angels, Demons and Dragons and is still not a tribal commander', () => {
+    /*
+     * BOTH HALVES, AND THE SECOND HALF USED TO SWALLOW THE FIRST.
+     *
+     * Angel, Demon and Dragon are in her text and none of them is on her type
+     * line, so a rule that read "any creature type in the text" as a TRIBE would
+     * have given her three. That is what the both-places rule in `tribeOf`
+     * prevents, and it still does: `tribe` is null here.
+     *
+     * The assertion that used to sit under it banned every `cares:sub:` facet on
+     * her as well, and that was the wrong conclusion drawn from the right rule.
+     * It left her plan empty. Measured end to end against the live database on
+     * 2026-08-28, her build came back with 28 creatures and no Angel, no Demon
+     * and no Dragon in any of them.
+     *
+     * A want is not a tribe. The wants come through the same branch Sram uses.
+     */
     const plan = planForCommander(COMMANDERS.kaalia);
     assert.equal(plan.tribe, null);
-    for (const f of COMMANDERS.kaalia.facets) assert.ok(!f.startsWith('cares:sub:'), f);
+    for (const sub of ['angel', 'demon', 'dragon']) {
+      assert.ok(
+        plan.wants.some(w => w.facet === `sub:${sub}`),
+        `no want for sub:${sub}: ${plan.wants.map(w => w.facet).join(' ')}`
+      );
+    }
+    // No `tok:` want, which is what a tribe would have added.
+    assert.ok(!plan.wants.some(w => w.facet.startsWith('tok:')), 'Kaalia makes no tokens');
   });
 });
 

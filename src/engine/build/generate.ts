@@ -920,6 +920,7 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
       landPool: rankedLands.map(r => r.card as BuildCard),
       taken: takenOracleIds,
       budgetUsd: input.budgetUsd,
+      identity,
     });
     if (outcome.swaps > 0) {
       notes.push(
@@ -1344,21 +1345,7 @@ function pickLands<T extends { card: CandidateCard }>(
     for (const colour of colours) have[colour] += 1;
   };
 
-  const coloursOf = (rec: T): ManaColour[] => {
-    const card = rec.card as BuildCard;
-    const source = manaSourceFor(
-      {
-        name: card.name,
-        type_line: card.typeLine,
-        mana_cost: card.manaCost,
-        cmc: card.cmc,
-        oracle_text: card.oracleText ?? null,
-        color_identity: card.colorIdentity,
-      },
-      deckColourMask
-    );
-    return source ? maskToColours(source.colourMask) : [];
-  };
+  const coloursOf = (rec: T): ManaColour[] => landColours(rec.card as BuildCard, deckColourMask);
 
   // Pass one: cover every colour up to `MIN_SOURCES_PER_COLOUR`.
   for (const rec of order) {
@@ -1415,10 +1402,50 @@ function pickLands<T extends { card: CandidateCard }>(
      */
     if (colours.some(c => wanted.includes(c))) return 0;
     if (colours.length > 0) return 1;
-    return producesAnyMana(rec.card as BuildCard) ? 1 : 2;
+    return landMakesNothing(rec.card as BuildCard, deckColourMask) ? 2 : 1;
   };
 
-  for (let tier = 0; tier <= 2; tier++) {
+  /*
+   * TIER 2 IS NOT TAKEN AT ALL. THE SLOT GOES BACK AND BECOMES A BASIC.
+   *
+   * Tier 2 is "produces no mana in this deck", and the loop used to accept it
+   * once the first two tiers ran out — which they do, because `nonBasicRoom`
+   * is `landTarget` minus a floor of two basics per colour, so it asks for
+   * thirty-odd nonbasic lands whether or not thirty-odd are worth playing.
+   * A tier the ranking cannot reject is a tier that always fills.
+   *
+   * A basic land is the alternative, it is free, it enters untapped, it makes
+   * the colour, and a fetchland can find it. So a land that makes no mana is
+   * strictly worse than the card that would otherwise sit in the slot, and
+   * "strictly worse" is not a judgement call.
+   *
+   * Measured on ten commanders built against the live catalogue on 2026-08-28,
+   * every tier-2 land that had been chosen, in every deck:
+   *
+   *   Grand Arbiter (WU)  Wooded Foothills, Bloodstained Mire,
+   *                       Verdant Catacombs, Yavimaya, Cradle of Growth
+   *   Meren (BG)          Flooded Strand, Yavimaya
+   *   Uril (GRW)          Polluted Delta, Yavimaya
+   *   Teysa (BW)          Wooded Foothills, Yavimaya
+   *   Windgrace (BGR)     Flooded Strand
+   *   Edgar (BRW)         Yavimaya
+   *   Ghalta (G)          Polluted Delta
+   *
+   * Thirteen cards over ten decks and not one of them does anything: a
+   * fetchland naming two basic types the deck does not play finds nothing, and
+   * Yavimaya makes every land a Forest in six decks with no green. Zero
+   * tier-2 lands in the ten were cards a player would keep, so the exchange
+   * has no measured cost.
+   *
+   * The slot is not lost. `spellSlots` is fixed at `slots - landTarget` and
+   * `basicSlots` is whatever the deck has not filled, so a nonbasic refused
+   * here comes back as a basic and the land count is unchanged.
+   *
+   * `producesAnyMana` decides the boundary and is deliberately generous: a row
+   * whose `oracleText` was never fetched is assumed to make mana, so a column
+   * the caller did not select can never delete a real land from a mana base.
+   */
+  for (let tier = 0; tier <= 1; tier++) {
     if (chosen.length >= limit) break;
     for (const rec of order) {
       if (chosen.length >= limit) break;
@@ -1429,6 +1456,39 @@ function pickLands<T extends { card: CandidateCard }>(
   }
 
   return chosen;
+}
+
+/**
+ * Which of the deck's colours a land makes, read the one way this engine reads it.
+ *
+ * Shared so that the two places that decide whether a land is worth a slot —
+ * `pickLands` when it chooses the mana base, and `trimToBudget` when it
+ * replaces one to hit a price — cannot answer the question differently.
+ */
+function landColours(card: BuildCard, deckColourMask: number): ManaColour[] {
+  const source = manaSourceFor(
+    {
+      name: card.name,
+      type_line: card.typeLine,
+      mana_cost: card.manaCost,
+      cmc: card.cmc,
+      oracle_text: card.oracleText ?? null,
+      color_identity: card.colorIdentity,
+    },
+    deckColourMask
+  );
+  return source ? maskToColours(source.colourMask) : [];
+}
+
+/**
+ * A land that produces no mana at all in THIS deck.
+ *
+ * The bottom tier of `pickLands`, extracted so the budget trimmer can refuse
+ * the same cards. Both a fetchland naming two basic types the deck does not
+ * play and a land with no mana ability at all land here.
+ */
+function landMakesNothing(card: BuildCard, deckColourMask: number): boolean {
+  return landColours(card, deckColourMask).length === 0 && !producesAnyMana(card);
 }
 
 /**
@@ -1627,6 +1687,33 @@ interface TrimBudgetInput {
   landPool: readonly BuildCard[];
   taken: Set<string>;
   budgetUsd: number;
+  /**
+   * The deck's colours, so a cheaper LAND can be checked for being a land.
+   *
+   * WHY THIS ARGUMENT EXISTS. The replacement was `pool.find(c => not taken &&
+   * cheaper && isLandCandidate(c) === wantsLand)` — the first cheap enough row
+   * of the right kind, in rank order, and nothing asked whether it made mana.
+   * `pickLands` is careful about that and this undid it afterwards.
+   *
+   * Grand Arbiter Augustin IV, Azorius, $400 budget, built against the live
+   * catalogue on 2026-08-28. Four of the swaps it made:
+   *
+   *   Misty Rainforest  $35.59  ->  Wooded Foothills      $17.05
+   *   Scalding Tarn     $37.64  ->  Bloodstained Mire     $17.34
+   *   Arid Mesa         $31.19  ->  Yavimaya, Cradle...   $15.53
+   *   Mana Confluence   $35.25  ->  Verdant Catacombs     $28.76
+   *
+   * Every card on the left finds or makes white or blue. Not one on the right
+   * does: Wooded Foothills fetches a Mountain or a Forest, Bloodstained Mire a
+   * Swamp or a Mountain, Verdant Catacombs a Swamp or a Forest, and Yavimaya
+   * makes every land a Forest in a deck with no green. The trimmer took four
+   * working lands out of the mana base and put four blank cards in, and the
+   * only thing it checked was the price.
+   *
+   * So the class a land is replaced within is not "land", it is "land that
+   * makes mana this deck can spend".
+   */
+  identity: readonly string[];
 }
 
 interface TrimBudgetOutcome {
@@ -1637,6 +1724,7 @@ interface TrimBudgetOutcome {
 
 function trimToBudget(input: TrimBudgetInput): TrimBudgetOutcome {
   const { picked, taken, budgetUsd } = input;
+  const deckColourMask = coloursToMask(input.identity);
   const priceOf = (e: GeneratedEntry) => (e.card.usd ?? 0) * e.quantity;
   const total = () => picked.reduce((n, e) => n + priceOf(e), 0);
 
@@ -1671,7 +1759,9 @@ function trimToBudget(input: TrimBudgetInput): TrimBudgetOutcome {
       c =>
         !taken.has(c.oracleId) &&
         (c.usd ?? 0) < worstPrice &&
-        isLandCandidate(c) === wantsLand
+        isLandCandidate(c) === wantsLand &&
+        // A cheaper land still has to be a mana source. See `identity`.
+        (!wantsLand || !landMakesNothing(c, deckColourMask))
     );
 
     if (!replacement) {

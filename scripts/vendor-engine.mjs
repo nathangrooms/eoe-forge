@@ -152,11 +152,37 @@ const FACET_SOURCES = [
   'cards/xmage/roles.ts',
 ];
 
-/** Where the facet producer lands inside the generator. */
-export const FACET_SUBDIR = 'supabase/functions/ai-deck-builder-v2/_lib';
+/**
+ * Where the facet producer lands. BOTH functions that rank a pool need it.
+ *
+ * This was one path, the generator's, and the optimiser was left out. That was
+ * not a deliberate scoping decision, it was the same omission this block's own
+ * comment describes being fixed for the generator, applied to only one of the
+ * two callers.
+ *
+ * The cost of leaving it out, measured: `deck-optimizer/index.ts` calls
+ * `catalog.poolFor(query)` without `withOracleText`, no file under
+ * `deck-optimizer/` calls `facetsForCard`, and `_engine/advise/rank.ts` calls
+ * `planFit(profile.commanderPlan, card)` on every candidate. `planFit` is
+ * documented as silent for a card with no record, so the commander-fit signal
+ * contributed EXACTLY ZERO to every suggestion the optimiser has ever made.
+ * The engine was wired in and never fed.
+ *
+ * It costs 3.68 MB of source in the optimiser's bundle, of which 3.16 MB is
+ * `xmage/lowered.generated.ts`. The generator already pays it for the same
+ * reason: that table speaks for the cards the oracle-text compiler cannot
+ * fully read, and dropping it would take removal staples out of the answer.
+ */
+export const FACET_SUBDIRS = [
+  'supabase/functions/ai-deck-builder-v2/_lib',
+  'supabase/functions/deck-optimizer/_lib',
+];
 
-export const FACET_SHIM = {
-  path: `${FACET_SUBDIR}/engine/knowledge/behaviour.ts`,
+/** Kept as the generator's path, because other callers name it. */
+export const FACET_SUBDIR = FACET_SUBDIRS[0];
+
+const facetShimFor = subdir => ({
+  path: `${subdir}/engine/knowledge/behaviour.ts`,
   body: `/**
  * GENERATED FILE — do not edit. Written by scripts/vendor-engine.mjs.
  *
@@ -170,17 +196,24 @@ export const FACET_SHIM = {
  */
 export type { Facet } from '../../../_engine/knowledge/behaviour.ts';
 `,
-};
+});
+
+export const FACET_SHIMS = FACET_SUBDIRS.map(facetShimFor);
+
+/** Kept for callers that expect a single shim. */
+export const FACET_SHIM = FACET_SHIMS[0];
 
 export const SHARED_FILES = [
   {
     from: 'supabase/functions/deck-optimizer/catalog.ts',
     to: 'supabase/functions/ai-deck-builder-v2/catalog.ts',
   },
-  ...FACET_SOURCES.map(rel => ({
-    from: `src/lib/${rel}`,
-    to: `${FACET_SUBDIR}/${rel}`,
-  })),
+  ...FACET_SUBDIRS.flatMap(subdir =>
+    FACET_SOURCES.map(rel => ({
+      from: `src/lib/${rel}`,
+      to: `${subdir}/${rel}`,
+    }))
+  ),
 ];
 
 /* ------------------------------------------------------------------ *
@@ -445,8 +478,9 @@ if (isMain) {
     }
   }
 
-  // 5. The one generated file the facet mirror needs. See FACET_SHIM.
-  {
+  // 5. The generated file each facet mirror needs, one per target. See
+  //    FACET_SHIMS. There is one of these per function that ranks a pool.
+  for (const FACET_SHIM of FACET_SHIMS) {
     const dst = path.join(ROOT, FACET_SHIM.path);
     const before = fs.existsSync(dst) ? fs.readFileSync(dst, 'utf8') : null;
     if (before !== FACET_SHIM.body) {

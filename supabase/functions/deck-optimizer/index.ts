@@ -124,6 +124,7 @@ import {
   type Role,
 } from './_engine/advise/index.ts';
 import { pipDemand } from './_engine/build/generate.ts';
+import { facetsForCard } from './_lib/deck/recommend/behaviour.ts';
 import type { ManaColour, ManaProfile } from './_engine/playability/castability.ts';
 import {
   basicColourOf,
@@ -424,8 +425,11 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
   const poolStarted = Date.now();
   // Two reads, in parallel, because they answer different questions.
   //
-  // `poolFor` deliberately omits `oracle_text` — it returns up to 25,000 rows
-  // and the spell ranker never reads it. `landPoolFor` is the same query with
+  // `poolFor` NOW ASKS FOR `oracle_text`. It used to omit it, on the grounds
+  // that the spell ranker never read it, and that stopped being true when
+  // `planFit` was added to `rank.ts`: facets are compiled from that text and
+  // the commander-fit signal is silent without them.
+  // `landPoolFor` is the same query with
   // a `type_line ilike '%Land%'` filter and the text put back, and the text is
   // the only thing that says what a land taps for: Command Tower and Reliquary
   // Tower have the same empty colour identity and the same `land` tag, and
@@ -437,14 +441,44 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
   // Affordable: measured 2026-08-20, `cards_unique` holds 1,194 commander-legal
   // lands in total, before any colour-identity filter narrows it further.
   const [poolRows, landRows, collectionOwned] = await Promise.all([
-    catalog.poolFor(query),
+    catalog.poolFor(query, { withOracleText: true }),
     catalog.landPoolFor(query),
     catalog.ownedCollection(),
   ]);
   const poolMs = Date.now() - poolStarted;
 
   const poolIndex = new CardIndex(poolRows, legalityKey);
-  const pool: CandidateCard[] = poolRows.map(r => normalizeRow(r, legalityKey));
+  /* Behaviour facets, and why the ranker was blind without them.
+     -----------------------------------------------------------
+     `rank.ts` scores every candidate with `planFit(profile.commanderPlan,
+     card)`, which reads `card.facets` and is deliberately SILENT for a card
+     with no record rather than scoring it zero. Nothing here ever set that
+     field, and `poolFor` was called without `withOracleText`, so there was
+     nothing to set it from. The result was not a weak commander-fit signal, it
+     was no commander-fit signal at all: every suggestion this function has made
+     was ranked without reference to what the commander actually does.
+
+     This is the same omission the generator had, fixed there and not here. The
+     comment above `poolFor` still said the pool text was never read, which was
+     true when it was written and stopped being true when `planFit` was added.
+
+     The memo is per warm instance and keyed on oracle id, which is safe only
+     because the rows now always carry the text. See the longer note on the
+     generator's `facetsForPoolRows`, which explains what goes wrong when a
+     text-less pool writes into the same memo. */
+  const facetStarted = Date.now();
+  const facetMemo = new Map<string, readonly string[]>();
+  for (const row of poolRows) {
+    const id = row.oracle_id;
+    if (!id || facetMemo.has(id)) continue;
+    facetMemo.set(id, facetsForCard(row).facets);
+  }
+  const facetMs = Date.now() - facetStarted;
+
+  const pool: CandidateCard[] = poolRows.map(r => ({
+    ...normalizeRow(r, legalityKey),
+    facets: facetMemo.get(r.oracle_id ?? '') ?? null,
+  }));
 
   const rankStarted = Date.now();
   // No limit passed: the full legal pool is scored, and only then sliced.
@@ -453,6 +487,7 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
 
   console.log(
     `pool: ${poolRows.length} rows in ${poolMs}ms (legality index=${query.usesIndex}); ` +
+      `facets for ${facetMemo.size} distinct cards in ${facetMs}ms; ` +
       `ranked ${ranked.length} distinct cards in ${rankMs}ms; ` +
       `identity=[${colorIdentity.join('') || '-'}] via ${identitySource}; ` +
       `${unresolved.length} deck names unresolved`

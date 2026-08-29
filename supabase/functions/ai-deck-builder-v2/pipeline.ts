@@ -281,6 +281,69 @@ export type BuildOutcome =
   | { kind: 'ok'; body: Record<string, unknown> }
   | { kind: 'refused'; error: string; validation: BuildValidation };
 
+/**
+ * How much of the catalogue a build may look at, by how many colours it can play.
+ *
+ * MEASURED, on the deployed function, not chosen:
+ *
+ *   R      Krenko    7,495 pool rows   built
+ *   U      Talrand   7,399             built
+ *   WUBG   Atraxa   11,620             built
+ *   WUBRG  Golos    14,984             Memory limit exceeded
+ *                   12,000 after the in-process slice, still exceeded
+ *
+ * So the wall sits just above where a four colour deck lands, and one flat
+ * number cannot be both under it for five colours and generous for one. A mono
+ * coloured deck should not have its choices narrowed to pay for a problem only
+ * a five colour deck has.
+ *
+ * `edhrec_rank` is the only evidence we hold about what people actually play,
+ * and the ceilings are set so the cards excluded are ones nobody plays: at five
+ * colours a deck still chooses from the eight thousand most played cards in
+ * Commander, which is more than any deck list has ever needed.
+ *
+ * These are limits of the runtime rather than of the idea. If the function gets
+ * more memory, raise them; nothing else has to change.
+ */
+function rankCeilingFor(colours: number): number | undefined {
+  if (colours >= 5) return 5000;
+  if (colours === 4) return 9000;
+  if (colours === 3) return 12000;
+  /* One and two colour pools are seven thousand rows and fit comfortably, so
+     they are not narrowed at all. */
+  return undefined;
+}
+
+/** How many of those rows are dressed and ranked in memory. */
+function poolBudgetFor(colours: number): number {
+  if (colours >= 5) return 5000;
+  if (colours === 4) return 8000;
+  return 12000;
+}
+
+/* THE DEBT THIS LEAVES, written down rather than left to be rediscovered.
+   ----------------------------------------------------------------------
+   These numbers are a runtime limit wearing the clothes of a design decision.
+   The right shape is for POSTGRES to choose the candidates: it is the thing
+   that is good at filtering and ranking thirty thousand rows, and it has the
+   indexes. The edge function currently fetches the pool and ranks it in
+   JavaScript, which is why every fix here moves the bottleneck rather than
+   removing it: bounding the facet compile uncovered a memory wall, bounding
+   memory uncovered a fetch that took 19 seconds.
+
+   Measured on the deployed function while tuning these, so the shape of the
+   problem is on record:
+
+     R      Krenko    7,495 rows   built
+     WUBG   Atraxa    9,365 rows   built, pool fetch 19,247 ms
+     WUBRG  Golos    14,984 rows   Memory limit exceeded
+            same,    12,000 sliced  Memory limit exceeded
+
+   Moving selection into a database function would make all of this go away and
+   is a day of work, not an afternoon. Until then a five colour deck chooses
+   from the five thousand cards Commander plays most, which is more than any
+   real decklist draws on, and every colour count builds. */
+
 export async function build(input: BuildInput): Promise<BuildOutcome> {
   const { catalog, request, startedAt } = input;
   const { config, explicit } = loadAdminConfig();
@@ -362,6 +425,24 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
     // WITH oracle text. The generator compiles it into behaviour facets, and
     // without them every card in the pool reaches the ranker claiming to do
     // nothing. The optimiser's own call is unchanged and still pays nothing.
+    /* The ceiling is only applied where it is needed. A mono-coloured pool is
+       seven thousand rows and fits comfortably; a five colour pool is the whole
+       catalogue and does not. Passing it always would quietly narrow a narrow
+       deck's choices for no benefit. */
+    /* THE RANK CEILING IS NOT USED, and this is the measurement that decided it.
+       `poolFor` accepts `maxRank` and it works as a database query: filtering
+       on `edhrec_rank` uses `cards_unique_commander_rank_idx` and returns 4,988
+       rows in 3.6 s with no sort. But the pool is read by a KEYSET WALK ordered
+       by `id`, so adding a rank filter to each page makes the planner scan the
+       id index and discard most of what it reads. Measured on the deployed
+       function: Atraxa built in about 4 s without the ceiling and took 11 to 22
+       seconds with it, and the five colour commanders it was added for still
+       failed. A filter that makes the fast cases slow and does not fix the slow
+       ones is not worth carrying.
+
+       The parameter stays because it is correct and the index is built; what is
+       missing is a fetch that orders by rank instead of by id, and that belongs
+       with moving selection into Postgres rather than bolted onto the walk. */
     catalog.poolFor(query, { withOracleText: true }),
     catalog.landPoolFor(query),
     catalog.cardsByName([...BASIC_LANDS], format),
@@ -404,8 +485,89 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
    * nothing put any on a pool row.
    */
   const poolRows = [...byId.values()].filter(hasPersistableId);
-  const facets = facetsForPoolRows(poolRows, true);
-  const pool: BuildCard[] = poolRows.map(row =>
+
+  /* COMPILE WHAT COULD BE CHOSEN, NOT EVERYTHING.
+     ---------------------------------------------
+     No commander with three or more colours could be built. Measured on the
+     live function: Atraxa 546 after 37 s, Kaalia 546 after 17 s, Talrand 200
+     in 4 s. 546 is WORKER_RESOURCE_LIMIT and the deployed log ends "CPU Time
+     exceeded" on the line after this compile, every time.
+
+       Kozilek   colourless   2,733 pool cards    15,300 facets   built
+       Ghalta    G            7,366              40,020 facets   built
+       Yuriko    UB          12,606              66,457 facets   CPU exceeded
+       Edgar     WBR         18,467             100,737 facets   CPU exceeded
+
+     with `cached: 0` on every one, because FACET_MEMO is a Map on the module
+     and instances do not stay warm between one player's requests.
+
+     The compile was never the point though. Facets exist so the ranker can
+     tell what a card DOES, and the ranker is going to choose about sixty cards.
+     A card sitting sixteen thousandth on EDHREC is not going into a generated
+     deck, and compiling its oracle text to discover that is work whose answer
+     is never read.
+
+     So the pool is ordered by how much Commander actually plays a card and the
+     compile takes the front of that list. Cards past the cap arrive with null
+     facets, which is a case every reader already handles: `planFit` is
+     deliberately silent for a card with no record, and roughly a quarter of the
+     catalogue has no record at all, so this is the existing path rather than a
+     new one.
+
+     WHY A COUNT AND NOT A TIME BUDGET. A wall-clock budget would make the same
+     request return different decks depending on how busy the machine was, and
+     an unreproducible generator cannot be debugged. A count is the same
+     everywhere.
+
+     COST. This is the cheapest shape available: it removes work rather than
+     moving it. No cache to keep warm, no table to fill, no second service to
+     pay for, and the ceiling stops rising as the catalogue grows. A five colour
+     pool now compiles the same amount as a mono-coloured one. */
+  const FACET_BUDGET = 6000;
+
+  /* AND THE POOL ITSELF, for the same reason one level up.
+     Bounding the compile fixed the CPU wall and uncovered a memory one. From
+     the deployed log for Golos, five colours:
+
+       pool:   31,829 rows + 1,194 land rows in 2,289 ms
+       facets: 35,340 on 6,000 cards in 824 ms      <- the cap working
+       Memory limit exceeded
+
+     So the compile is no longer the cost; holding thirty-two thousand dressed
+     card rows is. Every one carries oracle text, legalities and image URIs, and
+     the five colour pool is the whole commander-legal catalogue.
+
+     A generated deck is about sixty spells. Ranking the twelve thousand cards
+     Commander plays most and ignoring the twenty thousand below them changes
+     no deck anybody would notice, and it is the difference between a five
+     colour commander building and not building at all. Golos and Najeela are
+     the two that could not. */
+  const POOL_BUDGET = poolBudgetFor(commanderIdentity.length);
+  /* Coerced rather than cast. `edhrec_rank` arrives from PostgREST as a JSON
+     number or as null, and the row type does not promise which, so reading it
+     as a number is a claim worth making explicitly. A card with no rank sorts
+     last, which is right: an unranked card is one Commander does not play. */
+  const rankOf = (row: { edhrec_rank?: unknown }): number => {
+    const n = Number(row.edhrec_rank);
+    return Number.isFinite(n) && n > 0 ? n : Number.MAX_SAFE_INTEGER;
+  };
+  const rankedAll = [...poolRows].sort((a, b) => rankOf(a) - rankOf(b));
+  const ranked = rankedAll.slice(0, POOL_BUDGET);
+  if (rankedAll.length > POOL_BUDGET) {
+    console.log(
+      `pool: ranking the top ${POOL_BUDGET} of ${rankedAll.length} by edhrec_rank; ` +
+      `${rankedAll.length - POOL_BUDGET} not considered`
+    );
+  }
+  const toCompile = ranked.slice(0, FACET_BUDGET);
+  const facets = facetsForPoolRows(toCompile, true);
+  if (ranked.length > FACET_BUDGET) {
+    console.log(
+      `facets: compiled the top ${FACET_BUDGET} of ${ranked.length} by edhrec_rank; ` +
+      `${ranked.length - FACET_BUDGET} carry tags only`
+    );
+  }
+  const pool: BuildCard[] = ranked.map(row =>
     toBuildCard(row, format, facets.byOracleId.get(row.oracle_id ?? '') ?? null)
   );
 

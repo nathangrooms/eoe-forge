@@ -338,9 +338,13 @@ export class Catalog {
    * already ships those rows. That is the price of the column, paid by the one
    * caller that reads it.
    */
+  /**
+   * @param opts.maxRank Only cards Commander plays at least this often, by
+   *   `edhrec_rank`. Bounds the pool for a wide colour identity.
+   */
   async poolFor(
     query: CandidateQuery,
-    opts?: { withOracleText?: boolean }
+    opts?: { withOracleText?: boolean; maxRank?: number }
   ): Promise<CatalogRow[]> {
     const fmt = query.legalityFilter.key;
     const identity = `{${query.colorIdentityFilter.containedBy.join(',')}}`;
@@ -363,10 +367,40 @@ export class Catalog {
       `legal_in_format:legalities->>${fmt}`,
     ].join(',');
 
+    /* THE RANK CEILING, and why it is a filter rather than an order.
+       ---------------------------------------------------------------
+       A five colour commander's pool is the whole commander-legal catalogue,
+       31,829 rows, and the edge function ran out of MEMORY holding it: Golos,
+       Najeela and Kenrith all returned 546 with "Memory limit exceeded" in the
+       log, after the facet compile had already been bounded and was no longer
+       the cost.
+
+       `edhrec_rank` is the only evidence we have about what people actually
+       play, and a card ranked worse than fifteen thousandth is not going into a
+       generated deck. Only 67 of the 31,829 carry no rank at all.
+
+       It is a FILTER and not an ORDER BY on purpose. Ordering by rank was tried
+       and the planner refused the index: `color_identity <@` has no usable
+       selectivity statistic, it estimated 165 rows against 31,829, decided a
+       sort was cheap and spilled 2.2 MB to disk for 11 seconds. The same
+       misestimate that made the pool query time out at 13.7 s before the
+       id-ordered indexes went in. A range condition needs no estimate to be
+       right:
+
+         ORDER BY edhrec_rank LIMIT 12000   Sort, external merge, 11,040 ms
+         WHERE edhrec_rank < 15000          Index Cond, 14,984 rows,   382 ms
+
+       served by `cards_unique_commander_rank_idx`. */
+    const rankCeiling =
+      typeof opts?.maxRank === 'number' && Number.isFinite(opts.maxRank)
+        ? `&edhrec_rank=lt.${Math.round(opts.maxRank)}`
+        : '';
+
     return this.fetchAll<CatalogRow>(
       `${POOL_TABLE}?select=${encodeURIComponent(select)}` +
         `&legalities->>${encodeURIComponent(fmt)}=eq.${query.legalityFilter.equals}` +
-        `&color_identity=cd.${encodeURIComponent(identity)}`
+        `&color_identity=cd.${encodeURIComponent(identity)}` +
+        rankCeiling
     );
   }
 

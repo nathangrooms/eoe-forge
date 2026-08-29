@@ -157,11 +157,24 @@ export function comparisonClasses(record: CardRecord): ComparisonClass[] {
  * A union that does not narrow is a union that has to be cast around, and casts
  * are where the check gets skipped.
  */
-export interface AxisValue<T> {
-  known: boolean;
-  v?: T;
-  why?: string;
-}
+/**
+ * A measured axis, or a stated reason it could not be measured.
+ *
+ * This was `{ known: boolean; v?: T; why?: string }`, three independent
+ * optionals describing two states that cannot overlap: a known value always has
+ * a `v` and never a `why`, and an unknown one is the other way round. The
+ * constructors below have always honoured that. The TYPE did not say so, so
+ * every reader had to re-derive it, and `lowerIsBetter` handing `a.why` to a
+ * field declared `why: string` was `string | undefined` as far as the compiler
+ * knew. `tsconfig.app.json` let it through and Deno's stricter default did not,
+ * which is how a deploy check found a bug the app build never would.
+ *
+ * As a union the invariant is checkable rather than remembered: narrow on
+ * `known` and the other two fields resolve on their own.
+ */
+export type AxisValue<T> =
+  | { known: true; v: T; why?: undefined }
+  | { known: false; v?: undefined; why: string };
 
 const unknown = <T,>(why: string): AxisValue<T> => ({ known: false, why });
 const known = <T,>(v: T): AxisValue<T> => ({ known: true, v });

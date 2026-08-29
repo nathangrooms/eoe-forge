@@ -22,6 +22,8 @@
  * printing and the player has a specific printing open.
  */
 
+import { sharedTagScore, signalTags } from '../_engine/knowledge/tag-signal.ts';
+
 /** The value, or why there is not one. Never an empty result standing in for a failure. */
 export type Read<T> = { ok: true; value: T } | { ok: false; why: string };
 
@@ -288,22 +290,32 @@ export async function topByRole(db: any, q: RoleQuery): Promise<Read<CardRow[]>>
 export async function similarTo(
   db: any,
   card: CardRow,
-  tagRarity: Map<string, number>,
-  isRoleTag: (tag: string) => boolean,
   limit = 8
 ): Promise<Read<CardRow[]>> {
-  /* Type tags are excluded, and leaving them in was measured to matter.
-     Tezzeret the Seeker carries `planeswalker` along with three real role tags,
-     so "sharing two tags" was satisfied by any planeswalker that also untaps,
-     and the answer to "what does a similar job" came back as Kaito Shizuki,
-     Sarkhan Unbroken and Vivien, Monsters' Advocate. Being the same card type
-     is not doing the same job. */
-  const roleTags = (card.tags ?? []).filter(t => tagRarity.has(t) && isRoleTag(t));
-  if (!roleTags.length) return ok([]);
+  /* `signalTags` is the engine's answer to "what actually distinguishes this
+     card", rarest first, and it does three things this function used to do for
+     itself and got wrong.
 
-  const rarest = [...roleTags].sort(
-    (a, b) => (tagRarity.get(a) ?? Infinity) - (tagRarity.get(b) ?? Infinity)
-  )[0];
+     It drops the type tags. Leaving them in was measured to matter: Tezzeret
+     the Seeker carries `planeswalker` along with three real roles, so "sharing
+     two tags" was satisfied by any planeswalker that also untaps, and the
+     answer to "what does a similar job" came back as Kaito Shizuki, Sarkhan
+     Unbroken and Vivien, Monsters' Advocate.
+
+     It drops the alias names. `removal`, `removal-spot` and `targeted-removal`
+     are one idea under three names, so counting shared names scored being
+     removal three times and being a Storm payoff once. Measured over
+     `cards_unique` on 2026-08-29: 12,911 of the 24,645 cards carrying a role
+     tag, 52.4%, had their count inflated this way, 2.61 names per 1.82 ideas.
+
+     And it drops `etb` and `evasion`, which are true of 4,512 and 4,291 cards.
+     2,647 cards had no other role tag at all, so their shortlist of "cards
+     doing the same job" was other cards that also have an enters trigger. They
+     now correctly get no shortlist. */
+  const mine = signalTags(card.tags);
+  if (!mine.length) return ok([]);
+
+  const rarest = mine[0];
 
   const { data, error } = await db
     .from('cards_unique')
@@ -315,49 +327,24 @@ export async function similarTo(
     .limit(300);
   if (error) return failed(error.message);
 
-  const mine = new Set(roleTags);
+  /* Every candidate already shares the rarest thing we know about this card,
+     because that is what the query asked for. What orders them is how much
+     ELSE they share, weighted by how surprising each shared idea is: two cards
+     both counting Storm says far more than two cards both making mana.
+
+     That weighting is the engine's `sharedTagScore` and it replaces a count
+     with a hard floor of two. The floor was doing the wrong job in both
+     directions. Over deduplicated ideas it would have emptied the shortlist for
+     the 9,937 cards carrying two or more of them, since it would demand a match
+     on every one; over raw names it was satisfied by a single idea whenever
+     that idea happened to have a legacy spelling. */
   const scored = ((data ?? []) as CardRow[])
     .filter(row => row.name.toLowerCase() !== card.name.toLowerCase())
-    .map(row => {
-      const shared = (row.tags ?? []).filter(t => mine.has(t)).length;
-      return { row, shared };
-    })
-    .filter(s => s.shared >= Math.min(2, mine.size))
-    .sort((a, b) => b.shared - a.shared || (a.row.edhrec_rank ?? 1e9) - (b.row.edhrec_rank ?? 1e9))
+    .map(row => ({ row, score: sharedTagScore(mine, row.tags) }))
+    .sort((a, b) => b.score - a.score || (a.row.edhrec_rank ?? 1e9) - (b.row.edhrec_rank ?? 1e9))
     .slice(0, limit);
 
   return ok(scored.map(s => s.row));
-}
-
-/**
- * How rare each tag is, so "the rarest tag on this card" means something.
- *
- * Read once per cold start. It is 76 numbers and it changes when the tagger
- * changes, which is not during a conversation.
- */
-let tagRarityCache: Map<string, number> | null = null;
-
-export async function tagRarity(db: any, tags: string[]): Promise<Map<string, number>> {
-  if (tagRarityCache) return tagRarityCache;
-  const counts = new Map<string, number>();
-  // One head count per tag would be 76 requests. The order only has to be
-  // roughly right, so a single page of cards is sampled and the tags counted in
-  // it. A tag that is rare in 1,000 cards is rare in the catalogue.
-  const { data, error } = await db.from('cards_unique').select('tags').limit(1000);
-  if (error || !data) {
-    // No sample means no ordering, so every tag is treated as equally
-    // descriptive. `similarTo` then picks whichever tag comes first, which is
-    // worse but never wrong.
-    for (const t of tags) counts.set(t, 0);
-    tagRarityCache = counts;
-    return counts;
-  }
-  for (const row of data as { tags: string[] | null }[]) {
-    for (const t of row.tags ?? []) counts.set(t, (counts.get(t) ?? 0) + 1);
-  }
-  for (const t of tags) if (!counts.has(t)) counts.set(t, 0);
-  tagRarityCache = counts;
-  return counts;
 }
 
 /* -------------------------------------------------------------------------- *

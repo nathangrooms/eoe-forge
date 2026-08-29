@@ -189,49 +189,21 @@ export function GameMenu({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-3 pb-4">
-        <Section title="Card size">
-          <div className="rounded-lg bg-foreground/[0.05] p-3">
-            <p className="text-xs font-medium text-foreground">Board</p>
-            <p className="mb-2 text-[10px] leading-tight text-muted-foreground">
-              A ceiling. A crowded row shrinks below it rather than running off the mat.
-            </p>
-            <CardSizeSlider
-              storageKey="play-board"
-              value={boardCardWidth}
-              onValueChange={onBoardCardWidth}
-              min={CARD_WIDTH_MIN}
-              max={CARD_WIDTH_MAX}
-            />
-          </div>
+        {/*
+          ORDER IS BY HOW OFTEN A SETTING IS TOUCHED, and it was not.
 
-          <div className="rounded-lg bg-foreground/[0.05] p-3">
-            <p className="text-xs font-medium text-foreground">Hand</p>
-            <p className="mb-2 text-[10px] leading-tight text-muted-foreground">
-              The hand is the biggest thing on the table. This is how big.
-            </p>
-            <CardSizeSlider
-              storageKey="play-hand"
-              value={handCardWidth}
-              onValueChange={onHandCardWidth}
-              min={CARD_WIDTH_MIN}
-              max={CARD_WIDTH_MAX}
-            />
-          </div>
-        </Section>
+          Measured on 29 Aug 2026 at 1600x1000 with the menu open
+          (`scripts/playtest/menu-reach.mjs`): the sections ran Card size,
+          Playmat, Table, Seating, Give up, and the playmat picker is sixteen
+          texture swatches roughly 700px tall. So `Free cast` sat at 973px and
+          `Redraw your hand` at 1013px on a 1000px-tall window — off the bottom
+          of the screen — behind a preference a player sets once and never
+          touches again, while `Give up` is pinned to the bottom and reads as
+          the end of the list.
 
-        <Section title="Playmat">
-          {/* The surface, chosen rather than assigned. Every mat on the board
-              follows this, and it is remembered between games.
-
-              No link out to the playmat library from here, deliberately. This
-              menu renders inside a running game, and following a route change
-              unmounts the board and loses it. */}
-          <MatStylePicker colors={viewerColors} />
-          <p className="px-0.5 text-[10px] leading-tight text-muted-foreground">
-            Your own pictures live on the playmat page, before a game starts.
-          </p>
-        </Section>
-
+          The owner said the settings are wrong. This is the shape of it: what
+          you change DURING a game is now first, what you set once is last.
+        */}
         <Section title="Table">
           <MenuToggle
             label="Auto-advance steps"
@@ -276,6 +248,49 @@ export function GameMenu({
           >
             Redraw your hand
           </button>
+        </Section>
+
+        <Section title="Card size">
+          <div className="rounded-lg bg-foreground/[0.05] p-3">
+            <p className="text-xs font-medium text-foreground">Board</p>
+            <p className="mb-2 text-[10px] leading-tight text-muted-foreground">
+              A ceiling. A crowded row shrinks below it rather than running off the mat.
+            </p>
+            <CardSizeSlider
+              storageKey="play-board"
+              value={boardCardWidth}
+              onValueChange={onBoardCardWidth}
+              min={CARD_WIDTH_MIN}
+              max={CARD_WIDTH_MAX}
+            />
+          </div>
+
+          <div className="rounded-lg bg-foreground/[0.05] p-3">
+            <p className="text-xs font-medium text-foreground">Hand</p>
+            <p className="mb-2 text-[10px] leading-tight text-muted-foreground">
+              The hand is the biggest thing on the table. This is how big.
+            </p>
+            <CardSizeSlider
+              storageKey="play-hand"
+              value={handCardWidth}
+              onValueChange={onHandCardWidth}
+              min={CARD_WIDTH_MIN}
+              max={CARD_WIDTH_MAX}
+            />
+          </div>
+        </Section>
+
+        <Section title="Playmat">
+          {/* The surface, chosen rather than assigned. Every mat on the board
+              follows this, and it is remembered between games.
+
+              No link out to the playmat library from here, deliberately. This
+              menu renders inside a running game, and following a route change
+              unmounts the board and loses it. */}
+          <MatStylePicker colors={viewerColors} />
+          <p className="px-0.5 text-[10px] leading-tight text-muted-foreground">
+            Your own pictures live on the playmat page, before a game starts.
+          </p>
         </Section>
 
         {variants.length > 1 && (

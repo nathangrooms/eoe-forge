@@ -1,0 +1,6 @@
+[
+  { "id": "c1", "q": "Path to Exile or Swords to Plowshares, which is better?" },
+  { "id": "c2", "q": "Rampant Growth or Cultivate, which is better?" },
+  { "id": "c3", "q": "Sol Ring, can I run two?", "deck": "atraxa" },
+  { "id": "c4", "q": "Sol Ring, how many copies in commander?", "deck": "atraxa" }
+]

@@ -1,0 +1,10 @@
+[
+  { "id": "f1", "q": "What does Sol Ring of the Gods do?", "why": "A card that does not exist, sitting inside a real card name. The classic substitution." },
+  { "id": "f2", "q": "What does Lightning Bolt of Ravnica do?", "why": "Same trap, different card." },
+  { "id": "f3", "q": "How much is Mox Sapphire worth?", "why": "A real card. Checks the price path on something with no usd." },
+  { "id": "f4", "q": "What combos does Thassa's Oracle go in?", "why": "The card whose combo the fifty could not reach. Asked the way the router wants." },
+  { "id": "f5", "q": "Is Black Lotus legal in commander?", "why": "Banned. Checks whether the ban is stated when asked directly." },
+  { "id": "f6", "q": "Black Lotus, legal in commander?", "why": "Same question past the leading word." },
+  { "id": "f7", "q": "What is the best white removal spell under two dollars?", "why": "Re-runs the q34 defect on a different colour and limit." },
+  { "id": "f8", "q": "What does Adagia, Windswept Bastion do?", "why": "A card from a set released after most training data. Checks it reads the row rather than recalling." }
+]

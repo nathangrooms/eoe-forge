@@ -1,6 +1,6 @@
 {
   "title": "Fifty real Magic questions, put through the deployed Tutor endpoint",
-  "ran": "2026-08-29T19:22:56.697Z",
+  "ran": "2026-08-29T20:22:20.691Z",
   "endpoint": "https://udnaflcohfyljrsgqggy.supabase.co/functions/v1/mtg-brain",
   "harness": {
     "path": "HTTP POST, the same body src/pages/Tutor.tsx sends from generateResponse",
@@ -18,7 +18,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 878,
+      "wall_clock_ms": 812,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -35,11 +35,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I can read you a card and everything we hold about it, but we do not keep a copy of the rules, so I will not answer a timing or stack question from memory.\n\nGatherer carries the official rulings for a card, and the Comprehensive Rules cover the rest. A judge at your local shop will beat both.",
-      "verdict": "refused",
-      "right_outcome": "yes",
-      "verdict_note": "Named the gap and pointed at Gatherer and a judge. No rule invented.",
-      "copy_defect": null
+      "answer": "I can read you a card and everything we hold about it, but we do not keep a copy of the rules, so I will not answer a timing or stack question from memory.\n\nGatherer carries the official rulings for a card, and the Comprehensive Rules cover the rest. A judge at your local shop will beat both."
     },
     {
       "id": "q02",
@@ -49,7 +45,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 330,
+      "wall_clock_ms": 233,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -58,11 +54,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.",
-      "verdict": "unrouted",
-      "right_outcome": "yes",
-      "verdict_note": "No phrase matched. The boilerplate still says we hold no rules reference, so the player is not misled.",
-      "copy_defect": null
+      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
     },
     {
       "id": "q03",
@@ -72,7 +64,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 206,
+      "wall_clock_ms": 228,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -81,11 +73,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.",
-      "verdict": "unrouted",
-      "right_outcome": "yes",
-      "verdict_note": "Same boilerplate. The rules ask has no phrase for a legend question.",
-      "copy_defect": null
+      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
     },
     {
       "id": "q04",
@@ -95,7 +83,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 664,
+      "wall_clock_ms": 423,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -104,11 +92,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.",
-      "verdict": "unrouted",
-      "right_outcome": "yes",
-      "verdict_note": "Same boilerplate.",
-      "copy_defect": null
+      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
     },
     {
       "id": "q05",
@@ -118,7 +102,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 222,
+      "wall_clock_ms": 239,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -127,11 +111,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.",
-      "verdict": "unrouted",
-      "right_outcome": "yes",
-      "verdict_note": "Same boilerplate.",
-      "copy_defect": null
+      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
     },
     {
       "id": "q06",
@@ -141,7 +121,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 225,
+      "wall_clock_ms": 186,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -150,11 +130,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.",
-      "verdict": "unrouted",
-      "right_outcome": "yes",
-      "verdict_note": "We hold the keyword strings and no definition, so a refusal is right. It arrives by accident rather than by route.",
-      "copy_defect": null
+      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
     },
     {
       "id": "q07",
@@ -164,7 +140,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 400,
+      "wall_clock_ms": 501,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -173,11 +149,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.",
-      "verdict": "unrouted",
-      "right_outcome": "yes",
-      "verdict_note": "Same boilerplate.",
-      "copy_defect": null
+      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
     },
     {
       "id": "q08",
@@ -187,7 +159,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 175,
+      "wall_clock_ms": 584,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -196,11 +168,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.",
-      "verdict": "unrouted",
-      "right_outcome": "yes",
-      "verdict_note": "Same boilerplate.",
-      "copy_defect": null
+      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
     },
     {
       "id": "q09",
@@ -210,7 +178,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 405,
+      "wall_clock_ms": 737,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -233,11 +201,7 @@
         "Rhystic Study"
       ],
       "charts": [],
-      "answer": "**Rhystic Study** {2}{U}\n\nEnchantment.\n\nWhat it says, straight off the card:\n\n> Whenever an opponent casts a spell, you may draw a card unless that player pays {1}.\n\nWe file it under: draws cards, slows everyone down.\n\nCommander plays it at rank 44. That is a place in a list of every card sorted by how many decks run it, so rank 1 is the most played card there is.\n\nIt is on the Commander game changer list, which matters for bracket three and below.\n\nLegal in Commander, Legacy, Vintage, Pauper, Brawl, Historic and Oathbreaker. Not legal in Standard, Pioneer and Modern.\n\nAbout $64.33, or €33.74 in euros. There are 11 printings and they do not all cost the same.\n\nNothing in the combo list we hold pairs it with anything. That list comes from Commander Spellbook and it is not everything anybody has ever found.",
-      "verdict": "correct",
-      "right_outcome": "yes",
-      "verdict_note": "Text, roles, rank, legality, price, combos. All from our own rows.",
-      "copy_defect": null
+      "answer": "**Rhystic Study** {2}{U}\n\nEnchantment.\n\nWhat it says, straight off the card:\n\n> Whenever an opponent casts a spell, you may draw a card unless that player pays {1}.\n\nWe file it under: draws cards, slows everyone down.\n\nCommander plays it at rank 44. That is a place in a list of every card sorted by how many decks run it, so rank 1 is the most played card there is.\n\nIt is on the Commander game changer list, which matters for bracket three and below.\n\nLegal in Commander, Legacy, Vintage, Pauper, Brawl, Historic and Oathbreaker. Not legal in Standard, Pioneer and Modern.\n\nAbout $64.33, or €33.74 in euros. There are 11 printings and they do not all cost the same.\n\nNothing in the combo list we hold pairs it with anything. That list comes from Commander Spellbook and it is not everything anybody has ever found."
     },
     {
       "id": "q10",
@@ -247,7 +211,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 1792,
+      "wall_clock_ms": 976,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -277,11 +241,7 @@
         "Ardent Elementalist"
       ],
       "charts": [],
-      "answer": "**Agadeem's Awakening // Agadeem, the Undercrypt**\n\nSorcery // Land.\n\nWhat it says, straight off the card:\n\n> Agadeem's Awakening {X}{B}{B}{B}\n> Sorcery\n> Return from your graveyard to the battlefield any number of target creature cards that each have a different mana value X or less.\n> \n> Agadeem, the Undercrypt\n> Land\n> As this land enters, you may pay 3 life. If you don't, it enters tapped.\n> {T}: Add {B}.\n\nWe file it under: gets things back from the graveyard.\n\nCommander plays it at rank 958. That is a place in a list of every card sorted by how many decks run it, so rank 1 is the most played card there is.\n\nLegal in Commander, Pioneer, Modern, Legacy, Vintage, Brawl, Historic and Oathbreaker. Not legal in Standard and Pauper.\n\nAbout $27.39, or €24.62 in euros. There are 3 printings and they do not all cost the same.\n\nIt turns up in 4 combos we hold:\n\n- with Archaeomancer, Ashnod's Altar and Dockside Extortionist: infinite artifact ETB and infinite artifact LTB, plus 11 more. Needs {B}{B}{B}.\n- with Archaeomancer, Ashnod's Altar, Panharmonicon and Priest of Gix: infinite black mana and infinite colorless mana, plus 5 more. Needs {4}{B}{B}{B}.\n- with Archaeomancer, Ashnod's Altar, Priest of Gix and Yarok, the Desecrated: infinite black mana and infinite colorless mana, plus 5 more. Needs {4}{B}{B}{B}.\n- with Ardent Elementalist, Ashnod's Altar and Dockside Extortionist: infinite artifact ETB and infinite artifact LTB, plus 11 more. Needs {B}{B}{B}.",
-      "verdict": "correct",
-      "right_outcome": "yes",
-      "verdict_note": "THE MODAL TRAP PASSED. oracle_text is null on this row and both faces were read out of faces.",
-      "copy_defect": null
+      "answer": "**Agadeem's Awakening // Agadeem, the Undercrypt**\n\nSorcery // Land.\n\nWhat it says, straight off the card:\n\n> Agadeem's Awakening {X}{B}{B}{B}\n> Sorcery\n> Return from your graveyard to the battlefield any number of target creature cards that each have a different mana value X or less.\n> \n> Agadeem, the Undercrypt\n> Land\n> As this land enters, you may pay 3 life. If you don't, it enters tapped.\n> {T}: Add {B}.\n\nWe file it under: gets things back from the graveyard.\n\nCommander plays it at rank 958. That is a place in a list of every card sorted by how many decks run it, so rank 1 is the most played card there is.\n\nLegal in Commander, Pioneer, Modern, Legacy, Vintage, Brawl, Historic and Oathbreaker. Not legal in Standard and Pauper.\n\nAbout $27.39, or €24.62 in euros. There are 3 printings and they do not all cost the same.\n\nIt turns up in 4 combos we hold:\n\n- with Archaeomancer, Ashnod's Altar and Dockside Extortionist: infinite artifact ETB and infinite artifact LTB, plus 11 more. Needs {B}{B}{B}.\n- with Archaeomancer, Ashnod's Altar, Panharmonicon and Priest of Gix: infinite black mana and infinite colorless mana, plus 5 more. Needs {4}{B}{B}{B}.\n- with Archaeomancer, Ashnod's Altar, Priest of Gix and Yarok, the Desecrated: infinite black mana and infinite colorless mana, plus 5 more. Needs {4}{B}{B}{B}.\n- with Ardent Elementalist, Ashnod's Altar and Dockside Extortionist: infinite artifact ETB and infinite artifact LTB, plus 11 more. Needs {B}{B}{B}."
     },
     {
       "id": "q11",
@@ -291,7 +251,7 @@
       "deck_cards_sent": 0,
       "prediction": "generative",
       "http_status": 200,
-      "wall_clock_ms": 514,
+      "wall_clock_ms": 729,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -308,11 +268,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "Pick a card at the top of the page and ask again, or name it in the question and I will look it up.",
-      "verdict": "refused",
-      "right_outcome": "no",
-      "verdict_note": "Cyclonic Rift is in the catalogue. The name was lost before the lookup, so it said pick a card.",
-      "copy_defect": null
+      "answer": "Pick a card at the top of the page and ask again, or name it in the question and I will look it up."
     },
     {
       "id": "q12",
@@ -322,7 +278,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 2320,
+      "wall_clock_ms": 1651,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -352,11 +308,7 @@
         "Night of the Sweets' Revenge"
       ],
       "charts": [],
-      "answer": "**Doubling Season** {4}{G}\n\nEnchantment.\n\nWhat it says, straight off the card:\n\n> If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\n> If an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.\n\nWe file it under: makes tokens.\n\nCommander plays it at rank 190. That is a place in a list of every card sorted by how many decks run it, so rank 1 is the most played card there is.\n\nLegal in Commander, Standard, Pioneer, Modern, Legacy, Vintage, Brawl, Historic and Oathbreaker. Not legal in Pauper.\n\nAbout $28.69, or €18.49 in euros. There are 17 printings and they do not all cost the same.\n\nIt turns up in 564 combos we hold. The 4 most played:\n\n- with Springheart Nantuko: infinite creature ETB and infinite creature tokens, plus 2 more. Needs {2}{G} plus enough mana to animate the land. Plus 1 more piece the combo list describes rather than names, so check it before you count on it.\n- with Academy Manufactor, Camellia, the Seedmiser and Peregrin Took: infinite +1/+1 counters on an infinite number of creature tokens and infinite +1/+1 counters on Squirrels you control, plus 8 more. Needs {2}.\n- with Ashnod's Altar and Slimefoot, the Stowaway: infinite creature ETB and infinite creature LTB, plus 5 more. Needs {4}.\n- with Camellia, the Seedmiser, Night of the Sweets' Revenge and Peregrin Took: infinite +1/+1 counters on an infinite number of creature tokens and infinite +1/+1 counters on Squirrels you control, plus 4 more. Needs {2}.",
-      "verdict": "partial",
-      "right_outcome": "no",
-      "verdict_note": "The card was read out correctly and nothing was invented. The half about planeswalkers was neither answered nor acknowledged.",
-      "copy_defect": null
+      "answer": "**Doubling Season** {4}{G}\n\nEnchantment.\n\nWhat it says, straight off the card:\n\n> If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\n> If an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.\n\nWe file it under: makes tokens.\n\nCommander plays it at rank 190. That is a place in a list of every card sorted by how many decks run it, so rank 1 is the most played card there is.\n\nLegal in Commander, Standard, Pioneer, Modern, Legacy, Vintage, Brawl, Historic and Oathbreaker. Not legal in Pauper.\n\nAbout $28.69, or €18.49 in euros. There are 17 printings and they do not all cost the same.\n\nIt turns up in 564 combos we hold. The 4 most played:\n\n- with Springheart Nantuko: infinite creature ETB and infinite creature tokens, plus 2 more. Needs {2}{G} plus enough mana to animate the land. Plus 1 more piece the combo list describes rather than names, so check it before you count on it.\n- with Academy Manufactor, Camellia, the Seedmiser and Peregrin Took: infinite +1/+1 counters on an infinite number of creature tokens and infinite +1/+1 counters on Squirrels you control, plus 8 more. Needs {2}.\n- with Ashnod's Altar and Slimefoot, the Stowaway: infinite creature ETB and infinite creature LTB, plus 5 more. Needs {4}.\n- with Camellia, the Seedmiser, Night of the Sweets' Revenge and Peregrin Took: infinite +1/+1 counters on an infinite number of creature tokens and infinite +1/+1 counters on Squirrels you control, plus 4 more. Needs {2}."
     },
     {
       "id": "q13",
@@ -366,7 +318,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 348,
+      "wall_clock_ms": 400,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -389,11 +341,7 @@
         "Esper Sentinel"
       ],
       "charts": [],
-      "answer": "**Esper Sentinel** {W}\n\nArtifact Creature — Human Soldier. 1/1.\n\nWhat it says, straight off the card:\n\n> Whenever an opponent casts their first noncreature spell each turn, draw a card unless that player pays {X}, where X is this creature's power.\n\nWe file it under: draws cards, slows everyone down.\n\nCommander plays it at rank 77. That is a place in a list of every card sorted by how many decks run it, so rank 1 is the most played card there is.\n\nLegal in Commander, Modern, Legacy, Vintage, Brawl, Historic and Oathbreaker. Not legal in Standard, Pioneer and Pauper.\n\nAbout $56.15, or €42.45 in euros. There are 5 printings and they do not all cost the same.\n\nNothing in the combo list we hold pairs it with anything. That list comes from Commander Spellbook and it is not everything anybody has ever found.",
-      "verdict": "correct",
-      "right_outcome": "yes",
-      "verdict_note": "Answered what it taxes, straight off the card.",
-      "copy_defect": "The only em-dash in fifty answers is inside the printed type line, which is the card and not our copy. No banned word appears anywhere."
+      "answer": "**Esper Sentinel** {W}\n\nArtifact Creature — Human Soldier. 1/1.\n\nWhat it says, straight off the card:\n\n> Whenever an opponent casts their first noncreature spell each turn, draw a card unless that player pays {X}, where X is this creature's power.\n\nWe file it under: draws cards, slows everyone down.\n\nCommander plays it at rank 77. That is a place in a list of every card sorted by how many decks run it, so rank 1 is the most played card there is.\n\nLegal in Commander, Modern, Legacy, Vintage, Brawl, Historic and Oathbreaker. Not legal in Standard, Pioneer and Pauper.\n\nAbout $56.15, or €42.45 in euros. There are 5 printings and they do not all cost the same.\n\nNothing in the combo list we hold pairs it with anything. That list comes from Commander Spellbook and it is not everything anybody has ever found."
     },
     {
       "id": "q14",
@@ -403,7 +351,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 287,
+      "wall_clock_ms": 202,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -412,11 +360,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.",
-      "verdict": "unrouted",
-      "right_outcome": "yes",
-      "verdict_note": "We hold no keyword glossary. Refusing is right.",
-      "copy_defect": null
+      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
     },
     {
       "id": "q15",
@@ -426,7 +370,7 @@
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 677,
+      "wall_clock_ms": 498,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -455,11 +399,7 @@
         "Vito, Thorn of the Dusk Rose"
       ],
       "charts": [],
-      "answer": "**Swords to Plowshares** {W}\n\nInstant.\n\nWhat it says, straight off the card:\n\n> Exile target creature. Its controller gains life equal to its power.\n\nWe file it under: spot removal.\n\nCommander plays it at rank 11. That is a place in a list of every card sorted by how many decks run it, so rank 1 is the most played card there is.\n\nLegal in Commander, Legacy, Vintage, Brawl and Oathbreaker. Banned in Historic. Not legal in Standard, Pioneer, Modern and Pauper.\n\nAbout $1.34, or €1.52 in euros. There are 75 printings and they do not all cost the same.\n\nIt turns up in 8 combos we hold. The 4 most played:\n\n- with Jumbo Cactuar: near-infinite lifegain. Needs {W}.\n- with Sanguine Bond and Serra Avatar: near-infinite lifegain and near-infinite lifeloss for target opponent, plus 1 more. Needs {W}.\n- with Vizkopa Guildmage and Wall of Blood: infinite lifeloss and near-infinite lifegain. Needs {1}{W}{W}{B}.\n- with Serra Avatar and Vito, Thorn of the Dusk Rose: near-infinite lifegain and near-infinite lifeloss for target opponent, plus 1 more. Needs {W}.",
-      "verdict": "partial",
-      "right_outcome": "no",
-      "verdict_note": "Answered about Swords to Plowshares alone. Path to Exile is never mentioned and the comparison is never made.",
-      "copy_defect": null
+      "answer": "**Swords to Plowshares** {W}\n\nInstant.\n\nWhat it says, straight off the card:\n\n> Exile target creature. Its controller gains life equal to its power.\n\nWe file it under: spot removal.\n\nCommander plays it at rank 11. That is a place in a list of every card sorted by how many decks run it, so rank 1 is the most played card there is.\n\nLegal in Commander, Legacy, Vintage, Brawl and Oathbreaker. Banned in Historic. Not legal in Standard, Pioneer, Modern and Pauper.\n\nAbout $1.34, or €1.52 in euros. There are 75 printings and they do not all cost the same.\n\nIt turns up in 8 combos we hold. The 4 most played:\n\n- with Jumbo Cactuar: near-infinite lifegain. Needs {W}.\n- with Sanguine Bond and Serra Avatar: near-infinite lifegain and near-infinite lifeloss for target opponent, plus 1 more. Needs {W}.\n- with Vizkopa Guildmage and Wall of Blood: infinite lifeloss and near-infinite lifegain. Needs {1}{W}{W}{B}.\n- with Serra Avatar and Vito, Thorn of the Dusk Rose: near-infinite lifegain and near-infinite lifeloss for target opponent, plus 1 more. Needs {W}."
     },
     {
       "id": "q16",
@@ -469,7 +409,7 @@
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 501,
+      "wall_clock_ms": 549,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -492,11 +432,7 @@
         "Rampant Growth"
       ],
       "charts": [],
-      "answer": "**Rampant Growth** {1}{G}\n\nSorcery.\n\nWhat it says, straight off the card:\n\n> Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.\n\nWe file it under: ramp.\n\nCommander plays it at rank 26. That is a place in a list of every card sorted by how many decks run it, so rank 1 is the most played card there is.\n\nLegal in Commander, Modern, Legacy, Vintage, Pauper, Brawl, Historic and Oathbreaker. Not legal in Standard and Pioneer.\n\nAbout $0.36. There are 48 printings and they do not all cost the same.\n\nNothing in the combo list we hold pairs it with anything. That list comes from Commander Spellbook and it is not everything anybody has ever found.",
-      "verdict": "partial",
-      "right_outcome": "no",
-      "verdict_note": "Answered about Rampant Growth alone. Cultivate was dropped silently, and a reader cannot tell that half the question went missing.",
-      "copy_defect": null
+      "answer": "**Rampant Growth** {1}{G}\n\nSorcery.\n\nWhat it says, straight off the card:\n\n> Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.\n\nWe file it under: ramp.\n\nCommander plays it at rank 26. That is a place in a list of every card sorted by how many decks run it, so rank 1 is the most played card there is.\n\nLegal in Commander, Modern, Legacy, Vintage, Pauper, Brawl, Historic and Oathbreaker. Not legal in Standard and Pioneer.\n\nAbout $0.36. There are 48 printings and they do not all cost the same.\n\nNothing in the combo list we hold pairs it with anything. That list comes from Commander Spellbook and it is not everything anybody has ever found."
     },
     {
       "id": "q17",
@@ -506,20 +442,28 @@
       "deck_cards_sent": 0,
       "prediction": "generative",
       "http_status": 200,
-      "wall_clock_ms": 540,
-      "answered_from": "nothing",
-      "standing": "refused",
-      "routing": null,
-      "basis": null,
+      "wall_clock_ms": 531,
+      "answered_from": "catalogue",
+      "standing": "full",
+      "routing": {
+        "question": "Is Rhystic Study worth sixty dollars?",
+        "ask": "price",
+        "wants": "What a card costs to buy.",
+        "cue": "worth",
+        "subject": "card",
+        "missing": null,
+        "gap": null
+      },
+      "basis": [
+        "cards_unique"
+      ],
       "cached": false,
-      "cards_attached": 0,
-      "card_names": [],
+      "cards_attached": 1,
+      "card_names": [
+        "Rhystic Study"
+      ],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.",
-      "verdict": "unrouted",
-      "right_outcome": "no",
-      "verdict_note": "The price is a column we hold. The card name was thrown out as a fragment of the phrase Is Rhystic Study.",
-      "copy_defect": null
+      "answer": "**Rhystic Study** {2}{U}\n\nEnchantment.\n\nAbout $64.33, or €33.74 in euros. There are 11 printings and they do not all cost the same."
     },
     {
       "id": "q18",
@@ -529,7 +473,7 @@
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 2017,
+      "wall_clock_ms": 1922,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -556,11 +500,7 @@
         "Black Market Connections"
       ],
       "charts": [],
-      "answer": "**Smothering Tithe** {3}{W}\n\nEnchantment.\n\nCards filed the same way as Smothering Tithe, cheapest first. Whether any of them is right for your deck is your call, so here is the price and how many decks run each one.\n\n- Deadly Dispute {1}{B} $0.28, rank 130\n- Big Score {3}{R} $0.40, rank 139\n- Storm-Kiln Artist {3}{R} $1.48, rank 203\n- Tireless Provisioner {2}{G} $1.97, rank 184\n- An Offer You Can't Refuse {U} $2.94, rank 35\n- Black Market Connections {2}{B} $10.75, rank 131",
-      "verdict": "correct",
-      "right_outcome": "yes",
-      "verdict_note": "Real cards, real prices, real ranks. The list ignores colour identity, which is a quality problem rather than a false statement.",
-      "copy_defect": null
+      "answer": "**Smothering Tithe** {3}{W}\n\nEnchantment.\n\nCards filed the same way as Smothering Tithe, cheapest first. Whether any of them is right for your deck is your call, so here is the price and how many decks run each one.\n\n- Deadly Dispute {1}{B} $0.28, rank 130\n- Big Score {3}{R} $0.40, rank 139\n- Storm-Kiln Artist {3}{R} $1.48, rank 203\n- Tireless Provisioner {2}{G} $1.97, rank 184\n- An Offer You Can't Refuse {U} $2.94, rank 35\n- Black Market Connections {2}{B} $10.75, rank 131"
     },
     {
       "id": "q19",
@@ -570,7 +510,7 @@
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 373,
+      "wall_clock_ms": 248,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -579,11 +519,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Ask about your lands** and I will go through this deck one slot at a time, say which are weak and what to play instead.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.",
-      "verdict": "unrouted",
-      "right_outcome": "no",
-      "verdict_note": "What cards should I cut is the upgrades ask by intent. No phrase in that ask matches this wording.",
-      "copy_defect": null
+      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Ask about your lands** and I will go through this deck one slot at a time, say which are weak and what to play instead.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
     },
     {
       "id": "q20",
@@ -593,7 +529,7 @@
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 265,
+      "wall_clock_ms": 178,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -610,11 +546,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "Adds and cuts are worked out on this deck's own Optimise view. It ranks every card the deck could play against what the deck is short of, and it says what comes out for what goes in, with the reason on each line.\n\nI am not going to do a rougher version of that here and have the two disagree with each other.\n\nWhat I will do from this page is your lands. Ask which lands to upgrade and I will go through them one by one against your colours.",
-      "verdict": "refused",
-      "right_outcome": "yes",
-      "verdict_note": "THE REPLACE GAP IS CLOSED. Routed to upgrades on the cue replace and handed to the Optimise view by design.",
-      "copy_defect": null
+      "answer": "Adds and cuts are worked out on this deck's own Optimise view. It ranks every card the deck could play against what the deck is short of, and it says what comes out for what goes in, with the reason on each line.\n\nI am not going to do a rougher version of that here and have the two disagree with each other.\n\nWhat I will do from this page is your lands. Ask which lands to upgrade and I will go through them one by one against your colours."
     },
     {
       "id": "q21",
@@ -624,7 +556,7 @@
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 338,
+      "wall_clock_ms": 174,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -641,11 +573,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "Adds and cuts are worked out on this deck's own Optimise view. It ranks every card the deck could play against what the deck is short of, and it says what comes out for what goes in, with the reason on each line.\n\nI am not going to do a rougher version of that here and have the two disagree with each other.\n\nWhat I will do from this page is your lands. Ask which lands to upgrade and I will go through them one by one against your colours.",
-      "verdict": "refused",
-      "right_outcome": "yes",
-      "verdict_note": "The same intent as q20 phrased as swap out, lowercase and unpunctuated. Routed the same way.",
-      "copy_defect": null
+      "answer": "Adds and cuts are worked out on this deck's own Optimise view. It ranks every card the deck could play against what the deck is short of, and it says what comes out for what goes in, with the reason on each line.\n\nI am not going to do a rougher version of that here and have the two disagree with each other.\n\nWhat I will do from this page is your lands. Ask which lands to upgrade and I will go through them one by one against your colours."
     },
     {
       "id": "q22",
@@ -655,7 +583,7 @@
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 765,
+      "wall_clock_ms": 188,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -672,11 +600,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "Adds and cuts are worked out on this deck's own Optimise view. It ranks every card the deck could play against what the deck is short of, and it says what comes out for what goes in, with the reason on each line.\n\nI am not going to do a rougher version of that here and have the two disagree with each other.\n\nWhat I will do from this page is your lands. Ask which lands to upgrade and I will go through them one by one against your colours.",
-      "verdict": "refused",
-      "right_outcome": "yes",
-      "verdict_note": "Routed to upgrades. The under five dollars part of the question is not carried into the redirect.",
-      "copy_defect": null
+      "answer": "Adds and cuts are worked out on this deck's own Optimise view. It ranks every card the deck could play against what the deck is short of, and it says what comes out for what goes in, with the reason on each line.\n\nI am not going to do a rougher version of that here and have the two disagree with each other.\n\nWhat I will do from this page is your lands. Ask which lands to upgrade and I will go through them one by one against your colours."
     },
     {
       "id": "q23",
@@ -686,7 +610,7 @@
       "deck_cards_sent": 92,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 432,
+      "wall_clock_ms": 271,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -695,11 +619,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Ask about your lands** and I will go through this deck one slot at a time, say which are weak and what to play instead.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.",
-      "verdict": "unrouted",
-      "right_outcome": "no",
-      "verdict_note": "The deck was attached with all 92 rows. Nothing reads it for a way to win.",
-      "copy_defect": null
+      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Ask about your lands** and I will go through this deck one slot at a time, say which are weak and what to play instead.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
     },
     {
       "id": "q24",
@@ -709,7 +629,7 @@
       "deck_cards_sent": 92,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 6367,
+      "wall_clock_ms": 269,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -726,11 +646,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I can do this one card at a time, not a whole deck at once. Pick a card at the top of the page and I will tell you every combo we hold that it is part of, what the other pieces are and what it produces.\n\nChecking a hundred cards against every combo we hold is not something I can do quickly enough yet, and I would rather say that than tell you your deck has no combos when I have not really looked.",
-      "verdict": "refused",
-      "right_outcome": "yes",
-      "verdict_note": "A deliberate refusal with the cost of the read stated. Correct by design.",
-      "copy_defect": null
+      "answer": "I can do this one card at a time, not a whole deck at once. Pick a card at the top of the page and I will tell you every combo we hold that it is part of, what the other pieces are and what it produces.\n\nChecking a hundred cards against every combo we hold is not something I can do quickly enough yet, and I would rather say that than tell you your deck has no combos when I have not really looked."
     },
     {
       "id": "q25",
@@ -740,7 +656,7 @@
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 12203,
+      "wall_clock_ms": 280,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -749,11 +665,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Ask about your lands** and I will go through this deck one slot at a time, say which are weak and what to play instead.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.",
-      "verdict": "unrouted",
-      "right_outcome": "no",
-      "verdict_note": "The deck summary carries a power score and nine subscores. Nothing routes a question about them.",
-      "copy_defect": null
+      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Ask about your lands** and I will go through this deck one slot at a time, say which are weak and what to play instead.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
     },
     {
       "id": "q26",
@@ -763,7 +675,7 @@
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 305,
+      "wall_clock_ms": 186,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -772,11 +684,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.",
-      "verdict": "unrouted",
-      "right_outcome": "no",
-      "verdict_note": "Matched the lands ask, which only serves an attached deck, so a general question about land counts fell through.",
-      "copy_defect": null
+      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
     },
     {
       "id": "q27",
@@ -786,7 +694,7 @@
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 270,
+      "wall_clock_ms": 223,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -795,11 +703,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.",
-      "verdict": "unrouted",
-      "right_outcome": "no",
-      "verdict_note": "No phrase matched. The role word ramp was read and then nothing used it.",
-      "copy_defect": null
+      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
     },
     {
       "id": "q28",
@@ -809,7 +713,7 @@
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 2279,
+      "wall_clock_ms": 3311,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -837,11 +741,7 @@
         "Breeding Pool"
       ],
       "charts": [],
-      "answer": "33 lands. These are the weakest slots, worst first, judged on what each one taps for against BGUW:\n\n- Zoetic Cavern: taps for C. That is none of your colours.\n- Roadside Reliquary: taps for C. That is none of your colours.\n- Rogue's Passage: taps for C. That is none of your colours.\n- Academy Ruins: taps for C. That is none of your colours.\n- Accursed Duneyard: taps for C. That is none of your colours.\n- Ruins of Oran-Rief: taps for C. That is none of your colours.\n- Zhalfirin Void: taps for C. That is none of your colours.\n- Blast Zone: taps for C. That is none of your colours.\n- Adagia, Windswept Bastion: taps for W. That is one colour, and it enters tapped.\n\nOne thing to hold in mind. This is judged on colours only, so a land that makes no colour sits at the top of the list whatever else it does. If one of those is in there for what it does rather than what it taps for, keep it.\n\nStraight swaps, keeping the land count where it is at 33:\n\n- Cut Zoetic Cavern, play Command Tower. Taps for BGUW, enters untapped. $0.26.\n- Cut Roadside Reliquary, play Exotic Orchard. Taps for BGUW, enters untapped. $0.19.\n- Cut Rogue's Passage, play Path of Ancestry. Taps for BGUW, sometimes enters tapped. $0.22.\n- Cut Academy Ruins, play Watery Grave. Taps for BU, enters untapped if you pay the life. $9.42.\n- Cut Accursed Duneyard, play Breeding Pool. Taps for GU, enters untapped if you pay the life. $9.27.\n- Cut Ruins of Oran-Rief, play Godless Shrine. Taps for BW, enters untapped if you pay the life. $7.99.",
-      "verdict": "correct",
-      "right_outcome": "yes",
-      "verdict_note": "Nine weak lands named out of the real list, then six straight swaps with what each taps for and what it costs.",
-      "copy_defect": null
+      "answer": "33 lands. These are the weakest slots, worst first, judged on what each one taps for against BGUW:\n\n- Zoetic Cavern: taps for C. That is none of your colours.\n- Roadside Reliquary: taps for C. That is none of your colours.\n- Rogue's Passage: taps for C. That is none of your colours.\n- Academy Ruins: taps for C. That is none of your colours.\n- Accursed Duneyard: taps for C. That is none of your colours.\n- Ruins of Oran-Rief: taps for C. That is none of your colours.\n- Zhalfirin Void: taps for C. That is none of your colours.\n- Blast Zone: taps for C. That is none of your colours.\n- Adagia, Windswept Bastion: taps for W. That is one colour, and it enters tapped.\n\nOne thing to hold in mind. This is judged on colours only, so a land that makes no colour sits at the top of the list whatever else it does. If one of those is in there for what it does rather than what it taps for, keep it.\n\nStraight swaps, keeping the land count where it is at 33:\n\n- Cut Zoetic Cavern, play Command Tower. Taps for BGUW, enters untapped. $0.26.\n- Cut Roadside Reliquary, play Exotic Orchard. Taps for BGUW, enters untapped. $0.19.\n- Cut Rogue's Passage, play Path of Ancestry. Taps for BGUW, sometimes enters tapped. $0.22.\n- Cut Academy Ruins, play Watery Grave. Taps for BU, enters untapped if you pay the life. $9.42.\n- Cut Accursed Duneyard, play Breeding Pool. Taps for GU, enters untapped if you pay the life. $9.27.\n- Cut Ruins of Oran-Rief, play Godless Shrine. Taps for BW, enters untapped if you pay the life. $7.99."
     },
     {
       "id": "q29",
@@ -851,7 +751,7 @@
       "deck_cards_sent": 100,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 25772,
+      "wall_clock_ms": 219,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -870,11 +770,7 @@
       "charts": [
         "Cards by mana value"
       ],
-      "answer": "Adds and cuts are worked out on this deck's own Optimise view. It ranks every card the deck could play against what the deck is short of, and it says what comes out for what goes in, with the reason on each line.\n\nI am not going to do a rougher version of that here and have the two disagree with each other.\n\nWhat I will do from this page is your lands. Ask which lands to upgrade and I will go through them one by one against your colours.",
-      "verdict": "refused",
-      "right_outcome": "yes",
-      "verdict_note": "Routed to upgrades on take out and handed to Optimise. The curve chart was drawn, and it is the only chart in fifty answers.",
-      "copy_defect": null
+      "answer": "Adds and cuts are worked out on this deck's own Optimise view. It ranks every card the deck could play against what the deck is short of, and it says what comes out for what goes in, with the reason on each line.\n\nI am not going to do a rougher version of that here and have the two disagree with each other.\n\nWhat I will do from this page is your lands. Ask which lands to upgrade and I will go through them one by one against your colours."
     },
     {
       "id": "q30",
@@ -884,7 +780,7 @@
       "deck_cards_sent": 100,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 2569,
+      "wall_clock_ms": 248,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -893,11 +789,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Ask about your lands** and I will go through this deck one slot at a time, say which are weak and what to play instead.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.",
-      "verdict": "unrouted",
-      "right_outcome": "yes",
-      "verdict_note": "THE FABRICATION TRAP PASSED. The deck plays no colours and no colour was named. It is a refusal, not an answer, and the answer is one line of arithmetic away.",
-      "copy_defect": null
+      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Ask about your lands** and I will go through this deck one slot at a time, say which are weak and what to play instead.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
     },
     {
       "id": "q31",
@@ -907,7 +799,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 372,
+      "wall_clock_ms": 259,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -928,11 +820,7 @@
         "Black Lotus"
       ],
       "charts": [],
-      "answer": "**Black Lotus** {0}\n\nArtifact.\n\nAbout €11,658.96 in euros. There are 4 printings and they do not all cost the same.",
-      "verdict": "correct",
-      "right_outcome": "yes",
-      "verdict_note": "THE PRICE TRAP PASSED. usd is null on this row and no dollar figure was printed. No zero price.",
-      "copy_defect": null
+      "answer": "**Black Lotus** {0}\n\nArtifact.\n\nAbout €11,658.96 in euros. There are 4 printings and they do not all cost the same."
     },
     {
       "id": "q32",
@@ -942,7 +830,7 @@
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 188,
+      "wall_clock_ms": 145,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -959,11 +847,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "Pick a card at the top of the page and ask again, or name it in the question and I will look it up.",
-      "verdict": "refused",
-      "right_outcome": "no",
-      "verdict_note": "What is this deck worth went to the card price ask, which serves a card only, so it said pick a card with a hundred priced rows attached.",
-      "copy_defect": null
+      "answer": "Pick a card at the top of the page and ask again, or name it in the question and I will look it up."
     },
     {
       "id": "q33",
@@ -973,7 +857,7 @@
       "deck_cards_sent": 0,
       "prediction": "generative",
       "http_status": 200,
-      "wall_clock_ms": 555,
+      "wall_clock_ms": 317,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -982,11 +866,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.",
-      "verdict": "unrouted",
-      "right_outcome": "yes",
-      "verdict_note": "General advice about selling cards is not something we hold.",
-      "copy_defect": null
+      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
     },
     {
       "id": "q34",
@@ -996,9 +876,9 @@
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 288,
+      "wall_clock_ms": 3294,
       "answered_from": "catalogue",
-      "standing": "full",
+      "standing": "refused",
       "routing": {
         "question": "What is the best black removal spell under one dollar?",
         "ask": "best-of",
@@ -1012,16 +892,10 @@
         "cards_unique"
       ],
       "cached": false,
-      "cards_attached": 1,
-      "card_names": [
-        "Toxic Deluge"
-      ],
+      "cards_attached": 0,
+      "card_names": [],
       "charts": [],
-      "answer": "The 1 most played black removal, Commander legal:\n\n1. Toxic Deluge {2}{B} $4.59, rank 67\n\nThat order is how many Commander decks run each card, which is popularity and not quality. It is the honest measure we hold, and the top of a popularity list is usually where you want to start anyway.",
-      "verdict": "wrong",
-      "right_outcome": "no",
-      "verdict_note": "Asked for black removal under one dollar. Answered with one card, Toxic Deluge at $4.59. The price limit is not applied and the word one was read as how many cards to list.",
-      "copy_defect": null
+      "answer": "The catalogue could not be read just now, so I have no list for you. Try again in a moment."
     },
     {
       "id": "q35",
@@ -1031,7 +905,7 @@
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 365,
+      "wall_clock_ms": 217,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -1040,11 +914,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.",
-      "verdict": "unrouted",
-      "right_outcome": "no",
-      "verdict_note": "A fifty dollar deck is derivable from prices we hold. Nothing routes it.",
-      "copy_defect": null
+      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
     },
     {
       "id": "q36",
@@ -1054,20 +924,34 @@
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 728,
-      "answered_from": "nothing",
-      "standing": "refused",
-      "routing": null,
-      "basis": null,
+      "wall_clock_ms": 639,
+      "answered_from": "catalogue",
+      "standing": "full",
+      "routing": {
+        "question": "How does the Thassa's Oracle and Demonic Consultation combo work?",
+        "ask": "combos",
+        "wants": "What a card combos with, and what the combo produces.",
+        "cue": "combo",
+        "subject": "card",
+        "missing": null,
+        "gap": null
+      },
+      "basis": [
+        "cards_unique",
+        "meta_combos",
+        "meta_combo_cards"
+      ],
       "cached": false,
-      "cards_attached": 0,
-      "card_names": [],
+      "cards_attached": 5,
+      "card_names": [
+        "Demonic Consultation",
+        "Thassa's Oracle",
+        "Laboratory Maniac",
+        "Jace, Wielder of Mysteries",
+        "Approach of the Second Sun"
+      ],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.",
-      "verdict": "unrouted",
-      "right_outcome": "no",
-      "verdict_note": "We hold this exact combo. Both card names were lost because only the four longest phrases are tried and all four were the whole clause.",
-      "copy_defect": null
+      "answer": "**Demonic Consultation** {B}\n\nInstant.\n\nIt turns up in 8 combos we hold. The 4 most played:\n\n- with Thassa's Oracle: exile your library and win the game. Needs {U}{U}{B}.\n- with Laboratory Maniac: exile your library and win the game. Needs {B}.\n- with Jace, Wielder of Mysteries: exile your library and win the game. Needs {B}.\n- with Approach of the Second Sun: win the game. Needs {12}{W}{W}{B}."
     },
     {
       "id": "q37",
@@ -1077,7 +961,7 @@
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 1440,
+      "wall_clock_ms": 249,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -1086,11 +970,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.",
-      "verdict": "unrouted",
-      "right_outcome": "no",
-      "verdict_note": "We hold 61,500 combos and no ask lists them without a card to start from.",
-      "copy_defect": null
+      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
     },
     {
       "id": "q38",
@@ -1100,7 +980,7 @@
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 819,
+      "wall_clock_ms": 606,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -1129,11 +1009,7 @@
         "Valley Floodcaller"
       ],
       "charts": [],
-      "answer": "**Sol Ring** {1}\n\nArtifact.\n\nIt turns up in 106 combos we hold. The 4 most played:\n\n- with Hullbreaker Horror: infinite colorless mana and infinite storm count. Plus 1 more piece the combo list describes rather than names, so check it before you count on it.\n- with Displacer Kitten and Teferi, Time Raveler: infinite card draw and infinite draw triggers, plus 2 more. Needs {1}.\n- with Tidespout Tyrant: infinite colorless mana and infinite storm count. Needs {1}.\n- with Retraction Helix and Valley Floodcaller: infinite colorless mana and infinite power and toughness for certain creatures until end of turn, plus 2 more. Needs {1}{U}.",
-      "verdict": "correct",
-      "right_outcome": "yes",
-      "verdict_note": "106 combos, the four most played, with what each produces and what it costs.",
-      "copy_defect": null
+      "answer": "**Sol Ring** {1}\n\nArtifact.\n\nIt turns up in 106 combos we hold. The 4 most played:\n\n- with Hullbreaker Horror: infinite colorless mana and infinite storm count. Plus 1 more piece the combo list describes rather than names, so check it before you count on it.\n- with Displacer Kitten and Teferi, Time Raveler: infinite card draw and infinite draw triggers, plus 2 more. Needs {1}.\n- with Tidespout Tyrant: infinite colorless mana and infinite storm count. Needs {1}.\n- with Retraction Helix and Valley Floodcaller: infinite colorless mana and infinite power and toughness for certain creatures until end of turn, plus 2 more. Needs {1}{U}."
     },
     {
       "id": "q39",
@@ -1143,7 +1019,7 @@
       "deck_cards_sent": 0,
       "prediction": "generative",
       "http_status": 200,
-      "wall_clock_ms": 278,
+      "wall_clock_ms": 305,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -1160,11 +1036,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "That is a table call. We hold what a card does, what it costs and how many decks play it, and none of those add up to that, so I am leaving it to you rather than dressing a guess up as an answer.",
-      "verdict": "refused",
-      "right_outcome": "yes",
-      "verdict_note": "Named as a table call rather than dressed up. Correct.",
-      "copy_defect": null
+      "answer": "That is a table call. We hold what a card does, what it costs and how many decks play it, and none of those add up to that, so I am leaving it to you rather than dressing a guess up as an answer."
     },
     {
       "id": "q40",
@@ -1174,20 +1046,28 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 428,
-      "answered_from": "nothing",
-      "standing": "refused",
-      "routing": null,
-      "basis": null,
+      "wall_clock_ms": 1897,
+      "answered_from": "catalogue",
+      "standing": "full",
+      "routing": {
+        "question": "Is Sol Ring legal in Modern?",
+        "ask": "legality",
+        "wants": "Which formats a card may be played in.",
+        "cue": "legal in",
+        "subject": "card",
+        "missing": null,
+        "gap": null
+      },
+      "basis": [
+        "cards_unique"
+      ],
       "cached": false,
-      "cards_attached": 0,
-      "card_names": [],
+      "cards_attached": 1,
+      "card_names": [
+        "Sol Ring"
+      ],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.",
-      "verdict": "unrouted",
-      "right_outcome": "no",
-      "verdict_note": "Legality is a column. Sol Ring resolved and was then thrown out as a fragment of Is Sol Ring.",
-      "copy_defect": null
+      "answer": "**Sol Ring** {1}\n\nArtifact.\n\nLegal in Commander and Vintage (one copy only). Banned in Legacy and Oathbreaker. Not legal in Standard, Pioneer, Modern, Pauper, Brawl and Historic."
     },
     {
       "id": "q41",
@@ -1197,20 +1077,28 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 536,
-      "answered_from": "nothing",
-      "standing": "refused",
-      "routing": null,
-      "basis": null,
+      "wall_clock_ms": 574,
+      "answered_from": "catalogue",
+      "standing": "full",
+      "routing": {
+        "question": "Which formats can I play Lightning Bolt in?",
+        "ask": "legality",
+        "wants": "Which formats a card may be played in.",
+        "cue": "which formats",
+        "subject": "card",
+        "missing": null,
+        "gap": null
+      },
+      "basis": [
+        "cards_unique"
+      ],
       "cached": false,
-      "cards_attached": 0,
-      "card_names": [],
+      "cards_attached": 1,
+      "card_names": [
+        "Lightning Bolt"
+      ],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.",
-      "verdict": "unrouted",
-      "right_outcome": "no",
-      "verdict_note": "Lightning Bolt resolved and was thrown out as a fragment of Lightning Bolt in.",
-      "copy_defect": null
+      "answer": "**Lightning Bolt** {R}\n\nInstant.\n\nLegal in Commander, Modern, Legacy, Vintage, Pauper, Brawl and Oathbreaker. Banned in Historic. Not legal in Standard and Pioneer."
     },
     {
       "id": "q42",
@@ -1220,7 +1108,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 535,
+      "wall_clock_ms": 1635,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -1229,11 +1117,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.",
-      "verdict": "unrouted",
-      "right_outcome": "no",
-      "verdict_note": "Swords to Plowshares resolved and was thrown out as a fragment of Swords to Plowshares in Modern.",
-      "copy_defect": null
+      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
     },
     {
       "id": "q43",
@@ -1243,7 +1127,7 @@
       "deck_cards_sent": 92,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 4184,
+      "wall_clock_ms": 972,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -1252,11 +1136,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Ask about your lands** and I will go through this deck one slot at a time, say which are weak and what to play instead.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.",
-      "verdict": "unrouted",
-      "right_outcome": "no",
-      "verdict_note": "Format, card count, colour identity and the banned column are all in front of it.",
-      "copy_defect": null
+      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Ask about your lands** and I will go through this deck one slot at a time, say which are weak and what to play instead.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
     },
     {
       "id": "q44",
@@ -1266,20 +1146,28 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 506,
-      "answered_from": "nothing",
-      "standing": "refused",
-      "routing": null,
-      "basis": null,
+      "wall_clock_ms": 1027,
+      "answered_from": "catalogue",
+      "standing": "full",
+      "routing": {
+        "question": "Is Dockside Extortionist banned in commander?",
+        "ask": "legality",
+        "wants": "Which formats a card may be played in.",
+        "cue": "banned in",
+        "subject": "card",
+        "missing": null,
+        "gap": null
+      },
+      "basis": [
+        "cards_unique"
+      ],
       "cached": false,
-      "cards_attached": 0,
-      "card_names": [],
+      "cards_attached": 1,
+      "card_names": [
+        "Dockside Extortionist"
+      ],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.",
-      "verdict": "unrouted",
-      "right_outcome": "no",
-      "verdict_note": "Dockside Extortionist resolved and was thrown out as a fragment of Is Dockside Extortionist.",
-      "copy_defect": null
+      "answer": "**Dockside Extortionist** {1}{R}\n\nCreature — Goblin Pirate. 1/2.\n\nLegal in Legacy, Vintage, Brawl, Historic and Oathbreaker. Banned in Commander. Not legal in Standard, Pioneer, Modern and Pauper."
     },
     {
       "id": "q45",
@@ -1289,7 +1177,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 340,
+      "wall_clock_ms": 246,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -1298,11 +1186,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.",
-      "verdict": "unrouted",
-      "right_outcome": "no",
-      "verdict_note": "Matched the legality ask, which serves a card only, so a question about the whole ban list had no subject.",
-      "copy_defect": null
+      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
     },
     {
       "id": "q46",
@@ -1312,7 +1196,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 1090,
+      "wall_clock_ms": 892,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -1342,11 +1226,7 @@
         "Muldrotha, the Gravetide"
       ],
       "charts": [],
-      "answer": "**Jeweled Lotus** {0}\n\nArtifact.\n\nWhat it says, straight off the card:\n\n> {T}, Sacrifice this artifact: Add three mana of any one color. Spend this mana only to cast your commander.\n\nWe file it under: fast mana.\n\nCommander plays it at rank 8,914. That is a place in a list of every card sorted by how many decks run it, so rank 1 is the most played card there is.\n\nLegal in Legacy and Vintage. Banned in Commander and Oathbreaker. Not legal in Standard, Pioneer, Modern, Pauper, Brawl and Historic.\n\nAbout $41.17, or €40.11 in euros. There are 6 printings and they do not all cost the same.\n\nIt turns up in 42 combos we hold. The 4 most played:\n\n- with Displacer Kitten, Eternal Witness and Lotus Petal: infinite colored mana and infinite storm count.\n- with Aether Channeler, Displacer Kitten and Sol Ring: infinite colorless mana and infinite creature ETB, plus 2 more. Needs {1}.\n- with Displacer Kitten and Venser, Shaper Savant: infinite creature ETB and infinite creature LTB, plus 1 more.\n- with Displacer Kitten and Muldrotha, the Gravetide: infinite colored mana that can only be spent to cast your commander and infinite storm count.",
-      "verdict": "partial",
-      "right_outcome": "no",
-      "verdict_note": "Said banned in Commander and Oathbreaker, which is our column, and invented no reason, which is the trap passed. It never says the reasoning is something we do not hold.",
-      "copy_defect": null
+      "answer": "**Jeweled Lotus** {0}\n\nArtifact.\n\nWhat it says, straight off the card:\n\n> {T}, Sacrifice this artifact: Add three mana of any one color. Spend this mana only to cast your commander.\n\nWe file it under: fast mana.\n\nCommander plays it at rank 8,914. That is a place in a list of every card sorted by how many decks run it, so rank 1 is the most played card there is.\n\nLegal in Legacy and Vintage. Banned in Commander and Oathbreaker. Not legal in Standard, Pioneer, Modern, Pauper, Brawl and Historic.\n\nAbout $41.17, or €40.11 in euros. There are 6 printings and they do not all cost the same.\n\nIt turns up in 42 combos we hold. The 4 most played:\n\n- with Displacer Kitten, Eternal Witness and Lotus Petal: infinite colored mana and infinite storm count.\n- with Aether Channeler, Displacer Kitten and Sol Ring: infinite colorless mana and infinite creature ETB, plus 2 more. Needs {1}.\n- with Displacer Kitten and Venser, Shaper Savant: infinite creature ETB and infinite creature LTB, plus 1 more.\n- with Displacer Kitten and Muldrotha, the Gravetide: infinite colored mana that can only be spent to cast your commander and infinite storm count."
     },
     {
       "id": "q47",
@@ -1356,20 +1236,36 @@
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 4230,
-      "answered_from": "nothing",
-      "standing": "refused",
-      "routing": null,
-      "basis": null,
+      "wall_clock_ms": 731,
+      "answered_from": "catalogue",
+      "standing": "full",
+      "routing": {
+        "question": "Can I run two copies of Sol Ring in my commander deck?",
+        "ask": "explain",
+        "wants": "What a card is, what it does, what it costs and how much it is played.",
+        "cue": null,
+        "subject": "card",
+        "missing": null,
+        "gap": null
+      },
+      "basis": [
+        "cards_unique",
+        "meta_combos",
+        "meta_combo_cards"
+      ],
       "cached": false,
-      "cards_attached": 0,
-      "card_names": [],
+      "cards_attached": 7,
+      "card_names": [
+        "Sol Ring",
+        "Hullbreaker Horror",
+        "Displacer Kitten",
+        "Teferi, Time Raveler",
+        "Tidespout Tyrant",
+        "Retraction Helix",
+        "Valley Floodcaller"
+      ],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Ask about your lands** and I will go through this deck one slot at a time, say which are weak and what to play instead.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.",
-      "verdict": "unrouted",
-      "right_outcome": "no",
-      "verdict_note": "THE SINGLETON FAULT DID NOT RECUR. Nothing wrong was said. The deck format column reads commander and the rule was still not stated.",
-      "copy_defect": null
+      "answer": "**Sol Ring** {1}\n\nArtifact.\n\nWhat it says, straight off the card:\n\n> {T}: Add {C}{C}.\n\nWe file it under: fast mana, a mana rock.\n\nCommander plays it at rank 1. That is a place in a list of every card sorted by how many decks run it, so rank 1 is the most played card there is.\n\nLegal in Commander and Vintage (one copy only). Banned in Legacy and Oathbreaker. Not legal in Standard, Pioneer, Modern, Pauper, Brawl and Historic.\n\nAbout $1.44, or €1.57 in euros. There are 129 printings and they do not all cost the same.\n\nIt turns up in 106 combos we hold. The 4 most played:\n\n- with Hullbreaker Horror: infinite colorless mana and infinite storm count. Plus 1 more piece the combo list describes rather than names, so check it before you count on it.\n- with Displacer Kitten and Teferi, Time Raveler: infinite card draw and infinite draw triggers, plus 2 more. Needs {1}.\n- with Tidespout Tyrant: infinite colorless mana and infinite storm count. Needs {1}.\n- with Retraction Helix and Valley Floodcaller: infinite colorless mana and infinite power and toughness for certain creatures until end of turn, plus 2 more. Needs {1}{U}."
     },
     {
       "id": "q48",
@@ -1379,7 +1275,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 560,
+      "wall_clock_ms": 403,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -1388,11 +1284,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.",
-      "verdict": "unrouted",
-      "right_outcome": "yes",
-      "verdict_note": "A colour identity rules question. We hold the column and not the rule.",
-      "copy_defect": null
+      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
     },
     {
       "id": "q49",
@@ -1402,7 +1294,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 174,
+      "wall_clock_ms": 238,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -1411,11 +1303,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.",
-      "verdict": "unrouted",
-      "right_outcome": "yes",
-      "verdict_note": "A rules number we do not hold.",
-      "copy_defect": null
+      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
     },
     {
       "id": "q50",
@@ -1425,7 +1313,7 @@
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 1027,
+      "wall_clock_ms": 1681,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -1453,226 +1341,7 @@
         "Refute"
       ],
       "charts": [],
-      "answer": "The 8 most played 3 mana counterspells, Commander legal:\n\n1. Fierce Guardianship {2}{U} $57.58, rank 82\n2. Force of Negation {1}{U}{U} $46.82, rank 266\n3. Boromir, Warden of the Tower {2}{W} $6.50, rank 849\n4. Unwind {2}{U} $1.13, rank 1,062\n5. Flare of Denial {1}{U}{U} $3.22, rank 1,425\n6. Archmage's Charm {U}{U}{U} $1.69, rank 1,746\n7. Disallow {1}{U}{U} $0.43, rank 1,821\n8. Refute {1}{U}{U} $0.24, rank 1,908\n\nThat order is how many Commander decks run each card, which is popularity and not quality. It is the honest measure we hold, and the top of a popularity list is usually where you want to start anyway.",
-      "verdict": "correct",
-      "right_outcome": "yes",
-      "verdict_note": "Eight cards, real prices, real ranks, and it says plainly that the order is popularity and not quality.",
-      "copy_defect": null
+      "answer": "The 8 most played 3 mana counterspells, Commander legal:\n\n1. Fierce Guardianship {2}{U} $57.58, rank 82\n2. Force of Negation {1}{U}{U} $46.82, rank 266\n3. Boromir, Warden of the Tower {2}{W} $6.50, rank 849\n4. Unwind {2}{U} $1.13, rank 1,062\n5. Flare of Denial {1}{U}{U} $3.22, rank 1,425\n6. Archmage's Charm {U}{U}{U} $1.69, rank 1,746\n7. Disallow {1}{U}{U} $0.43, rank 1,821\n8. Refute {1}{U}{U} $0.24, rank 1,908\n\nThat order is how many Commander decks run each card, which is popularity and not quality. It is the honest measure we hold, and the top of a popularity list is usually where you want to start anyway."
     }
-  ],
-  "re_asked": {
-    "why": "Four rows were asked twice. q29 failed with a socket error on the first pass, which is the network and not an answer. q28, q32 and q34 were asked again to find out whether a catalogue read failure was the steady state or a one-off. The rows above hold the SECOND reading for those three. The first reading is kept here verbatim so nothing is quietly replaced.",
-    "first_reading": [
-      {
-        "id": "q28",
-        "wall_clock_ms": 9344,
-        "standing": "partial",
-        "answer": "33 lands. These are the weakest slots, worst first, judged on what each one taps for against BGUW:\n\n- Zoetic Cavern: taps for C. That is none of your colours.\n- Roadside Reliquary: taps for C. That is none of your colours.\n- Rogue's Passage: taps for C. That is none of your colours.\n- Academy Ruins: taps for C. That is none of your colours.\n- Accursed Duneyard: taps for C. That is none of your colours.\n- Ruins of Oran-Rief: taps for C. That is none of your colours.\n- Zhalfirin Void: taps for C. That is none of your colours.\n- Blast Zone: taps for C. That is none of your colours.\n- Adagia, Windswept Bastion: taps for W. That is one colour, and it enters tapped.\n\nOne thing to hold in mind. This is judged on colours only, so a land that makes no colour sits at the top of the list whatever else it does. If one of those is in there for what it does rather than what it taps for, keep it.\n\nThe list of lands to put in their place could not be read just now, so I am not naming any from memory. The lands above still stand, because they came out of your own list."
-      },
-      {
-        "id": "q32",
-        "wall_clock_ms": 13886,
-        "standing": "refused",
-        "answer": "Pick a card at the top of the page and ask again, or name it in the question and I will look it up."
-      },
-      {
-        "id": "q34",
-        "wall_clock_ms": 3327,
-        "standing": "refused",
-        "answer": "The catalogue could not be read just now, so I have no list for you. Try again in a moment."
-      }
-    ],
-    "q29_first_reading": {
-      "id": "q29"
-    },
-    "what_changed": "q28 and q34 both said \"could not be read just now\" on the first pass and answered fully on the second, so that failure is transient and not the behaviour. q32 said the same thing both times and it is not a read failure at all, it is the routing sending a deck question to a card-only ask."
-  },
-  "scoring": {
-    "how": "Scored by hand against the answers above and against the catalogue rows they came from. correct and refused are counted apart and never added together.",
-    "verdicts": {
-      "correct": 8,
-      "partial": 4,
-      "refused": 9,
-      "unrouted": 28,
-      "wrong": 1
-    },
-    "right_outcome": {
-      "yes": 27,
-      "no": 23
-    },
-    "copy_rules": "Clean. No em-dash in any authored sentence, and none of the banned words appears in any of the fifty. No rendered zero price."
-  },
-  "routing_spread": {
-    "how": "Read off the routing field the function returns on its own answers. The split of the ones that routed nowhere is from scripts/tutor-fifty-routing.ts, which calls chooseAsk out of the deployed router rather than a copy of it.",
-    "reached_an_ask": 22,
-    "reached_nothing": 28,
-    "by_ask": {
-      "no route": {
-        "count": 28,
-        "questions": [
-          "q02",
-          "q03",
-          "q04",
-          "q05",
-          "q06",
-          "q07",
-          "q08",
-          "q14",
-          "q17",
-          "q19",
-          "q23",
-          "q25",
-          "q26",
-          "q27",
-          "q30",
-          "q33",
-          "q35",
-          "q36",
-          "q37",
-          "q40",
-          "q41",
-          "q42",
-          "q43",
-          "q44",
-          "q45",
-          "q47",
-          "q48",
-          "q49"
-        ]
-      },
-      "explain": {
-        "count": 8,
-        "questions": [
-          "q09",
-          "q10",
-          "q11",
-          "q12",
-          "q13",
-          "q15",
-          "q16",
-          "q46"
-        ]
-      },
-      "upgrades": {
-        "count": 4,
-        "questions": [
-          "q20",
-          "q21",
-          "q22",
-          "q29"
-        ]
-      },
-      "combos": {
-        "count": 2,
-        "questions": [
-          "q24",
-          "q38"
-        ]
-      },
-      "price": {
-        "count": 2,
-        "questions": [
-          "q31",
-          "q32"
-        ]
-      },
-      "best-of": {
-        "count": 2,
-        "questions": [
-          "q34",
-          "q50"
-        ]
-      },
-      "rules": {
-        "count": 1,
-        "questions": [
-          "q01"
-        ]
-      },
-      "alternatives": {
-        "count": 1,
-        "questions": [
-          "q18"
-        ]
-      },
-      "lands": {
-        "count": 1,
-        "questions": [
-          "q28"
-        ]
-      },
-      "answer-it": {
-        "count": 1,
-        "questions": [
-          "q39"
-        ]
-      }
-    },
-    "the_28_that_routed_nowhere": {
-      "matched_a_phrase_then_had_no_subject": {
-        "count": 9,
-        "detail": [
-          "q17 price on \"worth\"",
-          "q26 lands on \"lands\"",
-          "q33 price on \"worth\"",
-          "q36 combos on \"combo\"",
-          "q37 combos on \"combos\"",
-          "q40 legality on \"legal in\"",
-          "q41 legality on \"which formats\"",
-          "q44 legality on \"banned in\"",
-          "q45 legality on \"banned in\""
-        ],
-        "why": "Every one of these asks names card as its only subject. The phrase table recognised the question and then the router had nothing for it to be about."
-      },
-      "matched_no_phrase_at_all": {
-        "count": 19,
-        "questions": [
-          "q02",
-          "q03",
-          "q04",
-          "q05",
-          "q06",
-          "q07",
-          "q08",
-          "q14",
-          "q19",
-          "q23",
-          "q25",
-          "q27",
-          "q30",
-          "q35",
-          "q42",
-          "q43",
-          "q47",
-          "q48",
-          "q49"
-        ]
-      }
-    },
-    "two_boilerplate_replies_cover_28_of_50": "Twenty-two questions with no deck and six with a deck received one of two identical messages, differing only in the third bullet. Byte identical within each group."
-  },
-  "card_resolution": {
-    "how": "scratch/named-probe.ts runs a verbatim copy of cardNamedInQuestion from answer/index.ts against the live catalogue, because that function is not exported. Every line below is a trace it printed.",
-    "cards_that_are_in_the_catalogue_and_were_thrown_away": [
-      "q17 Rhystic Study: resolved, then rejected as a fragment of the phrase \"Is Rhystic Study\"",
-      "q40 Sol Ring: resolved, then rejected as a fragment of \"Is Sol Ring\"",
-      "q41 Lightning Bolt: resolved, then rejected as a fragment of \"Lightning Bolt in\"",
-      "q42 Swords to Plowshares: resolved, then rejected as a fragment of \"Swords to Plowshares in Modern\"",
-      "q44 Dockside Extortionist: resolved, then rejected as a fragment of \"Is Dockside Extortionist\"",
-      "q47 Sol Ring: resolved, then rejected as a fragment of \"Sol Ring in\""
-    ],
-    "cards_never_tried_because_only_four_phrases_are_tried": [
-      "q11 Cyclonic Rift: the four longest phrases were \"Explain Cyclonic Rift in\", \"Explain Cyclonic Rift\", \"Cyclonic Rift in\" and \"Explain Cyclonic\". The name itself is fifth.",
-      "q36 Thassa’s Oracle and Demonic Consultation: all four tried phrases were pieces of the whole clause. Neither card name was ever offered to the catalogue."
-    ],
-    "a_question_naming_two_cards_answers_about_one": [
-      "q15 answered about Swords to Plowshares and never mentions Path to Exile.",
-      "q16 answered about Rampant Growth and never mentions Cultivate. \"Is Cultivate\" is longer than \"Cultivate\" and blocked it as a fragment, so the card that survives is whichever name happens to be longer."
-    ]
-  },
-  "against_the_prediction": {
-    "predicted": "The question file predicted 36 of 50 answerable from our own data, 72%.",
-    "measured": "22 of 50 reached an ask at all, and 12 came back with an answer built from our data (8 right, 4 answering only part of the question). One was wrong. The prediction was about what the data holds and it stands; what it could not see was routing, and routing is where the loss is.",
-    "where_the_loss_is": "Of the 23 questions whose outcome was not the right one, 6 lost a card the catalogue had already found, 2 never offered the name to the catalogue at all, 9 matched a phrase whose ask serves a card only, and the rest matched no phrase."
-  }
+  ]
 }

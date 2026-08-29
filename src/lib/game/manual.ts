@@ -43,6 +43,7 @@ import {
   markKey,
   markLabel,
   playerMarksOn,
+  TABLE_STATE_MARKS,
   type PlayerMark,
 } from './marks.ts';
 // Layered, so the number beside the nudge button is the number on the card.
@@ -405,6 +406,58 @@ export function attachTo(instanceId: string, hostId: string | null, at = 0): Gam
  * Passing `null` takes it off the table, which is what happens when the game
  * ends or a mistake is undone.
  */
+/* -------------------------------------------------------------------------- */
+/* Mana in the pool, and untapping                                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The six symbols a player puts into a pool by hand.
+ *
+ * Colourless is included and is not decoration: Wastes, Eldrazi and every
+ * "add {C}" card need it, and a pool that could only hold the five colours
+ * would send a player back to the free-cast toggle for the one case that
+ * toggle is worst at.
+ */
+export const MANA_BY_HAND = ['W', 'U', 'B', 'R', 'G', 'C'] as const;
+
+export const MANA_NAMES: Record<(typeof MANA_BY_HAND)[number], string> = {
+  W: 'white',
+  U: 'blue',
+  B: 'black',
+  R: 'red',
+  G: 'green',
+  C: 'colourless',
+};
+
+/**
+ * Put mana into a pool.
+ *
+ * The symbol string is the card's own notation and is parsed by the reducer
+ * with `parseManaSymbols`, the one parser this engine uses for every cost, so
+ * a hand-added `{B}{B}{B}` and a Dark Ritual resolving arrive identically.
+ */
+export function addMana(
+  playerId: PlayerId,
+  mana: string,
+  at = 0,
+  sourceName?: string
+): GameAction[] {
+  /*
+   * No source name by default, and that is the point rather than an omission.
+   * `rules.ts` prints ` from ${sourceName}` when there is one, so a tapped
+   * Llanowar Elves reads "You added {G} from Llanowar Elves." and a mana put
+   * there by hand reads "You added {G}." The absence of a source IS the record
+   * that nothing on the table produced it. A literal "from By hand" was tried
+   * and is what the sentence template does to any noun dropped into it.
+   */
+  return [{ type: 'ADD_MANA', playerId, mana, ...(sourceName ? { sourceName } : {}), at }];
+}
+
+/** Untap everything this seat controls. */
+export function untapAll(playerId: PlayerId, at = 0): GameAction[] {
+  return [{ type: 'UNTAP_ALL', playerId, at }];
+}
+
 export function setMonarch(playerId: PlayerId | null, at = 0): GameAction[] {
   return [{ type: 'SET_MONARCH', playerId, at }];
 }
@@ -591,9 +644,61 @@ export const MANUAL_ZONES: readonly Zone[] = ZONES.filter(zone => zone !== 'stac
 export function moveTo(
   instanceId: string,
   to: Zone,
-  options: { position?: 'top' | 'bottom' | number; at?: number } = {}
+  options: {
+    position?: 'top' | 'bottom' | number;
+    at?: number;
+    /**
+     * Turn it face down on the way. "Exile it face down" is one move at a
+     * table and has to be one press here; two controls in a row would leave a
+     * window where the card is exiled face up and everyone has read it.
+     *
+     * `rules.ts::moveCard` carries `faceDown` into the battlefield and exile
+     * and clears it everywhere else, so putting the card down first is enough
+     * and `MOVE_ZONE` needs no new field.
+     */
+    faceDown?: boolean;
+  } = {}
 ): GameAction[] {
-  return [{ type: 'MOVE_ZONE', instanceId, to, position: options.position, at: options.at ?? 0 }];
+  const at = options.at ?? 0;
+  const actions: GameAction[] = [];
+  if (options.faceDown !== undefined) {
+    actions.push({ type: 'SET_FACE', instanceId, faceDown: options.faceDown, at });
+  }
+  actions.push({ type: 'MOVE_ZONE', instanceId, to, position: options.position, at });
+  return actions;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Which way up                                                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Turn a card face down, or face up again.
+ *
+ * A morph, a manifest, a "exile it face down", the pile of face-down cards
+ * somebody's Praetor's Grasp made. None of them could be represented: measured
+ * across `src` on 29 Aug 2026, nothing ever set `CardInstance.faceDown` to true
+ * except the network projection, which uses the same flag for something else.
+ */
+export function turnFaceDown(instanceId: string, down = true, at = 0): GameAction[] {
+  return [{ type: 'SET_FACE', instanceId, faceDown: down, at }];
+}
+
+/**
+ * Turn a two-faced card over.
+ *
+ * `mana.ts::faceTypeLine` already reads `flipped` to decide which half of a
+ * `Name // Name` type line is in play, and therefore whether the permanent is a
+ * land, a creature or a permanent at all. It has been reading a flag no code
+ * path could set since it was written.
+ */
+export function turnOver(instanceId: string, over = true, at = 0): GameAction[] {
+  return [{ type: 'SET_FACE', instanceId, flipped: over, at }];
+}
+
+/** Does this card have a second face to turn over to? */
+export function hasTwoFaces(card: CardInstance): boolean {
+  return (card.typeLine ?? '').includes('//') || (card.name ?? '').includes('//');
 }
 
 /* -------------------------------------------------------------------------- */
@@ -803,10 +908,14 @@ export type ManualGroup =
   | 'keywords'
   | 'zones'
   | 'marker'
+  /** Which way up the card is: face down, or turned over to its other face. */
+  | 'face'
   /** Making a token by hand, and copying a permanent as one. */
   | 'tokens'
   /** Free markers and dice a player put on the permanent themselves. */
   | 'marks'
+  /** Goaded, phased out: states the table agrees on that the rules do not run. */
+  | 'table-state'
   /** Damage marked on the permanent, which is not a toughness change. */
   | 'damage'
   /** Putting an Equipment or an Aura on something, or taking it off. */
@@ -960,6 +1069,52 @@ export function manualControlsFor(
   }
 
   /*
+   * Exile face down, as one press.
+   *
+   * It is a separate control rather than a modifier on the one above because
+   * the difference is the whole point of the play: "exile it face down" hides
+   * the card from the table, and doing it in two presses would show everybody
+   * the card in between.
+   */
+  if (card.zone !== 'exile') {
+    controls.push({
+      id: 'zone:exile-face-down',
+      label: 'Exile face down',
+      group: 'zones',
+      actions: moveTo(card.instanceId, 'exile', { at, faceDown: true }),
+    });
+  }
+
+  /*
+   * Which way up.
+   *
+   * Face down is offered on the battlefield (a morph, a manifest, a creature
+   * something turned over) and in exile (a face-down pile). Turning over is
+   * offered only for a card that HAS a second face, because turning a Grizzly
+   * Bears over is a control that does nothing and this module exists to stop
+   * controls that do nothing.
+   */
+  if (onBattlefield || card.zone === 'exile') {
+    controls.push({
+      id: 'face:down',
+      label: card.faceDown ? 'Turn it face up' : 'Turn it face down',
+      group: 'face',
+      actions: turnFaceDown(card.instanceId, !card.faceDown, at),
+      active: card.faceDown,
+    });
+  }
+
+  if (hasTwoFaces(card)) {
+    controls.push({
+      id: 'face:over',
+      label: card.flipped ? 'Turn back to the front' : 'Turn it over',
+      group: 'face',
+      actions: turnOver(card.instanceId, !card.flipped, at),
+      active: card.flipped,
+    });
+  }
+
+  /*
    * Tokens.
    *
    * `CREATE_TOKEN` has been in the engine, validated, reduced, triggering ETB
@@ -1072,6 +1227,29 @@ export function manualControlsFor(
   }
 
   /*
+   * The states a table agrees on and this engine does not model: goaded above
+   * all, and phased out, can't block, attacks if able, doesn't untap.
+   *
+   * One press each, and each is a toggle rather than a tally, because a
+   * creature is goaded or it is not. They ride the mark path, so they are
+   * validated, logged, undoable and broadcast like every other counter, and
+   * they are drawn as marks so nothing on screen claims the rules are
+   * enforcing them.
+   */
+  if (onBattlefield) {
+    for (const label of TABLE_STATE_MARKS) {
+      const on = (card.counters[markKey(label)] ?? 0) > 0;
+      controls.push({
+        id: `state:${label}`,
+        label,
+        group: 'table-state',
+        actions: setPlayerMark(card, label, on ? 0 : 1, at),
+        active: on,
+      });
+    }
+  }
+
+  /*
    * Marks the player has already put on this permanent.
    *
    * MAKING one is not here, and that is the same split the tokens above take:
@@ -1177,7 +1355,11 @@ export type PlayerGroup =
   /** Energy, experience, rad, tickets. */
   | 'counters'
   /** Held by one seat on behalf of the table: the monarch, the initiative. */
-  | 'table-role';
+  | 'table-role'
+  /** Mana put into the pool by hand, for a card the compiler could not read. */
+  | 'mana'
+  /** Untapping the whole board at once. */
+  | 'untap';
 
 export interface PlayerControl {
   /** Stable within one seat, so React can key on it. */
@@ -1367,6 +1549,54 @@ export function playerControlsFor(
     hint: hasInitiative
       ? 'Nobody has the initiative after this'
       : `${player.name} takes the initiative`,
+  });
+
+  /*
+   * Mana in the pool, by hand.
+   *
+   * `ADD_MANA` was one of four actions the engine builds only while a card is
+   * resolving. `mana.ts::paymentActions` taps lands to pay for a cast, so
+   * casting works; what nothing could do was put mana in a pool, which is what
+   * "Add {B}{B}{B}" needs on the 97% of cards the compiler cannot read. The
+   * escape hatch on offer was the free-cast toggle, which makes EVERYTHING
+   * free — a blunt instrument standing in for a precise one.
+   */
+  const pool = state.manaPool?.[playerId] ?? [];
+  for (const color of MANA_BY_HAND) {
+    const held = pool.filter(unit => unit.color === color).length;
+    controls.push({
+      id: `mana:${color}`,
+      label: `{${color}}`,
+      group: 'mana',
+      actions: addMana(playerId, `{${color}}`, at),
+      count: held,
+      hint: `One ${MANA_NAMES[color]} into ${player.name}'s pool`,
+    });
+  }
+
+  /*
+   * Untap everything.
+   *
+   * `UNTAP_ALL` sat on the unreachable list with a note saying somebody had to
+   * decide whether it was superseded by the turn flow or merely unwired. It is
+   * merely unwired: the untap step untaps the ACTIVE player's permanents, and
+   * every card that untaps a permanent out of turn ("untap all creatures you
+   * control") is one the engine did not read. Tapping five things back by hand
+   * is five presses and a missed one.
+   */
+  const tappedNow = Object.values(state.cards).filter(
+    card => card.zone === 'battlefield' && card.controllerId === playerId && card.tapped
+  ).length;
+  controls.push({
+    id: 'untap:all',
+    label: 'Untap everything',
+    group: 'untap',
+    actions: untapAll(playerId, at),
+    count: tappedNow,
+    hint:
+      tappedNow === 1
+        ? `Untap ${player.name}'s one tapped permanent`
+        : `Untap all ${tappedNow} of ${player.name}'s tapped permanents`,
   });
 
   return controls;

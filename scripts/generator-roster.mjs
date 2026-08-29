@@ -1,0 +1,133 @@
+/**
+ * The ten commanders under test, and the Yuriko probe.
+ *
+ * Split out of the driver so the retry harness measures the same roster rather
+ * than a copy of it. Every entry says WHY that commander was chosen, because a
+ * shape table cannot show whether ten decks were ten different questions.
+ */
+export const ROSTER = [
+  {
+    key: 'adeline',
+    name: 'Adeline, Resplendent Cathar',
+    id: '21a0e852-7855-4a6b-8eca-191a8e83023a',
+    type_line: 'Legendary Creature — Human Knight',
+    color_identity: ['W'],
+    colors: ['W'],
+    archetype: 'tokens',
+    style: 'creatures',
+    why: 'Token swarm. Mono white, makes a Human on every attack, so the deck should be wide, cheap and full of anthems.',
+  },
+  {
+    key: 'nivmizzet',
+    name: 'Niv-Mizzet, Parun',
+    id: '6f3d2dc5-7b9d-4af6-9f3b-4de90fbf63c9',
+    type_line: 'Legendary Creature — Dragon Wizard',
+    color_identity: ['R', 'U'],
+    colors: ['R', 'U'],
+    archetype: 'value',
+    style: 'spells',
+    why: 'Spellslinger. Draws and pings on every instant or sorcery, so the deck should be mostly spells and wheels, not creatures.',
+  },
+  {
+    key: 'meren',
+    name: 'Meren of Clan Nel Toth',
+    id: '508b1442-bf2c-4ad6-9bcf-bd894e081ab6',
+    type_line: 'Legendary Creature — Human Shaman',
+    color_identity: ['B', 'G'],
+    colors: ['B', 'G'],
+    archetype: 'value',
+    style: 'creatures',
+    why: 'Reanimator. Returns a creature from the yard each end step, so the deck should want creatures in the graveyard and ways to put them there.',
+  },
+  {
+    key: 'windgrace',
+    name: 'Lord Windgrace',
+    id: 'a135d779-d223-4274-8d7f-d7b12842d93b',
+    type_line: 'Legendary Planeswalker — Windgrace',
+    color_identity: ['B', 'G', 'R'],
+    colors: ['B', 'G', 'R'],
+    archetype: 'big-mana',
+    style: 'balanced',
+    why: 'Lands. A planeswalker commander whose whole text is about lands in the graveyard, so the deck should be fetches, Crucible effects and landfall.',
+  },
+  {
+    key: 'uril',
+    name: 'Uril, the Miststalker',
+    id: 'ca984fdb-aaca-4d8f-af2f-72387122607b',
+    type_line: 'Legendary Creature — Beast',
+    color_identity: ['G', 'R', 'W'],
+    colors: ['G', 'R', 'W'],
+    archetype: 'aggro',
+    style: 'balanced',
+    why: 'Voltron. Gets bigger per aura, cannot be targeted by opponents, so the deck should be auras and protection on one body, not a board.',
+  },
+  {
+    key: 'gaaiv',
+    name: 'Grand Arbiter Augustin IV',
+    id: '0143eb00-b054-4741-8423-66eed0362a30',
+    type_line: 'Legendary Creature — Human Advisor',
+    color_identity: ['U', 'W'],
+    colors: ['U', 'W'],
+    archetype: 'control',
+    style: 'spells',
+    why: 'Control. Taxes opponents and discounts your own spells, so the deck should be counters, wraths and stax, and win late.',
+  },
+  {
+    key: 'teysa',
+    name: 'Teysa Karlov',
+    id: '581a2da7-80d3-409a-8a6c-aa6e9ccc1568',
+    type_line: 'Legendary Creature — Human Advisor',
+    color_identity: ['B', 'W'],
+    colors: ['B', 'W'],
+    archetype: 'aristocrats',
+    style: 'creatures',
+    why: 'Aristocrats. Doubles death triggers, so the deck should be sacrifice outlets, drain payoffs and expendable bodies.',
+  },
+  {
+    key: 'ghalta',
+    name: 'Ghalta, Primal Hunger',
+    id: '3584c119-8302-40ed-8949-1a8de4b15e0d',
+    type_line: 'Legendary Creature — Elder Dinosaur',
+    color_identity: ['G'],
+    colors: ['G'],
+    archetype: 'big-mana',
+    style: 'creatures',
+    why: 'Big creatures. Costs twelve less for total power on board, so the deck should be fat green bodies and ramp, and it is the stress test for average mana value.',
+  },
+  {
+    key: 'edgar',
+    name: 'Edgar Markov',
+    id: '9a3c8eb0-7a55-4897-8324-f3d08c707c4d',
+    type_line: 'Legendary Creature — Vampire Knight',
+    color_identity: ['B', 'R', 'W'],
+    colors: ['B', 'R', 'W'],
+    archetype: 'aggro',
+    style: 'creatures',
+    why: 'Tribal. Eminence makes a Vampire token whenever you cast a Vampire, so a deck that is not mostly Vampires is a wrong deck, and that is measurable.',
+  },
+  {
+    key: 'kozilek',
+    name: 'Kozilek, the Great Distortion',
+    id: 'c41554e7-2a07-4cc7-b01b-44deed08e588',
+    type_line: 'Legendary Creature — Eldrazi',
+    color_identity: [],
+    colors: [],
+    archetype: 'big-mana',
+    style: 'balanced',
+    why: 'Colourless. No colour identity at all, so the whole pool is artifacts, wastes and Eldrazi, and it is the one deck where a colourless count of ninety-nine is correct.',
+  },
+];
+
+/** The eleventh call, and it is a bug probe rather than a deck review. */
+export const YURIKO_CURLY = {
+  key: 'yuriko-curly',
+  name: 'Yuriko, the Tiger’s Shadow', // U+2019 right single quotation mark
+  id: 'fe9be3e0-076c-4703-9750-2a6b0a178bc9',
+  type_line: 'Legendary Creature — Human Ninja',
+  color_identity: ['B', 'U'],
+  colors: ['B', 'U'],
+  archetype: 'aggro',
+  style: 'balanced',
+  why: 'Probe only: the name carries a typographic apostrophe, which used to make the catalogue lookup miss and the build refuse.',
+};
+

@@ -1107,6 +1107,36 @@ export type GameAction = ActionMeta &
         /** Override the derived id. Only for tests and replays. */
         instanceId?: InstanceId;
       }
+    /**
+     * Which side of a card is up: face down (CR 701.36), or turned over to its
+     * other face (CR 711 transform, CR 714 flip).
+     *
+     * WHY IT EXISTS: `CardInstance.faceDown` and `CardInstance.flipped` were
+     * declared, initialised to `false` when a card is dealt, carried forward on
+     * every zone change, and READ — `mana.ts::faceTypeLine` picks the back half
+     * of a `//` type line off `flipped`, which decides whether a card counts as
+     * a land, a creature or a permanent at all. Measured across `src` on 29 Aug
+     * 2026: nothing anywhere ever set either one to `true` except the network
+     * projection, which uses `faceDown` for a different thing entirely (a card
+     * in a hidden zone that only you can see). So a morph could not be turned
+     * down, a two-faced card could not be turned over, and "exile it face down"
+     * had no control and never would have.
+     *
+     * That is the shape this project keeps repeating one level below the action
+     * census, which can only see actions and reported nothing: no action was
+     * missing, the STATE was.
+     *
+     * Omitting a side leaves it alone, so turning a card over does not also
+     * turn it up.
+     *
+     * NOT A SECRECY MECHANISM AT A NETWORKED TABLE. `net/identity.ts` hides a
+     * card by withholding its identity from the shared state, and it does that
+     * for HIDDEN ZONES. A face-down permanent is on the battlefield, which is a
+     * public zone, so every seat still holds its name. Drawing it as a card
+     * back is right in all four modes; keeping its name from an opponent is a
+     * separate job in `net/secrets.ts` and has not been done.
+     */
+    | { type: 'SET_FACE'; instanceId: InstanceId; faceDown?: boolean; flipped?: boolean }
     /** Dismiss (or restore) the "resolve this by hand" marker on one permanent. */
     | { type: 'MARK_MANUAL_RESOLVED'; instanceId: InstanceId; resolved?: boolean }
     /**

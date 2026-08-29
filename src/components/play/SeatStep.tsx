@@ -229,10 +229,26 @@ export function SeatStep({
           </p>
         </div>
 
+        {/*
+          THE SEATS AND THE TABLE SETTINGS SIT SIDE BY SIDE.
+
+          Measured on 29 Aug 2026 at 1600 x 1000, versus bots, two seats: the
+          seats used the left 720px of a 1592px row and the temperament and
+          seating controls were stacked UNDERNEATH them in a column about 480px
+          wide. So 870px of this section was empty for its whole height while
+          the page ran to 1394px and scrolled 394px past the window.
+
+          Height was the scarce thing and width was the abundant thing, and the
+          layout was spending the scarce one. The settings move into the room
+          that was already beside the seats. They are the right things to put
+          there: how hard the bots push and where everybody sits are both facts
+          ABOUT this table, so they belong in the same box as the chairs.
+        */}
+        <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
         {/* Wrapping row rather than a four column grid. Two seats in a
             four column grid left half a screen of empty card, and a table with
             two people at it should look like a table with two people at it. */}
-        <div className="mt-4 flex flex-wrap gap-3">
+        <div className="flex min-w-0 flex-1 flex-wrap gap-3">
           {seatDecks.slice(0, seatCount).map((id, index) => (
             <Seat
               key={index}
@@ -267,9 +283,14 @@ export function SeatStep({
           )}
         </div>
 
+        {/* The settings column. It only exists when there is something to put
+            in it, so goldfish (one seat, no bots, no seating choice) keeps the
+            chairs across the full row rather than holding an empty gutter. */}
+        {(mode !== 'goldfish' || variants.length > 1) && (
+        <div className="flex w-full shrink-0 flex-col gap-5 lg:w-[19rem]">
         {mode !== 'goldfish' && (
-          <div className="mt-5 flex flex-wrap items-center gap-1.5">
-            <span className="mr-1 text-[11px] font-medium text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="w-full text-[11px] font-medium text-muted-foreground">
               Bot temperament
             </span>
             {AGGRESSION.map(option => (
@@ -289,14 +310,14 @@ export function SeatStep({
                 {option.label}
               </button>
             ))}
-            <span className="ml-1 text-[11px] text-muted-foreground">
+            <span className="w-full text-[11px] leading-snug text-muted-foreground">
               {AGGRESSION.find(option => option.id === aggression)?.hint}
             </span>
           </div>
         )}
 
         {variants.length > 1 && (
-          <div className="mt-4">
+          <div>
             <span className="text-[11px] font-medium text-muted-foreground">Seating</span>
             <div className="mt-1 flex flex-wrap gap-1.5">
               {variants.map(option => (
@@ -317,9 +338,14 @@ export function SeatStep({
                 </button>
               ))}
             </div>
-            <p className="mt-1.5 text-[11px] text-muted-foreground">{layout.description}</p>
+            <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">
+              {layout.description}
+            </p>
           </div>
         )}
+        </div>
+        )}
+        </div>
       </section>
 
       {/* The surface and the shuffle, beside the deck wall.

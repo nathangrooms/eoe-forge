@@ -58,6 +58,7 @@ import { CastSpotlight } from './CastSpotlight';
 import { CenterPreview } from './CenterPreview';
 import { GameFeed } from './GameFeed';
 import { TurnBanner } from './TurnBanner';
+import { GameResult } from './GameResult';
 import { ZoneTravelLayer } from './ZoneTravelLayer';
 import { useCastSpotlight, useLifeDeltas } from './useTableMotion';
 import { resolveWatchedSeat } from './watchedSeat';
@@ -354,36 +355,28 @@ export function WatchedTable({
           modal in everything but name and smeared the final board underneath
           it. Same fix `/play` took: a banner of the mat's own material, opaque,
           blurring nothing, covering no seat.
+
+          It is now the SAME COMPONENT `/play` draws, per the one-table law: a
+          playtest ending and a bot game ending are the same event seen from a
+          different seat, and a second copy is how the two came to disagree
+          about everything except the word "wins". The two differences a
+          playtest really has are passed in — nobody at the table is the reader,
+          and there is a deck to go back to rather than a mode.
         */}
         {(state.status === 'complete' || halted) && (
           <div
             className="pointer-events-none absolute inset-x-0 z-[46] flex justify-center px-2"
             style={{ top: HUD_INSET + 8 }}
           >
-            <div className="pointer-events-auto relative flex flex-wrap items-center justify-center gap-3 overflow-hidden rounded-xl px-5 py-3 shadow-[0_18px_46px_rgba(0,0,0,0.7)]">
-              <Playmat tone="board" rounded="rounded-xl" className="absolute inset-0 h-full w-full" />
-              <p className="relative text-base font-semibold text-foreground">
-                {state.status === 'complete'
-                  ? winner
-                    ? `${winner.name} wins.`
-                    : 'The game is a draw.'
-                  : 'The game stopped.'}
-              </p>
-              {halted && (
-                <p className="relative max-w-md text-xs text-muted-foreground">{halted}</p>
-              )}
-              <Button size="sm" className="relative h-8 text-xs" onClick={onRestart}>
-                Play it again
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                className="relative h-8 text-xs"
-                onClick={onLeave}
-              >
-                Change the decks
-              </Button>
-            </div>
+            <GameResult
+              state={state}
+              viewerPlayerId={state.players[0].id}
+              viewerOwnsSeat={false}
+              halted={halted}
+              onRestart={onRestart}
+              onLeave={onLeave}
+              leaveLabel="Change the decks"
+            />
           </div>
         )}
 

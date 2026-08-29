@@ -51,7 +51,6 @@ import {
   decksPlaying,
   printingOf,
   similarTo,
-  tagRarity,
   topByRole,
   type CardRow,
   type Combo,
@@ -74,17 +73,15 @@ import {
   NO_META_DATA,
   NO_RULES_CORPUS,
   colourName,
-  isRoleTag,
   joinWords,
   looksWrong,
   priceLine,
   priceTag,
   readAmount,
-  roleWords,
   thousands,
   judgementGap,
-  TAG_SYNONYMS,
 } from './voice.ts';
+import { roleWords } from './vocabulary.ts';
 import { gradeLands, upgradeTargets, findLandCandidates, tappedNote } from '../manabase.ts';
 import { isLand, type NormalisedCard } from '../deck-context.ts';
 import { resolveCards, type ResolvedCard } from '../resolve-cards.ts';
@@ -606,8 +603,7 @@ async function answerAboutCard(
 
   /* -- other cards doing the same job ------------------------------------ */
   if (parts.includes('alternatives')) {
-    const rarity = await tagRarity(req.db, TAG_SYNONYMS.map(t => t.tag));
-    const similar = await similarTo(req.db, card, rarity, isRoleTag, 6);
+    const similar = await similarTo(req.db, card, 6);
     if (!similar.ok) {
       blocks.push(say('The shortlist of cards doing the same job could not be read just now.'));
       standing = 'partial';

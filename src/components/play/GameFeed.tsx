@@ -167,7 +167,26 @@ export function GameFeed({ state, feed, className, limit = 2, variant = 'feed' }
         /* The panel needs room for a sentence. 224px with `truncate` on it cut
            31 of 200 measured lines off mid-word, which is most of why a wired
            control read as a dead one. */
-        isPanel ? 'w-[min(30rem,42vw)]' : 'w-64',
+        /*
+          THE COLLAPSED STRIP WAS AMPUTATING EVERY SENTENCE IT PRINTED.
+
+          Measured on 29 Aug 2026 at 1600 x 1000, turn 14 of a real game: the
+          strip painted 200 x 40 and BOTH lines in it were cut mid-word —
+          "The Scorpion God attacked w…" and "The Scorpion God: Attackers are
+          d…". A glance strip whose every line stops before it says the thing
+          is not a glance, it is a tease.
+
+          It grows sideways, never downward. The 42px cap below is load-bearing
+          and stays exactly as it was: it is what keeps the strip off the near
+          seat's command zone, and that measurement is recorded there. Width is
+          the dimension this board has to spare — the same run measured 690px of
+          unused width on every row of the mat — so the strip takes some of it
+          and covers nothing that was not already under it.
+
+          `vw`-bounded so a narrow window gets the old behaviour rather than a
+          strip running across its own board.
+        */
+        isPanel ? 'w-[min(30rem,42vw)]' : 'w-[min(23rem,30vw)]',
         className
       )}
     >
@@ -251,10 +270,17 @@ export function GameFeed({ state, feed, className, limit = 2, variant = 'feed' }
               style={faded ? { opacity: Math.max(0.6, 1 - depth * 0.18) } : undefined}
               className={cn(
                 'w-fit max-w-full rounded-md px-2 py-0.5 text-[11px] leading-snug',
-                /* Wraps in the panel, truncates in the floating strip. The
-                   strip is a glance and has one line to give; the panel is
-                   being read. */
-                isPanel ? 'break-words' : 'truncate',
+                /* The panel wraps freely. The strip wraps to a SECOND LINE and
+                   no further: a sentence that needs three lines is a sentence
+                   for the panel, and the 42px cap would eat the third anyway.
+
+                   It used to `truncate`, on the reasoning that a strip is a
+                   glance and has one line to give. The measurement above is
+                   what changed it: with only 200px, one line was never a whole
+                   clause, so the strip was spending its whole height saying
+                   nothing complete. Two short lines that finish beat one line
+                   that stops at "attacked w…". */
+                isPanel ? 'break-words' : 'line-clamp-2 break-words',
                 isPanel ? '' : 'bg-background/75 shadow-sm shadow-black/40 backdrop-blur-sm',
                 newTurn && 'mt-1.5 border-t border-foreground/10 pt-1.5',
                 line.emphasis
@@ -274,7 +300,15 @@ export function GameFeed({ state, feed, className, limit = 2, variant = 'feed' }
                 </span>
               )}
               {line.text}
-              {line.detail && (
+              {/* The step a line happened in is printed in the PANEL only.
+
+                  In the strip it was the thing doing the damage: measured after
+                  the widening, "You took 1 damage from Goblin Artisans." fitted
+                  on one line and " Combat Damage" pushed it onto a second that
+                  the 42px cap then ate, so the strip was spending a whole extra
+                  line to cut a sentence in half with a fact the HUD's phase
+                  pill is already showing at that exact moment. */}
+              {line.detail && isPanel && (
                 <span className="ml-1.5 text-[10px] text-muted-foreground/60">{line.detail}</span>
               )}
             </li>

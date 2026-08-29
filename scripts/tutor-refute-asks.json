@@ -1,0 +1,14 @@
+[
+  { "id": "re-q09", "q": "What does Rhystic Study do?", "deck": null, "why": "Marked PASS by all four lenses. Every printed figure re-checked against cards_unique and Scryfall." },
+  { "id": "re-q10", "q": "What does Agadeem's Awakening do?", "deck": null, "why": "Marked PASS. Modal double-faced card whose oracle_text is NULL; checks the faces[] read." },
+  { "id": "re-q13", "q": "What does Esper Sentinel actually tax?", "deck": null, "why": "Marked PASS. Checks the quoted oracle text is exact." },
+  { "id": "re-q18", "q": "What is a cheaper alternative to Smothering Tithe?", "deck": null, "why": "Marked correct by the run and PASS by the copy lens. Checks whether 'cheaper' is true and whether the alternatives are alternatives." },
+  { "id": "re-q28", "q": "Is my mana base any good?", "deck": "atraxa", "why": "Marked correct by the run and PASS by two lenses, FAIL by one. The disputed answer." },
+  { "id": "re-q31", "q": "How much is Black Lotus worth?", "deck": null, "why": "Marked PASS. The null-price trap." },
+  { "id": "re-q38", "q": "What combos does Sol Ring go in?", "deck": null, "why": "Marked PASS. Checks the combo count and the four named against the combo tables." },
+  { "id": "re-q50", "q": "whats a good 3 mana counterspell card", "deck": null, "why": "Marked PASS. A real player question from tutor_messages. Checks every listed card is a 3 mana counterspell." },
+  { "id": "re-q39", "q": "How do I stop someone comboing off with Thassa's Oracle?", "deck": null, "why": "Marked PASS as a correct refusal. Checks whether it is genuinely unanswerable from what we hold." },
+  { "id": "re-q24", "q": "Are there any combos in my deck?", "deck": "atraxa", "why": "Marked 'correct by design'. The refusal states a performance fact; that fact is measured separately." },
+  { "id": "re-q01", "q": "How does the stack work in Magic?", "deck": null, "why": "Marked PASS as the best-worded refusal. Checks it asserts nothing about the rules." },
+  { "id": "re-q47", "q": "Can I run two copies of Sol Ring in my commander deck?", "deck": "atraxa", "why": "Marked PASS because the recorded singleton fault did not recur. Checks whether that is a fix or a miss." }
+]

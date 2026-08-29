@@ -20,6 +20,20 @@
  * and the board underneath it is the board that was there a second earlier —
  * same seats, same cards, same positions.
  *
+ * ## The press is in the top bar, and there is only one of it
+ *
+ * Owner's defect list: *"Combat decisions are split across two bars."*
+ * Measured on 29 Aug 2026 — DECLARE BLOCKERS at y=8 in the HUD, NO BLOCKS at
+ * y=70 in this strip. Both sent the identical `ADVANCE_STEP`, both refused for
+ * the identical `illegalBlockReason`, and they were worded differently, so one
+ * decision read as two.
+ *
+ * The mulligan had the same split and was fixed the same way: the numbers move
+ * up to the button (`PlayHUD.decisionAction`) and the strip goes back to saying
+ * WHAT is being decided. So this carries the sentence, the damage the swing
+ * will really deal, and the choice of who to point at, which are three things
+ * the top bar has no room for and no business holding. It carries no commit.
+ *
  * Every number on it is computed by `resolveCombat`, the same function the
  * combat damage step calls. Nothing here re-implements a rule; if the strip
  * says 6 damage, six is what the step will deal.
@@ -46,9 +60,14 @@ export interface CombatBarProps {
   targets?: readonly Player[];
   targetId?: PlayerId | null;
   onTarget?: (playerId: PlayerId) => void;
-  /** Confirm the declaration and hand the step back to the game. */
-  onConfirm: () => void;
-  /** Why confirm is refused, or empty when it is not. */
+  /**
+   * Why the commit is refused, or empty when it is not.
+   *
+   * Still shown here even though the press is in the top bar: this is the strip
+   * that explains the step, and "that block is illegal" is an explanation. The
+   * button refuses for the same reason through the same
+   * `combatUi.illegalBlockReason`.
+   */
   blockedReason?: string;
   className?: string;
 }
@@ -63,7 +82,6 @@ export function CombatBar({
   targets,
   targetId,
   onTarget,
-  onConfirm,
   blockedReason,
   className,
 }: CombatBarProps) {
@@ -73,13 +91,15 @@ export function CombatBar({
   const headline =
     sentence || (attacking ? 'Declare your attackers' : 'Declare your blockers');
 
-  const confirmLabel = attacking
+  /* Where the answer goes, said on the strip that asks the question. The same
+     sentence `MulliganBar` prints, for the same reason. */
+  const where = attacking
     ? count > 0
-      ? `Attack with ${count}`
-      : 'No attacks'
+      ? `Attack with ${count} from the bar at the top.`
+      : 'Send no attackers from the bar at the top.'
     : count > 0
-      ? `Confirm ${count} block${count === 1 ? '' : 's'}`
-      : 'No blocks';
+      ? `Confirm ${count} block${count === 1 ? '' : 's'} from the bar at the top.`
+      : 'Take no blocks from the bar at the top.';
 
   return (
     <div
@@ -103,6 +123,7 @@ export function CombatBar({
         <p className="truncate text-[11px] leading-tight text-muted-foreground">
           {blockedReason || hint}
         </p>
+        <p className="truncate text-[11px] leading-tight text-foreground/70">{where}</p>
       </div>
 
       {/* Who am I hitting? Only asked when the answer is not obvious — a pod of
@@ -146,23 +167,6 @@ export function CombatBar({
         </p>
       </div>
 
-      <button
-        type="button"
-        onClick={onConfirm}
-        disabled={!!blockedReason}
-        title={blockedReason || confirmLabel}
-        className={cn(
-          'flex h-10 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold uppercase tracking-wide transition-colors',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-          'disabled:cursor-not-allowed disabled:opacity-40',
-          count > 0
-            ? 'bg-foreground text-background shadow-md shadow-black/40 hover:bg-foreground/90'
-            : 'bg-foreground/[0.1] text-foreground hover:bg-foreground/[0.18]'
-        )}
-      >
-        {attacking && count > 0 && <Swords className="h-4 w-4" />}
-        <span>{confirmLabel}</span>
-      </button>
     </div>
   );
 }

@@ -104,6 +104,7 @@ import { useCardPrewarm } from '@/components/play/useCardPrewarm';
 import { illegalBlockReason } from '@/components/play/combatUi';
 import { GameFeed } from '@/components/play/GameFeed';
 import { TurnBanner } from '@/components/play/TurnBanner';
+import { GameResult } from '@/components/play/GameResult';
 import { ZonePanel } from '@/components/play/ZonePanel';
 import { BoardRail, railWidthFor } from '@/components/play/BoardRail';
 import { Playmat } from '@/components/play/Playmat';
@@ -1191,6 +1192,43 @@ export default function Play() {
     [state]
   );
 
+  /*
+   * WHAT THE BIG CONTROL SAYS DURING COMBAT, WITH ITS NUMBERS ON IT.
+   *
+   * The owner's defect list: *"Combat decisions are split across two bars."*
+   * DECLARE BLOCKERS sat here at y=8 and NO BLOCKS sat in the combat strip at
+   * y=70, two presses committing the identical `ADVANCE_STEP`, worded
+   * differently. The strip has stopped offering the second press (see
+   * `CombatBar`), so the count it was carrying comes up here instead — losing
+   * it would trade one defect for a quieter one, because "No blocks" and
+   * "Confirm 2 blocks" are different sentences and the player needs to know
+   * which they are about to send.
+   *
+   * Counted off `state.combat` exactly as `PlayTable` counts them, from the
+   * same two fields, so the word on the button and the board it describes
+   * cannot disagree.
+   */
+  const decisionAction = useMemo(() => {
+    if (!state) return '';
+    if (decision === 'attackers') {
+      const swinging = state.combat.attackers.filter(
+        entry => !!entry.defenderPlayerId && !!state.cards[entry.attackerId]
+      ).length;
+      return swinging > 0 ? `Attack with ${swinging}` : 'No attacks';
+    }
+    if (decision === 'blockers') {
+      const blocking = state.combat.attackers.reduce(
+        (sum, entry) =>
+          entry.defenderPlayerId === HUMAN_SEAT ? sum + entry.blockedBy.length : sum,
+        0
+      );
+      return blocking > 0
+        ? `Confirm ${blocking} block${blocking === 1 ? '' : 's'}`
+        : 'No blocks';
+    }
+    return '';
+  }, [state, decision]);
+
   const handleDecision = useCallback(() => {
     if (!decision) return;
     if (decision === 'attackers' && canAttack) {
@@ -1848,12 +1886,15 @@ export default function Play() {
           This used to be a centred panel on `bg-background/85` with
           `backdrop-blur-md` behind it — a translucent sheet of chrome smearing
           the board it was sitting on, which is a modal in everything but name
-          and a breach of the no-modals rule the rest of this screen keeps. It
-          is now a banner made of the same `Playmat` material as the table,
-          opaque, in the band the combat strip uses, blurring nothing and
-          covering no seat's board. The final position of the game stays
-          readable underneath it, which is the thing a player wants to look at
-          when a game ends.
+          and a breach of the no-modals rule the rest of this screen keeps. Then
+          it was a 380 x 50 bar holding one sentence, which was the opposite
+          fault: measured at the end of a real game it was the smallest thing on
+          a screen that was 76.7% bare, and it was drawn across the winner's own
+          creature row.
+
+          `GameResult` is the same material and the same band, at the size the
+          end of a game is worth: the winning commander whole, every seat's
+          final life, and a way back to the board. See its header.
         */}
         {state.status === 'complete' && (
           <div
@@ -1863,21 +1904,7 @@ export default function Play() {
             className="pointer-events-none absolute inset-x-0 z-[46] flex justify-center px-2"
             style={{ top: HUD_INSET + 8 }}
           >
-            <div className="pointer-events-auto relative flex items-center gap-4 overflow-hidden rounded-xl px-5 py-3 shadow-[0_18px_46px_rgba(0,0,0,0.7)]">
-              <Playmat tone="board" rounded="rounded-xl" className="absolute inset-0 h-full w-full" />
-              <p className="relative text-base font-semibold text-foreground">
-                {/* The viewer's seat is called "You", so the winner line has to
-                    agree with it or it reads "You wins." */}
-                {state.winnerIds.length === 0
-                  ? 'The game is a draw.'
-                  : state.winnerIds[0] === HUMAN_SEAT
-                    ? 'You win.'
-                    : `${state.players.find(p => p.id === state.winnerIds[0])?.name} wins.`}
-              </p>
-              <Button size="sm" className="relative h-8 text-xs" onClick={handleLeave}>
-                Set up another game
-              </Button>
-            </div>
+            <GameResult state={state} viewerPlayerId={HUMAN_SEAT} onLeave={handleLeave} />
           </div>
         )}
 
@@ -2028,6 +2055,7 @@ export default function Play() {
           decision={decision}
           onDecision={handleDecision}
           decisionBlocked={blockIssue}
+          decisionAction={decisionAction}
           opening={openingStop}
           onOpening={bottoming ? handleConfirmBottom : handleKeep}
           onMulligan={handleMulligan}

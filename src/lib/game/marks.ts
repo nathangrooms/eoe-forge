@@ -70,6 +70,34 @@ export const DICE: readonly number[] = [20, 6, 4, 8, 10, 12];
 export const MARK_LABEL_MAX = 18;
 
 /**
+ * States a table tracks and this engine does not model.
+ *
+ * GOAD is the one that made this list necessary. It is on hundreds of cards,
+ * it is in nearly every multiplayer Commander game, and there is no `goaded`
+ * anywhere in `src/lib/game` — not a field, not a keyword, not an action. A
+ * player who goaded a creature had nothing to press, and the nearest thing was
+ * typing the word into the free marker box six keystrokes at a time.
+ *
+ * They are MARKS rather than engine state on purpose, and the distinction is
+ * the honest one: the engine cannot make a goaded creature attack, so a control
+ * that claimed to goad would be a promise it does not keep. A mark says what is
+ * true — the table has agreed this creature is goaded — draws it on the card,
+ * puts it in the log, and undoes with everything else. When the engine learns
+ * to enforce one of these it becomes real state and this preset goes away.
+ *
+ * Turned face down and turned over are NOT here: those are real engine state
+ * now (`SET_FACE`), and duplicating them as a note would give a player two
+ * controls that disagree.
+ */
+export const TABLE_STATE_MARKS: readonly string[] = [
+  'Goaded',
+  'Phased out',
+  "Can't block",
+  'Attacks if able',
+  "Doesn't untap",
+];
+
+/**
  * Fold a label a player typed into the key it is stored under.
  *
  * Trimmed and length-capped here rather than at each caller, so a mark made

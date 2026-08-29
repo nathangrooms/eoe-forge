@@ -39,7 +39,8 @@
  * thing you can read rather than reconstruct.
  */
 
-import { COLOUR_WORDS, TAG_SYNONYMS } from './voice.ts';
+import { COLOUR_WORDS } from './voice.ts';
+import { TAG_SYNONYMS } from './vocabulary.ts';
 
 /* -------------------------------------------------------------------------- *
  * Step one: read the request

@@ -102,12 +102,30 @@ import {
   commanderTax,
   isUnderAttack,
   lossReasonLabel,
+  manaPoolOf,
   type CardInstance,
   type GameState,
   type Player,
   type PlayerId,
   type Zone,
 } from '@/lib/game';
+
+/**
+ * A floating mana pip, by colour.
+ *
+ * The one place project law hands colour out: `text-mana-*` is reserved for
+ * MTG semantics, and a mana pool is exactly that. Written as a lookup rather
+ * than interpolated into a class name, because Tailwind reads class strings
+ * statically and a built name emits no CSS.
+ */
+const MANA_PIP: Record<string, string> = {
+  W: 'bg-mana-white text-black',
+  U: 'bg-mana-blue text-white',
+  B: 'bg-mana-black text-white',
+  R: 'bg-mana-red text-white',
+  G: 'bg-mana-green text-white',
+  C: 'bg-mana-colorless text-black',
+};
 
 /** Gap between the two rows, and between the rows and the support block. */
 const BAND_GAP = 4;
@@ -375,6 +393,7 @@ export function SeatMat({
 
   const commander = player.commanders[0];
   const untapped = availableMana(state, player.id);
+  const pool = manaPoolOf(state, player.id);
 
   /*
    * The tax on what is ACTUALLY in the command zone, not on `commanders[0]`.
@@ -1051,6 +1070,41 @@ export function SeatMat({
             of untapped mana SOURCES, so the chip says so. */}
         {roomy ? ' untapped' : ''}
       </span>
+
+      {/*
+        FLOATING MANA.
+
+        `state.manaPool` was read by NO component anywhere in play mode,
+        measured 29 Aug 2026. Mana sat in a pool that paid for spells, emptied
+        itself at the end of every step under CR 500.4, and was invisible: a
+        player who put three black into their pool by hand had no way to see it
+        was there and no way to notice it drain. A pool nobody can see is worse
+        than no pool, because the mana silently disappears between one press
+        and the next.
+
+        Drawn as one pip per unit, in the mana colours, which are the one place
+        this app's monochrome rule gives colour away. Nothing is drawn when the
+        pool is empty, which is most of the time.
+      */}
+      {pool.length > 0 && (
+        <span
+          className="flex shrink-0 items-center gap-0.5 rounded-full bg-background/65 px-1.5 py-0.5"
+          title={`Floating mana: ${pool.map(unit => `{${unit.color}}`).join('')}. It empties at the end of this step.`}
+          aria-label={`${pool.length} floating mana`}
+        >
+          {pool.map((unit, index) => (
+            <span
+              key={`${unit.color}-${index}`}
+              className={cn(
+                'grid h-3.5 w-3.5 place-items-center rounded-full text-[8px] font-bold leading-none',
+                MANA_PIP[unit.color] ?? 'bg-foreground/20 text-foreground'
+              )}
+            >
+              {unit.color}
+            </span>
+          ))}
+        </span>
+      )}
 
       {showHandBacks && roomy && handCount > 0 && (
         <div

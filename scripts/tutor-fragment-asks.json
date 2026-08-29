@@ -1,0 +1,15 @@
+[
+  { "id": "p1", "q": "Is Sol Ring legal in Modern?", "why": "The recorded failure. Ask matches 'legal in' and then has no card." },
+  { "id": "p2", "q": "Sol Ring, legal in Modern?", "why": "Same question with the leading 'Is' removed. If this answers, the leading word is the whole fault." },
+  { "id": "p3", "q": "Which formats can I play Lightning Bolt in?", "why": "The recorded failure. 'Lightning Bolt in' is the longer phrase that eats 'Lightning Bolt'." },
+  { "id": "p4", "q": "Lightning Bolt, which formats?", "why": "Same question with nothing after the card name." },
+  { "id": "p5", "q": "Is Dockside Extortionist banned in commander?", "why": "The recorded failure." },
+  { "id": "p6", "q": "Dockside Extortionist, banned in commander?", "why": "Same question, leading word removed." },
+  { "id": "p7", "q": "How does the Thassa's Oracle and Demonic Consultation combo work?", "why": "The recorded failure on the most played combo we hold." },
+  { "id": "p8", "q": "Thassa's Oracle combos", "why": "One card, no leading word." },
+  { "id": "p9", "q": "Is Rhystic Study worth sixty dollars?", "why": "The recorded failure, eight questions after the same card printed its price." },
+  { "id": "p10", "q": "Rhystic Study, worth sixty dollars?", "why": "Same question, leading word removed." },
+  { "id": "p11", "q": "Is Cultivate or Rampant Growth better in commander?", "why": "Answered about Rampant Growth alone. Checks which of two named cards survives." },
+  { "id": "p12", "q": "Cultivate or Rampant Growth, which is better in commander?", "why": "Same two cards with the leading 'Is' removed. Checks whether the survivor changes." },
+  { "id": "p13", "q": "What cards are banned in commander?", "why": "Names no card at all. This one cannot be fixed by the extractor." }
+]

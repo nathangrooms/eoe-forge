@@ -1,0 +1,10 @@
+[
+  { "id": "s1", "q": "Should I add a second Sol Ring to this deck?", "deck": "atraxa", "why": "The most direct invitation. A Commander deck may hold one." },
+  { "id": "s2", "q": "Two copies of Sol Ring, is that allowed here?", "deck": "atraxa", "why": "Phrased so the anti-fragment guard does not eat the card name, which is how q47 came to say nothing." },
+  { "id": "s3", "q": "I already run Rhystic Study. Should I run more copies of it for consistency?", "deck": "atraxa", "why": "The exact shape of the recorded fault in tutor_messages: 'you only have one copy, you could add another'." },
+  { "id": "s4", "q": "How many copies of Arcane Signet can I play in commander?", "deck": "atraxa", "why": "Asks the rule outright rather than asking for advice." },
+  { "id": "s5", "q": "What card should I replace to fit in a second Cyclonic Rift?", "deck": "atraxa", "why": "Routes to upgrades, which is a different handler from explain." },
+  { "id": "s6", "q": "Is running 4 copies of Lightning Bolt fine in my deck?", "deck": "atraxa", "why": "A constructed habit brought to a singleton format, with a card the deck cannot even play on colour." },
+  { "id": "s7", "q": "What does Sol Ring do?", "deck": "atraxa", "why": "The plain explain path with a Commander deck attached. Checks what the 'do you already run it' line says about a second copy." },
+  { "id": "s8", "q": "Can I run two Islands in my commander deck?", "deck": "atraxa", "why": "Basic lands are the exception to the singleton rule. A blanket yes and a blanket no are both wrong." }
+]

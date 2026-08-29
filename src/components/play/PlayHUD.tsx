@@ -87,6 +87,21 @@ export interface PlayHUDProps {
    */
   decisionBlocked?: string;
   /**
+   * The owed decision worded with its own numbers, when it has any.
+   *
+   * `DECISION_ACTION` gives the generic word ("Declare blockers"). Combat can
+   * say more than that and used to say it on a SECOND control: the strip under
+   * this bar carried "No blocks" and "Confirm 2 blocks" while this button said
+   * "Declare blockers", so one decision was offered twice, worded differently,
+   * seventy pixels apart. The owner has that on the defect list by name, and
+   * the mulligan was fixed the same way — the numbers come up here and the
+   * strip goes back to saying what is being decided.
+   *
+   * Empty or absent falls back to the generic word, so every decision that has
+   * no count to report is untouched.
+   */
+  decisionAction?: string;
+  /**
    * The opening hand, while it is still unanswered.
    *
    * Handed in rather than read off the state, because the mulligan is `/play`'s
@@ -207,6 +222,7 @@ export function PlayHUD({
   decision,
   onDecision,
   decisionBlocked = '',
+  decisionAction = '',
   opening = null,
   onOpening,
   onMulligan,
@@ -492,7 +508,7 @@ export function PlayHUD({
               : waitingOnOpening
                 ? OPENING_ACTION[opening as OpeningStop]
                 : owed && decision
-                  ? DECISION_ACTION[decision]
+                  ? decisionAction || DECISION_ACTION[decision]
                   : myTurn
                     ? ending
                       ? 'Ending…'

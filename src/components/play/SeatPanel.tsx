@@ -34,6 +34,7 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
+  manaPoolOf,
   playerControlsFor,
   setLife,
   type GameAction,
@@ -136,6 +137,8 @@ export function SeatPanel({
   const life = group('life');
   const roles = group('table-role');
   const commander = group('commander-damage');
+  const untap = group('untap')[0];
+  const pool = manaPoolOf(state, playerId);
   const mine = playerId === viewerPlayerId;
 
   /* An exact total, for the twenty-point swing that is not four presses of +5.
@@ -286,6 +289,53 @@ export function SeatPanel({
                 onClick={() => onDispatch(control.actions)}
               />
             ))}
+          </div>
+        </Section>
+
+        {/*
+          MANA IN THE POOL, BY HAND.
+
+          `ADD_MANA` was one of four actions this engine only ever built while
+          a card was resolving. `mana.ts::paymentActions` taps lands to pay for
+          a cast, so casting worked; nothing could put mana IN a pool, which is
+          what "Add {B}{B}{B}" needs on the 97% of cards the compiler cannot
+          read. The escape hatch on offer was the free-cast toggle, which makes
+          everything free — a blunt instrument standing in for a precise one.
+
+          `planPayment` already spends the pool before it taps anything, so
+          mana put here really does pay for the next spell. It empties at the
+          end of the step under CR 500.4, which is why the note says so and why
+          the seat band draws the pool: mana that vanishes with no warning is
+          worse than no pool at all.
+        */}
+        <Section title="Mana" note={pool.length > 0 ? `${pool.length} floating, gone at end of step` : 'empties at end of step'}>
+          <div className="flex flex-wrap items-center gap-1">
+            {group('mana').map(control => (
+              <Chip
+                key={control.id}
+                label={control.label}
+                count={control.count}
+                title={control.hint}
+                onClick={() => onDispatch(control.actions)}
+              />
+            ))}
+          </div>
+        </Section>
+
+        {/* Untapping the board. `UNTAP_ALL` sat on the unreachable list with a
+            note asking somebody to decide whether it was superseded or merely
+            unwired. It is merely unwired: the untap step untaps the ACTIVE
+            player, and every card that untaps out of turn is one the engine
+            did not read. */}
+        <Section title="Untap" note={untap?.count ? `${untap.count} tapped` : 'nothing is tapped'}>
+          <div className="flex flex-wrap items-center gap-1">
+            {untap && (
+              <Chip
+                label={untap.label}
+                title={untap.hint}
+                onClick={() => onDispatch(untap.actions)}
+              />
+            )}
           </div>
         </Section>
 

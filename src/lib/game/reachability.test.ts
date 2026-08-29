@@ -92,7 +92,13 @@ const KNOWN_UNREACHABLE = new Set([
   'PHASE_CHANGE',
   'REMOVE_REPLACEMENT',
   'RESET',
-  'UNTAP_ALL',
+  /* `UNTAP_ALL` came off this list on 29 Aug 2026. The note above it said
+     somebody had to decide whether it was superseded by the turn flow or merely
+     unwired, and the answer is merely unwired: the untap step untaps the ACTIVE
+     player's permanents, and every card that untaps a permanent out of turn
+     ("untap all creatures you control", "untap all lands you control") is one
+     the compiled bridge did not read. `manual.ts::untapAll` builds it and
+     `playerControlsFor` offers it as Untap everything on the seat panel. */
 ]);
 
 function walk(dir: string): string[] {
@@ -342,7 +348,9 @@ const KNOWN_UNOFFERED = new Set([
      measured commander tax being charged 0 times in 80 games. */
   'REMOVE_REPLACEMENT',
   'RESET',
-  'UNTAP_ALL',
+  /* `UNTAP_ALL` came off this list at the same time. See the note in
+     `KNOWN_UNREACHABLE` above: the control is Untap everything on the seat
+     panel, and it says how many permanents it is about to untap. */
 ]);
 
 test('every action that encodes a player choice has a control that builds it', () => {
@@ -405,12 +413,14 @@ const NOT_AT_THE_TABLE = new Set([
   /* Renaming a seat is offered on the life counter and nowhere in play. Low
      stakes and listed rather than quietly excused. */
   'SET_PLAYER_NAME',
-  /* Floating mana. `mana.ts::paymentActions` pays for a cast by tapping lands,
-     so casting works; what is missing is a POOL a player can put mana into by
-     hand, which is what "Add {B}{B}{B}" needs when the compiler could not read
-     the card. The free-cast toggle in the game menu is the escape hatch that
-     exists today. */
-  'ADD_MANA',
+  /* `ADD_MANA` came off this list on 29 Aug 2026. The note here used to say the
+     free-cast toggle was the escape hatch, and that is a toggle which makes
+     EVERYTHING free standing in for a control that adds one specific mana.
+     `playerControlsFor` now offers {W}{U}{B}{R}{G}{C} on the seat panel, each
+     showing how many of that colour are already floating, and `SeatMat` draws
+     the pool on the seat band — because `state.manaPool` was read by no
+     component anywhere in play mode, so mana that emptied itself at the end of
+     every step under CR 500.4 did so invisibly. */
   /* An anthem by hand: "creatures you control get +1/+1 until end of turn".
      A player can nudge each creature's stats instead, which is correct per
      creature and does not expire on its own. Listed as the real gap it is. */
@@ -455,6 +465,78 @@ test('the not-at-the-table list does not outlive the gaps it records', async () 
     fixed,
     [],
     `Now reachable from play mode, so remove from NOT_AT_THE_TABLE: ${fixed.join(', ')}.`,
+  );
+});
+
+/* -------------------------------------------------------------------------- */
+/* The fourth door: an action can be reachable and the STATE still be dead     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Everything above asks about ACTIONS, and there is a way for the whole set of
+ * them to pass while a piece of the game is untouchable.
+ *
+ * `CardInstance.faceDown` and `CardInstance.flipped` were declared, initialised
+ * to `false` when a card is dealt, carried forward on every zone change, and
+ * READ — `mana.ts::faceTypeLine` picks which half of a `Name // Name` type line
+ * is in play off `flipped`, which decides whether a permanent counts as a land,
+ * a creature, or a permanent at all. Grepping the whole of `src` on 29 Aug
+ * 2026, nothing anywhere ever set either to `true` except the network
+ * projection, which uses `faceDown` for an unrelated thing (a card in a hidden
+ * zone that only you may see).
+ *
+ * No action was missing. Every check above passed. A morph could not be turned
+ * down, a two-faced card could not be turned over, and "exile it face down" had
+ * no control and never would have had one, because nothing was looking one
+ * level below the action.
+ *
+ * `scripts/playtest/state-census.mjs` looks there: it cuts the reducer's apply
+ * switch into per-action blocks, expands the engine helpers each block calls,
+ * and asks which of them CHANGE each declared field — as opposed to laying it
+ * down at its default while building a fresh object, which is how `CREATE_TOKEN`
+ * mentions `faceDown` without being able to set one.
+ */
+const STATE_ONLY_ON_RESOLUTION = new Set([
+  /* An anthem, and a replacement effect. Both are continuous effects a card
+     creates while it resolves, and the by-hand answer for the 97% of cards the
+     compiler cannot read is to nudge each affected permanent instead, which is
+     correct per permanent and does not expire on its own. Listed as the real
+     gaps they are rather than excused. */
+  'GameState.timedEffects',
+  'GameState.replacements',
+]);
+
+test('no field of the game state is beyond every player', async () => {
+  const { stateCensus } = await import('../../../scripts/playtest/state-census.mjs');
+  const dead = stateCensus()
+    .filter((row: { verdict: string }) => row.verdict === 'NOTHING WRITES IT')
+    .map((row: { owner: string; field: string }) => `${row.owner}.${row.field}`)
+    .sort();
+
+  assert.deepEqual(
+    dead,
+    [],
+    `Declared on the game state, read by the engine, and no action writes it: ` +
+      `${dead.join(', ')}. That is this file's subject one level down — the ` +
+      `action census cannot see it, because no action is missing. Either give ` +
+      `the field an action a control builds, or delete the field.`
+  );
+});
+
+test('the resolution-only state list does not outlive the gaps it records', async () => {
+  const { stateCensus } = await import('../../../scripts/playtest/state-census.mjs');
+  const rows = stateCensus() as Array<{ owner: string; field: string; verdict: string }>;
+  const stillEngineOnly = new Set(
+    rows
+      .filter(row => row.verdict === 'ONLY WHEN A CARD RESOLVES')
+      .map(row => `${row.owner}.${row.field}`)
+  );
+  const fixed = [...STATE_ONLY_ON_RESOLUTION].filter(name => !stillEngineOnly.has(name));
+  assert.deepEqual(
+    fixed,
+    [],
+    `A player can change these now, so take them off STATE_ONLY_ON_RESOLUTION: ` +
+      `${fixed.join(', ')}.`
   );
 });
 

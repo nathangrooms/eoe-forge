@@ -104,174 +104,18 @@ export function popularityLine(rank: number | null, rankedTotal: number): string
 }
 
 /* -------------------------------------------------------------------------- *
- * Tags, written as a player would say them
+ * Tags
  *
- * `cards.tags` is our own vocabulary and some of it is invented product words:
- * "tutor-narrow", "removal-spot", "token-maker". Those are fine in a column and
- * are not fine on a screen, so every tag that reaches a player passes through
- * here first.
+ * There used to be four tables here saying what a tag name means: which ones
+ * only restate the type line, the plain words for each one, which ones say the
+ * same thing less precisely, and the phrases a player asks for one with. All of
+ * it was written by hand beside an engine that already declares every tag name
+ * and every alias.
  *
- * Three groups come out entirely:
- *   - Type tags (creature, instant, land). The type line is already printed
- *     above them, so repeating it is noise.
- *   - Alias pairs. TAG_RULES writes both `draw` and `card-draw` for the same
- *     card; a player should read that once.
- *   - Anything with no label. A tag we have not written words for is not shown,
- *     because showing the raw id is the jargon rule broken.
+ * They live in `vocabulary.ts` now and take their names from the engine. This
+ * file keeps what it is for: how a sentence is written, and the rules the
+ * output is checked against on the way out.
  * -------------------------------------------------------------------------- */
-
-/** Already on the type line. */
-const TYPE_TAGS = new Set([
-  'creature', 'instant', 'sorcery', 'artifact', 'enchantment', 'planeswalker',
-  'land', 'basic-land', 'battle', 'vehicle',
-]);
-
-/**
- * The plain words for a role tag. A tag missing from this table is never shown.
- * Aliases share a phrase and are de-duplicated after mapping.
- */
-const TAG_WORDS: Record<string, string> = {
-  'etb': 'does something when it enters',
-  'evasion': 'hard to block',
-  'removal': 'removal',
-  'removal-spot': 'spot removal',
-  'targeted-removal': 'spot removal',
-  'board-wipe': 'a board wipe',
-  'removal-sweeper': 'a board wipe',
-  'tokens': 'makes tokens',
-  'token-maker': 'makes tokens',
-  'draw': 'draws cards',
-  'card-draw': 'draws cards',
-  'counters': 'works with counters',
-  'lifegain': 'gains life',
-  'ramp': 'ramp',
-  'mana-rock': 'a mana rock',
-  'mana-dork': 'a mana creature',
-  'fast-mana': 'fast mana',
-  'treasure': 'makes treasure',
-  'cost-reduction': 'makes your spells cheaper',
-  'recursion': 'gets things back from the graveyard',
-  'graveyard-recursion': 'gets things back from the graveyard',
-  'reanimator': 'reanimation',
-  'self-mill': 'fills your own graveyard',
-  'mill': 'mills',
-  'graveyard-hate': 'graveyard hate',
-  'aura': 'an aura',
-  'auras': 'an aura',
-  'equipment': 'equipment',
-  'voltron': 'for suiting up one creature',
-  'protection': 'protection',
-  'finisher': 'a way to win',
-  'wincon': 'a way to win',
-  'sacrifice': 'a sacrifice outlet',
-  'sac-outlet': 'a sacrifice outlet',
-  'sacrifice-outlet': 'a sacrifice outlet',
-  'aristocrats': 'for sacrifice decks',
-  'mass-pump': 'pumps the whole team',
-  'flash': 'can be cast at instant speed',
-  'discard-outlet': 'lets you discard on purpose',
-  'discard': 'makes people discard',
-  'x-spell': 'an X spell',
-  'stax': 'slows everyone down',
-  'group-hug': 'helps everyone at the table',
-  'tribal-payoff': 'pays off a creature type',
-  'lands-matter': 'cares about lands',
-  'landfall': 'landfall',
-  'land-destruction': 'destroys lands',
-  'haste-enabler': 'gives haste',
-  'bounce': 'bounces things back to hand',
-  'counterspell': 'a counterspell',
-  'tutor': 'a tutor',
-  'tutor-narrow': 'a tutor for one kind of card',
-  'tutor-broad': 'a tutor for anything',
-  'untapper': 'untaps things',
-  'spellslinger': 'for instants and sorceries',
-  'artifacts-matter': 'cares about artifacts',
-  'enchantments-matter': 'cares about enchantments',
-  'blink': 'blinks things in and out',
-  'clone': 'copies a creature',
-  'infect': 'infect',
-  'prowess': 'prowess',
-  'proliferate': 'proliferates',
-  'extra-turn': 'extra turns',
-  'extra-combat': 'extra combats',
-  'cascade': 'cascade',
-  'storm': 'storm',
-};
-
-/**
- * A tag that says the same thing less precisely, and is dropped when the
- * precise one is also present.
- *
- * The tagger writes both `tutor` and `tutor-narrow` on the same card, so
- * Tezzeret came out as "a tutor, a tutor for one kind of card", which is one
- * fact said twice and the second time better.
- */
-const SUPERSEDED: Record<string, string[]> = {
-  'tutor': ['tutor-narrow', 'tutor-broad'],
-  'removal': ['removal-spot', 'targeted-removal', 'board-wipe', 'removal-sweeper'],
-  'recursion': ['reanimator'],
-  'counters': ['proliferate'],
-  'sacrifice': ['aristocrats'],
-  'ramp': ['mana-rock', 'mana-dork', 'fast-mana'],
-};
-
-/**
- * Whether a tag says what a card DOES, rather than what it is.
- *
- * `creature` and `planeswalker` describe the type line, which is printed above
- * anything built from these, and treating them as roles makes every
- * planeswalker look like every other planeswalker.
- */
-export const isRoleTag = (tag: string): boolean => !TYPE_TAGS.has(tag) && Boolean(TAG_WORDS[tag]);
-
-export function roleWords(tags: string[] | null | undefined): string[] {
-  if (!Array.isArray(tags)) return [];
-  const held = new Set(tags);
-  const out: string[] = [];
-  for (const tag of tags) {
-    if (TYPE_TAGS.has(tag)) continue;
-    const beatenBy = SUPERSEDED[tag];
-    if (beatenBy && beatenBy.some(better => held.has(better))) continue;
-    const words = TAG_WORDS[tag];
-    if (!words) continue;
-    if (!out.includes(words)) out.push(words);
-  }
-  return out;
-}
-
-/** The tag ids a plain word in a question could mean. Used by the router. */
-export const TAG_SYNONYMS: { tag: string; says: string; words: string[] }[] = [
-  { tag: 'counterspell', says: 'counterspells', words: ['counterspell', 'counterspells', 'counter magic', 'counter spell', 'counter spells'] },
-  { tag: 'removal-spot', says: 'spot removal', words: ['spot removal', 'targeted removal', 'single target removal'] },
-  { tag: 'board-wipe', says: 'board wipes', words: ['board wipe', 'board wipes', 'sweeper', 'sweepers', 'wrath'] },
-  { tag: 'removal', says: 'removal', words: ['removal'] },
-  { tag: 'ramp', says: 'ramp', words: ['ramp', 'mana acceleration', 'accelerant'] },
-  { tag: 'mana-rock', says: 'mana rocks', words: ['mana rock', 'mana rocks'] },
-  { tag: 'mana-dork', says: 'mana creatures', words: ['mana dork', 'mana dorks', 'mana creature', 'mana creatures'] },
-  { tag: 'card-draw', says: 'card draw', words: ['card draw', 'draw spell', 'draw spells', 'card advantage', 'draw engine'] },
-  { tag: 'tutor', says: 'tutors', words: ['tutor', 'tutors'] },
-  { tag: 'protection', says: 'protection', words: ['protection', 'protect my commander', 'commander protection'] },
-  { tag: 'graveyard-hate', says: 'graveyard hate', words: ['graveyard hate', 'graveyard removal'] },
-  { tag: 'recursion', says: 'recursion', words: ['recursion', 'reanimate', 'reanimation'] },
-  { tag: 'token-maker', says: 'token makers', words: ['token maker', 'token makers', 'token generator'] },
-  { tag: 'sacrifice-outlet', says: 'sacrifice outlets', words: ['sac outlet', 'sacrifice outlet', 'sacrifice outlets'] },
-  { tag: 'equipment', says: 'equipment', words: ['equipment'] },
-  { tag: 'stax', says: 'stax pieces', words: ['stax'] },
-  { tag: 'extra-turn', says: 'extra turn spells', words: ['extra turn', 'extra turns'] },
-  { tag: 'extra-combat', says: 'extra combat spells', words: ['extra combat', 'extra combats'] },
-  { tag: 'wincon', says: 'ways to win', words: ['win condition', 'win conditions', 'wincon', 'wincons'] },
-  { tag: 'fast-mana', says: 'fast mana', words: ['fast mana'] },
-  { tag: 'treasure', says: 'treasure makers', words: ['treasure', 'treasures'] },
-  { tag: 'proliferate', says: 'proliferate cards', words: ['proliferate'] },
-  { tag: 'landfall', says: 'landfall cards', words: ['landfall'] },
-  { tag: 'mill', says: 'mill cards', words: ['mill'] },
-  { tag: 'lifegain', says: 'lifegain', words: ['lifegain', 'life gain'] },
-  { tag: 'blink', says: 'blink effects', words: ['blink', 'flicker'] },
-  { tag: 'infect', says: 'infect cards', words: ['infect'] },
-  { tag: 'storm', says: 'storm cards', words: ['storm'] },
-  { tag: 'cascade', says: 'cascade cards', words: ['cascade'] },
-];
 
 /* -------------------------------------------------------------------------- *
  * Colours and formats

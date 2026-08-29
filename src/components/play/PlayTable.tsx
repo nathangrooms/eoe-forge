@@ -654,7 +654,10 @@ export function PlayTable({
             targets={opponents}
             targetId={targetId}
             onTarget={setTargetId}
-            onConfirm={confirmCombat}
+            /* No `onConfirm`. The commit moved into the top bar so one decision
+               is offered in one place; `CombatBar` carries the sentence, the
+               damage and the choice of who to point at, and nothing to press.
+               `confirmCombat` is still live below, for ordering blockers. */
             blockedReason={blockIssue}
           />
         )}

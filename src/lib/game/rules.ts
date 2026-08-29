@@ -1166,6 +1166,7 @@ const CARD_ACTIONS = new Set([
   'ORDER_BLOCKERS',
   'SET_CARD_STAT',
   'SET_KEYWORD',
+  'SET_FACE',
   'CREATE_TOKEN',
   'MARK_MANUAL_RESOLVED',
   // Damage marked on a permanent, and attachment: both need a permanent to
@@ -1247,6 +1248,19 @@ export function validateAction(state: GameState, action: GameAction): Validation
 
   if (action.type === 'CREATE_TOKEN' && !action.token?.name?.trim()) {
     return { ok: false, reason: 'A token needs a name.' };
+  }
+
+  /*
+   * An action that says nothing is refused rather than applied as a no-op. A
+   * `SET_FACE` with neither side named would log "turned over" and change
+   * nothing, which is the silent-nothing this module exists to prevent.
+   */
+  if (
+    action.type === 'SET_FACE' &&
+    action.faceDown === undefined &&
+    action.flipped === undefined
+  ) {
+    return { ok: false, reason: 'Say which way up: face down, or turned over.' };
   }
 
   if (action.type === 'NOTE' && !action.message.trim()) {
@@ -1531,7 +1545,15 @@ function describeAction(state: GameState, action: GameAction): string {
       const who = playerName(state, action.playerId);
       const from = action.sourceName ? ` from ${action.sourceName}` : '';
       const restriction = action.restriction ? `. ${action.restriction}` : '';
-      return `${who} adds ${action.mana}${from}${restriction}.`;
+      /*
+       * "added", not "adds". The subject of a log line is a seat, and the seat
+       * you are sitting in is called "You", so the present tense read "You adds
+       * {G} from Sol Ring." — on screen, in a log every other line of which is
+       * past tense: You shuffled, You drew 7 cards, You created 1 Treasure
+       * token. It was found the moment a control let a player add mana by hand
+       * and somebody read the line it printed.
+       */
+      return `${who} added ${action.mana}${from}${restriction}.`;
     }
     case 'SPEND_MANA':
       return `${playerName(state, action.playerId)} spent ${action.colors
@@ -1567,6 +1589,25 @@ function describeAction(state: GameState, action: GameAction): string {
     case 'CREATE_TOKEN': {
       const count = Math.max(1, action.count ?? 1);
       return `${playerName(state, action.playerId)} created ${count} ${action.token.name} token${count === 1 ? '' : 's'}.`;
+    }
+    case 'SET_FACE': {
+      const card = state.cards[action.instanceId];
+      const name = cardName(state, action.instanceId);
+      const said: string[] = [];
+      /*
+       * The name is used going face DOWN and withheld coming back UP, which is
+       * the way round a table reads it: everyone watched you turn that card
+       * over, and the card that comes back up is a surprise until it lands.
+       * Saying "A face-down card turned face up: Wrath of God" would put the
+       * answer before the question in the one line people scroll back to.
+       */
+      if (action.faceDown === true) said.push('turned face down');
+      if (action.faceDown === false) said.push('turned face up');
+      if (action.flipped !== undefined) {
+        said.push(action.flipped ? 'turned over to its other face' : 'turned back to its front face');
+      }
+      const who = action.faceDown === false && card?.faceDown ? 'A face-down card' : name;
+      return `${who} ${said.join(' and ')}.`;
     }
     case 'MARK_MANUAL_RESOLVED':
       return action.resolved === false
@@ -2002,6 +2043,19 @@ function reduce(state: GameState, action: GameAction): GameState {
           sameList(next.grantedKeywords, card.grantedKeywords) &&
           sameList(next.suppressedKeywords, card.suppressedKeywords);
         return same ? card : { ...card, ...next };
+      });
+
+    /*
+     * CR 701.36 / CR 711 / CR 714. Two independent facts about one card, so a
+     * `SET_FACE` that names one side leaves the other where it was: turning a
+     * transform card over must not also turn it face up.
+     */
+    case 'SET_FACE':
+      return patchCard(state, action.instanceId, card => {
+        const faceDown = action.faceDown ?? card.faceDown;
+        const flipped = action.flipped ?? card.flipped;
+        if (faceDown === card.faceDown && flipped === card.flipped) return card;
+        return { ...card, faceDown, flipped };
       });
 
     case 'CREATE_TOKEN': {

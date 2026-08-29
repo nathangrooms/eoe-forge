@@ -106,15 +106,19 @@ export interface GameCardViewProps {
    * A card you cannot play right now.
    *
    * Owner: *"I liked when cards were greyed out if you couldnt cast them."*
-   * This had been softened to a barely-visible step-back and the owner asked
-   * for it back, so it is a real grey-out again: all colour gone and the card
-   * pushed down in brightness, which on a Magic card is the loudest signal
-   * there is — the frame, the mana pips and the art all lose their hue at once.
+   * So it is a real signal, not a barely-visible step-back — but it is made of
+   * OPACITY ALONE. See the long note beside the `className` further down, which
+   * records taking `saturate-0 brightness-[0.52] contrast-[0.92]` off this very
+   * element: desaturating and colour shifting a Scryfall image is forbidden by
+   * their terms and this project has been pulled up for it twice.
    *
-   * Brightness rather than opacity, deliberately. Opacity lets the playmat art
-   * bleed through the card and made the rules text unreadable; a dimmed card is
-   * still a card you are planning your next turn around, so it stays legible
-   * and merely stops competing with the ones you can actually cast.
+   * THIS PARAGRAPH USED TO SAY THE OPPOSITE. It read "a real grey-out again:
+   * all colour gone... the frame, the mana pips and the art all lose their hue
+   * at once", describing behaviour that had already been removed from the code
+   * three inches below it. Measured 29 Aug 2026 across four real bot-game
+   * boards, 74 card images: 0 desaturated, 0 cropped. The code was right and
+   * the comment was an instruction to break it, which is worse than no comment
+   * at all. `scripts/playtest/board-audit.mjs` is the check.
    */
   dimmed?: boolean;
   /**
@@ -246,11 +250,27 @@ export interface GameCardViewProps {
 function TypographicFace({
   card,
   size,
+  width,
   stats,
   nameInset = 0,
 }: {
   card: CardInstance;
   size: GameCardSize;
+  /**
+   * The width this card is actually drawn at, in px.
+   *
+   * MEASURED, and it is why tokens looked unfinished. What decided how much of
+   * the card to draw was the `size` TOKEN, which defaults to `'sm'` and which
+   * the battlefield never sets — it passes `width` instead. So a 200px Soldier
+   * token on the mat was judged "compact" exactly as a 58px rail thumbnail is,
+   * and dropped its type line and its mana cost. Three Soldiers and a Treasure
+   * came out as black rectangles with a name on top, on a board with a third of
+   * the mat to spare.
+   *
+   * This face IS a token's permanent face rather than a loading state, so what
+   * it draws is all a player will ever get. It goes by pixels now.
+   */
+  width: number;
   stats: string | null;
   /**
    * Pixels to keep clear at the start of the title bar, for a corner mark that
@@ -270,7 +290,14 @@ function TypographicFace({
    */
   nameInset?: number;
 }) {
-  const compact = size === 'xs' || size === 'sm';
+  /* Below this the type bar has nowhere to go: 9px type in a 3% padded box
+     stops being readable and starts being a grey stripe. */
+  const compact = width < 100;
+  /* Wide enough to be worth printing the rules on. A Treasure whose text you
+     cannot read is a brown rectangle, and its text is the entire reason it is
+     on the table. */
+  const roomy = width >= 150;
+  void size;
 
   return (
     <div
@@ -302,6 +329,15 @@ function TypographicFace({
         <div className="mt-[3%] min-w-0 rounded-[3px] bg-[hsl(30_10%_17%)] px-1 py-[1px] shadow-[inset_0_0_0_1px_hsl(40_20%_70%/0.1)]">
           <p className="truncate text-[9px] leading-tight text-muted-foreground">{card.typeLine}</p>
         </div>
+      )}
+
+      {/* What it does. A Treasure token's whole value is the sentence that says
+          you can sacrifice it for a mana, and until now that sentence was not
+          on the card anywhere: the panel had it and the board did not. */}
+      {roomy && card.oracleText && (
+        <p className="mt-[3%] min-w-0 overflow-hidden text-[8px] leading-[1.35] text-muted-foreground/90">
+          {card.oracleText}
+        </p>
       )}
 
       {/* The power box, in the corner it lives in on every printed card. */}
@@ -345,6 +381,20 @@ export const GameCardView = memo(function GameCardView({
   const renderedWidth = width ?? GAME_CARD_WIDTH[size];
   const tapped = !ignoreTapped && card.tapped;
   const interactive = !!onClick;
+
+  /*
+   * A card that is face down IS a card back, wherever it is drawn.
+   *
+   * `hidden` is the prop a LIST passes to say "the viewer is not entitled to
+   * see this one" — an opponent's hand. `card.faceDown` is the card's own
+   * state: a morph on the battlefield, a pile exiled face down. Both draw the
+   * same back, and both have to, or a face-down permanent would show its face
+   * on the mat while the panel called it face down.
+   *
+   * Until `SET_FACE` landed the flag could never be true outside the network
+   * projection, so this line had nothing to read. See `types.ts`.
+   */
+  const faceIsDown = hidden || card.faceDown;
 
   /* The tap chip scales with the card so it is the same *proportion* of a
      permanent at every board size — never smaller than a thumb target, and
@@ -452,7 +502,7 @@ export const GameCardView = memo(function GameCardView({
    * `automationFor` is memoised per card object in `effects.ts`, so a board of
    * 120 permanents pays for its regexes once each rather than once per render.
    */
-  const needsManual = onBattlefield && !hidden && automationFor(card).needsManual;
+  const needsManual = onBattlefield && !faceIsDown && automationFor(card).needsManual;
 
   /*
    * The stat line comes from the layer engine, not from the card.
@@ -497,7 +547,7 @@ export const GameCardView = memo(function GameCardView({
    * and by-hand marks above. Nothing here changes the card's box, so a sword
    * arriving cannot move a single permanent on the mat.
    */
-  const readAttachments = !!gameState && onBattlefield && !hidden;
+  const readAttachments = !!gameState && onBattlefield && !faceIsDown;
   const attachments = readAttachments ? attachmentsOn(gameState, card.instanceId) : [];
   const attachmentCount = attachments.length;
   // Asked only when there is something to say. `grantsOn` walks the layer
@@ -600,7 +650,7 @@ export const GameCardView = memo(function GameCardView({
           selected && 'drop-shadow-[0_8px_16px_rgba(0,0,0,0.6)]'
         )}
       >
-        {hidden ? (
+        {faceIsDown ? (
           <CardBack fill title={title ?? 'Face-down card'} />
         ) : card.imageUrl ? (
           <CardImage
@@ -639,6 +689,7 @@ export const GameCardView = memo(function GameCardView({
             <TypographicFace
               card={card}
               size={size}
+              width={renderedWidth}
               stats={stats}
               /* Only when a corner mark is actually drawn, so a card with a
                  clear corner keeps its name hard against the left edge. */
@@ -855,7 +906,7 @@ export const GameCardView = memo(function GameCardView({
         has become a label. It runs to the right instead, where a crowded row
         will cover the tail — which is the correct thing to lose first.
       */}
-      {showMarks && onBattlefield && !hidden && (stats || counters.length > 0 || damage > 0 || playerMarks.length > 0) && (
+      {showMarks && onBattlefield && !faceIsDown && (stats || counters.length > 0 || damage > 0 || playerMarks.length > 0) && (
         <div
           className="pointer-events-none absolute z-10 flex flex-nowrap items-end"
           style={{
@@ -1088,12 +1139,48 @@ export const GameCardView = memo(function GameCardView({
         box was still bottom right. Stacked, a blocking 3/3 reads *blocks Bear*
         over *3/3* in one column, which is the order those two facts are wanted.
       */}
+      {/*
+        IT WRAPS. IT USED TO `truncate`, AND THAT THREW AWAY THE ONE FACT IT
+        EXISTS TO CARRY.
+
+        `seatCombat.combatMarkFor` says why the attacker is named on the
+        blocker: *"Naming the attacker on the blocker is what lets a player
+        check their own assignment without clicking anything."* A single line
+        clipped to the card's own width cannot do that. Measured in a real bot
+        game, turn 26, 1600 x 1000, three attackers in: both of my blockers
+        drew `blocks C…` on a board holding Cursed Minotaur AND Chainwhip
+        Cyclops, over a bar reading CONFIRM 2 BLOCKS. Two creatures, two
+        C-named attackers, one letter each, and the player is being asked to
+        approve the pairing. Shot: `.shots/board-audit/zoom-blocks-badge.png`.
+
+        Two lines rather than one, because `blocks ` alone is seven of the nine
+        characters that fitted. `line-clamp-2` keeps the growth bounded, and it
+        grows UPWARD into rules text the badge was already sitting on rather
+        than downward into the stat mark. `rounded-md` because a two-line pill
+        at `rounded-full` reads as a lozenge.
+
+        The leading is TIGHTER than the counter badges' 1.5. At two lines that
+        1.5 made a 116px card carry a 116 x 58 slab over half its face for
+        twenty-eight characters. `1.15` plus real vertical padding puts the same
+        two lines in 42px and reads as one note instead of two.
+
+        WHAT THIS STILL DOES NOT FIX, measured rather than hoped: six or seven
+        characters of the name fit on line two at a 116px card, so
+        `blocks Cursed Minotaur` renders as `blocks` over `Cursed…`. That is the
+        decision being made — the board that produced this defect held Cursed
+        Minotaur AND Chainwhip Cyclops, and `Cursed…` against `Chainw…` tells
+        them apart where `C…` against `C…` did not. It is still not enough to
+        read a long name whole, and the full sentence is on `title` and
+        `aria-label`. The complete answer is a LINK drawn between the two cards
+        rather than more text on one of them, and that is a bigger piece of work
+        than this.
+      */}
       {combatNote && renderedWidth >= 52 && (
         <span
           title={combatNote.detail}
           aria-label={combatNote.detail}
           className={cn(
-            'pointer-events-none absolute left-0 z-20 max-w-full truncate rounded-full px-1.5 font-semibold shadow-md shadow-black/60',
+            'pointer-events-none absolute left-0 z-20 block max-w-full rounded-md px-1.5 font-semibold shadow-md shadow-black/60',
             combatNote.role === 'attacker'
               ? 'bg-destructive text-destructive-foreground'
               : 'bg-background/95 text-foreground backdrop-blur-sm'
@@ -1101,10 +1188,24 @@ export const GameCardView = memo(function GameCardView({
           style={{
             bottom: statMark.height - markDrop(badge.height) + 2,
             fontSize: badge.font,
-            lineHeight: `${badge.height}px`,
+            lineHeight: 1.2,
+            paddingTop: Math.round(badge.font * 0.3),
+            paddingBottom: Math.round(badge.font * 0.3),
           }}
         >
-          {combatNote.text}
+          {/*
+            THE CLAMP IS ON THE INNER SPAN, NOT THE PILL, AND THAT IS NOT
+            TIDINESS.
+
+            `line-clamp-2` is `overflow:hidden` plus `-webkit-line-clamp`, and
+            overflow clips at the PADDING box, not the content box. With the
+            padding on the same element, a third line rendered inside the
+            bottom padding and was not clipped: measured at 1600 x 1000, a
+            116 x 54 badge reading `blocks` / `Cursed…` with a sliver of a third
+            line under it. Shot: `.shots/six-asks/zoom-badge-final.png`. The
+            inner span has no padding, so two lines is two lines.
+          */}
+          <span className="line-clamp-2">{combatNote.text}</span>
         </span>
       )}
     </div>

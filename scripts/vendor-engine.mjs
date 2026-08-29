@@ -61,10 +61,29 @@ export const ROOT = path.resolve(HERE, '..');
 /** The one source of truth. Everything under here is the engine. */
 export const ENGINE_DIR = 'src/engine';
 
-/** Every function that gets a copy. Add a function here, not a new script. */
+/**
+ * Every function that gets a copy. Add a function here, not a new script.
+ *
+ * `mtg-brain` is Tutor, and it was built beside the engine rather than on it.
+ * It read `cards.tags` straight from the column, which gave it the tagger's
+ * OUTPUT and nothing else, and then kept its own hand-written list of what
+ * those tag names mean. Counted before this line was added: the engine declares
+ * 66 tag rules writing 76 names, and Tutor named all 76 in its own tables with
+ * nothing checking either list against the other. They happened to agree.
+ * Nothing made them agree, and nothing would have said so when they stopped.
+ *
+ * Tutor takes the facet producer too, and the reason it did not at first was
+ * wrong rather than economical. The note here used to say Tutor does not rank a
+ * candidate pool so it does not need the producer. Ranking a pool is not what
+ * the producer is for. It is what turns oracle text into a record of what a
+ * card DOES, and Tutor's whole job is answering that question about a handful
+ * of cards at a time. Reading `cards.tags` gave it one word per card while the
+ * optimiser sitting beside it read the structure the same compiler produced.
+ */
 export const CONSUMERS = [
   'supabase/functions/deck-optimizer',
   'supabase/functions/ai-deck-builder-v2',
+  'supabase/functions/mtg-brain',
 ];
 
 /** Where the copy lands inside each consumer. */
@@ -173,11 +192,44 @@ const FACET_SOURCES = [
  * `xmage/lowered.generated.ts`. The generator already pays it for the same
  * reason: that table speaks for the cards the oracle-text compiler cannot
  * fully read, and dropping it would take removal staples out of the answer.
+ *
+ * TUTOR IS THE THIRD, and it is not a pool ranker. It reads a handful of cards
+ * per question, which is why the compute cost is nothing like the generator's:
+ * the optimiser compiles a 24,000 row pool and Tutor compiles at most the deck
+ * plus the card being asked about. It pays the same 3.68 MB of source for the
+ * same reason, and dropping the XMage table for it would mean Tutor answering
+ * "what does Wrath of God do" from a different record than the optimiser reads
+ * when it suggests Wrath of God, which is the drift this whole file prevents.
  */
 export const FACET_SUBDIRS = [
   'supabase/functions/ai-deck-builder-v2/_lib',
   'supabase/functions/deck-optimizer/_lib',
+  'supabase/functions/mtg-brain/_lib',
 ];
+
+/**
+ * The deck legality rules, mirrored into Tutor only.
+ *
+ * `src/lib/deck/deckLegality.ts` already answers every legality question that
+ * was put to Tutor and refused: the singleton rule, the copy limit with the
+ * basic land exception tested first, banned, never legal, restricted with more
+ * than one copy, and colour identity against the commander. It has tests. It
+ * was not imported by the function that needed it, so Tutor answered "can I run
+ * two copies of Sol Ring in Commander" with a card page and no rule at all.
+ *
+ * Writing a second opinion inside the function is the option this repository
+ * has already paid for twice. So it is mirrored on the engine's terms instead:
+ * one source, byte-identical copy, `--check` fails on drift.
+ *
+ * The optimiser and the generator do not take it. They build decks rather than
+ * judging them, and mirroring a file into a function that never imports it is
+ * how a stale second implementation gets left lying around for somebody to find
+ * and use.
+ */
+const LEGALITY_SOURCES = ['deck/deckLegality.ts', 'magic/formats.ts'];
+
+/** Only Tutor asks whether a deck is legal. */
+export const LEGALITY_SUBDIRS = ['supabase/functions/mtg-brain/_lib'];
 
 /** Kept as the generator's path, because other callers name it. */
 export const FACET_SUBDIR = FACET_SUBDIRS[0];
@@ -228,6 +280,69 @@ export const FACET_SHIMS = FACET_SUBDIRS.map(facetShimFor);
 /** Kept for callers that expect a single shim. */
 export const FACET_SHIM = FACET_SHIMS[0];
 
+/**
+ * THE ONE SHIM THAT DECLARES A SHAPE RATHER THAN RE-EXPORTING ONE.
+ *
+ * `deckLegality.ts` names its row type as `import type { DeckCardRow } from
+ * './deckCards.ts'`, and `deckCards.ts` cannot be mirrored: it opens the
+ * Supabase client through the `@/` alias, which is Vite's and means nothing to
+ * Deno. So this file has to stand in for it, and standing in means writing the
+ * fields down a second time, which is exactly the drift the rest of this script
+ * exists to prevent.
+ *
+ * TWO THINGS MAKE THAT SAFE, and neither is a promise to remember.
+ *
+ * 1. It is deliberately NARROWER than the real row. Only the fields
+ *    `deckLegality.ts` actually reads are here: the name in both places it can
+ *    live, the quantity, and the three card columns the rules test. Every field
+ *    left out is one that cannot drift.
+ * 2. `src/lib/tutor/mirror-types.test.ts` asserts assignability in both
+ *    directions against the real `DeckCardRow` at compile time, so `tsc` fails
+ *    if either side changes shape. A runtime test cannot see this, and that is
+ *    why the assertion is written as types the compiler has to check rather
+ *    than as an expectation a runner reports.
+ *
+ * `quantity` is `number` here and `number` there. `card` is nullable in both,
+ * because a printing missing from the local table is the `no-data` fault
+ * `cardFaults` reports rather than a crash.
+ */
+const legalityRowShimFor = subdir => ({
+  path: `${subdir}/deck/deckCards.ts`,
+  body: `/**
+ * GENERATED FILE — do not edit. Written by scripts/vendor-engine.mjs.
+ *
+ * \`_lib/deck/deckLegality.ts\` is a byte-identical copy of
+ * \`src/lib/deck/deckLegality.ts\`, and that file names its row type as
+ * \`./deckCards.ts\`. The real \`deckCards.ts\` reaches the Supabase client
+ * through Vite's \`@/\` alias and cannot be mirrored into a Deno function, so
+ * this declares the part of the row the legality rules read and nothing else.
+ *
+ * Narrower on purpose: a field that is not here cannot drift from the field it
+ * would have copied. \`src/lib/tutor/mirror-types.test.ts\` asserts this shape
+ * against the real one at compile time in both directions.
+ */
+
+/** The joined card columns the legality rules read. */
+export interface DeckCardDetail {
+  name: string;
+  legalities: Record<string, string> | null;
+  color_identity: string[];
+}
+
+export interface DeckCardRow {
+  card_name: string;
+  quantity: number;
+  /** \`null\` when the printing is missing from the local card table. */
+  card: DeckCardDetail | null;
+}
+`,
+});
+
+export const LEGALITY_ROW_SHIMS = LEGALITY_SUBDIRS.map(legalityRowShimFor);
+
+/** Every generated stand-in, in one list so the writer and `--check` agree. */
+export const GENERATED_SHIMS = [...FACET_SHIMS, ...LEGALITY_ROW_SHIMS];
+
 export const SHARED_FILES = [
   {
     from: 'supabase/functions/deck-optimizer/catalog.ts',
@@ -235,6 +350,12 @@ export const SHARED_FILES = [
   },
   ...FACET_SUBDIRS.flatMap(subdir =>
     FACET_SOURCES.map(rel => ({
+      from: `src/lib/${rel}`,
+      to: `${subdir}/${rel}`,
+    }))
+  ),
+  ...LEGALITY_SUBDIRS.flatMap(subdir =>
+    LEGALITY_SOURCES.map(rel => ({
       from: `src/lib/${rel}`,
       to: `${subdir}/${rel}`,
     }))
@@ -503,20 +624,21 @@ if (isMain) {
     }
   }
 
-  // 5. The generated file each facet mirror needs, one per target. See
-  //    FACET_SHIMS. There is one of these per function that ranks a pool.
-  for (const FACET_SHIM of FACET_SHIMS) {
-    const dst = path.join(ROOT, FACET_SHIM.path);
+  // 5. The generated stand-ins a mirrored file needs to resolve its own
+  //    imports: one facet shim per facet target, one row shim per legality
+  //    target. See FACET_SHIMS and LEGALITY_ROW_SHIMS.
+  for (const shim of GENERATED_SHIMS) {
+    const dst = path.join(ROOT, shim.path);
     const before = fs.existsSync(dst) ? fs.readFileSync(dst, 'utf8') : null;
-    if (before !== FACET_SHIM.body) {
-      if (CHECK_ONLY) stale.push(`${FACET_SHIM.path} (generated shim is stale)`);
+    if (before !== shim.body) {
+      if (CHECK_ONLY) stale.push(`${shim.path} (generated shim is stale)`);
       else {
         fs.mkdirSync(path.dirname(dst), { recursive: true });
-        fs.writeFileSync(dst, FACET_SHIM.body);
-        console.log('generated', FACET_SHIM.path);
+        fs.writeFileSync(dst, shim.body);
+        console.log('generated', shim.path);
       }
     } else if (!CHECK_ONLY) {
-      console.log('unchanged', FACET_SHIM.path);
+      console.log('unchanged', shim.path);
     }
   }
 

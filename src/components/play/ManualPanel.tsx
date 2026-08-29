@@ -58,6 +58,28 @@ export interface ManualPanelProps {
   className?: string;
 }
 
+/**
+ * A control that opens more of the panel, rather than changing the game.
+ *
+ * MEASURED, and this is why it changed. Driving a real board on 29 Aug 2026 and
+ * reading the computed style off every button in this panel: twenty-five of the
+ * twenty-nine controls were chips at 18.5:1 contrast, and four — `15 more`,
+ * `Another token`, `Write a marker` and `I resolved this by hand` — were bare
+ * text at 6.77:1 with no background at all. Sitting in a row of chips, a
+ * label with no chip reads as a caption on the chips beside it, and three of
+ * those four are the way into the by-hand controls a player is most likely to
+ * want: the other fifteen tokens, the marker box, and the way to say a card has
+ * been dealt with.
+ *
+ * They stay QUIETER than the chips, because they open a section rather than
+ * change the game, and quieter here means a lighter fill, not the absence of
+ * one. No border: project law, and depth is surface tint.
+ */
+const SECONDARY_CONTROL =
+  'rounded-md bg-foreground/[0.04] px-2 py-1.5 text-xs font-medium text-foreground/80 ' +
+  'transition-colors hover:bg-foreground/[0.12] hover:text-foreground ' +
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+
 /** How many counter kinds are offered before the player asks for the rest. */
 const COUNTER_HEADLINE = 3;
 
@@ -229,7 +251,7 @@ function TokenMaker({
         <button
           type="button"
           onClick={() => setShowAll(value => !value)}
-          className="rounded-md px-2 py-1.5 text-xs text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className={SECONDARY_CONTROL}
         >
           {showAll ? 'Fewer' : `${TOKEN_PRESETS.length - TOKEN_HEADLINE} more`}
         </button>
@@ -237,7 +259,7 @@ function TokenMaker({
         <button
           type="button"
           onClick={() => setBuilding(value => !value)}
-          className="rounded-md px-2 py-1.5 text-xs text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className={SECONDARY_CONTROL}
         >
           {building ? 'Cancel' : 'Another token'}
         </button>
@@ -402,7 +424,7 @@ function MarkMaker({
         <button
           type="button"
           onClick={() => setWriting(value => !value)}
-          className="rounded-md px-2 py-1.5 text-xs text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className={SECONDARY_CONTROL}
         >
           {writing ? 'Cancel' : 'Write a marker'}
         </button>
@@ -524,6 +546,9 @@ export function ManualPanel({ state, card, onDispatch, className }: ManualPanelP
 
   const damage = byGroup('damage');
   const attach = byGroup('attach');
+  const face = byGroup('face');
+  const tableStates = byGroup('table-state');
+  const exileFaceDown = byGroup('zones').find(c => c.id === 'zone:exile-face-down');
 
   const engineKeywords = keywords.filter(c => c.support === 'engine');
   const advisoryKeywords = keywords.filter(c => c.support !== 'engine');
@@ -669,6 +694,94 @@ export function ManualPanel({ state, card, onDispatch, className }: ManualPanelP
         </div>
       )}
 
+      {/*
+        WHICH WAY UP.
+
+        `CardInstance.faceDown` and `CardInstance.flipped` were declared,
+        initialised, carried across every zone change and READ — `mana.ts`
+        picks which half of a `Name // Name` type line is in play off `flipped`,
+        which decides whether a permanent counts as a land at all — and nothing
+        in the app ever set either to true. So a morph could not be turned down,
+        a two-faced card could not be turned over, and "exile it face down" had
+        no control anywhere. That is this project's oldest failure one level
+        below the action census, which only sees actions and saw nothing wrong.
+
+        Exile face down is here rather than with the other zone moves because
+        it is one press for a reason: doing it in two would show the whole table
+        the card in between.
+      */}
+      {(face.length > 0 || exileFaceDown) && (
+        <div className="space-y-1.5">
+          <div className="flex items-baseline gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Which way up
+            </span>
+            <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground/70">
+              {card.faceDown ? 'face down' : card.flipped ? 'its other face' : 'face up'}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {face.map(control => (
+              <Chip
+                key={control.id}
+                label={control.label}
+                tone={control.active ? 'active' : 'quiet'}
+                title={
+                  control.id === 'face:down'
+                    ? 'A card back on the mat. Everyone still knows the name at a networked table; this is the table state, not a secret.'
+                    : 'Turn a two-faced card over. The engine reads the face in play for type, land and creature checks.'
+                }
+                onClick={() => onDispatch(control.actions)}
+              />
+            ))}
+            {exileFaceDown && (
+              <Chip
+                label={exileFaceDown.label}
+                title={`Put ${card.name} into exile face down, in one move`}
+                onClick={() => onDispatch(exileFaceDown.actions)}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/*
+        TABLE STATE.
+
+        Goad is on hundreds of cards, is in nearly every multiplayer Commander
+        game, and the string `goad` appears nowhere in `src/lib/game`. It is a
+        MARK rather than engine state, on purpose: the engine cannot make a
+        goaded creature attack, and a control that claimed to goad would be a
+        promise it does not keep. The heading says which it is.
+      */}
+      {tableStates.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="flex items-baseline gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Table state
+            </span>
+            <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground/70">
+              agreed at the table, not run by the rules
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {tableStates.map(control => (
+              <Chip
+                key={control.id}
+                label={control.label}
+                tone={control.active ? 'active' : 'quiet'}
+                title={
+                  control.active
+                    ? `Take "${control.label}" off ${card.name}`
+                    : `Mark ${card.name} as ${control.label.toLowerCase()}. It shows on the card and in the log; the engine does not enforce it.`
+                }
+                onClick={() => onDispatch(control.actions)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-1">
         {shownKeywords.map(control => (
           <Chip
@@ -717,7 +830,7 @@ export function ManualPanel({ state, card, onDispatch, className }: ManualPanelP
         <button
           type="button"
           onClick={() => onDispatch(marker.actions)}
-          className="text-[11px] text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
+          className={SECONDARY_CONTROL}
         >
           {marker.label}
         </button>

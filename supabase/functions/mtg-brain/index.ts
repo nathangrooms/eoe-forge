@@ -63,6 +63,20 @@ import {
 import { gradeLands, upgradeTargets, findLandCandidates, renderCandidates } from "./manabase.ts";
 import { extractCardNames, resolveCards } from "./resolve-cards.ts";
 
+/**
+ * The one place this function names a model.
+ *
+ * It was written inline at the fetch, which is why "what is Tutor running on"
+ * needed a grep rather than a look. `TUTOR_MODEL` overrides it without a
+ * deploy, so moving off one model is a secret change rather than a code
+ * change, and the log line on a refusal can say which model was refused.
+ *
+ * The gateway is Lovable's, so the id is `provider/model` and the provider
+ * has to be one that gateway serves. Changing this to a provider it does not
+ * serve fails every request, so verify with one real call before shipping it.
+ */
+const MODEL = Deno.env.get('TUTOR_MODEL') ?? 'google/gemini-2.5-flash';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -469,7 +483,7 @@ and keep the land count roughly where it is: this deck has ${deckContext?.counts
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: MODEL,
         messages,
         temperature: responseStyle === 'detailed' ? 0.7 : 0.3,
         // 400 tokens could not fit a list of land swaps, which is part of why
@@ -480,11 +494,27 @@ and keep the land count roughly where it is: this deck has ${deckContext?.counts
     });
 
     if (!response.ok) {
+      /* LOG EVERY REFUSAL, including the two that are answered rather than
+         thrown. These two returned early and silently, so a 402 left the
+         function log ending at "system prompt: about N tokens" with nothing
+         after it, which reads exactly like a hang. That is how the one real
+         report of "I asked about a card and it had no response" came to be
+         diagnosed three different ways before anyone read the edge log and
+         found a 402 in 194 ms. A refusal that is invisible costs more to
+         diagnose than the refusal itself. */
+      console.error(`gateway refused: ${response.status} for model ${MODEL}`);
       if (response.status === 429) {
-        return json({ error: 'Too many requests just now. Try again in a moment.', type: 'rate_limit' }, 429);
+        return json({ error: 'Too many questions just now. Try again in a moment.', type: 'rate_limit' }, 429);
       }
       if (response.status === 402) {
-        return json({ error: 'AI credits are exhausted for this workspace.', type: 'payment_required' }, 402);
+        /* No "AI" in anything a player reads. See the ban list in CLAUDE.md:
+           the Magic community dislikes the word and the owner has said so. The
+           player cannot fix this and should not be told to try again either,
+           because retrying will fail the same way until somebody tops up. */
+        return json({
+          error: 'Tutor is unavailable right now. This is our end, not yours.',
+          type: 'payment_required',
+        }, 402);
       }
       const body = await response.text();
       console.error('AI gateway error', response.status, body);

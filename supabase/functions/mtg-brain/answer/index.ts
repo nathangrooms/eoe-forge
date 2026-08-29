@@ -350,13 +350,44 @@ export function nothingToAnswerWith(have: { card: boolean; deck: boolean }): str
  * player typed. Without it a stray capital can attach a card nobody mentioned,
  * and then the whole answer is about the wrong card while looking confident.
  */
+/**
+ * The words that are grammar rather than part of a card's name.
+ *
+ * Only ever stripped from the ENDS of a phrase. "Path to Exile" and "Swords to
+ * Plowshares" both carry "to" in the middle and must keep it.
+ */
+const EDGE_STOPWORDS = new Set([
+  'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'can', 'do', 'does', 'for',
+  'from', 'how', 'i', 'if', 'in', 'is', 'it', 'my', 'of', 'on', 'or', 'should',
+  'that', 'the', 'this', 'to', 'was', 'were', 'what', 'when', 'which', 'why',
+  'with', 'would', 'you', 'your',
+]);
+
+/** A phrase with its grammar trimmed off both ends, lowercased. */
+function coreName(phrase: string): string {
+  const words = phrase.toLowerCase().split(/\s+/).filter(Boolean);
+  while (words.length && EDGE_STOPWORDS.has(words[0])) words.shift();
+  while (words.length && EDGE_STOPWORDS.has(words[words.length - 1])) words.pop();
+  return words.join(' ');
+}
+
 async function cardNamedInQuestion(db: any, question: string): Promise<{ name: string; setCode: null; collectorNumber: null } | null> {
   const { extractCardNames } = await import('../resolve-cards.ts');
   const { names } = extractCardNames(question);
   const asked = question.toLowerCase();
 
   const present = names.filter(n => n.length >= 4 && asked.includes(n.toLowerCase()));
-  const worthTrying = [...present].sort((a, b) => b.length - a.length).slice(0, 4);
+
+  /* FOUR WAS NOT ENOUGH, and the ones it cut were the real cards.
+     "How does the Thassa's Oracle and Demonic Consultation combo work?" emits
+     fifteen phrases. Both card names are in that list, at positions seven and
+     ten, and the four that got tried were all long joined phrases that resolve
+     to nothing. The most famous combo in the format, held correctly in our own
+     table, and neither piece was ever looked up.
+
+     Twelve rather than four, and the extra lookups only happen on a question
+     that names nothing, because the loop returns on the first real card. */
+  const worthTrying = [...present].sort((a, b) => b.length - a.length).slice(0, 12);
 
   for (const candidate of worthTrying) {
     const found = await cardByName(db, candidate);
@@ -376,12 +407,49 @@ async function cardNamedInQuestion(db: any, question: string): Promise<{ name: s
      * So a match is rejected when the question also contains a longer phrase
      * that this one sits inside. If they meant Blastoderm they would not have
      * written another capitalised word after it. */
-    const isAFragment = present.some(
-      other =>
-        other.toLowerCase() !== resolved &&
-        other.toLowerCase().includes(resolved) &&
-        other.length > resolved.length
-    );
+    /* A LONGER PHRASE IS ONLY EVIDENCE IF IT IS A NAME, NOT A SENTENCE.
+     *
+     * This rejected on the mere existence of a longer phrase containing the
+     * match, and `extractCardNames` emits every capitalised run including the
+     * word that opened the sentence. So "Is Sol Ring legal in Modern?" produced
+     * "Is Sol Ring", which is not a card and never will be, and "Sol Ring" was
+     * thrown away as a fragment of it. Measured over fifty real questions: six
+     * had the card resolved and discarded this way, and the singleton question
+     * lost Sol Ring to the phrase "Sol Ring in".
+     *
+     * The discriminator is whether the extra words are STOPWORDS. Strip the
+     * leading and trailing ones and compare what is left:
+     *
+     *   "Is Sol Ring"        -> "sol ring"            same card, not evidence
+     *   "Sol Ring in"        -> "sol ring"            same card, not evidence
+     *   "Blastoderm Supreme" -> "blastoderm supreme"  a DIFFERENT name, and the
+     *                                                 original trap: reject
+     *
+     * So the Blastoderm case stays fixed. A player who meant Blastoderm would
+     * not have written another real word after it, and "Supreme" is a real word
+     * where "Is" is grammar. */
+    const isAFragment = present.some(other => {
+      const core = coreName(other);
+      if (core === resolved || !core.includes(resolved) || core.length <= resolved.length) return false;
+
+      /* A PHRASE THAT JOINS TWO NAMES IS NOT ONE LONGER NAME.
+         "How does the Thassa's Oracle and Demonic Consultation combo work?"
+         emits "Thassa's Oracle and Demonic Consultation", which is longer than
+         "Thassa's Oracle" and contains it, so the guard threw the card away.
+         Both pieces resolve on their own; the most played combo in the format
+         was refused because of the word between them.
+
+         Splitting on the joiners answers it. If either side IS the card, the
+         phrase is a conjunction and says nothing about which card was meant.
+
+         Cards whose own name carries "and" are safe: Rin and Seri, Inseparable
+         resolves as a whole, and the loop tries longest first, so it returns
+         before anything reaches this check. */
+      const parts = core.split(/\s+(?:and|or|vs\.?|versus)\s+|\s*,\s*/).filter(Boolean);
+      if (parts.length > 1 && parts.some(part => part.trim() === resolved)) return false;
+
+      return true;
+    });
     if (isAFragment) continue;
 
     return { name: found.value.name, setCode: null, collectorNumber: null };

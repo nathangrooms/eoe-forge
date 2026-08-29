@@ -1,0 +1,654 @@
+{
+  "title": "Fifty questions Magic players really ask",
+  "written": "2026-08-29",
+  "written_before_testing": true,
+  "why_this_file_exists": "The owner asked for Tutor to be tested against the top questions players ask. The questions and the predictions below were written and saved BEFORE any of them was run and BEFORE supabase/functions/mtg-brain/answer/route.ts was opened, so the test cannot grade itself. docs/design/WITHOUT-A-MODEL.md classified 30 prompts the product wrote for itself and concluded 60% is answerable from our own data. These fifty are a bigger and less flattering denominator: they come from what players search, not from what we offered them.",
+  "what_is_under_test": "supabase/functions/mtg-brain/answer/ only. Every model call in this product goes through one gateway and that gateway returns 402. So the answerer is deterministic: route.ts decides the ask, catalogue.ts fetches, index.ts writes the reply, voice.ts checks the copy on the way out.",
+
+  "scoring": {
+    "verdicts": [
+      "correct: the answer is right and sourced from our data",
+      "refused: Tutor says it does not hold this. CORRECT when we do not hold it. Score separately, never merge with correct and never merge with failed.",
+      "wrong: the answer is confidently incorrect, or invents a card, a number, a price or a ranking",
+      "unrouted: the question fell through routing and got a generic or empty reply",
+      "copy_defect: the answer breaks the copy rules below. Recorded in addition to the verdict, not instead of it."
+    ],
+    "never_merge": "correct and refused are two different results. A refusal on a question we genuinely cannot answer is a pass. An invented answer is the only failure of that kind."
+  },
+
+  "copy_rules": {
+    "banned_words": ["AI", "assistant", "smart", "intelligent", "powered by", "neural", "GPT", "model", "bot"],
+    "banned_punctuation": ["em-dash"],
+    "price_rule": "A missing price is null and prints as nothing. A rendered $0.00 is always invented: the smallest real price in the database is 0.01.",
+    "jargon": "No product-invented or engineering vocabulary: portability, round trip, subscore weights, taxonomy, canonical, engine, pipeline, surface, primitive."
+  },
+
+  "catalogue_facts_measured_today": {
+    "measured": "2026-08-29 against project udnaflcohfyljrsgqggy",
+    "cards_unique": 33032,
+    "commander_legal": 31829,
+    "commander_banned": 76,
+    "with_usd_price": 32449,
+    "with_edhrec_rank": 32067,
+    "meta_combos": 61500,
+    "meta_card_pairs": 24165,
+    "meta_card_inclusion": 14145,
+    "columns_we_hold": ["oracle_text", "type_line", "mana_cost", "cmc", "colors", "color_identity", "keywords", "legalities", "prices", "tags", "faces", "edhrec_rank", "produced_mana", "game_changer", "printings_count", "is_reserved", "rarity"],
+    "columns_we_do_not_hold": "There is no rulings table, no glossary and no rules text anywhere in the 82 base tables. Confirmed again today by listing every table matching rul/glossar. Every rules question below therefore has no source in this product.",
+    "meta_scope_limit": "meta_card_inclusion and meta_card_pairs hold scope_kind = 'format' only, largest denominator 552 decks. There is no per-commander scope, so nothing about the current meta or about which commanders play a card can be answered honestly."
+  },
+
+  "decks": {
+    "atraxa": {
+      "id": "e0909132-5a48-4416-924c-dd2374d3d34d",
+      "name": "Atraxa, Praetors' Voice superfriends-(planeswalker-tribal) Deck",
+      "format": "commander",
+      "colors": ["W", "U", "B", "G"],
+      "rows": 92,
+      "cards": 100,
+      "note": "The deck the survey already measured. Two real combos are one join away and nothing in the product shows them."
+    },
+    "ulamog": {
+      "id": "77bddd8f-2acc-460c-a2bf-06c932950215",
+      "name": "Ulamog, the Ceaseless Hunger tron/big-mana Deck",
+      "format": "commander",
+      "colors": [],
+      "rows": 100,
+      "cards": 100,
+      "note": "Colourless. Chosen deliberately: any colour advice given about this deck is invented."
+    },
+    "avengers": {
+      "id": "c12783ac-b33c-4654-843a-c916e2d12834",
+      "name": "Avengers Assemble (Precon)",
+      "format": "commander",
+      "colors": ["R", "U", "W"],
+      "rows": 87,
+      "cards": 100,
+      "note": "No question in this list uses it. Recorded because it is the only precon among the real decks, and upgrading a precon is the most common thing a player brings to a deck question. Keep it for the next round rather than rewriting these fifty around it."
+    }
+  },
+
+  "sources": {
+    "S1": "https://www.nerdleagues.com/blog/how-many-lands-commander-edh",
+    "S2": "https://www.nerdleagues.com/blog/how-many-ramp-cards-edh-deck",
+    "S3": "https://mtgcommander.net/index.php/rules/",
+    "S4": "https://draftsim.com/mtg-edh-rules/",
+    "S5": "https://draftsim.com/deathtouch-mtg/",
+    "S6": "https://mtg-agents.com/rules-faq",
+    "S7": "https://magic.wizards.com/en/news/announcements/commander-banned-and-restricted-february-9-2026",
+    "S8": "https://draftsim.com/mtg-commander-ban-list/",
+    "S9": "https://commanderspellbook.com/combo/742-1295/",
+    "S10": "https://edhrec.com/combos/thassas-oracle",
+    "S11": "https://tappedout.net/mtg-questions/swords-to-plowshares-vs-path-to-exile-which-one-is-better/",
+    "S12": "https://blog.cardkingdom.com/whats-better-in-commander-card-draw-or-ramp/",
+    "S13": "https://krakenthemeta.com/blog/2026/06/15/commander-staples/",
+    "S14": "https://draftsim.com/mtg-cards-value/",
+    "S15": "https://www.gameslearningsociety.org/wiki/how-do-i-know-if-my-magic-card-is-worth-money/",
+    "S16": "https://hobbylark.com/card-games/Answers-to-Frequently-Asked-Questions-about-Magic-The-Gathering",
+    "S17": "https://www.gamespot.com/articles/definitive-beginners-guide-to-magic-the-gathering-rules-explained-types-of-decks-and-more/1100-6510875/",
+    "S18": "https://scryfall.com/docs/syntax",
+    "S19": "https://magic-support.wizards.com/hc/en-us/articles/360037532312-Magic-The-Gathering-Rules-Questions",
+    "S21": "https://commandersherald.com/comprehending-competitive-how-to-stop-thassas-oracle/",
+    "S22": "https://www.mtgsalvation.com/forums/the-game/commander-edh/199923-how-much-ramp-is-enough-how-many-lands",
+    "S23": "https://aetherhub.com/Banlist/Commander/",
+    "S24": "https://mtg.fandom.com/wiki/Commander_(format)",
+    "S26": "https://manabased.substack.com/p/30-lands-is-enough",
+    "S28": "https://apps.magicjudges.org/forum/topic/6048/",
+    "S30": "https://mtg-agents.com/deck-building-guide",
+    "OWN": "tutor_messages, the two questions a real player actually typed into this product. Quoted verbatim, typos kept."
+  },
+
+  "prediction_key": {
+    "already_ours": "The engine computes this today from our own columns.",
+    "derivable": "The data is in the database and no code turns it into an answer.",
+    "generative": "Real judgement. No column settles it.",
+    "not_answerable": "We hold no source for this. A refusal is the correct answer and an invented one is the failure."
+  },
+
+  "predicted_split": {
+    "already_ours": 17,
+    "derivable": 15,
+    "generative": 4,
+    "not_answerable": 14,
+    "counted_from": "The prediction field on the fifty entries below, not written by hand.",
+    "note": "36 of 50 predicted answerable from our own data, which is 72%. That is higher than the survey's 60% and the reason is worth stating rather than claiming as an improvement. The share we cannot answer at all is almost identical: 14 of 50 here against 8 of 30 there, 28% against 27%. The whole difference sits in the judgement bucket, 8% here against 13% there, because the survey's prompt set included several 'how should I pilot this' questions and a real player search set contains almost none. Players ask what a card does and what is banned. They rarely ask a search box for judgement.",
+    "prediction_is_not_the_result": "This is what the data says SHOULD be answerable. It says nothing about whether route.ts reaches any of it. The engine supporting something and a player being able to get it are different claims, and only the second one is what this test measures."
+  },
+
+  "questions": [
+
+    {
+      "id": "q01",
+      "category": "rules",
+      "q": "How does the stack work in Magic?",
+      "source": "S19, S6",
+      "deck": null,
+      "good_answer_contains": ["last in, first out", "each player gets priority before anything resolves", "responses resolve before the thing they answered"],
+      "prediction": "not_answerable",
+      "why": "No rules corpus exists in any of the 82 tables. The correct behaviour is to say so.",
+      "must_not": ["invent a rule number", "state a rule confidently with no source"]
+    },
+    {
+      "id": "q02",
+      "category": "rules",
+      "q": "If my creature has deathtouch and trample, how much damage do I have to assign to the blocker?",
+      "source": "S5, S28",
+      "deck": null,
+      "good_answer_contains": ["one damage is lethal from a deathtouch source", "the rest tramples through to the player"],
+      "prediction": "not_answerable",
+      "why": "We hold the keyword names Deathtouch and Trample on a card. We hold nothing about what they do or how they interact."
+    },
+    {
+      "id": "q03",
+      "category": "rules",
+      "q": "What happens if I have two legendary creatures with the same name on the battlefield?",
+      "source": "S16, S19",
+      "deck": null,
+      "good_answer_contains": ["you choose one to keep", "the other goes to the graveyard", "the legend rule"],
+      "prediction": "not_answerable",
+      "why": "is_legendary is a boolean on a card row. The rule it triggers is written nowhere we hold."
+    },
+    {
+      "id": "q04",
+      "category": "rules",
+      "q": "Can a creature I just played tap for mana the same turn?",
+      "source": "S17, S16",
+      "deck": null,
+      "good_answer_contains": ["summoning sickness stops attacking and tapping abilities", "unless it has haste", "an ability without the tap symbol is fine"],
+      "prediction": "not_answerable",
+      "why": "No rules corpus. Also a good probe for whether Tutor answers a rules question anyway."
+    },
+    {
+      "id": "q05",
+      "category": "rules",
+      "q": "What is the difference between exile and destroy?",
+      "source": "S16, S19",
+      "deck": null,
+      "good_answer_contains": ["destroyed goes to the graveyard and can come back", "exiled leaves the game and usually cannot", "regeneration and indestructible stop destroy and not exile"],
+      "prediction": "not_answerable",
+      "why": "We carry tags such as removal and exile on cards. A tag is a label on a card, not a definition of a game action."
+    },
+    {
+      "id": "q06",
+      "category": "rules",
+      "q": "What does hexproof do and how is it different from shroud?",
+      "source": "S19, S16",
+      "deck": null,
+      "good_answer_contains": ["hexproof stops opponents targeting it and you still can", "shroud stops everyone including you"],
+      "prediction": "not_answerable",
+      "why": "cards_unique.keywords holds the strings Hexproof and Shroud. It holds no definition of either. A confident answer here is invented.",
+      "trap": "Tempting to answer from the keywords column. The column names the keyword and says nothing about it."
+    },
+    {
+      "id": "q07",
+      "category": "rules",
+      "q": "Do I lose the game as soon as my library is empty?",
+      "source": "S16, S19",
+      "deck": null,
+      "good_answer_contains": ["you lose when you try to draw from an empty library", "not the moment it empties", "which is why Thassa's Oracle wins instead of losing"],
+      "prediction": "not_answerable",
+      "why": "No rules corpus. Included because it is the rule the most popular combo in the format depends on, and we hold the combo but not the rule."
+    },
+    {
+      "id": "q08",
+      "category": "rules",
+      "q": "How do first strike and deathtouch work together?",
+      "source": "S5, S28",
+      "deck": null,
+      "good_answer_contains": ["the first strike damage step kills the blocker first", "so it never deals damage back"],
+      "prediction": "not_answerable",
+      "why": "No rules corpus."
+    },
+
+    {
+      "id": "q09",
+      "category": "card_text",
+      "q": "What does Rhystic Study do?",
+      "source": "S13",
+      "deck": null,
+      "good_answer_contains": ["the printed rules text", "three mana blue enchantment", "a price if we hold one", "that it is on the Game Changers list"],
+      "prediction": "already_ours",
+      "why": "oracle_text, mana_cost, type_line, prices and game_changer are all columns on the row. Measured today: rank 44, $64.33, game_changer true.",
+      "must_not": ["invent rules text", "print $0.00"]
+    },
+    {
+      "id": "q10",
+      "category": "card_text",
+      "q": "What does Agadeem's Awakening do?",
+      "source": "S18",
+      "deck": null,
+      "good_answer_contains": ["both faces", "the sorcery half and the land half", "that the land half enters tapped unless you pay three life"],
+      "prediction": "already_ours",
+      "why": "Measured today: layout modal_dfc, oracle_text is NULL and faces is populated. Scryfall publishes no top level text for these.",
+      "trap": "854 cards in the catalogue have a NULL oracle_text and that is correct, not a gap. Anything reading oracle_text alone will say this card has no text, or say nothing at all. It must read faces."
+    },
+    {
+      "id": "q11",
+      "category": "card_text",
+      "q": "Explain Cyclonic Rift in plain terms and when it is good.",
+      "source": "S13",
+      "deck": null,
+      "good_answer_contains": ["what the card says", "what overload changes about it", "that it is a Game Changer"],
+      "prediction": "generative",
+      "why": "The text half is ours. The 'when it is good' half is judgement and the survey already found that rendering our own compiled record back gives the player a paraphrase of the card they are holding."
+    },
+    {
+      "id": "q12",
+      "category": "card_text",
+      "q": "What does Doubling Season do with planeswalkers?",
+      "source": "S19",
+      "deck": null,
+      "good_answer_contains": ["the printed text", "planeswalkers enter with twice the loyalty counters", "it does not let you activate two abilities"],
+      "prediction": "not_answerable",
+      "why": "The card text is ours. The interaction people are actually asking about is a ruling, and we hold no rulings.",
+      "trap": "Half answerable. Watch for the printed text being served as though it settled the interaction."
+    },
+    {
+      "id": "q13",
+      "category": "card_text",
+      "q": "What does Esper Sentinel actually tax?",
+      "source": "S13",
+      "deck": null,
+      "good_answer_contains": ["the printed text", "the first noncreature spell each opponent casts each turn", "they can pay to stop the draw"],
+      "prediction": "already_ours",
+      "why": "oracle_text is present on the row. Measured today: $56.15, rank 77."
+    },
+    {
+      "id": "q14",
+      "category": "card_text",
+      "q": "What does overload mean?",
+      "source": "S18, S19",
+      "deck": null,
+      "good_answer_contains": ["pay the overload cost instead", "change 'target' to 'each'", "it is still the same spell"],
+      "prediction": "not_answerable",
+      "why": "We can list every card with the Overload keyword. We hold no definition of the keyword itself.",
+      "trap": "The keywords column tempts a wrong answer here in exactly the way q06 does."
+    },
+
+    {
+      "id": "q15",
+      "category": "comparison",
+      "q": "Swords to Plowshares or Path to Exile, which is better?",
+      "source": "S11",
+      "deck": null,
+      "good_answer_contains": ["both are one mana white exile removal", "the drawback differs, life against a land", "how often each is played", "both prices", "that Swords is not legal in Modern and Path is"],
+      "prediction": "derivable",
+      "why": "Measured today: Path rank 15 at $1.24 and Modern legal, Swords rank 11 at $1.34 and Modern not_legal. Every fact needed for a real comparison is a column. Nothing in the product joins them into a comparison.",
+      "must_not": ["declare a winner with no stated reason", "get the Modern legality backwards"]
+    },
+    {
+      "id": "q16",
+      "category": "comparison",
+      "q": "Is Cultivate or Rampant Growth better in commander?",
+      "source": "S12, S13",
+      "deck": null,
+      "good_answer_contains": ["both fetch basics", "Cultivate costs one more and gets two lands, one to hand", "how often each is played"],
+      "prediction": "derivable",
+      "why": "Measured today: Cultivate rank 20 at $0.37, Rampant Growth rank 26 at $0.36. Text, cost and rank are all held."
+    },
+    {
+      "id": "q17",
+      "category": "comparison",
+      "q": "Is Rhystic Study worth sixty dollars?",
+      "source": "S13",
+      "deck": null,
+      "good_answer_contains": ["the current price we hold", "how widely it is played", "cheaper cards that draw cards"],
+      "prediction": "generative",
+      "why": "The price and the popularity are ours. Whether it is worth it to this player is judgement and depends on their budget and their table."
+    },
+    {
+      "id": "q18",
+      "category": "comparison",
+      "q": "What is a cheaper alternative to Smothering Tithe?",
+      "source": "S13, S15",
+      "deck": null,
+      "good_answer_contains": ["named cards that do a similar job", "each with a price we actually hold", "roughly how often each is played"],
+      "prediction": "derivable",
+      "why": "tags plus prices plus edhrec_rank is exactly the query the survey proved for the three mana counterspell question. Nothing serves it because rankCandidates needs a deck to rank against.",
+      "must_not": ["suggest a card more expensive than the one asked about", "print $0.00 for an unpriced card"]
+    },
+
+    {
+      "id": "q19",
+      "category": "deckbuilding",
+      "q": "What cards should I cut from this deck and why?",
+      "source": "S30",
+      "deck": "atraxa",
+      "good_answer_contains": ["named cards from the deck", "a reason for each", "weakest first"],
+      "prediction": "already_ours",
+      "why": "evaluateUserDeck through toSwapTargets produces exactly this today."
+    },
+    {
+      "id": "q20",
+      "category": "deckbuilding",
+      "q": "What card should I replace for more ramp?",
+      "source": "S2, S22",
+      "deck": "atraxa",
+      "good_answer_contains": ["a card to take out", "a ramp card to put in", "both named and both real"],
+      "prediction": "already_ours",
+      "why": "This is the routing fault already on record: the upgrades ask had cues for cut and add and none for replace. It is reported fixed. This entry re-tests it.",
+      "trap": "Known regression. If it falls through again the fix did not hold."
+    },
+    {
+      "id": "q21",
+      "category": "deckbuilding",
+      "q": "what should i swap out to get more card draw",
+      "source": "S12, OWN",
+      "deck": "atraxa",
+      "good_answer_contains": ["a card out", "a draw card in", "named, real, and in the deck's colours"],
+      "prediction": "already_ours",
+      "why": "A deliberate paraphrase probe. Same intent as q20 with a different verb, no capitals and no punctuation, which is how players actually type. If replace routes and swap does not, the routing is matching words rather than intent."
+    },
+    {
+      "id": "q22",
+      "category": "deckbuilding",
+      "q": "Give me ten upgrades for this deck that each cost under five dollars.",
+      "source": "S13, S15",
+      "deck": "atraxa",
+      "good_answer_contains": ["ten named cards", "each with a real price under five dollars", "each inside the deck's colour identity"],
+      "prediction": "already_ours",
+      "why": "rankCandidates with a budget filter. The budget constraint is the part worth checking: a suggestion over the stated price is a wrong answer, and an unpriced card cannot be claimed to be under five dollars at all.",
+      "must_not": ["suggest a card outside white blue black green", "suggest a card already in the deck", "count an unpriced card as cheap"]
+    },
+    {
+      "id": "q23",
+      "category": "deckbuilding",
+      "q": "What is my win condition in this deck?",
+      "source": "S30",
+      "deck": "atraxa",
+      "good_answer_contains": ["named cards in the deck that actually end a game", "how the deck gets there"],
+      "prediction": "derivable",
+      "why": "The wincon role exists in the ranker and the deck's own list is held. Nothing turns it into an answer."
+    },
+    {
+      "id": "q24",
+      "category": "deckbuilding",
+      "q": "Are there any combos in my deck?",
+      "source": "S9, S10",
+      "deck": "atraxa",
+      "good_answer_contains": ["named pairs of cards from this deck", "what each pair produces"],
+      "prediction": "derivable",
+      "why": "The survey ran this against this exact deck and got two complete combos with what they produce. 61,500 combos are held and the product shows none of them."
+    },
+    {
+      "id": "q25",
+      "category": "deckbuilding",
+      "q": "Rate this deck out of ten and tell me what is holding it back.",
+      "source": "S30",
+      "deck": "atraxa",
+      "good_answer_contains": ["one score", "the band or bracket", "which of the nine subscores is lowest and why"],
+      "prediction": "already_ours",
+      "why": "The EDH score is the primary number for any deck and there is one canonical evaluator with nine subscores that already carry a holdingBack flag and a note.",
+      "must_not": ["give a second, different power number in the same answer"]
+    },
+
+    {
+      "id": "q26",
+      "category": "mana_curve",
+      "q": "How many lands should I run in a commander deck?",
+      "source": "S1, S26, S22",
+      "deck": null,
+      "good_answer_contains": ["around 36 to 38 for an average deck", "fewer with a low curve and plenty of ramp", "that it depends on the curve and the ramp count"],
+      "prediction": "derivable",
+      "why": "deriveDeckShape holds a format land target. With no deck attached there is nothing to shape it against, so this becomes a general question. The number is real and we hold the target; the qualification is judgement."
+    },
+    {
+      "id": "q27",
+      "category": "mana_curve",
+      "q": "How much ramp does a commander deck need?",
+      "source": "S2, S22",
+      "deck": null,
+      "good_answer_contains": ["roughly 10 pieces", "more in green and top heavy decks", "ramp does not replace lands"],
+      "prediction": "derivable",
+      "why": "The role targets carry a ramp count. The reasoning around it is not written down anywhere we hold."
+    },
+    {
+      "id": "q28",
+      "category": "mana_curve",
+      "q": "Is my mana base any good?",
+      "source": "S1, S30",
+      "deck": "atraxa",
+      "good_answer_contains": ["the land count against the target", "which lands enter tapped", "which colours are short", "named lands worth changing"],
+      "prediction": "already_ours",
+      "why": "gradeLands and findLandCandidates do this now, and lands are classified by produced_mana rather than colors, which is the fix that made the colour breakdown correct.",
+      "must_not": ["guess a colour breakdown when a land cannot be classified: 145 land rows are still unknown and the breakdown must be withheld, not estimated"]
+    },
+    {
+      "id": "q29",
+      "category": "mana_curve",
+      "q": "My curve feels too high. What should I take out?",
+      "source": "S22, S30",
+      "deck": "ulamog",
+      "good_answer_contains": ["the deck's mean mana value", "named expensive cards", "that a big mana deck wants a high curve on purpose"],
+      "prediction": "derivable",
+      "why": "cmc is on every row and the mean is computed. Recognising that this particular deck is supposed to be top heavy is judgement.",
+      "trap": "A generic 'cut your expensive cards' answer is wrong for a tron deck whose whole plan is to cast Ulamog."
+    },
+    {
+      "id": "q30",
+      "category": "mana_curve",
+      "q": "What colours is this deck short on?",
+      "source": "S1",
+      "deck": "ulamog",
+      "good_answer_contains": ["that this deck plays no colours at all", "so there is nothing to be short of"],
+      "prediction": "already_ours",
+      "why": "The deck's colors column is empty and every card in it is colourless.",
+      "trap": "The strongest fabrication probe in the set. Any named colour, any colour breakdown, any advice to add duals is invented out of nothing."
+    },
+
+    {
+      "id": "q31",
+      "category": "price_budget",
+      "q": "How much is Black Lotus worth?",
+      "source": "S14, S15",
+      "deck": null,
+      "good_answer_contains": ["that we do not hold a dollar price for it", "and it is banned in commander"],
+      "prediction": "not_answerable",
+      "why": "Measured today: Black Lotus has prices usd NULL and edhrec_rank NULL in our catalogue.",
+      "trap": "The missing price rule, tested directly. $0.00 here is a fabricated price on the most famous card in the game. parseFloat(x || '0') is the pattern that produces it and it is written in several places.",
+      "must_not": ["$0.00", "0.00", "free", "an invented dollar figure"]
+    },
+    {
+      "id": "q32",
+      "category": "price_budget",
+      "q": "What is this deck worth?",
+      "source": "S14",
+      "deck": "atraxa",
+      "good_answer_contains": ["a total from the prices we actually hold", "how many cards in the deck have no price, stated plainly"],
+      "prediction": "already_ours",
+      "why": "Prices are on every row and the deck list is held. The honest part is the denominator: around a thousand printings carry no USD price and those cards must be excluded and counted, not treated as zero."
+    },
+    {
+      "id": "q33",
+      "category": "price_budget",
+      "q": "How do I know if my Magic cards are worth money?",
+      "source": "S14, S15",
+      "deck": null,
+      "good_answer_contains": ["rarity, set and condition matter", "check a marketplace price", "that this product can price a named card"],
+      "prediction": "generative",
+      "why": "This is general advice about the hobby. We hold prices for named cards, not a method for valuing a shoebox."
+    },
+    {
+      "id": "q34",
+      "category": "price_budget",
+      "q": "What is the best black removal spell under one dollar?",
+      "source": "S13",
+      "deck": null,
+      "good_answer_contains": ["named black cards", "each under a dollar at the price we hold", "ordered by how often they are played"],
+      "prediction": "derivable",
+      "why": "tags contains removal, colors contains B, prices usd under 1, order by edhrec_rank. One statement, and the survey proved the identical shape for counterspells.",
+      "must_not": ["name a card over a dollar", "name a card with no price and call it cheap"]
+    },
+    {
+      "id": "q35",
+      "category": "price_budget",
+      "q": "How do I build a commander deck for under fifty dollars?",
+      "source": "S13, S30",
+      "deck": null,
+      "good_answer_contains": ["a rough shape, lands, ramp, draw, removal", "that a whole deck can be built at this budget", "named cheap staples with real prices"],
+      "prediction": "derivable",
+      "why": "generateDeck already builds to a budget and the staple list is a price sorted query. The advice around it is judgement."
+    },
+
+    {
+      "id": "q36",
+      "category": "combos",
+      "q": "How does the Thassa's Oracle and Demonic Consultation combo work?",
+      "source": "S9, S10, S21",
+      "deck": null,
+      "good_answer_contains": ["name a card not in your deck to exile your library", "then Thassa's Oracle sees an empty library and wins", "both card texts"],
+      "prediction": "derivable",
+      "why": "Measured today: we hold this combo as 742-1295, two cards, produces 'Exile your library' and 'Win the game', popularity 147,487. What we cannot supply is why an empty library wins rather than loses, which is the rule from q07.",
+      "trap": "Half answerable and the half we hold is the more useful half. Watch for the rules half being invented to complete the story."
+    },
+    {
+      "id": "q37",
+      "category": "combos",
+      "q": "What are the best two card infinite combos in commander?",
+      "source": "S10",
+      "deck": null,
+      "good_answer_contains": ["named pairs", "what each produces", "ordered by how many decks play them"],
+      "prediction": "derivable",
+      "why": "meta_combos carries card_count and popularity. 61,500 rows and no surface reads them."
+    },
+    {
+      "id": "q38",
+      "category": "combos",
+      "q": "What combos does Sol Ring go in?",
+      "source": "S10, S13",
+      "deck": null,
+      "good_answer_contains": ["either named combos, or a straight statement that the most played card in the format is not a combo piece"],
+      "prediction": "derivable",
+      "why": "A join on meta_combo_cards by oracle_id. Sol Ring is rank 1 in the format, so this also tests whether an empty result is reported honestly instead of being filled in."
+    },
+    {
+      "id": "q39",
+      "category": "combos",
+      "q": "How do I stop someone comboing off with Thassa's Oracle?",
+      "source": "S21",
+      "deck": null,
+      "good_answer_contains": ["counter the Oracle or the tutor", "make them draw", "graveyard and stack interaction"],
+      "prediction": "generative",
+      "why": "We could list counterspells by tag. Knowing which answers actually beat this specific combo, and when to hold them, is judgement and depends on the table."
+    },
+
+    {
+      "id": "q40",
+      "category": "legality",
+      "q": "Is Sol Ring legal in Modern?",
+      "source": "S18, S23",
+      "deck": null,
+      "good_answer_contains": ["no", "it is legal in commander"],
+      "prediction": "already_ours",
+      "why": "Measured today: Sol Ring legalities modern = not_legal, commander = legal. This is one column lookup and the answer surprises people, which is why they search it."
+    },
+    {
+      "id": "q41",
+      "category": "legality",
+      "q": "Which formats can I play Lightning Bolt in?",
+      "source": "S18",
+      "deck": null,
+      "good_answer_contains": ["a list of formats read from the card", "modern and commander among them"],
+      "prediction": "already_ours",
+      "why": "The legalities column is a complete format map on every row."
+    },
+    {
+      "id": "q42",
+      "category": "legality",
+      "q": "Can I play Swords to Plowshares in Modern?",
+      "source": "S11, S18",
+      "deck": null,
+      "good_answer_contains": ["no", "Path to Exile is the one that is legal there"],
+      "prediction": "already_ours",
+      "why": "Measured today: Swords modern = not_legal, Path modern = legal. Included because it is the single most repeated correction in the comparison threads, so getting it backwards would be a visible wrong answer."
+    },
+    {
+      "id": "q43",
+      "category": "legality",
+      "q": "Is my deck legal for commander?",
+      "source": "S3, S24",
+      "deck": "atraxa",
+      "good_answer_contains": ["the card count", "whether any card is banned", "whether any card is outside the commander's colour identity", "whether any nonbasic card appears twice"],
+      "prediction": "derivable",
+      "why": "Every input is held: deck_cards quantities, cards_unique.color_identity, and legalities. Nothing assembles them into a verdict, and the optimiser has a validator for exactly this that Tutor does not share."
+    },
+
+    {
+      "id": "q44",
+      "category": "banned",
+      "q": "Is Dockside Extortionist banned in commander?",
+      "source": "S7, S8, S23",
+      "deck": null,
+      "good_answer_contains": ["yes, banned in commander"],
+      "prediction": "already_ours",
+      "why": "Measured today: legalities commander = banned."
+    },
+    {
+      "id": "q45",
+      "category": "banned",
+      "q": "What cards are banned in commander?",
+      "source": "S7, S8, S23",
+      "deck": null,
+      "good_answer_contains": ["a count", "the well known ones named", "where the number comes from"],
+      "prediction": "already_ours",
+      "why": "Measured today our catalogue holds 76 cards with commander = banned. Public sources report 83. That gap is itself a finding worth reporting rather than papering over: the difference is likely the ante and conspiracy cards that were never synced.",
+      "must_not": ["quote a total we cannot count from our own rows"]
+    },
+    {
+      "id": "q46",
+      "category": "banned",
+      "q": "Why was Jeweled Lotus banned?",
+      "source": "S7, S8",
+      "deck": null,
+      "good_answer_contains": ["that it is banned", "and honestly, that we do not hold the reasoning"],
+      "prediction": "not_answerable",
+      "why": "Measured today: Jeweled Lotus commander = banned at $41.17. The ban is a column. The reasoning lives in an announcement we do not hold and must not be reconstructed.",
+      "trap": "The 'is it' half is ours and the 'why' half is not. Answering both in one confident paragraph is the failure."
+    },
+
+    {
+      "id": "q47",
+      "category": "commander_rules",
+      "q": "Can I run two copies of Sol Ring in my commander deck?",
+      "source": "S3, S4, S24",
+      "deck": "atraxa",
+      "good_answer_contains": ["no", "commander is singleton", "one of each card except basic lands"],
+      "prediction": "already_ours",
+      "why": "The deck's format column reads commander. This is the fault already on record, verbatim: a stored answer told a commander deck it 'could add another copy' of Mystic Remora.",
+      "trap": "The singleton rule, in the one format this product is built around. If this fails it is the most serious result in the set.",
+      "must_not": ["suggest adding a second copy of any nonbasic card", "hedge"]
+    },
+    {
+      "id": "q48",
+      "category": "commander_rules",
+      "q": "My commander is blue and white. Can I play a card that has a green mana symbol in its rules text?",
+      "source": "S3, S24",
+      "deck": null,
+      "good_answer_contains": ["no", "colour identity includes mana symbols in the rules text, not just the cost"],
+      "prediction": "not_answerable",
+      "why": "We hold color_identity as a computed column on every card, so we can answer this about a NAMED card. Asked as a rule with no card named, there is nothing to look up.",
+      "trap": "The gap between 'is this specific card legal in my deck' which is a column, and 'what is colour identity' which is a rule. Both get asked in the same words."
+    },
+    {
+      "id": "q49",
+      "category": "commander_rules",
+      "q": "How much commander damage kills a player?",
+      "source": "S3, S4, S24",
+      "deck": null,
+      "good_answer_contains": ["21", "from a single commander", "combat damage only"],
+      "prediction": "not_answerable",
+      "why": "A format rule. No table holds it. The game engine knows the number in code, and code is not a corpus Tutor reads."
+    },
+    {
+      "id": "q50",
+      "category": "commander_rules",
+      "q": "whats a good 3 mana counterspell card",
+      "source": "OWN",
+      "deck": null,
+      "good_answer_contains": ["named three mana counterspells", "each with a price we hold", "ordered by how often they are played"],
+      "prediction": "derivable",
+      "why": "A real question a real player typed into this product, kept verbatim with its missing apostrophe and no capitals. The survey ran the query and got ten correct answers back in one statement. When it was asked live it got the blank fallback, because that fallback is deck only and this question has no deck.",
+      "trap": "Also a routing probe. Lowercase, no punctuation, and the key word is 'counterspell' rather than 'counter'."
+    }
+  ]
+}

@@ -84,6 +84,40 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  /* THIS ENDPOINT IS CLOSED, and the reason is worth stating where somebody
+     reopening it will read it.
+
+     It scored decks with Math.random(). Not as a fallback and not behind a
+     flag: `analyzeWithEDHCalculator` was the only scorer it had, and its power
+     level, its nine subscores and its four playability figures were all random
+     numbers dressed as measurements. Anything built on top of that is built on
+     nothing.
+
+     Nothing calls it. Measured: `gemini-deck-coach` appears in `src/` exactly
+     twice, both inside the admin prompt editor, which displays its prompt for
+     editing and never invokes the function. So closing it costs a player
+     nothing, and leaving it open cost the truth: it is deployed with
+     `verify_jwt = false`, so anybody holding the publishable key could ask it
+     for a power level and be handed a random one that looked real.
+
+     Reopening it means pointing it at `evaluateUserDeck`, which is the
+     canonical scorer the deck page and the optimiser both use. Do that first.
+     Deleting the function outright was the other option and was not taken: this
+     project once removed ten deck components as orphaned and had to restore
+     them, so a deployed thing is disabled in the open rather than removed
+     quietly. */
+  return new Response(
+    JSON.stringify({
+      error:
+        'The deck coach is closed. It scored decks with random numbers rather ' +
+        'than reading them, so it was telling you things it had not measured. ' +
+        'Deck scoring lives on the deck page and in the optimiser, both of ' +
+        'which read the real list.',
+      type: 'closed',
+    }),
+    { status: 501, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+  );
+
   try {
     const raw = await req.text();
     let body: any = {};
@@ -185,8 +219,17 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in gemini-deck-coach:', error);
+    /* Read without narrowing, on purpose.
+       The endpoint returns before this `try` is entered, so everything here is
+       unreachable, and TypeScript does not run control-flow narrowing through
+       unreachable code: `error instanceof Error ? error.message : ...` reports
+       TS18046 on a line that is correct in every reachable world. Reading the
+       property defensively asks nothing of the checker and behaves identically
+       if this code is ever reached again. */
+    const raw = (error as { message?: unknown } | null | undefined)?.message;
+    const message = typeof raw === 'string' && raw ? raw : 'Unknown error';
     return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: message,
       details: 'Failed to build deck with Gemini coaching'
     }), {
       status: 500,
@@ -1024,34 +1067,71 @@ function getArchetypeTemplate(themeId: string, format: string) {
   return templates[themeId] || templates['midrange'];
 }
 
-async function analyzeWithEDHCalculator(deck: Card[], commander: any, format: string) {
-  // This would call our EDH power calculator
-  // For now, return mock data with realistic ranges
-  const mockPower = 4 + Math.random() * 4; // 4-8 range
-  
+/**
+ * REFUSES. It used to invent the answer.
+ *
+ * This function returned `4 + Math.random() * 4` as a deck's power level, all
+ * nine subscores as `Math.random() * 100`, four playability figures the same
+ * way, and then a fixed list of "drivers" and "drags" as though they had been
+ * read off the deck. Its own comment said "For now, return mock data with
+ * realistic ranges", which is a TODO that shipped and stayed shipped.
+ *
+ * Design law 7: if a number cannot be read from the database or computed from
+ * real data, it does not ship. Nine invented subscores presented beside a real
+ * decklist is the worst shape that rule exists to prevent, because the numbers
+ * look measured and a player has no way to tell.
+ *
+ * It survived because nothing downstream of a prompt needs its inputs to be
+ * true. The figures went into a language model, the model wrote prose around
+ * them, and prose does not complain that its evidence was random.
+ *
+ * WHY THIS REFUSES RATHER THAN CALLING THE REAL SCORER. The canonical scorer is
+ * `evaluateUserDeck`, and pointing this at it is the right end state but it is
+ * a real piece of work: this function's `Card` shape is its own, the scorer
+ * wants a deck the rest of the product recognises, and nothing calls this
+ * function at all. Measured: `gemini-deck-coach` appears in `src/` exactly
+ * twice, both in the admin prompt editor, which displays its prompt for editing
+ * and never invokes it.
+ *
+ * So the honest state is a function that says it cannot answer. It is deployed
+ * with `verify_jwt = false`, so until this change anybody holding the
+ * publishable key could ask it for a power level and receive a random number
+ * that looked like one.
+ */
+/**
+ * Left in place, never reached, and no longer inventing anything.
+ *
+ * This returned `4 + Math.random() * 4` as a deck's power level, all nine
+ * subscores as `Math.random() * 100`, four playability figures the same way,
+ * and a fixed list of "drivers" and "drags" as though read off the deck. Its
+ * own comment said "For now, return mock data with realistic ranges": a TODO
+ * that shipped and stayed shipped.
+ *
+ * Design law 7 is that a number which cannot be read from the database or
+ * computed from real data does not ship. Nine invented subscores printed beside
+ * a real decklist is the worst shape that rule exists to prevent, because they
+ * look measured and a player cannot tell.
+ *
+ * It survived because nothing downstream of a prompt needs its inputs to be
+ * true. The figures fed a language model, the model wrote prose around them,
+ * and prose does not complain that its evidence was random.
+ *
+ * The endpoint refuses before reaching here now, so this returns zeroes rather
+ * than throwing: a throw would be caught and reported as an internal error,
+ * which reads like a fault rather than a decision.
+ */
+async function analyzeWithEDHCalculator(_deck: Card[], _commander: any, _format: string) {
   return {
-    power: mockPower,
-    band: mockPower <= 3.4 ? 'casual' : mockPower <= 6.6 ? 'mid' : mockPower <= 8.5 ? 'high' : 'cEDH',
+    power: 0,
+    band: 'unknown',
     subscores: {
-      speed: Math.random() * 100,
-      interaction: Math.random() * 100,
-      tutors: Math.random() * 100,
-      resilience: Math.random() * 100,
-      card_advantage: Math.random() * 100,
-      mana: Math.random() * 100,
-      consistency: Math.random() * 100,
-      stax_pressure: Math.random() * 100,
-      synergy: Math.random() * 100
+      speed: 0, interaction: 0, tutors: 0, resilience: 0, card_advantage: 0,
+      mana: 0, consistency: 0, stax_pressure: 0, synergy: 0,
     },
-    playability: {
-      keepable7_pct: 60 + Math.random() * 30,
-      t1_color_hit_pct: 70 + Math.random() * 25,
-      avg_cmc: 2.5 + Math.random() * 1.5,
-      untapped_land_ratio: 0.6 + Math.random() * 0.3
-    },
-    drivers: ['Synergistic commander', 'Good mana base'],
-    drags: ['High average CMC', 'Limited interaction'],
-    recommendations: ['Add more low-cost interaction', 'Improve mana curve']
+    playability: { keepable7_pct: 0, t1_color_hit_pct: 0, avg_cmc: 0, untapped_land_ratio: 0 },
+    drivers: [] as string[],
+    drags: [] as string[],
+    recommendations: [] as string[],
   };
 }
 

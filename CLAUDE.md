@@ -23,7 +23,7 @@ Judge all UI/UX **as an MTG enthusiast**, not as a generic web app.
 | **Working repo** | `C:\Users\natha\Desktop\Software\Deckmatrix` |
 | **GitHub** | `https://github.com/nathangrooms/eoe-forge` (branch `main`) |
 | **Live site** | `https://deckmatrix.com` (apex only — `www.` does **not** resolve) |
-| **Hosting** | **Lovable** — *not* Vercel |
+| **Hosting** | **Vercel** (moved 29 Aug 2026, was Lovable) |
 | **Supabase project** | `MTG` — ref `udnaflcohfyljrsgqggy`, region `eu-west-2`, Postgres 17 |
 
 ### Dead ends — ignore these, they are NOT the project
@@ -55,6 +55,34 @@ main chunk is 2.7 MB (needs code-splitting), and `client.ts` is both statically 
 ---
 
 ## 4. Deployment flow
+
+> **MOVED TO VERCEL, 29 Aug 2026.** The owner: *"I have also just moved to vercel
+> instead of lovable"*. Everything below about Lovable is history, kept because
+> the repo still carries Lovable-authored commits and the reasoning explains
+> them. `vercel.json` is in the repo: build `npm run build`, output `dist`, and
+> one rewrite so a deep link reaches `index.html`.
+>
+> **A single page app on a static host needs that rewrite or every shared link
+> 404s.** `/deck/8f2c` is a request for a file that does not exist, and the
+> failure is invisible from inside the app because clicking through from the
+> homepage never asks the server for it. `scripts/vercel-routes-check.mjs`
+> asserts both directions, real routes rewriting and assets not, because a rule
+> that swallows `/assets/index-abc.js` serves HTML where JavaScript was asked
+> for and the app fails to boot with no useful error.
+>
+> **No environment variables are needed.** The Supabase URL and publishable key
+> are hardcoded in `src/integrations/supabase/client.ts` on purpose: reading
+> `import.meta.env.VITE_SUPABASE_URL` instead is how `/precons` broke, because
+> that variable was not set in the deployed build and the base collapsed to a
+> relative path.
+>
+> **The edge functions are a SEPARATE deploy and always were.** Moving the front
+> end does not move them:
+> `npx supabase functions deploy <name> --project-ref udnaflcohfyljrsgqggy`.
+> Two publishes, and forgetting the second is what left the generator serving
+> `6-grounded` for days. See section 10c.
+
+### How it worked under Lovable, kept for history
 
 **Lovable hosts the live site and syncs bidirectionally with GitHub.**
 

@@ -25,7 +25,7 @@ import { ManaCost } from '@/components/ui/mana-cost';
 import { CardImage } from '@/components/cards/CardImage';
 import { CardBack, CARD_RADIUS } from './CardBack';
 import { CARD_RATIO } from './Battlefield';
-import { counterBadge } from './cardMarks';
+import { counterBadge, statBadge } from './cardMarks';
 import {
   attachmentsOn,
   automationFor,
@@ -324,6 +324,7 @@ export const GameCardView = memo(function GameCardView({
      on a card that did not follow the card. `cardMarks.ts` has the measurement
      that says so. */
   const badge = counterBadge(renderedWidth);
+  const statMark = statBadge(renderedWidth);
 
   /*
    * The live board, published by `PlayTable`. Every question below about what
@@ -422,6 +423,15 @@ export const GameCardView = memo(function GameCardView({
    * falls back to the printed value, which is the right answer there.
    */
   const stats = gameState ? statLineIn(gameState, card) : statLine(card);
+
+  /* What the card is PRINTED as, kept beside what it currently IS.
+     ------------------------------------------------------------
+     A number that changed is only obviously a change if you saw the old one.
+     Holding both lets the badge below say "this is not what the card says",
+     which is the difference between a player noticing their counter did
+     something and wondering whether the click registered. */
+  const printedStats = statLine(card);
+  const statsModified = Boolean(stats && printedStats && stats !== printedStats);
 
   /*
    * WHICH CREATURE IS CARRYING THE SWORD.
@@ -758,6 +768,50 @@ export const GameCardView = memo(function GameCardView({
             strokeWidth={2.5}
           />
         </button>
+      )}
+
+      {/*
+        POWER AND TOUGHNESS, on the card, at a size a person reads across a
+        table.
+
+        It sits bottom right because that is the corner it occupies on every
+        printed Magic card, so a player already knows where to look. It draws
+        only on the battlefield: in a hand or a graveyard the card's own printed
+        box is the truth and a second copy over it is noise, and while a card is
+        face down there is nothing to tell.
+
+        `statsModified` inverts it when the live line differs from the printed
+        one. No hue is used for that, deliberately. The palette reserves colour
+        for Magic's own meaning and a buffed creature is not a colour, so the
+        difference is carried by fill and weight, which also survives being
+        looked at quickly and works for a colour blind player.
+      */}
+      {onBattlefield && !hidden && stats && (
+        <span
+          className={cn(
+            'pointer-events-none absolute z-10 flex items-center justify-center rounded-md font-bold tabular-nums shadow-md shadow-black/60',
+            statsModified
+              ? 'bg-foreground text-background ring-2 ring-background/70'
+              : 'bg-background/85 text-foreground backdrop-blur-sm'
+          )}
+          style={{
+            right: '4%',
+            bottom: '3%',
+            fontSize: statMark.font,
+            lineHeight: `${statMark.height}px`,
+            height: statMark.height,
+            minWidth: statMark.height,
+            paddingLeft: statMark.padX,
+            paddingRight: statMark.padX,
+          }}
+          title={
+            statsModified
+              ? `${stats}, printed ${printedStats}`
+              : `${stats}`
+          }
+        >
+          {stats}
+        </span>
       )}
 
       {(counters.length > 0 || damage > 0) && (

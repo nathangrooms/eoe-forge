@@ -71,3 +71,44 @@ export function counterBadge(cardWidth: number): CounterBadge {
     padX: Math.max(2, Math.round(font * 0.42)),
   };
 }
+
+/**
+ * How big the power and toughness badge is on a card of `cardWidth`.
+ *
+ * Owner: *"when I give it more power or toughness or change them, its not
+ * clear on the board or that screen"*, and separately that the stats *"should
+ * be large for their power, toughness"*.
+ *
+ * They were not unclear. They were ABSENT. `GameCardView` computed the live
+ * stat line with `statLineIn` and drew it in exactly two places: the
+ * typographic fallback face, which only appears when a card has no art, and a
+ * 9px chip that appears only while the creature is attacking or blocking. A
+ * creature sitting on your battlefield with real art showed no power or
+ * toughness anywhere, so giving it a counter changed a number nobody could
+ * see.
+ *
+ * Bigger than a counter on purpose, and this is the whole reasoning: a counter
+ * says what CHANGED, and power and toughness say what the card IS. In combat
+ * the second question is asked far more often, and it is asked in a hurry. So
+ * the share is 0.20 against the counter's 0.16, which at the two sizes
+ * `cardMarks.test.ts` pins gives 14px digits on the 72px card and 21px on the
+ * 105px card, against 12px and 17px for a counter.
+ *
+ * The maximum is deliberately higher than the counter maximum too. A counter
+ * on a 200px card would become a caption; a power box on a 200px card is the
+ * size it is on the printed card in your hand, which is the thing this is
+ * imitating.
+ */
+export const STAT_FONT_MIN = 9;
+export const STAT_FONT_MAX = 26;
+export const STAT_FONT_SHARE = 0.2;
+
+export function statBadge(cardWidth: number): CounterBadge {
+  const raw = Math.round(Math.max(1, cardWidth) * STAT_FONT_SHARE);
+  const font = Math.min(STAT_FONT_MAX, Math.max(STAT_FONT_MIN, raw));
+  return {
+    font,
+    height: Math.round(font * 1.45),
+    padX: Math.max(3, Math.round(font * 0.38)),
+  };
+}

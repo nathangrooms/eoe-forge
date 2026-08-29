@@ -307,18 +307,29 @@ function upgradesAreWorkedOutElsewhere(routing: Routing): Answered {
  */
 export function nothingToAnswerWith(have: { card: boolean; deck: boolean }): string {
   const lines = [
-    'I cannot answer that one. Rather than guess, here is what I can settle right now, straight out of the catalogue.',
+    /* WRITTEN AS A LIST BECAUSE IT IS A LIST.
+       Owner: "Tutor responses are very poorly formatted". This was five long
+       sentences run together into three paragraphs, and what it is actually
+       saying is "here are the three things I can do". Tutor.tsx renders every
+       answer through ReactMarkdown with prose spacing already configured, so
+       the structure was available the whole time and this was not using it.
+
+       A player who has just been told no is reading to find their next move.
+       Three bullets they can scan beats a paragraph they have to parse. */
+    'I cannot answer that one, and I would rather say so than guess.',
     '',
-    'Pick a card at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.',
-    'Ask for the most played cards doing a job and I will list them. Try "best three mana counterspells" or "best removal in black".',
+    'Here is what I can settle right now, straight from the catalogue:',
+    '',
+    '- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.',
+    '- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.',
   ];
   if (have.deck) {
-    lines.push('With this deck attached I can go through its lands, say which slots are weak and what to play instead.');
+    lines.push('- **Ask about your lands** and I will go through this deck one slot at a time, say which are weak and what to play instead.');
   } else {
-    lines.push('Attach a deck and I can go through its lands and say which slots are weak.');
+    lines.push('- **Attach a deck** and I will go through its lands and say which slots are weak.');
   }
   lines.push('');
-  lines.push('What I do not hold is a rules reference, anything about what is winning at the moment, and any opinion about whether a card is good. I would rather say that than make it up.');
+  lines.push('What I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.');
   return lines.join('\n');
 }
 

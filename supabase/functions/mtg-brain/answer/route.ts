@@ -290,6 +290,11 @@ export const ASKS: Ask[] = [
       'upgrade', 'upgrades', 'what should i cut', 'what to cut', 'cutting from my deck',
       'consider cutting', 'weakest cards', 'improve my deck', 'make my deck better',
       'best cards for my deck', 'what should i add',
+      /* The owner asked "What card should I replace for more ramp" and got the
+         generic refusal. Every cue above is a way of saying this and none of
+         them is the way they said it. A player swapping a card says replace or
+         swap at least as often as cut. */
+      'replace', 'replacement', 'swap', 'swap out', 'take out', 'room for',
     ],
   },
   {
@@ -298,6 +303,12 @@ export const ASKS: Ask[] = [
     subjects: ['deck', 'catalogue'],
     cues: [
       'best', 'good', 'top', 'show me', 'give me', 'recommend', 'suggest some', 'what are some',
+      /* Asking for MORE of a job is the same question as asking which ones are
+         good at it, and it is how a player phrases it while looking at their
+         own list. Safe to add loosely because `needs` below still requires the
+         question to name a job we can actually list, so a bare "more" routes
+         nowhere. */
+      'more', 'need more', 'not enough', 'short on', 'light on', 'thin on',
     ],
     needs: {
       said: 'the question has to name a job we can list, like counterspells or ramp',

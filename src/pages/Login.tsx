@@ -140,15 +140,34 @@ export default function Login() {
           )}
         </Button>
 
-        <p className="text-center text-sm text-muted-foreground">
-          Don't have an account?{' '}
-          <Link
-            to={registerHref}
-            className="font-medium text-foreground underline-offset-4 hover:underline"
-          >
-            Create one
-          </Link>
-        </p>
+        {/* A GATED LINK IS USUALLY SOMEBODY'S FIRST VISIT, NOT A RETURN.
+            Every route behind an account lands here, which means everyone who
+            followed a shared deck, a table invitation or a link from the
+            homepage arrives on a page whose heading, whose button and whose
+            title all say "Sign in", with "Create one" as a small grey line at
+            the bottom. Those people do not have an account by definition. When
+            they were sent here from somewhere else, creating one gets equal
+            billing. */}
+        {redirected ? (
+          <div className="space-y-3 pt-1">
+            <p className="text-center text-sm text-muted-foreground">
+              New here? It takes a moment and it is free while we are in early access.
+            </p>
+            <Button type="button" variant="secondary" className="w-full" asChild>
+              <Link to={registerHref}>Create an account</Link>
+            </Button>
+          </div>
+        ) : (
+          <p className="text-center text-sm text-muted-foreground">
+            Don't have an account?{' '}
+            <Link
+              to={registerHref}
+              className="font-medium text-foreground underline-offset-4 hover:underline"
+            >
+              Create one
+            </Link>
+          </p>
+        )}
       </form>
     </AuthLayout>
   );

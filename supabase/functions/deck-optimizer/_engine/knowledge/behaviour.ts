@@ -432,6 +432,226 @@ export interface CommanderPlan {
  * commanders with no other record, and neither says the deck should be built
  * around the commander connecting, so neither is here.
  */
+/* ------------------------------------------------------------------ *
+ * THE SECOND READER: what deck does this card want?
+ * ------------------------------------------------------------------ *
+ *
+ * Measured over the 400 most-built commanders on 2026-08-30, 67 of them (17%)
+ * produce no wants at all, so `commanderFit` contributes exactly zero to every
+ * candidate and the deck is built on roles and popularity alone. That is the
+ * owner's "random high edh cards" and the friend's "barely synergises with the
+ * commander", and the names in that 17% are not obscure:
+ *
+ *   Azusa, Lost but Seeking    Muldrotha, the Gravetide   Teysa Karlov
+ *   Torbran, Thane of Red Fell Etali, Primal Storm        Veyran, Voice of Duality
+ *   Karlach, Fury of Avernus   Braids, Arisen Nightmare   Goreclaw
+ *
+ * Every one of those has a build direction any player would state in one
+ * sentence. The engine had nothing, because the ability DSL could not express
+ * the card and a plan is derived from compiled facets alone.
+ *
+ * WHY A SEPARATE READER RATHER THAN MORE DSL. The DSL drives gameplay
+ * resolution, so it has to be exact: a card that resolves and does the wrong
+ * thing is worse than one that needs a human. A deck-building want has a much
+ * lower bar. It only has to point the ranker somewhere better than nowhere,
+ * and being roughly right about Muldrotha wanting a graveyard beats being
+ * silent about Muldrotha. Holding the two apart keeps that difference honest:
+ * nothing here ever becomes an `Ability`, is never consulted during a game,
+ * and can never make a card resolve.
+ *
+ * WHY IT ONLY FIRES ON SILENCE. Same reasoning as the combat-keyword fallback
+ * below. These patterns read English rather than a parsed record, so they must
+ * never talk over a commander whose abilities we actually compiled. Running
+ * them only when nothing else fired makes that structural instead of a matter
+ * of weights.
+ *
+ * ADDING A RULE. It has to be readable off the card's own text by a player,
+ * the pattern has to be specific enough that a false match is hard to
+ * construct, and the wants have to name facets that exist. `because` is a
+ * fixed sentence per rule, in the same voice as `describeFacet`, never
+ * assembled free text.
+ */
+interface IntentRule {
+  /** What the card says, matched against its oracle text. */
+  when: RegExp;
+  /** Said the way a player would say it, to complete "…, so the deck wants". */
+  reads: string;
+  /** Facets that satisfy it, and how strongly. Below a compiled record's. */
+  wants: readonly (readonly [Facet, number])[];
+}
+
+const INTENT_RULES: readonly IntentRule[] = [
+  {
+    // Azusa, Loot, Exploration. Extra land drops are only worth having if there
+    // are extra lands to drop and something that reads them.
+    when: /play (an additional land|two additional lands|\w+ additional lands)/i,
+    reads: 'plays extra lands each turn',
+    wants: [
+      ['cares:zone:library-land', 0.85],
+      ['eff:search-library', 0.7],
+      ['cares:zone:library', 0.45],
+    ],
+  },
+  {
+    // Teysa Karlov, and every aristocrats commander whose text the DSL cannot
+    // hold. A death trigger is worth nothing without creatures to die and a way
+    // to make them die on demand.
+    when: /(if a creature dying causes|whenever (a|another) creature (you control )?dies|creature you control dies)/i,
+    reads: 'is paid when your creatures die',
+    wants: [
+      ['trig:dies', 0.85],
+      ['eff:sacrifice', 0.8],
+      ['eff:create-token', 0.7],
+      ['eff:lose-life', 0.4],
+    ],
+  },
+  {
+    // Muldrotha, and anything that casts out of the yard. The graveyard has to
+    // be filled before it can be a second hand.
+    when: /(cast|play) .{0,60}from your graveyard/i,
+    reads: 'casts spells out of your graveyard',
+    wants: [
+      ['cares:zone:graveyard', 0.85],
+      ['eff:mill', 0.75],
+      ['eff:return-from', 0.65],
+      ['eff:discard', 0.5],
+    ],
+  },
+  {
+    // Veyran, and magecraft generally.
+    when: /(magecraft|whenever you cast (or copy )?an instant or sorcery)/i,
+    reads: 'triggers on your instants and sorceries',
+    wants: [
+      ['cares:type:instant', 0.85],
+      ['cares:type:sorcery', 0.85],
+      ['type:instant', 0.6],
+      ['type:sorcery', 0.6],
+    ],
+  },
+  {
+    // Karlach, and extra-combat commanders. More combats want more attackers
+    // that can attack the turn they land.
+    when: /(additional combat phase|extra combat|untap all attacking creatures)/i,
+    reads: 'takes extra combats',
+    wants: [
+      ['trig:attacks', 0.8],
+      ['kw:haste', 0.7],
+      ['eff:pump', 0.55],
+      ['sub:equipment', 0.4],
+    ],
+  },
+  {
+    // Etali, Neheb, and the large family whose only ability is an attack
+    // trigger. Getting it to attack, repeatedly and safely, IS the deck.
+    when: /whenever [^.]{0,40}attacks/i,
+    reads: 'is paid every time it attacks',
+    wants: [
+      ['trig:attacks', 0.75],
+      ['kw:haste', 0.6],
+      ['sub:equipment', 0.55],
+      ['eff:pump', 0.5],
+      ['eff:untap', 0.4],
+    ],
+  },
+  {
+    // Torbran. A damage amplifier wants many small damage sources, not one big
+    // one, which is the opposite of what popularity alone would pick.
+    when: /(would deal damage[^.]{0,80}instead|deals? that much damage plus)/i,
+    reads: 'increases the damage your red sources deal',
+    wants: [
+      ['eff:damage', 0.85],
+      ['type:instant', 0.5],
+      ['type:sorcery', 0.5],
+    ],
+  },
+  {
+    // Goreclaw and the cost-reducers. The reduction is only worth a card slot
+    // if the deck is full of the thing being reduced.
+    when: /(creature spells you cast|creature spells) [^.]{0,40}cost [^.]{0,20}less to cast/i,
+    reads: 'makes your creature spells cheaper',
+    wants: [
+      ['type:creature', 0.8],
+      ['cares:type:creature', 0.5],
+    ],
+  },
+  {
+    // Kodama of the West Tree, Rishkar, and "modified" generally.
+    when: /(modified creature|counters? on it|put a \+1\/\+1 counter)/i,
+    reads: 'works with counters on your creatures',
+    wants: [
+      ['ctr:+1/+1', 0.8],
+      ['eff:add-counters', 0.75],
+      ['eff:proliferate', 0.6],
+      ['sub:equipment', 0.45],
+      ['sub:aura', 0.4],
+    ],
+  },
+  {
+    // Jaheira, Delney, and anything that improves tokens it does not make.
+    when: /(tokens you control|creature tokens you control)/i,
+    reads: 'improves the tokens you control',
+    wants: [
+      ['eff:create-token', 0.85],
+      ['trig:enters', 0.4],
+    ],
+  },
+  {
+    // Braids. A repeatable "you may sacrifice" is a sacrifice deck asking for
+    // things that are worth sacrificing.
+    when: /you may sacrifice an?\b/i,
+    reads: 'asks you to sacrifice your own permanents',
+    wants: [
+      ['eff:sacrifice', 0.8],
+      ['trig:dies', 0.7],
+      ['eff:create-token', 0.6],
+    ],
+  },
+  {
+    // Kodama of the East Tree, and the permanents-matter family. A trigger on
+    // "another permanent you control enters" wants cheap permanents and things
+    // that put more than one out at a time.
+    when: /whenever (another |a )?(nontoken )?permanent you control enters/i,
+    reads: 'triggers whenever your other permanents arrive',
+    wants: [
+      ['trig:enters', 0.8],
+      ['eff:create-token', 0.6],
+      ['eff:add-mana', 0.4],
+    ],
+  },
+  {
+    // Kediss, and commander-damage commanders generally. The deck is about the
+    // commander connecting, so it wants the same things Voltron wants.
+    when: /commander you control deals combat damage/i,
+    reads: 'is paid when your commander connects',
+    wants: [
+      ['sub:equipment', 0.8],
+      ['kw:haste', 0.65],
+      ['eff:pump', 0.6],
+      ['sub:aura', 0.5],
+    ],
+  },
+  {
+    // Delney, and the small-creatures family. A commander that rewards low
+    // power wants a wide board of cheap bodies, not expensive ones.
+    when: /power \d+ or less/i,
+    reads: 'rewards your small creatures',
+    wants: [
+      ['eff:create-token', 0.8],
+      ['type:creature', 0.55],
+      ['trig:enters', 0.5],
+    ],
+  },
+  {
+    // Commanders that count what you control. Wide boards, not a single threat.
+    when: /(for each creature you control|number of creatures you control)/i,
+    reads: 'counts how many creatures you control',
+    wants: [
+      ['eff:create-token', 0.8],
+      ['type:creature', 0.55],
+    ],
+  },
+];
+
 const COMBAT_KEYWORDS: readonly string[] = [
   'flying', 'trample', 'menace', 'deathtouch', 'lifelink', 'vigilance',
   'first strike', 'double strike', 'indestructible', 'haste', 'ward',
@@ -444,6 +664,14 @@ function joinKeywords(words: readonly string[]): string {
   if (words.length <= 1) return words[0] ?? '';
   return `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`;
 }
+
+/**
+ * What "makes a token" is worth once we know WHICH token the commander counts.
+ *
+ * Low enough to sit below every real want and above nothing, because a token
+ * deck does still want extra bodies. See the note where it is applied.
+ */
+const GENERIC_TOKEN_WHEN_SPECIFIC = 0.3;
 
 const PLAN_RULES: readonly {
   when: Facet;
@@ -596,6 +824,15 @@ export function planForCommander(commander: {
   typeLine?: string | null;
   facets?: readonly Facet[] | null;
   tags?: readonly string[] | null;
+  /**
+   * The commander's own rules text, for {@link INTENT_RULES}.
+   *
+   * Optional, and every caller should pass it. Without it a commander the
+   * ability compiler cannot parse gets no plan at all, which was 17% of the
+   * 400 most-built commanders. It is read ONLY when the facet rules produced
+   * nothing, and never to decide what a card does in a game.
+   */
+  oracleText?: string | null;
 }): CommanderPlan {
   const facets = facetsOf(commander);
   const wants = new Map<Facet, Want>();
@@ -688,6 +925,19 @@ export function planForCommander(commander: {
 
      Weights sit below a real record's. This is an inference from silence, and
      it should lose to anything the card actually said. */
+  /* THE SECOND READER, on silence only. See INTENT_RULES above. It sits ahead
+     of the combat fallback because "this card says it is paid when creatures
+     die" is a more specific claim than "this card has flying and nothing we
+     could read", and the more specific reading should win. */
+  if (!wants.size && commander.oracleText) {
+    const text = commander.oracleText;
+    for (const rule of INTENT_RULES) {
+      if (!rule.when.test(text)) continue;
+      const because = `${commander.name} ${rule.reads}`;
+      for (const [facet, weight] of rule.wants) add(facet, weight, because);
+    }
+  }
+
   if (!wants.size) {
     const combat = COMBAT_KEYWORDS.filter(k => facets.includes(`kw:${k}`));
     if (combat.length) {
@@ -730,6 +980,42 @@ export function planForCommander(commander: {
         0.4,
         `${commander.name} names creatures and we can read nothing more specific`
       );
+    }
+  }
+
+  /* A TOKEN IS NOT A TOKEN. THE SUBTYPE IS THE WHOLE POINT.
+     -------------------------------------------------------
+     Krenko's plan wanted `tok:goblin` at 1.0 and `eff:create-token` at 0.9,
+     and the second one matches EVERY card in Magic that makes a Treasure, a
+     Clue, a Food or a Blood. There are hundreds of those and a few dozen
+     Goblin makers, so the generic want drowned the specific one: a generated
+     Krenko deck came back with twenty-five Treasure cards in it, including
+     Gold Pan at rank 10,212, while Sol Ring at rank 1 did not make the deck.
+
+     A Commander player reads that instantly and it is what "the cards do not
+     complement the commander" means. Krenko does not care that you made a
+     Treasure. He counts Goblins.
+
+     So when the plan names a SPECIFIC token, the generic want is demoted to a
+     tie-break rather than removed. It is not worthless: a token deck really
+     does want extra bodies, and a card that makes both a Goblin and something
+     else should still score. It just must not beat the thing the commander
+     actually counts, and at 0.9 against 1.0 it effectively did.
+
+     Only fires when a specific token want exists. Talrand wants `tok:drake`
+     and generic token makers are genuinely near-equivalent for him, so the
+     same demotion applies and is still right: a Drake deck wants Drakes. A
+     commander with no token subtype at all, whose plan says only
+     `eff:create-token`, is untouched. */
+  const specificToken = [...wants.keys()].some(f => f.startsWith('tok:'));
+  if (specificToken) {
+    const generic = wants.get('eff:create-token');
+    if (generic && generic.weight > GENERIC_TOKEN_WHEN_SPECIFIC) {
+      wants.set('eff:create-token', {
+        ...generic,
+        weight: GENERIC_TOKEN_WHEN_SPECIFIC,
+        because: `${commander.name} counts a particular token, so making any token is only a tie-break`,
+      });
     }
   }
 

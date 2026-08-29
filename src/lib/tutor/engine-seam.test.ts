@@ -185,18 +185,48 @@ describe('the asks the request body can now answer', () => {
     assert.deepEqual(stray, [], stray.join(', '));
   });
 
-  it('no phrase belongs to two asks', () => {
+  /**
+   * A phrase on two asks is decided by table order, and table order is not
+   * something a reader of one entry can see. So a shared phrase has to be
+   * declared, and the declaration has to say what makes the two unambiguous.
+   *
+   * TWO ARE DECLARED, both between `keyword` and `explain`, and what separates
+   * them is not order: `keyword` carries a `needs` gate that requires the
+   * question to actually name a keyword the catalogue prints a definition for.
+   * "Explain hexproof" passes it and "Explain Cyclonic Rift" does not, so the
+   * two asks never both want the same question. The assertion below checks that
+   * the gate is really there rather than taking the comment's word for it.
+   */
+  const SHARED_PHRASES = ['explain: keyword and explain', 'tell me about: keyword and explain'];
+
+  it('no phrase belongs to two asks, other than the declared pair', () => {
     const owner = new Map<string, string>();
     const clashes: string[] = [];
     for (const ask of ASKS) {
       for (const cue of ask.cues) {
         const key = normalise(cue).trim();
         const already = owner.get(key);
-        if (already && already !== ask.id) clashes.push(`"${cue}" is on ${already} and ${ask.id}`);
+        if (already && already !== ask.id) clashes.push(`${cue}: ${already} and ${ask.id}`);
         else owner.set(key, ask.id);
       }
     }
-    assert.deepEqual(clashes, [], clashes.join('\n'));
+    assert.deepEqual(
+      clashes.filter(c => !SHARED_PHRASES.includes(c)),
+      [],
+      clashes.join('\n')
+    );
+    assert.deepEqual(
+      clashes.filter(c => SHARED_PHRASES.includes(c)).sort(),
+      [...SHARED_PHRASES].sort(),
+      'a declared shared phrase disappeared, so the declaration describes nothing'
+    );
+  });
+
+  it('a shared phrase is only safe because one of the two asks is gated', () => {
+    const keyword = ASKS.find(a => a.id === 'keyword');
+    assert.ok(keyword?.needs, 'without the gate, "explain" on two asks IS ambiguous');
+    assert.equal(keyword!.needs!.met('Explain Cyclonic Rift in plain terms'), false);
+    assert.equal(keyword!.needs!.met('Explain hexproof'), true);
   });
 });
 

@@ -1,9 +1,14 @@
 // Advanced Land Base Calculator and Mana Base Optimization
 // Provides comprehensive mana base analysis and recommendations
 
-import { Card as BaseCard } from '@/types/collection';
-import { BASIC_COLORS } from './colors';
-import { ALL_FORMATS, Format } from './formats';
+/* Relative and type-only, so `landCount.test.ts` can run this file under
+   `node --test`, which does not resolve the `@/` alias. The land count is the
+   one thing on the deck page that disagreed with itself, so it has to be
+   testable. */
+import type { Card as BaseCard } from '../../types/collection.ts';
+import { BASIC_COLORS } from './colors.ts';
+import { ALL_FORMATS } from './formats.ts';
+import type { Format } from './formats.ts';
 
 // Extend the base Card type to include quantity for deck analysis
 interface Card extends BaseCard {
@@ -534,8 +539,31 @@ export class LandBaseCalculator {
   }
 
   // Helper methods
+  /**
+   * FRONT FACE ONLY, and `land` rather than `includes('land')`.
+   *
+   * Two bugs in one line. `includes('land')` matched the word anywhere in the
+   * type line, including AFTER the `//` of a modal double-faced card, so
+   * `Agadeem's Awakening // Agadeem, the Undercrypt` counted as a land. It is a
+   * black sorcery you cast off its front; the land is the other side.
+   *
+   * That single card is why the Mana tab said a deck had 33 lands while the
+   * power score, the type breakdown and the legality tab all said 32, on the
+   * same screen, under a heading claiming it used the same maths as the power
+   * score. Verified in SQL: `type_line ILIKE '%Land%'` returns 33 for that
+   * deck, front-face-only returns 32, and the extra row is that card.
+   *
+   * The word boundary matters separately: without it, a future type line
+   * containing "Landfall" or "Island" as a substring would match.
+   *
+   * This is deliberately the same rule as `isLandCard` in
+   * `src/engine/core/card.ts`, which is the one the power score uses. Two
+   * counters that disagree is the whole defect; if this ever has to change,
+   * change both.
+   */
   private static isLand(card: Card): boolean {
-    return card.type_line?.toLowerCase().includes('land') || false;
+    const front = (card.type_line ?? '').split('//')[0];
+    return /land/i.test(front);
   }
 
   private static getBasicLandName(color: string): string {

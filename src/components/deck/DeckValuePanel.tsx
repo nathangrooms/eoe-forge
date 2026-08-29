@@ -277,7 +277,13 @@ export function DeckValuePanel({
           caption says it is: move it down and see what has to go. */}
       <DeckBudgetTracker
         deckCards={analyticsCards}
-        targetBudget={Math.max(50, Math.min(5000, Math.round(summary.total)))}
+        /* CEIL, NOT ROUND. `Math.round` on a deck costing $362.02 gives a
+           budget of $362, so the panel opened by announcing "Over budget
+           −$0.02" against a figure nobody had chosen. Rounding down by a cent
+           is exactly the failure the comment above was written to prevent, in
+           miniature. Rounding up cannot produce it: a default budget is never
+           below what the deck already costs. */
+        targetBudget={Math.max(50, Math.min(5000, Math.ceil(summary.total)))}
         totalDrawnElsewhere
         rows={rows}
         onCardClick={onCardClick}

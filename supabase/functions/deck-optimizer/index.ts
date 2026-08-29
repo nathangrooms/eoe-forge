@@ -499,6 +499,7 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
         typeLine: commanderRow.type_line ?? null,
         facets: facetsForCard(commanderRow).facets,
         tags: commanderRow.tags ?? null,
+        oracleText: commanderRow.oracle_text ?? null,
       })
     : null;
 

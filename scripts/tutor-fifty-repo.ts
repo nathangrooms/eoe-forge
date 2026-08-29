@@ -211,7 +211,11 @@ if (before) {
         `  ${now.id}  ${then.ask ?? '-'}/${then.standing}  ->  ${now.ask ?? '-'}/${now.standing}   ${now.q}`
       );
     } else if (then.head !== now.head || then.chars !== now.chars) {
-      reworded.push(`  ${now.id}  ${then.chars} -> ${now.chars} chars   ${now.head || '(nothing)'}\n            now: ${now.head || '(nothing)'}`);
+      reworded.push(
+        `  ${now.id}  ${then.chars} -> ${now.chars} chars\n` +
+          `        was: ${then.head || '(nothing)'}\n` +
+          `        now: ${now.head || '(nothing)'}`
+      );
     }
   }
   console.log(`\n--- against ${before.slice('--diff='.length)}: ${moved.length} question(s) moved ---`);

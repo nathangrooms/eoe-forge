@@ -480,6 +480,15 @@ export const TAG_RULES: TagRule[] = [
     note: 'Grants protection. A creature that merely HAS hexproof is not a protection spell.',
     when: any(
       t('gains? (hexproof|indestructible|shroud|protection from|ward)'),
+      /* An Equipment or Aura that hands the keyword to whatever it is on IS a
+         protection card, and the note above is about the other case: a creature
+         born with hexproof is not protecting anything but itself. Missing this
+         left Lightning Greaves and Swiftfoot Boots, EDHREC rank 13 and 12, with
+         no role at all, so the two most-played protection cards in Commander
+         were invisible to every role quota in the builder. "Equipped creature"
+         and "enchanted creature" appear only on cards that attach to something
+         else, so the reading cannot widen past that. */
+      t('(equipped|enchanted) creature (has|gains|gets) [^\\n]{0,40}(hexproof|indestructible|shroud|protection from|ward)'),
       t('(creatures|permanents|artifacts|enchantments) you control (have|gain) (hexproof|indestructible|shroud|protection from|ward)'),
       t('you have hexproof'),
       t('have (hexproof|indestructible|shroud) until end of turn'),

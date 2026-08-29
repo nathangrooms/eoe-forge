@@ -334,16 +334,23 @@ export function DiscussionZone({
 
           <div className="flex items-center gap-3">
             {/* The channel's real state, said plainly. A board that has stopped
-                hearing about replies looks exactly like a quiet one. */}
-            <span className="text-xs text-muted-foreground">
-              {!signedIn
-                ? 'Sign in to see it update as it happens'
-                : board.live === 'live'
+                hearing about replies looks exactly like a quiet one.
+
+                SIGNED OUT IT SAYS NOTHING. The room chat above already carries
+                "Sign in to see it update as it happens", and printing the same
+                sentence twice on one screen, once beside a feed and once beside
+                a different feed, is noise rather than information. Once signed
+                in the two panels genuinely can be in different states, so both
+                report. */}
+            {signedIn && (
+              <span className="text-xs text-muted-foreground">
+                {board.live === 'live'
                   ? 'Updating as it happens'
                   : board.live === 'connecting'
                     ? 'Connecting'
                     : 'Reconnecting'}
-            </span>
+              </span>
+            )}
 
             <Button onClick={() => setWriting(true)} disabled={!signedIn || blocked}>
               <MessageSquarePlus className="mr-2 h-4 w-4" aria-hidden="true" />

@@ -7,6 +7,9 @@ import { MetricRow } from '@/components/listing';
 import type { DeckCardRow } from '@/lib/deck/deckCards';
 import type { DeckPower, PowerDeckEntry } from '@/lib/deck/power';
 import { DeckCardTile } from '@/components/deck/DeckCardTile';
+/* The counting lives in a .ts file so it can be run by `node --test`, which
+   cannot strip .tsx. See landStats.ts. */
+import { analyseLands, type LandStats } from './landStats.ts';
 
 /**
  * The lands themselves.
@@ -86,53 +89,6 @@ const COLOR_NAME: Record<string, string> = {
   R: 'Red',
   G: 'Green',
 };
-
-interface LandStats {
-  landCount: number;
-  totalCards: number;
-  tappedLands: Array<{ name: string; quantity: number }>;
-  pipsByColor: Record<string, number>;
-}
-
-function analyseLands(entries: PowerDeckEntry[], identity: string[]): LandStats {
-  const pipsByColor: Record<string, number> = {};
-  const tapped: Array<{ name: string; quantity: number }> = [];
-
-  let landCount = 0;
-  let totalCards = 0;
-
-  for (const color of identity) pipsByColor[color] = 0;
-
-  for (const entry of entries) {
-    const qty = Math.max(1, entry.quantity);
-    totalCards += qty;
-
-    const type = (entry.card.type_line || '').toLowerCase();
-    const text = (entry.card.oracle_text || '').toLowerCase();
-    const name = entry.card.name;
-
-    // Coloured pips in the mana costs the manabase has to support.
-    const cost = entry.card.mana_cost || '';
-    for (const color of identity) {
-      const pips = (cost.match(new RegExp(`\\{${color}\\}`, 'g')) || []).length;
-      if (pips > 0) pipsByColor[color] = (pipsByColor[color] ?? 0) + pips * qty;
-    }
-
-    if (!type.includes('land')) continue;
-    landCount += qty;
-
-    if (text.includes('enters the battlefield tapped') || text.includes('enters tapped')) {
-      tapped.push({ name, quantity: qty });
-    }
-  }
-
-  return {
-    landCount,
-    totalCards,
-    tappedLands: tapped.sort((a, b) => b.quantity - a.quantity),
-    pipsByColor,
-  };
-}
 
 export function LandEnhancerUX({
   entries,

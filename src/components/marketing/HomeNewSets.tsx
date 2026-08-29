@@ -5,6 +5,7 @@ import { ArrowRight } from 'lucide-react';
 import { ColorIdentity } from '@/components/ui/mana-cost';
 import { CardImage, CardImageSkeleton } from '@/components/cards/CardImage';
 import { cardDetailPath } from '@/components/cards/card-link';
+import { SearchHereButton } from '@/components/marketing/SearchHereButton';
 import { newSetCommanders, newSetTiles } from '@/lib/homepage/snapshot';
 import { MobileReveal, Section, SectionHeading } from '@/components/marketing/Section';
 import { cn } from '@/lib/utils';
@@ -218,12 +219,7 @@ export function HomeNewSets() {
       </MobileReveal>
 
       <div className="mt-9 text-center sm:mt-12">
-        <Button asChild size="lg" variant="outline">
-          <Link to="/cards">
-            Browse every card
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Link>
-        </Button>
+        <SearchHereButton>Search every card</SearchHereButton>
       </div>
     </Section>
   );

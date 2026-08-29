@@ -275,8 +275,16 @@ function LoginRedirect() {
   const location = useLocation();
   const here = `${location.pathname}${location.search}${location.hash}`;
   const next = returnPathFrom(here);
-  const to = next === '/dashboard' ? '/login' : `/login?next=${encodeURIComponent(next)}`;
-  return <Navigate to={to} replace />;
+  /*
+   * `/dashboard` used to be the one gated route that dropped `next`, on the
+   * grounds that it is where sign-in lands anyway. The side effect was that it
+   * was also the one gated route with NO EXPLANATION: `Login` shows "That page
+   * needs an account. Sign in and we will take you straight there." only when a
+   * `next` is present, so somebody following a dashboard link got a bare sign-in
+   * form and no reason. The redundant parameter costs nothing; the missing
+   * sentence cost the only bit of context on the screen.
+   */
+  return <Navigate to={`/login?next=${encodeURIComponent(next)}`} replace />;
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {

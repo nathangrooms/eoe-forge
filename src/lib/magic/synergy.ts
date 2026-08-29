@@ -1,8 +1,10 @@
 // Advanced Synergy Detection and Archetype Analysis
 // Analyzes card interactions and suggests archetypes based on Magic mechanics
 
-import { Card as BaseCard } from '@/types/collection';
-import { CARD_TYPES } from './types';
+/* Relative and type-only so `synergyAdvice.test.ts` can run this under
+   `node --test`, which does not resolve the `@/` alias. */
+import type { Card as BaseCard } from '../../types/collection.ts';
+import { CARD_TYPES } from './types.ts';
 
 // Extend the base Card type to include quantity for deck analysis
 interface Card extends BaseCard {
@@ -46,6 +48,16 @@ export interface SynergyAnalysis {
     potential: number; // how well supported this mechanic could be
   }>;
 }
+
+/**
+ * Card type names, lower-cased.
+ *
+ * The mechanic extractor records a card's TYPE as a mechanic alongside real
+ * ones like proliferate and affinity. That is useful for scoring and useless as
+ * evidence of intent: every Commander deck holds artifacts and creatures. So a
+ * type never counts towards deciding that a deck is trying to be an archetype.
+ */
+const BARE_CARD_TYPES = new Set(CARD_TYPES.map(t => t.toLowerCase()));
 
 export class SynergyEngine {
   // Magic mechanic synergies - which mechanics work well together
@@ -410,14 +422,25 @@ export class SynergyEngine {
       const keyCards: string[] = [];
       const missingCards: string[] = [];
       
-      // Check mechanic alignment
+      /*
+       * Check mechanic alignment.
+       *
+       * `mechanicHits` counts only mechanics that are NOT a bare card type,
+       * because holding artifacts is not the same as caring about artifacts.
+       * The "Artifacts" archetype lists `artifact` beside `affinity` and
+       * `metalcraft`, and the mechanic extractor counts the card type itself,
+       * so six mana rocks in a counters deck scored as an artifact deck. Six
+       * mana rocks is what every Commander deck has.
+       */
+      let mechanicHits = 0;
       const mechanicAlignment = archetype.keyMechanics.reduce((score, mechanic) => {
         const mechanicCount = mechanics[mechanic] || 0;
         if (mechanicCount > 0) {
+          if (!BARE_CARD_TYPES.has(mechanic)) mechanicHits += 1;
           keyCards.push(`${mechanicCount} cards with ${mechanic}`);
           return score + Math.min(20, mechanicCount * 2);
         } else {
-          missingCards.push(`Cards with ${mechanic}`);
+          missingCards.push(mechanic);
           return score;
         }
       }, 0);
@@ -461,6 +484,24 @@ export class SynergyEngine {
       // Cap confidence at 100
       confidence = Math.min(100, confidence);
       
+      /*
+       * AN ARCHETYPE THE DECK SHARES NO REAL MECHANIC WITH IS NOT A MATCH.
+       *
+       * Card type distribution and average mana value alone were enough to
+       * clear the bar, and they describe almost every Commander deck: the
+       * "Artifacts" archetype asks for Artifact and Creature cards at a mana
+       * value between 0 and 6. So a four colour proliferate deck holding six
+       * artifacts and none of affinity, metalcraft or improvise was labelled
+       * Artifacts and then advised, under a heading reading "Derived from the
+       * mechanics above rather than guessed", to add three mechanics it had
+       * none of.
+       *
+       * Type and curve are weak evidence about intent. At least one of the
+       * archetype's own key mechanics has to actually be in the deck before
+       * the deck can be said to be trying to be that archetype.
+       */
+      if (mechanicHits === 0) return;
+
       if (confidence > 10) { // Only include viable matches
         matches.push({
           name: archetypeName,
@@ -500,10 +541,17 @@ export class SynergyEngine {
     if (topArchetype && topArchetype.confidence > 30) {
       // Suggest adding missing key components
       if (topArchetype.missingCards.length > 0) {
+        /* `missingCards` holds MECHANIC names, and the panel that draws this
+           prints the `cards` list under the reason as though they were cards.
+           So the screen read "Strengthen Artifacts strategy · cards with
+           affinity · cards with metalcraft", which names no card and asks for
+           nothing anybody can go and find. Say what they are. */
         suggestions.push({
           type: 'add',
-          cards: topArchetype.missingCards.slice(0, 3),
-          reason: `Strengthen ${topArchetype.name} strategy`,
+          cards: topArchetype.missingCards
+            .slice(0, 3)
+            .map(mechanic => `nothing in the deck uses ${mechanic}`),
+          reason: `This looks like an ${topArchetype.name} deck missing some of its pieces`,
           priority: 8
         });
       }
@@ -531,10 +579,15 @@ export class SynergyEngine {
       .map(([mechanic]) => mechanic);
     
     if (weakMechanics.length > 0) {
+      /* Same category error: these are mechanics, and the panel prints them
+         where a reader expects card names. "Remove inconsistent one-offs ·
+         first strike · heal" tells somebody to remove a keyword. */
       suggestions.push({
         type: 'remove',
-        cards: weakMechanics.slice(0, 2),
-        reason: 'Remove inconsistent one-offs for better focus',
+        cards: weakMechanics
+          .slice(0, 2)
+          .map(mechanic => `only one card uses ${mechanic}`),
+        reason: 'A mechanic that appears once rarely earns its slot',
         priority: 5
       });
     }

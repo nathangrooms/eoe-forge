@@ -1047,6 +1047,46 @@ and the most expensive kind to maintain on write, plus `idx_cards_legalities`
 near-duplicate index sets over the same data. One of them can probably lose most
 of its indexes once usage stats exist to prove which.
 
+## The generated tagger and the deployed tagger have diverged (30 Aug 2026)
+
+`scripts/generate-tagger-sql.ts` is meant to be the only source of truth for
+card tagging, so the SQL classifier and the TypeScript one cannot drift. On the
+`derive_card_tags` body that holds: the deployed function and a fresh
+generation differ by three characters and five line breaks, the 109 tag names
+are identical, and nothing is gained or lost. That part is formatting.
+
+**`cards_apply_role_tags` is a different story and it is load-bearing.** The
+deployed trigger carries two things the generator has never emitted:
+
+```sql
+elsif new.tags is distinct from old.tags
+      and coalesce(current_setting('deckmatrix.retag', true), '') <> 'on'
+then new.tags := old.tags;   -- silently revert
+```
+
+and it calls **`derive_card_tags_memo`**, which reads `public.card_tag_memo`
+keyed on `card_tag_input_hash(...)`, not `derive_card_tags`.
+
+Two consequences, both of which cost time on 30 Aug:
+
+1. **A write to `cards.tags` that does not first
+   `set_config('deckmatrix.retag','on',true)` is reverted with no error.** The
+   first retag reported 369 rows updated and changed nothing.
+2. **Changing a rule does not invalidate the memo.** The hash is over the
+   classifier's INPUTS, which a rule change does not alter, so the cached answer
+   stays correct-looking and wrong. Delete the affected `card_tag_memo` rows.
+
+**So do not paste a freshly generated tagger migration over the top.** Every
+previous tagger migration did exactly that, and doing it now would delete the
+revert guard and the memo indirection. `20260830090000_protection_includes_
+keywords_an_equipment_grants.sql` patches the one substring it means to change
+and raises if the anchor is missing, for that reason. Reconcile the generator
+with the deployed trigger before regenerating wholesale.
+
+The general rule this is the third instance of: **read the deployed object, not
+the repo file, before believing you know what runs.** Sections 10b and 10c
+record the same trap on `mtg-brain` and `ai-deck-builder-v2`.
+
 ## Green tests do not mean a player can reach it
 
 The game engine is a rules library with 1,367 passing tests, and for months the

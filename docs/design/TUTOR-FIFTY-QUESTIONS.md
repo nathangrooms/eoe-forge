@@ -354,6 +354,35 @@ answer becomes a card page that reads as permission.
 
 ## 4. Twenty-eight routed nowhere. Which could we have answered?
 
+> **Worked through, 29 Aug 2026, and this section is the record of what was
+> true when it was measured rather than what is true now.** Re-run against the
+> repo's own answerer by `scripts/tutor-fifty-repo.ts`, which asks all fifty and
+> diffs itself against a saved run so a change that helps one question and
+> breaks another is visible instead of netted out.
+>
+> ```
+>                        before   after
+>   reached an ask         31      39
+>   answered (full/part)   22      30
+>   reached nothing        19      11
+>   copy rule faults        0       0
+> ```
+>
+> Eleven moved and none moved backwards: **q02 q06 q08 q11 q14 q15 q16 q33 q37
+> q42 q45**. q34 kept its route and changed its answer, from one card at $4.59
+> to eight under a dollar led by Feed the Swarm at rank 89.
+>
+> Still reaching nothing, and each is a separate piece of work: q03 q05 q07 q49
+> are the four this section already calls correct refusals; **q04 is not
+> recovered and the row below overstates it**, because the question never writes
+> the word haste and nothing in our data maps "tap for mana the same turn" onto
+> it; q23 q26 q27 q30 q35 q48 are untouched.
+>
+> The 21 count in the table below is measured against the fifty as they were
+> asked. The keyword work reaches far past them: **all 208 keywords carrying a
+> printed definition now answer, and 206 of the 208 were checked back against
+> the card they were read off** (`scripts/tutor-keyword-probe.ts --all`).
+
 This is the work queue and it is worth more than the score. "Held" below means
 the answer is a column, a row, the request body, or code in this repo, and every
 `yes` was measured today.
@@ -403,6 +432,19 @@ failures. Same outcome for the player: a stock paragraph on something we hold.
 | q49 | how much commander damage kills a player | **0** cards carry it |
 
 ### The single most important line in this section
+
+> **Narrowed, 29 Aug 2026.** The sentence now says the gap is the rules that are
+> not printed on a card, which is timing, the stack and priority, and it names
+> the keyword glossary as something we do hold. Two places said it and both were
+> changed: `NO_RULES_CORPUS` in `answer/voice.ts` and the stock paragraph in
+> `answer/index.ts`. The count in it is read off the generated list rather than
+> written into the sentence, so it cannot go stale.
+>
+> Re-measured with a stricter matcher than the one below, requiring the keyword
+> to OPEN a line with at most a cost before the bracket: **215 keywords carry a
+> definition, backed by 4,296 cards**, close to the 212 recorded here. The
+> generated list holds **208**, because it additionally requires the bracket to
+> close on the same line and the definition to be at least twelve characters.
 
 **"What I do not hold is a rules reference" is the load-bearing false claim.**
 It is printed at `answer/index.ts:332` on every one of the 28, and it is true
@@ -503,7 +545,9 @@ Path to Exile or Swords to Plowshares, which is better?
 In the second, `Path to Exile` is named first, is a real card, is second in the
 try list, and is never reached.
 
-**Cheapest fixes, in the order the measurements rank them:**
+**Cheapest fixes, in the order the measurements rank them.** Numbered 3 to 7 are
+done, 29 Aug 2026; 1 and 2 were already done by the pass before this one. What
+each one actually took is recorded under the item.
 
 1. **Only treat a longer phrase as evidence when that phrase itself resolves to a
    card.** One condition. It recovers q11, q17, q36, q40, q41, q42, q44 and every
@@ -516,16 +560,69 @@ try list, and is never reached.
 3. **Say when two cards resolve.** Either compare them or name which one is being
    answered about. Silently answering half of a comparison is the worst of the
    three options.
+
+   > **Done.** Candidates are still TRIED longest first, because a long phrase
+   > that resolves is better evidence than a short one inside it, and what comes
+   > back is now ordered by where each name sits in the question. A comparison
+   > gets both cards, everything we hold about each, the three differences that
+   > are facts (mana value, popularity, price) and `judgementGap` on which is
+   > better, because that is judgement and we do not hold it. A question naming
+   > two cards that is NOT a comparison says which one it answered about before
+   > it starts. The second lookup only runs on a comparison, so an ordinary
+   > question costs what it always did.
 4. Give `legality`, `price` and `combos` a `catalogue` subject so q45 ("what is
    banned in commander") and q37 ("best two card combos") have something to be
    about when no card is named.
+
+   > **Done, with two things worth knowing.** `legalities @> '{"commander":
+   > "banned"}'` uses the existing GIN index and takes 22.8 ms; the obvious
+   > `legalities->>'commander' = 'banned'` cannot use an index and sequential
+   > scanned all 33,032 rows at 2,738 ms against a 3 s limit, so the banned list
+   > would have failed whenever the cache was cold. And `price` got a catalogue
+   > subject that deliberately answers nothing: `prices` is jsonb, a database
+   > order on `prices->>'usd'` sorts 9.99 above 10,000, and there is no numeric
+   > price column, so "the most expensive cards" is refused rather than served
+   > out of a text sort.
 5. Read the deck already in the request body. `power_level`, `economy.priceUSD`
    and `legality.ok` were all sent and all refused.
+
+   > Done by the pass before this one. q25, q32 and q43 all answer.
 6. Apply the price filter in `best-of`, and stop reading the number in the budget
    phrase as the list length.
+
+   > **Done, and it was three bugs rather than two.** A number is not a count
+   > when a money word follows it, a limit word precedes it, or a dollar sign is
+   > written against it; and it is not a count in front of a singular noun,
+   > which is what made "the best **two card** infinite combos" print two.
+   > q34 now leads with Feed the Swarm `{1}{B}` `$0.16` rank 89, which is what
+   > section 6 says the right answer was. The budget page is 300 rows deep with
+   > the colour pushed into the query (255 ms), and the answer says how far it
+   > looked. A card with no dollar price is left out rather than counted as
+   > cheap.
 7. Add a `keywords` ask backed by the 212 reminder-text definitions, and narrow
    the "no rules reference" sentence to timing, the stack and priority, which is
    what it is actually true about.
+
+   > **Done.** `answer/glossary.ts` reads the definition off a card at the
+   > moment somebody asks; `answer/keyword-names.ts` is generated and holds
+   > NAMES ONLY, because routing has to answer "is that word a keyword" before
+   > any read happens and a definition written into this repo would be a copy
+   > that can drift from the card.
+   >
+   > Two gates, both needed: the phrase has to look like a definition question
+   > AND the question has to name a keyword, or "what does" would swallow "What
+   > does Sol Ring do?". Measured: 0 false fires over 18 questions from the
+   > fifty that are about something else.
+   >
+   > Two things had to be got right or it prints a wrong rule. A reminder is
+   > only read off a line the keyword OPENS, with at most a cost before the
+   > bracket and no comma in between, or "Flying, haste (This creature can
+   > attack and {T} as soon as it comes under your control.)" tells a player
+   > flying has haste. And a keyword whose own parameter reappears inside its
+   > definition has no single definition: ward, cycling, kicker, equip, crew,
+   > scry, indestructible and protection say so out loud and are reported as
+   > partial, while overload, convoke, delve, cascade and flashback do not need
+   > to.
 
 ---
 

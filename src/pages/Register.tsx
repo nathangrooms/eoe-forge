@@ -125,12 +125,25 @@ export default function Register() {
     }
   };
 
-  /** One error line, tied to its field and left on screen until it is answered. */
+  /**
+   * One error line, tied to its field and left on screen until it is answered.
+   *
+   * DELIBERATELY NOT `role="alert"`. Measured: with the alert role a screen
+   * reader heard "Passwords do not match" from this line AND "Check your
+   * password. Passwords do not match" from the toast's announcer, one after the
+   * other, for a single failure.
+   *
+   * The toast announces. This line is reached the other way: `failField` moves
+   * focus to the field, and the field carries `aria-invalid` plus an
+   * `aria-describedby` pointing here, so arriving on the box announces its
+   * label, that it is invalid, and this sentence as its description. That is
+   * the standard pattern and it says everything once.
+   */
   const FieldError = ({ field }: { field: FieldName }) => {
     const message = errorFor(field);
     if (!message) return null;
     return (
-      <p id={`${field}-error`} role="alert" className="text-sm text-foreground">
+      <p id={`${field}-error`} className="text-sm text-foreground">
         {message}
       </p>
     );
@@ -142,10 +155,10 @@ export default function Register() {
       description="Catalogue your collection and build decks against what you already own."
     >
       <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+        {/* Not `role="alert"` either, for the same reason: the toast announces
+            it. This is the copy that STAYS after the toast has gone. */}
         {formError && (
-          <p role="alert" className="rounded-lg bg-muted/50 px-3 py-2 text-sm text-foreground">
-            {formError}
-          </p>
+          <p className="rounded-lg bg-muted/50 px-3 py-2 text-sm text-foreground">{formError}</p>
         )}
 
         <div className="space-y-2">

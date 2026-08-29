@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { recordWrite, type StoredScoreShape } from './recordWrite';
 import { supabase } from '@/integrations/supabase/client';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { fetchDeckCards, type DeckCardRow } from '@/lib/deck/deckCards';
@@ -713,11 +714,33 @@ export function useDeckEditor(deckId: string | undefined) {
   const persistRecord = useCallback(
     (power: DeckPower | null) => {
       if (!deckId) return;
+
+      /*
+       * A READ IS NOT AN EDIT. DO NOT TOUCH `updated_at` FOR ONE.
+       *
+       * This fired on every visit to the deck page, because the score is
+       * computed on mount and this effect runs when it arrives. `saveDeckRecord`
+       * stamps `updated_at` unless told otherwise, so simply LOOKING at a deck
+       * rewrote its row and pushed it to the top of "Last updated" on /decks.
+       * Observed as a deck's date jumping from Jan 31 to Aug 29 between two
+       * reads, which makes the column useless: it stops meaning "when I last
+       * changed this" and starts meaning "when I last opened it".
+       *
+       * The decision is `recordWrite`, which is a pure function so it can be
+       * tested; see `recordWrite.test.ts`.
+       */
+      const plan = recordWrite(
+        (deck?.edh_analysis as { deckmatrix?: StoredScoreShape } | null)?.deckmatrix ?? null,
+        power
+      );
+      if (plan === 'skip') return;
+
       if (recordTimer.current) clearTimeout(recordTimer.current);
       recordTimer.current = setTimeout(() => {
         void saveDeckRecord(deckId, {}, {
           power,
           edhAnalysis: deck?.edh_analysis ?? null,
+          touch: plan === 'edit',
         }).catch(error => console.warn('Could not cache the deck score:', error));
       }, RECORD_SAVE_MS);
     },

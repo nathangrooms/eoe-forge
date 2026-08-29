@@ -318,7 +318,17 @@ export function ChatBox({
         <div
           ref={columnRef}
           onScroll={onScroll}
-          className="h-[26rem] overflow-y-auto px-4 pb-2 sm:px-5 lg:h-[32rem]"
+          /* A MAXIMUM, NOT A FIXED HEIGHT.
+
+             `h-[26rem] lg:h-[32rem]` reserved the full box whatever was in it.
+             Combined with the bottom anchoring below, a room holding one post
+             drew roughly 480px of empty ground above the word "hi", which reads
+             as a page that failed to load rather than as a quiet room. Both
+             behaviours are right; a fixed height was the part that was wrong.
+
+             A short thread now takes the height it needs and still sits against
+             the composer. A long one scrolls exactly as before. */
+          className="max-h-[26rem] min-h-[8rem] overflow-y-auto px-4 pb-2 sm:px-5 lg:max-h-[32rem]"
         >
           {/*
             A SHORT CONVERSATION SITS AT THE BOTTOM, NOT AT THE TOP.

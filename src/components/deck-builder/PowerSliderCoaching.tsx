@@ -138,8 +138,11 @@ export function PowerSliderCoaching({
 
       {coaching.recommendations.length > 0 && (
         <div className="rounded-lg bg-background/60 p-3 shadow-sm">
+          {/* "What to change" over a line that says nothing needs changing was
+              half of the contradiction. When the coach has no moves to offer,
+              this block is a verdict, not a list of changes. */}
           <p className="text-[0.6rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            What to change
+            {coaching.operations.length > 0 ? 'What to change' : 'Where it stands'}
           </p>
           <ul className="mt-2 space-y-1.5 text-sm">
             {coaching.recommendations.map((line, i) => (
@@ -175,8 +178,12 @@ export function PowerSliderCoaching({
 
       {weakest.length > 0 && (
         <div>
+          {/* And the other half: these deficits sat under the "well-tuned"
+              line with nothing joining them up. The heading now says plainly
+              that a deck can be at its target overall and still be thin in
+              places, which is the true reading of both figures. */}
           <p className="mb-2 text-[0.6rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            Furthest from a {formatPowerScore(target)} deck
+            Thinnest parts, against a {formatPowerScore(target)} deck
           </p>
           <div className="space-y-2">
             {weakest.map(({ key, value, deficit }) => (

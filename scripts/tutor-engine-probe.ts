@@ -145,6 +145,30 @@ const CASES: Case[] = [
   { q: 'What are the best ramp cards for my deck?', deck: 'atraxa', why: 'best-of with a deck, unchanged' },
   { q: 'How strong is Sol Ring?', deck: 'none', why: 'must NOT become "attach a deck"' },
   { q: 'Is Rhystic Study worth sixty dollars?', deck: 'none', why: 'price, must not be read as a deck value' },
+
+  /* -- the fabrication probes, which are here because a change to card name
+        reading broke them once and nothing caught it.
+
+        A card that does not exist wrapped around one that does must not be
+        answered as the real card. The first version of the format trimming in
+        `coreName` skipped the fragment guard whenever the word after the name
+        was lowercase, and "of" is lowercase, so both of these came back as
+        confident answers about Sol Ring and Lightning Bolt. That is the exact
+        failure the whole deterministic design exists to prevent, and it was
+        found by running these rather than by reading the change. -- */
+  { q: 'What does Sol Ring of the Gods do?', deck: 'none', why: 'MUST refuse: no such card' },
+  { q: 'What does Lightning Bolt of Ravnica do?', deck: 'none', why: 'MUST refuse: no such card' },
+  { q: 'Explain Blastoderm Supreme, what does it do?', deck: 'none', why: 'MUST refuse: the original fragment trap' },
+
+  /* -- the twenty one that were held all along -- */
+  { q: 'What does hexproof do and how is it different from shroud?', deck: 'none', why: 'q06, two keyword definitions' },
+  { q: 'What does overload mean?', deck: 'none', why: 'q14, a keyword that carries a cost' },
+  { q: 'If my creature has deathtouch and trample, how much damage do I have to assign to the blocker?', deck: 'none', why: 'q02, both halves held, the interaction not' },
+  { q: 'What cards are banned in commander?', deck: 'none', why: 'q45, 76 rows and one read' },
+  { q: 'What are the best two card infinite combos in commander?', deck: 'none', why: 'q37, and the count must not be read as two' },
+  { q: 'Can I play Swords to Plowshares in Modern?', deck: 'none', why: 'q42, a legality question that says neither legal nor banned' },
+  { q: 'Swords to Plowshares or Path to Exile, which is better?', deck: 'none', why: 'q15, both cards or say which' },
+  { q: 'What is the best black removal spell under one dollar?', deck: 'none', why: 'q34, the budget and the count' },
 ];
 
 const single = Deno.args.find(a => a.startsWith('--q='));

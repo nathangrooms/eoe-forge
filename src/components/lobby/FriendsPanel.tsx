@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Loader2, Search, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FindPlayers } from './FindPlayers';
@@ -113,6 +114,17 @@ export function FriendsPanel({
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
           {emptyFriendsLine(false)} {FRIENDS_BLURB}
         </p>
+        {/* A heading and a paragraph and nothing to press. Every other card on
+            this page ends in a control; this one told a signed-out visitor what
+            they were missing and then left them to work out how to get it. */}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button asChild size="sm">
+            <Link to="/register?next=%2Fplay%2Fonline">Make an account</Link>
+          </Button>
+          <Button asChild size="sm" variant="secondary">
+            <Link to="/login?next=%2Fplay%2Fonline">Sign in</Link>
+          </Button>
+        </div>
       </section>
     );
   }

@@ -832,6 +832,13 @@ const EDGE_STOPWORDS = new Set([
   'from', 'how', 'i', 'if', 'in', 'is', 'it', 'my', 'of', 'on', 'or', 'should',
   'that', 'the', 'this', 'to', 'was', 'were', 'what', 'when', 'which', 'why',
   'with', 'would', 'you', 'your',
+  /* THE WORD A QUESTION OPENS WITH IS GRAMMAR TOO, and it is capitalised for
+     the same reason "Is" was: it starts the sentence. "Explain Cyclonic Rift in
+     plain terms" produced the phrase "Explain Cyclonic Rift in", whose core
+     kept "explain" and therefore looked like a longer name containing the card,
+     so the card was thrown away and the reply asked the player to name a card
+     they had just named. */
+  'explain', 'tell', 'me', 'about', 'show', 'give', 'find', 'name',
 ]);
 
 /**
@@ -847,11 +854,36 @@ function depluralised(question: string): string {
   return question.replace(/\b([A-Z][a-z]{2,})s\b/g, '$1');
 }
 
+/**
+ * A FORMAT NAME AT THE END OF A PHRASE IS THE QUESTION, NOT THE CARD.
+ *
+ * `extractCardNames` joins capitalised words across small connecting words, so
+ * "Can I play Swords to Plowshares in Modern?" emits the single phrase
+ * "Swords to Plowshares in Modern". The fragment guard below then read that as
+ * a longer name containing the card and threw the card away, and a legality
+ * question about a real card got the stock refusal.
+ *
+ * These are the only words that can be trimmed for that, and they are trimmed
+ * only off the END. They are the same format list every legality line is
+ * written from, so a format Tutor can say is a format it can be asked in.
+ *
+ * IT MUST STAY THIS NARROW. Trimming anything that merely follows a connector
+ * would put back the fault the guard exists for: "What does Sol Ring of the
+ * Gods do?" has the same shape, "Gods" is not a format, and answering it about
+ * Sol Ring is a confident answer about a card nobody asked for.
+ */
+const FORMAT_WORDS = new Set(FORMATS.flatMap(f => [f.key, f.says.toLowerCase()]).concat('edh'));
+
 /** A phrase with its grammar trimmed off both ends, lowercased. */
 function coreName(phrase: string): string {
   const words = phrase.toLowerCase().split(/\s+/).filter(Boolean);
   while (words.length && EDGE_STOPWORDS.has(words[0])) words.shift();
-  while (words.length && EDGE_STOPWORDS.has(words[words.length - 1])) words.pop();
+  while (
+    words.length &&
+    (EDGE_STOPWORDS.has(words[words.length - 1]) || FORMAT_WORDS.has(words[words.length - 1]))
+  ) {
+    words.pop();
+  }
   return words.join(' ');
 }
 
@@ -955,27 +987,7 @@ async function cardsNamedInQuestion(db: any, question: string, want: number): Pr
      * So the Blastoderm case stays fixed. A player who meant Blastoderm would
      * not have written another real word after it, and "Supreme" is a real word
      * where "Is" is grammar. */
-    /* A LONGER NAME HAS TO BE ADJACENT, and this is the second half of the same
-     * fix. `extractCardNames` joins capitalised runs across small connecting
-     * words, so "Can I play Swords to Plowshares in Modern?" emits the phrase
-     * "Swords to Plowshares in Modern", whose core keeps "modern" because that
-     * is not grammar. The stopword test below therefore read it as a longer
-     * name and threw the card away, and a legality question about a real card
-     * got the stock refusal.
-     *
-     * A card's own name never has a lowercase word standing between two of its
-     * parts and something outside it: "Blastoderm Supreme" is two capitals in a
-     * row, and "Plowshares in Modern" is not. So the guard only runs at all
-     * when the word directly after the resolved name is capitalised and is a
-     * real word rather than grammar. */
-    const after = question.slice(asked.indexOf(resolved) + resolved.length);
-    const nextWord = after.match(/^\s+([A-Za-z][A-Za-z'-]*)/)?.[1] ?? '';
-    const couldBeALongerName =
-      Boolean(nextWord) &&
-      nextWord[0] === nextWord[0].toUpperCase() &&
-      !EDGE_STOPWORDS.has(nextWord.toLowerCase());
-
-    const isAFragment = couldBeALongerName && present.some(other => {
+    const isAFragment = present.some(other => {
       const core = coreName(other);
       if (core === resolved || !core.includes(resolved) || core.length <= resolved.length) return false;
 

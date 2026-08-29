@@ -54,6 +54,12 @@ import type { EngineCard, EngineDeckEntry } from '../core/card.ts';
 import { deriveDeckProfile } from '../advise/profile.ts';
 import { rankCandidates } from '../advise/rank.ts';
 import { cardRole, styleFor, type DeckStyle } from '../advise/roles.ts';
+/* Identity only. Legality is settled by the pool query before a card ever
+   reaches this module, so re-testing it here would be a second opinion about
+   something already decided. */
+import { withinIdentity } from '../advise/query.ts';
+import { planFit } from '../knowledge/behaviour.ts';
+import { TYPE_TAGS, LOW_INFORMATION_TAGS } from '../knowledge/tag-signal.ts';
 import { deriveDeckShape, type DeckShape } from './shape.ts';
 import { normalizeIdentity } from '../advise/query.ts';
 import {
@@ -292,13 +298,33 @@ export interface GeneratedDeck {
 const COMMANDER_SLOTS = 99;
 
 /**
- * Basic lands held back per colour of the identity, before anything else.
+ * Basic lands held back before anything else, by how many colours the deck plays.
  *
- * Two, so that "search your library for a basic land" always has a target left
- * in every colour. Ramp that fetches basics is a large share of every green
- * deck and a Cultivate with nothing to find is a dead card.
+ * WAS TWO PER COLOUR, AND THAT PRODUCED DECKS THAT CANNOT WORK. Measured on a
+ * generated Adeline deck, mono white: 9 fetchlands, 4 of them Plains-only, and
+ * the deck held TWO Plains. Seven of those fetches find nothing. Ghalta spent
+ * $119 on green fetches over two Forests. Yuriko ran 11 fetchlands and 4 basics.
+ *
+ * The floor was reserved BEFORE the lands are chosen, so it could not know how
+ * many of them would want a basic, and two per colour left every remaining slot
+ * to nonbasics. A mono-coloured deck reserved two lands and filled thirty-three.
+ *
+ * Against the 192 real Commander decklists in `meta_decks`, the median basic
+ * count is NINETEEN. These numbers are read off that rather than reasoned from
+ * first principles, and they fall with colour count for the reason every player
+ * knows: a five colour deck needs its lands to fix, and a mono coloured deck
+ * has nothing to fix, so its lands may as well be untapped and free.
+ *
+ * It is still a FLOOR. A deck that wants more basics than this gets them; this
+ * only stops the mana base being sold off for fetchlands that find nothing.
  */
-const BASIC_FLOOR_PER_COLOUR = 2;
+function basicFloorFor(colours: number): number {
+  if (colours <= 1) return 12;
+  if (colours === 2) return 9;
+  if (colours === 3) return 7;
+  if (colours === 4) return 6;
+  return 5;
+}
 
 /**
  * How wide a shortlist the later passes re-rank.
@@ -354,8 +380,68 @@ const MIN_SOURCES_PER_COLOUR = 10;
  * cannot cast is a bad card for this deck however many others play it.
  * `rank.ts` clamps it there as well, so the rule survives someone editing this
  * constant.
+ *
+ * RAISED TO 2.4 ON 2026-08-29, BECAUSE THE MEASUREMENT ABOVE STOPPED BEING
+ * TRUE. Everything argued above was right when it was written. The third
+ * paragraph is the load-bearing one: `edhrec_rank` was populated on 13,440 of
+ * 33,032 rows and was NULL for Sol Ring, Swords to Plowshares and Rhystic Study
+ * while Bone Saw carried 6,734, so weighting it was a bias toward whatever the
+ * sync had reached rather than toward what people play.
+ *
+ * The sync has since filled the column and nobody came back to the weight.
+ * Re-measured today:
+ *
+ *   rows with a rank   13,440 of 33,032  ->  32,067 of 33,032   (97.1%)
+ *   Sol Ring                       NULL  ->  1
+ *   Arcane Signet                  NULL  ->  3
+ *   Swords to Plowshares           NULL  ->  11
+ *   Skullclamp                     NULL  ->  40
+ *   Bone Saw                      6,734  ->  6,727
+ *
+ * The column now ranks exactly the cards a Commander player expects at the top,
+ * and the argument for discounting it is gone with the nulls.
+ *
+ * WHY IT MATTERS THIS MUCH TO THIS CALLER, and why 0.8 is still right for the
+ * optimiser. Building from an EMPTY deck there is nothing to synergise with, so
+ * `tagSynergy` has no signal; every role is maximally short, so `roleGap` pays
+ * the same 3.0 to anything carrying that role; and `commander-fit` is silent
+ * for the 23% of commanders whose text we cannot read. Popularity is then the
+ * only evidence left about whether a card is any good, and it was the smallest
+ * weight in the table.
+ *
+ * The cost was measurable and a player saw it immediately. A generated Krenko
+ * deck contained ONE of nineteen cards a Krenko player would call obvious: no
+ * Sol Ring, no Goblin Chieftain, no Purphoros, no Shared Animosity, no
+ * Skullclamp, and fifteen cards ranked worse than 10,000th.
+ *
+ * 2.4 rather than the old 2.0: it has to beat `tagSynergy` (2.0), which on an
+ * empty deck is measuring against nothing, while staying under `playability`
+ * (2.5), which the standing rule above requires.
  */
-const EMPTY_DECK_POPULARITY = 0.8;
+const EMPTY_DECK_POPULARITY = 1.8;
+
+/**
+ * How hard a build from nothing leans on the commander's own plan.
+ *
+ * ABOVE `roleGap` (3.0), which is the change that matters and the one a player
+ * asked for: "it needs to understand the commander and find cards that
+ * synergise and complement it, rank cannot be the answer."
+ *
+ * They are right, and the weights said otherwise. Filling a role quota paid
+ * 3.0, fitting the commander paid 2.2, so a card that ticked a box beat a card
+ * that did what the commander does. Building from an empty deck that is
+ * backwards twice over, because with no cards on the table every role is
+ * equally short and `roleGap` pays the same 3.0 to everything carrying a role
+ * at all. It was the largest weight and the least discriminating.
+ *
+ * Popularity is 1.2 rather than the 2.4 it was briefly raised to. Raising it
+ * did improve the measurable quality, median rank 2,695 to 2,092, and that was
+ * still the wrong lever: it makes "what other people play" the driver, which
+ * produces a deck of staples that has nothing to do with the commander. It is
+ * a tie-break between cards that fit equally well, which is what it was always
+ * meant to be, and now it sits below the plan rather than beside it.
+ */
+const EMPTY_DECK_COMMANDER_FIT = 3.6;
 
 /* ------------------------------------------------------------------ *
  * The generator
@@ -380,6 +466,10 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
     typeLine: input.commander.typeLine,
     facets: input.commander.facets ?? null,
     tags: input.commander.tags,
+    /* Read only when the compiled facets produce no wants. 17% of the 400
+       most-built commanders were in that state, Teysa and Muldrotha among
+       them, and got a deck with no commander in it. */
+    oracleText: input.commander.oracleText ?? null,
   });
 
   /*
@@ -474,7 +564,10 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
    * a full point for being cheap to every card in the pool, which on a $500
    * budget that a $53 deck never approaches is a pure bias toward junk.
    */
-  const rankOptions = { popularityWeight: EMPTY_DECK_POPULARITY };
+  const rankOptions = {
+    popularityWeight: EMPTY_DECK_POPULARITY,
+    commanderFitWeight: EMPTY_DECK_COMMANDER_FIT,
+  };
 
   const pool = input.pool.filter(c => !avoided.has(c.oracleId) && c.oracleId !== input.commander.oracleId);
 
@@ -482,7 +575,7 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
    * 1. The mana base, before anything that has to be cast off it.
    * ---------------------------------------------------------------- */
 
-  const basicFloor = identity.length * BASIC_FLOOR_PER_COLOUR;
+  const basicFloor = basicFloorFor(identity.length);
   const nonBasicRoom = Math.max(0, landTarget - basicFloor);
 
   const landPool = pool.filter(isLandCandidate);
@@ -602,9 +695,111 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
   }));
 
   const takenOracleIds = new Set(picked.map(e => e.card.oracleId));
+
+  /* The commander's own themes, as the tag ranker sees them. Used to keep the
+     staples pass off anything the synergy pass can explain. */
+  const commanderThemes = new Set(
+    (input.commander.tags ?? []).filter(tag => !TYPE_TAGS.has(tag) && !LOW_INFORMATION_TAGS.has(tag))
+  );
+
   const roleFill = {} as Record<Role, { picked: number; target: number }>;
   for (const role of ROLES) roleFill[role] = { picked: 0, target: role === 'land' ? landTarget : targets[role] };
   roleFill.land.picked = chosenLands.length;
+
+  /* ---------------------------------------------------------------- *
+   * 1b. THE CARDS EVERY DECK PLAYS, before the ones this deck plays.
+   * ---------------------------------------------------------------- *
+   *
+   * A player looked at a generated Krenko deck and said the cards do not
+   * complement the commander. Fixing that, by putting commander-fit above the
+   * role quotas, took Goblins from 15 to 27 and took format staples to ZERO.
+   * Sol Ring, Skullclamp, Lightning Greaves, Arcane Signet: none of them made
+   * the deck, and every one is in the large majority of real Krenko lists.
+   *
+   * Both readings are right, and that is the point. Sol Ring is not in 82% of
+   * Krenko decks because it synergises with Krenko. It is there because it is
+   * the best card in the format and it goes in every deck regardless of what
+   * the commander does. Synergy cannot explain it and should not have to.
+   *
+   * ONE RANKER WAS BEING ASKED TWO QUESTIONS. "What does this commander want"
+   * and "what does every deck want" are different, and with a single score the
+   * larger weight simply won: at commanderFit 2.2 the deck was 25 Treasure
+   * cards and no Goblins, and at 3.6 it was 27 Goblins and no Sol Ring. Tuning
+   * between them trades one complaint for the other, which is what tuning it
+   * twice actually did.
+   *
+   * So a small number of slots are settled first, on QUALITY rather than fit,
+   * exactly as a person builds: a handful of auto-includes, then sixty cards
+   * chosen for the commander. Deliberately small. These slots are taken away
+   * from the commander's deck, so every one past the obvious few makes the
+   * deck less about the commander, which is the complaint this began with.
+   *
+   * Chosen by `edhrec_rank` alone within a role, because that is the only
+   * evidence we hold about which card a format actually plays, and here it is
+   * being asked the one question it can answer: not "is this good with
+   * Krenko", but "do Commander decks play this". A rank of 1 means every deck
+   * plays it. */
+  const STAPLE_SLOTS_PER_ROLE: Partial<Record<Role, number>> = {
+    ramp: 3,
+    draw: 2,
+    removal: 2,
+    interaction: 1,
+  };
+
+  /* And only when there is a real contest to win. These slots exist because a
+     staple loses its slot to one of several thousand synergy cards; with a pool
+     barely larger than the deck, nothing is competing and the role quotas below
+     will reach the same cards anyway, stating the role they filled instead of a
+     rank. Below the floor this pass would not be helping, it would be taking a
+     card off a pass that explains itself better. */
+  const STAPLE_PASS_MIN_POOL = 500;
+
+  if (spellPool.length >= STAPLE_PASS_MIN_POOL)
+  for (const [role, count] of Object.entries(STAPLE_SLOTS_PER_ROLE) as [Role, number][]) {
+    const best = spellPool
+      .filter(c => !takenOracleIds.has(c.oracleId))
+      .filter(c => cardRole(c, role))
+      /* The ranker refuses these for every other pass and this one skips the
+         ranker, so it has to refuse them itself. Without this the staple slots
+         are the best cards in the FORMAT rather than the best ones this deck
+         can legally play, and the test that caught it is the right one:
+         "Lightning Bolt is outside the identity". */
+      .filter(c => withinIdentity(c.colorIdentity, identity))
+      /* ONLY CARDS THE COMMANDER HAS NO OPINION ABOUT.
+         This pass exists for cards that belong in a deck for reasons synergy
+         cannot express. A card the plan already wants is not one of those, and
+         claiming it here would take it from the pass that can say WHY: the
+         first version labelled Contentious Plan "one of the cards Commander
+         plays most for draw" in a proliferate deck, when the true reason is
+         that it proliferates. The card was right and the sentence was wrong,
+         which is its own kind of lie.
+
+         So the two passes are made strictly complementary: synergy explains
+         what it can, and this fills what is left with what every deck plays. */
+      .filter(c => planFit(commanderPlan, c).fit <= 0)
+      /* And nothing that shares a theme with the commander either. A card can
+         be synergistic through its TAGS without the plan naming it, which is
+         how the proliferate commander's Contentious Plan slipped through the
+         planFit test above. Both routes into the synergy pass have to be
+         closed or this one takes a card whose real reason it cannot state. */
+      .filter(c => !(c.tags ?? []).some(tag => commanderThemes.has(tag)))
+      .filter(c => typeof c.edhrecRank === 'number' && c.edhrecRank > 0)
+      .sort((a, b) => (a.edhrecRank as number) - (b.edhrecRank as number))
+      .slice(0, count);
+
+    for (const card of best) {
+      picked.push({
+        card,
+        quantity: 1,
+        reason: `one of the cards Commander plays most for ${role} (rank ${card.edhrecRank})`,
+        score: 0,
+        bucket: role as Bucket,
+        preferred: preferred.has(card.oracleId),
+      });
+      takenOracleIds.add(card.oracleId);
+      roleFill[role].picked += 1;
+    }
+  }
 
   // Pass one: fill the role quotas, best card first, planner picks ahead of
   // the rest at equal eligibility. A card counts for ONE role — the one it is

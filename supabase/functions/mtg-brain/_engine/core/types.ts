@@ -268,4 +268,10 @@ export interface RecommendOptions {
    * have nothing to measure yet. See `popularityWeight` in `rank.ts`.
    */
   popularityWeight?: number;
+  /**
+   * How hard to lean on the commander plan. Raised by a caller building from
+   * an empty deck, where fitting the commander is the only real question.
+   * Clamped in `rank.ts`; see `commanderFitWeight` there.
+   */
+  commanderFitWeight?: number;
 }

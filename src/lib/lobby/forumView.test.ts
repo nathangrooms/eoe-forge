@@ -126,10 +126,10 @@ test('a missing last name falls back to whoever started it, never to blank', () 
 });
 
 test('an empty board says something different to somebody who cannot post', () => {
-  assert.equal(emptyBoardLine(true), 'Nobody has posted yet. Ask for a game and see who answers.');
+  assert.equal(emptyBoardLine(true), 'No conversations here yet. Ask for a game and see who answers.');
   assert.equal(
     emptyBoardLine(false),
-    'Nobody has posted yet. Sign in if you want to be the first.'
+    'No conversations here yet. Sign in to start one.'
   );
 });
 

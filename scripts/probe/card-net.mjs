@@ -1,0 +1,13 @@
+import puppeteer from 'puppeteer';
+const BASE='http://127.0.0.1:8080';
+const CARD='ee6e5a35-fe21-4dee-b0ef-a8f2841511ad';
+const b=await puppeteer.launch({headless:'new',args:['--no-sandbox'],protocolTimeout:180000});
+const p=await b.newPage(); await p.setViewport({width:1280,height:900});
+const fails=[];const resp=[];
+p.on('requestfailed',r=>fails.push({url:r.url(),err:r.failure()&&r.failure().errorText}));
+p.on('response',async r=>{ if(r.url().includes('supabase.co')&&r.status()>=400) resp.push(r.status()+' '+r.url().slice(0,160)+' :: '+(await r.text().catch(()=>'')).slice(0,200)); });
+await p.goto(BASE+'/cards/'+CARD,{waitUntil:'networkidle2',timeout:90000});
+await new Promise(r=>setTimeout(r,4000));
+console.log('--- requestfailed ---'); fails.forEach(f=>console.log(f.err,'|',f.url.slice(0,200)));
+console.log('--- http>=400 ---'); resp.forEach(r=>console.log(r));
+await b.close();

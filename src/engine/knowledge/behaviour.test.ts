@@ -975,3 +975,102 @@ describe('facetBackground counts cards, not occurrences', () => {
     assert.equal(bg.count.get('eff:draw'), 2);
   });
 });
+
+/* ------------------------------------------------------------------ *
+ * The second reader
+ * ------------------------------------------------------------------ *
+ *
+ * Measured over the 400 most-built commanders on 2026-08-30, 67 (17%) produced
+ * no wants, so `commanderFit` contributed nothing to any candidate and the deck
+ * was built on roles and popularity alone. Teysa Karlov's entire record is
+ * `sub:advisor sub:human type:creature type:legendary`, source `none`.
+ *
+ * These fix the shape of the fix, not the wording of any one rule: text is read
+ * only on silence, and it may never talk over a compiled record.
+ */
+describe('reading a commander the ability compiler cannot parse', () => {
+  const TEYSA_TEXT =
+    'If a creature dying causes a triggered ability of a permanent you control to trigger, ' +
+    'that ability triggers an additional time.\n' +
+    'Creature tokens you control have vigilance and lifelink.';
+
+  it('gives Teysa Karlov a plan from her own words', () => {
+    const plan = planForCommander({
+      name: 'Teysa Karlov',
+      typeLine: 'Legendary Creature — Human Advisor',
+      // What the compiler actually produces for her: types and nothing else.
+      facets: ['sub:advisor', 'sub:human', 'type:creature', 'type:legendary'],
+      oracleText: TEYSA_TEXT,
+    });
+    assert.ok(plan.wants.length > 0, 'Teysa still has no plan');
+    const facets = plan.wants.map(w => w.facet);
+    assert.ok(facets.includes('trig:dies'), 'a death-trigger commander does not want death triggers');
+    assert.ok(facets.includes('eff:sacrifice'), 'nothing to make the creatures die on demand');
+    assert.ok(facets.includes('eff:create-token'), 'nothing to make creatures to sacrifice');
+  });
+
+  it('says why in the commander\u2019s own terms, never free text', () => {
+    const plan = planForCommander({
+      name: 'Teysa Karlov',
+      typeLine: 'Legendary Creature \u2014 Human Advisor',
+      facets: ['type:creature'],
+      oracleText: TEYSA_TEXT,
+    });
+    for (const want of plan.wants) {
+      assert.ok(want.because.startsWith('Teysa Karlov '), `free text: ${want.because}`);
+      assert.ok(want.because.length > 0);
+    }
+  });
+
+  it('stays silent when a compiled record already spoke', () => {
+    /* Adeline reads cleanly, and her text contains "number of creatures you
+       control", which an intent rule matches. The compiled plan must win: the
+       patterns read English and a parsed record does not, so anything the card
+       actually told us has to be the last word. */
+    const withRecord = planForCommander({
+      name: 'Adeline, Resplendent Cathar',
+      typeLine: 'Legendary Creature \u2014 Human Knight',
+      facets: ['cares:sub:human', 'kw:vigilance', 'sub:human', 'sub:knight', 'type:creature'],
+      oracleText:
+        "Vigilance\nAdeline's power is equal to the number of creatures you control.\n" +
+        'Whenever you attack, for each opponent, create a 1/1 white Human creature token.',
+    });
+    const facets = withRecord.wants.map(w => w.facet);
+    assert.ok(facets.includes('cares:sub:human'), 'the compiled want is missing');
+    assert.equal(
+      facets.includes('trig:attacks'),
+      false,
+      'an intent rule fired over a commander the compiler read'
+    );
+  });
+
+  it('does nothing at all without the text, rather than guessing', () => {
+    const blind = planForCommander({
+      name: 'Teysa Karlov',
+      typeLine: 'Legendary Creature \u2014 Human Advisor',
+      facets: ['sub:advisor', 'sub:human', 'type:creature', 'type:legendary'],
+    });
+    assert.equal(blind.wants.length, 0, 'wants appeared from nowhere');
+  });
+
+  it('reads the families it claims to, off real card text', () => {
+    const cases: readonly [string, string, string][] = [
+      ['Azusa, Lost but Seeking', 'You may play two additional lands on each of your turns.', 'cares:zone:library-land'],
+      ['Muldrotha, the Gravetide', 'During each of your turns, you may play a land and cast a permanent spell of each permanent type from your graveyard.', 'cares:zone:graveyard'],
+      ['Veyran, Voice of Duality', 'Magecraft \u2014 Whenever you cast or copy an instant or sorcery spell, Veyran gets +1/+1 until end of turn.', 'cares:type:instant'],
+      ['Torbran, Thane of Red Fell', 'If a red source you control would deal damage to an opponent or a permanent an opponent controls, it deals that much damage plus 2 instead.', 'eff:damage'],
+      ['Karlach, Fury of Avernus', "Whenever you attack, if it's the first combat phase of the turn, untap all attacking creatures.", 'trig:attacks'],
+      ['Goreclaw, Terror of Qal Sisma', 'Creature spells you cast with power 4 or greater cost {2} less to cast.', 'type:creature'],
+    ];
+    for (const [name, text, wanted] of cases) {
+      const plan = planForCommander({
+        name,
+        typeLine: 'Legendary Creature',
+        facets: ['type:creature', 'type:legendary'],
+        oracleText: text,
+      });
+      const facets = plan.wants.map(w => w.facet);
+      assert.ok(facets.includes(wanted), `${name}: expected ${wanted}, got ${facets.join(' ') || '(nothing)'}`);
+    }
+  });
+});

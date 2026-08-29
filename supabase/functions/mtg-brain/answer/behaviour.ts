@@ -343,6 +343,7 @@ export async function planForDeck(
     typeLine: commander.typeLine,
     facets: record.facets,
     tags,
+    oracleText: commander.oracleText ?? null,
   });
 
   return { plan, commanderName: commander.name, standing: record.standing };

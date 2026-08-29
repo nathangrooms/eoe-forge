@@ -6,6 +6,7 @@ import { ManaCost } from '@/components/ui/mana-cost';
 import { CardImage, CardImageSkeleton } from '@/components/cards/CardImage';
 import { approxLabel, counts, formatSlots } from '@/lib/homepage/snapshot';
 import { Section, SectionHeading } from '@/components/marketing/Section';
+import { SearchHereButton } from '@/components/marketing/SearchHereButton';
 import { cn } from '@/lib/utils';
 
 /**
@@ -225,12 +226,7 @@ export function HomeFormatPicker() {
       </div>
 
       <div className="mt-9 text-center sm:mt-12">
-        <Button asChild size="lg" variant="outline">
-          <Link to="/cards">
-            Search the {format.label} pool
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Link>
-        </Button>
+        <SearchHereButton>Search the {format.label} pool</SearchHereButton>
       </div>
     </Section>
   );

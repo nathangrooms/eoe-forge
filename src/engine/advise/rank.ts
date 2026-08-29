@@ -125,6 +125,34 @@ const POPULARITY_HORIZON = 25000;
  * rather than at the call site so it holds for every caller, present and
  * future.
  */
+/**
+ * How hard THIS caller leans on the commander plan.
+ *
+ * The default 2.2 is tuned for the optimiser, which is looking at a deck that
+ * already exists: sixty real cards give `roleGap` and `tagSynergy` genuine
+ * signal, so commander fit is one voice among several.
+ *
+ * A GENERATOR STARTS FROM NOTHING, and there the balance is wrong. There is no
+ * deck to synergise with, so `tagSynergy` measures against air; every role is
+ * maximally short, so `roleGap` pays the same 3.0 to anything carrying that
+ * role. Fitting the commander is not one voice among several, it is the only
+ * question being asked, and it was ranked BELOW filling a quota.
+ *
+ * A player saw the consequence immediately: a Krenko deck came back with 25
+ * Treasure cards in it. Every one of them filled the ramp quota at 3.0 and
+ * Krenko is a Goblin deck.
+ *
+ * Clamped the same way popularity is, and for the same reason: a card this
+ * deck cannot cast is a bad card for this deck however well it fits the plan.
+ */
+function commanderFitWeight(options: RecommendOptions): number {
+  const asked = options.commanderFitWeight;
+  if (typeof asked !== 'number' || !Number.isFinite(asked) || asked < 0) {
+    return WEIGHTS.commanderFit;
+  }
+  return Math.min(asked, WEIGHTS.playability * 1.6);
+}
+
 function popularityWeight(options: RecommendOptions): number {
   const asked = options.popularityWeight;
   if (typeof asked !== 'number' || !Number.isFinite(asked) || asked < 0) {
@@ -397,7 +425,7 @@ export function scoreCandidate(
     const best = fit.matched[0];
     signals.push({
       kind: 'commander-fit',
-      score: WEIGHTS.commanderFit * fit.fit,
+      score: commanderFitWeight(options) * fit.fit,
       detail:
         fit.matched.length === 1
           ? best.because
@@ -430,7 +458,7 @@ export function scoreCandidate(
     const best = archFit.matched[0];
     signals.push({
       kind: 'archetype-fit',
-      score: WEIGHTS.commanderFit * archFit.fit,
+      score: commanderFitWeight(options) * archFit.fit,
       detail:
         archFit.matched.length === 1
           ? best.because

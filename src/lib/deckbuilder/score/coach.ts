@@ -34,7 +34,26 @@ export class DeckCoach {
     const weakestAreas = this.identifyWeakAreas(subscores, analysis.targetPower);
     
     if (Math.abs(powerGap) <= 1) {
-      recommendations.push("Deck power level is well-tuned for your target.");
+      /*
+       * SAY WHAT WAS MEASURED, NOT A VERDICT ON THE WHOLE DECK.
+       *
+       * This said "Deck power level is well-tuned for your target." and
+       * returned, discarding `weakestAreas`. The panel that draws this renders
+       * those deficits from its own copy of the subscores anyway, so within
+       * about 300 vertical pixels a reader got:
+       *
+       *   THIS DECK SCORES 5.3 -> YOU ARE AIMING FOR 6.0
+       *   Target power: 0.7 above where it is
+       *   Deck power level is well-tuned for your target
+       *   Tutors 52 short · Synergy 49 short · Slowing the table 37 short
+       *
+       * Every one of those is true and together they read as broken. The claim
+       * that was doing the damage is "well-tuned", which is a judgement about
+       * the deck, when all that was measured is that the score is within a
+       * point of the target. That is what it says now, and the deficits below
+       * it are no longer contradicted.
+       */
+      recommendations.push('This deck is within a point of the target you picked.');
       return { recommendations, operations };
     }
     

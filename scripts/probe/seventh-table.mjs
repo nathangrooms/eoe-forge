@@ -1,0 +1,13 @@
+import puppeteer from 'puppeteer';
+const BASE=process.env.BASE||'http://127.0.0.1:4178';
+const b=await puppeteer.launch({headless:'new',args:['--no-sandbox','--disable-lcd-text']});
+const p=await b.newPage(); await p.setViewport({width:1280,height:900});
+const errs=[];
+p.on('pageerror',e=>errs.push(e.message.slice(0,120)));
+p.on('console',m=>m.type()==='error'&&errs.push(m.text().slice(0,120)));
+await p.goto(BASE+'/play/t/ABCD12',{waitUntil:'networkidle2',timeout:120000});
+await new Promise(r=>setTimeout(r,4500));
+console.log('/play/t/:code signed out ->', await p.evaluate(()=>document.title+' | h1='+(document.querySelector('h1')?.innerText||'(none)')+' | '+document.body.innerText.replace(/\s+/g,' ').slice(0,240)));
+console.log('console errors:',JSON.stringify(errs));
+await p.screenshot({path:'.shots/seventh/table-invite-1280.png'});
+await b.close();

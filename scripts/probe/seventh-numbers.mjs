@@ -1,0 +1,25 @@
+import puppeteer from 'puppeteer';
+const BASE=process.env.BASE||'http://127.0.0.1:4178';
+const b=await puppeteer.launch({headless:'new',args:['--no-sandbox']});
+const p=await b.newPage(); await p.setViewport({width:1280,height:1000});
+await p.goto(BASE+'/',{waitUntil:'networkidle2',timeout:120000});
+await new Promise(r=>setTimeout(r,6000));
+// scroll the whole page to trigger lazy sections
+await p.evaluate(async()=>{for(let y=0;y<document.body.scrollHeight;y+=700){window.scrollTo(0,y);await new Promise(r=>setTimeout(r,120));}});
+await new Promise(r=>setTimeout(r,4000));
+const t=await p.evaluate(()=>document.body.innerText);
+const nums=[...t.matchAll(/([\d][\d,\.]*\+?)\s*(cards|decks|precons|legendary|commander-legal|users|players|formats|sets|printings|%)/gi)].map(m=>m[0]);
+console.log('=== numeric claims on the homepage ===');
+console.log([...new Set(nums)].join('\n'));
+console.log('\n=== testimonial / rating language ===');
+const bad=t.match(/[\d.]+\s*(?:\/\s*5|stars?)|rated|trusted by|loved by|reviews?|testimonial/gi);
+console.log(bad?[...new Set(bad)].join(' | '):'none');
+console.log('\n=== banned vocabulary in visible copy ===');
+const banned=t.match(/\b(AI|A\.I\.|assistant|smart|intelligent|powered by|neural|GPT|model|bot)\b/gi);
+console.log(banned?[...new Set(banned)].join(' | '):'none');
+console.log('\n=== em dashes in visible copy ===');
+const em=t.match(/[^\n]{0,45}—[^\n]{0,45}/g);
+console.log(em?em.slice(0,12).join('\n'):'none');
+console.log('\n=== $0.00 / negative money ===');
+console.log(JSON.stringify({zero:(t.match(/\$0\.00(?!\d)/g)||[]).length, neg:(t.match(/\$-[\d.]+/g)||[])}));
+await b.close();

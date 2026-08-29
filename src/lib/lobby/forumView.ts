@@ -104,11 +104,17 @@ export function lastWordLine(
  *
  * Said differently for somebody who cannot post yet, because "start it off" is
  * an instruction they cannot follow and reads as the page being broken.
+ *
+ * NAMES WHAT IS EMPTY. It used to say "Nobody has posted yet", and the room
+ * chat 300 pixels above it was showing a post. On a phone the two feeds stack
+ * and read as one thing, so the page appeared to flatly contradict itself to
+ * the one visitor most likely to be looking for signs of life. The chat and the
+ * board are different things; the sentence now says which one it is about.
  */
 export function emptyBoardLine(signedIn: boolean): string {
   return signedIn
-    ? 'Nobody has posted yet. Ask for a game and see who answers.'
-    : 'Nobody has posted yet. Sign in if you want to be the first.';
+    ? 'No conversations here yet. Ask for a game and see who answers.'
+    : 'No conversations here yet. Sign in to start one.';
 }
 
 /* -------------------------------------------------------------------------- */

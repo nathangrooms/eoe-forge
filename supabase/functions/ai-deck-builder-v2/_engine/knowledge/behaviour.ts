@@ -761,6 +761,28 @@ export function planForCommander(commander: {
 function tribeOf(typeLine: string | null | undefined, facets: readonly Facet[]): string | null {
   const own = new Set<string>();
   const line = (typeLine ?? '').split('//')[0];
+
+  /* A PLANESWALKER TYPE IS NOT A TRIBE.
+     Lord Windgrace is a "Legendary Planeswalker — Windgrace", and this read
+     Windgrace off the type line as though it were a creature subtype. His top
+     three wants came back `sub:windgrace`, `cares:sub:windgrace` and
+     `tok:windgrace`, which is a tribe of exactly one card that is himself and
+     cannot be in the deck. A lands commander was given a tribal plan for a
+     tribe that does not exist.
+
+     Only a creature has a tribe. Every other card type's subtypes name
+     something else entirely: a planeswalker's is its identity, an
+     enchantment's is Aura or Saga, an artifact's is Equipment or Vehicle. Sram
+     wanting Equipment is real and is handled by the `cares:sub:` rule, which
+     is a different question from what the commander IS. */
+  /* A plain substring test, not a regex. A word-boundary escape written
+     through a shell heredoc into this file arrived as the BACKSPACE character,
+     so the pattern was /[]Creature[]/ and matched nothing: every tribal
+     commander silently lost its tribe. Type lines are a closed vocabulary and
+     "creature" appears in them only as the card type, so a lowercased
+     includes says exactly what is meant and has nothing to get wrong. */
+  if (!line.toLowerCase().includes("creature")) return null;
+
   const dash = line.indexOf('—');
   if (dash >= 0) {
     for (const word of line.slice(dash + 1).trim().split(/\s+/)) {

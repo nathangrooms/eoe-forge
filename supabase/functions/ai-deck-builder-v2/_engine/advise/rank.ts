@@ -369,7 +369,10 @@ export function scoreCandidate(
     signals.push({
       kind: 'role-gap',
       score: WEIGHTS.roleGap * bestShortfall,
-      detail: `fills a ${bestRole} gap (${have} of ${target})`,
+      /* "a" or "an", because "fills a interaction gap" was on screen. The
+         role words are a closed set and all of them start with a consonant
+         except interaction, so this is one test rather than a lookup. */
+      detail: `fills a${/^[aeiou]/i.test(bestRole) ? 'n' : ''} ${bestRole} gap (${have} of ${target})`,
     });
   }
 

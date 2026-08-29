@@ -292,13 +292,33 @@ export interface GeneratedDeck {
 const COMMANDER_SLOTS = 99;
 
 /**
- * Basic lands held back per colour of the identity, before anything else.
+ * Basic lands held back before anything else, by how many colours the deck plays.
  *
- * Two, so that "search your library for a basic land" always has a target left
- * in every colour. Ramp that fetches basics is a large share of every green
- * deck and a Cultivate with nothing to find is a dead card.
+ * WAS TWO PER COLOUR, AND THAT PRODUCED DECKS THAT CANNOT WORK. Measured on a
+ * generated Adeline deck, mono white: 9 fetchlands, 4 of them Plains-only, and
+ * the deck held TWO Plains. Seven of those fetches find nothing. Ghalta spent
+ * $119 on green fetches over two Forests. Yuriko ran 11 fetchlands and 4 basics.
+ *
+ * The floor was reserved BEFORE the lands are chosen, so it could not know how
+ * many of them would want a basic, and two per colour left every remaining slot
+ * to nonbasics. A mono-coloured deck reserved two lands and filled thirty-three.
+ *
+ * Against the 192 real Commander decklists in `meta_decks`, the median basic
+ * count is NINETEEN. These numbers are read off that rather than reasoned from
+ * first principles, and they fall with colour count for the reason every player
+ * knows: a five colour deck needs its lands to fix, and a mono coloured deck
+ * has nothing to fix, so its lands may as well be untapped and free.
+ *
+ * It is still a FLOOR. A deck that wants more basics than this gets them; this
+ * only stops the mana base being sold off for fetchlands that find nothing.
  */
-const BASIC_FLOOR_PER_COLOUR = 2;
+function basicFloorFor(colours: number): number {
+  if (colours <= 1) return 12;
+  if (colours === 2) return 9;
+  if (colours === 3) return 7;
+  if (colours === 4) return 6;
+  return 5;
+}
 
 /**
  * How wide a shortlist the later passes re-rank.
@@ -482,7 +502,7 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
    * 1. The mana base, before anything that has to be cast off it.
    * ---------------------------------------------------------------- */
 
-  const basicFloor = identity.length * BASIC_FLOOR_PER_COLOUR;
+  const basicFloor = basicFloorFor(identity.length);
   const nonBasicRoom = Math.max(0, landTarget - basicFloor);
 
   const landPool = pool.filter(isLandCandidate);

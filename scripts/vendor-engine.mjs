@@ -113,7 +113,8 @@ export const VENDOR_SUBDIR = '_engine';
  * THE ONE EDGE THAT DOES NOT RESOLVE, and the one-line shim that fixes it:
  * `deck/recommend/behaviour.ts` has a single import that points out of
  * `src/lib` — `import type { Facet } from '../../../engine/knowledge/behaviour.ts'`.
- * From `_lib/deck/recommend/` that path lands on `_lib/engine/knowledge/`, so
+ * From `_lib/deck/recommend/` that path lands on the FUNCTION ROOT's
+ * `engine/knowledge/`, three levels up rather than two, so
  * `FACET_SHIM` is written there and re-exports the type from the vendored
  * engine. It is a type-only re-export of `type Facet = string`; it carries no
  * logic and cannot drift into a second opinion about anything.
@@ -181,8 +182,32 @@ export const FACET_SUBDIRS = [
 /** Kept as the generator's path, because other callers name it. */
 export const FACET_SUBDIR = FACET_SUBDIRS[0];
 
+/**
+ * WHERE THE SHIM GOES, counted rather than assumed.
+ *
+ * The comment above used to say the import lands on `_lib/engine/knowledge/`.
+ * It does not. `deck/recommend/behaviour.ts` imports
+ * `../../../engine/knowledge/behaviour.ts`, and relative specifiers resolve
+ * from the DIRECTORY OF THE IMPORTING FILE, which vendored is
+ * `<fn>/_lib/deck/recommend/`. Three levels up from there is the FUNCTION
+ * ROOT, not `_lib`:
+ *
+ *   ../          <fn>/_lib/deck/
+ *   ../../       <fn>/_lib/
+ *   ../../../    <fn>/
+ *
+ * so the file has to be `<fn>/engine/knowledge/behaviour.ts`. Writing it under
+ * `_lib/` put it one directory too deep and the specifier pointed at nothing.
+ *
+ * It went unnoticed because no function carrying `_lib` had ever been deployed:
+ * ai-deck-builder-v2 is still serving 6-grounded, which predates the facet
+ * mirror entirely. The Supabase CLI found it in a second, as
+ *   WARN: failed to read file: open .../deck-optimizer/engine/knowledge/behaviour.ts
+ * which is a warning rather than an error, so the deploy would have shipped a
+ * function whose facet producer could not resolve its own type import.
+ */
 const facetShimFor = subdir => ({
-  path: `${subdir}/engine/knowledge/behaviour.ts`,
+  path: `${subdir.replace(/\/_lib$/, '')}/engine/knowledge/behaviour.ts`,
   body: `/**
  * GENERATED FILE — do not edit. Written by scripts/vendor-engine.mjs.
  *
@@ -194,7 +219,7 @@ const facetShimFor = subdir => ({
  *
  * Type-only. \`Facet\` is \`string\`. There is no logic here to drift.
  */
-export type { Facet } from '../../../_engine/knowledge/behaviour.ts';
+export type { Facet } from '../../_engine/knowledge/behaviour.ts';
 `,
 });
 

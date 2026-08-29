@@ -60,7 +60,7 @@ import { cn } from '@/lib/utils';
  */
 const BUILD_PHASES: BuildPhase[] = [
   { id: 'analyzing', label: 'Reading the commander', description: 'Colour identity and rules text' },
-  { id: 'planning', label: 'Choosing the pool', description: 'Card search and AI planning' },
+  { id: 'planning', label: 'Choosing the pool', description: 'Finding cards this commander wants' },
   { id: 'assembling', label: 'Placing cards', description: 'Staples, roles, curve and manabase' },
   { id: 'colors', label: 'Colour identity', description: 'Every card legal in the command zone' },
   { id: 'edh', label: 'EDH power check', description: 'Scored against edhpowerlevel.com' },

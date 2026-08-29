@@ -519,23 +519,44 @@ export function CenterPreview({
               </button>
             </div>
 
+            {/*
+              THE HEADING, and why the sizes changed.
+
+              Owner, looking at Atraxa selected: *"Thought this would have so
+              much more to it and look way better"*, and separately that the
+              stats *"should be large for their power, toughness"*.
+
+              What was on screen was a card name at 16px, a type line at 12px,
+              a power and toughness pill at 11px, rules text at 12px and every
+              button label at 12px, all in the same grey. Nothing led, so the
+              eye had nowhere to land and a panel with a lot of real
+              information in it read as a wall.
+
+              So there is a hierarchy now and it is deliberate: the NAME is the
+              largest thing, POWER AND TOUGHNESS is the second, and everything
+              else steps down from there. Power and toughness earns that place
+              because in combat it is the number checked most often and most
+              urgently, and because on the mat it is a badge a few pixels tall.
+              Here there is room, so it is set as a display number rather than
+              hidden in a row of pills that all look alike.
+            */}
             <div className="w-full shrink-0">
-              <div className="flex items-start gap-2">
-                <h3 className="min-w-0 flex-1 text-base font-semibold leading-snug text-foreground">
+              <div className="flex items-start gap-3">
+                <h3 className="min-w-0 flex-1 text-2xl font-semibold leading-tight tracking-tight text-foreground">
                   {card.name}
                 </h3>
-                <ManaCost cost={card.manaCost} size="sm" className="shrink-0 pt-0.5" />
+                <ManaCost cost={card.manaCost} size="sm" className="shrink-0 pt-1.5" />
               </div>
               {card.typeLine && (
-                <p className="mt-0.5 text-xs leading-tight text-muted-foreground">{card.typeLine}</p>
+                <p className="mt-1 text-sm leading-snug text-muted-foreground">{card.typeLine}</p>
               )}
-              {(stats || notes.length > 0) && (
-                <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                  {stats && (
-                    <span className="rounded-full bg-foreground/[0.10] px-2 text-[11px] font-semibold leading-5 text-foreground">
-                      {stats}
-                    </span>
-                  )}
+              {stats && (
+                <p className="mt-2 text-3xl font-bold leading-none tabular-nums text-foreground">
+                  {stats}
+                </p>
+              )}
+              {notes.length > 0 && (
+                <div className="mt-2 flex flex-wrap items-center gap-1">
                   {notes.map(note => (
                     <span
                       key={note}

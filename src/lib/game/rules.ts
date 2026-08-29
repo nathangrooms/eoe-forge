@@ -54,6 +54,7 @@ import type {
   Zone,
 } from './types.ts';
 import { toggleKeyword } from './keywords.ts';
+import { isDieLabel, markLabel } from './marks.ts';
 import type { SbaFinding } from './sba.ts';
 import { lossReasonsFor, printedInteger, runStateBasedActions } from './sba.ts';
 import {
@@ -1404,8 +1405,38 @@ function describeAction(state: GameState, action: GameAction): string {
         : `${cardName(state, action.instanceId)} unattached.`;
     case 'PLAYER_COUNTER':
       return `${playerName(state, action.playerId)} ${action.delta >= 0 ? '+' : ''}${action.delta} ${action.counter}.`;
-    case 'CARD_COUNTER':
+    case 'CARD_COUNTER': {
+      /*
+       * A MARK A PLAYER PUT THERE IS NOT "N COUNTERS", AND ITS KEY IS NOT A
+       * WORD ANYBODY TYPED.
+       *
+       * Free markers and dice are stored as counters under a fenced key (see
+       * `marks.ts`), so without this branch the log would read *"Atraxa +17
+       * mark:d20 counters."* — a storage prefix on the table, in the one
+       * sentence whose whole job is to tell a player what just happened. That
+       * is this project's `~` bug for a second time; `manual.ts` records the
+       * first, where a parser's notation reached the upkeep strip.
+       */
+      const mark = markLabel(action.counter);
+      if (mark !== null) {
+        const name = cardName(state, action.instanceId);
+        if (isDieLabel(mark)) {
+          const face = state.cards[action.instanceId]?.counters[action.counter] ?? 0;
+          /* The die's FACE, not the change to it. Rolling a 3 over a 17 is a
+             delta of −14, and "−14 on a d20" is not a thing that happened. */
+          return `${name}: ${mark} showing ${face + action.delta}.`;
+        }
+        if (action.delta < 0) {
+          const left = (state.cards[action.instanceId]?.counters[action.counter] ?? 0) + action.delta;
+          return left <= 0
+            ? `${name}: ${mark} taken off.`
+            : `${name}: ${mark} down to ${left}.`;
+        }
+        const now = (state.cards[action.instanceId]?.counters[action.counter] ?? 0) + action.delta;
+        return now === 1 ? `${name} marked ${mark}.` : `${name}: ${mark} up to ${now}.`;
+      }
       return `${cardName(state, action.instanceId)} ${action.delta >= 0 ? '+' : ''}${action.delta} ${action.counter} counters.`;
+    }
     case 'DRAW':
       return `${playerName(state, action.playerId)} drew ${action.count ?? 1} card${(action.count ?? 1) === 1 ? '' : 's'}.`;
     case 'PLAY':

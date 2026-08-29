@@ -25,7 +25,8 @@ import { ManaCost } from '@/components/ui/mana-cost';
 import { CardImage } from '@/components/cards/CardImage';
 import { CardBack, CARD_RADIUS } from './CardBack';
 import { CARD_RATIO } from './Battlefield';
-import { counterBadge, statBadge } from './cardMarks';
+import { counterBadge, statBadge, markGap, markDrop } from './cardMarks';
+import { markDescription, markText, playerMarksOn, rulesCountersOn } from '@/lib/game/marks';
 import {
   attachmentsOn,
   automationFor,
@@ -407,7 +408,11 @@ export const GameCardView = memo(function GameCardView({
   const combatFilled =
     combat?.kind === 'attacking' || combat?.kind === 'armed' || combat?.kind === 'blocking';
 
-  const counters = Object.entries(card.counters).filter(([, value]) => value !== 0);
+  /* Two kinds of thing, kept apart at the source. A rules counter was put there
+     by the game; a mark was put there by a person, and `marks.ts` fences the
+     two so nothing downstream can confuse a d20 with a +1/+1. */
+  const counters = rulesCountersOn(card.counters);
+  const playerMarks = playerMarksOn(card.counters);
   const damage = card.damage;
 
   /*
@@ -799,58 +804,98 @@ export const GameCardView = memo(function GameCardView({
       )}
 
       {/*
-        POWER AND TOUGHNESS, on the card, at a size a person reads across a
-        table.
+        THE MARK RAIL: everything about this permanent's state, in one place,
+        along the edge that survives.
 
-        It sits bottom right because that is the corner it occupies on every
-        printed Magic card, so a player already knows where to look. It draws
-        only on the battlefield: in a hand or a graveyard the card's own printed
-        box is the truth and a second copy over it is noise, and while a card is
-        face down there is nothing to tell.
+        Power and toughness, damage marked, counters the rules put on, and marks
+        the player put on themselves. They were three separate treatments in
+        three positions and they are one family now, because they answer one
+        question — *what is this creature right now* — and a player asks it in a
+        hurry, in combat, with eight permanents on the mat.
 
-        `statsModified` inverts it when the live line differs from the printed
-        one. No hue is used for that, deliberately. The palette reserves colour
-        for Magic's own meaning and a buffed creature is not a colour, so the
-        difference is carried by fill and weight, which also survives being
-        looked at quickly and works for a colour blind player.
+        BOTTOM LEFT, and `cardMarks.ts` carries the measurement that moved it:
+        the stat box used to sit bottom right, the printed-card corner, and
+        `Battlefield.tsx` lays a crowded row with `zIndex: index` so the card
+        after this one covers its right edge. Measured on a real board, one stat
+        box of six was fully visible and the other five were 40% visible, which
+        is exactly enough of `1/1` to show the power and hide the toughness.
+
+        Order is priority, because the leftmost mark is the one that always
+        survives: what it IS, then what has hit it, then what is on it, then
+        what you wrote on it.
+
+        Three fills, no outlines, and only one hue in the set:
+          power/toughness   glass, or INVERTED when it is not what the card
+                            prints, so a buffed creature says so without a
+                            colour a colour-blind player cannot see
+          damage            destructive, the one hue, because it is the number
+                            that kills the creature
+          rules counter     filled: the game put this here
+          player mark       glass: a person laid this on the card
+
+        Nothing wraps. A rail that wrapped would grow upward into the art, and
+        `cardMarks.ts` records that a full-size card must not carry a badge that
+        has become a label. It runs to the right instead, where a crowded row
+        will cover the tail — which is the correct thing to lose first.
       */}
-      {onBattlefield && !hidden && stats && (
-        <span
-          className={cn(
-            'pointer-events-none absolute z-10 flex items-center justify-center rounded-md font-bold tabular-nums shadow-md shadow-black/60',
-            statsModified
-              ? 'bg-foreground text-background ring-2 ring-background/70'
-              : 'bg-background/85 text-foreground backdrop-blur-sm'
-          )}
-          style={{
-            right: '4%',
-            bottom: '3%',
-            fontSize: statMark.font,
-            lineHeight: `${statMark.height}px`,
-            height: statMark.height,
-            minWidth: statMark.height,
-            paddingLeft: statMark.padX,
-            paddingRight: statMark.padX,
-          }}
-          title={
-            statsModified
-              ? `${stats}, printed ${printedStats}`
-              : `${stats}`
-          }
-        >
-          {stats}
-        </span>
-      )}
-
-      {(counters.length > 0 || damage > 0) && (
+      {onBattlefield && !hidden && (stats || counters.length > 0 || damage > 0 || playerMarks.length > 0) && (
         <div
-          className="pointer-events-none absolute left-0 right-0 z-10 flex flex-wrap justify-center gap-1"
-          style={{ bottom: -Math.round(badge.height * 0.34) }}
+          className="pointer-events-none absolute z-10 flex flex-nowrap items-end"
+          style={{
+            left: Math.round(renderedWidth * 0.03),
+            bottom: -markDrop(badge.height),
+            gap: markGap(renderedWidth),
+          }}
         >
-          {counters.map(([key, value]) => (
+          {stats && (
+            <span
+              className={cn(
+                'flex shrink-0 items-center justify-center rounded-md font-bold tabular-nums shadow-md shadow-black/60',
+                statsModified
+                  ? 'bg-foreground text-background'
+                  : 'bg-background/85 text-foreground backdrop-blur-sm'
+              )}
+              style={{
+                fontSize: statMark.font,
+                lineHeight: `${statMark.height}px`,
+                height: statMark.height,
+                minWidth: statMark.height,
+                paddingLeft: statMark.padX,
+                paddingRight: statMark.padX,
+              }}
+              title={statsModified ? `${stats}, printed ${printedStats}` : stats}
+              aria-label={
+                statsModified
+                  ? `${stats}, printed ${printedStats}`
+                  : `${stats} power and toughness`
+              }
+            >
+              {stats}
+            </span>
+          )}
+
+          {damage > 0 && (
+            <span
+              className="flex shrink-0 items-center justify-center rounded-full bg-destructive font-semibold tabular-nums text-destructive-foreground shadow-md shadow-black/50"
+              style={{
+                fontSize: badge.font,
+                lineHeight: `${badge.height}px`,
+                height: badge.height,
+                minWidth: badge.height,
+                paddingLeft: badge.padX,
+                paddingRight: badge.padX,
+              }}
+              title={`${damage} damage marked on ${card.name}`}
+              aria-label={`${damage} damage marked`}
+            >
+              {damage}
+            </span>
+          )}
+
+          {counters.map(({ key, value }) => (
             <span
               key={key}
-              className="flex items-center justify-center rounded-full bg-foreground font-semibold tabular-nums text-background shadow-md shadow-black/50"
+              className="flex shrink-0 items-center justify-center rounded-full bg-foreground font-semibold tabular-nums text-background shadow-md shadow-black/50"
               style={{
                 fontSize: badge.font,
                 lineHeight: `${badge.height}px`,
@@ -860,26 +905,40 @@ export const GameCardView = memo(function GameCardView({
                 paddingRight: badge.padX,
               }}
               title={`${value} ${key} counters`}
+              aria-label={`${value} ${key} counters`}
             >
               {value > 0 ? `+${value}` : value}
             </span>
           ))}
-          {damage > 0 && (
+
+          {/* A MARK A PERSON PUT THERE, and it has to look like one.
+              Glass rather than filled, so it reads as something laid ON the
+              card instead of stamped by the rules, and it carries its own words
+              rather than only a number: a die shows its face, a reminder shows
+              what you wrote, a tally shows both. `marks.ts` owns that choice so
+              the mat, the panel and the log cannot word it three ways. */}
+          {playerMarks.map(mark => (
             <span
-              className="flex items-center justify-center rounded-full bg-destructive font-semibold tabular-nums text-destructive-foreground shadow-md shadow-black/50"
+              key={mark.key}
+              className="flex shrink-0 items-center justify-center rounded-md bg-background/85 font-semibold text-foreground shadow-md shadow-black/50 backdrop-blur-sm"
               style={{
                 fontSize: badge.font,
                 lineHeight: `${badge.height}px`,
                 height: badge.height,
                 minWidth: badge.height,
+                maxWidth: Math.round(renderedWidth * 0.7),
                 paddingLeft: badge.padX,
                 paddingRight: badge.padX,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
               }}
-              title={`${damage} damage marked`}
+              title={markDescription(mark)}
+              aria-label={markDescription(mark)}
             >
-              {damage}
+              {markText(mark)}
             </span>
-          )}
+          ))}
         </div>
       )}
 
@@ -922,8 +981,12 @@ export const GameCardView = memo(function GameCardView({
         </span>
       )}
 
-      {/* The attachment mark. Bottom-left, the one corner nothing else uses, so
-          it never fights the sickness mark, the by-hand mark or the tap chip.
+      {/* The attachment mark, in the corner power and toughness used to hold.
+          They swapped, deliberately: the bottom right is the corner a crowded
+          row covers, and this is the one mark on a card that is a "there is
+          more to know" hint rather than a number read in a hurry. Losing the
+          link under a neighbour costs a hover; losing the toughness cost the
+          combat maths, which is what the measurement in `cardMarks.ts` found.
           A count when this permanent is CARRYING things; a bare link when this
           permanent IS one. */}
       {(attachmentCount > 0 || attachedHost) && (
@@ -931,7 +994,7 @@ export const GameCardView = memo(function GameCardView({
           className="pointer-events-none absolute z-10 flex items-center justify-center gap-px rounded-full bg-foreground px-1 text-background shadow-md shadow-black/60"
           style={{
             height: Math.round(chip * 0.68),
-            left: -Math.round(chip * 0.16),
+            right: -Math.round(chip * 0.16),
             bottom: -Math.round(chip * 0.16),
           }}
           title={
@@ -975,44 +1038,48 @@ export const GameCardView = memo(function GameCardView({
         </span>
       )}
 
-      {(role === 'attacker' || role === 'blocker') && (
-        <span
-          /* Left, for the same reason the note below is: a crowded row hides
-             the right of every card under the next one. */
-          className={cn(
-            'pointer-events-none absolute -top-2 left-0 z-10 rounded-full px-1.5 text-[9px] font-semibold leading-4 shadow-md shadow-black/60',
-            role === 'attacker'
-              ? 'bg-foreground text-background'
-              : 'bg-background/90 text-foreground backdrop-blur-sm'
-          )}
-        >
-          {/* A middle dot, not an em-dash: the copy rule covers every glyph
-              that lands on screen, placeholders included. */}
-          {stats ?? '·'}
-        </span>
-      )}
+      {/*
+        THE THIRD COPY OF THE POWER AND TOUGHNESS IS GONE.
+
+        An attacking creature used to carry a `text-[9px]` pill at its top left
+        printing its stat line, back when the rail below did not exist and the
+        only other copy was the bottom-right box a neighbour was covering. Now
+        that the rail always draws the stat line at 26px on a 200px card, that
+        pill was the same number a third time, at a third the size, and it was
+        one of the two places in this file still writing a fixed 9px.
+
+        The role it carried is not lost. An attacker lifts, takes a heavier drop
+        shadow, and wears the note below, which says who it is hitting rather
+        than merely that it is attacking.
+      */}
 
       {/*
         Who it is hitting, or what it is holding.
 
-        Under the card rather than over it, so it never lands on the art or the
-        rules text, and anchored to the LEFT rather than centred. That is not a
-        style choice: `PermanentRow` gives each card `zIndex: index`, so a
-        crowded row hides the RIGHT of every card under the one after it and the
-        only strip that stays visible is the left edge. A centred label on a
-        row of seven attackers is a label nobody can read, which is the failure
-        this whole mark exists to fix.
+        Left-anchored for the reason the rail is: `PermanentRow` gives each card
+        `zIndex: index`, so a crowded row hides the RIGHT of every card under
+        the one after it and the only strip that stays visible is the left edge.
+
+        It sits directly ABOVE the mark rail rather than on it. The two used to
+        occupy the same bottom-left corner, which nothing noticed while the stat
+        box was still bottom right. Stacked, a blocking 3/3 reads *blocks Bear*
+        over *3/3* in one column, which is the order those two facts are wanted.
       */}
       {combatNote && renderedWidth >= 52 && (
         <span
           title={combatNote.detail}
           aria-label={combatNote.detail}
           className={cn(
-            'pointer-events-none absolute -bottom-1.5 left-0 z-20 max-w-full truncate rounded-full px-1.5 text-[9px] font-semibold leading-4 shadow-md shadow-black/60',
+            'pointer-events-none absolute left-0 z-20 max-w-full truncate rounded-full px-1.5 font-semibold shadow-md shadow-black/60',
             combatNote.role === 'attacker'
               ? 'bg-destructive text-destructive-foreground'
               : 'bg-background/95 text-foreground backdrop-blur-sm'
           )}
+          style={{
+            bottom: statMark.height - markDrop(badge.height) + 2,
+            fontSize: badge.font,
+            lineHeight: `${badge.height}px`,
+          }}
         >
           {combatNote.text}
         </span>

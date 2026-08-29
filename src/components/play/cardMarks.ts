@@ -112,3 +112,63 @@ export function statBadge(cardWidth: number): CounterBadge {
     padX: Math.max(3, Math.round(font * 0.38)),
   };
 }
+
+/* ==========================================================================
+ * WHICH CORNER, AND WHY IT MOVED
+ * ==========================================================================
+ * The size was never the problem. Measured on a real goldfish board at
+ * 1600 x 1000, nine permanents down, by `scripts/play-stat-measure.mjs` and
+ * `scripts/play-mark-occlusion.mjs`:
+ *
+ *   card 200px wide   stat box "1/1"   26px digits in a 62.8 x 38 pill
+ *
+ * 26px is not small. But the same run measured how much of each box a player
+ * can actually SEE, by asking the document which permanent is on top at every
+ * point across it:
+ *
+ *   stat boxes fully visible: 1 of 6
+ *   the other five: 40% visible
+ *
+ * Forty per cent of `1/1` from the left is `1`. The screenshot agrees exactly:
+ * the row read 1, 1, 2, 2, 1 and only the LAST card in the run showed both
+ * numbers. The number a player checks most often in combat was being cut in
+ * half by the card next to it.
+ *
+ * `Battlefield.tsx` gives every permanent `zIndex: index` and a negative
+ * `marginLeft` once the row is crowded, so card k+1 lies over the right edge of
+ * card k. The stat badge was anchored `right: 4%` — the corner it occupies on a
+ * printed Magic card, which is exactly the corner an overlapped row guarantees
+ * is underneath something. The uncovered strip measured 143px of 200.
+ *
+ * That file already knew. The combat note carries the reasoning verbatim: *"a
+ * crowded row hides the RIGHT of every card under the one after it and the only
+ * strip that stays visible is the left edge."* It was applied to the label
+ * saying who a creature is attacking and not to its power and toughness.
+ *
+ * So every mark a player reads in a hurry now hangs off the BOTTOM LEFT, in one
+ * rail, in the order they are wanted: power and toughness, then damage, then
+ * counters, then the marks the player put there themselves. Leftmost survives,
+ * and what survives is the most important thing.
+ *
+ * The attachment link swapped into the vacated bottom-right corner. It is the
+ * one mark on a card that is a "there is more to know" hint rather than a
+ * number read in a hurry, so it is the right thing to put in the corner that
+ * gets covered.
+ * ========================================================================== */
+
+/** Gap between marks in the rail. Proportional, like everything else here. */
+export function markGap(cardWidth: number): number {
+  return Math.max(2, Math.round(cardWidth * 0.03));
+}
+
+/**
+ * How far the rail hangs below the card's bottom edge.
+ *
+ * A third of the badge, which is what the counter row already used and is the
+ * reason counters measured 100% visible while the stat box measured 40%: the
+ * part below the card is over the bare mat, where no neighbour can reach it.
+ * Two thirds stays on the card so the rail still reads as belonging to it.
+ */
+export function markDrop(badgeHeight: number): number {
+  return Math.round(badgeHeight * 0.34);
+}

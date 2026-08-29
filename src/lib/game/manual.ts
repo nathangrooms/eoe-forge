@@ -37,6 +37,13 @@ import type {
 } from './types.ts';
 import { ZONES } from './types.ts';
 import { FLAGGABLE_KEYWORDS, hasKeyword, keywordSupport } from './keywords.ts';
+import {
+  DIE_LABEL,
+  markKey,
+  markLabel,
+  playerMarksOn,
+  type PlayerMark,
+} from './marks.ts';
 // Layered, so the number beside the nudge button is the number on the card.
 import { combatPowerIn, combatToughnessIn } from './characteristics.ts';
 import { automationFor } from './effects.ts';
@@ -115,6 +122,79 @@ export function setCardCounter(
 ): GameAction[] {
   const current = card.counters[counter] ?? 0;
   return cardCounter(card.instanceId, counter, value - current, at);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Marks a player put there: free markers and dice                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Put an arbitrary marked value on a permanent, or change one already there.
+ *
+ * Owner: *"everything like tokens ... dice markers etc."* At a table you reach
+ * for whatever is nearest when the rules run out, and this app had nothing: a
+ * counter of a kind the engine has never heard of, a die showing the number an
+ * effect chose, a note saying *sac at end*, none of them existed.
+ *
+ * Emitted as a `CARD_COUNTER`, for the reason `marks.ts` argues in full: CR
+ * 122.1 lets a permanent carry a counter of any kind, so this is the right
+ * model rather than a way round writing a new action, and it means a mark is
+ * validated, logged, undoable and broadcast exactly as an engine-placed counter
+ * is. `markKey` fences it so nothing can mistake a die for a rules counter.
+ */
+export function setPlayerMark(
+  card: CardInstance,
+  label: string,
+  value: number,
+  at = 0
+): GameAction[] {
+  const key = markKey(label);
+  if (!markLabel(key)) return [];
+  const current = card.counters[key] ?? 0;
+  return cardCounter(card.instanceId, key, value - current, at);
+}
+
+/** Nudge a mark up or down by hand. */
+export function adjustPlayerMark(
+  instanceId: string,
+  label: string,
+  delta: number,
+  at = 0
+): GameAction[] {
+  return cardCounter(instanceId, markKey(label), delta, at);
+}
+
+/** Take a mark off entirely. */
+export function clearPlayerMark(card: CardInstance, label: string, at = 0): GameAction[] {
+  return setPlayerMark(card, label, 0, at);
+}
+
+/**
+ * Leave a rolled die on a permanent.
+ *
+ * THE ROLL DOES NOT HAPPEN HERE. This module is pure by contract — no clock, no
+ * randomness, no I/O — and the caller passes the face that came up. That is not
+ * only a purity nicety: the ACTION carries the number, so every seat at a
+ * networked table receives the same face, the log records it, and undo takes it
+ * back. A reducer that rolled its own die would have to consume `state.rng`,
+ * which exists so shuffles replay identically and would then advance differently
+ * depending on how many times somebody fiddled with a d20.
+ *
+ * Rolling again replaces the face rather than adding to it, because that is
+ * what happens when you pick a die up and roll it.
+ */
+export function rollDieOnCard(
+  card: CardInstance,
+  sides: number,
+  face: number,
+  at = 0
+): GameAction[] {
+  return setPlayerMark(card, DIE_LABEL(sides), face, at);
+}
+
+/** Every mark a player has put on this permanent. Re-exported for callers. */
+export function marksOn(card: CardInstance): PlayerMark[] {
+  return playerMarksOn(card.counters);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -396,7 +476,9 @@ export type ManualGroup =
   | 'zones'
   | 'marker'
   /** Making a token by hand, and copying a permanent as one. */
-  | 'tokens';
+  | 'tokens'
+  /** Free markers and dice a player put on the permanent themselves. */
+  | 'marks';
 
 export interface ManualControl {
   /** Stable within one card, so React can key on it. */
@@ -579,6 +661,41 @@ export function manualControlsFor(
       label: `Copy ${card.name}`,
       group: 'tokens',
       actions: copyAsToken(card, controller, 1, { at }),
+    });
+  }
+
+  /*
+   * Marks the player has already put on this permanent.
+   *
+   * MAKING one is not here, and that is the same split the tokens above take:
+   * a control in this menu is bound to the actions it produces, and neither a
+   * label somebody is about to type nor a die face nobody has rolled yet can be
+   * bound in advance. The UI owns those two and calls `setPlayerMark` and
+   * `rollDieOnCard`. What IS here is everything that can be bound: nudging a
+   * mark, and taking it off — which is the half that has to be reachable from
+   * every surface, because a mark you cannot remove is worse than no mark.
+   */
+  for (const mark of marksOn(card)) {
+    controls.push({
+      id: `mark+:${mark.label}`,
+      label: `${mark.label} +1`,
+      group: 'marks',
+      actions: adjustPlayerMark(card.instanceId, mark.label, 1, at),
+      count: mark.value,
+    });
+    controls.push({
+      id: `mark-:${mark.label}`,
+      label: `${mark.label} −1`,
+      group: 'marks',
+      actions: adjustPlayerMark(card.instanceId, mark.label, -1, at),
+      count: mark.value,
+    });
+    controls.push({
+      id: `mark:clear:${mark.label}`,
+      label: `Take off ${mark.label}`,
+      group: 'marks',
+      actions: clearPlayerMark(card, mark.label, at),
+      count: mark.value,
     });
   }
 

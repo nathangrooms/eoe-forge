@@ -291,9 +291,18 @@ const main = async () => {
         if (label) {
           await sleep(900);
           const hasRow = await page.evaluate(() => /Cast it at/i.test(document.body.innerText || ''));
-          const aimable = (await buttons(page)).filter(b => /^Aim |^Cast at /i.test(b.title || b.label));
+          const aimable = (await buttons(page)).filter(b =>
+            /* BOTH fields, and both shapes. With several legal targets the
+               board is the control and each legal card carries a title of
+               "Aim at <name>". With exactly ONE legal target there is nothing
+               to choose, and the panel draws a single press whose LABEL reads
+               "CAST AT TUNDRA WOLVES" while its title is the plain "Cast
+               <card>". Testing `title || label` read the title, missed, and
+               this run reported that a target could never be chosen. It can:
+               pressing it took the card out of hand, aimed. */
+            /^Aim at /i.test(b.title) || /^cast at /i.test(b.label));
           const before = await gameState(page);
-          const pressed = aimable.length > 0 && (await press(page, /^Aim |^Cast at /));
+          const pressed = aimable.length > 0 && (await press(page, /^(Aim at |CAST AT )/));
           await sleep(1800);
           const after = await gameState(page);
           targeted = {
@@ -603,10 +612,19 @@ Goldfishing. Ignore mana entirely". An end-anchored
             if (!opened) continue;
             await sleep(800);
             const hasRow = await page.evaluate(() => /Cast it at/i.test(document.body.innerText || ''));
-            const aimable = (await buttons(page)).filter(b => /^Aim |^Cast at /i.test(b.title || b.label));
+            const aimable = (await buttons(page)).filter(b =>
+            /* BOTH fields, and both shapes. With several legal targets the
+               board is the control and each legal card carries a title of
+               "Aim at <name>". With exactly ONE legal target there is nothing
+               to choose, and the panel draws a single press whose LABEL reads
+               "CAST AT TUNDRA WOLVES" while its title is the plain "Cast
+               <card>". Testing `title || label` read the title, missed, and
+               this run reported that a target could never be chosen. It can:
+               pressing it took the card out of hand, aimed. */
+            /^Aim at /i.test(b.title) || /^cast at /i.test(b.label));
             if (hasRow && aimable.length > 0) {
               const before = await gameState(page);
-              const pressed = await press(page, /^Aim |^Cast at /);
+              const pressed = await press(page, /^(Aim at |CAST AT )/);
               await sleep(1800);
               const after = await gameState(page);
               record('choose a target, free cast on', {

@@ -91,6 +91,9 @@ export * from './intrinsic.ts';
 export * from './sba.ts';
 export * from './triggers.ts';
 export * from './effects.ts';
+// CR 122.1 — a permanent may carry a counter of any kind, which is how a die,
+// a free marker and a reminder a player wrote are stored and fenced.
+export * from './marks.ts';
 export * from './manual.ts';
 export * from './respond.ts';
 // CR 602 — activating an ability on a permanent you control: costs, timing,

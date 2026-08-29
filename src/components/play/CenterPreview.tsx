@@ -678,6 +678,7 @@ export function CenterPreview({
               state={state}
               viewerPlayerId={viewerPlayerId}
               card={card}
+              freeCast={freeCast}
               onCastAt={
                 !readOnly && !holdReason && onCastAtTargets
                   ? (target, options) => onCastAtTargets(target, options.targets ?? [])

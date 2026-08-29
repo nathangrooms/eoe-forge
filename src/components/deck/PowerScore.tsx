@@ -565,9 +565,15 @@ function ExpandedPower({
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs text-muted-foreground">
+            {/* This said "Computed from this decklist by the DeckMatrix EDH
+                engine", which is the sentence `unscoredReason` above is
+                documented as existing to avoid: a description of a machine the
+                reader cannot act on, and "engine" is on the copy rules' own
+                ban list. What the reader needs from this line is where the
+                number came from, and it came from their list. */}
             {stale
-              ? 'This score was computed from an earlier version of this decklist.'
-              : 'Computed from this decklist by the DeckMatrix EDH engine.'}
+              ? 'Worked out from an earlier version of this decklist.'
+              : 'Worked out from this decklist.'}
           </p>
           <div className="flex items-center gap-2">
             {stale && <StaleChip />}

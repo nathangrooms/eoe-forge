@@ -1,4 +1,14 @@
-import { Card as DeckCard } from '@/stores/deckStore';
+/* Type-only, and the categoriser by relative path with its extension, so this
+   module can be loaded by `node --test` the way `openingHand.ts` is. The alias
+   and a value import together are what keep a file unreachable by any test,
+   which is how the land count below went wrong unnoticed. */
+import type { Card as DeckCard } from '@/stores/deckStore';
+import { categorizeCard } from '../deck/cardCategories.ts';
+
+/** A land is whatever the one canonical categoriser calls a land. */
+function isLand(card: Pick<DeckCard, 'type_line'>): boolean {
+  return categorizeCard(card.type_line) === 'lands';
+}
 
 export interface ValidationWarning {
   severity: 'error' | 'warning' | 'info';
@@ -41,10 +51,20 @@ export class DeckValidator {
    */
   private static checkManaBase(cards: DeckCard[], format: string): ValidationWarning[] {
     const warnings: ValidationWarning[] = [];
-    const lands = cards.filter(card => 
-      card.type_line?.toLowerCase().includes('land')
-    );
-    
+    /*
+     * A land is decided by the FRONT FACE, through the one categoriser every
+     * other deck surface uses.
+     *
+     * This read `type_line.includes('land')` over the whole string, so a modal
+     * double-faced spell with a land on the back counted as a land. The deck
+     * page shows both numbers at once and they disagreed on screen: the type
+     * breakdown at the top of `/deck/:id` read "32 Lands" for the Atraxa deck
+     * while this warning, at the bottom of the same page, read "33 lands may be
+     * slightly low". The extra one is Agadeem's Awakening // Agadeem, the
+     * Undercrypt, which is `Sorcery // Land` and is a sorcery you cast.
+     */
+    const lands = cards.filter(isLand);
+
     const totalCards = cards.reduce((sum, card) => sum + (card.quantity || 1), 0);
     const landCount = lands.reduce((sum, card) => sum + (card.quantity || 1), 0);
     const landPercentage = (landCount / totalCards) * 100;
@@ -108,9 +128,11 @@ export class DeckValidator {
    */
   private static checkManaCurve(cards: DeckCard[], format: string): ValidationWarning[] {
     const warnings: ValidationWarning[] = [];
-    const nonLands = cards.filter(card => 
-      !card.type_line?.toLowerCase().includes('land')
-    );
+    /* Same front-face rule as the mana base above, and it matters more here:
+       a modal double-faced spell dropped out of the curve entirely, so the
+       curve this advice was measured against was missing cards the deck
+       actually casts. */
+    const nonLands = cards.filter(card => !isLand(card));
 
     const curveBins = {
       '0-1': 0,
@@ -317,9 +339,10 @@ export class DeckValidator {
   private static checkBalance(cards: DeckCard[]): ValidationWarning[] {
     const warnings: ValidationWarning[] = [];
     
-    // Check creature count
-    const creatures = cards.filter(card => 
-      card.type_line?.toLowerCase().includes('creature')
+    // Check creature count, through the one categoriser, so this agrees with
+    // the type breakdown the same page prints above it.
+    const creatures = cards.filter(
+      card => categorizeCard(card.type_line) === 'creatures'
     );
     const creatureCount = creatures.reduce((sum, card) => sum + (card.quantity || 1), 0);
     const totalCards = cards.reduce((sum, card) => sum + (card.quantity || 1), 0);

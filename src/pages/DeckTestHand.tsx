@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Layers, Play, RotateCcw, Shuffle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -83,6 +83,27 @@ export default function DeckTestHand() {
   /* The hand lives on the page so the page can put Draw and Mulligan in its
      own action row rather than the panel growing a heading to hold them. */
   const opening = useOpeningHand(library as never);
+
+  /*
+    Deal the first hand as soon as there is a library to deal from.
+
+    Arriving here used to show a 660px box of charcoal with a button in the
+    middle of it, on a page whose entire subject is seven cards, when the seven
+    cards were already loaded and one shuffle away. Nobody comes to a test hand
+    page not wanting a test hand, and "New hand" in the action row is right
+    there for the second one.
+
+    Once per deck: the ref is keyed on the deck id, so opening a different deck
+    deals again but a re-render never does. `draw` changes identity on every
+    render, which is why the effect cannot be guarded on it alone.
+  */
+  const dealtFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (loading || !id || library.length === 0) return;
+    if (dealtFor.current === id) return;
+    dealtFor.current = id;
+    opening.draw();
+  }, [loading, id, library.length, opening]);
 
   return (
     <DeckSubpageLayout

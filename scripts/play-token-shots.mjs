@@ -95,12 +95,19 @@ const boardState = () =>
  * appearing is weaker evidence than the game itself reporting the act.
  */
 const logLines = () =>
-  page.evaluate(() =>
-    [...document.querySelectorAll('*')]
-      .filter(el => el.children.length === 0)
-      .map(el => (el.textContent || '').trim())
-      .filter(t => /\bcreated\b.*\btokens?\b/i.test(t))
-  );
+  page.evaluate(() => {
+    /* The feed splits a line across several elements (the words, then a phase
+       chip), so a leaf-node scan returns nothing while the screenshot plainly
+       shows three lines. Read whole blocks and split on newlines instead. */
+    const seen = new Set();
+    for (const el of document.querySelectorAll('div, li, section')) {
+      for (const line of (el.innerText || '').split('\n')) {
+        const text = line.trim();
+        if (/\bcreated\b.*\btokens?\b/i.test(text)) seen.add(text);
+      }
+    }
+    return [...seen];
+  });
 
 await page.goto(`${BASE}/play-flow-harness.html?view=flow`, { waitUntil: 'networkidle2' });
 await sleep(1200);
@@ -307,6 +314,58 @@ await page.evaluate(() => {
 await sleep(900);
 await page.screenshot({ path: `${OUT}/06-army-on-board.png` });
 log('saved 06-army-on-board.png');
+
+/* ------------------------------------------------------------------ *
+ * 4. A token that is not on the list                                 *
+ *                                                                    *
+ * The list will never be complete, and a token nobody thought of is  *
+ * a stuck game. This is the escape hatch, and it is an inline form   *
+ * rather than a dialog: project law is no centred modals in play.    *
+ * ------------------------------------------------------------------ */
+await page.evaluate(() => {
+  const h = window.innerHeight;
+  const cards = [...document.querySelectorAll('button, [role="button"]')]
+    .map(el => ({ el, r: el.getBoundingClientRect() }))
+    .filter(({ r }) => r.width > 60 && r.width < 240 && r.height > r.width * 1.1 && r.top > h * 0.6);
+  cards[Math.min(2, cards.length - 1)]?.el.click();
+});
+await sleep(800);
+
+const opened = await press(/^Another token$/);
+await sleep(500);
+await page.type('input[aria-label="Token name"]', 'Ooze');
+await page.evaluate(() => {
+  const p = document.querySelector('input[aria-label="Power"]');
+  const t = document.querySelector('input[aria-label="Toughness"]');
+  const set = (el, v) => {
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    setter.call(el, v);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+  if (p) set(p, '7');
+  if (t) set(t, '7');
+  // Green, because an Ooze is green and the pips are the one place colour lives.
+  [...document.querySelectorAll('button[aria-pressed]')].find(b => b.innerText.trim() === 'G')?.click();
+});
+await sleep(400);
+await page.screenshot({ path: `${OUT}/07-another-token-form.png` });
+
+const madeIt = await press(/^Make it$/);
+await sleep(800);
+const afterCustom = await page.evaluate(() => {
+  const h = window.innerHeight;
+  return [...document.querySelectorAll('[aria-label]')]
+    .filter(el => {
+      const r = el.getBoundingClientRect();
+      return r.width > 30 && r.height > 30 && r.bottom < h * 0.72;
+    })
+    .map(el => (el.getAttribute('aria-label') || '').trim())
+    .filter(n => /^Ooze$/i.test(n)).length;
+});
+await page.evaluate(() => document.querySelector('[aria-label="Close the preview"]')?.click());
+await sleep(800);
+await page.screenshot({ path: `${OUT}/08-another-token-made.png` });
+log('\nopened the builder:', opened, ' pressed Make it:', madeIt, ' Oozes on board:', afterCustom);
 
 const lines = await logLines();
 log('\ngame log lines about tokens:');

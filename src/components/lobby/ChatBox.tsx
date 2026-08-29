@@ -320,6 +320,21 @@ export function ChatBox({
           onScroll={onScroll}
           className="h-[26rem] overflow-y-auto px-4 pb-2 sm:px-5 lg:h-[32rem]"
         >
+          {/*
+            A SHORT CONVERSATION SITS AT THE BOTTOM, NOT AT THE TOP.
+
+            Measured signed out at 1600 x 1000 before this wrapper: the room
+            held one message and drew it at the top of a 32rem box, with the
+            rest of the panel empty below it. That reads as an empty form, not
+            as a room somebody has spoken in. A chat grows UP from the composer,
+            so a room with three messages in it looks like three messages, not
+            like a page that failed to load.
+
+            `min-h-full` plus `justify-end` rather than `justify-end` on the
+            scroll container itself, which in every browser clips the top of a
+            long conversation and makes it unreachable.
+          */}
+          <div className="flex min-h-full flex-col justify-end">
           {feed.hasEarlier && (
             <div className="flex justify-center py-2">
               <Button
@@ -430,6 +445,7 @@ export function ChatBox({
               );
             })}
           </ol>
+          </div>
         </div>
 
         {/* Scrolled up and things arrived. Said, rather than silently applied. */}

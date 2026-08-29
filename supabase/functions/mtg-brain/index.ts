@@ -49,6 +49,34 @@
  * 34 colourless sources. Lands are classified by `produced_mana` now, from the
  * database, and when a land cannot be classified the breakdown is withheld
  * rather than guessed.
+ *
+ * 29 AUG 2026: THE CATALOGUE ANSWERS FIRST
+ * ----------------------------------------
+ * The owner, on Tutor and the deck coach once the gateway ran out of credits:
+ * "they should run automatically through our engine, I dont want to use any LLM
+ * we have so much knowledge?"
+ *
+ * `answer/` is that. It reads the question, decides what is being asked and
+ * what it is about, and answers out of the database when it can. A card
+ * question is nearly all lookup: what it does, what it costs, what it is legal
+ * in, what it is worth, what it combos with and which of your decks run it are
+ * six queries with exact answers. Those never leave this project now.
+ *
+ * Three things follow, and they are the whole design:
+ *
+ *   1. The catalogue goes FIRST, not as a fallback. When it answers, that is
+ *      the answer and nothing else is asked.
+ *   2. What we do not hold is refused BY NAME. No rules reference, no field
+ *      data, no opinion about whether a card is good. Each was measured and
+ *      each refusal says which one it is.
+ *   3. A refusal is a 200 with a message, never an error status. The old 402
+ *      made the page throw into its own deck-shaped fallback, and both
+ *      questions asked after the credits ran out had no deck, so the database
+ *      holds the same blank message twice.
+ *
+ * The gateway is still called, last, for the handful of questions the
+ * catalogue cannot settle. It is no longer able to take the feature down with
+ * it.
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -62,6 +90,29 @@ import {
 } from "./deck-context.ts";
 import { gradeLands, upgradeTargets, findLandCandidates, renderCandidates } from "./manabase.ts";
 import { extractCardNames, resolveCards } from "./resolve-cards.ts";
+import { answerFromCatalogue, nothingToAnswerWith } from "./answer/index.ts";
+import { readQuestion } from "./answer/route.ts";
+
+/**
+ * A plain answer with nothing attached, shaped exactly like a normal one.
+ *
+ * `message` and not `error`, on purpose. The page throws on `error` and then
+ * prints its own fallback, which is built from the attached deck's counts and
+ * renders as an empty box when there is no deck. That happened to both
+ * questions asked after the credits ran out, and both empty messages are still
+ * in `tutor_messages`.
+ */
+function saidPlainly(message: string, conversationId: string | null) {
+  return {
+    message,
+    cards: [],
+    visualData: null,
+    conversationId,
+    answeredFrom: 'nothing',
+    standing: 'refused',
+    success: true,
+  };
+}
 
 /**
  * The one place this function names a model.
@@ -293,9 +344,6 @@ serve(async (req) => {
       return json({ ...hit.data, cached: true });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY is not configured');
-
     /* Read-only catalogue access. The anon key is enough: `cards` is public and
        this function never writes. */
     const supabase = createClient(
@@ -303,6 +351,27 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_ANON_KEY')!,
       { auth: { persistSession: false } }
     );
+
+    /**
+     * The same database, read as the person asking.
+     *
+     * Only ever used to answer "do I already play this", which cannot be
+     * answered by the anon client: `user_decks` is owner scoped and correctly
+     * returns nothing without a sign in. The page sends the caller's own sign
+     * in on the request, so it is passed straight through and the database
+     * decides what they may see, exactly as it does everywhere else.
+     *
+     * Null when signed out, and null is not zero decks. Nothing built on this
+     * may say "none of your decks" without having actually looked.
+     */
+    const callerAuth = req.headers.get('Authorization');
+    const asCaller = callerAuth
+      ? createClient(
+          Deno.env.get('SUPABASE_URL')!,
+          Deno.env.get('SUPABASE_ANON_KEY')!,
+          { auth: { persistSession: false }, global: { headers: { Authorization: callerAuth } } }
+        )
+      : null;
 
     // ---------------------------------------------------------------- deck
     const deckCards: NormalisedCard[] = normaliseDeckCards(deckContext?.cards);
@@ -324,6 +393,61 @@ serve(async (req) => {
       console.log(`decklist: ${deckCards.length} entries, ${cost.chars} chars, about ${cost.approxTokens} tokens`);
     } else {
       console.warn('decklist: NO CARDS were sent with this deck; saying so rather than implying an empty deck');
+    }
+
+    /* ---------------------------------------------------------------------- *
+     * The answer we can work out ourselves, tried first.
+     *
+     * The owner: "they should run automatically through our engine, I dont want
+     * to use any LLM we have so much knowledge?"
+     *
+     * A card question is nearly all lookup. What a card does, what it costs,
+     * what it is legal in, what it is worth, what it combos with and which of
+     * your decks already play it are six queries, and every one of them has an
+     * exact answer sitting in the database. Asking anything else to recall them
+     * is how a Commander deck got told it "could add another copy" of Mystic
+     * Remora, which is the singleton rule broken in the format this whole
+     * product is built around.
+     *
+     * So this runs first, and when it answers, that is the answer. It returns
+     * null rather than a bad answer when the question is not one it can settle,
+     * and null means the request carries on below.
+     * ---------------------------------------------------------------------- */
+    /* What the request actually carries, used by every refusal below so that
+       "attach a deck" is never said to somebody who already has one. */
+    const whatWeHave = {
+      card: Boolean(readQuestion(String(message ?? '')).card),
+      deck: Boolean(deckContext && deckCards.length),
+    };
+
+    const worked = await answerFromCatalogue({
+      message: String(message ?? ''),
+      deckContext,
+      deckCards,
+      identity,
+      db: supabase,
+      userDb: asCaller,
+    });
+
+    if (worked) {
+      console.log(`answered from the catalogue: ask=${worked.routing.ask} subject=${worked.routing.subject ?? 'none'} cue=${worked.routing.cue ?? 'default'} standing=${worked.standing} read=${worked.basis.join(',') || 'nothing'}`);
+
+      /* Charts stay on the same rule they were already on: one is drawn only
+         when the question is about the thing the chart shows. */
+      const charts = chartsFor(worked.routing.question, deckContext);
+      const result = {
+        message: worked.message,
+        cards: worked.cards,
+        visualData: charts.length ? { charts, tables: [] } : null,
+        conversationId,
+        answeredFrom: 'catalogue',
+        routing: worked.routing,
+        basis: worked.basis,
+        standing: worked.standing,
+        success: true,
+      };
+      responseCache.set(key, { data: result, at: Date.now() });
+      return json(result);
     }
 
     // ------------------------------------------------------------ mana base
@@ -476,6 +600,19 @@ and keep the land count roughly where it is: this deck has ${deckContext?.counts
       },
     ];
 
+    /* The last resort, and it is now genuinely last.
+     *
+     * Everything above this line is ours. What is left is the handful of
+     * questions the catalogue cannot settle, and for those we ask, because half
+     * an answer beats none. When the ask fails, for any reason at all, the
+     * player gets `nothingToAnswerWith` rather than an error, because an error
+     * is what made the page print an empty message twice into the database. */
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      console.warn('no gateway key configured; answering with what we hold instead');
+      return json(saidPlainly(nothingToAnswerWith(whatWeHave), conversationId));
+    }
+
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -503,22 +640,25 @@ and keep the land count roughly where it is: this deck has ${deckContext?.counts
          found a 402 in 194 ms. A refusal that is invisible costs more to
          diagnose than the refusal itself. */
       console.error(`gateway refused: ${response.status} for model ${MODEL}`);
-      if (response.status === 429) {
-        return json({ error: 'Too many questions just now. Try again in a moment.', type: 'rate_limit' }, 429);
+      if (response.status !== 429 && response.status !== 402) {
+        console.error('gateway body:', await response.text());
       }
-      if (response.status === 402) {
-        /* No "AI" in anything a player reads. See the ban list in CLAUDE.md:
-           the Magic community dislikes the word and the owner has said so. The
-           player cannot fix this and should not be told to try again either,
-           because retrying will fail the same way until somebody tops up. */
-        return json({
-          error: 'Tutor is unavailable right now. This is our end, not yours.',
-          type: 'payment_required',
-        }, 402);
-      }
-      const body = await response.text();
-      console.error('AI gateway error', response.status, body);
-      throw new Error(`AI gateway error ${response.status}`);
+
+      /* A REFUSAL IS NOT AN ERROR STATUS ANY MORE, AND THIS IS THE POINT.
+       *
+       * It used to return 402, the page threw, and the page's own catch printed
+       * a fallback built out of the attached deck. Both questions asked after
+       * the credits ran out had no deck attached, so both fallbacks
+       * interpolated nothing and the database holds the same blank message
+       * twice. A refusal that renders as an empty box is worse than the refusal.
+       *
+       * The rate limit case keeps its "try again" because a player CAN act on
+       * it. The out of credits case does not, because they cannot, and telling
+       * somebody to retry a thing that will fail identically is a small lie. */
+      const said = response.status === 429
+        ? `That went out too fast. Give it a moment and ask again.\n\n${nothingToAnswerWith(whatWeHave)}`
+        : nothingToAnswerWith(whatWeHave);
+      return json(saidPlainly(said, conversationId));
     }
 
     const ai = await response.json();
@@ -560,7 +700,9 @@ and keep the land count roughly where it is: this deck has ${deckContext?.counts
       if (visualData.charts.length || visualData.tables.length) {
         assistantMessage = 'Here is what the deck looks like.';
       } else {
-        throw new Error('No response content from AI');
+        // An empty answer is a refusal wearing a success. Say so.
+        console.warn('gateway returned nothing to say');
+        return json(saidPlainly(nothingToAnswerWith(whatWeHave), conversationId));
       }
     }
 
@@ -583,6 +725,7 @@ and keep the land count roughly where it is: this deck has ${deckContext?.counts
       cards,
       visualData: visualData.charts.length || visualData.tables.length ? visualData : null,
       conversationId,
+      answeredFrom: 'gateway',
       success: true,
     };
 
@@ -594,8 +737,22 @@ and keep the land count roughly where it is: this deck has ${deckContext?.counts
 
     return json(result);
   } catch (error) {
+    /* The fault goes in the log, where it can be fixed, and a sentence goes to
+       the player, where it can be read. Returning the exception text as `error`
+       made the page throw and print an empty box, and it also put our internal
+       wording in front of somebody who cannot act on it. */
     console.error('tutor failed:', error);
-    return json({ error: error instanceof Error ? error.message : 'Unknown error', success: false }, 500);
+    return json({
+      message: [
+        'Something on our side went wrong reading that. It is not your question and it is not your deck.',
+        'Try again in a moment. If it keeps happening, the fault is ours to fix.',
+      ].join('\n\n'),
+      cards: [],
+      visualData: null,
+      answeredFrom: 'nothing',
+      standing: 'refused',
+      success: true,
+    });
   }
 });
 

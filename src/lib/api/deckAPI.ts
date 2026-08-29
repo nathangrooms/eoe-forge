@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { deckPowerFromSummary, type DeckPower } from '@/lib/deck/power';
+import { categorizeCard } from '@/lib/deck/cardCategories';
 import { auditLogger } from '@/lib/audit/auditLogger';
 
 export interface DeckSummary {
@@ -65,6 +66,57 @@ export interface DeckSummary {
  */
 const SUMMARY_CHUNK = 50;
 
+/**
+ * Recount the type buckets from the decklist, the way the deck page does.
+ *
+ * `compute_deck_summary` counts types with overlapping `LIKE` tests over the
+ * whole type line, and the app counts them with `categorizeCard`, which reads
+ * the FRONT FACE and puts each card in exactly one bucket. They disagree, and
+ * both numbers are on screen at once. Measured against the live decks on
+ * 2026-08-29:
+ *
+ *   Atraxa       `/decks` tile "33 lands"   `/deck/:id` "32 Lands"
+ *   Syr Vondam   44 lands / 8 enchantments  43 lands / 6 enchantments
+ *   Ulamog       58 artifacts               57 artifacts
+ *
+ * The extra land is Agadeem's Awakening // Agadeem, the Undercrypt, a
+ * `Sorcery // Land` you cast as a sorcery. The extra enchantments are
+ * enchantment creatures, counted once as creatures and again as enchantments.
+ * The extra artifact is an artifact land.
+ *
+ * So the RPC's `counts` is normalised here the same way its `power` is: one
+ * rule, `src/lib/deck/cardCategories.ts`, and every surface reading a
+ * `DeckSummary` gets it. `counts.total` and `counts.unique` are left alone —
+ * those the function counts correctly.
+ *
+ * The SQL still holds the old cascade. Anything that reads the RPC without
+ * coming through here still sees the old numbers.
+ */
+function countsFromDecklist(row: unknown, counts: DeckSummary['counts']): DeckSummary['counts'] {
+  const cards = (row as { cards?: unknown })?.cards;
+  if (!Array.isArray(cards) || cards.length === 0) return counts;
+
+  const tally = {
+    lands: 0,
+    creatures: 0,
+    instants: 0,
+    sorceries: 0,
+    artifacts: 0,
+    enchantments: 0,
+    planeswalkers: 0,
+    battles: 0,
+  };
+
+  for (const entry of cards as Array<Record<string, unknown>>) {
+    const quantity = Number(entry?.quantity ?? 1) || 0;
+    const typeLine = (entry?.card_data as { type_line?: string } | undefined)?.type_line;
+    const bucket = categorizeCard(typeLine);
+    if (bucket in tally) tally[bucket as keyof typeof tally] += quantity;
+  }
+
+  return { ...counts, ...tally };
+}
+
 export class DeckAPI {
   /**
    * Every deck summary for the signed-in user.
@@ -122,7 +174,11 @@ export class DeckAPI {
            `filter(Boolean)` did after the per-deck calls. */
         for (const row of (data ?? []) as unknown[]) {
           const summary = row as unknown as DeckSummary;
-          summaries.push({ ...summary, power: deckPowerFromSummary(row) });
+          summaries.push({
+            ...summary,
+            counts: countsFromDecklist(row, summary.counts),
+            power: deckPowerFromSummary(row),
+          });
         }
       }
 
@@ -150,7 +206,11 @@ export class DeckAPI {
       // One normalisation point. Every consumer of DeckSummary.power gets the
       // canonical shape, so no screen can render a second definition of power.
       const summary = summaryData as unknown as DeckSummary;
-      return { ...summary, power: deckPowerFromSummary(summaryData) };
+      return {
+        ...summary,
+        counts: countsFromDecklist(summaryData, summary.counts),
+        power: deckPowerFromSummary(summaryData),
+      };
     } catch (error) {
       console.error('Error fetching deck summary:', error);
       throw error;

@@ -61,6 +61,15 @@ export interface SpellTargetPanelProps {
    * check, exactly as it does for an ordinary cast; this only names the targets.
    */
   onCastAt?: (card: CardInstance, options: Pick<CastOptions, 'targets'>) => void;
+  /**
+   * Playtest escape hatch: ignore mana entirely.
+   *
+   * It has to reach the verdict below or the panel refuses a spell the rest of
+   * the screen is offering. Measured when the check was first added without
+   * this prop: free cast on, every targeted spell in hand still answered "needs
+   * more mana" here while the fan showed it bright.
+   */
+  freeCast?: boolean;
   className?: string;
 }
 
@@ -77,6 +86,7 @@ export function SpellTargetPanel({
   viewerPlayerId,
   card,
   onCastAt,
+  freeCast,
   className,
 }: SpellTargetPanelProps) {
   const [choices, setChoices] = useState<ActivationChoices>({});
@@ -108,7 +118,7 @@ export function SpellTargetPanel({
    * fan greyed 29 cards this panel still offered a target row for. Now the fan,
    * the action list and this panel all read `handPlayVerdict`.
    */
-  const verdict = handPlayVerdict(state, viewerPlayerId, card);
+  const verdict = handPlayVerdict(state, viewerPlayerId, card, { freeCast });
   if (!verdict.ok && !verdict.needsTarget) {
     return (
       <div className={cn('w-full space-y-1.5', className)}>

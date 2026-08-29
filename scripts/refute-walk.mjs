@@ -37,6 +37,14 @@ const WIDTHS = (process.env.WIDTHS || '1280,1600,1920,390').split(',').map(Numbe
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const SHIM = fs.readFileSync(path.join(here, 'refute-shim.js'), 'utf8');
+/* An optional second layer over the shim, injected after it. `EXTRA_SHIM=
+   scripts/refute-rpc-layer.js` answers the RPCs and edge functions the base
+   shim returns null for, so the routes that depend on them are walked doing
+   their job rather than drawing an empty state. Off by default: the base walk
+   deliberately records those calls as unanswered. */
+const EXTRA = process.env.EXTRA_SHIM
+  ? fs.readFileSync(path.resolve(process.env.EXTRA_SHIM), 'utf8')
+  : null;
 const DECK = 'e0909132-5a48-4416-924c-dd2374d3d34d';
 
 const ROUTES = [
@@ -269,6 +277,7 @@ const AUDIT = () => {
       if (!SIGNED_OUT) {
         await page.evaluateOnNewDocument(`window.__DM_ADMIN = ${ADMIN};`);
         await page.evaluateOnNewDocument(SHIM);
+        if (EXTRA) await page.evaluateOnNewDocument(EXTRA);
       }
       const errors = [];
       const slow = [];

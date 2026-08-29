@@ -374,7 +374,10 @@ export const useDeckStore = create<DeckState>()(
             // EDH score and is owned by `persistDeckPower` in
             // `@/lib/deck/power`. Writing a store field with no setter used to
             // stamp every new deck with the previously-opened deck's number.
-            description: `${state.format} deck with ${state.totalCards} cards`,
+            /* "commander deck with 1 cards" was on a real deck. A count that
+               can be one has to say card or cards, and this one starts at one
+               the moment a deck is created. */
+            description: `${state.format} deck with ${state.totalCards} ${state.totalCards === 1 ? 'card' : 'cards'}`,
             user_id: user.id
           };
 

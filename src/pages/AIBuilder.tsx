@@ -771,7 +771,11 @@ export default function AIBuilder() {
           name: buildResult.deckName,
           format: 'commander',
           colors: commanderColors,
-          description: `AI-generated ${config.archetype} deck with ${commander.name}.`,
+          /* The description is stored on the deck and printed on the deck
+             page, so it is player-facing copy and the ban list applies. It
+             said "AI-generated", which is the first word on that list, and it
+             had been written into every deck this builder has ever made. */
+          description: `A ${config.archetype} deck built around ${commander.name}.`,
           // power_level is not written here. It used to receive
           // `Math.round(buildResult.power || 6)`, which was the server's own
           // edhpowerlevel.com scrape or — when that failed — the user's target

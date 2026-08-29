@@ -626,7 +626,9 @@ export function CardWorksWellWith({ card, dbCard, className }: CardRelatedProps)
                   basis:
                     `Both cards' rules text compiled into an ability record, then ranked by shared effects and ` +
                     `their arguments rather than by shared words. ${name} ${result.subject.reads}. ` +
-                    `Candidates came from tags @> ${probeText}, and ${result.census.pool} of them were scored, ` +
+                    /* `tags @> ` is a Postgres containment operator. It was
+                       being printed on a page anybody can open. */
+                    `Candidates were drawn from cards tagged ${probeText}, and ${result.census.pool} of them were scored, ` +
                     `not the first sixty. ${result.census.byRecord} of the ${result.entries.length} shown were decided by a record` +
                     `${result.census.byTags > 0 ? `, ${result.census.byTags} by tags because we hold no record for them` : ''}.`,
                   entries: ordered.map(c => ({ card: c, note: noteFor.get(c.id) })),
@@ -804,11 +806,13 @@ export function CardWorksWellWith({ card, dbCard, className }: CardRelatedProps)
           Works well with
         </h2>
       </div>
+      {/* "model" is on the banned word list and this is public copy. The two
+          em-dashes went with it: the sentence wanted to be three sentences. */}
       <p className="mb-4 text-xs text-muted-foreground">
-        Grouped by the signal that produced them. DeckMatrix has no recommendation model — every
-        group below is a query against real card and deck data, and says which one. Does the same
-        thing reads both cards' rules text as a structured ability record and compares what they
-        actually do; the rest match a name, a keyword or a tag, and say so.
+        Grouped by the reason each card turned up. Nothing here is a guess. Every group below is
+        a search of real card and deck data, and each one says which search it was. The first
+        group reads both cards' rules text and compares what they actually do. The rest match a
+        name, a keyword or a tag, and say so.
       </p>
 
       {loading ? (

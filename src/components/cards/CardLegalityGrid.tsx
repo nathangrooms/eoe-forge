@@ -63,11 +63,27 @@ function labelFor(key: string): string {
  * single exception because it is the one state that changes what a player is
  * allowed to do, and `destructive` is the product's existing signal for that.
  */
+/*
+ * CONTRAST, ON THE THING PLAYERS LOOK UP MOST AT A TABLE.
+ *
+ * `not_legal` was `text-muted-foreground/60` on `bg-muted/15`, which measures
+ * 3.06:1 against WCAG AA's 4.5:1, on 10px and 13px type. "Is this legal in
+ * Pauper?" is the single most common lookup somebody makes on a phone in bad
+ * light, and it was the hardest text on the page to read.
+ *
+ * Measured against `bg-muted/15` over `--card`: /60 is 3.06, /70 is 3.72, /80
+ * is 4.49 which is still a hair under, and the full token is 6.37. At this type
+ * size the full token is the only one that passes, and "not legal" is the most
+ * common state on the grid, so it is also most of what there is to read.
+ *
+ * The states still separate: legal is `--foreground`, not legal is
+ * `--muted-foreground`, and the tile tint carries the rest.
+ */
 const STATE_STYLE: Record<string, { tile: string; text: string }> = {
   legal: { tile: 'bg-muted/60', text: 'text-foreground' },
   restricted: { tile: 'bg-muted/40', text: 'text-foreground/80' },
   banned: { tile: 'bg-muted/40', text: 'text-destructive' },
-  not_legal: { tile: 'bg-muted/15', text: 'text-muted-foreground/60' },
+  not_legal: { tile: 'bg-muted/15', text: 'text-muted-foreground' },
 };
 
 export interface CardLegalityGridProps {

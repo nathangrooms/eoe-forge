@@ -705,7 +705,7 @@ export default function CardDetailPage() {
                     <span className={cn('capitalize', rarityClass(card.rarity))}>
                       {card.rarity ?? 'unknown rarity'}
                     </span>
-                    <span className="text-muted-foreground/50">·</span>
+                    <span className="text-muted-foreground/80">·</span>
                     <span className="text-muted-foreground">
                       {setName || 'Unknown set'}{' '}
                       <span className="font-mono uppercase">{setCode}</span>
@@ -713,7 +713,7 @@ export default function CardDetailPage() {
                     </span>
                     {card.released_at && (
                       <>
-                        <span className="text-muted-foreground/50">·</span>
+                        <span className="text-muted-foreground/80">·</span>
                         <span className="text-muted-foreground">
                           {new Date(card.released_at).toLocaleDateString(undefined, {
                             year: 'numeric',
@@ -724,7 +724,7 @@ export default function CardDetailPage() {
                     )}
                     {artist && (
                       <>
-                        <span className="text-muted-foreground/50">·</span>
+                        <span className="text-muted-foreground/80">·</span>
                         <span className="text-muted-foreground">Art by {artist}</span>
                       </>
                     )}

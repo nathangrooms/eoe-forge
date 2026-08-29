@@ -218,7 +218,7 @@ export function DeckRecordPanel({
                     key={month.month}
                     className={cn(
                       'min-w-0 flex-1 truncate text-center text-[10px]',
-                      month.played > 0 ? 'text-muted-foreground' : 'text-muted-foreground/50'
+                      month.played > 0 ? 'text-muted-foreground' : 'text-muted-foreground/80'
                     )}
                   >
                     {month.label}

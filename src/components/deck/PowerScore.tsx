@@ -5,6 +5,7 @@ import { RefreshCw, ChevronDown } from 'lucide-react';
 import { MetricRow } from '@/components/listing';
 import {
   DECK_BRACKETS,
+  LOGISTIC,
   SUBSCORE_DESCRIPTIONS,
   SUBSCORE_LABELS,
   SUBSCORE_ORDER,
@@ -479,6 +480,87 @@ function SubscoreRow({ sub, muted }: { sub: Subscore; muted: boolean }) {
  * ordering off `SUBSCORE_ORDER` rather than off the stored array means a
  * missing one is absent rather than rendered as a zero.
  */
+/**
+ * THE LAST TWO STEPS, WHICH USED TO BE INVISIBLE.
+ *
+ * The panel above is headed "Why this score" and lists ten subscores whose
+ * weights sum to exactly 1.00. On one real deck their weighted mean is 56.97,
+ * which reads as 5.7 on a ten point scale, and the page printed 5.3. Two steps
+ * sat in between and neither appeared anywhere:
+ *
+ *   1. the weighted mean is put through a logistic curve rather than divided by
+ *      ten, so 55 out of 100 is the middle of the scale and the ends compress;
+ *   2. a deck with no way to search its library, or with nothing that ends a
+ *      game, takes a flat deduction on top.
+ *
+ * A reader who checks the working and cannot make it come out stops trusting
+ * the number, and this is the product's single most important number. So the
+ * working is finished here.
+ *
+ * It also makes something visible that was not: Tutors is one of the ten
+ * weighted parts AND the source of the first deduction, so a deck with no
+ * tutors is marked down twice. Whether that is right is a judgement for the
+ * owner. It should not be a judgement nobody can see.
+ */
+function ScoreArithmetic({ power }: { power: DeckPower }) {
+  if (typeof power.raw !== 'number' || !Number.isFinite(power.raw)) return null;
+
+  const curved = 1 + (1 / (1 + Math.exp(-(power.raw - LOGISTIC.mu) / LOGISTIC.sigma))) * 9;
+  const rounded = Math.round(curved * 10) / 10;
+  const drop = Math.round((power.score - rounded) * 10) / 10;
+  const { noTutors, noGameChangers } = power.diagnostics;
+
+  const steps: Array<{ label: string; value: string }> = [
+    {
+      label: 'The ten parts above, weighted',
+      value: `${power.raw.toFixed(1)} out of 100`,
+    },
+    {
+      label: 'On the 1 to 10 scale',
+      value: formatPowerScore(rounded),
+    },
+  ];
+
+  if (noTutors) {
+    steps.push({ label: 'Nothing to search your library with', value: 'takes it down' });
+  }
+  if (noGameChangers) {
+    steps.push({ label: 'Nothing that ends a game', value: 'takes it down' });
+  }
+
+  return (
+    <div className="mt-4 rounded-lg bg-background/60 p-3">
+      <p className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+        How that becomes {formatPowerScore(power.score)}
+      </p>
+      <dl className="mt-2 space-y-1.5 text-sm">
+        {steps.map(step => (
+          <div key={step.label} className="flex items-baseline justify-between gap-3">
+            <dt className="min-w-0 text-muted-foreground">{step.label}</dt>
+            <dd className="shrink-0 tabular-nums">{step.value}</dd>
+          </div>
+        ))}
+        {drop !== 0 && (
+          <div className="flex items-baseline justify-between gap-3 pt-1.5">
+            <dt className="min-w-0 font-medium">Final score</dt>
+            <dd className="shrink-0 font-medium tabular-nums">
+              {formatPowerScore(rounded)} {drop < 0 ? '−' : '+'} {Math.abs(drop).toFixed(1)} ={' '}
+              {formatPowerScore(power.score)}
+            </dd>
+          </div>
+        )}
+      </dl>
+      {(noTutors || noGameChangers) && (
+        <p className="mt-2.5 text-xs leading-relaxed text-muted-foreground">
+          Those two are counted twice on purpose. Tutors and the cards that end games are already
+          two of the ten parts above, and a deck missing them entirely plays differently enough
+          that the score is lowered again.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function orderedEvidence(power: DeckPower): Subscore[] {
   const byKey = new Map(power.evidence.map(s => [s.key, s]));
   return SUBSCORE_ORDER.map(k => byKey.get(k as SubscoreKey)).filter(
@@ -713,11 +795,14 @@ function ExpandedPower({
         </button>
 
         {showBreakdown && (
-          <div className="mt-3 grid grid-cols-1 gap-x-6 md:grid-cols-2">
-            {orderedEvidence(power).map(sub => (
-              <SubscoreRow key={sub.key} sub={sub} muted={stale} />
-            ))}
-          </div>
+          <>
+            <div className="mt-3 grid grid-cols-1 gap-x-6 md:grid-cols-2">
+              {orderedEvidence(power).map(sub => (
+                <SubscoreRow key={sub.key} sub={sub} muted={stale} />
+              ))}
+            </div>
+            <ScoreArithmetic power={power} />
+          </>
         )}
       </div>
 

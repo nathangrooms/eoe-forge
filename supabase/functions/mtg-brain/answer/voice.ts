@@ -17,6 +17,8 @@
  * the answer first, and no ceremony about what is coming.
  */
 
+import { KEYWORD_NAMES } from './glossary.ts';
+
 /* -------------------------------------------------------------------------- *
  * Money
  *
@@ -155,12 +157,25 @@ export const FORMATS: { key: string; says: string }[] = [
  * -------------------------------------------------------------------------- */
 
 /**
- * We hold no rules reference. 82 tables and not one of them carries rules text,
- * rulings or a glossary; `cards` has 39 columns and none is about rulings.
+ * The rules gap, said at the size it actually is.
+ *
+ * THIS SENTENCE USED TO BE WIDER THAN THE TRUTH. It read "we do not keep a copy
+ * of the rules", full stop, and it was printed at every question the router
+ * could not place. Players asking what hexproof does were told we hold no rules
+ * reference while hexproof's definition sat in our own catalogue, printed by
+ * Wizards on 43 cards.
+ *
+ * What we genuinely do not hold is the rules THEMSELVES: timing, the stack,
+ * priority, and what happens when two things meet. 82 base tables and not one
+ * carries rules text or rulings; `cards` has 39 columns and none is about them.
+ * What we do hold is the keyword glossary, because it is printed on the cards,
+ * and the count comes off the generated list rather than being written here, so
+ * the sentence cannot go stale as the catalogue grows.
  */
 export const NO_RULES_CORPUS = [
-  'I can read you a card and everything we hold about it, but we do not keep a copy of the rules, so I will not answer a timing or stack question from memory.',
-  'Gatherer carries the official rulings for a card, and the Comprehensive Rules cover the rest. A judge at your local shop will beat both.',
+  'What I do not keep is the rules themselves. Timing, the stack, priority, what happens when two things want to happen at once: I will not answer any of those from memory.',
+  `What I can do is read you a keyword. Wizards prints the definition of a keyword on the card itself, in brackets, and we hold ${KEYWORD_NAMES.length} keywords that way. Ask what flying or hexproof or overload means and you get Wizards' own words back.`,
+  'For the rest, Gatherer carries the official rulings for a card and the Comprehensive Rules cover everything else. A judge at your local shop will beat both.',
 ].join('\n\n');
 
 /**

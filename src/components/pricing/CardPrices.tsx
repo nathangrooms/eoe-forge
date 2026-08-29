@@ -53,6 +53,12 @@ export interface CardPricesProps {
   className?: string;
 }
 
+/** "Buy" alone is three identical links. The market makes them distinct. */
+function buyLabel(cardName: string, market: string): string {
+  const subject = cardName ? `${cardName} ` : '';
+  return `Buy ${subject}at ${market}, opens in a new tab`;
+}
+
 function PriceCell({
   source,
   cheapest,
@@ -97,6 +103,7 @@ export function CardPrices({
 }: CardPricesProps) {
   const reading = readPrices(card);
   const groups = byMarket(reading);
+  const cardName = card?.name ?? '';
   const links = showBuyLinks
     ? buyLinks(
         {
@@ -176,13 +183,23 @@ export function CardPrices({
 
                 {/* Pushed to the far end of the same line, so the eye reads
                     price then action without changing row. */}
+                {/* Three links on this page all said "Buy" and nothing else, so
+                    a screen reader heard "Buy link" three times with no way to
+                    tell TCGplayer from Cardmarket. The visible word stays short
+                    because the market name is in the same row; the accessible
+                    name carries it.
+
+                    44px tall, not 20. It was 54x20 against the WCAG 2.2 target
+                    minimum of 24, and it is a link you press with a thumb while
+                    standing in a shop. */}
                 {showBuyLinks && link && (
                   <a
                     href={link.url}
                     target="_blank"
                     rel="noopener noreferrer"
                     title={link.note}
-                    className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label={buyLabel(cardName, group.name)}
+                    className="ml-auto inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-md px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     Buy
                     <ExternalLink className="h-3 w-3" aria-hidden />

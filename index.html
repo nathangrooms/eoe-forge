@@ -2,7 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <!-- No maximum-scale and no user-scalable=no. Switching pinch zoom off is a
+         WCAG 2.1 AA 1.4.4 failure, and it takes away the only remedy the person
+         reading a card at a table in bad light has. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>DeckMatrix - MTG Deck Builder & Collection Manager</title>
     <meta name="description" content="The ultimate Magic: The Gathering deck builder. Build, analyse and improve your decks, and keep track of what you own." />
     <meta name="author" content="DeckMatrix" />
@@ -18,16 +21,34 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="DeckMatrix" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="theme-color" content="#7c3aed" />
+    <!-- The browser furniture and the home screen splash paint this colour. It
+         is --background at 220 7% 4%, so the chrome matches the app instead of
+         putting a saturated violet above a monochrome charcoal page. -->
+    <meta name="theme-color" content="#0a0a0b" />
 
+    <!-- A shared link is often the first thing anybody sees of this product, so
+         the preview has to be a real card. og:image must be an ABSOLUTE url:
+         a relative path is not resolved by Facebook, Twitter, Discord, Slack or
+         iMessage, and /favicon.png was also the 637x393 wordmark, which is the
+         wrong shape for the 1200x630 box every one of them draws. og-image.jpg
+         is built from the site's own hero art by scripts/social-image.mjs.
+         twitter:site pointed at an @deckmatrix account nothing on the site
+         links to, so it is gone rather than claimed. -->
+    <link rel="canonical" href="https://www.deckmatrix.com/" />
+    <meta property="og:url" content="https://www.deckmatrix.com/" />
+    <meta property="og:site_name" content="DeckMatrix" />
     <meta property="og:title" content="DeckMatrix - MTG Deck Builder & Collection Manager" />
     <meta property="og:description" content="The ultimate Magic: The Gathering deck builder. Build, analyse and improve your decks, and keep track of what you own." />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="/favicon.png" />
+    <meta property="og:image" content="https://www.deckmatrix.com/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="DeckMatrix" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@deckmatrix" />
-    <meta name="twitter:image" content="/favicon.png" />
+    <meta name="twitter:title" content="DeckMatrix - MTG Deck Builder & Collection Manager" />
+    <meta name="twitter:description" content="The ultimate Magic: The Gathering deck builder. Build, analyse and improve your decks, and keep track of what you own." />
+    <meta name="twitter:image" content="https://www.deckmatrix.com/og-image.jpg" />
       <link rel="preload" href="/fonts/mona-sans-latin-normal.woff2" as="font" type="font/woff2" crossorigin />
   </head>
 

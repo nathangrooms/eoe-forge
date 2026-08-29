@@ -5,6 +5,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { cn } from '@/lib/utils';
 import { useCardLists, type ItemSource, type ListKind } from '@/lib/shopping';
+import { useAuth } from '@/components/AuthProvider';
 
 /**
  * The one way to put a card on a list.
@@ -90,6 +91,7 @@ export function AddToListButton({
   variant = 'secondary',
   className,
 }: AddToListButtonProps) {
+  const { user } = useAuth();
   const add = useCardLists(state => state.add);
   const load = useCardLists(state => state.load);
   const copiesOn = useCardLists(state => state.copiesOn);
@@ -118,6 +120,29 @@ export function AddToListButton({
       event.preventDefault();
       event.stopPropagation();
       if (!resolved || saving) return;
+      /*
+       * ASK BEFORE TRYING, so the database never has to answer.
+       *
+       * The card page is public, and these two buttons sit on it beside Add to
+       * collection and Add to wishlist, both of which already check for an
+       * account. These did not, so a signed-out visitor pressing Shopping list
+       * or Proxy list was shown, in a toast, the words
+       *
+       *     permission denied for function card_list_add
+       *
+       * which is a Postgres error naming an internal function. RLS was doing
+       * exactly its job. The interface was passing the refusal straight through
+       * to a player. Same copy as the sibling buttons, deliberately.
+       */
+      if (!user) {
+        showError(
+          'Sign in required',
+          kind === 'shopping'
+            ? 'Sign in to add cards to your shopping list.'
+            : 'Sign in to add cards to your proxy list.'
+        );
+        return;
+      }
       setSaving(true);
       try {
         await add({
@@ -138,12 +163,16 @@ export function AddToListButton({
             : resolved.cardName
         );
       } catch (error: any) {
-        showError('Could not add that', error?.message ?? 'Please try again.');
+        /* Never hand a database message to a player. Whatever went wrong, the
+           useful sentence is the same one, and the detail goes to the console
+           where somebody who can act on it will see it. */
+        console.error('add to list failed', error);
+        showError('Could not add that', 'Please try again in a moment.');
       } finally {
         setSaving(false);
       }
     },
-    [add, already, deckId, kind, quantity, resolved, saving, source]
+    [add, already, deckId, kind, quantity, resolved, saving, source, user]
   );
 
   if (!resolved) return null;

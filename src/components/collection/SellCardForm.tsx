@@ -42,6 +42,9 @@ const getCardPrice = (card: any, foil = false): number => {
  * dialog. This is the form body; `/marketplace/list/:collectionItemId` owns the
  * page furniture and the write.
  */
+/** The smallest price anything in the catalogue carries. Below it is not a price. */
+const MIN_PRICE = 0.01;
+
 export function SellCardForm({
   card,
   ownedQuantity,
@@ -73,6 +76,29 @@ export function SellCardForm({
         `You only own ${maxQuantity} ${formData.foil ? 'foil' : 'non-foil'} copies`
       );
       return;
+    }
+
+    /*
+     * A PUBLISHED LISTING MAY NOT BE FREE.
+     *
+     * The price box read `Math.max(0, parseFloat(e.target.value) || 0)`, so
+     * clearing it stored a literal 0 and the listing published at $0.00. The
+     * marketplace then drew a real card at a real zero, which is exactly the
+     * rendered zero the pricing law exists to stop, except that this one was
+     * honest: the row really was 0. Being ABLE to store it is the defect.
+     *
+     * A draft is left alone deliberately. Saving a half-filled form to come
+     * back to is the whole point of a draft, and the smallest real price in the
+     * catalogue is 0.01, so anything under that is not a price.
+     */
+    if (status !== 'draft') {
+      if (!Number.isFinite(formData.price_usd) || formData.price_usd < MIN_PRICE) {
+        showError(
+          'Set a price first',
+          `A listing needs a price of at least ${formatPrice(MIN_PRICE)}. Save it as a draft if you are not ready to name one.`
+        );
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -141,14 +167,25 @@ export function SellCardForm({
             step="0.01"
             min={0}
             value={formData.price_usd}
-            onChange={e =>
+            onChange={e => {
+              /* `parseFloat(x) || 0` is how a cleared box becomes a free card.
+                 An empty box stays empty here, and `submit` refuses to publish
+                 without a real number. */
+              const raw = e.target.value;
+              const parsed = parseFloat(raw);
               setFormData(prev => ({
                 ...prev,
-                price_usd: Math.max(0, parseFloat(e.target.value) || 0),
-              }))
-            }
+                price_usd: raw === '' || !Number.isFinite(parsed) ? NaN : Math.max(0, parsed),
+              }));
+            }}
+            aria-describedby="price-help"
             className="border-0 bg-muted/40"
           />
+          {(!Number.isFinite(formData.price_usd) || formData.price_usd < MIN_PRICE) && (
+            <p id="price-help" className="text-xs text-muted-foreground">
+              Name a price before you list this. Drafts can wait.
+            </p>
+          )}
           {getCardPrice(card, formData.foil) > 0 && (
             <p className="text-xs text-muted-foreground">
               Market price: {formatPrice(getCardPrice(card, formData.foil))}

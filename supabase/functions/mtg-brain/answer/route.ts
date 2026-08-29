@@ -39,8 +39,9 @@
  * thing you can read rather than reconstruct.
  */
 
-import { COLOUR_WORDS } from './voice.ts';
+import { COLOUR_WORDS, FORMATS } from './voice.ts';
 import { TAG_SYNONYMS } from './vocabulary.ts';
+import { keywordsNamedIn } from './glossary.ts';
 
 /* -------------------------------------------------------------------------- *
  * Step one: read the request
@@ -181,6 +182,43 @@ export interface Ask {
  * so anything that would also match a broader entry has to be above it.
  */
 export const ASKS: Ask[] = [
+  /* ---- what a keyword means, ABOVE the rules refusal it used to fall into ----
+
+     "We do not keep a rules reference" was being printed at players who asked
+     what hexproof does, and hexproof's definition is printed on 43 cards in our
+     own catalogue. Wizards puts the definition of a keyword on the card in
+     brackets, and we hold every card: 208 keywords, on 5,734 cards, measured
+     2026-08-29.
+
+     TWO GATES, BOTH NEEDED. The phrases below are how anybody asks what a word
+     means, and on their own they would swallow "What does Sol Ring do?". So
+     `needs` requires the question to actually name a keyword, checked against
+     the generated list in `keyword-names.ts`. A question with the shape and no
+     keyword falls straight through to the asks below, exactly as before. ---- */
+  {
+    id: 'keyword',
+    wants: 'What a keyword on a card means, in Wizards\' own printed words.',
+    subjects: ['catalogue'],
+    cues: [
+      'what does', 'what do', 'what is', 'what are', 'how does', 'how do',
+      'what happens when', 'mean', 'means', 'meaning', 'difference between',
+      'explain', 'tell me about', 'rules for', 'how it works', 'work together',
+      'works', 'define',
+      /* Not a request for a definition, but the only thing we can honestly say
+         about it starts with the definitions. "If my creature has deathtouch
+         and trample, how much damage do I have to assign to the blocker?" is a
+         combat rule we do not hold, and it names two keywords we do. The answer
+         reads both out and says plainly that what happens when they meet is the
+         part we cannot give. That is better than the stock paragraph, which
+         mentions neither keyword. */
+      'how much damage', 'if my creature', 'if a creature', 'if it has',
+    ],
+    needs: {
+      said: 'the question has to name a keyword a card prints a definition for',
+      met: q => keywordsNamedIn(q).length > 0,
+    },
+  },
+
   /* ---- the three we cannot answer, above everything they would otherwise
      be mistaken for. A rules question about a card contains the card, and a
      question about the field contains the deck. ---- */
@@ -238,17 +276,133 @@ export const ASKS: Ask[] = [
     cues: ['answer it across the table', 'how do i answer it', 'how do i beat', 'deal with aggro', 'how do i stop', 'play against'],
   },
 
+  /* ---- the deck the request already carried ----
+     Every one of these was refused while the answer sat in the request body.
+     They are above the card asks that share their words, because "worth" means
+     one thing about a card and another about a deck, and the card ask would
+     otherwise take the question and then ask the player to pick a card.
+
+     Every cue in this group names the deck out loud. That is deliberate rather
+     than tidy: these asks all need a deck, so a question that matched one
+     without mentioning a deck would be answered with "attach a deck" instead of
+     the card answer it used to get. "How strong is Sol Ring" must not become a
+     request to attach a deck. ---- */
+  {
+    id: 'deck-rating',
+    wants: 'How strong the attached deck is, as the score the deck page already computed.',
+    subjects: ['deck'],
+    cues: [
+      'rate this deck', 'rate my deck', 'rate the deck', 'score my deck', 'score this deck',
+      'how good is my deck', 'how good is this deck', 'how strong is my deck',
+      'how strong is this deck', 'how powerful is my deck', 'how powerful is this deck',
+      'power level of my deck', 'power level of this deck', 'deck out of ten',
+      'what bracket is this', 'what bracket is my', 'bracket is this deck',
+    ],
+  },
+  {
+    id: 'deck-value',
+    wants: 'What the attached deck costs to buy, as the value the deck page already computed.',
+    subjects: ['deck'],
+    cues: [
+      'what is this deck worth', 'what is my deck worth', 'what this deck is worth',
+      'how much is this deck worth', 'how much is my deck worth', 'this deck worth',
+      'my deck worth', 'value of this deck', 'value of my deck', 'deck value',
+      'how much does this deck cost', 'how much did this deck cost',
+      'cost to build this deck', 'price of this deck', 'price of my deck',
+    ],
+  },
+  {
+    id: 'deck-legal',
+    wants: 'Whether the attached deck is a legal deck for its format.',
+    subjects: ['deck'],
+    cues: [
+      'is my deck legal', 'is this deck legal', 'is the deck legal', 'deck legal for',
+      'deck legality', 'my deck legal', 'this deck legal',
+      /* NOT a bare 'legal for commander'. That phrase is in "Is Sol Ring legal
+         for commander?", which is a card question with a good card answer, and
+         this ask needs a deck, so it would have replied "attach a deck". Caught
+         by the test that every cue here names the deck. */
+      'legal commander deck', 'does my deck break',
+      'anything illegal in this deck', 'anything illegal in my deck',
+    ],
+  },
+  {
+    id: 'copies',
+    wants: 'How many copies of a card a format allows, and whether this deck may run it at all.',
+    subjects: ['card', 'deck'],
+    cues: [
+      'two copies', 'three copies', 'four copies', 'more copies', 'multiple copies',
+      'how many copies', 'second copy', 'add a second', 'another copy', 'extra copy',
+      'run two', 'play two', 'run 2', 'play 2', 'run 4', 'play 4', '2 copies', '3 copies',
+      '4 copies', 'singleton', 'one copy',
+    ],
+  },
+  {
+    id: 'does-it-fit',
+    wants: 'Whether a card does the job the attached deck is built to do.',
+    subjects: ['deck'],
+    cues: [
+      'fit my deck', 'fit in my deck', 'fits my deck', 'fit this deck', 'fits this deck',
+      'good in my deck', 'good in this deck', 'right for my deck', 'right for this deck',
+      'work in my deck', 'work in this deck', 'belong in my deck', 'belong in this deck',
+      'slot in my deck', 'slot in this deck', 'go in my deck', 'go in this deck',
+      'play this in my deck', 'add it to my deck', 'add this to my deck',
+      'suit my deck', 'suits my deck', 'for my commander',
+    ],
+  },
+  {
+    id: 'can-i-cast',
+    wants: 'How often the attached deck will have the mana for a card.',
+    subjects: ['deck'],
+    cues: [
+      /* 'can i cast' rather than 'can i cast it', because the question a player
+         actually types names the card: "Can I cast Cyclonic Rift in this deck?"
+         matched neither of the longer forms and was answered as a request to
+         explain the card. Measured on the repo's own router. */
+      'can i cast', 'can my deck cast', 'will i be able to cast', 'able to cast',
+      'hard to cast', 'hard for me to cast', 'castable', 'cast it on curve',
+      'do i have the mana', 'will i have the mana', 'have the mana for',
+      'enough sources for', 'can i pay for',
+    ],
+  },
+
   /* ---- the ones we can answer ---- */
+  /* "Can I play Swords to Plowshares in Modern?" is a legality question that
+     says neither "legal" nor "banned", so it matched nothing and got the stock
+     paragraph while `legalities->>'modern'` sat in the row. Every cue here is a
+     way of asking permission, and `needs` requires the question to name the
+     format it is asking permission for, because "can I play this" with no
+     format named is a deck question and belongs to the asks above. */
+  {
+    id: 'legality-in-format',
+    wants: 'Whether a card may be played in a format the question named.',
+    subjects: ['card', 'catalogue'],
+    cues: [
+      'can i play', 'can i use', 'can you play', 'allowed in', 'ok to play',
+      'play it in', 'use it in', 'play this in', 'playable in',
+    ],
+    needs: {
+      said: 'the question has to name the format it is asking about',
+      met: q => formatFrom(q) !== null,
+    },
+  },
   {
     id: 'legality',
     wants: 'Which formats a card may be played in.',
-    subjects: ['card'],
-    cues: ['legal in', 'legality', 'which formats', 'what formats', 'is it legal', 'is this legal', 'banned in', 'is it banned', 'restricted in'],
+    /* `catalogue` so "what cards are banned in commander" has something to be
+       about. It is 76 rows and one read. Without it the ask had no subject and
+       the question got the stock refusal. `card` stays first, so a question
+       that names a card still gets that card. */
+    subjects: ['card', 'catalogue'],
+    cues: ['legal in', 'legality', 'which formats', 'what formats', 'is it legal', 'is this legal', 'banned in', 'is it banned', 'restricted in', 'banned list', 'ban list'],
   },
   {
     id: 'combos',
     wants: 'What a card combos with, and what the combo produces.',
-    subjects: ['card', 'deck'],
+    /* `catalogue` last, so a named card still wins and an attached deck still
+       gets the deck answer. It serves one question: the best two card combos in
+       the format, which is 3,887 rows we hold and were refusing to look at. */
+    subjects: ['card', 'deck', 'catalogue'],
     cues: [
       'combo', 'combos', 'combo with', 'infinite', 'what does it enable',
       'best way to abuse', 'abuse this', 'break this card', 'synergise', 'synergize',
@@ -274,7 +428,11 @@ export const ASKS: Ask[] = [
   {
     id: 'price',
     wants: 'What a card costs to buy.',
-    subjects: ['card'],
+    /* `catalogue` so a price question with no card is answered rather than
+       dropped. It answers one thing outright, the most expensive cards we hold,
+       and otherwise says where a price comes from and asks for a card. Card
+       first, so nothing that names one changes. */
+    subjects: ['card', 'catalogue'],
     cues: ['worth', 'how much is', 'how much does it cost to buy', 'price', 'expensive', 'cost to buy'],
   },
   {
@@ -289,6 +447,12 @@ export const ASKS: Ask[] = [
     subjects: ['deck'],
     cues: [
       'upgrade', 'upgrades', 'what should i cut', 'what to cut', 'cutting from my deck',
+      /* "What cards should I cut from this deck and why?" is one of the thirty
+         prompts the Tutor page offers, and it matched none of the cues beside
+         this line: it says "what CARDS should i cut", and the cue said "what
+         should i cut". Found by asserting the questions that were supposed to
+         already work. */
+      'should i cut', 'cut from this deck', 'cut from my deck',
       'consider cutting', 'weakest cards', 'improve my deck', 'make my deck better',
       'best cards for my deck', 'what should i add',
       /* The owner asked "What card should I replace for more ramp" and got the
@@ -510,16 +674,150 @@ export function manaValueFrom(question: string): number | null {
   return null;
 }
 
+/**
+ * How many copies the question asked about, or null when it did not say.
+ *
+ * Different from `countFrom`, which is how many cards to LIST and always
+ * returns something. "How many copies of Arcane Signet can I play in commander"
+ * names no number at all, and the answer to that is the format's rule rather
+ * than a verdict on a count nobody asked about. So null is a real answer here
+ * and the caller states the rule instead of judging a number it invented.
+ */
+export function copiesFrom(question: string): number | null {
+  const text = normalise(question);
+  const words = text.trim().split(' ');
+  for (let i = 0; i < words.length; i++) {
+    const value = NUMBER_WORDS[words[i]] ?? (/^\d+$/.test(words[i]) ? Number(words[i]) : null);
+    if (value == null || value < 1 || value > 60) continue;
+    /* Only when the number is actually counting copies. "two copies", "run two
+       Islands", "play 4 of these". A bare number somewhere else in a sentence
+       is not a copy count. */
+    const after = words.slice(i + 1, i + 4).join(' ');
+    const before = words.slice(Math.max(0, i - 2), i).join(' ');
+    if (/^(copies|copy|of )/.test(after) || /\b(run|play|add|include)$/.test(before)) {
+      return value;
+    }
+  }
+  // "a second copy", "another copy" are both one more than whatever is there.
+  if (/ (second|another|extra) (copy|one) /.test(text) || / add a second /.test(text)) return 2;
+  return null;
+}
+
+/**
+ * A format the question named, or null.
+ *
+ * Read off `FORMATS`, which is the same list every legality line is written
+ * from, so a format Tutor can say is a format Tutor can be asked about. The
+ * caller falls back to the attached deck's own format and says which one it
+ * used, because "can I run two of these" has a different answer in Commander
+ * and in Modern and guessing silently is how the wrong one gets believed.
+ */
+export function formatFrom(question: string): string | null {
+  const text = normalise(question);
+  for (const format of FORMATS) {
+    if (text.includes(` ${format.key} `)) return format.key;
+  }
+  if (text.includes(' edh ') || text.includes(' commander deck ')) return 'commander';
+  return null;
+}
+
+/* -------------------------------------------------------------------------- *
+ * Money in a question
+ *
+ * "What is the best black removal spell under one dollar?" carried two separate
+ * defects and they were the same number. The "one" was read as how many cards
+ * to list, and the dollar was never read at all, so the answer was one card,
+ * chosen with no price filter, and it cost $4.59. Both are below.
+ * -------------------------------------------------------------------------- */
+
+/** Words that mean the number beside them is money. */
+const MONEY_WORDS = ['dollar', 'dollars', 'buck', 'bucks', 'usd', 'cent', 'cents'];
+
+/** Words that mean the number after them is a ceiling. */
+const LIMIT_WORDS = [
+  'under', 'below', 'less than', 'up to', 'within', 'at most', 'no more than',
+  'cheaper than', 'max', 'maximum', 'maximum of', 'or under',
+];
+
+const NUMBER_PATTERN = `(\\d+(?:\\.\\d+)?|${Object.keys(NUMBER_WORDS).join('|')}|a)`;
+
+function amountFrom(word: string): number | null {
+  if (word === 'a') return 1;
+  const known = NUMBER_WORDS[word];
+  if (known != null) return known;
+  const n = Number(word);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * The most a card may cost, in dollars, or null when the question set no limit.
+ *
+ * A DOLLAR SIGN OR A MONEY WORD IS REQUIRED, and that guard is the whole
+ * difference between reading a budget and inventing one. "The best removal
+ * under 3 mana" is a mana value with a limit word in front of it, and reading it
+ * as three dollars would silently throw away most of the catalogue.
+ *
+ * Cents are read as cents. "under 50 cents" is half a dollar, not fifty.
+ */
+export function budgetFrom(question: string): number | null {
+  const text = ` ${question.toLowerCase()} `;
+  const money = `(${MONEY_WORDS.join('|')})`;
+
+  for (const limit of LIMIT_WORDS) {
+    // "under $2", "less than 5 dollars", "up to a dollar"
+    const withMoney = new RegExp(`\\b${limit}\\s+\\$?\\s*${NUMBER_PATTERN}\\s*${money}?\\b`, 'i');
+    const found = text.match(withMoney);
+    if (!found) continue;
+    const value = amountFrom(found[1]);
+    if (value == null || value <= 0) continue;
+    const unit = found[2];
+    if (!unit && !new RegExp(`\\b${limit}\\s+\\$`, 'i').test(text)) continue;
+    return unit === 'cent' || unit === 'cents' ? value / 100 : value;
+  }
+
+  // "$5 or less", "two dollars or less"
+  const trailing = text.match(
+    new RegExp(`\\$?\\s*${NUMBER_PATTERN}\\s*${money}?\\s+or\\s+(?:less|under|cheaper)\\b`, 'i')
+  );
+  if (trailing) {
+    const value = amountFrom(trailing[1]);
+    const unit = trailing[2];
+    if (value != null && value > 0 && (unit || /\$\s*\d/.test(text))) {
+      return unit === 'cent' || unit === 'cents' ? value / 100 : value;
+    }
+  }
+
+  return null;
+}
+
 /** "show me 5 best", "top 10". Capped so nobody gets a wall of a hundred cards. */
 export function countFrom(question: string, fallback = 8): number {
   const text = normalise(question);
   const words = text.trim().split(' ');
+  const dollared = new Set(
+    [...question.matchAll(/\$\s*(\d+(?:\.\d+)?)/g)].map(m => m[1].split('.')[0])
+  );
   for (let i = 0; i < words.length - 1; i++) {
     const value = NUMBER_WORDS[words[i]] ?? (/^\d+$/.test(words[i]) ? Number(words[i]) : null);
     if (value == null) continue;
     const next = words[i + 1];
     // A number followed by a mana word is a cost, not a count.
     if (next === 'mana' || next === 'mv' || next === 'cmc' || next === 'drop') continue;
+    /* "TWO CARD COMBOS" IS NOT A REQUEST FOR TWO COMBOS. A number in front of
+       the SINGULAR "card" is describing the thing, not counting it: nobody
+       writes "show me 5 card", they write "show me 5 cards". So a singular
+       card with a word after it is a modifier and the number belongs to it.
+       Measured on "what are the best two card infinite combos in commander",
+       which asked for eight and printed two. */
+    if (next === 'card' && words[i + 2]) continue;
+    /* A NUMBER THAT IS MONEY IS NOT A COUNT. "under one dollar" was read as a
+       request for one card, so a budget question came back with a single card
+       and no price filter. Three ways a number is money, and all three are
+       checked: a money word after it, a limit word before it, or a dollar sign
+       written against it. */
+    if (MONEY_WORDS.includes(next)) continue;
+    if (LIMIT_WORDS.some(limit => text.includes(` ${limit} ${words[i]} `))) continue;
+    if (dollared.has(words[i])) continue;
     if (value >= 1 && value <= 15) return value;
   }
   return fallback;

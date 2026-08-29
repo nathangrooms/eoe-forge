@@ -1060,7 +1060,7 @@ export default function AIBuilder() {
                 {s.label}
               </span>
               {i < STAGES.length - 1 && (
-                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60" />
+                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/80" />
               )}
             </div>
           ))}

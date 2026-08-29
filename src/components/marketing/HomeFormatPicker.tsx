@@ -171,7 +171,7 @@ export function HomeFormatPicker() {
       {/* The format's real rules, plus the live size of its pool */}
       <div className="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
         <span>{format.rules}</span>
-        <span aria-hidden="true" className="hidden text-muted-foreground/40 sm:inline">
+        <span aria-hidden="true" className="hidden text-muted-foreground/80 sm:inline">
           ·
         </span>
         <span className="tabular-nums">

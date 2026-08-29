@@ -105,6 +105,18 @@ export interface CardImageProps {
   /** Classes for the image frame itself (ring, opacity, grayscale…). */
   imageClassName?: string;
   title?: string;
+  /**
+   * What a screen reader should call this when it is clickable.
+   *
+   * Defaults to the card's name, and that default is wrong wherever the same
+   * card appears more than once. On a card page's printings grid, twelve tiles
+   * showing set, collector number, rarity, year, price and artist were all
+   * announced as "Sol Ring button", so a reader could not tell the $1.47
+   * printing from the $14.09 one. Pass the whole line where the tiles differ.
+   */
+  label?: string;
+  /** Marks the tile a reader should hear as the one currently chosen. */
+  current?: boolean;
   /** Rendered on top of the art — quantity pills, selection ticks, price tags. */
   children?: React.ReactNode;
 }
@@ -125,6 +137,8 @@ export function CardImage({
   className,
   imageClassName,
   title,
+  label,
+  current,
   children,
 }: CardImageProps) {
   const resolved: CardImageSize = size ?? (width ? cardSizeForWidth(width) : 'md');
@@ -240,7 +254,8 @@ export function CardImage({
       <div
         role={onClick ? 'button' : undefined}
         tabIndex={onClick ? 0 : undefined}
-        aria-label={onClick ? name : undefined}
+        aria-label={onClick ? label ?? name : undefined}
+        aria-current={current ? 'true' : undefined}
         onClick={onClick}
         onKeyDown={onKeyDown}
         title={title ?? name}

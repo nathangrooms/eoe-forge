@@ -9,6 +9,13 @@ import { conditionLabel, formatPrice, normalizeCondition } from '@/components/co
 export interface InsuranceLineItem {
   name: string;
   setCode?: string;
+  /**
+   * The number printed on the card itself. A set code alone does not identify a
+   * printing: Secret Lair holds thirty different Sol Rings priced from $7.43 to
+   * $172.31 and every one of them is 'SLD'. An insurer cannot check a line they
+   * cannot identify.
+   */
+  collectorNumber?: string;
   quantity?: number;
   foil?: number;
   condition?: string;
@@ -80,14 +87,21 @@ export function InsuranceReport({
       items.forEach((card, i) => {
         const copies = card.quantity + card.foil;
         const detail = [
-          card.setCode ? card.setCode.toUpperCase() : null,
+          card.setCode
+            ? `${card.setCode.toUpperCase()}${card.collectorNumber ? ` #${card.collectorNumber}` : ''}`
+            : null,
           `${copies} cop${copies === 1 ? 'y' : 'ies'}`,
           card.foil > 0 ? `${card.foil} foil` : null,
           conditionLabel(card.condition),
         ]
           .filter(Boolean)
           .join(' · ');
-        lines.push(`${i + 1}. ${card.name} — ${detail} — ${formatPrice(card.value)}`);
+        /* "x18  $19.62" reads as eighteen cards at $19.62 each. The figure is
+           the total for all eighteen, so say which it is. On a valuation
+           document that ambiguity is the whole ball game. */
+        lines.push(
+          `${i + 1}. ${card.name} — ${detail} — ${formatPrice(card.value)} total for ${copies}`
+        );
       });
       lines.push('');
     }
@@ -167,14 +181,21 @@ export function InsuranceReport({
                       {i + 1}. {card.name}
                     </span>
                     <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-                      {card.setCode && <span className="font-mono uppercase">{card.setCode}</span>}
+                      {card.setCode && (
+                        <span className="font-mono uppercase">
+                          {card.setCode}
+                          {card.collectorNumber ? ` #${card.collectorNumber}` : ''}
+                        </span>
+                      )}
                       <Badge variant="secondary" className="h-5 px-1 text-[10px] font-normal">
                         {normalizeCondition(card.condition)}
                       </Badge>
-                      <span className="tabular-nums">x{copies}</span>
                     </span>
-                    <span className="w-20 shrink-0 text-right font-medium tabular-nums">
+                    <span className="shrink-0 text-right font-medium tabular-nums">
                       {formatPrice(card.value)}
+                      <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                        for {copies}
+                      </span>
                     </span>
                   </div>
                 );

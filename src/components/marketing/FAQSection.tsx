@@ -6,6 +6,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { Section, SectionHeading } from '@/components/marketing/Section';
 
 /* Answers must describe what the product actually does. The previous set
@@ -44,14 +45,15 @@ const faqs = [
     question: 'Which formats are supported?',
     answer:
       'Format legality comes straight from Scryfall, which covers Commander, Modern, Pioneer, Standard, Legacy, ' +
-      'Vintage, Pauper and the rest. Commander gets the most dedicated tooling, since colour identity and ' +
-      'singleton rules are handled explicitly.',
+      'Vintage, Pauper and the rest. Commander is the one we have built out furthest, so colour identity and ' +
+      'the one-of-each rule are checked for you.',
   },
   {
     question: 'Is it free?',
     answer:
-      'Yes, while DeckMatrix is in early access. There is no card required and no trial countdown. If paid ' +
-      'plans are introduced later, existing accounts will be told before anything changes.',
+      'Yes, while DeckMatrix is in early access. We do not ask for payment details and there is no ' +
+      'trial countdown. If paid plans are introduced later, existing accounts will be told before ' +
+      'anything changes.',
   },
   {
     question: 'Is this an official Wizards of the Coast product?',
@@ -116,12 +118,20 @@ export function FAQSection() {
         <p className="text-muted-foreground mb-4">
           Still have questions?
         </p>
-        <a
-          href="mailto:support@deckmatrix.com"
+        {/* This was `mailto:support@deckmatrix.com`, and it was the only route to
+            a person anywhere on the site. Checked against Google's resolver on
+            2026-08-29: `nslookup -type=MX deckmatrix.com 8.8.8.8` returns an SOA
+            and no MX record at all, so every message sent to that address
+            bounced and nobody who wrote one ever heard back.
+
+            The open board is public, readable signed out, and it works today. It
+            goes here until the domain can actually receive mail. */}
+        <Link
+          to="/play/online"
           className="inline-block py-2.5 font-medium text-primary hover:underline sm:py-0"
         >
-          Contact our support team →
-        </a>
+          Ask on the open board →
+        </Link>
       </motion.div>
     </Section>
   );

@@ -13,7 +13,12 @@ import {
 import { Download, FileJson, FileText, Table } from 'lucide-react';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { supabase } from '@/integrations/supabase/client';
-import { conditionLabel } from '@/components/collection/browser/types';
+import {
+  generateCSV,
+  generateJSON,
+  generateMoxfield,
+  type ExportRow,
+} from '@/components/collection/exportFormats';
 
 interface CollectionExportProps {
   userId: string;
@@ -58,23 +63,25 @@ export function CollectionExport({ userId }: CollectionExportProps) {
         return;
       }
 
+      const rows = collection as unknown as ExportRow[];
+
       let exportData: string;
       let filename: string;
       let mimeType: string;
 
       switch (format) {
         case 'csv':
-          exportData = generateCSV(collection);
+          exportData = generateCSV(rows, includeFields);
           filename = 'mtg-collection.csv';
           mimeType = 'text/csv';
           break;
         case 'json':
-          exportData = generateJSON(collection);
+          exportData = generateJSON(rows, includeFields);
           filename = 'mtg-collection.json';
           mimeType = 'application/json';
           break;
         case 'moxfield':
-          exportData = generateMoxfield(collection);
+          exportData = generateMoxfield(rows);
           filename = 'mtg-collection-moxfield.csv';
           mimeType = 'text/csv';
           break;
@@ -100,91 +107,6 @@ export function CollectionExport({ userId }: CollectionExportProps) {
     } finally {
       setExporting(false);
     }
-  };
-
-  const generateCSV = (collection: any[]) => {
-    const headers = ['Card Name'];
-    if (includeFields.quantity) headers.push('Quantity');
-    if (includeFields.foil) headers.push('Foil');
-    if (includeFields.condition) headers.push('Condition');
-    if (includeFields.setCode) headers.push('Set Code');
-    if (includeFields.price) headers.push('Price (USD)');
-
-    const rows = collection.map((item) => {
-      const row = [item.card_name];
-      if (includeFields.quantity) row.push(item.quantity.toString());
-      if (includeFields.foil) row.push(item.foil > 0 ? 'Yes' : 'No');
-      if (includeFields.condition) row.push(item.condition);
-      if (includeFields.setCode) row.push(item.set_code);
-      if (includeFields.price) row.push(item.price_usd?.toString() || '0');
-      return row.map(field => `"${field}"`).join(',');
-    });
-
-    return [headers.join(','), ...rows].join('\n');
-  };
-
-  const generateJSON = (collection: any[]) => {
-    const exportData = collection.map((item) => {
-      const obj: any = { name: item.card_name };
-      if (includeFields.quantity) obj.quantity = item.quantity;
-      if (includeFields.foil) obj.foil = item.foil;
-      if (includeFields.condition) obj.condition = item.condition;
-      if (includeFields.setCode) obj.set_code = item.set_code;
-      if (includeFields.price) obj.price_usd = item.price_usd;
-      if (item.cards) {
-        obj.card_details = {
-          type_line: item.cards.type_line,
-          mana_cost: item.cards.mana_cost,
-          rarity: item.cards.rarity,
-        };
-      }
-      return obj;
-    });
-
-    return JSON.stringify(exportData, null, 2);
-  };
-
-  const generateMoxfield = (collection: any[]) => {
-    // Moxfield format: Count,Tradelist Count,Name,Edition,Condition,Language,Foil,Tags,Last Modified,Collector Number,Alter,Proxy,Purchase Price
-    const headers = 'Count,Tradelist Count,Name,Edition,Condition,Language,Foil,Tags,Last Modified,Collector Number,Alter,Proxy,Purchase Price';
-    
-    const rows = collection.map((item) => {
-      const count = item.quantity;
-      const tradelistCount = 0;
-      const name = item.card_name;
-      const edition = item.set_code?.toUpperCase() || '';
-      // The stored vocabulary is mint/near_mint/excellent/good/light_played/
-      // played/poor; the previous map keyed on `lightly_played` and
-      // `moderately_played`, values the domain type can never produce, so every
-      // real row silently fell through to "Near Mint".
-      const condition = conditionLabel(item.condition);
-      const language = 'English';
-      const foil = item.foil > 0 ? 'foil' : '';
-      const tags = '';
-      const lastModified = new Date(item.updated_at).toISOString();
-      const collectorNumber = item.cards?.collector_number || '';
-      const alter = '';
-      const proxy = '';
-      const purchasePrice = item.price_usd || '';
-
-      return [
-        count,
-        tradelistCount,
-        `"${name}"`,
-        edition,
-        condition,
-        language,
-        foil,
-        tags,
-        lastModified,
-        collectorNumber,
-        alter,
-        proxy,
-        purchasePrice
-      ].join(',');
-    });
-
-    return [headers, ...rows].join('\n');
   };
 
   return (

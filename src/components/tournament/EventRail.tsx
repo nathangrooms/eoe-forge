@@ -63,7 +63,7 @@ export function EventRail({
               {event.players.length === 1 ? '' : 's'}
             </span>
 
-            <span className="text-[0.65rem] uppercase tracking-wider text-muted-foreground/70">
+            <span className="text-[0.65rem] uppercase tracking-wider text-muted-foreground/80">
               {event.status === 'in-progress'
                 ? `Round ${event.currentRound} of ${rounds}`
                 : STATUS_TEXT[event.status]}

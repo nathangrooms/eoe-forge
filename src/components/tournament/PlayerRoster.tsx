@@ -270,7 +270,7 @@ export function PlayerRoster({
                         )}
                       </p>
                     ) : (
-                      <p className="mt-0.5 text-xs italic text-muted-foreground/70">
+                      <p className="mt-0.5 text-xs italic text-muted-foreground/80">
                         No deck registered
                       </p>
                     )}

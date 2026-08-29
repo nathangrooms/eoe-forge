@@ -45,7 +45,9 @@ export function CardPrintingsRow({
       selectedId={activeId}
       onSelect={onSelect}
       heading="Printings and art variants"
-      note={`Every printing of ${cardName} we hold. Click one to see it.`}
+      /* "Click" on a page most people open on a phone. Half the readers of this
+         line are tapping. */
+      note={`Every printing of ${cardName} we hold. Choose one to see it.`}
     />
   );
 }

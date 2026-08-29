@@ -425,6 +425,26 @@ export interface CommanderPlan {
  * Read the left column as "the commander's record contains this" and the right
  * as "so a card carrying one of these is doing the commander's work".
  */
+/**
+ * Keywords that describe how a creature fights, as opposed to what it does.
+ *
+ * Deliberately only the combat ones. `flash` and `partner` also appear on
+ * commanders with no other record, and neither says the deck should be built
+ * around the commander connecting, so neither is here.
+ */
+const COMBAT_KEYWORDS: readonly string[] = [
+  'flying', 'trample', 'menace', 'deathtouch', 'lifelink', 'vigilance',
+  'first strike', 'double strike', 'indestructible', 'haste', 'ward',
+  'protection', 'shroud', 'hexproof', 'unblockable', 'fear', 'intimidate',
+  'horsemanship', 'skulk',
+];
+
+/** "flying, trample and lifelink", for a sentence a player reads. */
+function joinKeywords(words: readonly string[]): string {
+  if (words.length <= 1) return words[0] ?? '';
+  return `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`;
+}
+
 const PLAN_RULES: readonly {
   when: Facet;
   wants: readonly { facet: Facet; weight: number }[];
@@ -641,6 +661,76 @@ export function planForCommander(commander: {
     if (!f.startsWith('ctr:')) continue;
     add(f, 0.9, `${commander.name} works with ${f.slice(4)} counters`);
     add('eff:proliferate', 0.8, `${commander.name} works with ${f.slice(4)} counters`);
+  }
+
+  /* THE COMMANDER THAT ONLY TELLS YOU HOW IT FIGHTS.
+     ------------------------------------------------
+     Measured over all 3,363 commander-legal legendary creatures: 1,612 produce
+     no wants at all, and for 977 of them the compiler read the card perfectly
+     well. Nothing fired because no rule was keyed on what it found. The facets
+     sitting unused are overwhelmingly combat keywords:
+
+       flying 306 · vigilance 129 · trample 119 · haste 100 · lifelink 67
+       first strike 55 · deathtouch 54 · menace 52 · indestructible 45
+
+     A legendary creature whose whole record is evasion and combat keywords is
+     not a card the engine has nothing to say about. It is a VOLTRON commander,
+     and every Magic player reads it that way: the commander IS the threat, so
+     the deck wants equipment, auras and ways to keep it alive and connecting.
+     Jareth, Leonine Titan blocks and pumps and wants exactly that, and until
+     now he got the same generic deck as a card with no text at all.
+
+     WHY THIS IS A FALLBACK AND NOT A RULE IN THE TABLE. It reads the SHAPE of
+     the whole record rather than one facet: the claim is that combat keywords
+     are ALL there is. Running it only when nothing else fired makes that
+     structural, so it can never talk over a commander who told us something
+     more specific. A card that makes tokens AND flies is a token deck.
+
+     Weights sit below a real record's. This is an inference from silence, and
+     it should lose to anything the card actually said. */
+  if (!wants.size) {
+    const combat = COMBAT_KEYWORDS.filter(k => facets.includes(`kw:${k}`));
+    if (combat.length) {
+      const because =
+        `${commander.name} has ${joinKeywords(combat)} and no other ability we can read, ` +
+        `so the deck is built around getting it through`;
+      add('sub:equipment', 0.75, because);
+      add('sub:aura', 0.65, because);
+      add('eff:pump', 0.6, because);
+      add('cares:sub:equipment', 0.5, because);
+      add('cares:sub:aura', 0.45, because);
+    }
+  }
+
+  /* STILL NOTHING, AND THE RECORD IS ABOUT COMBAT WITHOUT SAYING A KEYWORD.
+     The rule above reads `kw:` facets, so it finds a commander whose evasion is
+     PRINTED and misses one whose fighting is written as an ability. Jareth,
+     Leonine Titan is the case: he gets +7/+7 when he blocks and can gain
+     protection, so his record is `eff:pump` and `trig:blocks` and not one
+     keyword, and the keyword rule passed him by. Sauron, the Lidless Eye is the
+     same shape through `eff:gain-control` and `eff:pump`.
+
+     `eff:pump` was on 95 silent commanders and `cares:type:creature` on 188, the
+     two largest effect facets with no rule behind them.
+
+     A commander that pumps wants creatures to pump and equipment to carry, and
+     one that only cares about creatures wants creatures. Both are weaker claims
+     than any real plan, which is why they sit last and weigh least: "wants
+     creatures" is nearly true of every deck, and it is only worth saying when
+     the alternative is saying nothing at all. */
+  if (!wants.size) {
+    if (facets.includes('eff:pump')) {
+      const because = `${commander.name} pumps a creature and we can read nothing else, so the deck feeds it`;
+      add('type:creature', 0.55, because);
+      add('sub:equipment', 0.5, because);
+      add('eff:pump', 0.45, because);
+    } else if (facets.includes('cares:type:creature')) {
+      add(
+        'type:creature',
+        0.4,
+        `${commander.name} names creatures and we can read nothing more specific`
+      );
+    }
   }
 
   const fromTagsOnly = !hasRecord(commander);

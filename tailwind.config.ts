@@ -29,6 +29,11 @@ export default {
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
+				/* The FILL of a text field, not its outline. Design law 2 says
+				   depth comes from surface tint and never from a hairline, and
+				   a field still has to be findable, so the tint does that job.
+				   See --field in index.css. */
+				field: 'hsl(var(--field))',
 				ring: 'hsl(var(--ring))',
 				background: 'hsl(var(--background))',
 				foreground: 'hsl(var(--foreground))',

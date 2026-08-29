@@ -7,6 +7,7 @@ import { ManaCost } from '@/components/ui/mana-cost';
 import { Section, SectionHeading } from '@/components/marketing/Section';
 import { useNearViewport } from '@/components/marketing/sectionData';
 import { cn } from '@/lib/utils';
+import { cardDetailPath } from '@/components/cards/card-link';
 
 /**
  * Scryfall syntax — demonstrated, not asserted.
@@ -127,10 +128,26 @@ function runSearch(q: string): Promise<SearchResult | null> {
 
 /* -------------------------------------------------------------------- pieces */
 
+/**
+ * EVERY CARD HERE GOES SOMEWHERE, AND THE SOMEWHERE IS PUBLIC.
+ *
+ * `/cards/:id` is on the signed-out route tree and is the strongest page in the
+ * product: every printing, live prices in three currencies, legality across
+ * every format, honest empty states. Nothing on the homepage linked to it.
+ * Every card drawn here was a picture, and the only card-shaped button on the
+ * page went to `/cards`, which is behind an account. So a stranger could look
+ * at the evidence and never touch it.
+ *
+ * `card.id` is Scryfall's id, and `cardDetailPath` resolves a Scryfall id, one
+ * of our own ids, or a plain name, so the link works with the row shape this
+ * section happens to hold.
+ */
 function ResultCard({ card }: { card: ScryfallCard }) {
   const usd = card.prices?.usd;
-  return (
-    <figure className="group min-w-0">
+  const href = cardDetailPath(card);
+
+  const body = (
+    <>
       <CardImage
         card={card}
         size="md"
@@ -148,6 +165,20 @@ function ResultCard({ card }: { card: ScryfallCard }) {
           )}
         </div>
       </figcaption>
+    </>
+  );
+
+  if (!href) return <figure className="group min-w-0">{body}</figure>;
+
+  return (
+    <figure className="min-w-0">
+      <Link
+        to={href}
+        aria-label={`${card.name}, open the card page`}
+        className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
+      >
+        {body}
+      </Link>
     </figure>
   );
 }
@@ -157,6 +188,22 @@ function ResultCard({ card }: { card: ScryfallCard }) {
 export function HomeSearch() {
   const [ref, near] = useNearViewport<HTMLDivElement>();
   const [active, setActive] = useState(QUERIES[0].q);
+  /*
+   * WHAT IS TYPED, before it becomes the query that runs.
+   *
+   * This section used to draw a magnifier, a monospace string and a match
+   * count, and none of it was an input. Measured across every signed-out route
+   * including the opened mobile menu: ZERO `<input>` elements existed anywhere
+   * a visitor could reach. Somebody tried to type their commander's name into
+   * this and nothing happened, under a heading promising they already know how
+   * to search here.
+   *
+   * It runs against Scryfall's public search endpoint, the same one the four
+   * preset chips already used, so it needs no account and no database. Results
+   * link to `/cards/:id`, which is also public. That is the whole loop a
+   * stranger needs before deciding whether to sign up.
+   */
+  const [typed, setTyped] = useState(QUERIES[0].q);
   const [results, setResults] = useState<Record<string, SearchResult | null>>({});
   const [pending, setPending] = useState(true);
 
@@ -181,9 +228,29 @@ export function HomeSearch() {
     };
   }, [near, active, results]);
 
+  /* Typing settles before a request goes out. 450 ms is long enough that a
+     card name is not four searches, short enough that it feels answered. */
+  useEffect(() => {
+    const trimmed = typed.trim();
+    if (!trimmed) return;
+    const timer = window.setTimeout(() => setActive(trimmed), 450);
+    return () => window.clearTimeout(timer);
+  }, [typed]);
+
   const current = results[active] ?? null;
-  const note = QUERIES.find(entry => entry.q === active)?.note ?? '';
+  const preset = QUERIES.find(entry => entry.q === active);
+  const note = preset?.note ?? '';
   const loading = pending && current === null;
+  /* `runSearch` returns null both for "nothing matched" and for "the request
+     failed", and those are different sentences. `active in results` is how we
+     know the request finished at all. */
+  const answered = active in results;
+  const empty = answered && current === null;
+
+  const choose = (q: string) => {
+    setTyped(q);
+    setActive(q);
+  };
 
   return (
     <Section>
@@ -209,7 +276,7 @@ export function HomeSearch() {
             <button
               key={entry.q}
               type="button"
-              onClick={() => setActive(entry.q)}
+              onClick={() => choose(entry.q)}
               aria-pressed={on}
               className={cn(
                 /* 44px tall on a phone. Unchanged from `sm` up. */
@@ -226,31 +293,76 @@ export function HomeSearch() {
         })}
       </div>
 
-      {/* ------------------------------------------------------- the search bar */}
-      <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl bg-card px-5 py-4 shadow-lg shadow-black/20 sm:mt-8 sm:px-6">
+      {/* ------------------------------------------------------- the search bar
+          A REAL INPUT. See the note on `typed`. */}
+      <form
+        className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl bg-card px-4 py-3 shadow-lg shadow-black/20 sm:mt-8 sm:px-5"
+        onSubmit={event => {
+          event.preventDefault();
+          const trimmed = typed.trim();
+          if (trimmed) setActive(trimmed);
+        }}
+        role="search"
+      >
         <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-        <code className="min-w-0 flex-1 break-words font-mono text-sm text-foreground sm:text-base">
-          {active}
-        </code>
+        <label htmlFor="home-search" className="sr-only">
+          Search every Magic card
+        </label>
+        <input
+          id="home-search"
+          type="search"
+          value={typed}
+          onChange={event => setTyped(event.target.value)}
+          /* The box arrives holding a preset query, because the section's job
+             is to show a real search that already ran. Selecting it on focus
+             means the first thing you type replaces the demo instead of being
+             appended to the end of it. */
+          onFocus={event => event.target.select()}
+          spellCheck={false}
+          autoComplete="off"
+          placeholder="Try a card name, or c:rg t:creature pow>=5"
+          className="min-h-[44px] min-w-0 flex-1 border-0 bg-transparent font-mono text-sm text-foreground outline-none placeholder:font-sans placeholder:text-muted-foreground focus-visible:outline-none sm:text-base"
+        />
         <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
           {current ? (
             <>
               <span className="font-medium text-foreground">
                 {current.total.toLocaleString()}
               </span>{' '}
-              matches
+              {current.total === 1 ? 'match' : 'matches'}
             </>
           ) : loading ? (
-            'running…'
+            'searching…'
+          ) : empty ? (
+            'no matches'
           ) : (
             ''
           )}
         </span>
-      </div>
+      </form>
+
+      {/* Nothing came back. Say which of the two reasons it was, rather than
+          leaving the grid from the previous search on screen underneath a
+          different query. */}
+      {empty && (
+        <p className="mt-8 text-center text-sm text-muted-foreground">
+          Nothing matched that. Check the spelling, or try a plain card name.
+        </p>
+      )}
 
       {/* ------------------------------------------------------------ the cards */}
       {(loading || current) && (
-        <div className="mt-8 grid grid-cols-2 gap-x-5 gap-y-8 sm:mt-10 sm:grid-cols-3 lg:grid-cols-6">
+        <div
+          className={cn(
+            'mt-8 gap-x-5 gap-y-8 sm:mt-10',
+            /* A name search usually returns one or two cards, and one card in a
+               six column grid is one card and five empty columns. Few results
+               centre; a full set keeps the grid. */
+            !loading && current && current.cards.length < 3
+              ? 'flex flex-wrap justify-center'
+              : 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'
+          )}
+        >
           {loading
             ? Array.from({ length: SHOWN }).map((_, i) => (
                 <div key={i} className={cn(i >= SHOWN_ON_PHONE && 'hidden sm:block')}>
@@ -258,7 +370,13 @@ export function HomeSearch() {
                 </div>
               ))
             : current!.cards.map((card, i) => (
-                <div key={card.id} className={cn(i >= SHOWN_ON_PHONE && 'hidden sm:block')}>
+                <div
+                  key={card.id}
+                  className={cn(
+                    i >= SHOWN_ON_PHONE && 'hidden sm:block',
+                    current!.cards.length < 3 && 'w-40 sm:w-52'
+                  )}
+                >
                   <ResultCard card={card} />
                 </div>
               ))}
@@ -273,9 +391,12 @@ export function HomeSearch() {
           <span className="sm:hidden">{Math.min(SHOWN_ON_PHONE, current.cards.length)}</span>
           <span className="hidden sm:inline">{current.cards.length}</span> of{' '}
           {current.total.toLocaleString()} results for{' '}
-          <span className="font-mono text-foreground/80">{active}</span>, {note.toLowerCase()}, in the
-          order Scryfall ranks them by how often people play them. This ran for real when the page
-          loaded, on the same search the card browser uses.
+          {/* `note` only exists for the four presets. Typing your own query
+              left it empty and the sentence read ", , in the order". */}
+          <span className="font-mono text-foreground/80">{active}</span>
+          {note ? `, ${note.toLowerCase()},` : ','} in the order Scryfall ranks them by how often
+          people play them. This is a real search, run just now, on the same card pool the browser
+          uses. Choose any card to open its page.
         </p>
       )}
 
@@ -286,13 +407,20 @@ export function HomeSearch() {
           tried. Publishing that would be advertising the bug. Put the picture in
           once the rail has a gutter: see docs/overhaul/APP-SCREENSHOTS.md §7. */}
 
+      {/* The button used to say "Try a search" and lead to `/cards`, which is
+          behind an account, so the one thing it invited you to do was the one
+          thing it would not let you do. The box above IS the try. This is the
+          next step, and it says what is behind it. */}
       <div className="mt-8 text-center sm:mt-10">
         <Button asChild size="lg" variant="outline">
           <Link to="/cards">
-            Try a search
+            Open the full card browser
             <ArrowRight className="ml-2 h-4 w-4" />
           </Link>
         </Button>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Filters, sorting and saving what you find need an account. Searching here does not.
+        </p>
       </div>
     </Section>
   );

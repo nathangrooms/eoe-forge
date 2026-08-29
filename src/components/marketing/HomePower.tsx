@@ -190,7 +190,7 @@ function ClassPanel({
     <div className="flex min-w-0 flex-col rounded-2xl bg-card p-6 shadow-xl shadow-black/30">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h3 className="font-medium">{title}</h3>
-        <span className="text-[11px] tabular-nums text-muted-foreground/70">
+        <span className="text-[11px] tabular-nums text-muted-foreground/80">
           {count} cards like this
         </span>
       </div>

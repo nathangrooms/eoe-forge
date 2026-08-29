@@ -69,7 +69,7 @@ export function StandingsTable({
         <span className="min-w-0 flex-1">Round by round</span>
         <span className="w-16 shrink-0 text-center">W-L-D</span>
         <span className="w-14 shrink-0 text-center">Pts</span>
-        <span className="w-[9rem] shrink-0 text-right text-muted-foreground/70">
+        <span className="w-[9rem] shrink-0 text-right text-muted-foreground/80">
           OMW / GW / OGW
         </span>
       </div>
@@ -237,7 +237,7 @@ function Trail({ trail }: { trail: RoundOutcome[] }) {
             </span>
           )}
           {entry.opponent && (
-            <span className="hidden min-w-0 truncate text-xs text-muted-foreground/70 sm:inline">
+            <span className="hidden min-w-0 truncate text-xs text-muted-foreground/80 sm:inline">
               {entry.opponent}
             </span>
           )}

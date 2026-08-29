@@ -72,7 +72,7 @@ function Chip({ active, onClick, count, children, className, title }: ChipProps)
       <span
         className={cn(
           'tabular-nums text-xs',
-          active ? 'text-background/70' : 'text-muted-foreground/70'
+          active ? 'text-background/70' : 'text-muted-foreground/80'
         )}
       >
         {count}

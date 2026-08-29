@@ -100,6 +100,15 @@ export interface DeckHit {
   isCommander: boolean;
 }
 
+/** One combo out of the whole list, rather than one card's combos. */
+export interface ComboPair {
+  comboId: string;
+  popularity: number | null;
+  produces: string[];
+  manaNeeded: string | null;
+  pieces: string[];
+}
+
 /* -------------------------------------------------------------------------- *
  * One card
  * -------------------------------------------------------------------------- */
@@ -196,9 +205,102 @@ export async function combosFor(db: any, oracleId: string, limit = 5): Promise<R
   );
 }
 
+/**
+ * The most played two card combos in the whole list.
+ *
+ * `card_count = 2` and `template_count = 0` together mean both pieces are named
+ * cards. A combo needing "a creature with flying" is a real combo and it is not
+ * two cards, and printing it as one would be a two card combo that is not one.
+ *
+ * TWO FILTERS ARE IN THE QUERY AND ONE IS NOT, and the reason is measured.
+ * `legalities->>'commander'` in the query makes the planner give up on
+ * `idx_meta_combos_popularity` and sequential scan all 61,500 rows: 458 ms cold
+ * against a 3 s limit. With that one filter moved into JavaScript the same
+ * query is an index scan and takes 16.9 ms. Only 16 of the 3,887 two card
+ * combos are not Commander legal, so almost nothing is thrown away here.
+ */
+export async function topTwoCardCombos(db: any, want: number): Promise<Read<ComboPair[]>> {
+  const combos = await db
+    .from('meta_combos')
+    .select('id, popularity, produces, mana_needed, legalities')
+    .eq('card_count', 2)
+    .eq('template_count', 0)
+    .order('popularity', { ascending: false, nullsFirst: false })
+    .limit(Math.max(want * 5, 40));
+  if (combos.error) return failed(combos.error.message);
+
+  const rows = ((combos.data ?? []) as any[]).filter(
+    r => String(r.legalities?.commander ?? '') === 'true'
+  );
+  if (!rows.length) return ok([]);
+
+  const pieces = await db
+    .from('meta_combo_cards')
+    .select('combo_id, card_name')
+    .in('combo_id', rows.map(r => String(r.id)));
+  if (pieces.error) return failed(pieces.error.message);
+
+  const byCombo = new Map<string, string[]>();
+  for (const piece of (pieces.data ?? []) as any[]) {
+    const key = String(piece.combo_id);
+    const list = byCombo.get(key) ?? [];
+    list.push(String(piece.card_name));
+    byCombo.set(key, list);
+  }
+
+  return ok(
+    rows.map(r => ({
+      comboId: String(r.id),
+      popularity: r.popularity ?? null,
+      produces: Array.isArray(r.produces) ? r.produces : [],
+      manaNeeded: r.mana_needed ?? null,
+      pieces: (byCombo.get(String(r.id)) ?? []).sort(),
+    }))
+  );
+}
+
 /* -------------------------------------------------------------------------- *
  * Lists of cards
  * -------------------------------------------------------------------------- */
+
+/**
+ * Every card in one legality state for one format, most played first.
+ *
+ * CONTAINMENT, NOT EQUALITY, and it is the difference between an answer and a
+ * timeout. `legalities->>'commander' = 'banned'` cannot use an index and
+ * sequential scans all 33,032 rows: measured 2,738 ms against a 3 s limit, so
+ * the banned list would have failed roughly whenever the cache was cold.
+ * `legalities @> '{"commander":"banned"}'` uses the existing GIN index on the
+ * column and takes 22.8 ms for the same 76 rows.
+ *
+ * The `= 'legal'` reads elsewhere in this file are left alone: they are always
+ * paired with an `edhrec_rank` order, which the partial index
+ * `cards_unique_commander_rank_idx` already serves.
+ */
+export async function cardsInLegalityState(
+  db: any,
+  format: string,
+  state: 'banned' | 'restricted',
+  limit: number
+): Promise<Read<CardRow[]>> {
+  const { data, error } = await db
+    .from('cards_unique')
+    .select(LIST_COLUMNS)
+    .contains('legalities', { [format]: state })
+    .order('edhrec_rank', { ascending: true, nullsFirst: false })
+    .limit(limit);
+  if (error) return failed(error.message);
+  return ok((data ?? []) as CardRow[]);
+}
+
+/* THERE IS NO "MOST EXPENSIVE CARDS" READ HERE, ON PURPOSE.
+   `prices` is jsonb and `prices->>'usd'` is text, so a database order on it
+   sorts 9.99 above 10000.00, and `cards_unique` carries no numeric price
+   column: checked, no column on the view matches price or usd other than the
+   jsonb. Answering it would mean reading 32,449 priced rows to sort them in
+   here, which is the shape of read that has taken this database down twice. So
+   a price question with no card named says so and asks for a card, rather than
+   being served a list that was sorted as text. */
 
 export interface RoleQuery {
   /**
@@ -218,8 +320,19 @@ export interface RoleQuery {
   manaValue?: number | null;
   /** Cards to leave out, by name. Used to keep a deck's own cards off a shortlist. */
   exclude?: string[];
+  /**
+   * The most a card may cost in dollars, when the question set a budget.
+   *
+   * Applied here rather than in the query because `prices->>'usd'` is text and
+   * a text comparison would put 9.99 above 10.00. So the page of candidates is
+   * widened and the filter runs on the rows.
+   */
+  maxUsd?: number | null;
   limit?: number;
 }
+
+/** How far down the popularity order a budget question is allowed to look. */
+export const BUDGET_PAGE = 300;
 
 /**
  * The most played cards doing one job.
@@ -231,6 +344,7 @@ export interface RoleQuery {
  */
 export async function topByRole(db: any, q: RoleQuery): Promise<Read<CardRow[]>> {
   const limit = q.limit ?? 10;
+  const narrowing = Boolean(q.colours?.length || q.exclude?.length);
   let query = db
     .from('cards_unique')
     .select(LIST_COLUMNS)
@@ -241,15 +355,26 @@ export async function topByRole(db: any, q: RoleQuery): Promise<Read<CardRow[]>>
        Reading forty when five are wanted looks free and is not: measured on the
        colour staple lists, limit 40 took 3.1 s and hit the 3 s ceiling while
        limit 5 took 0.07 s. Blue and black came back empty for that reason and
-       for no other. */
-    .limit(q.colours?.length || q.exclude?.length ? Math.max(limit * 4, 40) : limit);
+       for no other.
+
+       A BUDGET NEEDS A MUCH WIDER PAGE, because most of what is cheap is
+       unpopular and the filter runs after the order. Measured on "black removal
+       under a dollar": with the colour pushed into the query, 300 rows is
+       255 ms and holds ten cards inside the budget, the first of them Feed the
+       Swarm at rank 89. */
+    .limit(q.maxUsd != null ? BUDGET_PAGE : narrowing ? Math.max(limit * 4, 40) : limit);
 
   if (q.tag) query = query.contains('tags', [q.tag]);
   if (q.manaValue != null) query = query.eq('cmc', q.manaValue);
   /* Pushed into the query rather than filtered afterwards. Without a job tag to
      narrow on, the first N rows in rank order are almost all colourless, so
-     filtering a page of 40 in JavaScript found nothing for any colour. */
-  if (q.mustInclude) query = query.contains('color_identity', [q.mustInclude]);
+     filtering a page of 40 in JavaScript found nothing for any colour.
+
+     A single colour asked for is pushed down too when there is a budget, for
+     the same reason the page is wider: 300 rows of every colour would spend
+     most of the page on cards the answer is going to drop anyway. */
+  const narrowTo = q.mustInclude ?? (q.maxUsd != null && q.colours?.length === 1 ? q.colours[0] : null);
+  if (narrowTo) query = query.contains('color_identity', [narrowTo]);
 
   const { data, error } = await query;
   if (error) return failed(error.message);
@@ -260,6 +385,14 @@ export async function topByRole(db: any, q: RoleQuery): Promise<Read<CardRow[]>>
 
   for (const row of (data ?? []) as CardRow[]) {
     if (excluded.has(row.name.toLowerCase())) continue;
+    if (q.maxUsd != null) {
+      /* A CARD WE HOLD NO PRICE FOR IS NOT A CHEAP CARD. This is the same rule
+         as everywhere else: absence is not zero. Around a thousand printings
+         carry no dollar quote, and letting them through a budget filter would
+         put them at the top of a list of cards under a dollar. */
+      const usd = Number(row.prices?.usd);
+      if (!Number.isFinite(usd) || usd <= 0 || usd > q.maxUsd) continue;
+    }
     if (colours.length) {
       const identity = Array.isArray(row.color_identity) ? row.color_identity : [];
       // Fits inside the colours asked for. A colourless card fits everywhere.

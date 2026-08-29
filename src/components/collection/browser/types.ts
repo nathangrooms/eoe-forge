@@ -15,50 +15,17 @@ export type ManaColor = 'W' | 'U' | 'B' | 'R' | 'G';
 
 export const WUBRG: ManaColor[] = ['W', 'U', 'B', 'R', 'G'];
 
-/**
- * Market condition grades (TCGplayer / CardMarket). The database still stores
- * the older seven-value vocabulary, so `normalizeCondition` maps both onto
- * these five.
- */
-export const CONDITIONS = [
-  { value: 'NM', label: 'Near Mint' },
-  { value: 'LP', label: 'Lightly Played' },
-  { value: 'MP', label: 'Moderately Played' },
-  { value: 'HP', label: 'Heavily Played' },
-  { value: 'DMG', label: 'Damaged' },
-] as const;
+/* Condition grades moved to `conditions.ts`, which imports nothing, so code
+   that only needs to name a grade does not drag the card-filter graph in with
+   it. Re-exported here so every existing importer keeps working. */
+import type { ConditionGrade } from './conditions.ts';
 
-export type ConditionGrade = (typeof CONDITIONS)[number]['value'];
-
-const CONDITION_ALIASES: Record<string, ConditionGrade> = {
-  mint: 'NM',
-  near_mint: 'NM',
-  nearmint: 'NM',
-  nm: 'NM',
-  excellent: 'LP',
-  good: 'LP',
-  light_played: 'LP',
-  lightly_played: 'LP',
-  lp: 'LP',
-  played: 'MP',
-  moderately_played: 'MP',
-  mp: 'MP',
-  heavily_played: 'HP',
-  hp: 'HP',
-  poor: 'DMG',
-  damaged: 'DMG',
-  dmg: 'DMG',
-};
-
-export function normalizeCondition(raw?: string | null): ConditionGrade {
-  if (!raw) return 'NM';
-  return CONDITION_ALIASES[String(raw).toLowerCase().trim()] ?? 'NM';
-}
-
-export function conditionLabel(raw?: string | null): string {
-  const grade = normalizeCondition(raw);
-  return CONDITIONS.find(c => c.value === grade)?.label ?? 'Near Mint';
-}
+export {
+  CONDITIONS,
+  normalizeCondition,
+  conditionLabel,
+  type ConditionGrade,
+} from './conditions.ts';
 
 /**
  * One row in the browser. Pages map their own domain objects onto this so a

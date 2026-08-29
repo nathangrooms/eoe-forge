@@ -149,7 +149,7 @@ export function TestingBanner() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.8 }}
-          className="text-sm text-muted-foreground/60 mt-16"
+          className="text-sm text-muted-foreground/80 mt-16"
         >
           Free during testing period • No credit card required
         </motion.p>

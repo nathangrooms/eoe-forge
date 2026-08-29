@@ -60,9 +60,11 @@ interface Point {
 type Basis = 'printing' | 'oracle' | null;
 
 const RANGES = [
-  { key: '30', label: '30d', days: 30 },
-  { key: '90', label: '90d', days: 90 },
-  { key: 'all', label: 'All', days: Infinity },
+  /* `label` is what is drawn, `name` is what is spoken. "30d" read aloud is
+     not a phrase anybody would say. */
+  { key: '30', label: '30d', name: 'Last 30 days', days: 30 },
+  { key: '90', label: '90d', name: 'Last 90 days', days: 90 },
+  { key: 'all', label: 'All', name: 'All prices we hold', days: Infinity },
 ] as const;
 
 type RangeKey = (typeof RANGES)[number]['key'];
@@ -193,14 +195,64 @@ export function CardPriceHistory({
           }
         }
 
-        // 2. Any printing of the same card.
+        /*
+         * 2. Any printing of the same card.
+         *
+         * TWO QUERIES, NOT ONE, AND DELIBERATELY.
+         *
+         * This used to be a single `.eq('oracle_id', oracleId)` against
+         * `card_price_history`. That is now a VIEW, and its definition reads
+         *
+         *     COALESCE(c.oracle_id, ''::text) AS oracle_id
+         *     ... LEFT JOIN cards c ON c.id = k.card_id
+         *
+         * so filtering on `oracle_id` filters on an EXPRESSION over the whole
+         * `cards` table and no index can serve it. Measured with EXPLAIN
+         * ANALYZE on 2026-08-29:
+         *
+         *     Seq Scan on cards c  (actual rows=98041)
+         *     Rows Removed by Filter: 79210
+         *     Execution Time: 15532.313 ms
+         *
+         * The `anon` role carries a 3 second statement_timeout, so that query
+         * could NEVER have returned for a signed-out visitor. It runs whenever
+         * the exact printing has no history of its own, which is most
+         * printings, and the card page is public.
+         *
+         * Resolving the printing ids first turns it into two index scans:
+         *
+         *     Index Scan using idx_cards_oracle_id  (actual rows=129)  6.8 ms
+         *     Index Scan using card_price_key_card_id_key ...
+         *     Execution Time: 2.244 ms warm, 631 ms cold
+         *
+         * `card_id` passes through the view unwrapped, which is why filtering
+         * on it can use an index and filtering on `oracle_id` cannot.
+         */
         if (oracleId) {
-          const { data } = await supabase
+          const { data: printings, error: printingsError } = await supabase
+            .from('cards')
+            .select('id')
+            .eq('oracle_id', oracleId)
+            .limit(500);
+
+          if (printingsError) throw printingsError;
+
+          const ids = (printings ?? []).map((r: { id: string }) => r.id).filter(Boolean);
+          if (ids.length === 0) {
+            if (cancelled) return;
+            setPoints([]);
+            setBasis(null);
+            return;
+          }
+
+          const { data, error } = await supabase
             .from('card_price_history')
             .select('snapshot_date, price_usd, price_eur, card_id')
-            .eq('oracle_id', oracleId)
+            .in('card_id', ids)
             .order('snapshot_date', { ascending: true })
             .limit(2000);
+
+          if (error) throw error;
 
           const series = collect(data);
           if (cancelled) return;
@@ -213,7 +265,11 @@ export function CardPriceHistory({
         if (cancelled) return;
         setPoints([]);
         setBasis(null);
-      } catch {
+      } catch (err) {
+        /* Swallowing this was how a 15 second timeout looked identical to a
+           card with no price history. It is not shown to the reader, but it
+           has to be visible to somebody who can act on it. */
+        console.error('price history query failed', err);
         if (cancelled) return;
         setPoints([]);
         setBasis(null);
@@ -287,14 +343,22 @@ export function CardPriceHistory({
           </div>
 
           {points.length > 1 && (
-            <div className="flex gap-1">
+            /* A set of toggles, so say so. Without `aria-pressed` a reader is
+               told "30d button" three times and never which one is on, and
+               "30d" alone is not a sentence, so the accessible name spells the
+               range out. The homepage format toggles already do both.
+
+               min-h 44 because these sit next to each other under a thumb. */
+            <div className="flex gap-1" role="group" aria-label="Price history range">
               {RANGES.map(r => (
                 <button
                   key={r.key}
                   type="button"
                   onClick={() => setRange(r.key)}
+                  aria-pressed={range === r.key}
+                  aria-label={r.name}
                   className={cn(
-                    'rounded-md px-2 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    'inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md px-3 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                     range === r.key
                       ? 'bg-muted text-foreground'
                       : 'text-muted-foreground hover:text-foreground'

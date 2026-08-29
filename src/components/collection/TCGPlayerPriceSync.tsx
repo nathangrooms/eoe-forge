@@ -5,6 +5,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { RefreshCw, TrendingUp, DollarSign, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { readAmount } from '@/lib/pricing';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 
 /** Scryfall accepts at most 75 identifiers per `/cards/collection` request. */
@@ -148,10 +149,19 @@ export function TCGPlayerPriceSync() {
           updatedCount++;
           totalValue += newPrice * entry.quantity;
 
-          // Track significant price changes (>10% or >$5)
-          const oldPrice = entry.price_usd || 0;
+          /* Track significant price changes (>10% or >$5).
+
+             A row with no stored price is SKIPPED rather than treated as
+             having been worth 0. `entry.price_usd || 0` reported those as
+             "was $0.00, now $58.16", which is not a price change, it is a
+             price arriving for the first time, and printing the $0.00 in a
+             list a person reads is the fabricated zero the pricing law
+             forbids. */
+          const oldPrice = readAmount(entry.price_usd);
+          if (oldPrice == null) continue;
+
           const priceDiff = Math.abs(newPrice - oldPrice);
-          const percentChange = oldPrice > 0 ? (priceDiff / oldPrice) * 100 : 0;
+          const percentChange = (priceDiff / oldPrice) * 100;
 
           if (percentChange > 10 || priceDiff > 5) {
             changedCards.push({ name: entry.card_name, oldPrice, newPrice });

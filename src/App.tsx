@@ -17,6 +17,8 @@ import { RouteEnterMotion } from "@/components/motion/RouteEnterMotion";
    a redirect the reader watches happen. See the file for why the route stays. */
 import { SimulateRedirect } from "@/pages/SimulateRedirect";
 import { returnPathFrom } from "@/lib/auth/returnPath";
+import { RouteAnnouncer } from "@/components/routing/RouteAnnouncer";
+import { GATED_ROUTES } from "@/lib/routes/routeMeta";
 
 /*
  * Every page is fetched when it is needed, not before.
@@ -43,6 +45,8 @@ const load = {
   publicDeck: () => import("./pages/PublicDeck"),
   cardDetail: () => import("./pages/CardDetail"),
   notFound: () => import("./pages/NotFound"),
+  terms: () => import("./pages/Terms"),
+  privacy: () => import("./pages/Privacy"),
 
   // Signed in.
   dashboard: () => import("./pages/Dashboard"),
@@ -93,6 +97,8 @@ const ResetPassword = lazy(load.resetPassword);
 const PublicDeck = lazy(load.publicDeck);
 const CardDetailPage = lazy(load.cardDetail);
 const NotFound = lazy(load.notFound);
+const Terms = lazy(load.terms);
+const Privacy = lazy(load.privacy);
 
 const Dashboard = lazy(load.dashboard);
 const Collection = lazy(load.collection);
@@ -221,6 +227,10 @@ function RouteHost({ children }: { children: React.ReactNode }) {
             and the animation would play on the loading spinner. Renders no
             element of its own — see RouteEnterMotion. */}
         <RouteEnterMotion key={location.pathname} />
+        {/* Sets the document title, announces the page, and moves focus into
+            <main> on every in-app navigation. Both route tables go through
+            RouteHost, so signed in and signed out get the same behaviour. */}
+        <RouteAnnouncer />
         {children}
       </Suspense>
     </RouteBoundary>
@@ -352,10 +362,29 @@ function AppContent() {
             path="/play/online"
             element={<PublicContentShell><Lobby /></PublicContentShell>}
           />
-          {/* Everything else is behind an account. It goes to the sign-in page
-              carrying where it was headed, NOT to the homepage. See
-              `LoginRedirect`. */}
-          <Route path="*" element={<LoginRedirect />} />
+          {/* Two documents the sign-up form has been claiming you agreed to.
+              They were not links and these routes did not exist, so typing
+              either one landed on the sign-in wall. */}
+          <Route path="/terms" element={<PublicContentShell><Terms /></PublicContentShell>} />
+          <Route path="/privacy" element={<PublicContentShell><Privacy /></PublicContentShell>} />
+
+          {/* ROUTES THAT EXIST BUT NEED AN ACCOUNT. Listed rather than caught,
+              because a catch-all made a dead link, a typo and a locked page the
+              same screen: `/this-route-does-not-exist`, `/play` and `/decks`
+              produced byte-identical screenshots at 1,142,566 bytes each. The
+              sign-in card is the right answer for a real page behind an
+              account. It is the wrong answer for a page that will never exist,
+              because it tells somebody to sign up for nothing.
+
+              `routeMeta.test.ts` reads this file and fails if a route is added
+              to the signed-in table without being added to GATED_ROUTES, so the
+              list cannot quietly fall behind. */}
+          {GATED_ROUTES.map(path => (
+            <Route key={path} path={path} element={<LoginRedirect />} />
+          ))}
+
+          {/* Genuinely nothing here. */}
+          <Route path="*" element={<PublicContentShell><NotFound /></PublicContentShell>} />
         </Routes>
       </RouteHost>
     );
@@ -529,6 +558,8 @@ function AppContent() {
             <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
             <Route path="/admin/users/:userId" element={<ProtectedRoute><AdminUserDetail /></ProtectedRoute>} />
             <Route path="/p/:slug" element={<PublicDeck />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy" element={<Privacy />} />
             <Route path="/auth" element={<Navigate to="/" replace />} />
             <Route path="/login" element={<Navigate to="/" replace />} />
             <Route path="/register" element={<Navigate to="/" replace />} />

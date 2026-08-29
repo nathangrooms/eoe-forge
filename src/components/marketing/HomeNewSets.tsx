@@ -4,6 +4,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowRight } from 'lucide-react';
 import { ColorIdentity } from '@/components/ui/mana-cost';
 import { CardImage, CardImageSkeleton } from '@/components/cards/CardImage';
+import { cardDetailPath } from '@/components/cards/card-link';
 import { newSetCommanders, newSetTiles } from '@/lib/homepage/snapshot';
 import { MobileReveal, Section, SectionHeading } from '@/components/marketing/Section';
 import { cn } from '@/lib/utils';
@@ -180,7 +181,15 @@ export function HomeNewSets() {
                 </div>
               ))
             : commanders.map((c, i) => (
-                <figure key={c.id} className={cn('group', i >= ON_PHONE && 'hidden sm:block')}>
+                <figure key={c.id} className={cn(i >= ON_PHONE && 'hidden sm:block')}>
+                  {/* "New sets, the week they land" is the section a returning
+                      player checks, and every card in it was a picture. The
+                      card page is public, so it can be the destination. */}
+                  <Link
+                    to={cardDetailPath(c) ?? '#'}
+                    aria-label={`${c.name}, open the card page`}
+                    className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
+                  >
                   <CardImage
                     card={c}
                     size="md"
@@ -200,6 +209,7 @@ export function HomeNewSets() {
                       <ColorIdentity colors={c.color_identity} size="sm" />
                     </div>
                   </figcaption>
+                  </Link>
                 </figure>
               ))}
         </div>

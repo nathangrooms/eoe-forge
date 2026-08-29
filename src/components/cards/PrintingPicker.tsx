@@ -85,6 +85,36 @@ const PRINTING_WIDTH = 200;
 /** Enough to fill two rows on a laptop, so "there are more" is obvious. */
 const DEFAULT_INITIAL = 12;
 
+/**
+ * The whole line a reader needs to tell one printing from another.
+ *
+ * A set code alone does not do it: Secret Lair holds thirty Sol Rings priced
+ * from $7.43 to $172.31 and every one of them is SLD. Name, set, number, year,
+ * traits and price, in the order the caption reads them.
+ */
+function printingLabel(
+  printing: any,
+  traits: string[],
+  finish: PrintingFinish,
+  price: number | null,
+  missingFinish: boolean,
+  active: boolean
+): string {
+  const parts: string[] = [String(printing?.name ?? 'Card')];
+  const set = printing?.set_name ?? printing?.set_code ?? printing?.set;
+  if (set) parts.push(String(set));
+  if (printing?.collector_number) parts.push(`number ${printing.collector_number}`);
+  if (printing?.rarity) parts.push(String(printing.rarity));
+  if (printing?.released_at) parts.push(String(printing.released_at).slice(0, 4));
+  if (traits.length) parts.push(traits.join(', '));
+  if (missingFinish) parts.push(finish === 'foil' ? 'no foil made' : 'foil only');
+  else if (price != null) parts.push(formatUsd(price) ?? '');
+  else parts.push('no price on record');
+  if (printing?.artist) parts.push(`art by ${printing.artist}`);
+  if (active) parts.push('currently showing');
+  return parts.filter(Boolean).join(', ');
+}
+
 function priceOf(printing: any, finish: PrintingFinish): number | null {
   const prices = (printing?.prices ?? {}) as Record<string, string | null>;
   const raw = finish === 'foil' ? (prices.usd_foil ?? prices.usd_etched) : prices.usd;
@@ -258,7 +288,8 @@ export function PrintingPicker({
           )}
 
           <CardGrid width={width}>
-            {shown.map(printing => {
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            {shown.map((printing: any) => {
               const active = printing.id === selectedId;
               const traits = printingTraits(printing);
               const price = priceOf(printing, finish);
@@ -275,6 +306,14 @@ export function PrintingPicker({
                     onClick={onSelect ? () => select(printing) : undefined}
                     interactive={!!onSelect}
                     title={`${printing.set_name ?? printing.set_code} #${printing.collector_number}`}
+                    /* Every tile used to be announced as just the card's name,
+                       so a screen reader heard "Sol Ring button" twelve times
+                       and could not separate the $1.47 printing from the
+                       $14.09 one. The caption under the tile already carries
+                       set, number, rarity, year, finish, price and artist; the
+                       accessible name now says the same. */
+                    label={printingLabel(printing, traits, finish, price, missingFinish, active)}
+                    current={active}
                     /* THE ART IS NEVER DESATURATED, AND PUTTING IT BACK BREAKS
                        THE SECTION.
 
@@ -312,7 +351,7 @@ export function PrintingPicker({
                       <span className="font-mono text-[0.7rem] uppercase text-muted-foreground">
                         {printing.set_code ?? printing.set}
                       </span>
-                      <span className="font-mono text-[0.7rem] tabular-nums text-muted-foreground/70">
+                      <span className="font-mono text-[0.7rem] tabular-nums text-muted-foreground/80">
                         #{printing.collector_number}
                       </span>
                       <span
@@ -325,7 +364,7 @@ export function PrintingPicker({
                         {rarityCode(printing.rarity)}
                       </span>
                       {printing.released_at && (
-                        <span className="text-[0.7rem] tabular-nums text-muted-foreground/70">
+                        <span className="text-[0.7rem] tabular-nums text-muted-foreground/80">
                           {String(printing.released_at).slice(0, 4)}
                         </span>
                       )}
@@ -343,14 +382,21 @@ export function PrintingPicker({
                     )}
                     <p className="flex items-center gap-1 text-[0.7rem] tabular-nums text-foreground">
                       {finish === 'foil' && <Sparkles className="h-3 w-3" aria-hidden />}
+                      {/* An em-dash is not an answer. `formatUsd` returns one
+                          for null, so a printing we hold no price for read as a
+                          dash in a row of dollar amounts and looked like a
+                          rendering fault rather than a fact. Four tiles on the
+                          Sol Ring page were in that state. */}
                       {missingFinish
                         ? finish === 'foil'
                           ? 'No foil made'
                           : 'Foil only'
-                        : formatUsd(price)}
+                        : price == null
+                          ? <span className="text-muted-foreground">No price yet</span>
+                          : formatUsd(price)}
                     </p>
                     {printing.artist && (
-                      <p className="truncate text-[0.7rem] text-muted-foreground/70" title={printing.artist}>
+                      <p className="truncate text-[0.7rem] text-muted-foreground/80" title={printing.artist}>
                         {printing.artist}
                       </p>
                     )}

@@ -35,6 +35,17 @@ interface CollectionCardDisplayProps {
  * record rides along as `raw` so the shared `CardImage` can pick its own
  * resolution instead of being handed one pre-chosen URL.
  */
+/**
+ * The stored set code, unless it is the placeholder that means "we did not
+ * know". 'UNK' is not a set: there is no set with that code in `cards`.
+ */
+function usableSetCode(stored: string | null | undefined): string | null {
+  if (!stored) return null;
+  const v = String(stored).trim();
+  if (!v || v.toLowerCase() === 'unk' || v.toLowerCase() === 'unknown') return null;
+  return v;
+}
+
 export function toBrowserCard(item: CollectionCard): BrowserCard {
   const card = item.card;
   const prices = (card?.prices ?? {}) as Record<string, string | null | undefined>;
@@ -45,7 +56,20 @@ export function toBrowserCard(item: CollectionCard): BrowserCard {
     rowId: item.id,
     cardId: item.card_id,
     name: item.card_name || card?.name || 'Unknown card',
-    setCode: (item.set_code || card?.set_code || '').toLowerCase(),
+    /*
+     * THE JOINED CARD ROW WINS, and the order matters.
+     *
+     * This read `item.set_code || card?.set_code`, and `user_collections`
+     * stores the literal string 'UNK' for a row whose set was not known when it
+     * was written. `'UNK'` is truthy, so the fallback never ran and 10 of this
+     * account's 53 rows printed UNK for cards the joined row identifies
+     * exactly: Esper Sentinel is `mh2`, Delney is `mkm`, Grand Abolisher is
+     * `big`. `cards` is the authority on which set a printing is from, so it
+     * goes first, and the stored copy is only a fallback for a row with no
+     * join. `analytics/spread.ts` already had this precedence; this is the same
+     * rule, written the same way round.
+     */
+    setCode: (card?.set_code || usableSetCode(item.set_code) || '').toLowerCase(),
     collectorNumber: card?.collector_number,
     manaCost: card?.mana_cost,
     cmc: toNumber(card?.cmc),

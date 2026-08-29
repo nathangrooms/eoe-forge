@@ -392,7 +392,7 @@ export function ChatBox({
                       <span className="text-[0.7rem] text-muted-foreground">
                         {clockOf(post.createdAt)}
                       </span>
-                      <span className="text-[0.7rem] text-muted-foreground/70">
+                      <span className="text-[0.7rem] text-muted-foreground/80">
                         {waitedFor(post.createdAt)}
                       </span>
                     </div>

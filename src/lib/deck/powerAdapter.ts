@@ -46,6 +46,7 @@ import { evaluateDeck } from '../../engine/evaluate.ts';
 import type { EngineCard, EngineDeckEntry } from '../../engine/core/card.ts';
 import type { CutTarget } from '../../engine/advise/cuts.ts';
 import {
+  LOGISTIC,
   POWER_BANDS,
   SUBSCORE_ORDER,
   SUBSCORE_LABELS,
@@ -72,6 +73,10 @@ import { DeckCoach, type CoachingOperation } from '../deckbuilder/score/coach.ts
  * is one table now and this re-exports it rather than restating it.
  */
 export {
+  /* The curve between the weighted mean and the 1 to 10 score. Exported so the
+     screen can show that step instead of leaving a reader unable to make the
+     arithmetic come out. */
+  LOGISTIC,
   POWER_BANDS,
   SUBSCORE_ORDER,
   SUBSCORE_LABELS,
@@ -215,6 +220,22 @@ export interface DeckPowerDiagnostics {
 export interface DeckPower {
   /** 1–10, one decimal. The number. */
   score: number;
+  /**
+   * The weighted mean of the ten subscores, 0 to 100, BEFORE the curve and the
+   * two structural adjustments.
+   *
+   * Carried so the screen can show its own working. Without it the panel headed
+   * "Why this score / Ten parts" listed ten subscores whose weights sum to 1.00
+   * and whose weighted mean came to 56.97, and then printed 5.3, with two
+   * unshown steps in between: the logistic curve onto 1 to 10, and a flat
+   * deduction for having no tutors and nothing that ends a game. A reader
+   * checking the arithmetic could not make it come out, which on the product's
+   * single most important number is worse than not showing the working at all.
+   *
+   * Optional because a score read back out of `user_decks.edh_analysis` that
+   * was written before this existed has no such key.
+   */
+  raw?: number;
   band: PowerBand;
   bracket: BracketId;
   /**
@@ -602,6 +623,7 @@ export function computeDeckPower(
 
   const result: DeckPower = {
     score: power.score,
+    raw: power.raw,
     band: power.band,
     bracket: power.bracket,
     subscores: flat,

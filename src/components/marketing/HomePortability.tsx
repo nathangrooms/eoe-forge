@@ -413,7 +413,7 @@ export function HomePortability() {
               DeckMatrix reads this
             </p>
             {!loading && (
-              <span className="text-[11px] tabular-nums text-muted-foreground/70">
+              <span className="text-[11px] tabular-nums text-muted-foreground/80">
                 {resolved.length} of {PARSED.length} lines matched · {copies} cards
               </span>
             )}

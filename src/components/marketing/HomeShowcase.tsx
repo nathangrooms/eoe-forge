@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { cardDetailPath } from '@/components/cards/card-link';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowRight } from 'lucide-react';
@@ -66,14 +67,45 @@ function CardMarquee({ cards }: { cards: ShowcaseCard[] }) {
         WebkitMaskImage: 'linear-gradient(to right, transparent, black 8%, black 92%, transparent)',
       }}
     >
-      <div className="flex w-max gap-4 animate-marquee motion-reduce:animate-none">
-        {row.map((c, i) => (
-          <div key={`${c.id}-${i}`} className="w-40 shrink-0 sm:w-52 lg:w-60">
-            {/* size="md" asks Scryfall for `large` without the blur-up second
-                request that `lg`/`xl` add — twelve cards, twelve requests. */}
-            <CardImage card={c} size="md" fill hideFlip />
-          </div>
-        ))}
+      {/*
+        THE CARDS GO SOMEWHERE NOW.
+
+        This section is the page's headline evidence, 28 real cards drawn whole,
+        and every one of them was a picture. `/cards/:id` is public and is the
+        best page in the product, so a stranger looking at the proof could not
+        touch it.
+
+        The track pauses while a pointer is over it or a card in it has keyboard
+        focus, because a link that slides out from under the cursor is not a
+        link. `group-focus-within` covers the keyboard case: tabbing into a
+        moving strip is otherwise impossible.
+      */}
+      <div className="group flex w-max gap-4 animate-marquee [animation-play-state:running] hover:[animation-play-state:paused] focus-within:[animation-play-state:paused] motion-reduce:animate-none">
+        {row.map((c, i) => {
+          const href = cardDetailPath(c);
+          /* size="md" asks Scryfall for `large` without the blur-up second
+             request that `lg`/`xl` add — twelve cards, twelve requests. */
+          const art = <CardImage card={c} size="md" fill hideFlip />;
+          return (
+            <div key={`${c.id}-${i}`} className="w-40 shrink-0 sm:w-52 lg:w-60">
+              {href ? (
+                <Link
+                  to={href}
+                  /* The strip repeats each card, so only the first copy is in
+                     the tab order. A reader should not meet Sol Ring twice. */
+                  tabIndex={i < row.length / 2 ? 0 : -1}
+                  aria-hidden={i < row.length / 2 ? undefined : true}
+                  aria-label={`${c.name}, open the card page`}
+                  className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
+                >
+                  {art}
+                </Link>
+              ) : (
+                art
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -141,7 +173,11 @@ function CatalogueRow({ card }: { card: ShowcaseCard }) {
     /* Two lines rather than four columns. Laid out as columns, the name gets
        squeezed between the mana pips and the price and truncates to "Rang…" on a
        phone; stacking the cost and type under the name gives it the whole row. */
-    <div className="flex items-center gap-3 rounded-xl px-2.5 py-2 odd:bg-foreground/[0.04] sm:gap-4 sm:px-3">
+    <Link
+      to={cardDetailPath(card) ?? '#'}
+      aria-label={`${card.name}, open the card page`}
+      className="flex items-center gap-3 rounded-xl px-2.5 py-2 transition-colors odd:bg-foreground/[0.04] hover:bg-foreground/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:gap-4 sm:px-3"
+    >
       {/* A whole card, never a crop — 48px is small, but it is still a card. */}
       <div className="w-12 shrink-0">
         <CardImage card={card} size="xs" fill hideFlip />
@@ -159,9 +195,9 @@ function CatalogueRow({ card }: { card: ShowcaseCard }) {
         {card.set_code}
       </span>
       <span className="w-16 shrink-0 text-right text-sm tabular-nums">
-        {usd ? `$${Number(usd).toFixed(2)}` : '–'}
+        {usd ? `$${Number(usd).toFixed(2)}` : <span className="text-muted-foreground">No price</span>}
       </span>
-    </div>
+    </Link>
   );
 }
 

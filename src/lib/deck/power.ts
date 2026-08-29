@@ -51,6 +51,10 @@ export * from './powerAdapter.ts';
 export interface StoredDeckPower {
   version: number;
   score: number;
+  /** The weighted mean before the curve and the adjustments. See DeckPower.raw.
+      Optional: scores stored before it existed do not carry it, and the panel
+      that shows the working hides itself rather than inventing a figure. */
+  raw?: number;
   band: PowerBand;
   bracket: BracketId;
   subscores: DeckPowerSubscores;
@@ -69,6 +73,7 @@ function toStored(power: DeckPower): StoredDeckPower {
   return {
     version: POWER_ENGINE_VERSION,
     score: power.score,
+    raw: power.raw,
     band: power.band,
     bracket: power.bracket,
     subscores: power.subscores,
@@ -147,6 +152,7 @@ export function deckPowerFromStored(
 
   return {
     score,
+    raw: typeof raw.raw === 'number' ? raw.raw : undefined,
     band,
     bracket: raw.bracket ?? bracketIdForScore(score),
     subscores: (raw.subscores ?? {}) as DeckPowerSubscores,

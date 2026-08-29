@@ -170,7 +170,7 @@ export function DeckQuickStats({
                       page read used overlapping `LIKE` tests that could sum
                       past the size of the deck. */}
                   {countedCards > 0 && (
-                    <span className="text-xs tabular-nums text-muted-foreground/70">
+                    <span className="text-xs tabular-nums text-muted-foreground/80">
                       {((count / countedCards) * 100).toFixed(0)}%
                     </span>
                   )}

@@ -18,12 +18,16 @@ import {
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
+import { readAmount, formatTotal } from '@/lib/pricing';
 
 interface CollectionBackup {
   id: string;
   timestamp: Date;
   cardCount: number;
-  totalValue: number;
+  /** Null when no card in the backup had a price we hold. Never 0. */
+  totalValue: number | null;
+  /** How many cards were left out of the total because we hold no price. */
+  unpriced: number;
   fileSize: string;
 }
 
@@ -32,22 +36,24 @@ interface CollectionBackupRestoreProps {
 }
 
 export function CollectionBackupRestore({ userId }: CollectionBackupRestoreProps) {
-  const [backups, setBackups] = useState<CollectionBackup[]>([
-    {
-      id: '1',
-      timestamp: new Date(Date.now() - 86400000 * 7),
-      cardCount: 1234,
-      totalValue: 45678.90,
-      fileSize: '2.3 MB'
-    },
-    {
-      id: '2',
-      timestamp: new Date(Date.now() - 86400000 * 14),
-      cardCount: 1180,
-      totalValue: 42300.50,
-      fileSize: '2.1 MB'
-    }
-  ]);
+  /*
+   * EMPTY. It used to be seeded with two invented backups.
+   *
+   *   { cardCount: 1234, totalValue: 45678.90, fileSize: '2.3 MB',
+   *     timestamp: new Date(Date.now() - 86400000 * 7) }
+   *
+   * Those numbers were hardcoded, so every account saw the same two rows
+   * whether or not it had ever made a backup, and the relative timestamp read
+   * "7 days ago" forever because it was computed from `Date.now()` on every
+   * render. An account owning 161 cards worth $362.83 was shown a $45,678.90
+   * backup history. It rendered as `$45,678.9`, one decimal place, which no
+   * currency formatter produces and which is how it was spotted.
+   *
+   * This list only ever held backups made in THIS browser tab anyway: nothing
+   * is stored server side, so it empties on reload by design. Starting empty
+   * says that honestly instead of dressing it up.
+   */
+  const [backups, setBackups] = useState<CollectionBackup[]>([]);
   const [creating, setCreating] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -70,6 +76,33 @@ export function CollectionBackupRestore({ userId }: CollectionBackupRestoreProps
 
       setProgress(30);
 
+      /*
+       * The total is computed from the LIVE price on the joined card row, times
+       * the quantity, and a card we hold no price for is left out and counted
+       * separately.
+       *
+       * It used to be `sum + (item.price_usd || 0)`, which is wrong three
+       * separate ways. `user_collections.price_usd` is a copy taken when the
+       * row was written and 35 of this account's 53 rows differ from the live
+       * price, worst drift $16.08. `|| 0` turns a card with no price into a
+       * free card, which is the pattern the pricing law exists to stop. And
+       * quantity was never multiplied in, so eighteen copies of a card counted
+       * once.
+       */
+      let priced = 0;
+      let unpriced = 0;
+      let totalValue: number | null = null;
+      for (const item of collection ?? []) {
+        const qty = Number(item.quantity) || 1;
+        const live = readAmount((item.cards as { prices?: { usd?: unknown } } | null)?.prices?.usd);
+        if (live == null) {
+          unpriced += 1;
+          continue;
+        }
+        priced += 1;
+        totalValue = (totalValue ?? 0) + live * qty;
+      }
+
       // Create backup data structure
       const backupData = {
         version: '1.0',
@@ -77,7 +110,9 @@ export function CollectionBackupRestore({ userId }: CollectionBackupRestoreProps
         collection,
         metadata: {
           cardCount: collection?.length || 0,
-          totalValue: collection?.reduce((sum, item) => sum + (item.price_usd || 0), 0) || 0
+          pricedCount: priced,
+          unpricedCount: unpriced,
+          totalValue,
         }
       };
 
@@ -104,6 +139,7 @@ export function CollectionBackupRestore({ userId }: CollectionBackupRestoreProps
         timestamp: new Date(),
         cardCount: backupData.metadata.cardCount,
         totalValue: backupData.metadata.totalValue,
+        unpriced: backupData.metadata.unpricedCount,
         fileSize: `${(blob.size / 1024 / 1024).toFixed(1)} MB`
       };
       setBackups(prev => [newBackup, ...prev]);
@@ -278,10 +314,16 @@ export function CollectionBackupRestore({ userId }: CollectionBackupRestoreProps
           </div>
         </div>
 
-        {/* Recent Backups */}
-        {backups.length > 0 && (
+        {/* Backups made in this tab. Nothing is stored on the server, so this
+            list is empty on arrival and empties again on reload. Say that. */}
+        {backups.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            No backups yet. The file is saved to your own computer, so this list only shows
+            what you have made since opening this page.
+          </p>
+        ) : (
           <div>
-            <Label className="mb-3 block">Recent Backups</Label>
+            <Label className="mb-3 block">Made on this visit</Label>
             <ScrollArea className="h-[150px]">
               <div className="space-y-2">
                 {backups.map((backup) => (
@@ -305,7 +347,14 @@ export function CollectionBackupRestore({ userId }: CollectionBackupRestoreProps
                             <Clock className="h-3 w-3" />
                             {formatDistanceToNow(backup.timestamp, { addSuffix: true })}
                           </span>
-                          <span>${backup.totalValue.toLocaleString()}</span>
+                          {/* formatTotal returns null rather than $0.00, so a
+                              backup of cards we hold no price for says so. */}
+                          <span>{formatTotal(backup.totalValue, 'USD') ?? 'No price on record'}</span>
+                          {backup.unpriced > 0 && backup.totalValue != null && (
+                            <span>
+                              {backup.unpriced} not counted
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>

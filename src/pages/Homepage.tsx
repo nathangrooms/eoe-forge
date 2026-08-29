@@ -214,6 +214,10 @@ export default function Homepage() {
     <div className="min-h-screen bg-background">
       <PublicNavigation />
 
+      {/* The homepage had no <main> at all, so the skip link in the nav had
+          nothing to skip to and a screen reader had no landmark to jump to on
+          the one page every visitor lands on first. */}
+      <main id="main-content">
       {/* ---------------------------------------------------------------- hook
           One promise, the real card count, and seven cards a Commander player
           recognises on sight. */}
@@ -297,6 +301,7 @@ export default function Homepage() {
       <HomePortability />
       <FAQSection />
       <HomeCTA />
+      </main>
       <HomeFooter />
     </div>
   );

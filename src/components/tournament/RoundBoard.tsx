@@ -83,7 +83,7 @@ export function RoundBoard({
                   'flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors motion-reduce:transition-none',
                   isSelected && 'bg-foreground text-background',
                   !isSelected && !notYet && 'bg-muted/40 text-foreground hover:bg-muted',
-                  notYet && 'cursor-default bg-muted/20 text-muted-foreground/50'
+                  notYet && 'cursor-default bg-muted/20 text-muted-foreground/80'
                 )}
               >
                 <span className="tabular-nums">R{n}</span>

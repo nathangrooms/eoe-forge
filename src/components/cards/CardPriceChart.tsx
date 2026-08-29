@@ -81,7 +81,25 @@ export function CardPriceChart({ points, hasEur }: CardPriceChartProps) {
             axisLine={false}
             width={52}
             tickFormatter={(v: number) => `$${v.toFixed(2)}`}
-            domain={['auto', 'auto']}
+            /*
+             * THE FLOOR IS ZERO. A card cannot cost minus a dollar.
+             *
+             * With `['auto', 'auto']` recharts pads the domain around the data,
+             * and when the series is short or flat that padding runs below the
+             * lowest value. Measured on a public card page with a single
+             * observation: the axis read $-1.00 / $0.00 / $1.00 / $2.00 /
+             * $3.00, so the first thing a sceptical visitor saw on the price
+             * panel was a negative price.
+             *
+             * A function low bound keeps the useful behaviour, which is that a
+             * line wobbling between $17 and $19 is not squashed against a
+             * zero baseline. It just never crosses zero.
+             */
+            domain={[
+              (dataMin: number) => Math.max(0, dataMin - Math.max(0.05, Math.abs(dataMin) * 0.08)),
+              'auto',
+            ]}
+            allowDataOverflow={false}
           />
           <Tooltip
             cursor={{ stroke: 'hsl(var(--muted-foreground))', strokeOpacity: 0.3 }}

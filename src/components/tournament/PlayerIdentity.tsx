@@ -201,7 +201,7 @@ export function RecordLine({
       <span className="font-medium text-foreground">
         {standing.wins}–{standing.losses}–{standing.draws}
       </span>
-      <span className="px-1.5 text-muted-foreground/50">·</span>
+      <span className="px-1.5 text-muted-foreground/80">·</span>
       {standing.points} pt{standing.points === 1 ? '' : 's'}
     </span>
   );
@@ -228,7 +228,7 @@ export function DeckLine({
 
   if (!view.deck) {
     return (
-      <span className={cn('text-xs italic text-muted-foreground/70', className)}>
+      <span className={cn('text-xs italic text-muted-foreground/80', className)}>
         No deck registered
       </span>
     );

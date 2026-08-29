@@ -71,6 +71,18 @@ export function AuthLayout({
       </div>
 
       <div className="relative flex min-h-screen flex-col">
+        {/* No <main> existed on /login, /register, /reset-password or
+            /forgot-password: measured main=0 on all of them. So a screen reader
+            had no landmark to jump to and RouteAnnouncer had nothing to move
+            focus into. The skip link is the same one the signed-in shell and the
+            public nav carry. */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:text-primary-foreground"
+        >
+          Skip to main content
+        </a>
+
         <header className="flex items-center justify-between p-6 lg:p-10">
           {/* The wordmark lands on the white panel, which is the brightest part
               of the artwork. White-on-gold needs help. */}
@@ -93,7 +105,7 @@ export function AuthLayout({
             against a symmetrical five-panel artwork. The art is a centred
             spread, so the thing you came here to do belongs on its axis. The
             tagline stacks above the form rather than beside it. */}
-        <div className="flex flex-1 flex-col items-center justify-center px-6 pb-10">
+        <main id="main-content" className="flex flex-1 flex-col items-center justify-center px-6 pb-10">
           {/* The tagline sits over the art on wide screens, where there is room
               for it without covering the panels. */}
           <div className="mb-8 hidden max-w-xl text-center lg:block">
@@ -120,7 +132,7 @@ export function AuthLayout({
 
             <div className="mt-8">{children}</div>
           </div>
-        </div>
+        </main>
       </div>
     </div>
   );

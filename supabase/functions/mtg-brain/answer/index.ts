@@ -46,19 +46,26 @@
  */
 
 import {
+  BUDGET_PAGE,
   cardByName,
+  cardsInLegalityState,
   combosFor,
   decksPlaying,
   printingOf,
   similarTo,
   topByRole,
+  topTwoCardCombos,
   type CardRow,
   type Combo,
+  type ComboPair,
   type DeckHit,
 } from './catalogue.ts';
 import {
+  budgetFrom,
+  copiesFrom,
   countFrom,
   coloursFrom,
+  formatFrom,
   looksLikeAPlayerAsking,
   manaValueFrom,
   pointsAtSomething,
@@ -67,12 +74,14 @@ import {
   route,
   type Routing,
 } from './route.ts';
+import { asksHowTheyMeet, keywordDefinition, keywordsNamedIn } from './glossary.ts';
 import {
   FORMATS,
   NO_COMMANDER_DATA,
   NO_META_DATA,
   NO_RULES_CORPUS,
   colourName,
+  formatAmount,
   joinWords,
   looksWrong,
   priceLine,
@@ -82,6 +91,19 @@ import {
   judgementGap,
 } from './voice.ts';
 import { roleWords } from './vocabulary.ts';
+import {
+  castingOdds,
+  fitFor,
+  manaProfileFor,
+  planForDeck,
+  readRecord,
+  thinReadingNote,
+  whatItDoes,
+  type CardRecord,
+  type DeckPlan,
+} from './behaviour.ts';
+import { copyVerdict, deckRuleVerdicts, type Fault } from './legality.ts';
+import { bandForScore, bracketIdForScore } from '../_engine/power/weights.ts';
 import { gradeLands, upgradeTargets, findLandCandidates, tappedNote } from '../manabase.ts';
 import { isLand, type NormalisedCard } from '../deck-context.ts';
 import { resolveCards, type ResolvedCard } from '../resolve-cards.ts';
@@ -187,10 +209,20 @@ export async function answerFromCatalogue(req: AnswerRequest): Promise<Answered 
      confident answer to something nobody asked. */
   if (!looksLikeAPlayerAsking(question)) return null;
 
-  // A card can also be named in the question with nothing attached: "budget
-  // alternatives to Rhystic Study". The name has to appear in what they typed,
-  // which is a hard guard against a card being conjured out of a coincidence.
-  const named = attached ?? (await cardNamedInQuestion(req.db, question));
+  /* A card can also be named in the question with nothing attached: "budget
+     alternatives to Rhystic Study". The name has to appear in what they typed,
+     which is a hard guard against a card being conjured out of a coincidence.
+
+     TWO CARDS ARE LOOKED FOR ONLY WHEN THE QUESTION COMPARES TWO, and that is
+     a cost decision as much as a correctness one. Finding a second name means
+     carrying on through the remaining candidate phrases instead of returning on
+     the first that resolves, which is up to eleven more catalogue reads. A
+     question that is not a comparison gains nothing from them. */
+  const comparing = looksLikeAComparison(question);
+  const namedInText = attached
+    ? []
+    : await cardsNamedInQuestion(req.db, question, comparing ? 2 : 1);
+  const named = attached ?? namedInText[0] ?? null;
 
   const have = {
     card: Boolean(named),
@@ -200,6 +232,20 @@ export async function answerFromCatalogue(req: AnswerRequest): Promise<Answered 
 
   const routing = route(question, have);
   if (!routing) return null;
+
+  /* TWO CARDS NAMED, AND THE ANSWER USED TO BE ABOUT ONE OF THEM SILENTLY.
+     Which one was decided by `.sort((a, b) => b.length - a.length)`, so the
+     card with the longer name won whichever was asked about first: "Path to
+     Exile or Swords to Plowshares, which is better?" answered about Swords and
+     never said so. Answering half of a comparison without saying which half is
+     the worst of the three available options.
+
+     So a comparison gets both cards. Everything we hold about each one, side by
+     side, in the order they were written. Which is better is still a table call
+     and is still refused, because that is judgement and we do not hold it. */
+  if (namedInText.length >= 2 && comparing && routing.subject === 'card') {
+    return answerComparison(req, { ...routing, ask: 'compare', wants: COMPARE_WANTS }, namedInText);
+  }
 
   /* A rules question about a card still gets the card. We cannot answer the
      rulings half, and saying only that leaves somebody staring at a card we
@@ -217,21 +263,46 @@ export async function answerFromCatalogue(req: AnswerRequest): Promise<Answered 
     return pointsAtSomething(question) ? askForContext(routing) : null;
   }
 
+  /* The second card, when there is one and the question was not a comparison.
+     Not silence: the answer says which card it is about before it starts. */
+  const alsoNamed = namedInText.slice(1).map(c => c.name);
+
   switch (routing.ask) {
+    case 'keyword':
+      return answerAboutKeyword(req, routing, named);
+    case 'legality-in-format':
     case 'legality':
-      return answerAboutCard(req, routing, named!, ['legality']);
+      return routing.subject === 'catalogue'
+        ? answerAboutAFormat(req, routing)
+        : answerAboutCard(req, routing, named!, ['legality'], undefined, alsoNamed);
     case 'price':
-      return answerAboutCard(req, routing, named!, ['price']);
+      return routing.subject === 'catalogue'
+        ? priceNeedsACard(routing)
+        : answerAboutCard(req, routing, named!, ['price'], undefined, alsoNamed);
     case 'combos':
       return routing.subject === 'deck'
         ? combosAreOneCardAtATime(routing)
-        : answerAboutCard(req, routing, named!, ['combos']);
+        : routing.subject === 'catalogue'
+          ? answerWithTopCombos(req, routing)
+          : answerAboutCard(req, routing, named!, ['combos'], undefined, alsoNamed);
     case 'alternatives':
-      return answerAboutCard(req, routing, named!, ['alternatives']);
+      return answerAboutCard(req, routing, named!, ['alternatives'], undefined, alsoNamed);
     case 'in-my-decks':
-      return answerAboutCard(req, routing, named!, ['decks']);
+      return answerAboutCard(req, routing, named!, ['decks'], undefined, alsoNamed);
     case 'explain':
-      return answerAboutCard(req, routing, named!, ['what', 'text', 'roles', 'popularity', 'legality', 'price', 'combos', 'decks']);
+      return answerAboutCard(req, routing, named!, ['what', 'text', 'does', 'roles', 'popularity', 'legality', 'price', 'combos', 'decks'], undefined, alsoNamed);
+    case 'copies':
+      return answerAboutCopies(req, routing, named);
+    case 'does-it-fit':
+      return answerDoesItFit(req, routing, named);
+    case 'can-i-cast':
+      return answerCanICast(req, routing, named);
+    case 'deck-rating':
+      return answerDeckRating(req, routing);
+    case 'deck-value':
+      return answerDeckValue(req, routing);
+    case 'deck-legal':
+      return answerDeckIsLegal(req, routing);
     case 'best-of':
       return answerWithAList(req, routing);
     case 'staples':
@@ -261,6 +332,400 @@ function combosAreOneCardAtATime(routing: Routing): Answered {
       'I can do this one card at a time, not a whole deck at once. Pick a card at the top of the page and I will tell you every combo we hold that it is part of, what the other pieces are and what it produces.',
       'Checking a hundred cards against every combo we hold is not something I can do quickly enough yet, and I would rather say that than tell you your deck has no combos when I have not really looked.',
     ].join('\n\n'))],
+    [], routing, [], 'refused'
+  );
+}
+
+/* -------------------------------------------------------------------------- *
+ * What a keyword means
+ *
+ * The one part of the rules that is printed on the cards themselves, and the
+ * one we were refusing while holding it. Wizards puts a keyword's definition in
+ * brackets on the card, and we hold every card: 208 keywords, 5,734 cards,
+ * measured 2026-08-29 over `cards_unique`.
+ * -------------------------------------------------------------------------- */
+
+/** At most three, because a question naming four keywords is not a question. */
+const KEYWORDS_AT_ONCE = 3;
+
+async function answerAboutKeyword(
+  req: AnswerRequest,
+  routing: Routing,
+  named: { name: string } | null
+): Promise<Answered | null> {
+  const asked = keywordsNamedIn(routing.question).slice(0, KEYWORDS_AT_ONCE);
+  if (!asked.length) return null;
+
+  /* A KEYWORD INSIDE A CARD'S NAME IS THE CARD, NOT THE KEYWORD. "What does
+     Flash of Insight do?" names a real card and contains a real keyword, and
+     the card is plainly what was meant. The router cannot see this, because it
+     decides from the words before anything has been looked up, so it is decided
+     here where the resolved card is in hand. */
+  if (named && asked.every(k => named.name.toLowerCase().includes(k.words))) {
+    return answerAboutCard(req, routing, { ...named, setCode: null, collectorNumber: null },
+      ['what', 'text', 'does', 'roles', 'popularity', 'legality', 'price']);
+  }
+
+  const blocks: Block[] = [];
+  const attach: string[] = [];
+  const missing: string[] = [];
+  let readFailed = false;
+
+  const found: { keyword: string; definition: string; readOff: string; varies: boolean }[] = [];
+  for (const keyword of asked) {
+    const read = await keywordDefinition(req.db, keyword.name);
+    if (!read.ok) {
+      readFailed = true;
+      continue;
+    }
+    if (!read.value) {
+      missing.push(keyword.name);
+      continue;
+    }
+    found.push(read.value);
+    attach.push(read.value.readOff);
+  }
+
+  if (!found.length) {
+    return finish(
+      [say(readFailed
+        ? 'The catalogue could not be read just now, so I am not going to tell you what that means from memory. Try again in a moment.'
+        : `I could not find a card printing a definition of ${joinWords(asked.map(k => k.name))}, so I have nothing to read you.`),
+       say(NO_RULES_CORPUS)],
+      [], routing, ['cards_unique'], 'refused'
+    );
+  }
+
+  blocks.push(say(
+    found.length === 1
+      ? `**${found[0].keyword}**, in the words Wizards prints on the card:`
+      : 'Each one, in the words Wizards prints on the card:'
+  ));
+  for (const one of found) {
+    blocks.push(quote(
+      found.length === 1 ? `> ${one.definition}` : `**${one.keyword}**\n> ${one.definition}`
+    ));
+  }
+  blocks.push(say(
+    found.length === 1
+      ? `That is the reminder text off ${found[0].readOff} itself, not something I wrote.`
+      : `Those are the reminder texts off ${joinWords(found.map(f => f.readOff))}, not something I wrote.`
+  ));
+
+  let standing: Answered['standing'] = 'full';
+
+  /* SOME KEYWORDS HAVE NO ONE WORDING, and saying nothing about that is how
+     this prints a wrong rule. Protection is always protection FROM something,
+     so the reminder on the card names a colour; cycling, kicker, equip, crew
+     and ward name a cost. The wording above is a real one off a real card and
+     it is not the whole of the keyword, and the player has to be told which
+     they are holding. */
+  const varying = found.filter(f => f.varies);
+  if (varying.length) {
+    blocks.push(say(
+      `One thing to hold in mind about ${joinWords(varying.map(v => v.keyword))}. The wording changes from card to card, because the cost or the colour is part of it, so read the brackets on your own card for the version that applies. What is above is one card's.`
+    ));
+    standing = 'partial';
+  }
+
+  if (missing.length) {
+    /* "No card prints a definition" would be a claim about the whole catalogue
+       made from a sample of it, and the sample is capped for speed. What is
+       true is that none of the cards read printed one. */
+    blocks.push(say(
+      `I could not find a card printing a definition of ${joinWords(missing)} in the ones I read, so that part I cannot give you.`
+    ));
+    standing = 'partial';
+  }
+
+  /* TWO KEYWORDS MEETING IS A DIFFERENT QUESTION FROM TWO DEFINITIONS, and it
+     is the one we do not hold. We have what deathtouch says and what trample
+     says. How much damage a creature with both has to assign to a blocker is a
+     combat damage rule and it is written nowhere in this database. Printing the
+     two definitions and stopping would let the answer read as though it settled
+     the interaction. */
+  if (asksHowTheyMeet(routing.question) && found.length > 1) {
+    blocks.push(say(
+      'What each one does is above. What happens when they meet is a rule about combat and the order things happen in, and that is the part we do not hold, so I am not going to work it out for you here.'
+    ));
+    standing = 'partial';
+  }
+
+  const cards = await resolveCards(req.db, attach, attach.length, 4);
+  return finish(blocks, cards, routing, ['cards_unique'], standing);
+}
+
+/* -------------------------------------------------------------------------- *
+ * Two cards held up against each other
+ * -------------------------------------------------------------------------- */
+
+const COMPARE_WANTS = 'Two cards side by side, on every number we hold for both.';
+
+/**
+ * A comparison, which is everything we hold about each card and no verdict.
+ *
+ * The verdict is the part that is not ours. `judgementGap` says so in the same
+ * words it says it everywhere else, and it says it AFTER the facts rather than
+ * instead of them, because a player comparing two cards can decide from what
+ * each one does, costs and is played at.
+ */
+async function answerComparison(
+  req: AnswerRequest,
+  routing: Routing,
+  named: NamedCard[]
+): Promise<Answered | null> {
+  const rows: CardRow[] = [];
+  for (const one of named.slice(0, 2)) {
+    const found = await cardByName(req.db, one.name);
+    if (!found.ok) {
+      return finish(
+        [say('I could not read the catalogue just now, so I am not going to compare two cards from memory. Try again in a moment.')],
+        [], routing, ['cards_unique'], 'refused'
+      );
+    }
+    if (found.value) rows.push(found.value);
+  }
+  if (rows.length < 2) return null;
+
+  const blocks: Block[] = [
+    say(`${joinWords(rows.map(r => r.name))}, side by side. Here is everything we hold about each of them.`),
+  ];
+
+  for (const card of rows) {
+    blocks.push(say(`**${card.name}**${card.mana_cost ? ` ${card.mana_cost}` : ''}`));
+    const head: string[] = [];
+    if (card.type_line) head.push(card.type_line);
+    if (card.power && card.toughness) head.push(`${card.power}/${card.toughness}`);
+    const text = printedText(card);
+    blocks.push(quote([head.join('. ') + (head.length ? '.' : ''), text].filter(Boolean).join('\n')));
+
+    /* Two sentences rather than one joined list, because the two facts do not
+       share a grammar: "Commander plays it at rank 11 and about $1.34" is what
+       joining them produced. */
+    const money = priceLine(card.prices);
+    blocks.push(say([
+      card.edhrec_rank != null
+        ? `Commander plays it at rank ${thousands(card.edhrec_rank)}.`
+        : 'We hold no popularity number for it.',
+      money ? `About ${money}.` : 'We hold no price for it.',
+      legalityLine(card),
+    ].join(' ')));
+  }
+
+  const differences = whatSeparatesThem(rows[0], rows[1]);
+  if (differences.length) {
+    blocks.push(say('On the numbers we hold:'));
+    blocks.push(quote(differences.map(d => `- ${d}`).join('\n')));
+  }
+
+  blocks.push(say(judgementGap('Which of two cards is better')));
+
+  const cards = await resolveCards(req.db, rows.map(r => r.name), rows.length, 4);
+  return finish(blocks, cards, routing, ['cards_unique'], 'full');
+}
+
+/**
+ * The differences that are facts rather than opinions.
+ *
+ * Only three, and each one is a column read twice. Anything beyond this is a
+ * judgement about which difference matters, and that is the call being left to
+ * the player.
+ */
+function whatSeparatesThem(a: CardRow, b: CardRow): string[] {
+  const out: string[] = [];
+
+  if (a.cmc != null && b.cmc != null) {
+    out.push(
+      a.cmc === b.cmc
+        ? `Both cost ${thousands(a.cmc)} mana.`
+        : `${a.cmc < b.cmc ? a.name : b.name} costs less mana: ${thousands(Math.min(a.cmc, b.cmc))} against ${thousands(Math.max(a.cmc, b.cmc))}.`
+    );
+  }
+
+  if (a.edhrec_rank != null && b.edhrec_rank != null) {
+    const more = a.edhrec_rank < b.edhrec_rank ? a : b;
+    const less = more === a ? b : a;
+    out.push(
+      `${more.name} is played more, at rank ${thousands(more.edhrec_rank!)} against ${thousands(less.edhrec_rank!)}.`
+    );
+  }
+
+  /* A MISSING PRICE IS NOT A CHEAP CARD, so the comparison is only made when
+     both have one. Around a thousand printings carry no dollar quote at all,
+     and calling one of them the cheaper of two would be inventing the number
+     that decided it. */
+  const priceA = readAmount(a.prices?.usd);
+  const priceB = readAmount(b.prices?.usd);
+  if (priceA != null && priceB != null) {
+    const cheap = priceA < priceB ? a : b;
+    out.push(
+      `${cheap.name} costs less to buy: ${formatAmount(Math.min(priceA, priceB), 'USD')} against ${formatAmount(Math.max(priceA, priceB), 'USD')}.`
+    );
+  } else if (priceA == null || priceB == null) {
+    const without = priceA == null ? a : b;
+    out.push(`We hold no dollar price for ${without.name}, so I am not saying which is cheaper.`);
+  }
+
+  return out;
+}
+
+/* -------------------------------------------------------------------------- *
+ * The whole catalogue as the subject
+ *
+ * Three asks used to need a card and refuse without one, while the answer was a
+ * single read away. "What cards are banned in commander" is 76 rows. "The best
+ * two card combos" is 3,887 rows we already ingest.
+ * -------------------------------------------------------------------------- */
+
+/** How many rows a format list prints before it stops. */
+const FORMAT_LIST = 20;
+
+/**
+ * How many rows are read so the count in the sentence is the real one.
+ *
+ * The first version of this read one more than it printed and then said
+ * "21 or more cards are banned in Commander", which is true and useless: there
+ * are 76. The whole list is 76 rows and the read that returns it is 22.8 ms, so
+ * there is no reason to state a floor instead of the number.
+ */
+const FORMAT_LIST_READ = 400;
+
+async function answerAboutAFormat(req: AnswerRequest, routing: Routing): Promise<Answered | null> {
+  const text = routing.question.toLowerCase();
+  const format = formatFrom(routing.question) ?? 'commander';
+  const says = FORMATS.find(f => f.key === format)?.says ?? format;
+
+  const state: 'banned' | 'restricted' | null =
+    /\bban(ned)?\b|\bban list\b|\bbanned list\b/.test(text) ? 'banned'
+      : /\brestricted\b/.test(text) ? 'restricted'
+        : null;
+
+  /* NO STATE ASKED FOR MEANS NO OPINION, and returning null rather than a
+     refusal is deliberate. "Can I play a card with a green mana symbol in its
+     rules text?" reaches here, and a paragraph saying legality is a fact about
+     a card is a worse answer than the stock one, which at least offers three
+     things a player can do next. Null lets that one be given. */
+  if (!state) return null;
+
+  const wanted = Math.max(countFrom(routing.question, FORMAT_LIST), FORMAT_LIST);
+  const found = await cardsInLegalityState(req.db, format, state, FORMAT_LIST_READ);
+  if (!found.ok) {
+    return finish(
+      [say('The catalogue could not be read just now, so I have no list for you. Try again in a moment.')],
+      [], routing, ['cards_unique'], 'refused'
+    );
+  }
+  if (!found.value.length) {
+    return finish(
+      [say(`We hold no card marked ${state} in ${says}. That is the catalogue answering, not me giving up.`)],
+      [], routing, ['cards_unique'], 'full'
+    );
+  }
+
+  const total = found.value.length;
+  const shown = found.value.slice(0, wanted);
+  const blocks: Block[] = [
+    say(
+      total > shown.length
+        ? `${thousands(total)}${total >= FORMAT_LIST_READ ? ' or more' : ''} cards are ${state} in ${says}. The ${thousands(shown.length)} most played of them:`
+        : `${thousands(total)} ${total === 1 ? 'card is' : 'cards are'} ${state} in ${says}, most played first:`
+    ),
+    quote(shown.map((row, i) => {
+      const rank = row.edhrec_rank != null ? `rank ${thousands(row.edhrec_rank)}` : 'no popularity number';
+      return `${i + 1}. ${row.name} ${row.mana_cost ?? ''} ${priceTag(row.prices)}, ${rank}`.replace(/\s+/g, ' ');
+    }).join('\n')),
+    say(
+      `That is read straight off each card's own legality, which is where the list comes from rather than from a page somebody typed up. Why any one of them is ${state} is not something we hold.`
+    ),
+  ];
+
+  const cards = await resolveCards(req.db, shown.map(r => r.name), shown.length, 10);
+  return finish(blocks, cards, routing, ['cards_unique'], 'full');
+}
+
+/** How many combos a list prints. */
+const COMBO_LIST = 8;
+
+async function answerWithTopCombos(req: AnswerRequest, routing: Routing): Promise<Answered | null> {
+  const text = routing.question.toLowerCase();
+
+  /* "What does it combo with" is a question about a card that has not been
+     picked yet, and answering it with the format's most played combos would be
+     answering something else. The catalogue is the subject only when the
+     question asks about the format rather than about a card. */
+  const aboutTheFormat = /\bbest\b|\btop\b|\bmost\b|\bwhat are\b|\blist\b|\bstrongest\b|\bfamous\b|\bcommon\b/.test(text);
+  if (!aboutTheFormat) {
+    return finish(
+      [say('Pick a card at the top of the page, or name it in the question, and I will tell you every combo we hold that it is part of, what the other pieces are and what it produces.')],
+      [], routing, [], 'refused'
+    );
+  }
+
+  const wanted = countFrom(routing.question, COMBO_LIST);
+  const found = await topTwoCardCombos(req.db, wanted);
+  if (!found.ok) {
+    return finish(
+      [say('The combo list could not be read just now, so I have nothing for you. Try again in a moment.')],
+      [], routing, ['meta_combos', 'meta_combo_cards'], 'refused'
+    );
+  }
+
+  /* "Infinite" is a word the question can carry, and Spellbook writes what a
+     combo produces, so it can be honoured rather than ignored. It is applied
+     after the read because `produces` is an array of free text. */
+  const wantsInfinite = /\binfinite\b/.test(text);
+  const rows = (wantsInfinite
+    ? found.value.filter(c => c.produces.some(p => /infinite/i.test(p)))
+    : found.value
+  ).filter(c => c.pieces.length === 2).slice(0, wanted);
+
+  if (!rows.length) {
+    return finish(
+      [say('Nothing in the combo list we hold matches that. That list comes from Commander Spellbook and it is not everything anybody has ever found.')],
+      [], routing, ['meta_combos', 'meta_combo_cards'], 'full'
+    );
+  }
+
+  const blocks: Block[] = [
+    say(
+      `The ${thousands(rows.length)} most played two card ${wantsInfinite ? 'infinite ' : ''}combos we hold, both pieces named and Commander legal:`
+    ),
+    quote(rows.map((combo, i) => comboPairLine(combo, i)).join('\n')),
+    say(
+      'That order is how many decks the combo list records each one in, which is popularity and not power. Both pieces are named cards: a combo that needs something described rather than named, like a creature with flying, is left out because it is not a two card combo.'
+    ),
+  ];
+
+  const attach = rows.slice(0, 4).flatMap(c => c.pieces);
+  const cards = await resolveCards(req.db, attach, attach.length, 8);
+  return finish(blocks, cards, routing, ['meta_combos', 'meta_combo_cards'], 'full');
+}
+
+function comboPairLine(combo: ComboPair, index: number): string {
+  const produces = combo.produces.length
+    ? joinWords(combo.produces.slice(0, 2).map(p => p.charAt(0).toLowerCase() + p.slice(1))) +
+      (combo.produces.length > 2 ? `, plus ${combo.produces.length - 2} more` : '')
+    : 'something the combo list does not describe';
+  const mana = combo.manaNeeded ? ` Needs ${combo.manaNeeded}.` : '';
+  return `${index + 1}. ${joinWords(combo.pieces)}: ${produces}.${mana}`;
+}
+
+/**
+ * A price question with no card in it.
+ *
+ * There is no honest list to give instead. `prices` is jsonb and a database
+ * order on `prices->>'usd'` sorts as text, so 9.99 comes out above 10,000, and
+ * there is no numeric price column on the view to order by. Reading all 32,449
+ * priced rows to sort them here is the shape of read that has taken this
+ * database down twice. So this says what it needs and where the other answer
+ * lives, rather than serving a list that was sorted wrongly.
+ */
+function priceNeedsACard(routing: Routing): Answered {
+  return finish(
+    [
+      say('A price is a fact about one card, and often about one printing of it, so I need to know which. Pick a card at the top of the page or name it in the question and I will give you what we hold in dollars and in euros.'),
+      say('If you are asking what your own cards are worth rather than one card, your collection page prices the whole thing from the same numbers I would use.'),
+    ],
     [], routing, [], 'refused'
   );
 }
@@ -318,7 +783,12 @@ export function nothingToAnswerWith(have: { card: boolean; deck: boolean }): str
     'Here is what I can settle right now, straight from the catalogue:',
     '',
     '- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.',
-    '- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.',
+    '- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black under a dollar*.',
+    /* The keyword line is here because the sentence at the bottom of this list
+       used to say we hold no rules reference at all, which sent players away
+       from something we do hold. Wizards prints a keyword's definition on the
+       card and we hold every card. */
+    '- **Ask what a keyword means** and I will read you Wizards\' own words off the card. Try *what does hexproof mean* or *what is overload*.',
   ];
   if (have.deck) {
     lines.push('- **Ask about your lands** and I will go through this deck one slot at a time, say which are weak and what to play instead.');
@@ -326,7 +796,11 @@ export function nothingToAnswerWith(have: { card: boolean; deck: boolean }): str
     lines.push('- **Attach a deck** and I will go through its lands and say which slots are weak.');
   }
   lines.push('');
-  lines.push('What I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good.');
+  /* NARROWED, because the old sentence was wider than the truth. It said we
+     hold no rules reference at all, and we hold the keyword glossary, printed
+     by Wizards on the cards themselves. What we genuinely do not hold is the
+     rules that are not printed on a card. */
+  lines.push('What I do not hold is the rules that are not printed on a card, which is timing, the stack and priority. Nor anything about what is winning at the moment, nor an opinion on whether a card is good.');
   return lines.join('\n');
 }
 
@@ -360,6 +834,19 @@ const EDGE_STOPWORDS = new Set([
   'with', 'would', 'you', 'your',
 ]);
 
+/**
+ * The question with plural card names made singular, for one ask only.
+ *
+ * "Can I run two Islands in my commander deck?" names a real card in the plural,
+ * and `extractCardNames` offers the catalogue `Islands`, which is not a card. A
+ * bare `s` off the end of a capitalised word is crude and would break "Swords to
+ * Plowshares", which is exactly why the only caller runs it as a SECOND attempt
+ * after the question's own words have already failed to name anything.
+ */
+function depluralised(question: string): string {
+  return question.replace(/\b([A-Z][a-z]{2,})s\b/g, '$1');
+}
+
 /** A phrase with its grammar trimmed off both ends, lowercased. */
 function coreName(phrase: string): string {
   const words = phrase.toLowerCase().split(/\s+/).filter(Boolean);
@@ -368,7 +855,46 @@ function coreName(phrase: string): string {
   return words.join(' ');
 }
 
-async function cardNamedInQuestion(db: any, question: string): Promise<{ name: string; setCode: null; collectorNumber: null } | null> {
+export interface NamedCard {
+  name: string;
+  setCode: null;
+  collectorNumber: null;
+}
+
+/**
+ * Whether the question is holding two cards up against each other.
+ *
+ * Only used to decide whether it is worth looking for a second card name, and
+ * a false positive costs a few catalogue reads rather than a wrong answer: a
+ * question with one card in it still finds one card and is answered the same
+ * way it was before.
+ */
+const COMPARISON_WORDS = [
+  ' or ', ' vs ', ' vs. ', ' versus ', ' better ', ' best of ', ' compare ',
+  ' comparison ', ' difference between ', ' rather than ', ' over ',
+  ' instead of ', ' which one ', ' stronger ', ' worse ',
+];
+
+export function looksLikeAComparison(question: string): boolean {
+  const text = ` ${question.toLowerCase().replace(/[^a-z0-9.]+/g, ' ').trim()} `;
+  return COMPARISON_WORDS.some(word => text.includes(word.replace(/\s+/g, ' ')));
+}
+
+/** One card, which is what every ask other than a comparison wants. */
+async function cardNamedInQuestion(db: any, question: string): Promise<NamedCard | null> {
+  return (await cardsNamedInQuestion(db, question, 1))[0] ?? null;
+}
+
+/**
+ * The cards the question names, in the order they were written.
+ *
+ * WRITTEN ORDER, NOT LENGTH ORDER, and that is the fix for the comparison bug.
+ * Candidates are still TRIED longest first, because a long phrase that resolves
+ * is better evidence than a short one inside it, but what comes back is sorted
+ * by where each name sits in the question. "Path to Exile or Swords to
+ * Plowshares" now leads with Path to Exile, which is what was asked first.
+ */
+async function cardsNamedInQuestion(db: any, question: string, want: number): Promise<NamedCard[]> {
   const { extractCardNames } = await import('../resolve-cards.ts');
   const { names } = extractCardNames(question);
   const asked = question.toLowerCase();
@@ -383,15 +909,19 @@ async function cardNamedInQuestion(db: any, question: string): Promise<{ name: s
      table, and neither piece was ever looked up.
 
      Twelve rather than four, and the extra lookups only happen on a question
-     that names nothing, because the loop returns on the first real card. */
+     that names nothing, because the loop stops once it has what it was asked
+     for, which is one card unless the question compares two. */
   const worthTrying = [...present].sort((a, b) => b.length - a.length).slice(0, 12);
+  const found: { name: string; at: number }[] = [];
 
   for (const candidate of worthTrying) {
-    const found = await cardByName(db, candidate);
-    if (!found.ok || !found.value) continue;
+    if (found.length >= want) break;
+    const hit = await cardByName(db, candidate);
+    if (!hit.ok || !hit.value) continue;
 
-    const resolved = found.value.name.toLowerCase().split(' // ')[0];
+    const resolved = hit.value.name.toLowerCase().split(' // ')[0];
     if (!asked.includes(resolved)) continue;
+    if (found.some(f => f.name === hit.value!.name)) continue;
 
     /* THE FRAGMENT TRAP, found by running it.
      *
@@ -425,7 +955,27 @@ async function cardNamedInQuestion(db: any, question: string): Promise<{ name: s
      * So the Blastoderm case stays fixed. A player who meant Blastoderm would
      * not have written another real word after it, and "Supreme" is a real word
      * where "Is" is grammar. */
-    const isAFragment = present.some(other => {
+    /* A LONGER NAME HAS TO BE ADJACENT, and this is the second half of the same
+     * fix. `extractCardNames` joins capitalised runs across small connecting
+     * words, so "Can I play Swords to Plowshares in Modern?" emits the phrase
+     * "Swords to Plowshares in Modern", whose core keeps "modern" because that
+     * is not grammar. The stopword test below therefore read it as a longer
+     * name and threw the card away, and a legality question about a real card
+     * got the stock refusal.
+     *
+     * A card's own name never has a lowercase word standing between two of its
+     * parts and something outside it: "Blastoderm Supreme" is two capitals in a
+     * row, and "Plowshares in Modern" is not. So the guard only runs at all
+     * when the word directly after the resolved name is capitalised and is a
+     * real word rather than grammar. */
+    const after = question.slice(asked.indexOf(resolved) + resolved.length);
+    const nextWord = after.match(/^\s+([A-Za-z][A-Za-z'-]*)/)?.[1] ?? '';
+    const couldBeALongerName =
+      Boolean(nextWord) &&
+      nextWord[0] === nextWord[0].toUpperCase() &&
+      !EDGE_STOPWORDS.has(nextWord.toLowerCase());
+
+    const isAFragment = couldBeALongerName && present.some(other => {
       const core = coreName(other);
       if (core === resolved || !core.includes(resolved) || core.length <= resolved.length) return false;
 
@@ -449,9 +999,12 @@ async function cardNamedInQuestion(db: any, question: string): Promise<{ name: s
     });
     if (isAFragment) continue;
 
-    return { name: found.value.name, setCode: null, collectorNumber: null };
+    found.push({ name: hit.value.name, at: asked.indexOf(resolved) });
   }
-  return null;
+
+  return found
+    .sort((a, b) => a.at - b.at)
+    .map(f => ({ name: f.name, setCode: null, collectorNumber: null }));
 }
 
 /* -------------------------------------------------------------------------- *
@@ -483,7 +1036,7 @@ function askForContext(routing: Routing): Answered {
  * A card
  * -------------------------------------------------------------------------- */
 
-type Part = 'what' | 'text' | 'roles' | 'popularity' | 'legality' | 'price' | 'combos' | 'alternatives' | 'decks';
+type Part = 'what' | 'text' | 'does' | 'roles' | 'popularity' | 'legality' | 'price' | 'combos' | 'alternatives' | 'decks';
 
 async function answerAboutCard(
   req: AnswerRequest,
@@ -491,12 +1044,26 @@ async function answerAboutCard(
   focus: { name: string; setCode: string | null; collectorNumber: string | null },
   parts: Part[],
   /** Something honest to add at the end, such as the rules gap. */
-  closing?: string
+  closing?: string,
+  /**
+   * Other cards the question also named.
+   *
+   * Said out loud before anything else. A question naming two cards and getting
+   * an answer about one of them without a word about the other is the fault
+   * this exists to stop: it reads as a complete answer and is half of one.
+   */
+  alsoNamed: string[] = []
 ): Promise<Answered> {
   const basis: string[] = ['cards_unique'];
   const blocks: Block[] = [];
   const attach: string[] = [];
   let standing: Answered['standing'] = 'full';
+
+  if (alsoNamed.length) {
+    blocks.push(say(
+      `You named ${joinWords([focus.name, ...alsoNamed])}. This answer is about ${focus.name}. Ask me about ${joinWords(alsoNamed)} on ${alsoNamed.length === 1 ? 'its' : 'their'} own and I will do the same for ${alsoNamed.length === 1 ? 'it' : 'them'}.`
+    ));
+  }
 
   const found = await cardByName(req.db, focus.name);
   if (!found.ok) {
@@ -538,6 +1105,13 @@ async function answerAboutCard(
     } else {
       blocks.push(say('No rules text. It is a plain body and nothing more.'));
     }
+  }
+
+  /* -- what it actually does -------------------------------------------- */
+  if (parts.includes('does')) {
+    const said = await saysWhatItDoes(card);
+    blocks.push(...said.blocks);
+    if (said.thin) standing = standing === 'full' ? 'partial' : standing;
   }
 
   /* -- what it is for --------------------------------------------------- */
@@ -820,6 +1394,598 @@ function deckHitLine(hits: DeckHit[]): string {
 }
 
 /* -------------------------------------------------------------------------- *
+ * What a card does, read from the same record the optimiser reads
+ * -------------------------------------------------------------------------- */
+
+/**
+ * The short reading of a card, and the sentence that says when it is thin.
+ *
+ * Used by three answers, which is the whole reason it is a function: the note
+ * about a partial reading has to be the same words wherever it appears, or a
+ * player meets two different descriptions of one gap and reasonably concludes
+ * they are two different gaps.
+ *
+ * A COLON LIST, NOT A SENTENCE, for the reason `roleWords` is a colon list. The
+ * phrases mix grammar: "adds mana" is a verb and "2 mana at a time" is not, so
+ * any sentence trying to hold both comes out wrong. Sol Ring reads
+ * "adds mana, 2 mana at a time, costs nothing to use", which is right as a list
+ * and ungrammatical as a sentence.
+ *
+ * An empty reading prints nothing at all. Doubling Season is the case: every
+ * paragraph was read, and what came back says nothing that can stand on its
+ * own. The card's own text is printed two blocks above either way.
+ */
+async function saysWhatItDoes(
+  card: CardRow
+): Promise<{ blocks: Block[]; record: CardRecord; thin: boolean }> {
+  const record = await readRecord(card);
+  const blocks: Block[] = [];
+
+  const does = whatItDoes(record);
+  if (does.length) blocks.push(say(`In short: ${does.join(', ')}.`));
+
+  const note = thinReadingNote(record.standing);
+  /* The note is worth saying when there was a reading to be thin about, or when
+     the absence of one is why nothing was said. Both are true here, and both
+     are honest; what would not be honest is a summary that reads as complete
+     when it is not. */
+  if (note) blocks.push(say(note));
+
+  return { blocks, record, thin: Boolean(note) };
+}
+
+/* -------------------------------------------------------------------------- *
+ * The copy rule
+ * -------------------------------------------------------------------------- */
+
+/** The verdict a fault leads with, before the validator's own line. */
+const FAULT_VERDICT: Record<Fault['fault'], string> = {
+  banned: 'No, and not at any count.',
+  'not-legal': 'No, and not at any count.',
+  restricted: 'No.',
+  'copy-limit': 'No.',
+  'colour-identity': 'No, and it cannot go in this deck at one copy either.',
+  'no-data': 'I cannot tell you, because we hold no legality for this card.',
+};
+
+/**
+ * How many copies, answered by `deckLegality.ts`.
+ *
+ * Which format matters more than anything else in this answer, so it is read in
+ * a fixed order and SAID: the format named in the question first, then the
+ * attached deck's own format, then Commander because that is what this product
+ * is for. A silent guess is how the wrong rule gets believed.
+ */
+async function answerAboutCopies(
+  req: AnswerRequest,
+  routing: Routing,
+  named: { name: string } | null
+): Promise<Answered | null> {
+  const asked = formatFrom(routing.question);
+  const deckFormat = typeof req.deckContext?.format === 'string' ? req.deckContext.format : null;
+  const format = asked ?? deckFormat ?? 'commander';
+  const copies = copiesFrom(routing.question);
+  const identity = req.identity.filter(c => 'WUBRG'.includes(c));
+  const commander = req.deckCards.find(c => c.isCommander && !c.isSideboard) ?? null;
+
+  const blocks: Block[] = [];
+  const attach: string[] = [];
+
+  /* THE ONE ASK WHERE A PLAYER WRITES THE PLURAL, so it is the one ask that
+     tries the singular.
+
+     "Can I run two Islands in my commander deck?" is the case where the answer
+     is yes, and it was the one copy question that reached no card at all:
+     `Islands` is not a card and `Island` is. Every other ask names one card and
+     a plural there would be a different question, so this retry is deliberately
+     local rather than being pushed into `cardNamedInQuestion`.
+
+     It runs only when the normal reading found nothing, which is what keeps
+     "Swords to Plowshares" safe: that resolves first, and the depluralised form
+     "Sword to Plowshare" is never reached.
+
+     No card named. The rule still stands on its own and is worth stating, but
+     nothing can be checked against a particular card, and the answer says which
+     half it is giving. */
+  const subject = named ?? (await cardNamedInQuestion(req.db, depluralised(routing.question)));
+
+  if (!subject) {
+    const rules = deckRuleVerdicts(req.deckCards, format);
+    const copyRule = rules.rules.find(r => r.id === 'copies');
+    if (!rules.rulesKnown || !copyRule) return null;
+    return finish(
+      [
+        say(`In ${rules.formatLabel} the rule is: ${copyRule.label.toLowerCase()}.`),
+        say('Name the card and I will check that one against your deck, including whether your commander\'s colours allow it at all.'),
+      ],
+      [], routing, [], 'partial'
+    );
+  }
+
+  const found = await cardByName(req.db, subject.name);
+  if (!found.ok) {
+    return finish(
+      [say(`I could not read the catalogue just now, so I am not going to tell you the rule for ${subject.name} from memory. Try again in a moment.`)],
+      [], routing, ['cards_unique'], 'refused'
+    );
+  }
+  if (!found.value) {
+    return finish(
+      [say(`There is no card called ${subject.name} in our catalogue, so there is nothing for me to check the rule against.`)],
+      [], routing, ['cards_unique'], 'refused'
+    );
+  }
+
+  const card = found.value;
+  attach.push(card.name);
+
+  const verdict = copyVerdict({
+    card: {
+      name: card.name,
+      legalities: card.legalities,
+      colorIdentity: card.color_identity,
+    },
+    copies,
+    format,
+    commanderName: commander?.name ?? null,
+    commanderIdentity: identity.length ? identity : null,
+  });
+
+  const said =
+    asked ? `You asked about ${verdict.formatLabel}.`
+      : deckFormat ? `Your deck is a ${verdict.formatLabel} deck, so that is the rule I am using.`
+        : `Taking this as a ${verdict.formatLabel} question, because that is what this deck picker is built around.`;
+  blocks.push(say(said));
+
+  if (!verdict.rulesKnown) {
+    blocks.push(say(
+      `We do not hold the deck building rules for ${verdict.formatLabel}, so I can tell you whether the card is legal there and not how many of it you may run.`
+    ));
+    if (verdict.faults.length) {
+      blocks.push(quote(verdict.faults.map(f => `- ${f.detail}`).join('\n')));
+    }
+    const cards = await resolveCards(req.db, attach, attach.length, 4);
+    return finish(blocks, cards, routing, ['cards_unique'], 'partial');
+  }
+
+  if (verdict.rule) blocks.push(say(`The rule is: ${verdict.rule.toLowerCase()}.`));
+
+  if (verdict.basicLandExempt && !verdict.faults.length) {
+    blocks.push(say(
+      `${card.name} is a basic land, and basics are the exception to that rule. Run as many as you want.`
+    ));
+    const cards = await resolveCards(req.db, attach, attach.length, 4);
+    return finish(blocks, cards, routing, ['cards_unique'], 'full');
+  }
+
+  if (!verdict.faults.length) {
+    /* The allowance is stated as a NUMBER, because "you may run it up to the
+       limit above" is what the first draft said, and in a singleton format that
+       sentence means one while reading like permission for more. That is the
+       same shape as the fault this whole ask exists to fix: a true sentence
+       that answers "can I run two" as though the answer were yes. */
+    const cap =
+      verdict.allowed == null
+        ? `${verdict.formatLabel} sets no copy limit we hold, so nothing here caps it.`
+        : verdict.allowed === 1
+          ? 'One copy, and one only.'
+          : `Up to ${thousands(verdict.allowed)} copies.`;
+    blocks.push(say(
+      copies != null
+        ? `Yes. ${thousands(copies)} ${copies === 1 ? 'copy' : 'copies'} of ${card.name} is fine in ${verdict.formatLabel}. ${cap}`
+        : `${cap} ${card.name} breaks nothing else in ${verdict.formatLabel} either.`
+    ));
+    const cards = await resolveCards(req.db, attach, attach.length, 4);
+    return finish(blocks, cards, routing, ['cards_unique'], 'full');
+  }
+
+  blocks.push(say(FAULT_VERDICT[verdict.faults[0].fault]));
+  blocks.push(quote(verdict.faults.map(f => `- ${f.detail}`).join('\n')));
+
+  const cards = await resolveCards(req.db, attach, attach.length, 4);
+  return finish(blocks, cards, routing, ['cards_unique'], 'full');
+}
+
+/* -------------------------------------------------------------------------- *
+ * Does it fit this deck
+ * -------------------------------------------------------------------------- */
+
+/**
+ * A card against the deck the question came with.
+ *
+ * Four questions in the order a player would ask them, and the first one that
+ * settles it stops the rest: may it go in at all, does it do the commander's
+ * job, will the deck cast it, and is it already there.
+ *
+ * The fit half is `planFit` against `planForCommander`, which is the signal the
+ * optimiser ranks its whole pool on. Tutor reads it for one card, which is why
+ * it costs one card's worth of compiling rather than a pool's.
+ */
+async function answerDoesItFit(
+  req: AnswerRequest,
+  routing: Routing,
+  named: { name: string } | null
+): Promise<Answered | null> {
+  if (!named) {
+    return finish(
+      [say('Pick a card at the top of the page, or name it in the question, and I will hold it up against this deck.')],
+      [], routing, [], 'refused'
+    );
+  }
+
+  const found = await cardByName(req.db, named.name);
+  if (!found.ok) {
+    return finish(
+      [say('I could not read the catalogue just now, so I am not going to judge a card against your deck from memory.')],
+      [], routing, ['cards_unique'], 'refused'
+    );
+  }
+  if (!found.value) {
+    return finish(
+      [say(`There is no card called ${named.name} in our catalogue.`)],
+      [], routing, ['cards_unique'], 'refused'
+    );
+  }
+
+  const card = found.value;
+  const blocks: Block[] = [say(`**${card.name}**${card.mana_cost ? ` ${card.mana_cost}` : ''} against ${req.deckContext?.name ?? 'this deck'}.`)];
+  const attach = [card.name];
+  let standing: Answered['standing'] = 'full';
+  const identity = req.identity.filter(c => 'WUBRG'.includes(c));
+  const commander = req.deckCards.find(c => c.isCommander && !c.isSideboard) ?? null;
+
+  /* One. May it go in at all. A card outside the commander's colours is not a
+     close call about synergy, it is a card that cannot be in the deck, and
+     saying anything else first would bury the only answer that matters. */
+  const legal = copyVerdict({
+    card: { name: card.name, legalities: card.legalities, colorIdentity: card.color_identity },
+    copies: null,
+    format: typeof req.deckContext?.format === 'string' ? req.deckContext.format : 'commander',
+    commanderName: commander?.name ?? null,
+    commanderIdentity: identity.length ? identity : null,
+  });
+  if (legal.faults.length) {
+    blocks.push(say('It cannot go in this deck, so nothing else about it matters:'));
+    blocks.push(quote(legal.faults.map(f => `- ${f.detail}`).join('\n')));
+    const cards = await resolveCards(req.db, attach, attach.length, 4);
+    return finish(blocks, cards, routing, ['cards_unique'], 'full');
+  }
+
+  /* Two. Already in the list. Cheap, and the fastest way to prove the answer
+     read the deck rather than talked about a card in the abstract. */
+  const already = req.deckCards.find(
+    c => !c.isSideboard && c.name.toLowerCase() === card.name.toLowerCase()
+  );
+  if (already) {
+    blocks.push(say(
+      already.isCommander
+        ? 'It is this deck\'s commander, so it is already doing its job from the command zone.'
+        : 'You already run it in this deck. The rest of this is why it is in there.'
+    ));
+  }
+
+  /* Three. What it does, and what the commander wants. */
+  const said = await saysWhatItDoes(card);
+  blocks.push(...said.blocks);
+  if (said.thin) standing = 'partial';
+
+  const plan = await planForDeck(req.deckCards, async name => {
+    const row = await cardByName(req.db, name);
+    return row.ok && row.value ? { tags: row.value.tags } : null;
+  });
+  blocks.push(...fitBlocks(plan, said.record));
+  if (plan && plan.standing !== 'full') standing = 'partial';
+
+  /* Four. Whether the mana is there. */
+  blocks.push(...castBlocks(req, card));
+
+  const cards = await resolveCards(req.db, attach, attach.length, 4);
+  return finish(blocks, cards, routing, ['cards_unique'], standing);
+}
+
+/**
+ * The commander half of the fit, or the honest reason there is not one.
+ *
+ * A card that matches nothing is NOT reported as a bad card. The plan is read
+ * off one card's rules text and it is a reading rather than a verdict, so the
+ * strongest thing that can honestly be said about no match is that no match was
+ * found, which is what this says.
+ */
+function fitBlocks(plan: DeckPlan | null, record: CardRecord): Block[] {
+  if (!plan) {
+    return [say('This deck has no commander set, so there is no commander plan to hold the card up against.')];
+  }
+  if (plan.standing === 'none' || plan.standing === 'unread') {
+    return [say(
+      `I could not work out what ${plan.commanderName} does from the text on the card, so I have nothing to measure a card against. That is a gap on our side and not a fact about your commander.`
+    )];
+  }
+
+  /* A PLAN WITH NO WANTS IS NOT A CARD THAT FITS NOTHING, and the difference is
+     the whole reason this branch exists. Measured on the two real decks
+     recorded in `scratch/tutor-decks.json`: Atraxa's reading produces three
+     wants, and Ulamog's produces none, because the parts of Ulamog the compiler
+     read do not match any rule that turns a commander's behaviour into
+     something to look for. Reporting that as "nothing it does lines up with
+     what Ulamog does" would be a verdict on the card when the truth is that we
+     have nothing to hold it against. */
+  if (!plan.plan.wants.length) {
+    return [say(
+      `I could not work out anything ${plan.commanderName} is built around, so there is nothing here for me to hold this card up against. What the card does is above, and the call is yours.`
+    )];
+  }
+
+  const verdict = fitFor(plan, record);
+  if (!verdict.matches) {
+    const missed = [say(
+      `Nothing it does lines up with what ${plan.commanderName} does. That is not the same as it being wrong for the deck: plenty of good cards in a deck are there for the format rather than for the commander.`
+    )];
+    /* The same note as when something DOES match, and it matters more here. A
+       no is worth less when it was measured against half a commander, and a
+       player owed that caveat on a yes is owed it on a no. */
+    if (plan.standing === 'partial') {
+      missed.push(say(
+        `That is measured against the part of ${plan.commanderName} I could work out, which is not all of it.`
+      ));
+    }
+    return missed;
+  }
+
+  const blocks: Block[] = [
+    say(`It does ${verdict.matches === 1 ? 'one of the things' : `${verdict.matches} of the things`} ${plan.commanderName} is built around:`),
+    quote(verdict.lines.map(l => `- ${l}`).join('\n')),
+  ];
+  if (plan.standing === 'partial') {
+    blocks.push(say(
+      `That is measured against the part of ${plan.commanderName} I could work out, which is not all of it.`
+    ));
+  }
+  return blocks;
+}
+
+/* -------------------------------------------------------------------------- *
+ * Will this deck cast it
+ * -------------------------------------------------------------------------- */
+
+async function answerCanICast(
+  req: AnswerRequest,
+  routing: Routing,
+  named: { name: string } | null
+): Promise<Answered | null> {
+  if (!named) {
+    return finish(
+      [say('Pick a card at the top of the page, or name it in the question, and I will work out how often this deck has the mana for it.')],
+      [], routing, [], 'refused'
+    );
+  }
+  const found = await cardByName(req.db, named.name);
+  if (!found.ok || !found.value) {
+    return finish(
+      [say(found.ok
+        ? `There is no card called ${named.name} in our catalogue.`
+        : 'I could not read the catalogue just now, so I have no card to work from.')],
+      [], routing, ['cards_unique'], 'refused'
+    );
+  }
+
+  const card = found.value;
+  const blocks: Block[] = [say(`**${card.name}**${card.mana_cost ? ` ${card.mana_cost}` : ''}`)];
+  blocks.push(...castBlocks(req, card));
+  const cards = await resolveCards(req.db, [card.name], 1, 4);
+  return finish(blocks, cards, routing, ['cards_unique'], 'full');
+}
+
+/**
+ * The castability figure, in the words it is actually true in.
+ *
+ * `cardPlayability` quotes the chance of having the mana ON THE TURN THE COST
+ * FIRST BECOMES PAYABLE, drawing normally and on the play. Every one of those
+ * conditions changes the number, so every one of them is said. A bare "78%"
+ * would be a number a player cannot check.
+ *
+ * A land gets no figure at all, and that is the engine refusing rather than
+ * failing: 100 would be a lie about a card that is never cast and 0 a worse one.
+ */
+function castBlocks(req: AnswerRequest, card: CardRow): Block[] {
+  const profile = manaProfileFor(req.deckCards, req.identity.filter(c => 'WUBRG'.includes(c)));
+  if (!profile) return [];
+
+  const odds = castingOdds(
+    {
+      name: card.name,
+      type_line: card.type_line,
+      mana_cost: card.mana_cost,
+      cmc: card.cmc,
+      oracle_text: card.oracle_text,
+    },
+    profile
+  );
+
+  if (odds.skipped === 'land') {
+    return [say('It is a land, so there is no casting it and no number to give you.')];
+  }
+  if (odds.pct == null || odds.turn == null) {
+    return [say('We hold no mana cost for it, so I cannot work out how often you would have the mana.')];
+  }
+  if (odds.pct === 100 && odds.turn === 1) {
+    return [say('It costs no mana, so having the mana for it is never the question.')];
+  }
+
+  const rounded = Math.round(odds.pct);
+  const lines = [
+    `On this deck's mana, you have what it costs on turn ${thousands(odds.turn)} in about ${rounded} games out of 100. That counts ${thousands(odds.landCount)} mana sources across ${thousands(odds.librarySize)} cards, drawing normally and on the play, and turn ${thousands(odds.turn)} is simply the first turn the cost can be paid at all.`,
+  ];
+  if (odds.approximate) {
+    lines.push('That figure is worked out the long way for this cost and comes out close rather than exact.');
+  }
+  return [say(lines.join('\n\n'))];
+}
+
+/* -------------------------------------------------------------------------- *
+ * The three facts the request already carried
+ *
+ * Every one of these was refused while the answer sat in the request body. The
+ * page sends the deck it is looking at, and the deck it sends carries the
+ * score, the value and the legality verdict its own deck page computed.
+ * -------------------------------------------------------------------------- */
+
+/**
+ * What `basis` says when the answer came out of the request rather than a read.
+ *
+ * `basis` is logged and returned on every answer so "where did that come from"
+ * is readable rather than reconstructed, and every other entry in it is a table
+ * or a view. These three answers read no table at all, and leaving `basis`
+ * empty would report them the same way as an answer that read nothing because
+ * it had nothing to say.
+ */
+const ATTACHED_DECK = 'the deck attached to the question';
+
+/** A number the body carried, or null. Never a zero standing in for absence. */
+function bodyNumber(value: unknown): number | null {
+  const n = typeof value === 'number' ? value : parseFloat(String(value ?? ''));
+  return Number.isFinite(n) ? n : null;
+}
+
+const BAND_WORDS: Record<string, string> = {
+  casual: 'casual',
+  mid: 'mid power',
+  high: 'high power',
+  cedh: 'the top of the format',
+};
+
+/**
+ * How strong the deck is, from the score the deck page already computed.
+ *
+ * TWO NUMBERS FOR ONE THING ARRIVE IN EVERY REQUEST, and only one of them is
+ * printed. The body carries `power.score` (7.34 on the deck this was measured
+ * against) and `power_level` (6). CLAUDE.md's design law is explicit that five
+ * competing power fields existed, that there must be exactly one canonical
+ * implementation and one accessor, and `power.score` is the one the canonical
+ * evaluator writes. `power_level` is the older field and is deliberately
+ * ignored here rather than averaged, reconciled or mentioned.
+ *
+ * The band and the bracket are DERIVED from that score with the engine's own
+ * `bandForScore` and `bracketIdForScore` rather than read off `power.band`,
+ * for one reason: whatever is printed has to agree with the score printed
+ * beside it. Reading a band the page computed at some other time is how two
+ * numbers on one screen come to disagree.
+ */
+async function answerDeckRating(req: AnswerRequest, routing: Routing): Promise<Answered | null> {
+  const score = bodyNumber(req.deckContext?.power?.score);
+  if (score == null) {
+    return finish(
+      [say('This deck arrived without a power score, so I have nothing to rate it from. Open its own page once and the score is worked out there, then ask me again.')],
+      [], routing, [ATTACHED_DECK], 'refused'
+    );
+  }
+
+  const band = bandForScore(score);
+  const bracket = bracketIdForScore(score);
+  const counts = req.deckContext?.counts ?? {};
+  const total = bodyNumber(counts.total);
+
+  const blocks: Block[] = [
+    say(`${score.toFixed(1)} out of 10, which is ${BAND_WORDS[band] ?? band} and sits in bracket ${bracket}.`),
+    say('That score is worked out from the list itself: how fast it can win, how much it interacts, how well it draws, how the mana holds up and what it can find. It is one measure and it is not the same as whether the deck is fun at your table.'),
+  ];
+  if (total != null) {
+    blocks.push(say(`Counted over ${thousands(total)} cards, which is what the deck page sent with this question.`));
+  }
+  blocks.push(say('Ask about your lands and I will go through the weak slots one at a time, which is the part of that score I can act on from this page.'));
+
+  return finish(blocks, [], routing, [ATTACHED_DECK], 'full');
+}
+
+/** What the deck costs, from the valuation the body carried. */
+async function answerDeckValue(req: AnswerRequest, routing: Routing): Promise<Answered | null> {
+  const economy = req.deckContext?.economy ?? {};
+  const usd = readAmount(economy.priceUSD);
+
+  if (usd == null) {
+    return finish(
+      [say('This deck arrived without a value on it, and a missing price is not a price of nothing, so I am not putting a number on it.')],
+      [], routing, [ATTACHED_DECK], 'refused'
+    );
+  }
+
+  const blocks: Block[] = [say(`About ${formatAmount(usd, 'USD')} for the whole list.`)];
+
+  const owned = bodyNumber(economy.ownedPct);
+  const missing = bodyNumber(economy.missing);
+  if (owned != null && missing != null) {
+    blocks.push(say(
+      `You own about ${Math.round(owned)}% of it from your collection, and ${thousands(missing)} ${missing === 1 ? 'card is' : 'cards are'} missing.`
+    ));
+  }
+  blocks.push(say(
+    'That is the value the deck page worked out and sent with your question, so it is the same number you see there. Cards we hold no price for are not counted in it, and there is no way to count them honestly.'
+  ));
+
+  return finish(blocks, [], routing, [ATTACHED_DECK], 'full');
+}
+
+/**
+ * Is the deck a legal deck.
+ *
+ * TWO HALVES FROM TWO PLACES, and the answer says which is which because they
+ * are not equally fresh. The construction rules are recomputed here from the
+ * list in the request by `deckRules`, which reads names and quantities and
+ * nothing else, so it is exact and needs no database read. Whether every single
+ * card is legal in the format needs each card's own legality column, which the
+ * page does not send, so that half is the verdict the deck page computed and
+ * put in the body.
+ */
+async function answerDeckIsLegal(req: AnswerRequest, routing: Routing): Promise<Answered | null> {
+  const format =
+    formatFrom(routing.question) ??
+    (typeof req.deckContext?.format === 'string' ? req.deckContext.format : null) ??
+    'commander';
+  const verdict = deckRuleVerdicts(req.deckCards, format);
+
+  const blocks: Block[] = [];
+  if (!verdict.rulesKnown || !verdict.rules.length) {
+    blocks.push(say(
+      `We do not hold the deck building rules for ${verdict.formatLabel}, so I cannot check the size or the copy limit. What I can tell you is what the deck page found card by card, below.`
+    ));
+  } else {
+    const failed = verdict.rules.filter(r => !r.ok);
+    blocks.push(say(
+      failed.length === 0
+        ? `Against the ${verdict.formatLabel} rules, this list passes every one I can check from it:`
+        : `Against the ${verdict.formatLabel} rules, ${failed.length === 1 ? 'one thing is' : `${failed.length} things are`} wrong:`
+    ));
+    blocks.push(quote(
+      verdict.rules.map(r => `- ${r.ok ? 'Yes' : 'No'}. ${r.label}, and ${r.reading}.`).join('\n')
+    ));
+  }
+
+  const bodyVerdict = req.deckContext?.legality;
+  const issues: string[] = Array.isArray(bodyVerdict?.issues)
+    ? bodyVerdict.issues.map((i: unknown) => String(i)).filter(Boolean)
+    : [];
+
+  if (bodyVerdict && typeof bodyVerdict.ok === 'boolean') {
+    if (bodyVerdict.ok && !issues.length) {
+      blocks.push(say(
+        'Card by card, the deck page checked every one of these against the format and found nothing wrong. That check reads each card\'s own legality, which is why it happens there and not here.'
+      ));
+    } else {
+      blocks.push(say(`Card by card, the deck page found ${issues.length === 1 ? 'this' : 'these'}:`));
+      blocks.push(quote(issues.slice(0, 12).map(i => `- ${i}`).join('\n')));
+      if (issues.length > 12) {
+        blocks.push(say(`Plus ${thousands(issues.length - 12)} more on the deck's own page.`));
+      }
+    }
+    return finish(blocks, [], routing, [ATTACHED_DECK], 'full');
+  }
+
+  blocks.push(say(
+    'The card by card check did not come through with this deck, so treat the above as the deck building rules only. The deck\'s own page runs the rest.'
+  ));
+  return finish(blocks, [], routing, [ATTACHED_DECK], 'partial');
+}
+
+/* -------------------------------------------------------------------------- *
  * A list of cards doing one job
  * -------------------------------------------------------------------------- */
 
@@ -834,6 +2000,10 @@ async function answerWithAList(req: AnswerRequest, routing: Routing): Promise<An
   const colours = coloursFrom(routing.question);
   const manaValue = manaValueFrom(routing.question);
   const wanted = countFrom(routing.question, 8);
+  /* THE BUDGET IN THE QUESTION, WHICH USED TO BE READ AS THE LIST LENGTH.
+     "The best black removal spell under one dollar" printed one card, chosen
+     with no price filter, at $4.59. The "one" was the dollar, not the count. */
+  const maxUsd = budgetFrom(routing.question);
 
   /* With a deck attached the same question means "for this deck", so the list
      is narrowed to its colours and its own cards come out of it. Suggesting a
@@ -848,6 +2018,7 @@ async function answerWithAList(req: AnswerRequest, routing: Routing): Promise<An
     colours: useColours,
     manaValue,
     exclude,
+    maxUsd,
     limit: wanted,
   });
 
@@ -858,11 +2029,12 @@ async function answerWithAList(req: AnswerRequest, routing: Routing): Promise<An
     );
   }
 
+  const budgetSaid = maxUsd != null ? ` under ${formatAmount(maxUsd, 'USD')}` : '';
   const shape = [
     manaValue != null ? `${manaValue} mana` : '',
     useColours.length ? joinWords(useColours.map(colourName)) : '',
     role.says,
-  ].filter(Boolean).join(' ');
+  ].filter(Boolean).join(' ') + budgetSaid;
 
   if (!found.value.length) {
     return finish(
@@ -882,6 +2054,19 @@ async function answerWithAList(req: AnswerRequest, routing: Routing): Promise<An
   blocks.push(say(
     'That order is how many Commander decks run each card, which is popularity and not quality. It is the honest measure we hold, and the top of a popularity list is usually where you want to start anyway.'
   ));
+  if (maxUsd != null) {
+    /* HOW FAR THE BUDGET LOOKED, SAID OUT LOUD. The order is popularity and the
+       price filter runs after it, so the list is "the cheapest of the most
+       played" and not "the most played of the cheap". Those are different lists
+       and only one of them is what this read can produce.
+
+       A card with no dollar price is not in it either, which is the same rule
+       as everywhere else: absence is not zero, and letting an unpriced card
+       through would put it at the top of a list of cards under a dollar. */
+    blocks.push(say(
+      `That is inside your ${formatAmount(maxUsd, 'USD')}, checked against each card's own dollar price, looking down the ${thousands(BUDGET_PAGE)} most played that match. A card we hold no dollar price for is left out rather than counted as cheap.`
+    ));
+  }
 
   const cards = await resolveCards(req.db, found.value.map(r => r.name), found.value.length, 10);
   return finish(blocks, cards, routing, ['cards_unique'], 'full');

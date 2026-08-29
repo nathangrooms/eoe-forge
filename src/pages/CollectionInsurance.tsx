@@ -45,6 +45,21 @@ function hasPrice(item: CollectionCard): boolean {
   return false;
 }
 
+/**
+ * Which set a printing is from. `cards` is the authority; the copy stored on
+ * the collection row is a fallback, and 'UNK' is not a set code, it is a
+ * placeholder meaning nobody knew.
+ */
+function setCodeOf(item: CollectionCard): string | undefined {
+  const joined = item.card?.set_code;
+  if (joined) return String(joined);
+  const stored = (item.set_code || '').trim();
+  if (!stored || stored.toLowerCase() === 'unk' || stored.toLowerCase() === 'unknown') {
+    return undefined;
+  }
+  return stored;
+}
+
 export default function CollectionInsurance() {
   const { snapshot, load } = useCollectionStore();
 
@@ -74,7 +89,18 @@ export default function CollectionInsurance() {
       .slice(0, 25)
       .map(({ item, value: itemValue }) => ({
         name: item.card_name,
-        setCode: item.set_code,
+        /*
+         * FROM THE JOINED CARD ROW, not from the stored copy.
+         *
+         * This passed `item.set_code`, and `user_collections` stores the string
+         * 'UNK' for a row whose set was unknown when it was written. So 10 of
+         * this account's 53 rows printed UNK on the one document whose entire
+         * job is proving which printing you owned. The Analytics tab renders
+         * the same component with the resolved value, which meant the preview
+         * you check was right and the file you send an insurer was wrong.
+         */
+        setCode: setCodeOf(item),
+        collectorNumber: item.card?.collector_number ?? undefined,
         quantity: item.quantity,
         foil: item.foil,
         condition: item.condition,

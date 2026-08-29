@@ -125,6 +125,8 @@ All colors MUST be HSL.
        tint and elevation. --input stays darker so form fields remain findable. */
     --border: 0 0% 94.5%;
     --input: 0 0% 87%;
+    /* The fill of a text field. See the dark value for the whole reasoning. */
+    --field: 0 0% 96.5%;
     --ring: 0 0% 8%;
 
 
@@ -242,6 +244,21 @@ All colors MUST be HSL.
 
     --border: 220 6% 9.5%;
     --input: 220 6% 17%;
+    /*
+     * THE FILL OF A TEXT FIELD, WHICH REPLACES ITS BORDER.
+     *
+     * Inputs carried `border border-input`, and at 220 6% 17% that draws a
+     * visible 1px hairline, measured as rgb(41, 42, 46) on the sign-in and
+     * sign-up forms. Design law 2 is explicit: no hard border lines, depth
+     * comes from surface tint. But a field nobody can find is worse than a
+     * hairline, which is exactly why the border was there.
+     *
+     * So the same contrast is spent as FILL instead of outline. 14% sits above
+     * every surface a field is ever placed on in this palette (background 4,
+     * card 7, popover 9, muted 11) and below accent 14 only by matching it, so
+     * a field reads as a raised well on all of them without an edge.
+     */
+    --field: 220 6% 14%;
     --ring: 0 0% 84%;
 
 
@@ -745,9 +762,16 @@ All colors MUST be HSL.
     padding-right: 1rem;
   }
 
-  /* Prevent horizontal overflow on mobile */
+  /* Prevent horizontal overflow on mobile.
+     `clip`, NOT `hidden`. `overflow-x: hidden` makes body a scroll container,
+     and `position: sticky` anchors to the nearest scroll container rather than
+     to the viewport, so every sticky header in the app anchored to a box that
+     never scrolls. Measured at scrollY 6000 with the old rule: the public nav
+     sat at top -6000 at 390px and 768px and at 0 at 1400px, which is to say it
+     worked only where this rule does not apply. `clip` cuts the same overflow
+     off and creates no scroll container, so sticky keeps working. */
   html, body {
-    overflow-x: hidden;
+    overflow-x: clip;
     max-width: 100vw;
   }
 

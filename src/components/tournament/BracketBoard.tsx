@@ -171,7 +171,7 @@ function BracketSeat({
           <span
             className={cn(
               'min-w-0 truncate text-sm',
-              ghost ? 'italic text-muted-foreground/60' : 'text-foreground',
+              ghost ? 'italic text-muted-foreground/80' : 'text-foreground',
               won && 'font-semibold'
             )}
           >

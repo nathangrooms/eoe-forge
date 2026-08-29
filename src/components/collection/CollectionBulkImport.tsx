@@ -17,6 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { resolveParsedLines } from '@/lib/decklist';
 import { StorageAPI, fileCardsIntoContainer } from '@/lib/api/storageAPI';
+import { readAmount } from '@/lib/pricing';
 
 /**
  * Rows per write. The read side of this file chunks its `.in()` lists at 150
@@ -356,7 +357,14 @@ export function CollectionImportPanel({ onImported, onCancel }: CollectionImport
             set_code: row.card.set_code ?? row.card.set ?? '',
             quantity: row.quantity,
             foil: row.foil,
-            price_usd: parseFloat(row.card.prices?.usd || '0'),
+            /* NULL, not 0. `parseFloat(x || '0')` is how a card we hold no
+               price for gets written into the database as a free card, and this
+               is the writer: five of one account's 53 rows store a literal 0
+               because of it. The smallest real price in the catalogue is 0.01.
+               `readAmount` returns null for a missing, unparseable or
+               non-positive value, which is the same rule every price surface
+               already reads by. */
+            price_usd: readAmount(row.card.prices?.usd),
             updated_at: new Date().toISOString(),
           }));
 
@@ -370,7 +378,14 @@ export function CollectionImportPanel({ onImported, onCancel }: CollectionImport
             quantity: row.quantity,
             foil: row.foil,
             condition: 'near_mint',
-            price_usd: parseFloat(row.card.prices?.usd || '0'),
+            /* NULL, not 0. `parseFloat(x || '0')` is how a card we hold no
+               price for gets written into the database as a free card, and this
+               is the writer: five of one account's 53 rows store a literal 0
+               because of it. The smallest real price in the catalogue is 0.01.
+               `readAmount` returns null for a missing, unparseable or
+               non-positive value, which is the same rule every price surface
+               already reads by. */
+            price_usd: readAmount(row.card.prices?.usd),
           }));
 
         for (let i = 0; i < updates.length; i += WRITE_CHUNK) {

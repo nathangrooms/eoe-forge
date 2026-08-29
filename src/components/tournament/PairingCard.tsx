@@ -102,7 +102,7 @@ export function PairingCard({
         <div className="flex items-center justify-center">
           <span
             aria-hidden="true"
-            className="text-[0.6rem] font-semibold uppercase tracking-[0.24em] text-muted-foreground/60"
+            className="text-[0.6rem] font-semibold uppercase tracking-[0.24em] text-muted-foreground/80"
           >
             vs
           </span>
@@ -228,7 +228,7 @@ function MatchStatus({
   }
   if (awaiting) {
     return (
-      <span className="text-[0.65rem] font-medium uppercase tracking-wider text-muted-foreground/70">
+      <span className="text-[0.65rem] font-medium uppercase tracking-wider text-muted-foreground/80">
         Pending
       </span>
     );
@@ -242,7 +242,7 @@ function MatchStatus({
     );
   }
   return (
-    <span className="text-[0.65rem] font-medium uppercase tracking-wider text-muted-foreground/70">
+    <span className="text-[0.65rem] font-medium uppercase tracking-wider text-muted-foreground/80">
       Closed
     </span>
   );
@@ -319,7 +319,7 @@ function Seat({ view, games, won, lost, showGames, onWin }: SeatProps) {
             <span
               className={cn(
                 'inline-flex items-center gap-1 text-[0.65rem] font-medium uppercase tracking-wider',
-                'text-muted-foreground/70 transition-colors group-hover:text-foreground motion-reduce:transition-none'
+                'text-muted-foreground/80 transition-colors group-hover:text-foreground motion-reduce:transition-none'
               )}
             >
               <Crown className="h-3 w-3" />

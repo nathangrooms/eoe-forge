@@ -215,7 +215,30 @@ export const TAG_RULES: TagRule[] = [
     when: any(
       all(t(MANA_ABILITY), not(tl('land'))),
       t(RITUAL),
-      t('search your library for [^\\n]{0,70}land[^\\n]{0,90}onto the battlefield'),
+      /* A LAND THAT FETCHES ONE LAND IS FIXING, NOT RAMP.
+         This clause had no land exclusion, which contradicted this rule's own
+         note directly above. Evolving Wilds sacrifices itself to find a basic
+         and puts it in TAPPED: you spent your land drop and you end the turn
+         with the same mana you would have had. It fixes colours. It does not
+         accelerate.
+
+         It matters beyond the tag. ArchetypeDetection fires Ramp/Big Mana at
+         12 ramp cards, so a normal Commander mana base was enough on its own,
+         and the owner's white-black COUNTERS deck was being reported as
+         "Ramp/Big Mana, PRIMARY, 100 past the floor" with Evolving Wilds,
+         Terramorphic Expanse and Fabled Passage named as the cards that said
+         so. Measured over the catalogue: 33 lands were tagged this way. */
+      all(
+        t('search your library for [^\\n]{0,70}land[^\\n]{0,90}onto the battlefield'),
+        not(tl('land')),
+      ),
+      /* Unless it fetches MORE than one, which nets a land after the sacrifice
+         and is real acceleration. Two cards in the catalogue do this: Blighted
+         Woodland and Myriad Landscape. */
+      all(
+        tl('land'),
+        t('search your library for [^\\n]{0,40}(up to two|two basic)'),
+      ),
       t('you may play an additional land'),
       t('play an additional land'),
       t('creates? [^\\n]{0,60}treasure token'),

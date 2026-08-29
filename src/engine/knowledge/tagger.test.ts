@@ -339,3 +339,52 @@ test('every rule declares a tag that appears in ALL_TAGS', () => {
     assert.ok(ALL_TAGS.includes(rule.tag), `${rule.tag} missing from ALL_TAGS`);
   }
 });
+
+/**
+ * Ramp is acceleration, and a fetch land does not accelerate.
+ *
+ * The land-search clause carried no land exclusion, which contradicted the
+ * rule's own note. Evolving Wilds sacrifices itself to find a basic and puts it
+ * in tapped: you spent your land drop and end the turn on the same mana. It
+ * fixes colours.
+ *
+ * It reached the player, which is why this test exists rather than a comment.
+ * `ArchetypeDetection` fires Ramp/Big Mana at twelve ramp cards, so an ordinary
+ * Commander mana base cleared the floor by itself, and a white-black COUNTERS
+ * deck was reported as "Ramp/Big Mana, PRIMARY, 100 past the floor" with
+ * Evolving Wilds and Fabled Passage named as the evidence.
+ *
+ * Both directions are asserted. Dropping the tag is easy; dropping it from the
+ * two lands that fetch TWO, and therefore net one after sacrificing themselves,
+ * would be the same bug pointed the other way.
+ */
+const land = (name: string, oracle_text: string) => ({ name, type_line: 'Land', oracle_text });
+
+test('a land that fetches one land is fixing, not ramp', () => {
+  for (const card of [
+    land('Evolving Wilds', '{T}, Sacrifice Evolving Wilds: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.'),
+    land('Terramorphic Expanse', '{T}, Sacrifice Terramorphic Expanse: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.'),
+    land('Bant Panorama', '{T}: Add {C}. {1}, {T}, Sacrifice Bant Panorama: Search your library for a basic Forest, Plains, or Island card, put it onto the battlefield tapped, then shuffle.'),
+  ]) {
+    assert.ok(!deriveCardTags(card).includes('ramp'), `${card.name} should not be ramp`);
+  }
+});
+
+test('a land that fetches two lands nets one, so it is ramp', () => {
+  for (const card of [
+    land('Myriad Landscape', '{T}: Add {C}. {2}, {T}, Sacrifice Myriad Landscape: Search your library for up to two basic land cards that share a land type, put them onto the battlefield tapped, then shuffle.'),
+    land('Blighted Woodland', '{T}: Add {C}. {3}{G}, {T}, Sacrifice Blighted Woodland: Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.'),
+  ]) {
+    assert.ok(deriveCardTags(card).includes('ramp'), `${card.name} should be ramp`);
+  }
+});
+
+test('a spell that fetches a land is still ramp, and a land that makes two mana is too', () => {
+  assert.ok(deriveCardTags({
+    name: 'Rampant Growth',
+    type_line: 'Sorcery',
+    oracle_text: 'Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.',
+  }).includes('ramp'));
+  assert.ok(deriveCardTags(land('Ancient Tomb', '{T}: Add {C}{C}. Ancient Tomb deals 2 damage to you.')).includes('ramp'));
+  assert.ok(!deriveCardTags({ name: 'Forest', type_line: 'Basic Land — Forest' }).includes('ramp'));
+});

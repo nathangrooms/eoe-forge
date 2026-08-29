@@ -1162,6 +1162,7 @@ const CARD_ACTIONS = new Set([
   'ATTACK',
   'BLOCK',
   'UNBLOCK',
+  'ORDER_BLOCKERS',
   'SET_CARD_STAT',
   'SET_KEYWORD',
   'CREATE_TOKEN',
@@ -1249,6 +1250,37 @@ export function validateAction(state: GameState, action: GameAction): Validation
 
   if (action.type === 'NOTE' && !action.message.trim()) {
     return { ok: false, reason: 'An empty note says nothing.' };
+  }
+
+  /*
+   * CR 509.2 — a damage assignment order is a REORDER, never a re-declaration.
+   *
+   * The check is a permutation test rather than a subset test, on purpose. A
+   * list missing one blocker would quietly take that creature out of combat: it
+   * would stop taking damage AND stop dealing it, from an action whose whole
+   * job is supposed to be cosmetic ordering. An extra id would put a creature
+   * into a block it never declared. Both are refused with the reason said, so a
+   * client bug shows up as a refusal instead of as a board that silently
+   * changed under the player.
+   */
+  if (action.type === 'ORDER_BLOCKERS') {
+    const lane = state.combat.attackers.find(d => d.attackerId === action.attackerId);
+    if (!lane) return { ok: false, reason: 'That creature is not attacking.' };
+    if (lane.blockedBy.length < 2) {
+      return { ok: false, reason: 'Nothing to order: fewer than two blockers.' };
+    }
+    const wanted = action.blockerIds ?? [];
+    if (wanted.length !== lane.blockedBy.length) {
+      return { ok: false, reason: 'An order must list every blocker exactly once.' };
+    }
+    const seen = new Set<InstanceId>();
+    for (const id of wanted) {
+      if (seen.has(id)) return { ok: false, reason: 'A blocker is listed twice.' };
+      if (lane.blockedBy.indexOf(id) === -1) {
+        return { ok: false, reason: 'That creature is not blocking this attacker.' };
+      }
+      seen.add(id);
+    }
   }
 
   /* --- the stack --- */
@@ -1419,6 +1451,11 @@ function describeAction(state: GameState, action: GameAction): string {
       return `${action.blocks.length} block${action.blocks.length === 1 ? '' : 's'} declared.`;
     case 'UNBLOCK':
       return `${cardName(state, action.blockerId)} stopped blocking.`;
+    case 'ORDER_BLOCKERS':
+      return (
+        `${cardName(state, action.attackerId)} assigns damage to ` +
+        `${action.blockerIds.map(id => cardName(state, id)).join(', then ')}.`
+      );
     case 'END_COMBAT':
       return 'Combat ended.';
     case 'CAST_SPELL': {
@@ -1738,6 +1775,22 @@ function reduce(state: GameState, action: GameAction): GameState {
       });
       // Same reference when nothing moved: the transport treats an unchanged
       // state as a rejected action and keeps it out of the undo history.
+      return changed ? { ...state, combat: { attackers } } : state;
+    }
+
+    /* CR 509.2. `validateAction` has already proved `blockerIds` is a
+       permutation of this lane's `blockedBy`, so this only has to write it. */
+    case 'ORDER_BLOCKERS': {
+      let changed = false;
+      const attackers = state.combat.attackers.map(declaration => {
+        if (declaration.attackerId !== action.attackerId) return declaration;
+        if (declaration.blockedBy.join('|') === action.blockerIds.join('|')) return declaration;
+        changed = true;
+        return { ...declaration, blockedBy: [...action.blockerIds] };
+      });
+      // Same reference when nothing moved, the way `UNBLOCK` does it: the
+      // transport reads an unchanged state as a rejected action and keeps it
+      // out of the undo history.
       return changed ? { ...state, combat: { attackers } } : state;
     }
 

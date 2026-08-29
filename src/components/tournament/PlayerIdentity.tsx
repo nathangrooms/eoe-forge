@@ -120,7 +120,9 @@ export function CommanderPortrait({
             : `${view.card.name}, ${view.deck?.deckName ?? view.name}`
         }
         className={className}
-        imageClassName={cn(dimmed && 'opacity-45 grayscale')}
+        /* Out of the event is said with opacity alone. `grayscale` over a
+           Scryfall card image is not ours to apply. */
+        imageClassName={cn(dimmed && 'opacity-45')}
       >
         {children}
       </CardImage>

@@ -1,40 +1,50 @@
 /**
- * Deck optimiser — grounded.
+ * Deck optimiser.
  *
- * WHAT CHANGED, AND WHY IT MATTERED
- * ---------------------------------
- * This function used to make no database queries at all. Its only outbound call
- * was to an AI gateway, and the sole safeguard against a fabricated suggestion
- * was one line of prompt text asking the model to name real cards. Nothing
- * verified the answer; the client did not check either. So a suggestion could
- * be a card that does not exist, a card banned in the format, or — the one that
- * is illegal on its face — a card outside the commander's colour identity.
- * Meanwhile the database already held 34,088 cards with a real tag taxonomy,
- * prices, legalities and colour identity, and none of it was consulted.
+ * THERE IS NO LANGUAGE MODEL IN THIS FUNCTION ANY MORE
+ * ----------------------------------------------------
+ * The owner, asked what this should run on once the gateway stopped answering:
+ * *"they should run automatically through our engine, I dont want to use any
+ * LLM we have so much knowledge?"*
  *
- * Measured against the live catalogue before this change, over eight successful
- * runs on five real decks: 249 suggested card names, of which 2 were outside
- * the deck's colour identity and 6 were duplicate land rows — and 3 of the 8
- * runs shipped at least one card the user could not legally play. A ninth deck
- * (four colours, exactly 100 cards) returned HTTP 500 on all three attempts and
- * produced nothing at all.
+ * That was already nearly true and nobody had finished it. The engine ranked
+ * every candidate itself, wrote its own sentence under each one, chose the cuts,
+ * scored the deck and paired the land trades. The gateway was handed that
+ * finished work and asked to pick from it. Measured over the 39 leaf fields the
+ * old `deck_analysis` tool returned, 29 were fields this file computed before it
+ * asked, 9 were derivable from data already in hand, and 1 was judgement.
  *
- * The order of operations is now:
+ * So the ranked list, its roles and its reasons ARE the answer now.
  *
- *   1. RETRIEVE   Every printing legal in the format whose colour identity is
- *                 within the commander's. No limit — see (2).
- *   2. RANK       Score the whole pool with the in-house engine, then truncate.
+ * The order of operations:
+ *
+ *   1. EVALUATE   Score the deck and choose its cuts, from the decklist alone.
+ *                 First, not seventh, because the mana base it measures is an
+ *                 input to the ranking — see (3).
+ *   2. RETRIEVE   Every printing legal in the format whose colour identity is
+ *                 within the commander's. No limit — see (3).
+ *   3. RANK       Score the whole pool with the in-house engine, then truncate.
  *                 Never the other way round: an earlier bug in this repo took
  *                 `.limit(40)` before ranking, which ranks an arbitrary slice
  *                 of the table very carefully.
- *   3. GROUND     Hand the model that ranked pool and ask it to choose and
- *                 justify from it, rather than to recall names.
- *   4. VALIDATE   Resolve every name the model returned against rows actually
- *                 fetched from `cards`. Drop what fails, and report the count.
- *   5. ATTACH     Real card id, price, image and collection ownership.
+ *   4. CHOOSE     Pick from the ranked list one card at a time, crediting each
+ *                 pick to the deck before choosing the next. See `chooseCards`.
+ *   5. MEASURE    Re-score the deck with each change applied, so the power
+ *                 delta beside a swap is a measurement rather than an opinion.
+ *   6. ATTACH     Real card id, price, image and collection ownership.
  *
- * Step 4 is not made redundant by step 3. Grounding changes how often the model
- * is wrong; validation is what makes being wrong harmless.
+ * Nothing needs validating any more, because nothing is taken from anywhere it
+ * could be wrong. Every card named here came out of the ranked pool or the
+ * user's own decklist, so it exists, it is legal in the format, it is inside the
+ * commander's colour identity and it is not already in the deck — all four by
+ * construction rather than by checking afterwards.
+ *
+ * WHAT THIS FUNCTION WILL NOT SAY
+ * -------------------------------
+ * `strategy` comes back empty. How to pilot a deck and where its decision points
+ * are is judgement, and there is no measurement here that produces it. An empty
+ * list is the honest way to say so; a sentence assembled to fill the space would
+ * be the one invented thing in a response that is otherwise all measurement.
  *
  * LANDS ARE RANKED SEPARATELY, AND THIS IS WHY
  * --------------------------------------------
@@ -57,14 +67,15 @@
  *   Fountainport             #1    #159
  *
  * The best land in Commander was 438th of 883 in a four-colour deck, and the
- * forty the model saw contained no mana fixing at all. The owner's report was
- * "Lands was suggesting just basic lands too, nothing special about them" —
- * correct, and the basics were the visible half of it. `lands.ts` holds the
- * replacement and the reasoning behind every weight in it.
+ * forty that reached the answer contained no mana fixing at all. The owner's
+ * report was "Lands was suggesting just basic lands too, nothing special about
+ * them" — correct, and the basics were the visible half of it. `lands.ts` holds
+ * the replacement and the reasoning behind every weight in it.
  *
- * Basics are no longer offered as candidates and the prompt forbids naming
- * one. What a deck still needs is COUNTED, in `basicFiller`, from its own
- * coloured pip demand — one line instead of four card tiles.
+ * Basics are never offered as candidates: `ineligibility` refuses the
+ * `basic-land` tag outright. What a deck still needs is COUNTED, in
+ * `basicFiller`, from its own coloured pip demand — one line instead of four
+ * card tiles.
  *
  * LAND SWAPS, AND WHY LANDS GO FIRST
  * ----------------------------------
@@ -77,28 +88,26 @@
  * `fillPlan` counts how many of a short deck's empty slots are lands. A deck
  * twelve cards short and nine lands short has three spell slots, not twelve,
  * and that split is now stated once, here, rather than left for the reader to
- * work out from two numbers on two different tabs. The prompt is told the same
- * split so the model's prose cannot contradict the tab strip.
+ * work out from two numbers on two different tabs.
+ *
+ * IT IS ALSO THE BUDGET FOR THE LAND ADD LIST. A deck already at a hundred
+ * cards has nowhere to put a land, so being four lands short is a reason to
+ * TRADE a land, not to add one. That list used to run to eight regardless, and
+ * a full deck was told to add eight lands it had no room for.
  *
  * RESPONSE SHAPE
  * --------------
- * Strictly additive. Every field the previous version returned is still
- * returned, with the same name, type and meaning, because a UI is being built
- * against it. New fields are documented at `buildResponse` below.
+ * Every field the previous version returned is still returned, with the same
+ * name, type and meaning, because a UI is built against it. Three of them have
+ * stopped being null: `currentPowerLevel`, `projectedPowerLevel` and
+ * `edhImpact` are measured now. `strategy` is the one that is deliberately
+ * empty. New fields are documented at `buildResponse` below.
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
 import { Catalog, normalizeName, type CatalogRow } from './catalog.ts';
-import {
-  CardIndex,
-  ValidationLog,
-  cutRefusal,
-  diagnose,
-  isBasicLand,
-  isLandCard,
-  landRepeatDisposition,
-} from './validate.ts';
+import { CardIndex, isBasicLand, isLandCard } from './validate.ts';
 import {
   evaluateUserDeck,
   toSwapTargets,
@@ -108,14 +117,20 @@ import {
 } from './deck-brain.ts';
 import {
   buildCandidateQuery,
+  buildReason,
+  isLegalIn,
+  withinIdentity,
+  cardRole,
   deriveDeckProfile,
   gapRoles,
   isCommanderFormat,
   normalizeIdentity,
   normalizeRow,
+  popularityCoverage,
   rankCandidates,
   roleShortfall,
   ROLES,
+  scoreCandidate,
   type CandidateCard,
   type Color,
   type DeckCard,
@@ -124,20 +139,20 @@ import {
   type Role,
 } from './_engine/advise/index.ts';
 import { pipDemand } from './_engine/build/generate.ts';
+import { planForCommander, type CommanderPlan } from './_engine/knowledge/behaviour.ts';
 import { facetsForCard } from './_lib/deck/recommend/behaviour.ts';
 import type { ManaColour, ManaProfile } from './_engine/playability/castability.ts';
 import {
   basicColourOf,
   basicFiller,
   pairLandSwaps,
-  playableAsLand,
   rankLands,
   type BasicFiller,
   type DeckLand,
   type LandCandidate,
-  type LandGrounds,
   type LandSwap,
   type RankedLand,
+  MIN_SOURCES_PER_COLOUR,
 } from './lands.ts';
 
 /**
@@ -159,20 +174,24 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-/** Bumped whenever the grounding or validation rules change. */
-const ENGINE_VERSION = 'deck-optimizer/5-grounded';
+/** Bumped whenever the way an answer is chosen changes. */
+const ENGINE_VERSION = 'deck-optimizer/6-engine-only';
 
-/** How many ranked non-land candidates the model gets to choose from. */
+/** How many ranked non-land candidates `chooseCards` picks from. */
 const CANDIDATE_LIMIT = 120;
-/** How many ranked land candidates the model gets to choose from. */
+/** How many ranked land candidates the land sections pick from. */
 const LAND_CANDIDATE_LIMIT = 40;
 /**
- * The most lands the model is ever asked to name.
+ * The most lands ever named as additions.
  *
- * A deck can be twenty-nine lands short, and asking for twenty-nine land
- * recommendations is what produced "Forest x3, Island x3, Plains x3, Swamp x3"
- * on a real deck. Past about eight there is nothing left to say that is not
- * "and then basics", and that is now said once, as a count, by `basicFiller`.
+ * A deck can be twenty-nine lands short, and naming twenty-nine lands is what
+ * produced "Forest x3, Island x3, Plains x3, Swamp x3" on a real deck. Past
+ * about eight there is nothing left to say that is not "and then basics", and
+ * that is said once, as a count, by `basicFiller`.
+ *
+ * It is a CEILING on top of `fillPlan.landSlots`, never a target. A deck with
+ * no empty slots gets no land additions at all, however far under the land
+ * target it is, because there is nowhere to put one.
  */
 const LAND_ADD_ASK_LIMIT = 8;
 /**
@@ -186,20 +205,30 @@ const LAND_ADD_ASK_LIMIT = 8;
 const LAND_SWAP_LIMIT = 6;
 /** Extra candidates surfaced per role the deck is short of. */
 const PER_ROLE_LIMIT = 12;
-/** How many cut targets to offer the model. */
+/** How many cut targets to rank. */
 const SWAP_TARGET_LIMIT = 14;
 
 /**
- * Output budget for the model.
+ * How many suggestions carry a measured power delta.
  *
- * The previous value was 6000, and it is the most likely cause of the HTTP 500
- * measured on the four-colour complete deck: a full set of replacements plus
- * land recommendations, behind Gemini's reasoning tokens, exhausts the budget
- * mid-tool-call, the gateway returns no `tool_calls` at all, and the old code
- * threw "No valid response from AI". Truncation is now both less likely and
- * survivable — see `callModel`.
+ * `edhImpact` is the deck's score with that one change applied, minus its score
+ * now, and each one costs a whole re-evaluation. Measured on the four real
+ * decks below, one evaluation of a hundred-card deck runs in single-digit
+ * milliseconds, so twenty is affordable and a hundred would not be. Rows past
+ * this keep `edhImpact: null`, which the client already renders as nothing.
  */
-const MAX_OUTPUT_TOKENS = 16000;
+const IMPACT_BUDGET = 20;
+
+/**
+ * The smallest power delta worth printing.
+ *
+ * The score has one decimal, so anything under half of that rounds to +0.0 and
+ * the badge would read as a claim where there is none. `PowerImpactBadge`
+ * already hides deltas below 0.05; this makes the wire agree with the screen
+ * rather than leaving the two to drift.
+ */
+const IMPACT_FLOOR = 0.05;
+
 
 /* ------------------------------------------------------------------ *
  * Entry point
@@ -240,22 +269,21 @@ serve(async req => {
       useCollection: Boolean(useCollection),
       collectionCards: Array.isArray(collectionCards) ? collectionCards.map(String) : [],
       excludeSwaps: Array.isArray(excludeSwaps) ? excludeSwaps.map(String) : [],
-      apiKey: Deno.env.get('LOVABLE_API_KEY') ?? null,
       startedAt,
     });
 
-    if (result.kind === 'rate_limit') {
-      return json(
-        { error: 'Rate limits exceeded. Please wait a moment and try again.', type: 'rate_limit' },
-        429
-      );
-    }
-    if (result.kind === 'payment_required') {
-      return json(
-        { error: 'AI credits exhausted. Please add credits to continue.', type: 'payment_required' },
-        402
-      );
-    }
+    /*
+     * There is no 402 or 429 branch here any more, and there cannot be one.
+     *
+     * Those two statuses only ever came from one place: an HTTP response from
+     * the gateway, read in `callModel`. Nothing in this function makes an
+     * outbound request other than to our own database, so neither status has a
+     * source. They were also the reason this endpoint was useless the day the
+     * workspace ran out of credits: `optimise` returned early on
+     * `payment_required`, the engine sections were never reached, and a player
+     * got "AI credits exhausted" instead of the ranked pool, the cut list, the
+     * land trades and the power score the server had already worked out.
+     */
     return json({ analysis: result.analysis }, 200);
   } catch (error) {
     console.error('Deck optimizer error:', error);
@@ -284,14 +312,17 @@ interface OptimiseInput {
   useCollection: boolean;
   collectionCards: string[];
   excludeSwaps: string[];
-  apiKey: string | null;
   startedAt: number;
 }
 
-type OptimiseResult =
-  | { kind: 'ok'; analysis: Record<string, unknown> }
-  | { kind: 'rate_limit' }
-  | { kind: 'payment_required' };
+/**
+ * One shape, because there is one outcome.
+ *
+ * It stays a tagged union rather than collapsing to the record, so a future
+ * failure that genuinely cannot produce an answer has somewhere to go without
+ * reintroducing the pattern where a caller reads an error as an analysis.
+ */
+type OptimiseResult = { kind: 'ok'; analysis: Record<string, unknown> };
 
 async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
   const { catalog, deckContext, startedAt } = input;
@@ -320,6 +351,16 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
       ? commanderRaw
       : ((commanderRaw as { name?: unknown } | null)?.name ?? '')
   ).trim();
+
+  /**
+   * Cards the caller has already dealt with, by normalised name.
+   *
+   * Declared here rather than beside the ranking because the cut list is chosen
+   * in step 3b now and has to honour it too. The panel sends this when a player
+   * asks for a fresh set of swaps: a suggestion they already saw and passed on
+   * must not come straight back.
+   */
+  const excludedNames = new Set(input.excludeSwaps.map(normalizeName));
 
   /* --- 1. Resolve the deck against the catalogue --------------------- */
   // Every downstream measurement (tags, roles, curve, colour identity) comes
@@ -399,7 +440,93 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
       quantity: e.quantity,
     }));
 
-  const profile = deriveDeckProfile({ format: legalityKey, colorIdentity, cards: profileCards });
+  /* --- 3b. The shared brain, FIRST. Score and cuts alike ------------ */
+  // This is the same `evaluateDeck` the deck page calls, running on a
+  // byte-identical copy of the engine. The score below and the cut order below
+  // it come out of one computation, so the reason a card is at the top of the
+  // cut list IS the reason the score is what it is.
+  //
+  // IT RUNS BEFORE THE RANKING NOW, and that is the point of moving it. The
+  // mana base it measures is an input the ranker was never given: `castability`
+  // carries the second-largest weight of the eight scoring signals (2.5 of
+  // 12.5) and `scoreCandidate` is deliberately silent when the profile has no
+  // mana profile to measure against, so it contributed nothing to any
+  // suggestion this function has ever made. Same rule as everywhere else in the
+  // engine: unknown produces no signal rather than a zero. The consequence was
+  // simply that nobody had supplied the knowledge.
+  //
+  // `input.edhAnalysis` is still accepted and ignored for this purpose; nothing
+  // here reads a castability figure out of it. It used to be the only source,
+  // and it was a scrape.
+  let evaluation: DeckEvaluation | null = null;
+  const evalStarted = Date.now();
+  try {
+    evaluation = evaluateUserDeck(deckLines, legalityKey);
+  } catch (error) {
+    // A scoring failure must not take the whole optimisation down. The cut list
+    // then comes back empty and the response says so, which is the honest
+    // degradation: no evidence is reported as no evidence.
+    console.error('deck evaluation failed', error);
+  }
+  const evalMs = Date.now() - evalStarted;
+
+  const manaProfile: ManaProfile | null = evaluation?.playability.profile ?? null;
+
+  /* --- 3c. What the commander wants --------------------------------- */
+  /*
+   * The OTHER signal the ranker was never given, and the larger of the two.
+   *
+   * `scoreCandidate` scores commander fit with `planFit(profile.commanderPlan,
+   * card)`. Section 10e of CLAUDE.md records feeding it the card half of that
+   * comparison — facets compiled from the pool's oracle text — and reports the
+   * signal as repaired. It was half repaired. `commanderPlan` was never set on
+   * this profile, and `planFit` returns NO_FIT for a null plan before it looks
+   * at a single facet, so the facets went on being computed for every row in a
+   * twenty-four thousand card pool and thrown away.
+   *
+   * Between them, commander fit (2.2) and castability (2.5) are 4.7 of the
+   * 12.5 total signal weight. Every suggestion this function made was ranked on
+   * the remaining 7.8, which is why role gap at 3.0 dominated so completely
+   * that ten suggestions in a row could all chase one three-card gap.
+   *
+   * The plan is read off the commander's own ability record, so it is silent
+   * for a commander the compiler cannot read rather than guessed at.
+   */
+  const commanderRow = commanderCard ? rowByName.get(normalizeName(commanderCard.name)) : undefined;
+  const commanderPlan: CommanderPlan | null = commanderRow
+    ? planForCommander({
+        name: commanderRow.name,
+        typeLine: commanderRow.type_line ?? null,
+        facets: facetsForCard(commanderRow).facets,
+        tags: commanderRow.tags ?? null,
+      })
+    : null;
+
+  const profile = deriveDeckProfile({
+    format: legalityKey,
+    colorIdentity,
+    cards: profileCards,
+    // Both of these were missing. See the two notes above.
+    manaProfile,
+    commanderPlan,
+  });
+
+  const swapTargets = evaluation
+    ? toSwapTargets(
+        evaluation.cuts.filter(c => !excludedNames.has(normalizeName(c.name))),
+        SWAP_TARGET_LIMIT
+      )
+    : [];
+
+  if (evaluation) {
+    console.log(
+      `evaluation: power ${evaluation.power.score}/10 (${evaluation.power.band}) in ${evalMs}ms, ` +
+        `castability ${evaluation.power.readout.averagePct?.toFixed(1) ?? 'n/a'}%, ` +
+        `${evaluation.power.readout.hardToCastCount} card(s) under ` +
+        `${evaluation.power.readout.threshold}%, ${evaluation.cuts.length} cut candidates; ` +
+        `commander plan: ${commanderPlan ? `${commanderPlan.wants.length} wants` : 'none'}`
+    );
+  }
 
   /* --- 4. The counts this response has always reported -------------- */
   const requiredCards = commanderish ? 100 : 60;
@@ -447,7 +574,6 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
   ]);
   const poolMs = Date.now() - poolStarted;
 
-  const poolIndex = new CardIndex(poolRows, legalityKey);
   /* Behaviour facets, and why the ranker was blind without them.
      -----------------------------------------------------------
      `rank.ts` scores every candidate with `planFit(profile.commanderPlan,
@@ -493,9 +619,8 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
       `${unresolved.length} deck names unresolved`
   );
 
-  /* --- 6. Assemble what the model may choose from ------------------- */
-  const excluded = new Set(input.excludeSwaps.map(normalizeName));
-  const usable = ranked.filter(r => !excluded.has(normalizeName(r.card.name)));
+  /* --- 6. Assemble what the answer is chosen from ------------------- */
+  const usable = ranked.filter(r => !excludedNames.has(normalizeName(r.card.name)));
 
   const nonLand = usable.filter(r => !isLandCard(r.card));
 
@@ -518,48 +643,11 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
   );
   const basics = await catalog.basicLands(legalityKey, colorIdentity);
 
-  /* --- 7. The shared brain: one evaluation, score and cuts alike ---- */
-  // This is the same `evaluateDeck` the deck page calls, running on a
-  // byte-identical copy of the engine. The score below and the cut order below
-  // it come out of one computation, so the reason a card is at the top of the
-  // cut list IS the reason the score is what it is.
-  //
-  // `input.edhAnalysis` is still accepted and still forwarded to the prompt as
-  // context, but nothing here reads a castability figure out of it. It used to
-  // be the only source, and it was a scrape.
-  let evaluation: DeckEvaluation | null = null;
-  try {
-    evaluation = evaluateUserDeck(deckLines, legalityKey);
-  } catch (error) {
-    // A scoring failure must not take the whole optimisation down. The cut list
-    // then comes back empty and the prompt is told so, which is the honest
-    // degradation: no evidence is reported as no evidence.
-    console.error('deck evaluation failed', error);
-  }
-
-  const swapTargets = evaluation
-    ? toSwapTargets(
-        evaluation.cuts.filter(c => !excluded.has(normalizeName(c.name))),
-        SWAP_TARGET_LIMIT
-      )
-    : [];
-
-  if (evaluation) {
-    console.log(
-      `evaluation: power ${evaluation.power.score}/10 (${evaluation.power.band}), ` +
-        `castability ${evaluation.power.readout.averagePct?.toFixed(1) ?? 'n/a'}%, ` +
-        `${evaluation.power.readout.hardToCastCount} card(s) under ` +
-        `${evaluation.power.readout.threshold}%, ${evaluation.cuts.length} cut candidates`
-    );
-  }
-
   /* --- 7b. Rank the lands as lands ---------------------------------- */
-  // After the evaluation, not before, because the strongest land signal is
-  // "which colour is this deck short of sources for" and that comes from the
-  // mana base the evaluation already measured. Computing it here reuses that
-  // one measurement instead of building a second profile that could disagree
+  // The strongest land signal is "which colour is this deck short of sources
+  // for", and that comes from the mana base the evaluation measured in step 3b.
+  // Reusing that one measurement is what stops a second profile disagreeing
   // with the score on the same screen.
-  const manaProfile: ManaProfile | null = evaluation?.playability.profile ?? null;
 
   const landPool: LandCandidate[] = landRows.map(row => ({
     ...normalizeRow(row, legalityKey),
@@ -568,7 +656,7 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
 
   const landRankStarted = Date.now();
   const landCandidates = rankLands({
-    pool: landPool.filter(l => !excluded.has(normalizeName(l.name))),
+    pool: landPool.filter(l => !excludedNames.has(normalizeName(l.name))),
     profile,
     manaProfile,
     identity: colorIdentity,
@@ -576,10 +664,6 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
     normalizeName,
     limit: LAND_CANDIDATE_LIMIT,
   });
-  const landGrounds = new Map<string, LandGrounds>(
-    landCandidates.map(l => [normalizeName(l.card.name), l.grounds])
-  );
-
   /*
    * The deck's OWN lands, with their rules text, for the swap pairing.
    *
@@ -644,69 +728,36 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
       }))
   );
 
-  /* --- 8. Ask the model to choose from the pool --------------------- */
-  const prompt = buildGroundedPrompt({
-    deckContext,
-    profile,
-    commanderCard,
-    colorIdentity,
-    totalWithCommander,
-    requiredCards,
-    missingCards,
-    excessCards,
-    landCount,
-    idealLandCount,
-    fillPlan: plan,
+  /* --- 8. Choose the answer ----------------------------------------- */
+  const sections = buildSections({
     candidates,
     landCandidates,
     swapTargets,
     deckEntries,
-    gaps,
-    useCollection: input.useCollection,
-    collectionCards: input.collectionCards,
-    edhAnalysis: input.edhAnalysis,
+    profile,
+    commanderish,
+    legalityKey,
+    identity: colorIdentity,
+    threshold: evaluation?.power.readout.threshold ?? null,
+    missingCards,
+    excessCards,
+    fillPlan: plan,
   });
-
-  const model = await callModel(prompt, input.apiKey, legalityKey);
-  if (model.kind === 'rate_limit') return { kind: 'rate_limit' };
-  if (model.kind === 'payment_required') return { kind: 'payment_required' };
-
-  /* --- 9. Validate everything, then attach real data ---------------- */
-  const log = new ValidationLog();
-  const raw = model.kind === 'ok' ? model.analysis : null;
-
-  const sections = raw
-    ? await validateSections({
-        raw,
-        catalog,
-        poolIndex,
-        deckIndex,
-        deckEntries,
-        legalityKey,
-        colorIdentity,
-        log,
-        missingCards,
-        excessCards,
-        landGrounds,
-      })
-    : engineOnlySections({
-        candidates,
-        landCandidates,
-        swapTargets,
-        missingCards,
-        excessCards,
-      });
+  console.log(
+    `chose: ${sections.additions.length} additions, ${sections.removals.length} removals, ` +
+      `${sections.replacements.length} replacements, ${sections.landRecommendations.length} ` +
+      `land adds (${plan ? plan.landSlots : 0} land slots), ${sections.issues.length} issues`
+  );
 
   /* --- 9a. Land for land, measured -------------------------------- */
-  // Built here, after validation, for one reason: a land the response has
-  // already told the user to ADD must not turn up again as the incoming half
-  // of a trade, and a land it has told them to CUT must not turn up as the
-  // outgoing half. Both of those lists only exist once the model's answer has
-  // been resolved, so the pairing waits for them.
+  // Built after the sections, for one reason: a land the response has already
+  // told the user to ADD must not turn up again as the incoming half of a
+  // trade, and a land it has told them to CUT must not turn up as the outgoing
+  // half. Both of those lists only exist once `buildSections` has chosen, so
+  // the pairing waits for them.
   //
-  // Nothing in here came from the model. `pairLandSwaps` compares two lands on
-  // the same measured signals and refuses any pair that cannot be explained in
-  // plain words, so this section holds whether the model answered or not.
+  // `pairLandSwaps` compares two lands on the same measured signals and refuses
+  // any pair that cannot be explained in plain words.
   const landSwaps = pairLandSwaps({
     deckLands,
     candidates: landCandidates,
@@ -767,9 +818,7 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
   });
 
   /* --- 9b. The basics, counted rather than recommended --------------- */
-  // Measured here from the deck's own pip demand and its own source counts, so
-  // it holds whether or not the model answered, and it is the same figure
-  // however many lands the model happened to name.
+  // Measured from the deck's own pip demand and its own source counts.
   const filler = basicFiller({
     landCount,
     idealLandCount,
@@ -784,25 +833,66 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
     basicNames,
   });
 
-  const summary = log.summary();
-  console.log(
-    `validation: checked ${summary.checked}, accepted ${summary.accepted}, ` +
-      `dropped ${summary.dropped} ${JSON.stringify(summary.byReason)}`
-  );
+  /* --- 9c. What each change is worth, MEASURED ---------------------- */
+  // The one thing in this response that used to be an opinion. `edhImpact` was
+  // whatever number came back beside a card name, and `projectedPowerLevel` was
+  // the same. Both are now the deck re-scored with that change applied, by the
+  // same evaluator that produced the score on the card above them, so a reader
+  // can check them by applying the swap and running the pass again.
+  //
+  // The rows come from the pool that was already fetched, so measuring costs no
+  // extra request. `poolFor` is asked for `oracle_text` and `landPoolFor`
+  // always carries it, which matters here for the same reason it matters in
+  // `toEngineCard`: without the text the castability engine cannot see that a
+  // Signet makes mana, and the projected score would be measured against a deck
+  // whose mana base had vanished.
+  const addable = new Map<string, CatalogRow>();
+  for (const row of [...poolRows, ...landRows]) {
+    const key = normalizeName(row.name);
+    if (key && !addable.has(key)) addable.set(key, row);
+  }
+
+  const impact = measureImpact({
+    deckLines,
+    addable,
+    legalityKey,
+    sections: enriched,
+    current: evaluation?.power.score ?? null,
+  });
+
+  /*
+   * How trustworthy the popularity prior was on this pool.
+   *
+   * `popularityCoverage` has existed in the ranker since the day a broken
+   * `cards_unique` rebuild left every card whose name begins J-Z with no
+   * `edhrec_rank`, which put eight generated decks entirely in the first half
+   * of the alphabet. It was written to make sure that could never be silent
+   * again, and nothing in this function called it. Measured on the live view on
+   * 2026-08-29 the halves are 99.9% and 99.7%, so it reports healthy today; the
+   * point is that it will say so when it stops being.
+   */
+  const popularity = popularityCoverage(pool);
+  if (popularity.skewedByName) {
+    console.error(
+      `popularity prior is skewed by name: A-I ${(popularity.earlyShare * 100).toFixed(1)}% ` +
+        `ranked against J-Z ${(popularity.lateShare * 100).toFixed(1)}%. ` +
+        `Suggestions on this pool are ordered on a broken column.`
+    );
+  }
 
   return {
     kind: 'ok',
     analysis: buildResponse({
-      raw,
       enriched,
       profile,
-      log,
       landCount,
       idealLandCount,
       basicFiller: filler,
       fillPlan: plan,
       swapTargets,
       evaluation,
+      projectedPowerLevel: impact.projected,
+      impactsMeasured: impact.measured,
       colorIdentity,
       identitySource,
       unresolved,
@@ -810,15 +900,15 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
       poolCards: ranked.length,
       candidatesOffered: candidates.length + landCandidates.length,
       usesIndex: query.usesIndex,
-      aiUsed: model.kind === 'ok',
-      aiFailure: model.kind === 'failed' ? model.reason : null,
+      commanderPlanWants: commanderPlan ? commanderPlan.wants.length : null,
+      popularity,
       elapsedMs: Date.now() - startedAt,
     }),
   };
 }
 
 /* ------------------------------------------------------------------ *
- * Validation of each section
+ * The answer
  * ------------------------------------------------------------------ */
 
 interface Sections {
@@ -832,458 +922,260 @@ interface Sections {
    * Same shape on purpose. The client builds a swap from a replacement row and
    * renders it with one component; giving lands a different shape would mean a
    * second builder and a second renderer, and those are what drift. Filled in
-   * by the handler after validation, never by the model.
+   * by the handler once `buildSections` has chosen, so a land is never both
+   * added and traded for in one answer.
    */
   landReplacements: Record<string, unknown>[];
   /**
-   * Basic lands the model named despite being told not to.
+   * Problems with cards the deck already plays.
    *
-   * Kept out of `landRecommendations` and never shipped as advice. Held rather
-   * than discarded so the count is available: how often the model still
-   * reaches for a Plains is a measurement of whether the prompt change worked,
-   * and the response reports it under `grounding.basicsNamedByModel`.
-   */
-  basicAsks: Record<string, unknown>[];
-  /**
-   * `issues[].card` is a card name, rendered verbatim by the UI, so it is a
-   * claim about the user's deck and is validated like any other name rather
-   * than passed through from the model.
+   * Every one is a claim about a specific card the user owns, so every one has
+   * to come from a column: a legality, a colour identity, a copy count or a
+   * castability percentage. See `deckIssues`.
    */
   issues: Record<string, unknown>[];
   /** Every card accepted anywhere, for the one image/price/ownership lookup. */
   touched: Set<string>;
 }
 
-interface ValidateArgs {
-  raw: Record<string, unknown>;
-  catalog: Catalog;
-  poolIndex: CardIndex;
-  deckIndex: CardIndex;
-  deckEntries: DeckEntry[];
-  legalityKey: string;
-  colorIdentity: Color[];
-  log: ValidationLog;
-  missingCards: number;
-  excessCards: number;
-  /**
-   * What the land ranker measured, by normalised name.
-   *
-   * So a land the MODEL chose ships the same measured facts — colours made,
-   * enters tapped, copies owned — as one the engine chose. Without it the two
-   * paths describe the same card differently, and the tab can only show what
-   * the model said about it.
-   */
-  landGrounds: ReadonlyMap<string, LandGrounds>;
-}
+/**
+ * Pick from the ranked list one card at a time, crediting each pick as it goes.
+ *
+ * THE DEFECT THIS EXISTS TO FIX, measured on four real decks on 2026-08-29.
+ *
+ * The previous code took `candidates.slice(0, n)`, and `candidates` is sorted
+ * by a score whose largest term is `WEIGHTS.roleGap * shortfall`. A deck short
+ * of three wincons therefore had every top candidate credited with the SAME
+ * three-card gap, so all ten suggestions were wincons and every one of them
+ * said "fills a wincon gap (0 of 3)" — including the tenth, by which point the
+ * deck would have held seven. Ten answers to one question, nine of them
+ * unusable, each carrying a sentence that had stopped being true.
+ *
+ * Choosing one at a time and adding it to the counts is all it takes. The
+ * second pick is scored against a deck that already contains the first, so the
+ * gap closes as it fills, the list spreads across the roles the deck is
+ * actually short of, and the reason under each card is the reason it was
+ * chosen at the moment it was chosen.
+ *
+ * This is also the job the language model was doing: "choose fifteen from a
+ * ranked two hundred". It was doing it on judgement nobody could inspect. This
+ * does it on the engine's own scores, and every step is re-derivable.
+ *
+ * The working profile is MUTATED rather than rebuilt each round on purpose.
+ * `scoreCandidate` memoises castability on the profile object it is handed, and
+ * a fresh object every round would throw that away and solve the same
+ * hypergeometric twelve hundred times over. Nothing the memo depends on — a
+ * card's mana cost, the deck's mana profile — is what changes here.
+ */
+function chooseCards(
+  candidates: readonly Recommendation[],
+  profile: DeckProfile,
+  count: number
+): Recommendation[] {
+  if (count <= 0 || candidates.length === 0) return [];
 
-async function validateSections(a: ValidateArgs): Promise<Sections> {
-  const { raw, poolIndex, deckIndex, log, legalityKey, colorIdentity } = a;
+  // A copy of the counts, so the caller's profile is not changed under it.
+  const roleCounts = { ...profile.roleCounts } as Record<Role, number>;
+  const working: DeckProfile = { ...profile, roleCounts };
 
-  const inDeck = new Set(a.deckEntries.map(e => normalizeName(e.name)));
+  const order = new Map<string, number>();
+  candidates.forEach((c, i) => order.set(c.card.oracleId, i));
 
-  /**
-   * The commander is in the deck, and it is the one card in it that may not be
-   * cut. `deckEntries` carries it — that is deliberate, because it is a real
-   * card the deck plays and the profile, the colour identity and the role
-   * counts all have to see it — and `inDeck` is built from `deckEntries`, so
-   * "is it in the deck" answered YES for the commander and `resolveCut` had
-   * nothing else to ask. A `removals` entry or the remove half of a
-   * `replacements` pair naming the commander was therefore accepted, counted
-   * as accepted in `validation`, and shipped with a real `cardId` beside it.
-   *
-   * That is not a cosmetic mistake. The optimiser panel's cut path calls
-   * `onRemoveCard(name)` on the deck, so an accepted removal is an edit the
-   * user can apply in one click — and applying this one dismantles the deck
-   * around the only card the format will not let them replace by drawing it.
-   *
-   * The prompt already omits the commander from the DECK list, which is why
-   * this has stayed latent rather than common. A prompt is a request; this is
-   * the check. Kept separate from `inDeck` so that `issues[].card` may still
-   * name the commander — "your commander is expensive to cast" is a fair
-   * observation about a card, not an instruction to remove it.
-   */
-  const commanderKeys = new Set(
-    a.deckEntries.filter(e => e.isCommander).map(e => normalizeName(e.name))
-  );
+  const taken = new Set<string>();
+  const picks: Recommendation[] = [];
 
-  /**
-   * The deck's own spelling of each card it plays.
-   *
-   * A cut is applied by NAME against the user's deck, so the name a removal
-   * ships has to be the deck's, not the model's recollection of it. The model
-   * is told to copy from the DECK list and mostly does, but `inDeck` is keyed
-   * on the normalised form — case-folded, apostrophes folded — so a name that
-   * differs only in those respects passes validation and then goes out
-   * verbatim. Downstream that name is matched against the deck again, and this
-   * time by something that has no normaliser, so the cut silently does nothing
-   * and the image lookup in `attachRealData` (an exact, case-sensitive
-   * `name=in.(...)`) returns no row either.
-   */
-  const deckNameByKey = new Map<string, string>();
-  for (const e of a.deckEntries) {
-    const key = normalizeName(e.name);
-    if (key && !deckNameByKey.has(key)) deckNameByKey.set(key, e.name);
+  for (let n = 0; n < count && picks.length < candidates.length; n++) {
+    let best: Recommendation | null = null;
+    let bestScore = -Infinity;
+
+    for (const candidate of candidates) {
+      if (taken.has(candidate.card.oracleId)) continue;
+      const { score, signals, fillsRoles, shared } = scoreCandidate(candidate.card, working);
+      // Ties fall back to the engine's own total order, which is where they
+      // were already resolved. Re-deciding them here would be a second opinion
+      // about the same two cards.
+      const better =
+        best === null ||
+        score > bestScore ||
+        (score === bestScore &&
+          (order.get(candidate.card.oracleId) ?? 0) < (order.get(best.card.oracleId) ?? 0));
+      if (!better) continue;
+      bestScore = score;
+      best = {
+        card: candidate.card,
+        score,
+        signals,
+        // Rebuilt, so the sentence is the one that was true when this card was
+        // chosen rather than the one that was true before any of them were.
+        reason: buildReason(signals),
+        fillsRoles,
+        sharedTags: shared,
+      };
+    }
+
+    if (!best) break;
+    taken.add(best.card.oracleId);
+    picks.push(best);
+
+    // The deck now holds it. Credit every role it serves, not only the one it
+    // was scored on: `scoreCandidate` credits a card with its worst open gap
+    // because a card fills one slot, but the card that fills that slot counts
+    // against every role it actually serves.
+    for (const role of ROLES) {
+      if (cardRole(best.card, role)) roleCounts[role] = (roleCounts[role] ?? 0) + 1;
+    }
   }
 
-  const touched = new Set<string>();
-
-  // Collect every name the pool could not resolve, so the diagnostic lookup is
-  // one query rather than one per miss.
-  const misses = new Set<string>();
-  const noteMiss = (name: string) => {
-    if (name && !poolIndex.resolve(name)) misses.add(name);
-  };
-  for (const x of arr(raw.additions)) noteMiss(str(x.name));
-  for (const x of arr(raw.replacements)) noteMiss(str(x.add));
-  for (const x of arr(raw.landRecommendations)) if (str(x.type) !== 'remove') noteMiss(str(x.name));
-
-  const missRows = misses.size ? await a.catalog.cardsByName([...misses], legalityKey) : [];
-
-  /**
-   * Resolve a card the user is being told to ADD.
-   *
-   * Membership of the pool index IS the legality and colour-identity check: the
-   * pool was fetched with exactly those two filters, so a name that resolves
-   * here has already passed both. A name that does not resolve is diagnosed
-   * only to record *why*, never to let it through.
-   *
-   * `inDeckExempt` is consulted only AFTER the card has resolved, so the
-   * exemption is decided from the real row's type line rather than from the
-   * name the model happened to write. Its one caller is the land section, where
-   * a basic already in the deck is still addable — see `isBasicLand`.
-   */
-  const resolveAdd = (
-    name: string,
-    section: string,
-    seen: Set<string>,
-    inDeckExempt?: (card: CandidateCard) => boolean
-  ): CandidateCard | null => {
-    log.check();
-    const key = normalizeName(name);
-    if (!key) {
-      log.drop(section, name, 'empty-name');
-      return null;
-    }
-    const card = poolIndex.resolve(name);
-    if (!card) {
-      const d = diagnose(name, missRows, legalityKey, colorIdentity);
-      log.drop(section, name, d.reason, d.detail);
-      return null;
-    }
-    if (
-      !inDeckExempt?.(card) &&
-      (inDeck.has(key) || inDeck.has(normalizeName(card.name)))
-    ) {
-      log.drop(section, name, 'already-in-deck');
-      return null;
-    }
-    if (seen.has(card.oracleId)) {
-      log.drop(section, name, 'duplicate');
-      return null;
-    }
-    seen.add(card.oracleId);
-    log.accept();
-    touched.add(card.name);
-    return card;
-  };
-
-  /**
-   * Resolve a card the user is being told to CUT. It must be in the deck.
-   *
-   * Returns the deck row when the catalogue knows it, but a card the catalogue
-   * cannot resolve is still cuttable: one real deck plays a Stickers card that
-   * is not commander legal and therefore not in any pool, and telling the user
-   * they may not remove it would be absurd.
-   *
-   * `deckName` is the deck's own spelling and is what callers must ship, for
-   * the reason given on `deckNameByKey`.
-   */
-  const resolveCut = (
-    name: string,
-    section: string,
-    seen: Set<string>
-  ): { ok: boolean; card: CandidateCard | null; deckName: string } => {
-    log.check();
-    const key = normalizeName(name);
-    if (!key) {
-      log.drop(section, name, 'empty-name');
-      return { ok: false, card: null, deckName: name };
-    }
-    // 'not-in-deck' before 'is-commander', so the recorded reason is the true
-    // one: the commander IS in the deck, and being it is the separate, stronger
-    // objection. The order is asserted in `cut-rules.test.ts`.
-    const refusal = cutRefusal(key, inDeck, commanderKeys);
-    if (refusal) {
-      log.drop(section, name, refusal);
-      return { ok: false, card: null, deckName: name };
-    }
-    if (seen.has(key)) {
-      log.drop(section, name, 'duplicate');
-      return { ok: false, card: null, deckName: name };
-    }
-    seen.add(key);
-    log.accept();
-    const deckName = deckNameByKey.get(key) ?? name;
-    const card = deckIndex.resolve(name);
-    // Every spelling of this card the function holds. `attachRealData` looks
-    // the display row up with an exact, case-sensitive `name=in.(...)`, so the
-    // catalogue's own spelling is the one that reliably matches; the other two
-    // are kept because a card the catalogue does not know still has a name.
-    if (card) touched.add(card.name);
-    touched.add(deckName);
-    touched.add(name);
-    return { ok: true, card, deckName };
-  };
-
-  /* --- additions --- */
-  const seenAdd = new Set<string>();
-  const additions: Record<string, unknown>[] = [];
-  for (const x of arr(raw.additions)) {
-    const card = resolveAdd(str(x.name), 'additions', seenAdd);
-    if (!card) continue;
-    additions.push({
-      name: card.name,
-      reason: str(x.reason),
-      // The resolved row's type line wins over the model's. `card` is the
-      // catalogue row this name resolved to, so `card.typeLine` is the fact
-      // and `x.type` is a recollection of it. Taking the model's first meant a
-      // verified card could be shipped wearing an invented type — "Legendary
-      // Creature" on an artifact — with `verified: true` beside it, which is
-      // the one combination the user has no way to doubt.
-      type: card.typeLine || str(x.type),
-      category: str(x.category) || 'Other',
-      priority: priority(x.priority),
-      edhImpact: optionalNum(x.edhImpact),
-      _card: card,
-    });
-  }
-
-  /* --- removals --- */
-  const seenCut = new Set<string>();
-  const removals: Record<string, unknown>[] = [];
-  for (const x of arr(raw.removals)) {
-    const cut = resolveCut(str(x.name), 'removals', seenCut);
-    if (!cut.ok) continue;
-    removals.push({
-      // The deck's spelling, not the model's — a cut is applied by name.
-      name: cut.deckName,
-      reason: str(x.reason),
-      priority: priority(x.priority),
-      edhImpact: optionalNum(x.edhImpact),
-      _card: cut.card,
-    });
-  }
-
-  /* --- replacements --- */
-  // Both halves must pass. A swap whose "add" is illegal is not a swap, and a
-  // swap whose "remove" is not in the deck is not actionable.
-  const seenRepAdd = new Set<string>();
-  const seenRepCut = new Set<string>();
-  const replacements: Record<string, unknown>[] = [];
-  for (const x of arr(raw.replacements)) {
-    const cut = resolveCut(str(x.remove), 'replacements.remove', seenRepCut);
-    const addCard = resolveAdd(str(x.add), 'replacements.add', seenRepAdd);
-    if (!cut.ok || !addCard) continue;
-    replacements.push({
-      // The deck's spelling, not the model's — a swap removes by name.
-      remove: cut.deckName,
-      removeReason: str(x.removeReason),
-      add: addCard.name,
-      addBenefit: str(x.addBenefit),
-      // Measured type line first, for the reason given on `additions.type`.
-      addType: addCard.typeLine || str(x.addType),
-      synergy: str(x.synergy) || null,
-      category: str(x.category) || null,
-      priority: priority(x.priority),
-      edhImpact: optionalNum(x.edhImpact),
-      _addCard: addCard,
-      _removeCard: cut.card,
-    });
-  }
-
-  /* --- land recommendations --- */
-  // Basic lands are the one place a repeated name is meaningful ("add three
-  // Plains"), so repeats collapse into a quantity instead of becoming three
-  // identical rows, which is what the previous response did.
-  //
-  // What has changed is where a basic ENDS UP. The prompt no longer offers
-  // basics and tells the model not to name one, but a prompt is a request, so
-  // a basic that arrives anyway is still resolved and still quantity-collapsed
-  // — into `basicAsks`, which the response does not ship as a recommendation.
-  // The basics the user is told about come from `basicFiller`, measured from
-  // the deck's own pip demand. A tile saying "add Plains" is not advice, and
-  // it was four of the twelve rows on a real land-short deck.
-  const landAdds = new Map<string, Record<string, unknown>>();
-  const seenLandAdd = new Set<string>();
-  const seenLandCut = new Set<string>();
-  const landRecommendations: Record<string, unknown>[] = [];
-  const basicAsks: Record<string, unknown>[] = [];
-  for (const x of arr(raw.landRecommendations)) {
-    const name = str(x.name);
-    if (str(x.type) === 'remove') {
-      const cut = resolveCut(name, 'landRecommendations.remove', seenLandCut);
-      if (!cut.ok) continue;
-      landRecommendations.push({
-        type: 'remove',
-        // The deck's spelling, not the model's — a cut is applied by name.
-        name: cut.deckName,
-        reason: str(x.reason),
-        priority: priority(x.priority),
-        category: str(x.category) || 'Land',
-        quantity: 1,
-        _card: cut.card,
-      });
-      continue;
-    }
-
-    const existing = landAdds.get(normalizeName(name));
-    if (existing) {
-      // A repeat of an already-accepted land. It is still a name the model
-      // produced, so it is counted in the drop rate's denominator — otherwise
-      // "add five Plains" would move the measured rate simply by being asked
-      // for as five names instead of one.
-      log.check();
-      // ONLY a basic may repeat. This branch returns before `resolveAdd` is
-      // called, so `seenLandAdd` — the oracle-id duplicate guard that stops
-      // every other section offering the same card twice — never sees a land
-      // at all. Without the test below, a model that listed "Command Tower"
-      // twice had the second occurrence silently folded into `quantity: 2`
-      // and recorded as ACCEPTED. The response then told a Commander player
-      // to add two copies of a singleton card: not a legal deck, produced by
-      // the one path in this file that accepted a name without checking it.
-      // Quantity is only meaningful for basics, so a repeat of anything else
-      // is the model saying the same thing twice — a duplicate, not a copy.
-      if (landRepeatDisposition(existing._card as CandidateCard | null) === 'duplicate') {
-        log.drop('landRecommendations.add', name, 'duplicate');
-        continue;
-      }
-      log.accept();
-      existing.quantity = (Number(existing.quantity) || 1) + 1;
-      continue;
-    }
-    // Basic lands are exempt from "already in the deck": a deck may run any
-    // number of them, so a land-short deck that already plays Plains is
-    // exactly the deck that should be told to add more. Without this, every
-    // basic-land recommendation was dropped as `already-in-deck`, the
-    // quantity-collapse above could never fire, and the drop rate this
-    // response reports was inflated by suggestions that were never wrong.
-    const card = resolveAdd(name, 'landRecommendations.add', seenLandAdd, isBasicLand);
-    if (!card) continue;
-    if (!isLandCard(card) || !playableAsLand(card.typeLine)) {
-      // `playableAsLand` as well as `isLandCard`, because a two-faced type
-      // line carries both faces and "Artifact — Equipment // Land" contains
-      // the word. See its header: Dowsing Dagger // Lost Vale was recommended
-      // as a land to a deck counted ten lands short.
-      log.drop('landRecommendations.add', name, 'not-a-land', `type_line = ${card.typeLine}`);
-      continue;
-    }
-    const basic = isBasicLand(card);
-    const grounds = a.landGrounds.get(normalizeName(card.name)) ?? null;
-    const row: Record<string, unknown> = {
-      type: 'add',
-      name: card.name,
-      reason: str(x.reason),
-      priority: priority(x.priority),
-      category:
-        str(x.category) ||
-        (basic ? 'Filler' : grounds && grounds.produces.length > 1 ? 'Mana fixing' : 'Land'),
-      quantity: 1,
-      // Measured, beside the model's sentence. Null when this land was not in
-      // the ranked forty, which is possible: the model may only choose from
-      // that list, but the list is sliced from a larger ranking and a future
-      // edit could widen what resolves. Null means unmeasured, never zero.
-      grounds,
-      _card: card,
-    };
-    landAdds.set(normalizeName(name), row);
-    // Basics are counted, not recommended. `basicAsks` keeps them inside the
-    // quantity-collapse above so a repeated Plains is still one row rather
-    // than three, and keeps them out of the tab, where they were the whole of
-    // the owner's objection.
-    (basic ? basicAsks : landRecommendations).push(row);
-  }
-
-  /* --- issues --- */
-  // This section used to be the one place a model-authored card name reached
-  // the user unchecked: `issues[].card` is rendered verbatim in the optimiser's
-  // Issues panel, so an invented name became a confident statement about the
-  // user's deck, and it was invisible to the drop rate because nothing counted
-  // it. An issue is a claim ABOUT a card the deck contains, so it is held to
-  // the same rule as a removal. Commentary that is not about one specific card
-  // belongs in summary / strengths / strategy / manabase, which are prose and
-  // name nothing.
-  const issues: Record<string, unknown>[] = [];
-  for (const x of arr(raw.issues)) {
-    const name = str(x.card);
-    log.check();
-    const key = normalizeName(name);
-    if (!key) {
-      log.drop('issues', name, 'empty-name');
-      continue;
-    }
-    if (!inDeck.has(key)) {
-      log.drop('issues', name, 'not-in-deck');
-      continue;
-    }
-    log.accept();
-    issues.push({
-      card: name,
-      reason: str(x.reason),
-      severity: ['high', 'medium', 'low'].includes(String(x.severity))
-        ? String(x.severity)
-        : 'medium',
-      category: x.category ?? null,
-    });
-  }
-
-  return {
-    // The pre-existing rule: additions only matter to an incomplete deck, and
-    // removals only to an overloaded one.
-    additions: a.missingCards > 0 ? additions.slice(0, Math.max(a.missingCards + 5, 15)) : [],
-    removals: a.excessCards > 0 ? removals.slice(0, Math.max(a.excessCards + 3, 10)) : [],
-    replacements: replacements.slice(0, 15),
-    landRecommendations: landRecommendations.slice(0, 12),
-    // Filled by the handler from `pairLandSwaps`, once this list is known.
-    landReplacements: [],
-    basicAsks,
-    issues,
-    touched,
-  };
+  return picks;
 }
 
 /**
- * What to return when the model gave nothing usable.
+ * Problems with cards the deck already plays.
  *
- * Every card here came out of the ranked pool, so it is real, legal and in
- * identity by construction, and every reason string was assembled from measured
- * signals by the engine. It is a plainer answer than a working model produces,
- * but it is an answer — and on this path the previous version returned HTTP 500.
+ * Every row here is a claim about one of the user's own cards, rendered
+ * verbatim beside that card, so every row has to come out of a column rather
+ * than out of a sentence. Four do:
+ *
+ *   legality        `legalities->>format` is not 'legal'
+ *   colour identity the card's identity is not inside the commander's
+ *   copy count      more than one copy of a nonbasic in a singleton format
+ *   castability     the measured percentage, under the measured threshold
+ *
+ * The third is the one that has bitten this product. Stored verbatim in
+ * `tutor_messages`, on a deck whose `format` column reads `commander`: "This is
+ * already in your deck, but you only have one copy. You could add another copy
+ * if you want more card draw." The optimiser has never made that mistake,
+ * because it never suggests a card the deck holds, and it never CAUGHT it
+ * either. Now it does, from `deck_cards.quantity`, which is the column that
+ * settles it.
+ *
+ * An empty list is a real answer and it is the common one. A legal, singleton,
+ * in-identity, castable deck has no issues of this kind, and saying so beats
+ * manufacturing three.
  */
-function engineOnlySections(args: {
+function deckIssues(args: {
+  deckEntries: readonly DeckEntry[];
+  swapTargets: readonly SwapTarget[];
+  commanderish: boolean;
+  legalityKey: string;
+  identity: readonly Color[];
+  /** Percentage under which the evaluator counted a card as hard to cast. */
+  threshold: number | null;
+}): Record<string, unknown>[] {
+  const { deckEntries, swapTargets, commanderish, legalityKey, identity, threshold } = args;
+  const issues: Record<string, unknown>[] = [];
+  const named = new Set<string>();
+
+  const add = (name: string, reason: string, severity: string, category: string) => {
+    const key = normalizeName(name);
+    if (!key || named.has(key)) return;
+    named.add(key);
+    issues.push({ card: name, reason, severity, category });
+  };
+
+  const formatName = legalityKey.charAt(0).toUpperCase() + legalityKey.slice(1);
+
+  for (const entry of deckEntries) {
+    const card = entry.card;
+    if (!card) continue;
+
+    if (!isLegalIn(card.legalities, legalityKey)) {
+      add(entry.name, `Not legal in ${formatName}.`, 'high', 'Legality');
+      continue;
+    }
+    if (!withinIdentity(card.colorIdentity, identity)) {
+      add(
+        entry.name,
+        `Outside your commander's colours, so this deck cannot play it.`,
+        'high',
+        'Colour identity'
+      );
+      continue;
+    }
+    if (commanderish && entry.quantity > 1 && !entry.isCommander && !isBasicLand(card)) {
+      add(
+        entry.name,
+        `${entry.quantity} copies. ${formatName} allows one of any card except basic lands.`,
+        'high',
+        'Deck rules'
+      );
+    }
+  }
+
+  // Castability, from the evaluation that produced the score on the same
+  // screen. Only the cards it measured and found short: `source` reads
+  // 'engine-castability' exactly when a real percentage came in under the
+  // threshold, and a card with no figure is unmeasured rather than weak.
+  for (const target of swapTargets) {
+    if (target.source !== 'engine-castability' || target.castability === null) continue;
+    if (threshold === null) continue;
+    // Severity from the distance under the bar, not from a guess. Half the
+    // threshold is the point at which a card is closer to uncastable than to
+    // castable, and that is the only line in here with an argument behind it.
+    const severity = target.castability < threshold / 2 ? 'high' : 'medium';
+    add(target.name, target.reason, severity, 'Castability');
+  }
+
+  return issues;
+}
+
+/**
+ * The whole answer, chosen from what the engine ranked.
+ *
+ * There is one of these now. It used to be the fallback beside
+ * `validateSections`, reached only when the gateway failed — and never reached
+ * on the failure we actually had, because a 402 returned before it.
+ *
+ * Every card named here came out of `rankCandidates`, `rankLands` or the user's
+ * own decklist, so it exists, it is legal in the format, it is inside the
+ * commander's colour identity and it is not already in the deck. All four hold
+ * by construction: `ineligibility` refuses each one before a card is ever
+ * scored. That is what makes the validation pass this file used to run
+ * unnecessary rather than merely absent.
+ */
+function buildSections(args: {
   candidates: Recommendation[];
   landCandidates: RankedLand[];
   swapTargets: SwapTarget[];
+  deckEntries: readonly DeckEntry[];
+  profile: DeckProfile;
+  commanderish: boolean;
+  legalityKey: string;
+  identity: readonly Color[];
+  threshold: number | null;
   missingCards: number;
   excessCards: number;
+  fillPlan: FillPlan | null;
 }): Sections {
   const { candidates, landCandidates, swapTargets, missingCards, excessCards } = args;
   const touched = new Set<string>();
 
-  const additions =
-    missingCards > 0
-      ? candidates.slice(0, Math.max(missingCards + 5, 15)).map(r => {
-          touched.add(r.card.name);
-          return {
-            name: r.card.name,
-            reason: r.reason,
-            type: r.card.typeLine,
-            category: categoryFor(r),
-            priority: r.score >= 3 ? 'high' : r.score >= 1.5 ? 'medium' : 'low',
-            edhImpact: null,
-            _card: r.card,
-          };
-        })
-      : [];
+  /*
+   * How many spell ideas to offer.
+   *
+   * `fillPlan.spellSlots` rather than `missingCards`, because a deck twelve
+   * cards short and nine lands short has three spell slots. Offering it twelve
+   * spells is offering nine it has no room for, and the fill plan already
+   * counted that split for exactly this reason. The five extra are deliberate
+   * headroom: a player picking three from eight is choosing, a player handed
+   * three is being told.
+   */
+  const spellSlots = args.fillPlan ? args.fillPlan.spellSlots : missingCards;
+  const spellAsk = spellSlots > 0 ? Math.max(spellSlots + 5, 15) : 0;
+
+  const additions = chooseCards(candidates, args.profile, spellAsk).map(r => {
+    touched.add(r.card.name);
+    return {
+      name: r.card.name,
+      reason: r.reason,
+      type: r.card.typeLine,
+      category: categoryFor(r),
+      priority: r.score >= 3 ? 'high' : r.score >= 1.5 ? 'medium' : 'low',
+      /** Filled by `measureImpact` once every section is settled. */
+      edhImpact: null,
+      _card: r.card,
+    };
+  });
 
   const removals =
     excessCards > 0
@@ -1299,59 +1191,89 @@ function engineOnlySections(args: {
         })
       : [];
 
-  // A complete deck: pair the weakest cards with the strongest candidates.
-  const replacements =
-    missingCards === 0 && excessCards === 0
-      ? swapTargets.slice(0, Math.min(10, candidates.length)).map((t, i) => {
-          const r = candidates[i];
-          touched.add(t.name);
-          touched.add(r.card.name);
-          return {
-            remove: t.name,
-            removeReason: t.reason,
-            add: r.card.name,
-            addBenefit: r.reason,
-            addType: r.card.typeLine,
-            synergy: r.sharedTags.length ? `Shares ${r.sharedTags.slice(0, 3).join(', ')}.` : null,
-            category: categoryFor(r),
-            priority: r.score >= 3 ? 'high' : 'medium',
-            edhImpact: null,
-            _addCard: r.card,
-            _removeCard: null,
-          };
-        })
-      : [];
-
-  // The engine's own land picks, with the engine's own reasons — already
-  // ranked on what the land makes rather than on what it is tagged, so this
-  // path now produces the same kind of answer the model path does.
-  const landRecommendations = landCandidates.slice(0, LAND_ADD_ASK_LIMIT).map(l => {
-    touched.add(l.card.name);
+  /*
+   * A complete deck: pair the weakest cards with the strongest candidates.
+   *
+   * The incoming half goes through `chooseCards` for the same reason the
+   * additions do. Before it did, the ten cards paired against the ten weakest
+   * in the real Atraxa deck were Familiar Beeble Mascot, Swinging Ship, Sticky
+   * Kavu Daredevil, Paladin Class, Luck Bobblehead, Patchwork Banner, Endurance
+   * Bobblehead and Flusterstorm, and eight of the ten were credited with the
+   * same three-card wincon gap.
+   */
+  const pairCount =
+    missingCards === 0 && excessCards === 0 ? Math.min(10, swapTargets.length) : 0;
+  const incoming = chooseCards(candidates, args.profile, pairCount);
+  const replacements = incoming.map((r, i) => {
+    const t = swapTargets[i];
+    touched.add(t.name);
+    touched.add(r.card.name);
     return {
-      type: 'add',
-      name: l.card.name,
-      reason: l.reason,
-      priority: l.grounds.produces.length > 1 ? 'high' : 'medium',
-      category: l.grounds.produces.length > 1 ? 'Mana fixing' : 'Utility',
-      quantity: 1,
-      grounds: l.grounds,
-      _card: l.card,
+      remove: t.name,
+      removeReason: t.reason,
+      add: r.card.name,
+      addBenefit: r.reason,
+      addType: r.card.typeLine,
+      synergy: r.sharedTags.length ? `Shares ${r.sharedTags.slice(0, 3).join(', ')}.` : null,
+      category: categoryFor(r),
+      priority: r.score >= 3 ? 'high' : 'medium',
+      edhImpact: null,
+      _addCard: r.card,
+      _removeCard: null,
     };
   });
 
-  // No issues: the engine ranks and explains cards, but it has no opinion to
-  // offer about a specific card being a problem, and an empty list is the
-  // honest way to say so.
+  /*
+   * LAND ADDITIONS ARE BOUNDED BY EMPTY SLOTS, NOT BY THE SHORTFALL.
+   *
+   * This list used to run to eight whatever the deck looked like. Measured on
+   * 2026-08-29: the real Atraxa deck is exactly a hundred cards with 33 lands
+   * against a target of 37, and it was told to add Command Tower, Exotic
+   * Orchard, Mirrex, Horizon of Progress, Forbidden Orchard, Spire of Industry,
+   * Evolving Wilds and Terramorphic Expanse. All eight are good lands. There
+   * was nowhere to put any of them, and taking the advice would have left a
+   * 108-card Commander deck.
+   *
+   * Being short of lands with no slot free is a reason to TRADE a land, and
+   * `landReplacements` is that answer. It is filled in whether this list is
+   * empty or not.
+   */
+  const landSlots = args.fillPlan ? args.fillPlan.landSlots : 0;
+  const landRecommendations = landCandidates
+    .slice(0, Math.min(landSlots, LAND_ADD_ASK_LIMIT))
+    .map(l => {
+      touched.add(l.card.name);
+      return {
+        type: 'add',
+        name: l.card.name,
+        reason: l.reason,
+        priority: l.grounds.produces.length > 1 ? 'high' : 'medium',
+        category: l.grounds.produces.length > 1 ? 'Mana fixing' : 'Utility',
+        quantity: 1,
+        grounds: l.grounds,
+        _card: l.card,
+      };
+    });
+
+  const issues = deckIssues({
+    deckEntries: args.deckEntries,
+    swapTargets,
+    commanderish: args.commanderish,
+    legalityKey: args.legalityKey,
+    identity: args.identity,
+    threshold: args.threshold,
+  });
+  for (const issue of issues) touched.add(String(issue.card));
+
   return {
     additions,
     removals,
     replacements,
     landRecommendations,
-    // Same as the model path: the handler fills these from `pairLandSwaps`, so
-    // a run with no model still returns land trades.
+    // The handler fills these from `pairLandSwaps`, once it knows what the
+    // lists above already name.
     landReplacements: [],
-    basicAsks: [],
-    issues: [],
+    issues,
     touched,
   };
 }
@@ -1607,6 +1529,137 @@ async function attachRealData(args: {
 }
 
 /* ------------------------------------------------------------------ *
+ * What each change is worth
+ * ------------------------------------------------------------------ */
+
+/**
+ * Re-score the deck with each suggested change applied, one at a time.
+ *
+ * `edhImpact` and `projectedPowerLevel` were the two numbers in this response
+ * that nothing measured. They came back beside a card name from a language
+ * model, and `optionalNum` existed solely to stop a missing one being minted as
+ * a zero — its own comment said "nothing on this server measures the power
+ * change of a swap". Something does now, and it is the same `evaluateUserDeck`
+ * that produced the score the delta is a delta OF, so the two agree by
+ * construction.
+ *
+ * WHAT A DELTA MEANS HERE. It is this deck's score with that one card swapped,
+ * minus its score as it stands. Not an opinion about the card in the abstract:
+ * a Force of Will is worth more to a deck that can pay for it, and the
+ * evaluator knows which deck it is looking at.
+ *
+ * WHAT IS DELIBERATELY NOT REPORTED. Anything under `IMPACT_FLOOR` stays null
+ * rather than shipping as 0.0, because the score carries one decimal and a
+ * rounded zero would render as a claim that a swap changes nothing when what
+ * was measured is that it changes less than the score can express. Rows past
+ * `IMPACT_BUDGET` stay null too, and null already renders as nothing.
+ *
+ * A LAND TRADE GETS NO NUMBER, and that is not an oversight. `landReplacements`
+ * is built by `pairLandSwaps` from a mana-base comparison whose whole argument
+ * is `fitGain`, which is already on the row and already explained in words. A
+ * second figure from a different scale beside it would invite the two to be
+ * read as the same thing.
+ */
+function measureImpact(args: {
+  deckLines: readonly ResolvedDeckLine[];
+  /** Rows for anything the answer proposes adding, by normalised name. */
+  addable: ReadonlyMap<string, CatalogRow>;
+  legalityKey: string;
+  sections: Sections;
+  /** The score as it stands. Null when the evaluation threw. */
+  current: number | null;
+}): { projected: number | null; measured: number } {
+  const { deckLines, addable, legalityKey, sections, current } = args;
+  if (current === null) return { projected: null, measured: 0 };
+
+  const started = Date.now();
+  let measured = 0;
+
+  /** The deck with one card out, one card in, or both. */
+  const withChange = (removeName: string | null, addName: string | null): number | null => {
+    const removeKey = removeName ? normalizeName(removeName) : null;
+    const addRow = addName ? addable.get(normalizeName(addName)) : null;
+    if (addName && !addRow) return null;
+
+    const lines: ResolvedDeckLine[] = [];
+    let removedOne = false;
+    for (const line of deckLines) {
+      if (removeKey && !removedOne && normalizeName(line.name) === removeKey && !line.isCommander) {
+        removedOne = true;
+        // A card the deck runs several of loses one copy, not the row.
+        if (line.quantity > 1) lines.push({ ...line, quantity: line.quantity - 1 });
+        continue;
+      }
+      lines.push(line);
+    }
+    // Naming a cut that is not in the deck would silently measure a deck that
+    // is one card larger, so the whole comparison is refused instead.
+    if (removeKey && !removedOne) return null;
+    if (addRow) lines.push({ name: addRow.name, row: addRow, quantity: 1, isCommander: false });
+
+    try {
+      return evaluateUserDeck(lines, legalityKey).power.score;
+    } catch {
+      // Unmeasurable is null, the same rule every other figure here follows.
+      return null;
+    }
+  };
+
+  const stamp = (row: Record<string, unknown>, removeName: string | null, addName: string | null) => {
+    if (measured >= IMPACT_BUDGET) return;
+    measured++;
+    const after = withChange(removeName, addName);
+    if (after === null) return;
+    const delta = after - current;
+    row.edhImpact = Math.abs(delta) < IMPACT_FLOOR ? null : Number(delta.toFixed(1));
+  };
+
+  for (const r of sections.replacements) stamp(r, String(r.remove), String(r.add));
+  for (const a of sections.additions) stamp(a, null, String(a.name));
+  for (const r of sections.removals) stamp(r, String(r.name), null);
+
+  /*
+   * The whole answer applied at once.
+   *
+   * Every replacement, because those are the changes a player takes together
+   * from one screen. Additions are left out on purpose: a deck that is short of
+   * cards is being finished rather than improved, and scoring it as though the
+   * suggestions were already in it would report a number for a deck that does
+   * not exist yet.
+   */
+  let projected: number | null = null;
+  if (sections.replacements.length > 0) {
+    const lines: ResolvedDeckLine[] = deckLines.map(l => ({ ...l }));
+    let applied = 0;
+    for (const r of sections.replacements) {
+      const removeKey = normalizeName(String(r.remove));
+      const addRow = addable.get(normalizeName(String(r.add)));
+      if (!addRow) continue;
+      const i = lines.findIndex(l => !l.isCommander && normalizeName(l.name) === removeKey);
+      if (i === -1) continue;
+      if (lines[i].quantity > 1) lines[i] = { ...lines[i], quantity: lines[i].quantity - 1 };
+      else lines.splice(i, 1);
+      lines.push({ name: addRow.name, row: addRow, quantity: 1, isCommander: false });
+      applied++;
+    }
+    if (applied > 0) {
+      try {
+        projected = evaluateUserDeck(lines, legalityKey).power.score;
+      } catch (error) {
+        console.error('projected evaluation failed', error);
+      }
+    }
+  }
+
+  console.log(
+    `impact: ${measured} change(s) re-scored in ${Date.now() - started}ms; ` +
+      `now ${current}, all replacements applied ${projected ?? 'not measured'}`
+  );
+
+  return { projected, measured };
+}
+
+/* ------------------------------------------------------------------ *
  * The response
  * ------------------------------------------------------------------ */
 
@@ -1620,15 +1673,17 @@ async function attachRealData(args: {
  *   landCount, idealLandCount
  *
  * ADDED — all optional for a reader that ignores them:
- *   analysis.validation     what was dropped and why. The measurement.
- *   analysis.grounding      pool size, candidates offered, identity, timings
- *   analysis.engine         version, whether the model was used, failure reason
+ *   analysis.grounding      pool size, candidates offered, identity, timings,
+ *                           how many wants the commander's plan carries, and
+ *                           whether the popularity prior is fit to rank with
+ *   analysis.engine         version, and how many changes carry a measured delta
  *   analysis.deck           measured role counts/targets, curve, deck themes
  *   analysis.swapTargets    cut candidates with their castability source
  *   analysis.power          THE score, from the same engine the deck page runs.
  *                           Same decklist in, same number out, and
  *                           src/engine/one-brain.test.ts fails if they differ.
- *   analysis.categoriesSource  'model' | 'measured'
+ *   analysis.categoriesSource  always 'measured'. The field survives because a
+ *                           client reads it; there is no other source now.
  *   analysis.basicFiller    how many basics the deck still needs and of which
  *                           colours, or null when it needs none
  *   analysis.landReplacements  land-for-land trades, in the same row shape as
@@ -1655,16 +1710,18 @@ async function attachRealData(args: {
  * `cardId` is the printing id, which is what `/cards/:id` routes on.
  */
 function buildResponse(args: {
-  raw: Record<string, unknown> | null;
   enriched: Sections;
   profile: DeckProfile;
-  log: ValidationLog;
   landCount: number;
   idealLandCount: number;
   basicFiller: BasicFiller | null;
   fillPlan: FillPlan | null;
   swapTargets: SwapTarget[];
   evaluation: DeckEvaluation | null;
+  /** The score with every replacement applied, or null when none was measured. */
+  projectedPowerLevel: number | null;
+  /** How many suggestions carry a measured power delta. */
+  impactsMeasured: number;
   colorIdentity: Color[];
   identitySource: string;
   unresolved: string[];
@@ -1672,11 +1729,11 @@ function buildResponse(args: {
   poolCards: number;
   candidatesOffered: number;
   usesIndex: boolean;
-  aiUsed: boolean;
-  aiFailure: string | null;
+  commanderPlanWants: number | null;
+  popularity: { ranked: number; earlyShare: number; lateShare: number; skewedByName: boolean };
   elapsedMs: number;
 }): Record<string, unknown> {
-  const { raw, enriched, profile, log } = args;
+  const { enriched, profile } = args;
 
   const roleCounts: Record<string, number> = {};
   const roleTargets: Record<string, number> = {};
@@ -1685,32 +1742,42 @@ function buildResponse(args: {
     roleTargets[role] = profile.roleTargets[role] ?? 0;
   }
 
-  const measured = measuredCategories(profile, args.landCount, args.idealLandCount);
-  const modelCategories = raw?.categories as Record<string, unknown> | undefined;
-  const categories = modelCategories
-    ? {
-        synergy: clamp(num(modelCategories.synergy, measured.synergy)),
-        consistency: clamp(num(modelCategories.consistency, measured.consistency)),
-        power: clamp(num(modelCategories.power, measured.power)),
-        interaction: clamp(num(modelCategories.interaction, measured.interaction)),
-        manabase: clamp(num(modelCategories.manabase, measured.manabase)),
-      }
-    : measured;
+  const categories = measuredCategories(profile, args.landCount, args.idealLandCount);
 
   return {
-    summary: raw?.summary ? str(raw.summary) : engineSummary(profile, args),
+    summary: engineSummary(profile, args),
     categories,
-    categoriesSource: modelCategories ? 'model' : 'measured',
-    currentPowerLevel: typeof raw?.currentPowerLevel === 'number' ? raw.currentPowerLevel : null,
-    projectedPowerLevel:
-      typeof raw?.projectedPowerLevel === 'number' ? raw.projectedPowerLevel : null,
-    // Already resolved against the deck in `validateSections`. Reading
-    // `raw.issues` here instead would put the one unvalidated card name in the
-    // response straight back.
+    /*
+     * There is one source now, and the field stays anyway.
+     *
+     * A client reads it to label a derived set of scores differently from a
+     * judged one. Dropping it would make that client read `undefined` and stop
+     * labelling them at all, which is the opposite of what it is for.
+     */
+    categoriesSource: 'measured',
+    /*
+     * The SAME number as `power.score` below, not a second opinion about it.
+     *
+     * This field used to hold whatever figure came back beside the analysis,
+     * unchecked, in a response that already carried the canonical score. That is
+     * the five-competing-power-fields problem from the design law, alive in one
+     * field. It is now the canonical score or nothing.
+     */
+    currentPowerLevel: args.evaluation ? args.evaluation.power.score : null,
+    projectedPowerLevel: args.projectedPowerLevel,
     issues: enriched.issues,
-    strengths: arr(raw?.strengths).map(textOf),
-    strategy: arr(raw?.strategy).map(textOf),
-    manabase: raw?.manabase ? arr(raw.manabase).map(textOf) : [{ text: manabaseNote(args) }],
+    strengths: deckStrengths(profile, args.evaluation),
+    /*
+     * EMPTY, ON PURPOSE.
+     *
+     * How to pilot a deck and where its decision points are is the one thing in
+     * this response that was genuinely judgement rather than restated
+     * measurement, and nothing here measures it. A sentence assembled to fill
+     * the space would be the only invented thing in an answer that is otherwise
+     * all counting.
+     */
+    strategy: [],
+    manabase: manabaseNotes(args),
 
     additions: enriched.additions,
     removals: enriched.removals,
@@ -1719,10 +1786,8 @@ function buildResponse(args: {
     /**
      * Land-for-land trades, measured. Same row shape as `replacements`.
      *
-     * Not from the model. Every term is measured, so this list is the same on
-     * a run where the gateway answered and one where it did not. An empty
-     * array means no pair could be justified in plain words, which is a real
-     * answer rather than a missing one.
+     * An empty array means no pair could be justified in plain words, which is
+     * a real answer rather than a missing one.
      */
     landReplacements: enriched.landReplacements,
     landCount: args.landCount,
@@ -1747,7 +1812,6 @@ function buildResponse(args: {
     basicFiller: args.basicFiller,
 
     /* --- added --- */
-    validation: log.summary(),
     grounding: {
       source: 'cards',
       format: profile.format,
@@ -1759,22 +1823,45 @@ function buildResponse(args: {
       legalityIndexUsed: args.usesIndex,
       unresolvedDeckNames: args.unresolved,
       /**
-       * How many basic lands the model named after being told not to.
+       * How many wants the commander's own ability record produced.
        *
-       * None of them shipped as recommendations. The number is here so the
-       * prompt change can be checked instead of assumed.
+       * Zero or null means the commander-fit signal was silent for this deck,
+       * which is a fact about how well the compiler reads that card and not a
+       * judgement about the card. It is reported because the signal spent
+       * months silent for EVERY deck with nothing saying so.
        */
-      basicsNamedByModel: enriched.basicAsks.reduce(
-        (n, b) => n + (Number(b.quantity) || 1),
-        0
-      ),
+      commanderPlanWants: args.commanderPlanWants,
+      /**
+       * Whether the popularity prior was fit to rank this pool with.
+       *
+       * `skewedByName` true means `edhrec_rank` is present for one half of the
+       * alphabet and largely absent for the other, which has happened here
+       * before and put eight generated decks entirely in the first half. The
+       * suggestions above are still the best available ordering; this says how
+       * much to trust the part of it that came from popularity.
+       */
+      popularity: {
+        ranked: args.popularity.ranked,
+        earlyShare: Number(args.popularity.earlyShare.toFixed(3)),
+        lateShare: Number(args.popularity.lateShare.toFixed(3)),
+        skewedByName: args.popularity.skewedByName,
+      },
       elapsedMs: args.elapsedMs,
     },
     engine: {
       version: ENGINE_VERSION,
-      aiUsed: args.aiUsed,
-      aiFailure: args.aiFailure,
-      fallbackUsed: !args.aiUsed,
+      /**
+       * How many suggestions carry a measured power delta.
+       *
+       * `aiUsed`, `aiFailure` and `fallbackUsed` used to sit here and they have
+       * been removed rather than pinned to constants. They answered "did the
+       * gateway reply", and with no gateway to reply the honest values would
+       * have been false, null and true on every single response forever, which
+       * is a field that has stopped carrying information while still looking
+       * like it does. A reader that wants to know where an answer came from has
+       * `version`, and it says so.
+       */
+      impactsMeasured: args.impactsMeasured,
     },
     deck: {
       deckSize: profile.deckSize,
@@ -1853,6 +1940,16 @@ function measuredCategories(profile: DeckProfile, landCount: number, idealLandCo
   return { synergy, consistency, power, interaction, manabase };
 }
 
+/**
+ * The two or three sentences at the top, counted off the deck.
+ *
+ * The last line used to read "These suggestions came from the in-house engine,
+ * not a language model." It is gone, for two reasons and only one of them is
+ * that it stopped being a distinction worth drawing. The other is that it broke
+ * the copy rules twice in nine words: "engine" is the kind of word the rules
+ * exist to keep out of an interface, and the last two are on the ban list
+ * outright. A player reading their own deck should be told about their deck.
+ */
 function engineSummary(
   profile: DeckProfile,
   args: { landCount: number; idealLandCount: number }
@@ -1865,9 +1962,103 @@ function engineSummary(
     `${args.landCount} lands against ${args.idealLandCount} for the format.`,
   ];
   if (short.length) parts.push(`Short of: ${short.join(', ')}.`);
-  parts.push('These suggestions came from the in-house engine, not a language model.');
   return parts.join(' ');
 }
+
+/**
+ * What the deck is doing well, from the score's own evidence.
+ *
+ * `drivers` is the three highest applicable subscores, already sorted, and each
+ * one carries a `measured` sentence saying what was counted to reach it. So
+ * this is the score explaining itself rather than a second opinion about the
+ * same deck, and the two cannot disagree.
+ *
+ * The roles at or above target are added because a subscore is a percentage and
+ * "you have enough removal" is the sentence a player recognises. Both halves are
+ * counts off the decklist.
+ *
+ * Empty when the evaluation threw, which is the honest reading: with no score
+ * there is no evidence, and a strength with no evidence under it is flattery.
+ */
+function deckStrengths(
+  profile: DeckProfile,
+  evaluation: DeckEvaluation | null
+): Array<{ text: string }> {
+  const out: Array<{ text: string }> = [];
+  if (!evaluation) return out;
+
+  for (const sub of evaluation.power.drivers) {
+    if (!sub.applicable || sub.value === null) continue;
+    // A "driver" is only the best of what is here. Calling the best of a weak
+    // set a strength is how a report ends up congratulating a deck on nothing.
+    if (sub.value < 50) continue;
+    out.push({ text: `${sub.measured} (${Math.round(sub.value)} of 100).` });
+  }
+
+  const met = ROLES.filter(r => (profile.roleTargets[r] ?? 0) > 0 && roleShortfall(profile, r) <= 0);
+  if (met.length) {
+    out.push({
+      text: `At or above target for ${met
+        .slice(0, 5)
+        .map(r => `${r} (${profile.roleCounts[r] ?? 0} of ${profile.roleTargets[r] ?? 0})`)
+        .join(', ')}.`,
+    });
+  }
+
+  return out;
+}
+
+/**
+ * The mana base, in counted sentences.
+ *
+ * The first line is the land count against the format's, which is what this
+ * function has always said. The second is the colour sources the castability
+ * engine actually found, which is a fact the response has carried since the
+ * score was wired in and has never printed anywhere a player could read it.
+ *
+ * `MIN_SOURCES_PER_COLOUR` is the same floor the land ranker uses to decide a
+ * deck is short of a colour, so the sentence here and the reason under a land
+ * on the Lands tab are the same judgement rather than two.
+ */
+function manabaseNotes(args: {
+  landCount: number;
+  idealLandCount: number;
+  evaluation: DeckEvaluation | null;
+  colorIdentity: Color[];
+}): Array<{ text: string }> {
+  const notes: Array<{ text: string }> = [{ text: manabaseNote(args) }];
+
+  const profile = args.evaluation?.playability.profile ?? null;
+  if (profile && args.colorIdentity.length > 0) {
+    const counts = args.colorIdentity.map(colour => ({
+      colour,
+      sources: profile.sourcesByColour[colour as ManaColour] ?? 0,
+    }));
+    notes.push({
+      text: `Sources: ${counts.map(c => `${COLOUR_WORDS[c.colour] ?? c.colour} ${c.sources}`).join(', ')}.`,
+    });
+    const thin = counts.filter(c => c.sources < MIN_SOURCES_PER_COLOUR);
+    if (thin.length) {
+      notes.push({
+        text: `Under ${MIN_SOURCES_PER_COLOUR} sources for ${thin
+          .map(c => COLOUR_WORDS[c.colour] ?? c.colour)
+          .join(' and ')}, which is where a colour starts costing you turns.`,
+      });
+    }
+  }
+
+  return notes;
+}
+
+/** Colour letters as a player says them. */
+const COLOUR_WORDS: Readonly<Record<string, string>> = {
+  W: 'white',
+  U: 'blue',
+  B: 'black',
+  R: 'red',
+  G: 'green',
+  C: 'colourless',
+};
 
 function manabaseNote(args: { landCount: number; idealLandCount: number }): string {
   const d = args.landCount - args.idealLandCount;
@@ -1876,507 +2067,17 @@ function manabaseNote(args: { landCount: number; idealLandCount: number }): stri
 }
 
 /* ------------------------------------------------------------------ *
- * The prompt
- * ------------------------------------------------------------------ */
-
-function candidateLine(r: Recommendation): string {
-  const price = r.card.usd === null ? 'n/a' : `$${r.card.usd.toFixed(2)}`;
-  const tags = r.card.tags.slice(0, 5).join(',') || '-';
-  return `- ${r.card.name} | ${r.card.typeLine} | mv ${r.card.cmc} | ${price} | ${tags} | ${r.reason}`;
-}
-
-/**
- * A land, described by what a land is for.
- *
- * The spell line leads with mana value and tags, which say nothing about a
- * land: every land is mana value 0 and half of them carry only `land`. This
- * one leads with the colours it makes, whether it enters tapped and whether
- * the user already owns it, so the model is choosing between described things
- * rather than between names.
- */
-function landLine(l: RankedLand): string {
-  const price = l.card.usd === null ? 'n/a' : `$${l.card.usd.toFixed(2)}`;
-  const makes = l.grounds.produces.length ? l.grounds.produces.join('') : 'colourless';
-  const speed = l.grounds.entersTapped ? 'enters tapped' : 'untapped';
-  const own = l.grounds.ownedQuantity > 0 ? ` | OWNED x${l.grounds.ownedQuantity}` : '';
-  return `- ${l.card.name} | makes ${makes} | ${speed} | ${price}${own} | ${l.reason}`;
-}
-
-function buildGroundedPrompt(p: {
-  deckContext: Record<string, unknown>;
-  profile: DeckProfile;
-  commanderCard: CandidateCard | null;
-  colorIdentity: Color[];
-  totalWithCommander: number;
-  requiredCards: number;
-  missingCards: number;
-  excessCards: number;
-  landCount: number;
-  idealLandCount: number;
-  fillPlan: FillPlan | null;
-  candidates: Recommendation[];
-  landCandidates: RankedLand[];
-  swapTargets: SwapTarget[];
-  deckEntries: DeckEntry[];
-  gaps: Role[];
-  useCollection: boolean;
-  collectionCards: string[];
-  edhAnalysis: Record<string, unknown> | null;
-}): string {
-  const {
-    profile,
-    commanderCard,
-    colorIdentity,
-    totalWithCommander,
-    requiredCards,
-    missingCards,
-    excessCards,
-    landCount,
-    idealLandCount,
-    candidates,
-    landCandidates,
-    swapTargets,
-    deckEntries,
-    gaps,
-  } = p;
-
-  const plan = p.fillPlan;
-
-  // The fill order, stated to the model in the same terms the user is shown
-  // it. A deck twelve cards short and nine lands short has three spell slots,
-  // not twelve, and a summary that talks as though it had twelve contradicts
-  // the tab strip the user is reading it on.
-  const status =
-    missingCards > 0
-      ? plan && plan.landSlots > 0
-        ? `INCOMPLETE — needs ${missingCards} more cards, and ${plan.landSlots} of those ` +
-          `slots are lands. Priority: LANDS first, then ${plan.spellSlots} spells.`
-        : `INCOMPLETE — needs ${missingCards} more cards. Priority: ADDITIONS.`
-      : excessCards > 0
-        ? `OVERLOADED — ${excessCards} too many cards. Priority: REMOVALS.`
-        : `COMPLETE. Priority: SWAPS.`;
-
-  const out: string[] = [];
-  out.push(`# Deck optimisation`);
-  out.push(``);
-  out.push(`## The rule that governs this task`);
-  out.push(
-    `Every card you name in additions, replacements.add, or landRecommendations of ` +
-      `type "add" MUST be copied verbatim from the CANDIDATE POOL or LAND CANDIDATES ` +
-      `below. Those lists were retrieved from the card database: every entry is a real ` +
-      `card, legal in ${profile.format}, and inside this deck's colour identity. Do not ` +
-      `name a card from memory. Any name that is not in the list is discarded before the ` +
-      `user sees it, so naming one only wastes the slot.`
-  );
-  out.push(
-    `Every card you name in removals, replacements.remove, landRecommendations of ` +
-      `type "remove", or issues MUST be copied verbatim from the DECK list. An issue ` +
-      `is a problem with a card this deck already plays; for anything broader use the ` +
-      `summary, strengths, strategy or mana base notes, which name no cards.`
-  );
-  out.push(`Do not suggest adding a card the DECK list already contains.`);
-  out.push(
-    `Do NOT name a basic land anywhere. Plains is not a recommendation. It is what ` +
-      `goes in the slots nothing better wants. This response counts the basics the ` +
-      `deck still needs by itself, from the coloured mana its own spells demand, and ` +
-      `reports them as a single line. Spend every land slot you are given on a land ` +
-      `that DOES something: fixes a colour this deck is short of, or has an ability ` +
-      `worth a land drop.`
-  );
-  out.push(``);
-  out.push(`## Deck`);
-  out.push(`Name: ${str(p.deckContext.name) || 'Unnamed'}`);
-  out.push(`Format: ${profile.format}`);
-  if (commanderCard) out.push(`Commander: ${commanderCard.name}`);
-  out.push(`Colour identity: ${colorIdentity.join('') || 'colourless'}`);
-  out.push(`Cards: ${totalWithCommander}/${requiredCards} — ${status}`);
-  out.push(`Lands: ${landCount} (format target ${idealLandCount})`);
-  if (plan) out.push(`Fill order: ${plan.note}`);
-  out.push(`Mean mana value of non-lands: ${profile.meanCmc.toFixed(2)}`);
-  out.push(
-    `Roles held/target: ` +
-      ROLES.map(r => `${r} ${profile.roleCounts[r] ?? 0}/${profile.roleTargets[r] ?? 0}`).join(' | ')
-  );
-  if (gaps.length) out.push(`Short of, worst first: ${gaps.join(', ')}`);
-  if (profile.signalTags.length) {
-    out.push(`Deck themes, measured from card tags: ${profile.signalTags.slice(0, 14).join(', ')}`);
-  }
-  out.push(``);
-
-  out.push(`## DECK — the only cards you may name for removal`);
-  out.push(
-    deckEntries
-      .filter(e => !e.isCommander)
-      .map(e => `- ${e.name}${e.quantity > 1 ? ` x${e.quantity}` : ''}`)
-      .join('\n')
-  );
-  out.push(``);
-
-  if (swapTargets.length) {
-    out.push(`## Cut targets, weakest first`);
-    out.push(
-      swapTargets
-        .map(
-          t =>
-            `- ${t.name} — ${t.reason}` +
-            (t.castability === null ? ' [NO castability figure exists for this card]' : '')
-        )
-        .join('\n')
-    );
-    out.push(
-      `This order is not an opinion. It comes from the same evaluation that produced ` +
-        `the power score above: cards you cannot reliably pay for come first, worst ` +
-        `first, then cards that share nothing with the deck and fill no job it is ` +
-        `short of. A card with no castability figure is UNMEASURED, not weak, and a ` +
-        `missing figure must never be treated as a low one.`
-    );
-    out.push(``);
-  }
-
-  out.push(`## CANDIDATE POOL — additions and replacement adds must come from here`);
-  out.push(`Format: name | type | mana value | price | tags | why the engine ranked it`);
-  out.push(candidates.map(candidateLine).join('\n'));
-  out.push(``);
-
-  out.push(`## LAND CANDIDATES — landRecommendations of type "add" must come from here`);
-  out.push(`Format: name | colours it makes | speed | price | why the engine ranked it`);
-  out.push(
-    `Ranked by what a land is worth to THIS deck: the colours of yours it makes, ` +
-      `whether it makes one you are short of sources for, whether it enters tapped, ` +
-      `and whether the user already owns it. No basics appear here.`
-  );
-  out.push(landCandidates.map(landLine).join('\n'));
-  out.push(``);
-
-  if (p.useCollection && p.collectionCards.length) {
-    out.push(`## The user already owns these — prefer them where they appear in the pool`);
-    out.push(p.collectionCards.slice(0, 150).join(', '));
-    out.push(``);
-  }
-
-  if (p.edhAnalysis) {
-    const e = p.edhAnalysis as Record<string, unknown>;
-    out.push(`## External EDH metrics (advisory)`);
-    out.push(
-      `Tipping point: ${str(e.tippingPoint) || 'n/a'} | efficiency: ` +
-        `${str(e.efficiency) || 'n/a'} | impact: ${str(e.impact) || 'n/a'}`
-    );
-    out.push(``);
-  }
-
-  out.push(`## What to return`);
-  if (missingCards > 0) {
-    out.push(
-      `Choose ${Math.min(missingCards + 5, 20)} additions from the CANDIDATE POOL, spread ` +
-        `across Essential / Ramp / Card Draw / Removal / Creatures / Lands and weighted ` +
-        `towards the roles the deck is short of.`
-    );
-    if (plan && plan.landSlots > 0) {
-      // Said here as well as in the deck block, because this is the section the
-      // model acts on. Additions are ideas for the slots the mana base leaves.
-      out.push(
-        `Only ${plan.spellSlots} of the ${plan.emptySlots} empty slots are spell slots. ` +
-          `The other ${plan.landSlots} are lands and are handled by the land section. ` +
-          `Rank your additions accordingly: the first ${plan.spellSlots} are the ones ` +
-          `that will actually go in.`
-      );
-    }
-  } else if (excessCards > 0) {
-    out.push(`Identify at least ${excessCards + 2} cards from the DECK list to cut.`);
-  } else {
-    out.push(
-      `Propose 10-15 replacements. Each removes a card from the DECK list and adds one ` +
-        `from the CANDIDATE POOL.`
-    );
-  }
-  if (Math.abs(landCount - idealLandCount) > 2) {
-    if (landCount < idealLandCount) {
-      // Capped, and the cap is the point. A deck twenty-nine lands short does
-      // not want twenty-nine recommendations; it wants the handful of lands
-      // worth choosing deliberately, and a count for the rest. Asking for one
-      // suggestion per empty slot is what filled this section with basics.
-      const ask = Math.min(idealLandCount - landCount, LAND_ADD_ASK_LIMIT);
-      out.push(
-        `The deck is ${idealLandCount - landCount} lands short. Recommend the ${ask} ` +
-          `best lands from LAND CANDIDATES, the ones worth choosing on purpose. The ` +
-          `remaining slots are counted as basics by this function and are not your job.`
-      );
-    } else {
-      out.push(`Recommend ${landCount - idealLandCount} lands from the DECK list to remove.`);
-    }
-  }
-  out.push(
-    `Also give category scores 0-100 (synergy, consistency, power, interaction, manabase), ` +
-      `a 2-3 sentence summary, 3-5 strengths, 3-5 strategy notes, and mana base ` +
-      `observations. Justify every pick from the measured numbers above.`
-  );
-
-  return out.join('\n');
-}
-
-/* ------------------------------------------------------------------ *
- * The model call
- * ------------------------------------------------------------------ */
-
-type ModelResult =
-  | { kind: 'ok'; analysis: Record<string, unknown> }
-  | { kind: 'failed'; reason: string }
-  | { kind: 'rate_limit' }
-  | { kind: 'payment_required' };
-
-const TEXT_LIST = {
-  type: 'array',
-  items: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] },
-};
-
-const TOOLS = [
-  {
-    type: 'function',
-    function: {
-      name: 'deck_analysis',
-      description: 'Deck analysis, choosing only from the supplied candidate pool and deck list',
-      parameters: {
-        type: 'object',
-        properties: {
-          summary: { type: 'string', description: '2-3 sentence executive summary' },
-          categories: {
-            type: 'object',
-            properties: {
-              synergy: { type: 'number' },
-              consistency: { type: 'number' },
-              power: { type: 'number' },
-              interaction: { type: 'number' },
-              manabase: { type: 'number' },
-            },
-            required: ['synergy', 'consistency', 'power', 'interaction', 'manabase'],
-          },
-          currentPowerLevel: { type: 'number' },
-          projectedPowerLevel: { type: 'number' },
-          issues: {
-            type: 'array',
-            description:
-              'Problems with specific cards the deck already plays. Use summary / ' +
-              'strengths / strategy / manabase for anything not about one named card.',
-            items: {
-              type: 'object',
-              properties: {
-                card: {
-                  type: 'string',
-                  description: 'Copied verbatim from the DECK list',
-                },
-                reason: { type: 'string' },
-                severity: { type: 'string', enum: ['low', 'medium', 'high'] },
-                category: { type: 'string' },
-              },
-              required: ['card', 'reason', 'severity'],
-            },
-          },
-          strengths: TEXT_LIST,
-          strategy: TEXT_LIST,
-          manabase: TEXT_LIST,
-          additions: {
-            type: 'array',
-            description: 'Cards to add. Each name MUST appear verbatim in the CANDIDATE POOL.',
-            items: {
-              type: 'object',
-              properties: {
-                name: { type: 'string', description: 'Copied verbatim from the CANDIDATE POOL' },
-                reason: { type: 'string' },
-                type: { type: 'string' },
-                category: { type: 'string' },
-                priority: { type: 'string', enum: ['high', 'medium', 'low'] },
-                edhImpact: { type: 'number' },
-              },
-              required: ['name', 'reason', 'priority'],
-            },
-          },
-          removals: {
-            type: 'array',
-            description: 'Cards to cut. Each name MUST appear verbatim in the DECK list.',
-            items: {
-              type: 'object',
-              properties: {
-                name: { type: 'string', description: 'Copied verbatim from the DECK list' },
-                reason: { type: 'string' },
-                priority: { type: 'string', enum: ['high', 'medium', 'low'] },
-                edhImpact: { type: 'number' },
-              },
-              required: ['name', 'reason', 'priority'],
-            },
-          },
-          replacements: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                remove: { type: 'string', description: 'Verbatim from the DECK list' },
-                removeReason: { type: 'string' },
-                add: { type: 'string', description: 'Verbatim from the CANDIDATE POOL' },
-                addBenefit: { type: 'string' },
-                addType: { type: 'string' },
-                synergy: { type: 'string' },
-                category: { type: 'string' },
-                priority: { type: 'string', enum: ['high', 'medium', 'low'] },
-                edhImpact: { type: 'number' },
-              },
-              required: ['remove', 'removeReason', 'add', 'addBenefit', 'priority'],
-            },
-          },
-          landRecommendations: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                type: { type: 'string', enum: ['add', 'remove'] },
-                name: {
-                  type: 'string',
-                  description: 'Verbatim from LAND CANDIDATES (add) or the DECK list (remove)',
-                },
-                reason: { type: 'string' },
-                priority: { type: 'string', enum: ['high', 'medium', 'low'] },
-                category: { type: 'string' },
-              },
-              required: ['type', 'name', 'reason', 'priority'],
-            },
-          },
-        },
-        required: ['summary', 'categories', 'issues', 'strengths', 'strategy', 'manabase'],
-      },
-    },
-  },
-];
-
-async function callModel(
-  prompt: string,
-  apiKey: string | null,
-  format: string
-): Promise<ModelResult> {
-  if (!apiKey) return { kind: 'failed', reason: 'LOVABLE_API_KEY is not configured' };
-
-  let response: Response;
-  try {
-    response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'system',
-            content:
-              `You are a Magic: The Gathering deck optimiser working from retrieved data.\n\n` +
-              `The user message contains a CANDIDATE POOL fetched from a card database. Every ` +
-              `entry in it is a real card, legal in ${format}, and inside the deck's colour ` +
-              `identity. Your job is to CHOOSE from that pool and justify the choice — not to ` +
-              `recall card names from memory.\n\n` +
-              `Hard rules:\n` +
-              `1. Copy card names verbatim from the CANDIDATE POOL / LAND CANDIDATES (to add) ` +
-              `or from the DECK list (to cut). A name from neither list is discarded before ` +
-              `the user sees it.\n` +
-              `2. Never suggest adding a card the DECK list already contains.\n` +
-              `2b. Never name a basic land. Basics are filler and this function counts ` +
-              `the ones the deck needs by itself. Every land slot you are given goes to ` +
-              `a land that fixes colours or does something worth a land drop.\n` +
-              `2a. An issue names a card from the DECK list. Observations about the deck ` +
-              `as a whole go in the summary, strengths, strategy or mana base notes.\n` +
-              `3. Justify each pick from the measured numbers supplied: role gaps, mana curve, ` +
-              `shared tags, price.\n` +
-              `4. A card with no castability figure is unmeasured, not weak.\n` +
-              `5. Prefer cards the user already owns when they appear in the pool.`,
-          },
-          { role: 'user', content: prompt },
-        ],
-        temperature: 0.3,
-        max_tokens: MAX_OUTPUT_TOKENS,
-        tools: TOOLS,
-        tool_choice: { type: 'function', function: { name: 'deck_analysis' } },
-      }),
-    });
-  } catch (e) {
-    return { kind: 'failed', reason: `gateway unreachable: ${String(e).slice(0, 200)}` };
-  }
-
-  if (response.status === 429) return { kind: 'rate_limit' };
-  if (response.status === 402) return { kind: 'payment_required' };
-  if (!response.ok) {
-    console.error('AI Gateway error:', response.status, (await response.text()).slice(0, 500));
-    return { kind: 'failed', reason: `gateway ${response.status}` };
-  }
-
-  const payload = await response.json();
-  const choice = payload.choices?.[0];
-  const finish = choice?.finish_reason ?? null;
-  const toolCalls = choice?.message?.tool_calls;
-
-  if (toolCalls?.length) {
-    try {
-      return { kind: 'ok', analysis: JSON.parse(toolCalls[0].function.arguments) };
-    } catch (e) {
-      // Truncated mid-JSON. This used to become an HTTP 500; the engine now
-      // answers instead.
-      console.error('tool arguments unparseable, finish_reason =', finish, String(e).slice(0, 200));
-      return { kind: 'failed', reason: `tool arguments unparseable (finish_reason=${finish})` };
-    }
-  }
-
-  const content = choice?.message?.content;
-  if (typeof content === 'string' && content.trim()) {
-    try {
-      return { kind: 'ok', analysis: parseJsonFallback(content) };
-    } catch {
-      /* fall through to the engine */
-    }
-  }
-
-  console.error('no usable model output; finish_reason =', finish);
-  return { kind: 'failed', reason: `no tool call (finish_reason=${finish ?? 'unknown'})` };
-}
-
-function parseJsonFallback(text: string): Record<string, unknown> {
-  const clean = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-  const start = clean.indexOf('{');
-  if (start === -1) throw new Error('No JSON found');
-  let depth = 0;
-  for (let i = start; i < clean.length; i++) {
-    if (clean[i] === '{') depth++;
-    else if (clean[i] === '}' && --depth === 0) return JSON.parse(clean.slice(start, i + 1));
-  }
-  throw new Error('Incomplete JSON');
-}
-
-/* ------------------------------------------------------------------ *
  * Small coercions
  * ------------------------------------------------------------------ */
 
-function arr(v: unknown): Record<string, unknown>[] {
-  return Array.isArray(v) ? (v as Record<string, unknown>[]) : [];
-}
-function str(v: unknown): string {
-  return v === null || v === undefined ? '' : String(v);
-}
-function num(v: unknown, fallback: number): number {
-  return typeof v === 'number' && Number.isFinite(v) ? v : fallback;
-}
 /**
- * A number the model actually sent, or nothing.
+ * The last one standing.
  *
- * Deliberately separate from `num`. `num` is for fields where the substitute is
- * itself a real answer — a category score falling back to `measuredCategories`,
- * which is computed from the deck. `edhImpact` has no such backing: nothing on
- * this server measures the power change of a swap, so a default turns "the
- * model omitted this field" into a confident badge on the card. The client
- * renders nothing for `null`, but it could never do so while the constant was
- * being minted here — from the client's side 0.2 and a real 0.2 are identical.
+ * `arr`, `str`, `num`, `optionalNum`, `priority` and `textOf` lived here to
+ * make an untyped answer from somewhere else safe to read. Nothing untyped
+ * arrives any more, so they are gone rather than kept for a caller that no
+ * longer exists.
  */
-function optionalNum(v: unknown): number | null {
-  return typeof v === 'number' && Number.isFinite(v) ? v : null;
-}
 function clamp(n: number): number {
   return Math.min(100, Math.max(0, Math.round(Number.isFinite(n) ? n : 0)));
-}
-function priority(v: unknown): string {
-  return ['high', 'medium', 'low'].includes(String(v)) ? String(v) : 'medium';
-}
-function textOf(s: unknown): { text: string } {
-  return { text: typeof s === 'string' ? s : str((s as Record<string, unknown> | null)?.text) };
 }

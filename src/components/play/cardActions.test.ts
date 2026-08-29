@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 
 import { addCard, applyAction, createGame } from '../../lib/game/index.ts';
 import type { GameState, PlayerId, Zone } from '../../lib/game/index.ts';
-import { actionsForCard, cardNotes } from './cardActions.ts';
+import { actionsForCard, cardNotes, handPlayVerdict } from './cardActions.ts';
 
 function table(): GameState {
   return createGame({
@@ -611,4 +611,111 @@ test('a targeted spell that cannot be paid for still says why', () => {
   assert.equal(actions.length, 0);
   assert.equal(blocked.length, 1);
   assert.match(blocked[0].reason, /mana/i);
+});
+
+/* -------------------------------------------------------------------------- */
+/* THE FAN AND THE PREVIEW ANSWER ONE QUESTION                                */
+/* -------------------------------------------------------------------------- */
+/*
+ * `ViewerHand` used to decide castability with `planCastFromHand` alone, which
+ * documents itself as answering COST AND ZONE and nothing else. So the fan said
+ * "You can cast this" on a sorcery during the opponent's untap step, and on a
+ * removal spell with nothing to point at, and the preview under it then
+ * refused. Measured over 4,000 real cards from the harness pool with a board
+ * that could pay for anything: 253 promised-then-refused in your own main
+ * phase, 3,385 in the untap step.
+ *
+ * `handPlayVerdict` is the single rule all three surfaces read now. These are
+ * the ratchet on it.
+ */
+
+/** A board that can pay for anything, in your own main phase. */
+function payingTable(): GameState {
+  let state = table();
+  for (let i = 0; i < 8; i++) {
+    state = addCard(
+      state,
+      {
+        instanceId: `tower-${i}`,
+        cardId: `tower-${i}`,
+        ownerId: 'p1',
+        name: 'Command Tower',
+        typeLine: 'Land',
+        colorIdentity: ['W', 'U', 'B', 'R', 'G'],
+        oracleText: '{T}: Add one mana of any color.',
+      },
+      'battlefield'
+    );
+  }
+  return { ...state, step: 'precombat_main', activePlayerId: 'p1', priorityPlayerId: 'p1' };
+}
+
+const MURDER = {
+  name: 'Murder',
+  typeLine: 'Instant',
+  manaCost: '{1}{B}{B}',
+  oracleText: 'Destroy target creature.',
+};
+
+test('the fan refuses a sorcery outside a main phase, in the same words as the preview', () => {
+  const state = put(
+    { ...payingTable(), step: 'untap' },
+    'wrath',
+    {
+      name: 'Wrath of God',
+      typeLine: 'Sorcery',
+      manaCost: '{2}{W}{W}',
+      oracleText: 'Destroy all creatures. They cannot be regenerated.',
+    },
+    'hand'
+  );
+
+  const verdict = handPlayVerdict(state, 'p1', state.cards.wrath);
+  assert.equal(verdict.ok, false, 'a sorcery in the untap step is not castable');
+  assert.notEqual(verdict.reason, '', 'a refusal is a sentence, never silence');
+
+  const { actions, blocked } = actionsForCard(state, 'p1', state.cards.wrath);
+  assert.equal(actions.length, 0);
+  assert.equal(blocked[0].reason, verdict.reason, 'one refusal, said the same way twice');
+});
+
+test('a targeted spell with nothing to point at is refused, not promised', () => {
+  const state = put(payingTable(), 'murder', MURDER, 'hand');
+
+  const verdict = handPlayVerdict(state, 'p1', state.cards.murder);
+  assert.equal(verdict.ok, false, 'CR 601.2c: no legal target means no cast');
+  assert.equal(verdict.needsTarget, true);
+  assert.notEqual(verdict.reason, '');
+});
+
+test('the same spell with a creature on the board is playable, once aimed', () => {
+  const state = put(
+    put(payingTable(), 'bear', { name: 'Grizzly Bears', typeLine: 'Creature — Bear', power: '2', toughness: '2' }, 'battlefield'),
+    'murder',
+    MURDER,
+    'hand'
+  );
+
+  const verdict = handPlayVerdict(state, 'p1', state.cards.murder);
+  assert.equal(verdict.ok, true);
+  assert.equal(
+    verdict.needsTarget,
+    true,
+    'legal, but the player still has to say what at, so the preview draws the target row rather than a plain Cast'
+  );
+  assert.equal(verdict.reason, '');
+
+  /* And the plain Cast button is still withheld, because a target is chosen as
+     the spell is cast and a plain Cast would announce it aimed at nobody. */
+  const { actions } = actionsForCard(state, 'p1', state.cards.murder);
+  assert.equal(actions.some(a => a.kind === 'cast'), false);
+});
+
+test('the mulligan hold reason reaches the fan as a sentence rather than as silence', () => {
+  const state = put(payingTable(), 'bear', { name: 'Grizzly Bears', typeLine: 'Creature — Bear', manaCost: '{1}{G}' }, 'hand');
+  const verdict = handPlayVerdict(state, 'p1', state.cards.bear, {
+    holdReason: 'Decide on your opening hand first.',
+  });
+  assert.equal(verdict.ok, false);
+  assert.match(verdict.reason, /opening hand/i);
 });

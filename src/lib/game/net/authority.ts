@@ -88,6 +88,11 @@ const ACTIVE_PLAYER_ONLY: ReadonlySet<GameActionType> = new Set<GameActionType>(
   'ADVANCE_STEP',
   'PHASE_CHANGE',
   'ATTACK',
+  /* CR 509.2 gives the damage assignment order to the ATTACKING player, and
+     nothing in this engine attacks on somebody else's turn, so the attacker is
+     always the active player. A defender sending one is reordering the damage
+     their own creatures are about to take. */
+  'ORDER_BLOCKERS',
   'END_COMBAT',
 ]);
 

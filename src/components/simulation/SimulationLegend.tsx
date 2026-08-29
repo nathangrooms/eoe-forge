@@ -29,11 +29,11 @@ export const SimulationLegend = () => {
           <ul className="space-y-2 text-sm text-muted-foreground">
             <li className="flex items-center gap-2">
               <Hourglass className="h-4 w-4 shrink-0 text-foreground" aria-hidden />
-              Summoning sick — cannot attack or tap
+              Summoning sick, cannot attack or tap
             </li>
             <li className="flex items-center gap-2">
               <span className="h-4 w-4 shrink-0 rotate-90 rounded  bg-muted" />
-              Tapped — rotated 90°
+              Tapped, rotated 90°
             </li>
             <li className="flex items-center gap-2">
               <Badge variant="outline" className="shrink-0 text-xs">
@@ -72,10 +72,10 @@ export const SimulationLegend = () => {
         <section>
           <h4 className="mb-2 text-sm font-bold text-foreground">Controls</h4>
           <ul className="space-y-1 text-sm text-muted-foreground">
-            <li>Play — run the game automatically.</li>
-            <li>Step — advance a single action or phase.</li>
-            <li>Speed — 0.25x to 4x playback.</li>
-            <li>Export — download the finished game as JSON.</li>
+            <li>Play runs the game automatically.</li>
+            <li>Step advances a single action or phase.</li>
+            <li>Speed goes from 0.25x to 4x.</li>
+            <li>Export downloads the finished game as JSON.</li>
           </ul>
         </section>
       </PopoverContent>

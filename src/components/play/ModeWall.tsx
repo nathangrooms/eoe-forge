@@ -25,14 +25,30 @@
  * remembered for the life of the tab so one 404 does not become one per visit.
  *
  * ---------------------------------------------------------------------------
- * ONE GRADIENT, IN THE BOTTOM THIRD, AND NOTHING OVER THE PICTURE
+ * THE COPY CAME OFF THE PICTURE. MEASURED, 28 Aug 2026
  * ---------------------------------------------------------------------------
- * These covers were drawn with a dark lower third for type to sit in, so the
- * type sits there and the darkening stops where that band stops. The version
- * before this one also laid a second gradient DOWN from the top, which was
- * insurance against artwork that did not exist. It exists, it does not need
- * insuring, and washing the top of a picture somebody drew for this screen is
- * the opposite of showing it.
+ * Four doors across a 1592px page are 386px wide, and at the cover's own 1.79
+ * ratio that is 386 x 216. Every word of the door — eyebrow, title, two lines
+ * of body, the quiet fact and the way in — was being set inside that 216px
+ * letterbox, on top of the artwork, under one gradient. Both halves lost:
+ *
+ *   - the eyebrows OTHER PEOPLE / ONE SEAT / HANDS OFF were unreadable over
+ *     stained glass and bright spell art, and the body copy under ONLINE and
+ *     PLAYTEST fought the picture the whole way across;
+ *   - the picture, which is the thing a door is for, was reduced to a 216px
+ *     strip with type over four fifths of it.
+ *
+ * And directly below, the play page ended at y=580 of a 1000px window: 42% of
+ * the screen was empty black. So the room to fix it was already on the page.
+ *
+ * The door is now a picture AND a card, stacked: the cover at its own aspect
+ * ratio with NOTHING drawn over it, and the words below it on the surface tint
+ * every other card on this app uses. Contrast stops depending on which part of
+ * an illustration landed behind a given letter, the artwork is finally shown
+ * whole and unmodified, and the wall fills the window instead of stranding it.
+ *
+ * Still ONE ROW of four. Owner: *"all modes one line not 2 they are massive."*
+ * The row got taller, not narrower, which is what the empty 42% was for.
  */
 
 import { useState } from 'react';
@@ -142,7 +158,7 @@ export function ModeWall({ value, onChoose, live }: ModeWallProps) {
      a thousand pixels of artwork above the thing you came here to press. Four
      across quarters the width and therefore quarters the height. */
   return (
-    <div className="grid w-full gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid w-full items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {PLAY_MODES.map(mode => {
         const active = value === mode.id;
         const liveLine = live?.[mode.id] ?? null;
@@ -154,56 +170,65 @@ export function ModeWall({ value, onChoose, live }: ModeWallProps) {
             onClick={() => onChoose(mode.id)}
             aria-pressed={active}
             className={cn(
-              'motion-press group relative flex w-full min-w-0 flex-col justify-end overflow-hidden rounded-2xl p-5 text-left',
-              active && 'shadow-lg shadow-black/40'
+              'motion-press group relative flex h-full w-full min-w-0 flex-col overflow-hidden rounded-2xl bg-card text-left transition-shadow duration-200',
+              active
+                ? 'shadow-[0_18px_46px_rgba(0,0,0,0.55)]'
+                : 'shadow-[0_10px_30px_rgba(0,0,0,0.35)] hover:shadow-[0_18px_46px_rgba(0,0,0,0.5)]'
             )}
-            style={{ aspectRatio: COVER_ASPECT }}
           >
-            {/* All four, because all four are on screen. See `Cover`. */}
-            <Cover src={mode.cover} fallback={mode.fallback} alt="" eager />
+            {/* THE PICTURE. Its own box, its own ratio, nothing drawn over it.
+                All four are on screen at once, so all four are eager. */}
+            <span className="relative block w-full shrink-0 overflow-hidden" style={{ aspectRatio: COVER_ASPECT }}>
+              <Cover src={mode.cover} fallback={mode.fallback} alt="" eager />
 
-            {/* The darkening, and only in the band the cover already darkened
-                for it. Above 42% of the height the picture is untouched. */}
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-x-0 bottom-0 top-[42%]"
-              style={{
-                backgroundImage:
-                  'linear-gradient(to top, hsl(0 0% 3% / 0.9) 0%, hsl(0 0% 3% / 0.62) 40%, transparent 100%)',
-              }}
-            />
+              {/* Hover and selection are light on the surface, never an
+                  outline, and they sit on the picture rather than under the
+                  words so the copy's contrast never moves. */}
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'pointer-events-none absolute inset-0 transition-opacity duration-200',
+                  active ? 'bg-white/[0.06] opacity-100' : 'bg-white/[0.05] opacity-0 group-hover:opacity-100'
+                )}
+              />
+            </span>
 
-            {/* Hover and selection are light on the surface, never an outline. */}
-            <span
-              aria-hidden="true"
-              className={cn(
-                'pointer-events-none absolute inset-0 bg-white/0 transition-opacity duration-200',
-                active ? 'opacity-100 bg-white/[0.06]' : 'opacity-0 group-hover:opacity-100 group-hover:bg-white/[0.05]'
-              )}
-            />
-
-            <span className="relative flex min-w-0 flex-col gap-2">
-              <span className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-white/60">
+            {/* THE WORDS. On the card surface, so every one of them reads at
+                full contrast whatever the illustration above happens to be
+                doing. `flex-1` so the four bodies line their actions up even
+                when one mode says more than another. */}
+            <span className="relative flex min-w-0 flex-1 flex-col gap-2 p-5">
+              <span className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
                 {mode.eyebrow}
               </span>
 
-              <span className="text-2xl font-bold uppercase leading-none tracking-tight text-white lg:text-3xl xl:text-xl 2xl:text-2xl">
+              <span className="text-2xl font-bold uppercase leading-none tracking-tight text-foreground">
                 {mode.title}
               </span>
 
               <span className="mt-1 space-y-1">
                 {mode.lines.map(line => (
-                  <span key={line} className="block text-[0.8rem] leading-snug text-white/80">
+                  <span key={line} className="block text-[0.8rem] leading-snug text-muted-foreground">
                     {line}
                   </span>
                 ))}
               </span>
 
-              <span className="mt-3 flex items-end justify-between gap-3">
-                <span className="min-w-0 text-[0.7rem] leading-snug text-white/55">
+              {/* Pushed to the bottom of the body, so ENTER sits on one line
+                  across all four doors however long the copy above it runs.
+
+                  The fact and the way in are STACKED, not set beside each
+                  other. Side by side they collided on the two doors whose fact
+                  is longest: "2 to 4 seats. Needs an account and one deck with
+                  cards in it." wrapped to two lines and ran into ENTER, and
+                  "1 seat. Nothing blocks and nothing attacks back." finished
+                  hard against it. A door is 374px wide and a sentence plus a
+                  button does not fit on one line of it. */}
+              <span className="mt-auto flex flex-col gap-2 pt-4">
+                <span className="min-w-0 text-[0.7rem] leading-snug text-muted-foreground/70">
                   {liveLine ? (
                     <>
-                      <span className="block font-medium text-white/80">{liveLine}</span>
+                      <span className="block font-medium text-foreground/80">{liveLine}</span>
                       <span className="block">{mode.meta}</span>
                     </>
                   ) : (
@@ -211,7 +236,7 @@ export function ModeWall({ value, onChoose, live }: ModeWallProps) {
                   )}
                 </span>
 
-                <span className="flex shrink-0 items-center gap-1.5 text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-white">
+                <span className="flex items-center gap-1.5 self-end text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-foreground">
                   {mode.action}
                   <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
                 </span>

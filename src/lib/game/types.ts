@@ -1204,6 +1204,37 @@ export type GameAction = ActionMeta &
      * out of every lane it is in.
      */
     | { type: 'UNBLOCK'; blockerId: InstanceId; attackerId?: InstanceId }
+    /**
+     * CR 509.2 — the ATTACKING player puts the blockers into a damage
+     * assignment order.
+     *
+     * ---------------------------------------------------------------------
+     * WHY THIS EXISTS, MEASURED RATHER THAN ASSUMED
+     * ---------------------------------------------------------------------
+     * `combat.ts:assignToBlockers` walks `declaration.blockedBy` in array
+     * order and assigns lethal damage down the list. That array is built by
+     * `BLOCK`, which APPENDS in the order the blocks were declared — and
+     * blocks are declared by the DEFENDER. So the defender was choosing which
+     * of their own creatures the attacker killed, which is the rule backwards.
+     *
+     * A 3/3 attacker blocked by a 1/1 and a 2/2: the attacker wants three
+     * damage to the 2/2 and kills it. Declare the 1/1 first and the engine
+     * spends 1 on the 1/1 and 2 on the 2/2, which kills the cheap creature and
+     * leaves the good one alive. The defender never has to think about it; it
+     * falls out of click order.
+     *
+     * The playtest census (`scripts/playtest/reach-census.ts`, 6 games, 6,656
+     * actions) counts 72 blocked lanes and ZERO with two or more blockers,
+     * because `bot.ts` assembles exactly `blockersRequiredFor` bodies and
+     * never double-blocks. So no bot run could ever have caught this. A human
+     * double-blocks with two presses on the mat, which is why it is a real
+     * defect on the surface and invisible to the harness.
+     *
+     * `blockerIds` must be a permutation of the lane's current `blockedBy` —
+     * not a subset, not a superset. Anything else is refused rather than
+     * repaired: a partial order would silently drop a blocker out of combat.
+     */
+    | { type: 'ORDER_BLOCKERS'; attackerId: InstanceId; blockerIds: InstanceId[] }
     | { type: 'END_COMBAT' }
 
     /* --- the stack and priority (see stack.ts) --- */

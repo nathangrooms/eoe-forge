@@ -27,6 +27,7 @@ import { planCastFromHand } from './moves.ts';
 import { nextBotMove } from './bot.ts';
 import { stackOf, stackTop } from './stack.ts';
 import {
+  abilityResponses,
   castTiming,
   countersSpells,
   hasResponse,
@@ -720,4 +721,56 @@ test('a person answers a spell the BOT decided to cast, through the calls /play 
   );
   assert.equal(state.cards['p1-cs0'].zone, 'graveyard');
   assert.equal(stackOf(state).length, 0);
+});
+
+/* -------------------------------------------------------------------------- */
+/* The battlefield half of a response                                         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * THE WINDOW THE SURFACE USED TO PASS THROUGH.
+ *
+ * `responseOptions` scans the hand only, so `hasResponse` answered "can I
+ * answer this from hand" while calling itself "is there a question worth
+ * putting on screen". A seat whose only answer was a permanent got no stop at
+ * all: `turnFlow.decisionFor` returned null and `/play` pressed PASS_PRIORITY
+ * 130 ms later.
+ *
+ * Measured before the fix by `scripts/playtest/reach-census.ts` over six games
+ * and 6,656 applied actions: 856 response windows, 29 answerable from hand, and
+ * 10 more where the hand was empty of answers and the battlefield was not.
+ */
+test('a permanent with an instant-speed ability is a response, and mana is not', () => {
+  // No counterspell in hand at all: the hand cannot be the reason this passes.
+  let state = board({ myLands: 3, myCounters: 0 });
+  state = put(state, ME, 'battlefield', {
+    instanceId: 'p1-rod',
+    name: 'Rod of Ruin',
+    typeLine: 'Artifact',
+    manaCost: '{4}',
+    cmc: 4,
+    oracleText: '{3}, {T}: Rod of Ruin deals 1 damage to any target.',
+  });
+  state = theyCast(state);
+  // The caster keeps priority on announcement; it reaches this seat when they pass.
+  state = applyActions(state, [{ type: 'PASS_PRIORITY', playerId: THEM, at: 2 }]);
+
+  assert.ok(spellToAnswer(state, ME), 'their spell is on the stack and it is answerable');
+  assert.equal(responseOptions(state, ME).length, 0, 'nothing in hand answers it');
+  assert.deepEqual(
+    abilityResponses(state, ME).map(card => card.name),
+    ['Rod of Ruin']
+  );
+  assert.equal(hasResponse(state, ME), true, 'the surface must stop for this');
+});
+
+test('an untapped land alone is not a response', () => {
+  /* Mana abilities are excluded on purpose. CR 605.3a keeps them off the stack,
+     making mana is not answering anything, and counting them would stop the
+     game on every cast anybody ever made — three Islands is every board. */
+  let state = theyCast(board({ myLands: 3, myCounters: 0 }));
+  state = applyActions(state, [{ type: 'PASS_PRIORITY', playerId: THEM, at: 2 }]);
+  assert.ok(spellToAnswer(state, ME));
+  assert.deepEqual(abilityResponses(state, ME), []);
+  assert.equal(hasResponse(state, ME), false);
 });

@@ -34,6 +34,7 @@
  */
 
 import {
+  auraNeedsHost,
   canBlock,
   castTiming,
   commanderZoneOfferFor,
@@ -43,6 +44,7 @@ import {
   isUnderAttack,
   planCastFromHand,
   planLandDrop,
+  planSpellTargets,
   spellNeedsATarget,
   statLineIn,
   type CardInstance,
@@ -148,6 +150,112 @@ const MOVE_TARGETS: ReadonlyArray<{ zone: Zone; label: string }> = [
   { zone: 'library', label: 'To library' },
 ];
 
+/* -------------------------------------------------------------------------- */
+/* ONE ANSWER TO "CAN I PLAY THIS FROM MY HAND"                               */
+/* -------------------------------------------------------------------------- */
+/**
+ * Whether this card in this hand can be played right now, and why not.
+ *
+ * ## The bug this exists to end
+ *
+ * The fan and the preview each answered this question for themselves, and they
+ * answered it differently. `ViewerHand` asked `planCastFromHand` alone, which
+ * documents itself as answering COST AND ZONE and nothing else. The preview
+ * asked `castTiming` as well, and withheld a plain Cast from a spell that names
+ * a target because CR 601.2c chooses targets as the spell is cast.
+ *
+ * So the hand said "Crumb and Get It. You can cast this." and the panel under
+ * it said "There is nothing this could target." Measured over 4,000 real cards
+ * from the harness pool, on your own main phase with a board that could pay for
+ * anything, before this function existed:
+ *
+ *   fan says playable            3,854
+ *   preview offers a play        3,547
+ *   FAN PROMISES, PANEL REFUSES    307      (7.7% of the sample)
+ *
+ * and in the untap step, where the fan asked nothing about timing at all, the
+ * same sample disagreed on 3,410 cards.
+ *
+ * Both surfaces call this now, so the number is zero by construction rather
+ * than by two files being kept in step by hand.
+ *
+ * ## `needsTarget` is not a refusal
+ *
+ * A Murder with a creature on the board is perfectly castable; the player has
+ * simply not said what at yet. That is a legal play with one question left, so
+ * it comes back `ok` and the fan leaves it bright. A Murder with an empty board
+ * is CR 601.2c illegal, and that comes back refused, carrying the engine's own
+ * sentence rather than a paraphrase of it.
+ */
+export interface HandPlayVerdict {
+  /** True when pressing through to the preview leads to a real play. */
+  ok: boolean;
+  /** What the play would be. `null` when this card is not playable from here. */
+  kind: 'play-land' | 'cast' | null;
+  /** One sentence, in a player's words. Empty when `ok`. */
+  reason: string;
+  /**
+   * Legal, but the player still has to name what it is aimed at.
+   *
+   * The preview draws `SpellTargetPanel` for these rather than a plain Cast
+   * button, so a caller that wants to say "press this and you will be asked
+   * something" has the flag to say it with.
+   */
+  needsTarget: boolean;
+}
+
+const NOT_PLAYABLE: HandPlayVerdict = { ok: false, kind: null, reason: '', needsTarget: false };
+
+export function handPlayVerdict(
+  state: GameState,
+  viewerPlayerId: PlayerId,
+  card: CardInstance,
+  options: Pick<CardActionOptions, 'freeCast' | 'holdReason'> = {}
+): HandPlayVerdict {
+  if (card.controllerId !== viewerPlayerId) return NOT_PLAYABLE;
+  if (card.zone !== 'hand' && card.zone !== 'command') return NOT_PLAYABLE;
+
+  /* The opening hand is not settled. Said as a sentence, because a card that
+     goes quiet during the mulligan is the silence the project forbids. */
+  if (options.holdReason) {
+    return { ok: false, kind: null, reason: options.holdReason, needsTarget: false };
+  }
+
+  if (isLand(card)) {
+    if (card.zone !== 'hand') return NOT_PLAYABLE;
+    const plan = planLandDrop(state, viewerPlayerId, card.instanceId);
+    return { ok: plan.ok, kind: 'play-land', reason: plan.ok ? '' : plan.reason, needsTarget: false };
+  }
+
+  /* WHEN comes before WHETHER IT IS PAID FOR. "Needs 2 mana" is the wrong
+     sentence to read on the opponent's untap step, because paying would not
+     help. Same precedence the preview has always used. */
+  const timing = castTiming(state, viewerPlayerId, card);
+  if (!timing.ok) return { ok: false, kind: 'cast', reason: timing.reason, needsTarget: false };
+
+  const plan = planCastFromHand(state, viewerPlayerId, card.instanceId, {
+    ignoreMana: options.freeCast,
+  });
+  if (!plan.ok) return { ok: false, kind: 'cast', reason: plan.reason, needsTarget: false };
+
+  /* An Aura's host is already asked for by `planCastFromHand` through
+     `hostChoices`, and that answer already rides onto the stack as the target.
+     Asking again here would refuse a spell the engine has already aimed. */
+  if (auraNeedsHost(card) || !spellNeedsATarget(card)) {
+    return { ok: true, kind: 'cast', reason: '', needsTarget: false };
+  }
+
+  /* CR 601.2c. `pending` empty with a reason set is the engine saying there is
+     nothing legal to point at; `pending` non-empty is it asking a question,
+     which is a play with a step left in it rather than a refusal. */
+  const aim = planSpellTargets(state, viewerPlayerId, card);
+  if (aim.reason && aim.pending.length === 0) {
+    return { ok: false, kind: 'cast', reason: aim.reason, needsTarget: true };
+  }
+
+  return { ok: true, kind: 'cast', reason: '', needsTarget: true };
+}
+
 export function actionsForCard(
   state: GameState,
   viewerPlayerId: PlayerId,
@@ -189,7 +297,7 @@ export function actionsForCard(
   /* ---------------------------------------------------------------------- */
 
   if (mine && land && card.zone === 'hand') {
-    const plan = planLandDrop(state, viewerPlayerId, card.instanceId);
+    const plan = handPlayVerdict(state, viewerPlayerId, card, options);
     if (plan.ok) {
       actions.push({
         id: 'play-land',
@@ -204,24 +312,18 @@ export function actionsForCard(
   }
 
   if (mine && !land && (card.zone === 'hand' || card.zone === 'command')) {
+    /*
+     * WHEN, as well as whether it is paid for, and whether there is anything to
+     * aim it at. All three now come from `handPlayVerdict`, which the fan calls
+     * too, so the two surfaces cannot answer this differently again. The
+     * precedence it applies is the one this list has always used: timing beats
+     * cost, because paying would not help on the opponent's untap step.
+     */
+    const verdict = handPlayVerdict(state, viewerPlayerId, card, options);
+    /* Still needed for the tax, which is a number rather than a verdict. */
     const plan = planCastFromHand(state, viewerPlayerId, card.instanceId, {
       ignoreMana: options.freeCast,
     });
-    /*
-     * WHEN, as well as whether it is paid for.
-     *
-     * `planCastFromHand` answers cost and zone and says nothing about timing —
-     * `rules.ts` documents that as deliberate and points a surface that wants
-     * the real rule at the engine. This was the only thing between a player and
-     * casting a creature during the opponent's untap step: measured by playing
-     * it, the preview offered Cast on a sorcery-speed creature on six out of
-     * six opponent steps, and pressing it resolved the creature onto the board.
-     *
-     * Attack and block have always asked about the step. Cast now does too, and
-     * the refusal is a sentence rather than a dead button, the same as every
-     * other refusal here.
-     */
-    const timing = castTiming(state, viewerPlayerId, card);
     const commander = card.zone === 'command';
     /* The tax is mana, so it is said in mana. "plus 4 tax" reads as a fee in
        some other currency, and a player pricing their turn is counting lands. */
@@ -230,9 +332,6 @@ export function actionsForCard(
         ? `Cast commander, ${plan.tax} more mana`
         : 'Cast commander'
       : 'Cast';
-    /* The timing refusal wins when both fail. "Needs 2 mana" is the wrong
-       sentence to read on the opponent's untap step, because paying for it
-       would not help. */
     /*
      * A SPELL THAT NAMES A TARGET IS NOT OFFERED A PLAIN CAST BUTTON.
      *
@@ -247,11 +346,7 @@ export function actionsForCard(
      * Aura is cast AT something and its host row is where that is chosen. Both
      * refusals point at a control that is on screen, so nothing goes silent.
      */
-    const needsTarget = spellNeedsATarget(card);
-
-    if (!timing.ok) {
-      blocked.push({ id: 'cast', reason: timing.reason });
-    } else if (plan.ok && !needsTarget) {
+    if (verdict.ok && !verdict.needsTarget) {
       actions.push({
         id: 'cast',
         kind: 'cast',
@@ -261,9 +356,15 @@ export function actionsForCard(
           : `Cast ${card.name}`,
         tone: 'primary',
       });
-    } else if (!plan.ok) {
-      blocked.push({ id: 'cast', reason: plan.reason });
+    } else if (!verdict.ok && !verdict.needsTarget) {
+      blocked.push({ id: 'cast', reason: verdict.reason });
     }
+    /* A spell refused for want of a legal target says so through
+       `SpellTargetPanel`, in the engine's own words, right where the targets
+       would have been chosen. Repeating it here would print the same sentence
+       twice in one preview. The FAN still gets it, from `handPlayVerdict`
+       directly, which is the half that used to promise a cast it could not
+       deliver. */
   }
 
   /*

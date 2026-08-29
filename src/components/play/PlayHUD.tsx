@@ -76,6 +76,17 @@ export interface PlayHUDProps {
    */
   onDecision?: () => void;
   /**
+   * Why the owed decision cannot be committed yet, or ''. Today that is one
+   * thing: a block group the rules refuse, usually menace with one blocker.
+   *
+   * It is handed in rather than derived here because the combat bar's own
+   * confirm refuses for exactly the same reason, and the two controls commit
+   * the same decision. `combatUi.illegalBlockReason` is the single answer both
+   * of them ask for. A pressable button that silently does nothing is the
+   * defect this whole prop exists to stop.
+   */
+  decisionBlocked?: string;
+  /**
    * The opening hand, while it is still unanswered.
    *
    * Handed in rather than read off the state, because the mulligan is `/play`'s
@@ -87,6 +98,18 @@ export interface PlayHUDProps {
   opening?: OpeningStop | null;
   /** Answer the opening hand from the HUD: keep, or put the owed cards back. */
   onOpening?: () => void;
+  /**
+   * Shuffle the opening hand back and draw seven more.
+   *
+   * The other half of the same decision, and it belongs beside the first half.
+   * Keep sat here, in the top bar, while Mulligan sat in a bar over the
+   * opponent's seat: one question with its two answers in two places, which is
+   * the split the owner called out about combat. Absent once the player has
+   * kept, because the bottoming step has no mulligan in it.
+   */
+  onMulligan?: () => void;
+  /** True while a mulligan is still allowed, so the control is real. */
+  canMulligan?: boolean;
   /** False while a bottoming step is still short of, or over, its count. */
   openingReady?: boolean;
   /** Manual escape hatch — one step, for when auto-advance is off. */
@@ -182,8 +205,11 @@ export function PlayHUD({
   onViewSeat,
   decision,
   onDecision,
+  decisionBlocked = '',
   opening = null,
   onOpening,
+  onMulligan,
+  canMulligan = false,
   openingReady = true,
   onAdvance,
   onEndTurn,
@@ -400,6 +426,23 @@ export function PlayHUD({
           />
         </div>
 
+        {/*
+          The second answer to the opening hand, next to the first.
+
+          Drawn quieter than the primary because keeping is the common answer,
+          and drawn at all only while the mulligan is still on offer.
+        */}
+        {canMulligan && onMulligan && (
+          <button
+            type="button"
+            onClick={onMulligan}
+            title="Shuffle this hand back and draw seven more"
+            className="flex h-10 shrink-0 items-center rounded-lg bg-muted/70 px-3 text-xs font-semibold uppercase tracking-wide text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Mulligan
+          </button>
+        )}
+
         {/* Attack is the other press that matters, and only when it is real. */}
         {canAttack && onAttack && (
           <button
@@ -419,16 +462,19 @@ export function PlayHUD({
           disabled={
             over ||
             ending ||
-            (waitingOnOpening ? !openingReady : !owed && !myTurn)
+            (waitingOnOpening ? !openingReady : !owed && !myTurn) ||
+            (owed && !!decisionBlocked)
           }
           title={
             waitingOnOpening
               ? OPENING_LABEL[opening as OpeningStop]
-              : owed && decision
-                ? DECISION_LABEL[decision]
-                : myTurn
-                  ? 'End your turn'
-                  : `Waiting on ${active?.name ?? 'another seat'}`
+              : owed && decisionBlocked
+                ? decisionBlocked
+                : owed && decision
+                  ? DECISION_LABEL[decision]
+                  : myTurn
+                    ? 'End your turn'
+                    : `Waiting on ${active?.name ?? 'another seat'}`
           }
           className={cn(
             // A fixed floor on the width so the label changing from END TURN to

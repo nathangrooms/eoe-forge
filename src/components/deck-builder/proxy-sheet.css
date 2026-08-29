@@ -225,6 +225,24 @@
     box-shadow: 0 1px 3px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.35);
   }
 
+  /*
+   * One sheet at a time. The other sheets stay in the DOM — the printer needs
+   * every one of them and `isolateForPrint` walks this same tree — they are
+   * simply not drawn on screen.
+   */
+  .proxy-page--off {
+    display: none;
+  }
+
+  /*
+   * `.proxy-page + .proxy-page` still matches the visible sheet when the sheets
+   * before it are `display: none`, because the selector reads DOM order, not
+   * what is painted. Left alone it would push sheet 7 down by 8 mm of nothing.
+   */
+  .proxy-sheet--single .proxy-page {
+    margin-top: 0;
+  }
+
   .proxy-slot__tag {
     position: absolute;
     left: 1.5mm;

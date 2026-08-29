@@ -232,6 +232,58 @@ export function splitBands(bandsUsable: number): BandShare {
  * is bounded by the same capacity arithmetic. Losing it costs a row of four
  * about 8% of the mat and halves the largest movement on the board.
  */
+/**
+ * The pitch at which two TURNED neighbours stop covering each other.
+ *
+ * A tapped permanent paints `cardWidth / CARD_RATIO` across, so two of them
+ * clear each other only once the pitch reaches that. The extra hundredth is a
+ * pixel of margin against `Math.floor` further down.
+ *
+ * MEASURED, 28 Aug 2026, two seats at 1600 x 1000, every permanent tapped
+ * through the same dispatcher a click uses:
+ *
+ *   creature row  116px cards, 9px gap, tapped paint 162px  -> 37px covered
+ *   mana row       94px cards, 7px gap, tapped paint 131px  -> 30px covered
+ *
+ * and the arithmetic predicts both exactly: a card leans `tapLean` each side,
+ * so two neighbours eat `2 * tapLean` against a gap of 9 or 7. The worst card
+ * was 77% visible — NOT the "only slivers of each visible" an earlier pass
+ * reported, and that correction matters, because slivers would mean a stacking
+ * bug and 77% means a gap that is a few pixels too small.
+ *
+ * What makes it indefensible rather than a trade is the other half of the same
+ * measurement: **41% of that creature row and 71% of that mana row were empty**
+ * while the cards on them covered each other. The room was already there.
+ *
+ * It goes in as the top RUNG rather than as a new rule, so nothing here learns
+ * which cards are tapped and rule one still holds: tapping cannot reflow a row.
+ */
+const TURNED_PITCH = 1 / CARD_RATIO + 0.01;
+
+/**
+ * The turned pitch is only offered to a row that can still seat a board at it.
+ *
+ * WITHOUT this gate the change broke two of the tests below, and both were
+ * right to break. On the narrow rows a FOUR-seat table gives — 526px, 444px,
+ * 392px — the turned pitch seats only three cards where 1.08 seats four, and
+ * that costs the two things this file exists to protect:
+ *
+ *   - rule three. Losing a slot moves the rung crossing down into the counts a
+ *     row really holds, so the third creature entering re-pitched the row and
+ *     shifted the two already on it by 32px. That is precisely the owner's
+ *     *"weird layout shifting"*, reintroduced.
+ *   - the trade written down two tests below: a full row stopped reaching
+ *     across the mat, spanning 80% of it against the 83% the suite requires.
+ *
+ * Six is the smallest board worth calling a board, and it separates the two
+ * cases cleanly on measurement rather than on taste: a two-seat 1130px creature
+ * row seats 6 at the turned pitch and takes it, while every four-seat row above
+ * seats 3 and is left exactly as it was. The cost where it IS taken is that the
+ * creature row now steps down at 7 permanents instead of 9. That is a rung
+ * crossing twice a game against neighbours covering each other on every board.
+ */
+const MIN_TURNED_SLOTS = 6;
+
 const PITCH_RUNGS: readonly number[] = [
   1.08, 1.0, 0.92, 0.85, 0.78, 0.71, 0.65, 0.59, 0.54, 0.49, 0.44, 0.4, 0.36, 0.32, 0.28, 0.24,
   0.21, 0.18, 0.15, 0.12, 0.1, 0.08,
@@ -266,15 +318,27 @@ export function layoutRow(count: number, cardWidth: number, available: number): 
   /** How many cards of this pitch fit in the row. */
   const fits = (pitch: number) => Math.max(1, Math.floor((usable - cardWidth) / pitch) + 1);
 
+  /* Turning room BETWEEN cards, on a row wide enough to keep a board at it.
+     See `TURNED_PITCH` and `MIN_TURNED_SLOTS`: this is the whole of two tapped
+     neighbours no longer covering 37px of each other, and it is tried ahead of
+     the ladder rather than added to it so a row that cannot afford it walks the
+     original rungs unchanged. */
+  const turned = Math.max(1, Math.floor(cardWidth * TURNED_PITCH));
+  const turnedSlots = fits(turned);
+
   /* The first rung that holds this many, walking down. `Math.floor` rather than
      `round`, so a rung whose pitch rounds UP past what fits is not chosen and
      then found to overflow. */
   let pitch = Math.max(1, Math.floor(cardWidth * PITCH_RUNGS[PITCH_RUNGS.length - 1]));
-  for (const rung of PITCH_RUNGS) {
-    const candidate = Math.max(1, Math.floor(cardWidth * rung));
-    if (count <= fits(candidate)) {
-      pitch = candidate;
-      break;
+  if (turnedSlots >= MIN_TURNED_SLOTS && count <= turnedSlots) {
+    pitch = turned;
+  } else {
+    for (const rung of PITCH_RUNGS) {
+      const candidate = Math.max(1, Math.floor(cardWidth * rung));
+      if (count <= fits(candidate)) {
+        pitch = candidate;
+        break;
+      }
     }
   }
 

@@ -52,7 +52,7 @@
  * what.
  */
 
-import { Layers } from 'lucide-react';
+import { Layers, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Playmat } from './Playmat';
 import { CardBack } from './CardBack';
@@ -70,6 +70,19 @@ export interface StackStripProps {
   stack: readonly StackObject[];
   /** Cards the viewer could cast in response. Empty means there is no question. */
   responses: readonly ResponseOption[];
+  /**
+   * Permanents the viewer could ACTIVATE in response. From `abilityResponses`.
+   *
+   * The other half of "can I answer this", and it was missing entirely: the
+   * response test scanned hand only, so a seat whose only answer was on the
+   * battlefield had priority passed for them 130 ms later. Pressing one of
+   * these opens that permanent in the centre preview, where `AbilityPanel`
+   * already draws its abilities — the same control a main-phase activation
+   * uses, rather than a second one that could disagree with it.
+   */
+  abilityAnswers?: readonly CardInstance[];
+  /** Open a permanent in the centre preview so its abilities can be used. */
+  onOpenPermanent?: (card: CardInstance) => void;
   /** True while the viewer is the one being waited on. */
   yourPriority: boolean;
   onRespond: (option: ResponseOption) => void;
@@ -83,8 +96,10 @@ export function StackStrip({
   viewerPlayerId,
   stack,
   responses,
+  abilityAnswers = [],
   yourPriority,
   onRespond,
+  onOpenPermanent,
   onPass,
   className,
 }: StackStripProps) {
@@ -113,9 +128,11 @@ export function StackStrip({
   const top = topFirst[0];
   const theirs = top.controllerId !== viewerPlayerId;
 
+  const canAnswer = responses.length > 0 || abilityAnswers.length > 0;
+
   const headline = !yourPriority
     ? `Waiting for ${nameOf(state.priorityPlayerId)}`
-    : responses.length > 0
+    : canAnswer
       ? theirs
         ? `${nameOf(top.controllerId)} cast ${top.name}. You can answer it.`
         : `${top.name} is waiting. You can add to it.`
@@ -230,6 +247,23 @@ export function StackStrip({
               <ManaCost cost={option.card.manaCost} size="sm" className="shrink-0" />
             </button>
           ))}
+
+          {/* The battlefield half. A permanent is not a cast, so it does not
+              pretend to be one: pressing it opens the card, where its abilities
+              are listed with their costs and their timing. */}
+          {abilityAnswers.map(card => (
+            <button
+              key={card.instanceId}
+              type="button"
+              onClick={() => onOpenPermanent?.(card)}
+              title={`Use an ability of ${card.name} in response.`}
+              className="flex h-8 items-center gap-1.5 rounded-lg bg-foreground/[0.07] px-3 text-xs font-semibold text-foreground transition-colors hover:bg-foreground/[0.16] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Zap className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <span className="max-w-[12rem] truncate">{card.name}</span>
+            </button>
+          ))}
+
           <button
             type="button"
             onClick={onPass}

@@ -31,7 +31,7 @@ export function PowerImpactBadge({ impact, className }: PowerImpactBadgeProps) {
 
   return (
     <span
-      title="The optimiser's own estimate of the power-level change — not the deck's EDH power score"
+      title="The optimiser's own estimate of the power-level change, not the deck's EDH power score"
       className={cn(
         'inline-flex items-center gap-1.5 rounded-lg bg-muted px-3 py-1.5 text-sm font-medium tabular-nums',
         // A power delta is an MTG measurement, so it keeps the --power-*

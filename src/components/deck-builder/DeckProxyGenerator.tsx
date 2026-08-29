@@ -4,12 +4,21 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Printer, Download, FileText, Loader2, CheckCircle, Info } from 'lucide-react';
+import {
+  Printer,
+  Download,
+  FileText,
+  Loader2,
+  CheckCircle,
+  Info,
+  Check,
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { CardImage } from '@/components/cards/CardImage';
 import { ProxySheet } from './ProxySheet';
@@ -66,6 +75,8 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
   const [progress, setProgress] = useState(0);
   const [hydrating, setHydrating] = useState(true);
   const [printings, setPrintings] = useState<HydrateResult | null>(null);
+  /* Which sheet the preview is showing. See `previewPage` on `ProxySheet`. */
+  const [sheetPage, setSheetPage] = useState(0);
 
   const sheetRef = useRef<HTMLDivElement>(null);
 
@@ -177,6 +188,14 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
   const totalPages = plan.sheets;
   const extraFaces = slots.filter(s => s.faceLabel === 'Back').length;
   const missingArt = slots.filter(s => !s.imageUrl).length;
+
+  /* Untick enough cards and the sheet you were looking at stops existing.
+     Clamp rather than reset, so ticking one card off sheet 7 leaves you on
+     sheet 7 instead of throwing you back to the first one. */
+  const safeSheetPage = totalPages > 0 ? Math.min(sheetPage, totalPages - 1) : 0;
+  useEffect(() => {
+    if (sheetPage !== safeSheetPage) setSheetPage(safeSheetPage);
+  }, [sheetPage, safeSheetPage]);
 
   const imageUrls = useMemo(
     () => Array.from(new Set(slots.map(s => s.imageUrl).filter((u): u is string => Boolean(u)))),
@@ -579,52 +598,127 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
           </div>
 
           {/*
-            Card list. 56 px thumbnails in a 300 px box was the "everything is
-            tiny" complaint in miniature — at that width `CardImage` drops to
-            the 146 px `small` asset and the art is unreadable, which makes the
-            checkbox the only way to tell rows apart. 88 px moves it up to the
-            488 px `normal` asset, still one request per card.
+            The picker.
+
+            It was a 460 px scroll box of full-width rows, each holding an 88 px
+            thumbnail, a name, and a quantity badge pinned to the far edge. On a
+            1920 screen that is a 1,650 px bar with a postage stamp at one end,
+            a number at the other and 1,400 px of nothing in between, repeated
+            a hundred times, four rows visible at a time. It is the worst-looking
+            thing in the product and it is a picker for *card art*.
+
+            It is a grid of whole cards now. The card is the control: you are
+            choosing what to print, and what you print is the picture, so the
+            picture is what you pick from. That is the standing rule — where a
+            card can be shown instead of its name, show the card — and here the
+            name was never the useful part.
+
+            Sizing: 8 columns at 2xl puts each card near 190 px, which is the
+            488 px `normal` asset drawn down, the same asset the old 88 px
+            thumbnail was already fetching. Nothing costs more to load; it is
+            simply not thrown away any more.
+
+            Deselected is `opacity`, never `grayscale`. Desaturating a Scryfall
+            image is a licence problem and this project has removed it from five
+            other components already.
           */}
-          <ScrollArea className="h-[460px] rounded-lg bg-muted/20">
-            <div className="p-2 space-y-1">
-              {allCards.map((card, index) => (
-                <div
-                  key={`${getCardId(card)}-${index}`}
-                  className={`flex items-center justify-between p-1.5 rounded transition-colors cursor-pointer ${
-                    selectedCards.has(getCardId(card)) ? 'bg-primary/10' : 'hover:bg-muted/50'
-                  }`}
-                  onClick={() => toggleCard(getCardId(card))}
+          <div
+            role="group"
+            aria-label="Cards to print"
+            className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8"
+          >
+            {allCards.map((card, index) => {
+              const id = getCardId(card);
+              const picked = selectedCards.has(id);
+              const qty = card.quantity || 1;
+              return (
+                <button
+                  type="button"
+                  key={`${id}-${index}`}
+                  onClick={() => toggleCard(id)}
+                  aria-pressed={picked}
+                  aria-label={`${card.name}${picked ? ', printing' : ', not printing'}`}
+                  className={cn(
+                    'group relative block w-full rounded-xl text-left transition-all',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    picked ? 'opacity-100' : 'opacity-40 hover:opacity-75'
+                  )}
                 >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <Checkbox
-                      checked={selectedCards.has(getCardId(card))}
-                      onCheckedChange={() => toggleCard(getCardId(card))}
-                      onClick={e => e.stopPropagation()}
-                      className="h-4 w-4"
-                    />
-                    {/* `CardImage` owns the ratio and the resolution; `hideFlip`
-                        because a flip button is larger than this thumbnail, and
-                        both faces get their own slot on the sheet anyway. */}
-                    <CardImage card={withThumbnailFallback(card)} width={88} hideFlip title={card.name} />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate flex items-center gap-1">
-                        {card.name}
-                        {card.isCommander && (
-                          <Badge variant="outline" className="text-[10px] px-1 py-0 h-4">
-                            CMD
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="text-xs text-muted-foreground truncate">{card.type_line}</div>
-                    </div>
-                  </div>
-                  <Badge variant="outline" className="text-xs ml-2">
-                    {card.quantity || 1}x
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          </ScrollArea>
+                  {/* Whole card, never a crop. `CardImage` owns the ratio;
+                      `hideFlip` because both faces get their own slot on the
+                      sheet anyway.
+
+                      DO NOT PIN A CHEAPER `quality` ON THIS GRID. MEASURED.
+                      The obvious saving is that these tiles render at 145px
+                      (93px at a 768px viewport) while `md` asks Scryfall for
+                      `large` at 672px, so `quality="normal"` looks like a free
+                      4.6x. It is the opposite, because the sheet preview below
+                      draws THE SAME CARDS at the Art resolution, which
+                      defaults to `large`. Agreeing costs one download per card
+                      and disagreeing costs two.
+
+                      Measured on the built bundle, same page, same viewport:
+
+                        picker `large`  (agrees)     104 reqs  14.84 MB
+                        picker `normal` (disagrees)  168 reqs  20.64 MB
+
+                      So the tile borrows the print resolution deliberately.
+                      The lever that actually reduces this page is the number
+                      of images mounted, not their size. */}
+                  <CardImage card={withThumbnailFallback(card)} fill size="md" hideFlip title={card.name} />
+
+                  {/* The tick sits on the card rather than beside it, because
+                      the card is the hit area. Ring included so the state is
+                      readable without relying on the tick alone. */}
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      'pointer-events-none absolute inset-0 rounded-xl ring-2 transition-colors',
+                      picked ? 'ring-primary' : 'ring-transparent group-hover:ring-muted-foreground/40'
+                    )}
+                  />
+
+                  {/*
+                    Everything overlaid sits along the BOTTOM edge.
+
+                    The first pass put the tick top-left and the badges
+                    top-right, which is the conventional place for them and is
+                    wrong on a Magic card: the title runs across the top and the
+                    mana cost sits in the top-right corner, so the two things
+                    that identify a card were the two things covered. The
+                    screenshot read "s of Paradise" and "ry Sentinel". The
+                    bottom strip is the collector line, which is the one band on
+                    a card that carries nothing you are choosing by.
+                  */}
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      'pointer-events-none absolute bottom-1.5 left-1.5 flex h-6 w-6 items-center justify-center rounded-full transition-colors',
+                      picked ? 'bg-primary text-primary-foreground' : 'bg-background/85 text-muted-foreground'
+                    )}
+                  >
+                    {picked ? <Check className="h-4 w-4" /> : <Plus className="h-3.5 w-3.5" />}
+                  </span>
+
+                  {/* Only the things the art does not already say. The name is
+                      printed on the card; the copy count and commander status
+                      are not. */}
+                  <span className="pointer-events-none absolute bottom-1.5 right-1.5 flex gap-1">
+                    {card.isCommander && (
+                      <Badge className="h-6 rounded-full px-2 text-[10px]" variant="secondary">
+                        CMD
+                      </Badge>
+                    )}
+                    {qty > 1 && (
+                      <Badge className="h-6 rounded-full px-2 text-[10px]" variant="secondary">
+                        {qty}x
+                      </Badge>
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </CardContent>
       </Card>
 
@@ -637,14 +731,52 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
       */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Sheet preview</CardTitle>
-          <CardDescription className="text-xs">
-            {hydrating
-              ? 'Loading full-resolution art…'
-              : slots.length === 0
-                ? 'Select cards to preview the printed sheet.'
-                : `${totalPages} ${totalPages === 1 ? 'sheet' : 'sheets'}, exactly as they will print.`}
-          </CardDescription>
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <CardTitle className="text-base">Sheet preview</CardTitle>
+              <CardDescription className="text-xs">
+                {hydrating
+                  ? 'Loading full-resolution art…'
+                  : slots.length === 0
+                    ? 'Select cards to preview the printed sheet.'
+                    : `${totalPages} ${totalPages === 1 ? 'sheet' : 'sheets'}, exactly as they will print.`}
+              </CardDescription>
+            </div>
+
+            {/*
+              The pager. Every sheet is still in the DOM and still prints; this
+              only changes which one is drawn. Twelve sheets stacked at full
+              width made this page 28,398 px tall, and nobody scrolls 26,000 px
+              to check a layout they can check on one sheet.
+            */}
+            {!hydrating && totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setSheetPage(p => Math.max(0, p - 1))}
+                  disabled={safeSheetPage === 0}
+                  aria-label="Previous sheet"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="min-w-[7.5rem] text-center text-xs tabular-nums text-muted-foreground">
+                  Sheet {safeSheetPage + 1} of {totalPages}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setSheetPage(p => Math.min(totalPages - 1, p + 1))}
+                  disabled={safeSheetPage >= totalPages - 1}
+                  aria-label="Next sheet"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {hydrating ? (
@@ -657,7 +789,13 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
               Nothing selected.
             </div>
           ) : (
-            <ProxySheet ref={sheetRef} slots={slots} paper={paperSize} cutGuides={cutGuides} />
+            <ProxySheet
+              ref={sheetRef}
+              slots={slots}
+              paper={paperSize}
+              cutGuides={cutGuides}
+              previewPage={safeSheetPage}
+            />
           )}
         </CardContent>
       </Card>

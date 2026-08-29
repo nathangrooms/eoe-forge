@@ -47,27 +47,29 @@ export function EventEmptyState({ decks, loading }: EventEmptyStateProps) {
   return (
     <section className="overflow-hidden rounded-2xl bg-card shadow-sm">
       <div className="p-6 sm:p-10">
-        <div className="max-w-2xl">
-          <p className="flex items-center gap-2 text-[0.65rem] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-            <Trophy aria-hidden="true" className="h-3.5 w-3.5" />
-            Tournaments
-          </p>
-          <h2 className="mt-2 text-2xl font-semibold text-foreground sm:text-3xl">
-            Run your playgroup&apos;s next event
-          </h2>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Swiss rounds or a straight bracket, real DCI tiebreakers, a round clock, and a roster
-            where every player is holding a deck you can see. Built for a kitchen table or a
-            shop floor.
-          </p>
+        {/*
+          There is no heading here on purpose.
 
-          <Button asChild className="mt-5 gap-2">
-            <Link to="/tournament/new">
-              <Trophy className="h-4 w-4" />
-              Create your first event
-            </Link>
-          </Button>
-        </div>
+          The page above this renders `Tournaments` as its H1 with the line
+          "Swiss and single-elimination events with real DCI tiebreakers, a
+          round clock, and a deck registered to every seat" underneath it. This
+          panel used to open with an all-caps `TOURNAMENTS` eyebrow, then an H2
+          reading "Run your playgroup's next event", then a paragraph saying
+          real DCI tiebreakers, a round clock and a roster holding decks you can
+          see.
+
+          So the word Tournaments appeared twice, three headings stacked inside
+          60px, and the same three facts were stated twice in different words.
+          It read as a marketing page bolted inside the signed-in app rather
+          than a screen of it. The page header does the titling on every other
+          page in this product and it does it here now too.
+        */}
+        <Button asChild className="gap-2">
+          <Link to="/tournament/new">
+            <Trophy className="h-4 w-4" />
+            Create your first event
+          </Link>
+        </Button>
 
         <div className="mt-8 grid gap-5 sm:grid-cols-3">
           {CAPABILITIES.map(item => {

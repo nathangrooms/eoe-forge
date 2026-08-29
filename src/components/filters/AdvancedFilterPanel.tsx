@@ -280,7 +280,7 @@ export function AdvancedFilterPanel({
             <div>
               <Label className="mb-1 block text-sm font-medium">Color identity</Label>
               <p className="mb-2 text-xs text-muted-foreground">
-                <code className="font-mono">id:</code> — what a Commander deck may contain.
+                <code className="font-mono">id:</code> is what a Commander deck may contain.
               </p>
               <div className="flex flex-wrap gap-2">
                 {IDENTITY_ORDER.map(color => (
@@ -299,7 +299,7 @@ export function AdvancedFilterPanel({
             <div>
               <Label className="mb-1 block text-sm font-medium">Colors</Label>
               <p className="mb-2 text-xs text-muted-foreground">
-                <code className="font-mono">c:</code> — the colors printed on the card itself.
+                <code className="font-mono">c:</code> is the colors printed on the card itself.
               </p>
               <div className="mb-3 flex flex-wrap gap-2">
                 {COLOR_ORDER.map(color => (
@@ -580,7 +580,7 @@ export function AdvancedFilterPanel({
 
             {sets.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Set list unavailable — Scryfall’s set catalog could not be loaded.
+                Set list unavailable. Scryfall’s set catalog could not be loaded.
               </p>
             ) : (
               <Popover>

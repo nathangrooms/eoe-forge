@@ -70,7 +70,19 @@ export function TurnBanner({
         className
       )}
     >
-      <AnimatePresence>
+      {/*
+        `mode="wait"`, so the call that is leaving is GONE before the next one
+        arrives.
+
+        Both banners are centred in the same box, so a plain crossfade paints
+        two different names on top of each other for the whole 340ms exit.
+        Caught in a screenshot on 28 Aug 2026 at turn 8: "YOUR TURN" and
+        "TORALF" superimposed into `YOUR TURNTORALF`, with one "Turn 8 · Round
+        4" under the pair. It only shows when turns arrive faster than the
+        1150ms hold, which is every bot turn that ends quickly, so it is common
+        rather than rare.
+      */}
+      <AnimatePresence mode="wait">
         {shown !== null && (
           <motion.div
             key={shown}

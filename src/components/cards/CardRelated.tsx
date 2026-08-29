@@ -821,7 +821,7 @@ export function CardWorksWellWith({ card, dbCard, className }: CardRelatedProps)
           <p className="text-foreground">No honest synergy signal for {name} yet.</p>
           <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
             <li>
-              Decks — no deck you can see runs it. Sign in, or make a deck containing it public.
+              Decks: no deck you can see runs it. Sign in, or make a deck containing it public.
             </li>
             <li>
               What it does. Nothing in its colour identity carrying one of its tags does the same

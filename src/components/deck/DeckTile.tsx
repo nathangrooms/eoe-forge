@@ -632,7 +632,7 @@ export function DeckTile({
             <Stat
               value={counts.total}
               label="Cards"
-              hint={`${counts.unique} unique cards — open the full analysis`}
+              hint={`${counts.unique} unique cards. Open the full analysis`}
               onClick={onAnalysis}
             />
             <Stat

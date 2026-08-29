@@ -392,7 +392,7 @@ export function PlayerPanel({
                 value={view.worstCommanderDamage}
                 tone="text-type-commander"
                 fontSize={chipSize}
-                title={`Worst commander damage — lethal at ${rules.commanderDamageLethal}`}
+                title={`Worst commander damage, lethal at ${rules.commanderDamageLethal}`}
               />
             )}
             {view.poison > 0 && (
@@ -401,7 +401,7 @@ export function PlayerPanel({
                 value={view.poison}
                 tone="text-mana-green"
                 fontSize={chipSize}
-                title={`Poison — lethal at ${rules.poisonLethal}`}
+                title={`Poison, lethal at ${rules.poisonLethal}`}
               />
             )}
             {energy > 0 && <StatusChip icon={Zap} value={energy} fontSize={chipSize} title="Energy" />}
@@ -420,7 +420,7 @@ export function PlayerPanel({
             <button
               type="button"
               onClick={onOpenDetail}
-              aria-label={`${player.name} eliminated — open details`}
+              aria-label={`${player.name} eliminated. Open details`}
               className={cn(
                 'absolute inset-0 flex flex-col items-center justify-center gap-[0.4em] bg-background/80 text-center outline-none',
                 !reducedMotion && 'transition-opacity duration-200 motion-reduce:transition-none',

@@ -20,7 +20,13 @@ import { memo } from 'react';
 
 import { cn } from '@/lib/utils';
 
-import { matArtStyle, matSurfaceStyle, type MatColor, type MatTone } from './mats';
+import {
+  matArtScrimStyle,
+  matArtStyle,
+  matSurfaceStyle,
+  type MatColor,
+  type MatTone,
+} from './mats';
 
 export interface MatSurfaceProps {
   color: MatColor;
@@ -42,14 +48,20 @@ function MatSurfaceImpl({ color, art, tone = 'seat', className, radius }: MatSur
       style={{ backgroundColor: 'hsl(0 0% 0%)', borderRadius: radius }}
     >
       {artLayer && (
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{
-            ...artLayer,
-            // A shade oversized so the art's own edges never land inside the mat.
-            transform: 'scale(1.06)',
-          }}
-        />
+        <>
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{
+              ...artLayer,
+              // A shade oversized so the art's own edges never land inside the mat.
+              transform: 'scale(1.06)',
+            }}
+          />
+          {/* The art is pushed down by a layer OVER it, never by a filter ON it.
+              Scryfall's guidelines forbid desaturating or colour-shifting a card
+              image, and a `filter` is both. */}
+          <div className="absolute inset-0" style={matArtScrimStyle(tone)} />
+        </>
       )}
       <div className="absolute inset-0" style={matSurfaceStyle(color, tone)} />
     </div>

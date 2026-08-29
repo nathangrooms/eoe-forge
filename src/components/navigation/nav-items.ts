@@ -201,9 +201,17 @@ export const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-/** Every nav item, home first, in rail order. */
+/**
+ * Every nav item, in rail order.
+ *
+ * `NAV_ROOT_ITEMS` already starts with `NAV_HOME`, so this used to be
+ * `[NAV_HOME, ...NAV_ROOT_ITEMS, …]` and Home appeared twice. Nothing rendered
+ * it wrongly, because today's readers all use `.some()` or `.find()`, but the
+ * name says "every nav item" and anything that took it at its word and mapped
+ * over it would have drawn Home, Home, Card Search. `nav-items.test.ts` now
+ * asserts the hrefs are unique so it cannot come back.
+ */
 export const ALL_NAV_ITEMS: NavItem[] = [
-  NAV_HOME,
   ...NAV_ROOT_ITEMS,
   ...NAV_GROUPS.flatMap(group => group.items),
 ];

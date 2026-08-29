@@ -428,15 +428,19 @@ export class Catalog {
   }
 
   /**
-   * Look up specific cards by exact name, with the display columns attached.
+   * Look up specific cards by name, with the display columns attached.
    *
-   * Used for the deck's own cards and for the diagnostic pass that explains why
-   * a model-suggested name never appeared in the pool. Chunked because a URL
-   * carrying a hundred card names is already long.
+   * Used for the deck's own cards, for the COMMANDER, and for the diagnostic
+   * pass that explains why a model-suggested name never appeared in the pool.
+   * Chunked because a URL carrying a hundred card names is already long.
+   *
+   * Each name goes out in every spelling {@link nameVariants} produces, because
+   * `in.` is byte equality and a typographic apostrophe is a byte. See that
+   * function for what it cost.
    */
   async cardsByName(names: readonly string[], format: string): Promise<CatalogRow[]> {
     const fmt = format.toLowerCase();
-    const unique = [...new Set(names.map(n => n.trim()).filter(Boolean))];
+    const unique = [...new Set(names.flatMap(n => nameVariants(n)))];
     if (!unique.length) return [];
 
     const select = [
@@ -533,10 +537,16 @@ export class Catalog {
    * Runs under the caller's own JWT, so row-level security (`auth.uid() =
    * user_id`) decides what comes back. An anonymous caller gets an empty map
    * rather than an error, and the suggestion is simply not marked as owned.
+   *
+   * `user_collections.card_name` is TYPED BY A PERSON, or pasted, so it is the
+   * one place a typographic apostrophe is likely to be the stored form rather
+   * than the asked-for one. Same fix, same reason: both spellings go out. A
+   * missed match here does not fail a build, it silently tells the player they
+   * do not own a card they own.
    */
   async ownedQuantities(names: readonly string[]): Promise<Map<string, number>> {
     const owned = new Map<string, number>();
-    const unique = [...new Set(names.map(n => n.trim()).filter(Boolean))];
+    const unique = [...new Set(names.flatMap(n => nameVariants(n)))];
     if (!unique.length) return owned;
 
     const CHUNK = 80;
@@ -599,20 +609,84 @@ export function quoteForIn(value: string): string {
 }
 
 /**
+ * A name written the way Scryfall writes it: ASCII punctuation, single spaces.
+ *
+ * Scryfall's `name` is plain ASCII, and our catalogue is a copy of it. Measured
+ * against the live table on 2026-08-28, over all 33,032 rows of
+ * `cards_unique`: ZERO names carry U+2019, U+2018, a curly double quote, an
+ * ellipsis, an en dash or an em dash, while 2,258 commander-legal names carry
+ * the ASCII apostrophe — 7.1% of the format, "Yuriko, the Tiger's Shadow"
+ * among them.
+ *
+ * So every typographic character listed here is one a caller can only have
+ * introduced, and folding it can never turn one real card into another. Both
+ * spellings are still sent to the database by {@link nameVariants}; this fold
+ * decides what the second spelling is, it does not replace the first.
+ */
+export function asciiPunctuation(name: string): string {
+  return String(name ?? '')
+    // Apostrophes: right/left single quote, modifier letter apostrophe,
+    // fullwidth apostrophe, Armenian apostrophe.
+    .replace(/[‘’ʼ＇՚]/g, "'")
+    // Double quotes.
+    .replace(/[“”„‟]/g, '"')
+    // Hyphens and dashes, including the non-breaking hyphen and minus sign.
+    .replace(/[‐‑‒–—―−]/g, '-')
+    .replace(/…/g, '...')
+    // Non-breaking and other exotic spaces, then collapse.
+    .replace(/[     ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
  * The key card names are compared on.
  *
- * Case-insensitive, whitespace-collapsed, and with the typographic apostrophe
- * folded to the ASCII one — a model writing "Yawgmoth’s Will" means the card
- * stored as "Yawgmoth's Will", and letting that near-miss read as "this card
- * does not exist" would throw away a valid suggestion and overstate the
- * failure rate.
+ * Case-insensitive, whitespace-collapsed, and with typographic punctuation
+ * folded to ASCII — a model writing "Yawgmoth’s Will" means the card stored as
+ * "Yawgmoth's Will", and letting that near-miss read as "this card does not
+ * exist" would throw away a valid suggestion and overstate the failure rate.
  */
 export function normalizeName(name: string): string {
-  return String(name ?? '')
-    .replace(/[‘’ʼ]/g, "'")
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
+  return asciiPunctuation(name).toLowerCase();
+}
+
+/**
+ * Every spelling of a name worth asking the database for.
+ *
+ * THE BUG THIS EXISTS FOR. `normalizeName` folds the typographic apostrophe,
+ * and until now it was only ever applied to the ANSWER — to rows that had
+ * already come back. The QUESTION went out unfolded, as
+ * `name=in.("Yuriko, the Tiger’s Shadow")`, and PostgREST `in.` is byte
+ * equality. It matched nothing. Nothing then normalised anything, because
+ * there was nothing to normalise.
+ *
+ * That is not a degraded result, it is no result. `pipeline.ts` resolves the
+ * COMMANDER through `cardsByName` and throws
+ * `"…" is not in the card database, so a deck cannot be built around it`
+ * when the lookup comes back empty — so a commander whose name arrives with a
+ * curly apostrophe does not build a worse deck, it builds no deck at all.
+ * Reproduced live on 2026-08-28: the ASCII spelling returns one row, the
+ * typographic spelling returns zero.
+ *
+ * The names reaching here are not all typed by us. They come from a language
+ * model's prose, from a decklist pasted out of an article or a forum post, and
+ * from `deck_cards` rows written by earlier versions of this app. Word,
+ * Google Docs, Notion and iOS all substitute U+2019 for a typed apostrophe by
+ * default, so the typographic spelling is the one a person is most likely to
+ * arrive with.
+ *
+ * BOTH spellings go out, never one instead of the other. Folding is a guess
+ * about how the catalogue is written, and the raw name is what the caller
+ * actually asked for; sending both means a row that really does carry a
+ * typographic character is still found, so this can only add matches. The cost
+ * is at most one extra entry per name in an `in.` list that is already chunked.
+ */
+export function nameVariants(name: string): string[] {
+  const raw = String(name ?? '').trim();
+  if (!raw) return [];
+  const folded = asciiPunctuation(raw);
+  return folded && folded !== raw ? [raw, folded] : [raw];
 }
 
 /**

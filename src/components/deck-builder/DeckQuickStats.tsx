@@ -130,7 +130,7 @@ export function DeckQuickStats({
             </span>
           ) : ownedPct === null || ownedPct === undefined ? (
             <span className="text-xs text-muted-foreground">
-              No collection data — add cards to your collection to see what this deck still needs.
+              No collection data. Add cards to your collection to see what this deck still needs.
             </span>
           ) : (
             <div className="flex flex-1 items-center gap-3">

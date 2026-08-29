@@ -67,16 +67,21 @@ export function TopNavigation() {
         Skip to main content
       </a>
 
-      <div className="flex h-full w-full items-center gap-3 px-3 md:px-5">
+      <div className="flex h-full w-full items-center gap-2 px-2 md:gap-3 md:px-5">
         {/* Left: mobile menu, brand */}
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-1 md:gap-1.5">
           <MobileNavigation />
           <Link
             to="/"
             className="flex items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="DeckMatrix home"
           >
-            <Wordmark size="md" />
+            {/* Smaller on a phone, full size from `md`. The wordmark is the
+                widest single thing in this bar at 125px, and the bar had 71px
+                more in it than a 390px phone has room for. The extra step down
+                at the smallest sizes is for 360px Android, which was still 10px
+                over after everything else. */}
+            <Wordmark size="sm" className="text-base sm:text-lg md:text-2xl" />
           </Link>
         </div>
 
@@ -117,7 +122,42 @@ export function TopNavigation() {
         </form>
 
         {/* Right: primary actions + account */}
-        <div className="ml-auto flex shrink-0 items-center gap-1.5 md:ml-0">
+        {/*
+          EVERY CONTROL IN HERE HAS TO FIT ON A PHONE.
+
+          It did not. Measured on the built bundle against `/dashboard`, asking
+          `document.elementFromPoint` what is actually painted at each control's
+          centre:
+
+            viewport 390 (iPhone 12/13/14/15)  bar needs 461px
+                                               Scan cards   UNREACHABLE
+                                               Account menu UNREACHABLE
+            viewport 414 (Plus and Max)        bar needs 461px
+                                               Account menu UNREACHABLE
+            viewport 360 (most Android)        bar needs 461px
+                                               Shopping list UNREACHABLE
+                                               Scan cards    UNREACHABLE
+                                               Account menu  UNREACHABLE
+
+          The bar is `position: fixed` with the overflow clipped, so those
+          controls were not merely off to one side, they could not be reached
+          by scrolling, swiping or tapping. On every page of the app.
+
+          Three things bought the room back, in the order they cost the least:
+          the gaps and the page padding on phones only, the wordmark at `sm`
+          below `md`, and `AccountMenu` hidden below `md`.
+
+          The account menu is the one CONTROL removed rather than shrunk, and it
+          is safe because it is duplicated: `MobileNavigation` — the hamburger
+          two inches to the left — already renders `AccountIdentity`, Settings
+          and Sign out inside the drawer. Nothing else here is duplicated
+          anywhere, which is why nothing else could go: the wishlist, the
+          shopping list and the scanner have no other entry point on a phone,
+          and `HistoryNav` is required on every page by the back/forward rule,
+          which exists precisely because a standalone/PWA window has no browser
+          chrome to fall back on.
+        */}
+        <div className="ml-auto flex shrink-0 items-center gap-1 md:ml-0 md:gap-1.5">
           <Button
             variant="ghost"
             size="sm"
@@ -166,7 +206,12 @@ export function TopNavigation() {
             <span className="hidden sm:inline">Scan</span>
           </Button>
 
-          <AccountMenu />
+          {/* Below `md` the hamburger drawer carries the identity, Settings
+              and Sign out, so this is a duplicate and it is the one thing in
+              this cluster that can go without losing a destination. */}
+          <div className="hidden md:block">
+            <AccountMenu />
+          </div>
         </div>
       </div>
     </header>

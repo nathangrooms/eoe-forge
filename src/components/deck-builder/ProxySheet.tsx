@@ -62,6 +62,21 @@ export interface ProxySheetProps {
    * irrelevant in print, where the scale is stripped entirely.
    */
   fitToWidth?: boolean;
+  /**
+   * Show ONE sheet on screen instead of stacking every sheet.
+   *
+   * A 100-card deck is 12 sheets. Each one is scaled to the full width it is
+   * given, so on a 1920 screen the preview was 12 pages of roughly 2,200 px
+   * each and the page measured 28,398 px tall — a wall of white paper in a
+   * charcoal app, and 26,000 px of scrolling to reach the bottom of a print
+   * job you were only checking the layout of.
+   *
+   * The inactive sheets are hidden **for screen only**. Every page stays in the
+   * DOM, so `isolateForPrint` still finds all twelve and the printed job is
+   * unchanged — the invariant this file is built on, that the preview IS the
+   * print DOM rather than a second drawing of it, survives.
+   */
+  previewPage?: number | null;
   className?: string;
 }
 
@@ -146,7 +161,7 @@ function TextProxy({ card }: { card: any }) {
 }
 
 export const ProxySheet = forwardRef<HTMLDivElement, ProxySheetProps>(function ProxySheet(
-  { slots, paper, cutGuides, fitToWidth = true, className },
+  { slots, paper, cutGuides, fitToWidth = true, previewPage = null, className },
   ref
 ) {
   const pages = useMemo(() => chunkIntoPages(slots), [slots]);
@@ -179,10 +194,16 @@ export const ProxySheet = forwardRef<HTMLDivElement, ProxySheetProps>(function P
   }, [fitToWidth, pageWidthPx]);
 
   const effectiveScale = fitToWidth ? scale : 1;
+  /* One sheet on screen means one sheet of reserved height. Reserving all
+     twelve is what made the page 28,398 px tall, and it would leave the same
+     empty shaft below the visible sheet even with the others hidden. */
+  const single = previewPage !== null && pages.length > 0;
+  const shownPages = single ? 1 : pages.length;
   /* The scaler is taken out of flow by `transform`, so the wrapper has to
      reserve the scaled height itself or the page below it overlaps. */
   const reservedHeight =
-    pages.length > 0 ? (pages.length * pageHeightPx + (pages.length - 1) * gapPx) * effectiveScale : 0;
+    pages.length > 0 ? (shownPages * pageHeightPx + (shownPages - 1) * gapPx) * effectiveScale : 0;
+  const activePage = single ? Math.min(Math.max(previewPage as number, 0), pages.length - 1) : -1;
 
   return (
     <div
@@ -193,7 +214,7 @@ export const ProxySheet = forwardRef<HTMLDivElement, ProxySheetProps>(function P
       <PageRule paper={paper} />
       <div
         ref={ref}
-        className={`proxy-sheet${cutGuides ? ' proxy-sheet--guides' : ''}`}
+        className={`proxy-sheet${cutGuides ? ' proxy-sheet--guides' : ''}${single ? ' proxy-sheet--single' : ''}`}
         style={
           {
             '--proxy-card-w': `${CARD_W_MM}mm`,
@@ -207,7 +228,10 @@ export const ProxySheet = forwardRef<HTMLDivElement, ProxySheetProps>(function P
       >
         <div className="proxy-sheet__scaler">
           {pages.map((page, pageIndex) => (
-            <div className="proxy-page" key={pageIndex}>
+            <div
+              className={`proxy-page${single && pageIndex !== activePage ? ' proxy-page--off' : ''}`}
+              key={pageIndex}
+            >
               {cutGuides && <CutLayer paper={paper} />}
               {page.map(slot => (
                 <div className="proxy-slot" key={slot.key}>

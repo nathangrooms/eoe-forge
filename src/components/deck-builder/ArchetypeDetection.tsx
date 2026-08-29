@@ -420,10 +420,10 @@ export function ArchetypeDetection({
       <CardHeader className="pb-3">
         <CardTitle className="text-lg">What kind of deck this is</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Counts the role tags on the cards in this deck and names any theme the deck is at
-          least twice as concentrated in as the card catalogue. The figure beside each name is
-          how far past that floor it goes: twice the catalogue&rsquo;s own density reads 50,
-          three times reads 100. No model, no guesswork.
+          Counts what the cards in this deck do and names any theme the deck runs at least twice
+          as much of as the card catalogue does. The figure beside each name is how far past that
+          it goes: twice the catalogue&rsquo;s own share reads 50, three times reads 100. Nothing
+          is guessed.
         </p>
       </CardHeader>
       <CardContent className="space-y-6">

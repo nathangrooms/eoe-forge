@@ -201,7 +201,7 @@ export function PowerSliderCoaching({
 
       {coaching.recommendations.length === 0 && coaching.operations.length === 0 && (
         <p className="text-sm text-muted-foreground">
-          Nothing to change — this list already scores at the target you picked.
+          Nothing to change. This list already scores at the target you picked.
         </p>
       )}
     </div>

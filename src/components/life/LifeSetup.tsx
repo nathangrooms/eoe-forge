@@ -319,7 +319,7 @@ export function LifeSetup({ initialConfig, onCancel, onStart, onExit }: LifeSetu
                   {seatName(activeSeat, activeIndex)}
                 </span>
                 {' plays on '}
-                {matDefinition(activeSeat.mat).label} — {matDefinition(activeSeat.mat).epithet}
+                {matDefinition(activeSeat.mat).label} · {matDefinition(activeSeat.mat).epithet}
                 {art[activeSeat.mat] && (
                   <>
                     {' · art from '}
@@ -442,7 +442,7 @@ export function LifeSetup({ initialConfig, onCancel, onStart, onExit }: LifeSetu
                   type="button"
                   onClick={() => setFormat(option.format)}
                   aria-pressed={format === option.format}
-                  aria-label={`${option.label} — ${option.note}`}
+                  aria-label={`${option.label}. ${option.note}`}
                   className={cn(
                     'rounded-xl px-3 py-2.5 text-left transition-colors motion-reduce:transition-none',
                     format === option.format

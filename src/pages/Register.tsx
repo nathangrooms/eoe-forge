@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +8,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { PASSWORD_RULE_TEXT, validatePasswordPair } from '@/lib/validation/password';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
+import { returnPathFrom } from '@/lib/auth/returnPath';
 
 export default function Register() {
   const [formData, setFormData] = useState({
@@ -21,6 +22,18 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const { signUp } = useAuth();
   const navigate = useNavigate();
+  const [search] = useSearchParams();
+
+  /**
+   * The other half of the shared-link path.
+   *
+   * `/login?next=` sends people here with the destination still attached, so
+   * somebody who follows a shared deck link, has no account and makes one lands
+   * on the deck rather than on the dashboard wondering what the link was.
+   */
+  const next = returnPathFrom(search.get('next'));
+  const redirected = Boolean(search.get('next'));
+  const loginHref = redirected ? `/login?next=${encodeURIComponent(next)}` : '/login';
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
@@ -51,7 +64,7 @@ export default function Register() {
         }
       } else {
         showSuccess('Account created', 'Welcome to DeckMatrix.');
-        navigate('/dashboard');
+        navigate(next);
       }
     } catch {
       showError('Sign up failed', 'An unexpected error occurred. Please try again.');
@@ -166,7 +179,7 @@ export default function Register() {
         <p className="text-center text-sm text-muted-foreground">
           Already have an account?{' '}
           <Link
-            to="/login"
+            to={loginHref}
             className="font-medium text-foreground underline-offset-4 hover:underline"
           >
             Sign in

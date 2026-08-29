@@ -289,18 +289,42 @@ export function ListToProxiesPanel({
                       width={130}
                       fill
                       quality="normal"
+                      /* Not picked is said with OPACITY and nothing else.
+                         `grayscale` here desaturated a Scryfall image, which
+                         their terms forbid and this project has been pulled up
+                         for repeatedly. `GameCardView` records taking the same
+                         filter off every uncastable card in hand. */
                       imageClassName={cn(
                         'transition-opacity',
-                        !row.selected && 'opacity-35 grayscale'
+                        !row.selected && 'opacity-40'
                       )}
                     >
+                      {/*
+                        Both markers sit along the BOTTOM edge.
+
+                        They used to be the tick top-right and the quantity
+                        top-left, which is the conventional place for a badge
+                        and the wrong place on a Magic card: the title runs
+                        across the top-left and the mana cost sits in the
+                        top-right corner, so the two things you identify a card
+                        by were the two things covered. Photographed at 1600 on
+                        `/shopping` with this panel open, the tick sat squarely
+                        over the green pip on Birds of Paradise and over the
+                        {4} on Solemn Simulacrum.
+
+                        `DeckProxyGenerator`'s picker found this and moved its
+                        badges to the collector line, which is the one band on a
+                        card carrying nothing you choose by. This is the same
+                        grid doing the same job and it kept the old placement,
+                        so the two proxy surfaces disagreed. They match now.
+                      */}
                       {row.selected && (
-                        <span className="pointer-events-none absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-foreground text-background">
+                        <span className="pointer-events-none absolute bottom-1.5 left-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-foreground text-background">
                           <Check className="h-3 w-3" aria-hidden />
                         </span>
                       )}
                       {row.quantity > 1 && (
-                        <span className="pointer-events-none absolute left-1.5 top-1.5 rounded-md bg-background/85 px-1.5 py-0.5 text-xs font-semibold tabular-nums text-foreground">
+                        <span className="pointer-events-none absolute bottom-1.5 right-1.5 rounded-md bg-background/85 px-1.5 py-0.5 text-xs font-semibold tabular-nums text-foreground">
                           {row.quantity}
                         </span>
                       )}

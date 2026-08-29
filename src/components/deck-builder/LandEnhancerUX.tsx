@@ -316,7 +316,7 @@ export function LandEnhancerUX({
             </h4>
             <p className="text-sm text-muted-foreground">
               These enter tapped. Replacing the ones you play early is the cheapest way to move
-              turn-one colour access, which feeds the speed and mana subscores.
+              turn-one colour access, which is what the speed and mana scores measure.
             </p>
             {rows ? (
               <CardGrid width={cardWidth ?? 180}>

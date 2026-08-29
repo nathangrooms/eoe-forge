@@ -817,7 +817,7 @@ export default function CardDetailPage() {
                     </>
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      This card has no rules text — it does exactly what its type line says.
+                      This card has no rules text. It does exactly what its type line says.
                     </p>
                   )}
                 </div>

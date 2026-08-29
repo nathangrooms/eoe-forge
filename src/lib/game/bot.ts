@@ -25,6 +25,7 @@ import {
   canBlock,
   eligibleAttackers,
   eligibleBlockers,
+  lanesNeedingDamageOrder,
   validateBlockGroup,
 } from './combat.ts';
 // The bot reads the same layered characteristics the board draws. If it read
@@ -1291,6 +1292,40 @@ function chooseActivation(
 
   for (const entry of activatablePermanents(state, playerId, { at })) {
     for (const option of entry.options) {
+      /*
+       * A MANA ABILITY IS NEVER ACTIVATED FOR ITS OWN SAKE, AND THIS IS NOT A
+       * PREFERENCE — IT IS THE FIX FOR A GAME THAT HANGS.
+       *
+       * Measured in a browser on 29 Aug 2026, four-player table, turn 11,
+       * reproduced twice on the same seed. A bot seat holding Initiates of the
+       * Ebon Hand ("{1}: Add {B}") sat in precombat main producing this, without
+       * end:
+       *
+       *     SPEND_MANA -> ADD_MANA -> NOTE -> SPEND_MANA -> ADD_MANA -> NOTE ...
+       *
+       * A filter converts mana rather than making it, so the pool never grows
+       * and never empties: the ability is payable on every pass, `chooseSpell`
+       * has already returned null, and this function offers the same activation
+       * for ever. `/play` asks `nextBotMove` on a timer and dispatches whatever
+       * it gets, so the table never reached turn 12 and the human seat had no
+       * control that could move it. The harness does not see this because
+       * `runner.ts` carries `loopRepeatLimit` and `maxActionsPerTurn`; the
+       * browser carries neither.
+       *
+       * The guard at the top of this function could not catch it either.
+       * `activationsThisTurn` reads `state.abilityUses`, which `rules.ts` only
+       * writes in `PUT_ABILITY_ON_STACK`, and CR 605.3a keeps a mana ability off
+       * the stack entirely. So mana activations are invisible to the counter and
+       * MAX_ACTIVATIONS_PER_TURN never fires for them.
+       *
+       * The rule that removes the whole class: mana is produced to PAY for
+       * something, and everything the bot pays for already taps its own sources
+       * inside `planCastFromHand` / `planActivationWith`. An activation reached
+       * here has no payee by construction, because `chooseSpell` ran first and
+       * found nothing. So a mana ability at this point can only ever float mana
+       * that nothing will spend.
+       */
+      if (option.isManaAbility) continue;
       if (!willingToPay(state, playerId, option)) continue;
 
       const plan = planActivationWith(
@@ -1308,28 +1343,24 @@ function chooseActivation(
        * bot that declined to cast a four-drop and then tapped the same four
        * lands to equip a sword has held nothing open.
        *
-       * A MANA ABILITY IS EXEMPT, and it has to be. `manaSourcesFor` counts the
-       * pool, so tapping a land for {G} moves one source from the battlefield
-       * to the pool and leaves the total unchanged — but the check below only
-       * sees the tap, would read it as a source lost, and would stop the bot
-       * using its own Llanowar Elves while it held a Counterspell.
+       * The mana-ability exemption that used to sit here is gone, because mana
+       * abilities no longer reach this line at all: they are skipped at the top
+       * of the loop. See the note there.
        *
        * Approximate in one direction and stated as such: `ActivationPlan`
        * reports `tapIds` and not the pool mana a cost spent, so an ability paid
        * for out of floating mana is judged as cheaper than it was. The error
        * lets a reserve slip, never invents one.
        */
-      if (!option.isManaAbility) {
-        const asPayment: PaymentPlan = {
-          ok: true,
-          tapIds: plan.tapIds,
-          spend: [],
-          required: 0,
-          available: sources.length,
-          reason: '',
-        };
-        if (!keepsTheReserve(sources, asPayment, reserve)) continue;
-      }
+      const asPayment: PaymentPlan = {
+        ok: true,
+        tapIds: plan.tapIds,
+        spend: [],
+        required: 0,
+        available: sources.length,
+        reason: '',
+      };
+      if (!keepsTheReserve(sources, asPayment, reserve)) continue;
 
       return { card: entry.card, option, actions: plan.actions };
     }
@@ -1690,6 +1721,20 @@ function activeMove(state: GameState, playerId: PlayerId, options: BotOptions): 
           waiting.indexOf(declaration.defenderPlayerId) !== -1
       );
       if (humanDefenderPending) return null;
+
+      /*
+       * CR 509.2 — order the blockers before damage, exactly as a human seat
+       * now does through `OrderBlockersBar`.
+       *
+       * Without this the bot's own attackers were damaged in the order the
+       * DEFENDER declared the blocks, which is the rule backwards, and a human
+       * double-blocking a bot got to choose which of their own creatures died.
+       * `orderBlockersMove` proposes nothing when the lane is already in the
+       * order it wants, so this cannot loop the no-progress detector.
+       */
+      const ordering = orderBlockersMove(state, playerId, at);
+      if (ordering) return ordering;
+
       return advance('Waits for blocks.');
     }
 
@@ -1859,6 +1904,51 @@ function blockMove(state: GameState, playerId: PlayerId, options: BotOptions): B
   return {
     actions: [{ type: 'BLOCK', blocks, at }],
     note: `Blocks with ${blocks.length} creature${blocks.length === 1 ? '' : 's'}.`,
+  };
+}
+
+/**
+ * CR 509.2 — put a double block into the order this bot wants damage spent in.
+ *
+ * The policy is "kill the biggest thing I can afford to kill first": blockers
+ * are sorted by toughness ASCENDING, so the attacker's power is spent on the
+ * cheapest lethal assignments first and kills as many bodies as it can. That is
+ * the assignment a human makes almost every time, and it is a real improvement
+ * over the previous behaviour, which was no policy at all — the order the
+ * DEFENDER happened to click in.
+ *
+ * Deathtouch reverses nothing: one point is lethal to everything, so ascending
+ * toughness still spends the fewest points per kill.
+ *
+ * Returns null when every lane is already in the wanted order. That is what
+ * keeps the harness's no-progress detector quiet: `ORDER_BLOCKERS` returns the
+ * same state reference when nothing moves, and a bot that proposed one anyway
+ * would look like a seat with a move that changes nothing, forever.
+ */
+function orderBlockersMove(state: GameState, playerId: PlayerId, at: number): BotMove | null {
+  const actions: GameAction[] = [];
+  for (const lane of lanesNeedingDamageOrder(state, playerId)) {
+    const live = lane.blockedBy.filter(id => state.cards[id]?.zone === 'battlefield');
+    const wanted = live.slice().sort((a, b) => {
+      const ca = state.cards[a];
+      const cb = state.cards[b];
+      if (!ca || !cb) return 0;
+      const byToughness = combatToughnessIn(state, ca) - combatToughnessIn(state, cb);
+      if (byToughness !== 0) return byToughness;
+      // Among equals, take the biggest hitter off the board first.
+      return combatPowerIn(state, cb) - combatPowerIn(state, ca);
+    });
+    // Blockers that have already left keep their place at the back rather than
+    // being dropped: `ORDER_BLOCKERS` refuses anything that is not a
+    // permutation of the whole lane.
+    const order = [...wanted, ...lane.blockedBy.filter(id => wanted.indexOf(id) === -1)];
+    if (order.join('|') === lane.blockedBy.join('|')) continue;
+    actions.push({ type: 'ORDER_BLOCKERS', attackerId: lane.attackerId, blockerIds: order, at });
+  }
+  if (actions.length === 0) return null;
+  return {
+    actions,
+    note: `Orders blockers on ${actions.length} lane${actions.length === 1 ? '' : 's'}.`,
   };
 }
 

@@ -733,7 +733,15 @@ export function EnhancedUniversalCardSearch({
               value={shownUnique}
               onValueChange={(unique: 'cards' | 'prints' | 'art') => patch({ unique })}
             >
-              <SelectTrigger className={cn(FIELD, 'h-9 w-[132px]')} aria-label="Result uniqueness">
+              {/* Flexible on a phone, fixed from `sm`. Both of these carried a
+                  hard pixel width, so the row could not shrink and the sort
+                  direction button beside them was drawn 38px past the right
+                  edge of a 390px screen, where the page shell's
+                  `overflow-x: hidden` clipped it out of reach. */}
+              <SelectTrigger
+                className={cn(FIELD, 'h-9 min-w-0 flex-1 sm:w-[132px] sm:flex-none')}
+                aria-label="Result uniqueness"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className={SURFACE}>
@@ -744,7 +752,10 @@ export function EnhancedUniversalCardSearch({
             </Select>
 
             <Select value={shownOrder} onValueChange={(order: SortField) => patch({ order })}>
-              <SelectTrigger className={cn(FIELD, 'h-9 w-[140px]')} aria-label="Sort results by">
+              <SelectTrigger
+                className={cn(FIELD, 'h-9 min-w-0 flex-1 sm:w-[140px] sm:flex-none')}
+                aria-label="Sort results by"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className={SURFACE}>

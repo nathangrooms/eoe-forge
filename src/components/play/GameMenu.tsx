@@ -14,7 +14,8 @@
  * material, so opening it moves the table over rather than covering it.
  */
 
-import { X } from 'lucide-react';
+import { useState } from 'react';
+import { Flag, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   CardSizeSlider,
@@ -41,6 +42,28 @@ export interface GameMenuProps {
   onVariant: (variant: SeatingVariant) => void;
   /** Shuffle back and draw one fewer. Lives here now the hand list is gone. */
   onMulligan: () => void;
+  /**
+   * Give the game up. CR 104.3a, and the one legal move a player can always make.
+   *
+   * ---------------------------------------------------------------------------
+   * IT DID NOT EXIST, AND THAT IS THE SHAPE THIS PROJECT KEEPS HITTING
+   * ---------------------------------------------------------------------------
+   * `CONCEDE` is a real reducer case (`rules.ts`), a real loss reason checked
+   * first in `sba.ts`, and something cards themselves build
+   * (`abilities/to-actions.ts`). Measured on 28 Aug 2026 by grepping every
+   * `.ts`/`.tsx` under `src/components/play`, `src/pages` and
+   * `src/components/lobby` for a `'CONCEDE'` string literal: ONE file matched,
+   * and it was `src/pages/LifeCounter.tsx` — the phone-on-the-table counter, a
+   * different surface. Nothing on the play table built one, ever.
+   *
+   * "Leave the table" is not this. It tears the table down locally and tells
+   * the other seats nothing; conceding is a move IN the game that the rules
+   * answer, that state-based actions pick up, and that hands the win to
+   * somebody. On a networked table those are not close to the same thing.
+   */
+  onConcede: () => void;
+  /** False once this seat has already conceded or the game is over. */
+  canConcede?: boolean;
   onLeave: () => void;
   onClose: () => void;
   className?: string;
@@ -112,11 +135,23 @@ export function GameMenu({
   variants,
   onVariant,
   onMulligan,
+  onConcede,
+  canConcede = true,
   onLeave,
   onClose,
   viewerColors,
   className,
 }: GameMenuProps) {
+  /*
+   * Confirmed in place, never in a centred dialog.
+   *
+   * CLAUDE.md section 12.3: *"I dont want any modal popups at all"*, and for a
+   * confirmation: *"the destructive control swaps to Confirm/Cancel"*. So the
+   * button becomes the question. It also resets itself whenever the menu is
+   * closed, because this component unmounts with the rail.
+   */
+  const [confirmingConcede, setConfirmingConcede] = useState(false);
+
   return (
     <div className={cn('flex h-full w-full flex-col', className)}>
       <div className="flex shrink-0 items-center gap-2 px-3 pb-1 pt-2">
@@ -245,10 +280,67 @@ export function GameMenu({
           </Section>
         )}
 
+      </div>
+
+      {/*
+        PINNED, not scrolled.
+
+        The first screenshot of this menu had Concede below the fold: the
+        playmat picker is a sixteen-tile grid and it pushed both the way out of
+        a game and the way to lose one off the bottom of a 1000px window. A
+        control a player cannot find is the same as a control that does not
+        exist, which is the whole defect this section was added to close. So the
+        two ways out sit in a footer the scroll never moves.
+      */}
+      <div className="flex shrink-0 flex-col gap-2 px-3 pb-3 pt-2">
+        {/* Giving the game up, and walking away from it. Two different things,
+            so they are two controls and the words say which is which. */}
+        <Section title="Give up">
+          {confirmingConcede ? (
+            <div className="rounded-lg bg-foreground/[0.05] p-3">
+              <p className="text-xs font-medium text-foreground">Concede this game?</p>
+              <p className="mt-1 text-[10px] leading-tight text-muted-foreground">
+                You lose straight away and the game carries on without you.
+              </p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfirmingConcede(false);
+                    onConcede();
+                  }}
+                  className="flex-1 rounded-md bg-destructive px-3 py-2 text-xs font-semibold text-destructive-foreground transition-colors hover:bg-destructive/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  Concede
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingConcede(false)}
+                  className="flex-1 rounded-md bg-foreground/[0.07] px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-foreground/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  Keep playing
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              disabled={!canConcede}
+              onClick={() => setConfirmingConcede(true)}
+              title="Concede: you lose this game and the others play on"
+              className="flex w-full items-center gap-2 rounded-lg bg-foreground/[0.07] px-3 py-2 text-left text-xs font-medium text-foreground transition-colors hover:bg-foreground/[0.12] disabled:pointer-events-none disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Flag className="h-3.5 w-3.5" />
+              Concede the game
+            </button>
+          )}
+        </Section>
+
         <button
           type="button"
           onClick={onLeave}
-          className="mt-auto w-full rounded-lg bg-foreground/[0.07] px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-destructive hover:text-destructive-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          title="Close the table on this device. It is not a concession."
+          className="w-full rounded-lg bg-foreground/[0.07] px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-destructive hover:text-destructive-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           Leave the table
         </button>

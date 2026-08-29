@@ -497,6 +497,34 @@ function manaProduction(
       // deck actually plays — the deck's own colours, not all five.
       if (fetchMask === 0 && /\bbasic\b/i.test(what)) fetchMask = deckColourMask;
       if (fetchMask === 0 && /\bland\b/i.test(what)) fetchMask = deckColourMask;
+      /*
+       * AND A FETCHLAND CANNOT FIND A BASIC THE DECK DOES NOT PLAY.
+       *
+       * The untyped case above already says this — "the deck's own colours,
+       * not all five" — and the TYPED case did not, so a fetchland naming its
+       * basic types was credited with those colours whatever deck it was in.
+       *
+       * Windswept Heath reads "search your library for a Forest or Plains
+       * card". In Talrand, mono blue, that matched `Forest` and `Plains` and
+       * came back a white and green source, in a deck with no white and no
+       * green cards and no Plains and no Forest to find. The card is a blank:
+       * it taps for nothing and finds nothing.
+       *
+       * Two things read this and both were wrong because of it.
+       * `buildManaProfile` counted W and G sources that do not exist, which
+       * inflates `sourcesByColour` and the castability of any cost in the
+       * fetch's OTHER half — the common case is not the mono deck but the
+       * two-colour one, where a Polluted Delta in Orzhov claimed to be a blue
+       * source. And `pickLands` in the builder asks `manaSourceFor` which of
+       * the deck's colours a land makes, then tiers on the answer; a mask of
+       * W and G is non-empty, so an unfetchable fetchland sorted as a real
+       * mana source and was taken ahead of lands that do something.
+       * Talrand's mana base held Windswept Heath and Bloodstained Mire.
+       *
+       * Intersecting is the whole fix. What is left is a land that produces
+       * nothing, which the fallthrough below already describes correctly.
+       */
+      fetchMask &= deckColourMask;
       if (fetchMask !== 0) {
         mask |= fetchMask;
         amount = Math.max(amount, 1);

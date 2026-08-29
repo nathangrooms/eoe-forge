@@ -137,7 +137,7 @@ export class SynergyEngine {
     
     'Tribal Aggro': {
       category: 'tribal',
-      description: 'Creature-based strategy leveraging tribal synergies',
+      description: 'Creature-based strategy built on tribal synergies',
       keyMechanics: ['tribal', 'lord-effects', 'tribal-support'],
       requiredEffects: ['creature density', 'tribal payoffs', 'anthems'],
       cardTypes: ['Creature', 'Tribal'],

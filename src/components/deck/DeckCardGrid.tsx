@@ -164,7 +164,17 @@ export function DeckCardGrid({
                   )}
                   style={
                     width
-                      ? { gridTemplateColumns: `repeat(auto-fill, minmax(${width}px, 1fr))` }
+                      ? {
+                          /* The same track expression as `CardGrid`, which this
+                             list is a second copy of. It was a bare
+                             `minmax(${width}px, 1fr)`: no `min(…, 100%)`, so a
+                             card wider than the column could push the page
+                             sideways, and no two-column floor, so on a 390px
+                             phone the default 230 gave one 366px card per row
+                             and the Cards tab measured 36,914px tall. See the
+                             comment on `CardGrid` for the arithmetic. */
+                          gridTemplateColumns: `repeat(auto-fill, minmax(min(${width}px, max(150px, calc(50% - 6px)), 100%), 1fr))`,
+                        }
                       : undefined
                   }
                 >

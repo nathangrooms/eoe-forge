@@ -12,6 +12,26 @@ import { CARD_WIDTH_DEFAULT } from './CardSizeSlider';
  *
  * `min(<width>px, 100%)` is what keeps a 320px card from overflowing a 300px
  * phone: the track can never be wider than the container.
+ *
+ * ## Two columns on a phone, measured
+ *
+ * That `100%` alone was not enough, and the gap it left was six pixels wide. A
+ * 390px phone gives this grid a 366px content box. Two 180px tracks with the
+ * 12px gutter want 372, so `auto-fill` dropped to ONE column and every card
+ * rendered 366px wide. Every listing surface picks its own `defaultSize` and
+ * they are 170, 176, 180, 190 and 200, so all but the smallest fell off that
+ * edge. Measured on the built bundle at 390 before this line changed:
+ *
+ *   /collection      366px cards   15,136px tall
+ *   /marketplace     366px cards   25,979px tall
+ *   /shopping        366px cards   16,419px tall
+ *   /deck/:id?tab=value            366px cards   63,754px tall
+ *
+ * Sixty-four thousand pixels is seventy-five phone screens to scroll one
+ * hundred cards. So the track minimum is additionally capped at what two
+ * columns need, and the `max(150px, …)` keeps that cap from biting inside a
+ * genuinely narrow box — a right-hand slide-out at 240px still draws one card
+ * per row rather than two thumbnails.
  */
 
 export interface CardGridProps {
@@ -41,7 +61,7 @@ export const CardGrid = forwardRef<HTMLDivElement, CardGridProps>(function CardG
       ref={ref}
       className={cn('grid', className)}
       style={{
-        gridTemplateColumns: `repeat(auto-fill, minmax(min(${width}px, 100%), 1fr))`,
+        gridTemplateColumns: `repeat(auto-fill, minmax(min(${width}px, max(150px, calc(50% - ${gutter / 2}px)), 100%), 1fr))`,
         gap: gutter,
         ...style,
       }}

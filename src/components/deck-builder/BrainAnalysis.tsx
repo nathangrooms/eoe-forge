@@ -94,7 +94,7 @@ const ANALYSIS_OPTIONS = [
   {
     id: 'power-breakdown',
     label: 'Power',
-    description: 'The score, and which subscore moved it',
+    description: 'The score, and which part of it moved',
     icon: Zap,
     prompt: (data: any) => `Analyze this deck's power level breakdown in detail:
 

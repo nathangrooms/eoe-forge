@@ -24,6 +24,7 @@ import {
   eligibleAttackers,
   eligibleBlockers,
   isLand,
+  lanesNeedingDamageOrder,
   advanceActions,
   hasPriority,
   hasResponse,
@@ -55,6 +56,17 @@ export type PlayDecision =
   /** Someone is attacking you and you have bodies to put in the way. */
   | 'blockers'
   /**
+   * CR 509.2 — your attacker got double blocked and you say which blocker its
+   * damage goes to first.
+   *
+   * This one is owed on YOUR OWN turn, in the declare-blockers step, which the
+   * surface otherwise walks straight past in 130 ms. It was not a decision this
+   * product had at all: `combat.ts:assignToBlockers` spent damage in
+   * `blockedBy` array order, and `BLOCK` appends in the order the DEFENDER
+   * declared, so the defender was picking which of their own creatures died.
+   */
+  | 'damage-order'
+  /**
    * Something on your board goes off this step and the engine will not run it.
    *
    * This is the Aether Vial stop. An upkeep trigger has no moment of its own —
@@ -80,6 +92,7 @@ export const DECISION_LABEL: Record<PlayDecision, string> = {
   'second-main': 'Second main phase',
   attackers: 'Declare attackers',
   blockers: 'Declare blockers',
+  'damage-order': 'Order the blockers',
   manual: 'Resolve by hand',
   respond: 'Respond, or let it resolve',
 };
@@ -115,6 +128,7 @@ export const DECISION_ACTION: Record<PlayDecision, string> = {
   'second-main': 'End turn',
   attackers: 'Declare attackers',
   blockers: 'Declare blockers',
+  'damage-order': 'Damage order',
   manual: 'Resolve by hand',
   respond: 'Respond',
 };
@@ -304,6 +318,25 @@ export function decisionFor(
   // makes on somebody else's turn.
   if (state.step === 'declare_blockers' && isUnderAttack(state, playerId)) {
     return eligibleBlockers(state, playerId).length > 0 ? 'blockers' : null;
+  }
+
+  /*
+   * CR 509.2, and it is checked HERE — before the `activePlayerId` guard below
+   * and before the step switch — because of where it falls in the turn.
+   *
+   * The attacking player owns this decision, and the attacking player IS the
+   * active player, so the guard would let it through. The step switch would
+   * not: `declare_blockers` has no case, so it hits `default: return null` and
+   * the 130 ms walk in `Play.tsx` steps straight into combat damage. That is
+   * exactly what happened before this branch existed, and it is why a double
+   * block resolved with the defender's click order deciding who died.
+   *
+   * Releasing the stop once the order is confirmed is `/play`'s job, the same
+   * way it releases the 'manual' stop when the duties strip is waved away. The
+   * engine cannot know a human has looked at something.
+   */
+  if (state.step === 'declare_blockers' && lanesNeedingDamageOrder(state, playerId).length > 0) {
+    return 'damage-order';
   }
 
   if (state.activePlayerId !== playerId) return null;

@@ -267,13 +267,35 @@ export function DeckAddPanel({
         metrics={ROLES.map(role => {
           const have = profile.roleCounts[role] ?? 0;
           const want = targets[role] ?? 0;
+          /* A ROLE THE ENGINE SETS NO TARGET FOR HAS NO TARGET, AND MUST NOT
+             BORROW ZERO AS ONE.
+             `creature` is declared 0 in `YARDSTICK_WHEN_NO_SHAPE_WAS_DERIVED`
+             on purpose: how many creatures a deck wants depends entirely on
+             what it is trying to do, so the engine declines to guess. Printed
+             through the same branch as the others that read
+             "Creatures 100 /0 · 100 past the target", which is three wrong
+             claims at once. It says the target is zero, it says a normal
+             creature count overshoots it, and the meter fills because
+             everything is past zero. A commander deck with 30 creatures is not
+             30 past anything.
+             So no suffix, no meter and a subtext that says why there is no
+             number rather than inventing one. */
+          if (want <= 0) {
+            return {
+              id: role,
+              label: ROLE_LABEL[role],
+              value: String(have),
+              raw: have,
+              subtext: 'no target, it depends on the deck',
+            };
+          }
           return {
             id: role,
             label: ROLE_LABEL[role],
             value: String(have),
             raw: have,
             suffix: `/${want}`,
-            meter: want > 0 ? Math.min(100, (have / want) * 100) : 0,
+            meter: Math.min(100, (have / want) * 100),
             /* "At the target" for exactly the target, and the real distance in
                either direction otherwise. A deck running 28 ramp against a
                target of 10 read "at the target", which is the one thing it is
@@ -296,8 +318,8 @@ export function DeckAddPanel({
             {commanderName ? ` · colour identity of ${commanderName}` : ''}
           </p>
           <p className="text-xs text-muted-foreground">
-            The targets above are this product’s declared policy for a deck of this size, not a
-            measurement of anything. What you have is counted off your own cards.
+            The targets above are what we aim for in a deck this size, not a measurement of
+            anything. What you have is counted off your own cards.
           </p>
         </CardContent>
       </Card>
@@ -311,10 +333,14 @@ export function DeckAddPanel({
           <div className="min-w-0">
             <h3 className="text-lg font-semibold">What this deck is asking for</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Ranked against this deck by the in-house engine: legal in {formatLabel(format)},
-              inside your colour identity, not already in the list, and castable by this mana
-              base. Every reason is a number counted off your deck or read off the card. No
-              model is asked anything.
+              {/* WAS "by the in-house engine" and "No model is asked anything".
+                  Both words are on the ban list in CLAUDE.md §10a, and the
+                  second one names the very thing Magic players do not want to
+                  hear about. The point it was making survives as "Nothing is
+                  guessed". */}
+              Ranked against this deck by DeckMatrix: legal in {formatLabel(format)}, inside your
+              colour identity, not already in the list, and castable by this mana base. Every
+              reason is a number counted off your deck or read off the card. Nothing is guessed.
             </p>
           </div>
           <Button onClick={fetchSuggestions} disabled={loading} className="shrink-0">

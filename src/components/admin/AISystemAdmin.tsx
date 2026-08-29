@@ -186,7 +186,7 @@ export function AISystemAdmin() {
                 </CardTitle>
                 <CardDescription className="max-w-3xl">
                   Every row in <code className="font-mono">feature_usage</code> for the metered AI
-                  features. Counts are calls, not tokens — nothing in the product records token
+                  features. Counts are calls, not tokens. Nothing in the product records token
                   counts, so no cost figure can honestly be shown here.
                 </CardDescription>
               </div>
@@ -270,7 +270,7 @@ export function AISystemAdmin() {
                   <p className="mt-4 rounded-lg bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
                     No usage has been recorded yet. These counters are written by the
                     <code className="mx-1 font-mono">increment_feature_usage</code>
-                    RPC, and nothing in the app calls it today — so these zeroes mean
+                    RPC, and nothing in the app calls it today, so these zeroes mean
                     &ldquo;not instrumented&rdquo;, not &ldquo;unused&rdquo;.
                   </p>
                 )}
@@ -285,8 +285,8 @@ export function AISystemAdmin() {
           <CardHeader>
             <CardTitle>AI feature flags</CardTitle>
             <CardDescription>
-              Live state of the flags that gate AI features. They are edited on the Features tab —
-              this view is read-only so exactly one surface writes them.
+              Live state of the flags that gate AI features. They are edited on the Features tab. This view only
+              reads them, so exactly one screen writes them.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">

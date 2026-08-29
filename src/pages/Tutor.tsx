@@ -718,7 +718,16 @@ ${cardBrief(selectedCard)}` : message,
           className="min-w-0 basis-full lg:max-w-[34rem] lg:flex-1 lg:basis-auto"
         />
 
-        <div className="ml-auto flex items-center gap-4">
+        {/* This group has to wrap.
+
+            It was `flex items-center gap-4` with no wrap, holding the detailed
+            answers switch, New chat and Your chats. At 390 that needs more
+            width than the phone has, and the page shell clips its overflow, so
+            "Your chats" was drawn 63px past the right edge and sliced to the
+            letter Y. Measured on the built bundle: clipped by
+            `overflow-x: hidden`, so it could not be scrolled to or tapped, and
+            saved chats were unreachable on a phone. */}
+        <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-2">
           <div className="flex items-center gap-2">
             <Label htmlFor="detailed-toggle" className="whitespace-nowrap text-sm font-normal text-muted-foreground">
               Detailed answers

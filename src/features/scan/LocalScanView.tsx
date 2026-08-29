@@ -44,7 +44,7 @@ export interface LocalScanViewProps {
 const FRAMING_COPY: Record<string, { text: string; tone: 'idle' | 'warn' | 'ready' }> = {
   'no-card': { text: 'Point the camera at a card', tone: 'idle' },
   'too-small': { text: 'Move closer', tone: 'warn' },
-  'too-dark': { text: 'Too dark — find more light', tone: 'warn' },
+  'too-dark': { text: 'Too dark, find more light', tone: 'warn' },
   'too-blurry': { text: 'Hold steady', tone: 'warn' },
   ready: { text: 'Card found', tone: 'ready' },
 };
@@ -331,8 +331,8 @@ function ScanResult({
       {result.offerVisionFallback ? (
         <div className="space-y-2 rounded-xl bg-background/40 p-3">
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Local recognition could not place this card. You can ask the online vision model to read
-            the name instead — it costs a network call, so it is never used automatically.
+            Reading it here on your device did not place this card. You can send the picture off to be
+            read instead. That costs a network call, so it never happens on its own.
           </p>
           <Button size="sm" variant="secondary" onClick={onUseVisionModel} disabled={modelBusy}>
             {modelBusy ? (
@@ -340,7 +340,7 @@ function ScanResult({
             ) : (
               <Sparkles className="mr-2 h-3.5 w-3.5" />
             )}
-            {modelBusy ? 'Asking the model…' : 'Use the vision model'}
+            {modelBusy ? 'Reading…' : 'Send the picture off to be read'}
           </Button>
         </div>
       ) : null}

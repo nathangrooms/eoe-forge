@@ -303,7 +303,7 @@ Be HONEST. If bad, say why.`,
           <div>
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
-              Deployed prompt — <span className="font-mono text-base">{functionName}</span>
+              Deployed prompt: <span className="font-mono text-base">{functionName}</span>
             </CardTitle>
             <CardDescription>
               A reference copy of what the edge function sends. Prompts are compiled into the

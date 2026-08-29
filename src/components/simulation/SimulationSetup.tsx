@@ -231,7 +231,7 @@ export function SimulationSetup({
           </Button>
           {sameDeck && (
             <p className="text-center text-xs text-muted-foreground">
-              Pick two different decks — a deck cannot play itself.
+              Pick two different decks. A deck cannot play itself.
             </p>
           )}
         </div>

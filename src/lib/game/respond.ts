@@ -39,6 +39,10 @@
  */
 
 import { canRespond, stackTop, stackOf } from './stack.ts';
+/* The battlefield half of "can I answer this". `activate.ts` does not import
+   this file, so the direction is one way and there is no cycle. */
+import { activatablePermanents } from './activate.ts';
+import { abilitiesFor } from './abilities/card-abilities.ts';
 import { isLand, castingCostOf, manaSourcesFor, planPayment } from './mana.ts';
 import { hasKeyword } from './keywords.ts';
 import { getPlayer } from './rules.ts';
@@ -328,11 +332,73 @@ export function responseOptions(
 }
 
 /**
+ * Permanents on this player's battlefield with an ability they could use RIGHT
+ * NOW, in response.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THIS WAS ADDED, AND WHAT IT WAS COSTING
+ * ---------------------------------------------------------------------------
+ * `responseOptions` above scans `player.zones.hand` and nothing else. So
+ * `hasResponse` was answering "can I answer this **from hand**", `decisionFor`
+ * returned null for a seat whose only answer was a permanent, and `/play`'s
+ * 130 ms auto-walk pressed PASS_PRIORITY on their behalf. The response window
+ * closed before a person could have reached the board.
+ *
+ * That is the shape CLAUDE.md warns about in its own words: the engine answers
+ * correctly (`activationTiming` has always allowed an instant-speed activation
+ * with the stack non-empty and priority held) while no control on screen can
+ * express it.
+ *
+ * MEASURED, not assumed. `scripts/playtest/reach-census.ts`, six games, 6,656
+ * applied actions: **856 response windows, 29 answerable from hand, and 10 more
+ * where the hand held nothing and the battlefield held something.** Ten windows
+ * the surface passed through on the player's behalf. Small, and real, and the
+ * reason the fix is to stop the walk rather than to build a new panel: the
+ * board is already on screen and a permanent's abilities are already one press
+ * away in `CenterPreview`.
+ *
+ * Mana abilities are excluded. Making mana is not responding, CR 605.3a keeps
+ * them off the stack, and a seat with an untapped Forest would otherwise stop
+ * the game on every single cast anybody made.
+ */
+export function abilityResponses(
+  state: GameState,
+  playerId: PlayerId,
+  options: ResponseOptions = {}
+): CardInstance[] {
+  if (!canRespond(state, playerId).ok) return [];
+
+  const out: CardInstance[] = [];
+  for (const entry of activatablePermanents(state, playerId, { ignoreMana: options.freeCast })) {
+    const compiled = abilitiesFor(entry.card).abilities;
+    const usable = entry.options.some(option => {
+      /* `ok || pending` is the same rule `activatablePermanents` documents and
+         applies: an ability that needs a target is never `ok` until somebody
+         names one, so filtering on `ok` alone hides every "deals damage to any
+         target" from the player whose job is to choose the target. Rod of Ruin
+         is exactly that card, and it is what caught this. Anything refused for
+         a reason a choice cannot fix — no mana, tapped, wrong step — is already
+         out of the list before it gets here. */
+      if (!option.ok && option.pending.length === 0) return false;
+      if (option.isManaAbility) return false;
+      const ability = compiled.find(a => a.id === option.abilityId);
+      return !!ability && ability.kind === 'activated' && ability.timing !== 'sorcery';
+    });
+    if (usable) out.push(entry.card);
+  }
+  return out;
+}
+
+/**
  * Is there a question worth putting on screen?
  *
  * This is the whole "detect if you can counter a cast from opponent" test, and
  * it is two conditions rather than one: something to answer, and something to
  * answer it with. Either alone is not a decision.
+ *
+ * "Something to answer it with" means the hand OR the battlefield. It used to
+ * mean the hand alone; see `abilityResponses` for the ten windows a run of six
+ * games spent passing priority through.
  */
 export function hasResponse(
   state: GameState,
@@ -340,5 +406,6 @@ export function hasResponse(
   options: ResponseOptions = {}
 ): boolean {
   if (!spellToAnswer(state, playerId)) return false;
-  return responseOptions(state, playerId, options).length > 0;
+  if (responseOptions(state, playerId, options).length > 0) return true;
+  return abilityResponses(state, playerId, options).length > 0;
 }

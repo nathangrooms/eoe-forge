@@ -45,7 +45,7 @@ export default function CameraScan() {
   return (
     <StandardPageLayout
       title="Camera scan"
-      description="Point the camera at a card — matches are added as they are recognised"
+      description="Point the camera at a card. Matches are added as they are recognised"
       action={
         <Button variant="ghost" onClick={() => navigate('/scan')} className="gap-2">
           <ArrowLeft className="h-4 w-4" />

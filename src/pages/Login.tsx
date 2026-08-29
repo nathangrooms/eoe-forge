@@ -26,6 +26,18 @@ export default function Login() {
    * that URL. So a caller may name where it wanted to be.
    */
   const next = returnPathFrom(search.get('next'));
+  /**
+   * Say why they are here.
+   *
+   * Somebody who typed `/login` chose to be on this page. Somebody who followed
+   * a shared deck link did not, and without a line saying so the page reads as
+   * the app having lost their link. `next` is the only thing that tells the two
+   * apart.
+   */
+  const redirected = Boolean(search.get('next'));
+  /* Whatever they were going to, they should still be going to it after making
+     an account rather than after signing in. */
+  const registerHref = redirected ? `/register?next=${encodeURIComponent(next)}` : '/register';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,7 +62,11 @@ export default function Login() {
   return (
     <AuthLayout
       title="Sign in"
-      description="Pick up where you left off with your collection and decks."
+      description={
+        redirected
+          ? 'That page needs an account. Sign in and we will take you straight there.'
+          : 'Pick up where you left off with your collection and decks.'
+      }
     >
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="space-y-2">
@@ -112,7 +128,7 @@ export default function Login() {
         <p className="text-center text-sm text-muted-foreground">
           Don't have an account?{' '}
           <Link
-            to="/register"
+            to={registerHref}
             className="font-medium text-foreground underline-offset-4 hover:underline"
           >
             Create one

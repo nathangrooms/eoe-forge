@@ -217,8 +217,13 @@ export function DeckValuePanel({
           {
             id: 'reserved',
             label: 'Reserved list',
-            value: `$${summary.reservedValue.toFixed(2)}`,
-            raw: summary.reservedValue,
+            /* A deck with nothing on the reserved list printed `$0.00`, which
+               this project's price rule calls out by name: a rendered zero is
+               always invented, because the smallest real price in the database
+               is 0.01. The subtext already says "nothing here is on it", so the
+               figure is a dash, the same as the tile beside it. */
+            value: summary.reservedRows === 0 ? '—' : `$${summary.reservedValue.toFixed(2)}`,
+            raw: summary.reservedRows === 0 ? undefined : summary.reservedValue,
             subtext:
               summary.reservedRows === 0
                 ? 'nothing here is on it'

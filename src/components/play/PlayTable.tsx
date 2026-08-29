@@ -44,20 +44,21 @@ import { SeatMat, type SeatAim } from './SeatMat';
 import { Playmat } from './Playmat';
 import { GameStateProvider } from './GameStateContext';
 import { CombatBar } from './CombatBar';
+import { OrderBlockersBar } from './OrderBlockersBar';
 import { useLiveSession } from './liveSession';
 import { boardTargets } from './aiming';
 import { useAimRequest } from './useAiming';
-import { cardCombatFor, combatSentence, combatStageFor } from './combatUi';
+import { cardCombatFor, combatSentence, combatStageFor, illegalBlockReason } from './combatUi';
 import type { CombatChipProps, Lunge } from './GameCardView';
 import type { LifeDeltaMap } from './useTableMotion';
 import {
   eligibleBlockers,
+  lanesNeedingDamageOrder,
   layoutFromViewpoint,
   livingPlayers,
   resolveCombat,
   seatingFor,
   tapsToAttack,
-  validateBlockGroup,
   type CardInstance,
   type GameAction,
   type GameState,
@@ -434,31 +435,43 @@ export function PlayTable({
   );
 
   /*
-   * Menace is a property of the whole block, so it cannot be enforced as each
-   * blocker is assigned — one creature in front of a menacing attacker is an
-   * illegal block that becomes legal the moment a second joins it. So the
-   * assignment is allowed and the CONFIRM is what refuses, with the reason the
-   * engine gives, which is also where a real table would catch it.
+   * Why the confirm refuses, or ''. The rule and the reason are in
+   * `combatUi.illegalBlockReason`, not here, because the HUD's big control
+   * commits the same decision and has to refuse for the same reason.
    */
-  const blockIssue = useMemo(() => {
-    if (stage !== 'blockers') return '';
-    for (const declaration of state.combat.attackers) {
-      if (declaration.blockedBy.length === 0) continue;
-      const legality = validateBlockGroup(
-        state,
-        state.cards[declaration.attackerId],
-        declaration.blockedBy.map(id => state.cards[id])
-      );
-      if (!legality.ok) return legality.reason;
-    }
-    return '';
-  }, [state, stage]);
+  const blockIssue = useMemo(
+    () => illegalBlockReason(state, viewerPlayerId),
+    [state, viewerPlayerId]
+  );
 
   const confirmCombat = useCallback(() => {
     if (!dispatch) return;
     setArmedBlockerId(null);
     dispatch({ type: 'ADVANCE_STEP', at: Date.now() });
   }, [dispatch]);
+
+  /*
+   * CR 509.2 — the attacking player's damage assignment order.
+   *
+   * Asked in the declare-blockers step, of the seat that is ATTACKING, which is
+   * a moment `CombatBar` never draws in: that strip draws for a seat that owes
+   * a declaration, and this seat finished theirs a step ago. So the two never
+   * overlap, and `turnFlow.decisionFor` holds the step open for exactly as long
+   * as `lanesNeedingDamageOrder` is non-empty. Confirming ADVANCES the step,
+   * which is what empties it: nothing has to remember that a human looked.
+   */
+  const orderLanes = useMemo(
+    () => lanesNeedingDamageOrder(state, viewerPlayerId),
+    [state, viewerPlayerId]
+  );
+
+  const orderBlockers = useCallback(
+    (attackerId: string, blockerIds: string[]) => {
+      if (!dispatch) return;
+      dispatch({ type: 'ORDER_BLOCKERS', attackerId, blockerIds, at: Date.now() });
+    },
+    [dispatch]
+  );
 
   const armedCard = armedBlockerId ? state.cards[armedBlockerId] ?? null : null;
   /*
@@ -634,6 +647,17 @@ export function PlayTable({
             onTarget={setTargetId}
             onConfirm={confirmCombat}
             blockedReason={blockIssue}
+          />
+        )}
+
+        {/* The attacking player's half of the blockers step. Never at the same
+            time as CombatBar: `stage` is null for this seat here. */}
+        {!stage && dispatch && !aim && orderLanes.length > 0 && (
+          <OrderBlockersBar
+            state={state}
+            lanes={orderLanes}
+            onOrder={orderBlockers}
+            onConfirm={confirmCombat}
           />
         )}
       </div>

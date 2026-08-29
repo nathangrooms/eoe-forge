@@ -204,7 +204,7 @@ export function CommanderSelector({ currentCommander, onSelect }: CommanderSelec
         width={cardWidth}
         fill
         onClick={() => handleCommanderSelect(card)}
-        title={`${card.name} — choose as commander`}
+        title={`Choose ${card.name} as commander`}
       >
         {/*
           Bottom-right, not top-left.

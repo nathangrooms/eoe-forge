@@ -50,10 +50,39 @@ import {
   isCreatureIn,
   isUnderAttack,
   statLineIn,
+  validateBlockGroup,
   type CardInstance,
   type GameState,
   type PlayerId,
 } from '../../lib/game/index.ts';
+
+/**
+ * Why the blocks as they stand right now cannot be confirmed, or `''`.
+ *
+ * Menace is a property of the WHOLE block, so it cannot be enforced as each
+ * blocker is assigned: one creature in front of a menacing attacker is an
+ * illegal block that becomes legal the moment a second joins it. So assignment
+ * is allowed and the confirm is what refuses, which is also where a real table
+ * would catch it.
+ *
+ * It lives here, and not inside a component, because TWO controls have to agree
+ * about it: the combat bar's own confirm, and the big control in the top-right
+ * HUD. They used to be different code paths, and one of them did nothing at
+ * all. Two controls that commit the same decision must ask the same question.
+ */
+export function illegalBlockReason(state: GameState, viewerId: PlayerId): string {
+  if (combatStageFor(state, viewerId) !== 'blockers') return '';
+  for (const declaration of state.combat.attackers) {
+    if (declaration.blockedBy.length === 0) continue;
+    const legality = validateBlockGroup(
+      state,
+      state.cards[declaration.attackerId],
+      declaration.blockedBy.map(id => state.cards[id])
+    );
+    if (!legality.ok) return legality.reason;
+  }
+  return '';
+}
 
 /** The decision being made on the board right now, from this seat's point of view. */
 export type CombatStage = 'attackers' | 'blockers' | null;

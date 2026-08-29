@@ -167,17 +167,38 @@ export default function Decks() {
     updateFilters({ searchQuery: searchText });
   }, [searchText, updateFilters]);
 
+  /**
+   * A FAILED LOAD IS NOT AN EMPTY SHELF.
+   *
+   * `getDeckSummaries` throws on two things that are nothing to do with how
+   * many decks you own: the `compute_deck_summaries` RPC erroring, and the
+   * session read failing. Both landed here, were swallowed into a toast, and
+   * left `deckSummaries` at its initial `[]`. Everything downstream reads that
+   * array, so `showOnboarding` went true and the page told somebody with a
+   * shelf full of decks that they had none and should create their first one.
+   * A toast that has already faded is not a correction for that: the page is
+   * still sitting there stating it.
+   *
+   * So the failure is remembered, and it outranks the empty state. The
+   * onboarding flow means "no decks". This means "we could not read them",
+   * which is a different sentence and has a different next step.
+   */
+  const [loadFailed, setLoadFailed] = useState(false);
+
   const loadDeckSummaries = useCallback(async () => {
     setLoading(true);
     try {
       if (!user) {
         setDeckSummaries([]);
+        setLoadFailed(false);
         return;
       }
       const summaries = await DeckAPI.getDeckSummaries();
       setDeckSummaries(summaries);
+      setLoadFailed(false);
     } catch (error) {
       console.error('Error loading decks:', error);
+      setLoadFailed(true);
       showError('Error', 'Failed to load your decks');
     } finally {
       setLoading(false);
@@ -319,7 +340,11 @@ export default function Decks() {
     }
   };
 
-  const showOnboarding = !loading && (deckSummaries.length === 0 || showOnboardingFlow);
+  /* `loadFailed` blocks the onboarding branch: an unread shelf must never be
+     drawn as an empty one. `showOnboardingFlow` is the button people press on
+     purpose, so it still wins. */
+  const showOnboarding =
+    !loading && !loadFailed && (deckSummaries.length === 0 || showOnboardingFlow);
 
   return (
     <StandardPageLayout
@@ -370,7 +395,21 @@ export default function Decks() {
         )
       }
     >
-      {showOnboarding ? (
+      {loadFailed && !loading ? (
+        /* The one thing this page must not do when it cannot read your decks
+           is imply you have none. It says what happened and offers the retry,
+           because the usual cause is a request that failed once. */
+        <Card className="p-10 text-center">
+          <Boxes className="mx-auto h-10 w-10 text-muted-foreground" aria-hidden="true" />
+          <p className="mt-4 text-lg font-semibold">We could not load your decks</p>
+          <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
+            Your decks are safe. Something went wrong reading them just now.
+          </p>
+          <Button className="mt-6" onClick={() => void loadDeckSummaries()}>
+            Try again
+          </Button>
+        </Card>
+      ) : showOnboarding ? (
         <FirstDeckOnboarding
           onCreateDeck={async (name, format, commanderId) => {
             await handleCreateFirstDeck(name, format, commanderId);

@@ -777,3 +777,63 @@ test('"counter target creature or planeswalker spell" reaches a planeswalker', (
   assert.ok(top);
   assert.equal(counterCanTarget(state, state.cards['p1-anti'], top), true);
 });
+
+/* -------------------------------------------------------------------------- */
+/* A mana filter must not become an infinite turn                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Measured in a browser on 29 Aug 2026, four-player table, turn 11, reproduced
+ * twice on the same seed: a bot holding Initiates of the Ebon Hand ("{1}: Add
+ * {B}") produced SPEND_MANA / ADD_MANA / NOTE without end and the table never
+ * reached turn 12. A filter converts mana instead of making it, so the pool is
+ * never empty and never grows, and `chooseActivation` re-offered the same
+ * ability on every pass. The seat's own MAX_ACTIVATIONS_PER_TURN guard is blind
+ * to it, because `state.abilityUses` is written only by PUT_ABILITY_ON_STACK
+ * and CR 605.3a keeps a mana ability off the stack.
+ *
+ * `/play` asks `nextBotMove` on a timer and dispatches what it gets, so this
+ * hung the game with nothing on screen able to move it.
+ */
+test('a bot with nothing to cast does not activate a mana filter for ever', () => {
+  let state = table();
+  state = lands(state, THEM, 3, 'B');
+  state = put(state, THEM, 'battlefield', {
+    instanceId: 'initiates',
+    name: 'Initiates of the Ebon Hand',
+    typeLine: 'Creature — Human Cleric',
+    manaCost: '{B}',
+    cmc: 1,
+    colorIdentity: ['B'],
+    oracleText: '{1}: Add {B}. If this ability has been activated four or more times this turn, sacrifice this creature at the beginning of the next end step.',
+    summoningSick: false,
+  });
+  state = theirMain(state);
+
+  /* Nothing in hand, so `chooseSpell` returns null and the old code fell into
+     the filter. Ask fifty times and apply what comes back; the seat must reach
+     a move that is not another activation of the same ability. */
+  let current = state;
+  let manaActivations = 0;
+  let movedOn = false;
+  for (let i = 0; i < 50; i += 1) {
+    const move = nextBotMove(current, THEM, { at: i + 1 });
+    if (!move) { movedOn = true; break; }
+    if (/Initiates of the Ebon Hand/.test(move.note ?? '')) {
+      manaActivations += 1;
+    } else {
+      movedOn = true;
+      break;
+    }
+    const next = applyActions(current, move.actions);
+    if (next === current) break;
+    current = next;
+  }
+
+  assert.equal(
+    manaActivations,
+    0,
+    'a mana ability is activated to PAY for something, never for its own sake'
+  );
+  assert.ok(movedOn, 'the seat must reach a move that is not the filter');
+});

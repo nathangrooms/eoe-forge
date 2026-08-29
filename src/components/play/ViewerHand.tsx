@@ -59,14 +59,8 @@ import { cn } from '@/lib/utils';
 import { GameCardView } from './GameCardView';
 import { useMeasuredWidth } from './useMeasure';
 import { handSinkFor } from './tableMetrics';
-import {
-  isLand,
-  planCastFromHand,
-  planLandDrop,
-  type CardInstance,
-  type GameState,
-  type PlayerId,
-} from '@/lib/game';
+import { handPlayVerdict } from './cardActions';
+import { isLand, type CardInstance, type GameState, type PlayerId } from '@/lib/game';
 
 export interface ViewerHandProps {
   state: GameState;
@@ -117,6 +111,26 @@ export interface ViewerHandProps {
    * is off the board.
    */
   receded?: boolean;
+  /**
+   * Hold the fan at the table edge, with the bottom of each card off screen.
+   *
+   * True during a turn, and that is the right trade there: the board is the
+   * thing being decided, and a fan standing at its full height lay across the
+   * player's own permanents (measured at 95,316 px of covered mat and six
+   * permanents, which is why the sink exists at all).
+   *
+   * FALSE AT THE MULLIGAN, and this is the defect it closes. Measured through
+   * the harness at 1600 x 1000, on the screen that asks "keep it, or shuffle
+   * back": nine cards on screen, eight of them cut off by the bottom of the
+   * window, the worst losing 45.1% of itself. The player is being asked to
+   * judge seven cards they cannot read the rules text of, and the reason the
+   * fan was sunk does not apply, because at that moment both mats are empty.
+   * Nothing is being protected from the hand except two blank rectangles.
+   *
+   * So the caller says which moment it is, and the fan stands up for the one
+   * where the hand IS the decision.
+   */
+  sunk?: boolean;
   className?: string;
 }
 
@@ -194,6 +208,7 @@ export function ViewerHand({
   includeCommandZone = true,
   emptyLabel = 'Your hand is empty',
   receded = false,
+  sunk = true,
   className,
 }: ViewerHandProps) {
   const reduceMotion = useReducedMotion();
@@ -237,9 +252,11 @@ export function ViewerHand({
    * Together they are one card height, which is why the two cannot be allowed
    * to live in two files.
    */
-  const sink = handSinkFor(renderedWidth);
+  const sink = sunk ? handSinkFor(renderedWidth) : 0;
   /* Clear of the edge by the part that was hidden, plus a little more so the
-     raised card stands out of the fan rather than merely joining it. */
+     raised card stands out of the fan rather than merely joining it. A fan that
+     is already whole on screen still lifts, because reaching for a card has to
+     do something visible, but it only has the standing-proud part to travel. */
   const raise = sink + 54;
 
   if (!me) return null;
@@ -277,22 +294,39 @@ export function ViewerHand({
        * swing below the baseline when a raised card straightens: without it the
        * fan is cut off at its own box rather than at the screen edge.
        */
+      /*
+       * `sunk` false is the mulligan, and there the margin goes to zero rather
+       * than to minus the sink. The padding below already reserves the arc's
+       * dip and the step back an unplayable card takes, so a box pinned to
+       * `bottom-0` with no negative margin puts the LOWEST painted pixel of the
+       * fan on the bottom of the window. Leaving the padding swallowed, which
+       * is right when the fan is meant to hang below the edge, left the outer
+       * cards 12% off screen on the one screen that exists to be read.
+       */
       style={{
         paddingBottom: dip + UNPLAYABLE_STEP_BACK,
-        marginBottom: -(sink + dip + UNPLAYABLE_STEP_BACK),
+        marginBottom: sunk ? -(sink + dip + UNPLAYABLE_STEP_BACK) : 0,
       }}
     >
       <AnimatePresence initial={false}>
         {cards.map((card, index) => {
           const fromCommand = index >= hand.length;
           const land = isLand(card);
-          const landPlan = land ? planLandDrop(state, viewerPlayerId, card.instanceId) : null;
-          const castPlan = land
-            ? null
-            : planCastFromHand(state, viewerPlayerId, card.instanceId, { ignoreMana: freeCast });
-
-          const playable = land ? !!landPlan?.ok : !!castPlan?.ok;
-          const reason = (land ? landPlan?.reason : castPlan?.reason) ?? '';
+          /*
+           * THE SAME QUESTION THE PREVIEW ASKS, ASKED ONCE.
+           *
+           * This used to be `planCastFromHand(...).ok`, which answers cost and
+           * zone and deliberately says nothing about timing or targets. So the
+           * fan said "You can cast this" on a sorcery during the opponent's
+           * untap step, and on a removal spell with nothing on the board to
+           * point at, and the preview underneath then refused. Measured over
+           * 4,000 real cards: 307 promised-then-refused in your own main phase,
+           * 3,410 in the untap step. `handPlayVerdict` is the one rule both
+           * surfaces now read.
+           */
+          const verdict = handPlayVerdict(state, viewerPlayerId, card, { freeCast });
+          const playable = verdict.ok;
+          const reason = verdict.reason;
           const selected =
             selectedId === card.instanceId || !!markedIds?.includes(card.instanceId);
           /* Raised: the whole card is on screen. A card the player has reached
@@ -318,7 +352,9 @@ export function ViewerHand({
           const standing = playable
             ? land
               ? 'You can play this as a land drop'
-              : 'You can cast this'
+              : verdict.needsTarget
+                ? 'You can cast this once you pick what it is aimed at'
+                : 'You can cast this'
             : (reason || 'You cannot play this right now').replace(/\.\s*$/, '');
           const label = `${card.name}. ${standing}. Click to preview.`;
 

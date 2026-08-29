@@ -139,6 +139,56 @@ test('a row keeps turning room at its ENDS, not per tapped card', () => {
   assert.ok(layout.gap > 0, 'and the cards are not touching');
 });
 
+test('a row with the room to spare does NOT let two tapped neighbours cover each other', () => {
+  /* The measured defect, 28 Aug 2026: on a two-seat table the creature row is
+     1130px, held five 116px cards, and 41% of it was empty — while every pair
+     of tapped neighbours covered 37px of each other. The mana row was 71% empty
+     and covered 30px. Both are the same sum: a turned card leans `tapLean` each
+     side and the gap was 9px and 7px.
+
+     So where the row can afford the turned pitch, it must take it. Both cases
+     below are the rows that were actually measured, at the sizes they were
+     measured at. */
+  for (const [count, card, available] of [
+    [5, 116, 1130], // the creature row, 41% of it empty while cards overlapped
+    [3, 94, 1130], // the mana row, 71% empty
+  ] as const) {
+    const layout = layoutRow(count, card, available);
+    const pitch = layout.gap + card;
+    const paintedWhenTurned = card / CARD_RATIO;
+    assert.ok(
+      pitch >= paintedWhenTurned,
+      `${count} cards at ${card}px in ${available}px: pitch ${pitch} leaves two turned neighbours ` +
+        `covering ${Math.round(paintedWhenTurned - pitch)}px of each other`
+    );
+  }
+});
+
+test('a row too narrow to seat a board keeps the old trade, untouched', () => {
+  /* The other half of `MIN_TURNED_SLOTS`, and the reason it exists. A four-seat
+     table's rows cannot afford turning room between cards: at the turned pitch
+     they seat three where the old ladder seats four, which moves the crossing
+     down into the counts a row really holds. So they must come out of
+     `layoutRow` exactly as they did before the turned pitch existed.
+
+     Written as an equality against the 1.08 rung rather than as an inequality,
+     because "narrow rows are unchanged" is the claim and a bound would not
+     catch the pitch drifting. */
+  for (const [card, available] of [
+    [100, 526],
+    [83, 444],
+    [72, 392],
+    [200, 935],
+  ] as const) {
+    const layout = layoutRow(2, card, available);
+    assert.equal(
+      layout.gap + card,
+      Math.floor(card * 1.08),
+      `a ${available}px row of ${card}px cards left the top rung`
+    );
+  }
+});
+
 test('two tapped neighbours may overlap each other, and that is the table', () => {
   /* Reserving two full leans BETWEEN every pair would cut a 526px creature row
      from six slots to three, so a fourth creature would start overlapping on an

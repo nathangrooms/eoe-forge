@@ -491,13 +491,18 @@ export function HomeStorage() {
         <div className="min-w-0 lg:col-span-4">
           <SectionHeading
             align="left"
-            eyebrow="Nobody else does this"
+            /* WAS: eyebrow "Nobody else does this", opening on "Other deck
+               sites know what you own. None of them know where you put it."
+               Design law 7 forbids invented competitor claims, and neither
+               sentence can be checked against anything. What the feature does
+               is a stronger opening than what other people supposedly cannot
+               do, so the claim is gone and the rest of the paragraph stands. */
+            eyebrow="Where you put it"
             title="Know which box it is in"
             lead={
               <>
-                Other deck sites know what you own. None of them know where you put it. Tell
-                DeckMatrix which binder, deck box or bulk box a card is in, down to the page and the
-                divider.{' '}
+                Tell DeckMatrix which binder, deck box or bulk box a card is in, down to the page and
+                the divider.{' '}
                 <span className="hidden sm:inline">
                   Then finding it takes seconds instead of an afternoon.
                 </span>

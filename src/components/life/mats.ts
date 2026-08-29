@@ -222,8 +222,24 @@ interface ToneSpec {
   vignette: number;
   /** Opacity of the card art beneath the colour, when there is any. */
   art: number;
-  /** `filter` applied to the art. */
-  artFilter: string;
+  /**
+   * Black laid OVER the art to push it down, as an alpha 0-1.
+   *
+   * This used to be `artFilter`, a CSS `filter` of
+   * `saturate(0.68) brightness(0.58) contrast(1.1)` applied to the Scryfall
+   * illustration itself. Scryfall's image guidelines say plainly: "Do not blur,
+   * sharpen, desaturate, or color-shift card images", and that is a desaturate
+   * and a colour-shift in as many words. `src/components/play/Playmat.tsx`
+   * removed the identical treatment from the play mats for exactly this reason
+   * and `src/lib/cards/identityGround.ts` records the same decision again; this
+   * surface was missed both times.
+   *
+   * A separate black layer composited on top is not a filter on the image, and
+   * it does the one thing the filter was really there for: keep the life total
+   * legible over whatever the illustration is doing. The colour wash is drawn
+   * above both, so the mat still reads as its colour.
+   */
+  artScrim: number;
   /**
    * Move the key light to the middle of the tile instead of where the mat's own
    * lighting puts it.
@@ -250,7 +266,7 @@ const TONE: Record<MatTone, ToneSpec> = {
     // people look at for two hours, and the pool above keeps the number safe
     // regardless of what the illustration is doing underneath it.
     art: 0.72,
-    artFilter: 'saturate(0.68) brightness(0.58) contrast(1.1)',
+    artScrim: 0.42,
   },
   preview: {
     gain: 1.22,
@@ -258,7 +274,7 @@ const TONE: Record<MatTone, ToneSpec> = {
     center: 0.24,
     vignette: 0.3,
     art: 0.72,
-    artFilter: 'saturate(0.78) brightness(0.6) contrast(1.06)',
+    artScrim: 0.4,
   },
   swatch: {
     // A 70px tile shows the *inside* of a gradient, never its shape — and for
@@ -273,7 +289,7 @@ const TONE: Record<MatTone, ToneSpec> = {
     // And the art steps back: at thumbnail size an illustration is noise, and
     // the swatch's job is to answer "which colour is this".
     art: 0.5,
-    artFilter: 'saturate(0.9) brightness(0.75) contrast(1.04)',
+    artScrim: 0.25,
     flatten: true,
   },
 };
@@ -352,7 +368,12 @@ export function matSurfaceStyle(color: MatColor, tone: MatTone = 'seat'): CSSPro
   };
 }
 
-/** The art half: `background-*` for the layer that sits beneath the colour. */
+/**
+ * The art half: `background-*` for the layer that sits beneath the colour.
+ *
+ * No `filter`. See `ToneSpec.artScrim` for why, and `matArtScrimStyle` for what
+ * replaced it.
+ */
 export function matArtStyle(art: string | null | undefined, tone: MatTone = 'seat'): CSSProperties | null {
   if (!art) return null;
   const spec = TONE[tone];
@@ -361,6 +382,10 @@ export function matArtStyle(art: string | null | undefined, tone: MatTone = 'sea
     backgroundSize: 'cover',
     backgroundPosition: 'center',
     opacity: spec.art,
-    filter: spec.artFilter,
   };
+}
+
+/** The black laid over the art, as its own layer rather than as a filter on it. */
+export function matArtScrimStyle(tone: MatTone = 'seat'): CSSProperties {
+  return { backgroundColor: ink(TONE[tone].artScrim) };
 }

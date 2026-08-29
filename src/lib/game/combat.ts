@@ -572,6 +572,36 @@ export function attackingPlayerId(state: GameState): PlayerId | undefined {
   return undefined;
 }
 
+/**
+ * CR 509.2 — the attacks of THIS player that are blocked by two or more
+ * creatures, and therefore need a damage assignment order.
+ *
+ * One authority for the whole feature. `turnFlow.decisionFor` asks it to decide
+ * whether to stop the declare-blockers step for the attacking player, and
+ * `OrderBlockersBar` asks it to decide what to draw. Two answers to "is an
+ * order owed" is how a strip appears over a step the surface has already walked
+ * past, so there is one.
+ *
+ * `controllerIn` rather than `card.controllerId`, for the reason `turnFlow`
+ * already records: the printed controller is wrong for a creature attacking
+ * under a control-change effect.
+ */
+export function lanesNeedingDamageOrder(
+  state: GameState,
+  playerId: PlayerId
+): AttackDeclaration[] {
+  if (state.status !== 'playing') return [];
+  return state.combat.attackers.filter(declaration => {
+    if (declaration.blockedBy.length < 2) return false;
+    const attacker = state.cards[declaration.attackerId];
+    if (!attacker || attacker.zone !== 'battlefield') return false;
+    if (controllerIn(state, attacker) !== playerId) return false;
+    // A lane whose blockers have all left is not a decision either.
+    const live = declaration.blockedBy.filter(id => state.cards[id]?.zone === 'battlefield');
+    return live.length >= 2;
+  });
+}
+
 export interface CombatLane {
   declaration: AttackDeclaration;
   attacker: CardInstance | undefined;

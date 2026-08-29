@@ -16,6 +16,7 @@ import { RouteEnterMotion } from "@/components/motion/RouteEnterMotion";
 /* Not lazy: it is a redirect, and a redirect that first downloads a chunk is
    a redirect the reader watches happen. See the file for why the route stays. */
 import { SimulateRedirect } from "@/pages/SimulateRedirect";
+import { returnPathFrom } from "@/lib/auth/returnPath";
 
 /*
  * Every page is fetched when it is needed, not before.
@@ -241,6 +242,33 @@ function DeckTabRedirect({ tab }: { tab: string }) {
   return <Navigate to={`/deck/${id}?tab=${tab}`} replace />;
 }
 
+/**
+ * SEND THEM TO SIGN IN, AND REMEMBER WHERE THEY WERE GOING.
+ *
+ * A `/deck/:id` or `/collection` link opened by somebody who is not signed in
+ * used to hit the signed-out catch-all below and land silently on the marketing
+ * homepage: no "sign in to continue", no way back to the thing that was shared,
+ * and no sign that anything had been redirected at all. Somebody following a
+ * link a friend sent them had no idea what they were supposed to be looking at.
+ *
+ * `/login?next=` already existed and `Login.tsx` already honoured it. Nothing in
+ * the app had ever produced one, so the whole return path was dead. This is the
+ * one thing that produces it, and both gates use it, so there is one behaviour
+ * rather than two that can drift.
+ *
+ * `returnPathFrom` is applied on the way OUT as well as on the way in: the
+ * value written here comes from the router rather than from a stranger, but the
+ * check is cheap and it means no path can be written into a `next=` that the
+ * login page would then refuse to follow.
+ */
+function LoginRedirect() {
+  const location = useLocation();
+  const here = `${location.pathname}${location.search}${location.hash}`;
+  const next = returnPathFrom(here);
+  const to = next === '/dashboard' ? '/login' : `/login?next=${encodeURIComponent(next)}`;
+  return <Navigate to={to} replace />;
+}
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
 
@@ -248,9 +276,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <AppBootFallback />;
   }
 
-
+  /* A backstop, not the live gate: `AppContent` checks the same two values and
+     renders a different route table when there is no user, so this branch is
+     not the one a signed-out visitor actually takes. It is here so that a route
+     moved into the signed-in tree by hand cannot become the one page in the app
+     that renders for nobody, and it redirects through the same component as the
+     real gate so the two cannot say different things. */
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <LoginRedirect />;
   }
 
   return <>{children}</>;
@@ -319,7 +352,10 @@ function AppContent() {
             path="/play/online"
             element={<PublicContentShell><Lobby /></PublicContentShell>}
           />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          {/* Everything else is behind an account. It goes to the sign-in page
+              carrying where it was headed, NOT to the homepage. See
+              `LoginRedirect`. */}
+          <Route path="*" element={<LoginRedirect />} />
         </Routes>
       </RouteHost>
     );

@@ -182,7 +182,12 @@ export function DeckAnalysisPanel({
             label: 'Card pairs that work',
             value: synergy ? String(synergy.strongestSynergies.length) : '—',
             raw: synergy?.strongestSynergies.length,
-            subtext: pairs[0] ? `strongest ${pairs[0].strength} out of 10` : 'none found',
+            /* `strength` is a raw float off the synergy engine and was printed
+               straight into the sentence, so this tile read "strongest
+               0.6086956521739131 out of 10" on a real deck. One decimal is all
+               a reader can use, and it is the same precision the EDH score
+               beside it prints. */
+            subtext: pairs[0] ? `strongest ${pairs[0].strength.toFixed(1)} out of 10` : 'none found',
           },
           {
             id: 'clusters',
@@ -346,7 +351,7 @@ export function DeckAnalysisPanel({
             <div>
               <h3 className="text-lg font-semibold">What would tighten it</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                Derived from the mechanics above rather than asked of a model, and ordered by
+                Derived from the mechanics above rather than guessed, and ordered by
                 how much difference each one would make.
               </p>
             </div>

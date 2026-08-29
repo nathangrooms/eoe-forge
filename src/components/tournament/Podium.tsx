@@ -40,15 +40,27 @@ export function Podium({ standings, views, eventName, gameFormat, rounds }: Podi
 
   return (
     <section className="relative overflow-hidden rounded-2xl bg-card shadow-sm">
-      {/* Texture, not decoration: desaturated and held right down so the three
-          cards on top of it stay the only things with colour, and so nothing
-          here competes with the type. */}
+      {/*
+        The champion's own art as the ground, blurred.
+
+        It used to be `grayscale`, which is desaturating a Scryfall image and is
+        not ours to do. Blur is the treatment this project already approved for
+        exactly this case (see PreconDeckView): the art comes FROM the subject,
+        it is scaled past the edges so the blur radius never drags a transparent
+        edge inward, and a token scrim sits over it so the type's contrast never
+        depends on which part of the picture landed behind a letter. Nothing is
+        cropped and no colour is altered, and the podium gets Magic's own colour
+        back instead of a grey wash.
+      */}
       {backdrop && (
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 bg-cover bg-center opacity-[0.14] grayscale"
-          style={{ backgroundImage: `url(${backdrop})` }}
-        />
+        <>
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 scale-125 bg-cover bg-center blur-3xl"
+            style={{ backgroundImage: `url(${backdrop})` }}
+          />
+          <div aria-hidden="true" className="absolute inset-0 bg-card/65" />
+        </>
       )}
 
       <div className="relative p-5 sm:p-8">
@@ -90,7 +102,14 @@ export function Podium({ standings, views, eventName, gameFormat, rounds }: Podi
                 key={standing.player}
                 className={cn(
                   'flex min-w-0 flex-col items-center gap-2.5',
-                  first ? 'w-[46%] max-w-[220px]' : 'w-[30%] max-w-[150px]'
+                  /* The caps used to stop at 220px and 150px at every width, so
+                     on a normal desktop the whole podium was a 520px huddle in
+                     the middle of a 1650px band with dead space either side.
+                     Three commanders finishing an event is the one picture this
+                     page has; it should be the size of the room it is in. */
+                  first
+                    ? 'w-[46%] max-w-[220px] sm:max-w-[300px] lg:max-w-[380px]'
+                    : 'w-[30%] max-w-[150px] sm:max-w-[205px] lg:max-w-[260px]'
                 )}
               >
                 <div className="w-full">

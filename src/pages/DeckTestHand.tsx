@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Play } from 'lucide-react';
+import { Layers, Play, RotateCcw, Shuffle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/listing';
 import { DeckSubpageLayout, useDeckReturn } from '@/components/deck/DeckSubpageLayout';
-import { QuickDeckTester } from '@/components/deck-builder/QuickDeckTester';
+import { QuickDeckTester, useOpeningHand } from '@/components/deck-builder/QuickDeckTester';
 import { useDeckRecord } from '@/components/deck/useDeckRecord';
 import { fetchDeckCards, toCardObject, type DeckCardRow } from '@/lib/deck/deckCards';
 import { categorizeCard } from '@/lib/deck/cardCategories';
@@ -80,6 +80,10 @@ export default function DeckTestHand() {
     return { librarySize: total, landCount: lands };
   }, [library]);
 
+  /* The hand lives on the page so the page can put Draw and Mulligan in its
+     own action row rather than the panel growing a heading to hold them. */
+  const opening = useOpeningHand(library as never);
+
   return (
     <DeckSubpageLayout
       title={deck ? `Test hands for “${deck.name}”` : 'Test hand'}
@@ -100,18 +104,44 @@ export default function DeckTestHand() {
           subtext: 'of the library',
         },
       ]}
+      /*
+        Every control on this page lives in this one row.
+
+        Draw and Mulligan used to sit inside the panel below, under a second
+        heading reading "Quick Deck Tester" — a title that repeated the page
+        title directly above it and existed mainly to have somewhere to hang
+        two buttons. So the page had two headings and its controls in two
+        places. The panel is the hand now, and the hand needs no title.
+      */
       action={
-        id ? (
-          <Button variant="secondary" onClick={() => navigate(`/play?mode=playtest&deck=${id}`)}>
-            <Play className="mr-2 h-4 w-4" />
-            Play a whole game
-          </Button>
-        ) : undefined
+        <div className="flex flex-wrap gap-2">
+          {library.length > 0 && (
+            <>
+              <Button variant="outline" onClick={opening.draw}>
+                <Shuffle className="mr-2 h-4 w-4" />
+                {opening.drawn ? 'New hand' : 'Draw a hand'}
+              </Button>
+              {opening.drawn && (
+                <Button variant="outline" onClick={opening.mulligan}>
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  Mulligan
+                </Button>
+              )}
+            </>
+          )}
+          {id && (
+            <Button variant="secondary" onClick={() => navigate(`/play?mode=playtest&deck=${id}`)}>
+              <Play className="mr-2 h-4 w-4" />
+              Play a whole game
+            </Button>
+          )}
+        </div>
       }
     >
       {deck &&
         (library.length === 0 ? (
           <EmptyState
+            icon={Layers}
             title="Nothing to draw yet"
             description="This deck has no cards in it, so there is no library to draw an opening hand from."
             action={
@@ -120,8 +150,18 @@ export default function DeckTestHand() {
                 : undefined
             }
           />
+        ) : !opening.drawn ? (
+          /* The shared panel, not a line of grey text in the middle of an
+             otherwise empty card. This page's whole first impression was one
+             sentence floating in a 660px box. */
+          <EmptyState
+            icon={Shuffle}
+            title="Draw your opening seven"
+            description="Shuffle the library and see what you would be keeping or sending back."
+            action={{ label: 'Draw a hand', onClick: opening.draw }}
+          />
         ) : (
-          <QuickDeckTester deck={library as never} />
+          <QuickDeckTester state={opening} />
         ))}
     </DeckSubpageLayout>
   );

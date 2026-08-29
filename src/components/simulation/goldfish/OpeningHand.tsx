@@ -103,7 +103,11 @@ export function OpeningHand({
                   size="lg"
                   fill
                   eager={index < 7}
-                  imageClassName={cn(bottoming && 'opacity-35 grayscale')}
+                  /* Going to the bottom is said with opacity. `grayscale`
+                     here desaturated the Scryfall image, which their terms
+                     forbid; the label underneath already says what is
+                     happening to the card. */
+                  imageClassName={cn(bottoming && 'opacity-40')}
                 />
                 {bottoming && (
                   <div className="pointer-events-none absolute inset-x-2 bottom-2 flex items-center justify-center gap-1.5 rounded-md bg-background/85 py-1.5 text-xs font-semibold text-foreground">

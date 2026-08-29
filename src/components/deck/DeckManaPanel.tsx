@@ -367,7 +367,7 @@ export function DeckManaPanel({
               <h3 className="text-lg font-semibold">What would fix this</h3>
               <p className="mt-1 text-sm text-muted-foreground">
                 Counted off this decklist against what a deck of this size in this format
-                usually runs. Nothing here is a model’s opinion.
+                usually runs. Nothing here is guessed.
               </p>
             </div>
 

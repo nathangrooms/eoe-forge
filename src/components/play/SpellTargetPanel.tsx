@@ -50,6 +50,7 @@ import {
   type StackTarget,
 } from '@/lib/game';
 import { TargetChoiceRow } from './TargetChoice';
+import { handPlayVerdict } from './cardActions';
 
 export interface SpellTargetPanelProps {
   state: GameState;
@@ -91,6 +92,31 @@ export function SpellTargetPanel({
   if (card.controllerId !== viewerPlayerId) return null;
   if (auraNeedsHost(card)) return null;
   if (!spellNeedsATarget(card)) return null;
+
+  /*
+   * ASK WHETHER IT CAN BE CAST AT ALL BEFORE ASKING WHAT AT.
+   *
+   * This panel used to draw its target row for any targeted spell in your hand,
+   * whatever the step and whatever the mana. `Play.tsx` catches it at the press
+   * — `handleCast` checks `castTiming` and refuses with a toast — so nothing
+   * illegal was ever cast, and an earlier reading of this file that said
+   * otherwise was wrong. What was really wrong is that a player was invited to
+   * choose a target for a sorcery during the opponent's untap step and only
+   * told no afterwards.
+   *
+   * Measured over 4,000 real cards in the untap step, before this check: the
+   * fan greyed 29 cards this panel still offered a target row for. Now the fan,
+   * the action list and this panel all read `handPlayVerdict`.
+   */
+  const verdict = handPlayVerdict(state, viewerPlayerId, card);
+  if (!verdict.ok && !verdict.needsTarget) {
+    return (
+      <div className={cn('w-full space-y-1.5', className)}>
+        <Heading>Cast it at</Heading>
+        <p className="text-[10px] leading-snug text-muted-foreground">{verdict.reason}</p>
+      </div>
+    );
+  }
 
   /*
    * Planned fresh on every render, against the state the board is drawing. A

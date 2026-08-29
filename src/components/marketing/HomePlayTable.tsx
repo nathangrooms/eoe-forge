@@ -43,13 +43,22 @@ export function HomePlayTable() {
         title="Play a real game, in the browser"
         lead={
           <>
-            {/* WAS: "...and tapped means turned sideways." Owner: "you say
+            {/* TWO sentences have now been struck off this lead for the same
+                reason, and the reason is worth keeping.
+
+                WAS: "...and tapped means turned sideways." Owner: "you say
                 things like 'card goes sideways' as if people dont know what
-                tapping is". Nobody who comes looking for a Magic collection
-                manager needs tapping explained, and explaining it tells them the
-                product does not know who they are. */}
-            Play one of your own decks against the computer. Cards sit in rows the way they do on a
-            real table, with your lands in their own row underneath.{' '}
+                tapping is".
+
+                ALSO WAS: "Cards sit in rows the way they do on a real table,
+                with your lands in their own row underneath." The owner named
+                that one to us directly as a sentence that makes the reader feel
+                stupid, and it was still here. It described a Magic table to
+                Magic players, and the photograph below already shows the board,
+                so it was a caption nobody needed. Deleted rather than reworded:
+                a sentence that only explains the obvious has no better
+                wording. */}
+            Play one of your own decks against the computer.{' '}
             {/* The three tiles under the picture already name the table, the
                 hand and the combat view, so on a phone that sentence is the
                 caption of a figure that has not appeared yet. */}

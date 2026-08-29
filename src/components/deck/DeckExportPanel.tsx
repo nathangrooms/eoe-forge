@@ -217,7 +217,7 @@ export function DeckExportPanel({
         <Textarea
           readOnly
           value={text}
-          aria-label="Serialized decklist"
+          aria-label="Your decklist as text"
           className="h-[28rem] resize-y font-mono text-xs"
         />
       )}

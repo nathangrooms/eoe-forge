@@ -100,6 +100,7 @@ import { PlayTable } from '@/components/play/PlayTable';
 import { ViewerHand } from '@/components/play/ViewerHand';
 import { CastSpotlight } from '@/components/play/CastSpotlight';
 import { CombatView, combatIsLive } from '@/components/play/CombatView';
+import { illegalBlockReason } from '@/components/play/combatUi';
 import { GameFeed } from '@/components/play/GameFeed';
 import { TurnBanner } from '@/components/play/TurnBanner';
 import { ZonePanel } from '@/components/play/ZonePanel';
@@ -145,6 +146,7 @@ import {
   mulliganActions,
   planCastFromHand,
   planLandDrop,
+  abilityResponses,
   responseOptions,
   seatingVariants,
   spellToAnswer,
@@ -966,6 +968,21 @@ export default function Play() {
     [dispatch]
   );
 
+  /**
+   * Give the game up (CR 104.3a).
+   *
+   * It goes down the transport like every other move, so on a networked table
+   * the other seats see it as a game event rather than as a player vanishing.
+   * The board is deliberately NOT torn down: `sba.ts` marks the seat lost, the
+   * HUD switches to "Game over" or the game carries on among the rest, and the
+   * reader gets to see what happened before choosing to leave.
+   */
+  const handleConcede = useCallback(() => {
+    dispatch({ type: 'CONCEDE', playerId: HUMAN_SEAT });
+    setMenuOpen(false);
+    setInspectId(null);
+  }, [dispatch]);
+
   const handleLeave = useCallback(() => {
     setTable(null);
     setView('table');
@@ -1097,11 +1114,38 @@ export default function Play() {
    *
    * Measured on 22 Aug 2026: at the declare-blockers stop the top-right button
    * read "PLARGG AND NASSARI'S TURN" and was disabled, while the game was
-   * waiting for the reader to block. It now says what is owed and goes where
-   * that decision is made. Blocking and declaring attackers happen on the
-   * combat surface, which is the one genuinely different view; everything else
-   * is owed on the table itself.
+   * waiting for the reader to block. It now says what is owed.
+   *
+   * -------------------------------------------------------------------------
+   * AND SAYING IT WAS NOT ENOUGH. Re-measured 29 Aug 2026, in a browser,
+   * playing a real game against a bot:
+   *
+   *   turn 12, declare blockers, "Block with Insidious Bookworms (1/1)" armed
+   *     press DECLARE BLOCKERS (top right, y=8)   turn 12 -> turn 12. nothing.
+   *     press the combat bar (y=70)               turn 12 -> postcombat main
+   *
+   *   turn 13, declare attackers, one attacker declared
+   *     press DECLARE ATTACKERS (top right)       turn 13 -> turn 13. nothing.
+   *     press ATTACK WITH 1 in the bar            turn 13 -> postcombat main
+   *
+   * The cause is two lines above this one. The effect that opens the combat
+   * view fires the moment the decision arrives, so by the time the label reads
+   * DECLARE BLOCKERS the view is ALREADY 'combat', and `changeView('combat')`
+   * sets the state it is already in. React bails, and the loudest control on
+   * the page does nothing at the two moments the game is waiting for you.
+   *
+   * That is the same defect the paragraph above says was fixed: the label was
+   * corrected and the dead press was left. So the rule is now the behaviour,
+   * not the wording. Take me there if I am not there; COMMIT if I am. The
+   * commit is `ADVANCE_STEP`, the identical action `PlayTable.confirmCombat`
+   * sends from the combat bar, and both refuse for the same reason through
+   * `illegalBlockReason`, so the two controls cannot drift apart again.
    */
+  const blockIssue = useMemo(
+    () => (state ? illegalBlockReason(state, HUMAN_SEAT) : ''),
+    [state]
+  );
+
   const handleDecision = useCallback(() => {
     if (!decision) return;
     if (decision === 'attackers' && canAttack) {
@@ -1109,11 +1153,34 @@ export default function Play() {
       return;
     }
     if (decision === 'attackers' || decision === 'blockers') {
-      changeView('combat');
+      if (view !== 'combat') {
+        changeView('combat');
+        return;
+      }
+      if (blockIssue) return;
+      dispatch([{ type: 'ADVANCE_STEP', at: Date.now() }]);
+      return;
+    }
+    /*
+     * CR 509.2, the third instance of the same dead press. Measured 29 Aug
+     * 2026 with Insidious Bookworms double blocked by Jackal Familiar and
+     * Rosnakht: the bar drew "1 Jackal Familiar 2/2", "2 Rosnakht 0/1" and
+     * DEAL DAMAGE, the top-right control read DAMAGE ORDER, and pressing it
+     * left the game on turn 5 declare_blockers. Pressing DEAL DAMAGE moved it
+     * to postcombat main and put the promoted blocker in the graveyard.
+     *
+     * The order itself is set by the numbered chips; this control is the
+     * commit, and it is `ADVANCE_STEP` — the same action `OrderBlockersBar`
+     * sends through `PlayTable.confirmCombat`. The lanes already carry an
+     * order, so committing without touching the chips takes the order on
+     * screen, which is what DEAL DAMAGE does too.
+     */
+    if (decision === 'damage-order') {
+      dispatch([{ type: 'ADVANCE_STEP', at: Date.now() }]);
       return;
     }
     changeView('table');
-  }, [decision, canAttack, handleAttack, changeView]);
+  }, [decision, canAttack, handleAttack, changeView, view, blockIssue, dispatch]);
 
   /*
    * Is anything on this table asking what it is aimed at?
@@ -1449,6 +1516,17 @@ export default function Play() {
   const responses =
     stack.length > 0 && yourPriority ? responseOptions(state, HUMAN_SEAT, { freeCast }) : [];
   /*
+   * The battlefield half of the same question.
+   *
+   * `responseOptions` reads the hand and nothing else, which is why a seat
+   * holding a Rod of Ruin and no instants had priority passed for it: the
+   * surface asked "can I answer from hand", got no, and pressed next 130 ms
+   * later. Measured over six harness games: 856 response windows, 29 answerable
+   * from hand, 10 more answerable only from the board.
+   */
+  const abilityAnswers =
+    stack.length > 0 && yourPriority ? abilityResponses(state, HUMAN_SEAT, { freeCast }) : [];
+  /*
    * CR 603.3d — a triggered ability of this seat's is waiting to be aimed.
    *
    * It outranks the stack strip in the band below, and that is not a taste
@@ -1539,6 +1617,18 @@ export default function Play() {
                     /* The answer is on the mat, so the fan steps back and stops
                        taking presses until the question is closed. */
                     receded={!!aiming}
+                    /*
+                     * THE HAND STANDS UP WHILE THE OPENING HAND IS BEING JUDGED.
+                     *
+                     * The fan hangs off the bottom edge during a turn so it
+                     * stops covering the player's own permanents. At the
+                     * mulligan there are no permanents: both mats are empty and
+                     * the seven cards ARE the decision. Measured before this
+                     * line, at 1600 x 1000: eight of the nine cards on screen
+                     * cut off by the window, the worst losing 45.1% of itself,
+                     * under a bar asking whether to keep them.
+                     */
+                    sunk={opening === null}
                     cardWidth={hand.cardWidth}
                     selectedId={bottoming ? null : inspectId}
                     markedIds={bottoming ? opening?.chosen : undefined}
@@ -1584,7 +1674,50 @@ export default function Play() {
         {/* No width here: the feed is 224px collapsed and about 480px open, and
             it has to be able to say so itself. The wrapper used to pin it to
             `w-56`, which is why the opened panel truncated 31 of 200 lines. */}
-        <div className="pointer-events-none absolute bottom-2 left-2 z-40 max-w-[46vw]">
+        {/*
+          IT SITS ON TOP OF THE HAND'S BAND, NOT INSIDE IT.
+
+          `bottom-2` put the feed in the same strip the fan is drawn in, and the
+          fan is CENTRED and wide: at 1600 x 1000 with eight cards it reaches
+          x=95, and the feed occupies x=8 to x=232. Measured across three turns,
+          9,149 / 9,864 / 10,697 px of the log lay under the leftmost card of
+          the player's own hand, with the card painted over the top of it. Two
+          of the three lines of "T1 You drew 7 cards." were unreadable, and the
+          hand looked dirty where they showed through.
+
+          Guttering the fan to make room was measured and rejected: the fan is
+          currently sized by its BAND (192px cards, against the 222px the width
+          would allow), so taking 232px off each side makes the WIDTH the
+          binding constraint and drops the cards to 156px. That is a 19% smaller
+          hand to rehouse a log, and the owner has twice asked for the hand to
+          be bigger.
+
+          So the feed clears the band instead. It lands on the near seat's left
+          rail, over part of one zone tile, where it is fully legible on its own
+          backdrop and covers no card in any row: the rows start at x=240
+          because the rail ends at x=230, so nothing on the board is behind it.
+        */}
+        <div
+          className="pointer-events-none absolute left-2 z-40 max-w-[46vw]"
+          /*
+           * THE FEED GOES TO THE TOP WHILE THE OPENING HAND IS BEING JUDGED.
+           *
+           * The fan stands at its full height there, so the bottom-left corner
+           * it normally sits in is under the first two cards of the hand. It
+           * cannot simply move up either: the next thing above is the near
+           * seat's command zone, and it would be drawn straight over the
+           * commander's art, which the project's own design law forbids.
+           *
+           * Top left is empty on that screen. The bar naming the decision is
+           * centred, the two answers are on the right, and the log stays
+           * reachable rather than being hidden for the duration.
+           */
+          style={
+            opening !== null
+              ? { top: HUD_INSET + 8 }
+              : { bottom: (showHand ? hand.inset : FEED_INSET) + 8 }
+          }
+        >
           <GameFeed state={state} feed={feed} variant="feed" />
         </div>
 
@@ -1618,13 +1751,9 @@ export default function Play() {
             {opening !== null ? (
               <MulliganBar
                 taken={opening.taken}
-                handSize={state.players.find(p => p.id === HUMAN_SEAT)?.zones.hand.length ?? 0}
                 chosen={opening.chosen.length}
                 owed={openingOwed}
                 bottoming={bottoming}
-                onMulligan={handleMulligan}
-                onKeep={handleKeep}
-                onConfirmBottom={handleConfirmBottom}
               />
             ) : aiming || aimingTrigger ? (
               /* Something is asking what it is aimed at, and until it has an
@@ -1644,8 +1773,10 @@ export default function Play() {
                 viewerPlayerId={HUMAN_SEAT}
                 stack={stack}
                 responses={responses}
+                abilityAnswers={abilityAnswers}
                 yourPriority={yourPriority}
                 onRespond={handleRespond}
+                onOpenPermanent={card => setInspectId(card.instanceId)}
                 onPass={handlePassPriority}
               />
             ) : commanderChoiceShowing ? (
@@ -1787,6 +1918,11 @@ export default function Play() {
               variants={seatVariants}
               onVariant={setVariant}
               onMulligan={handleRedraw}
+              onConcede={handleConcede}
+              canConcede={
+                state.status === 'playing' &&
+                !state.players.find(p => p.id === HUMAN_SEAT)?.conceded
+              }
               onLeave={handleLeave}
               onClose={() => setMenuOpen(false)}
               /* So the playmat previews are tinted the way this seat will be,
@@ -1829,8 +1965,17 @@ export default function Play() {
           onViewSeat={handleFocusSeat}
           decision={decision}
           onDecision={handleDecision}
+          decisionBlocked={blockIssue}
           opening={openingStop}
           onOpening={bottoming ? handleConfirmBottom : handleKeep}
+          onMulligan={handleMulligan}
+          /* A hand of one is the floor: below that there is nothing to keep and
+             nothing to choose, and offering the press would be a lie. */
+          canMulligan={
+            opening !== null &&
+            !bottoming &&
+            (state?.players.find(p => p.id === HUMAN_SEAT)?.zones.hand.length ?? 0) > 1
+          }
           openingReady={openingReady}
           onAdvance={handleAdvance}
           onEndTurn={handleEndTurn}

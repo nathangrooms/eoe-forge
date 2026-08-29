@@ -23,6 +23,7 @@ import {
   blockersRequiredFor,
   canBlock,
   eligibleAttackers,
+  lanesNeedingDamageOrder,
   powerOf,
   resolveCombat,
   statLine,
@@ -568,4 +569,109 @@ test('an indestructible blocker keeps deathtouch damage and still lives', () => 
   assert.equal(state.cards['wall'].zone, 'battlefield', 'indestructible ignores deathtouch');
   assert.equal(state.cards['wall'].damage, 1);
   assert.equal(state.cards['wall'].damagedByDeathtouch, true);
+});
+
+/* ------------------------------------------------------------------ *
+ * CR 509.2 — the damage assignment order
+ * ------------------------------------------------------------------ */
+
+/**
+ * THE BUG THIS RULE HAD, WRITTEN AS A TEST BEFORE THE FIX.
+ *
+ * `assignToBlockers` spends the attacker's power down `blockedBy`, and `BLOCK`
+ * appends in the order blocks were declared. Blocks are declared by the
+ * DEFENDER, so the defender was choosing which of their own creatures the
+ * attacker killed. These two cases are the same board with the array the other
+ * way round, and they must have different casualties — that is what proves the
+ * order is load-bearing rather than decorative.
+ */
+test('the damage assignment order decides which blocker dies', () => {
+  /* A 2/5 blocked by a 1/1 and a 2/2. Two power is exactly enough to kill ONE
+     of them, so which one dies is entirely the order, which is the point. The
+     attacker is 5 tough so the three damage coming back does not kill it and
+     muddy the assertion. */
+  const board = () =>
+    table([
+      { id: 'big', owner: 'p1', power: '2', toughness: '5' },
+      { id: 'small', owner: 'p2', power: '1', toughness: '1' },
+      { id: 'good', owner: 'p2', power: '2', toughness: '2' },
+    ]);
+
+  // The order the DEFENDER used to impose just by clicking the 1/1 first.
+  const cheapFirst = resolveCombat(
+    withCombat(board(), [{ attacker: 'big', blockedBy: ['small', 'good'] }])
+  );
+  assert.deepEqual(cheapFirst.destroyed, ['small']);
+
+  // The order the attacking player wants, and until ORDER_BLOCKERS existed
+  // could not ask for.
+  const goodFirst = resolveCombat(
+    withCombat(board(), [{ attacker: 'big', blockedBy: ['good', 'small'] }])
+  );
+  assert.deepEqual(goodFirst.destroyed, ['good']);
+});
+
+test('ORDER_BLOCKERS rewrites the lane, and only for a real permutation', () => {
+  let state = table([
+    { id: 'big', owner: 'p1', power: '2', toughness: '5' },
+    { id: 'small', owner: 'p2', power: '1', toughness: '1' },
+    { id: 'good', owner: 'p2', power: '2', toughness: '2' },
+  ]);
+  state = withCombat(state, [{ attacker: 'big', blockedBy: ['small', 'good'] }]);
+
+  const ordered = applyAction(state, {
+    type: 'ORDER_BLOCKERS',
+    attackerId: 'big',
+    blockerIds: ['good', 'small'],
+  });
+  assert.deepEqual(ordered.combat.attackers[0].blockedBy, ['good', 'small']);
+  // ...and the maths follows it.
+  assert.ok(resolveCombat(ordered).destroyed.indexOf('good') !== -1);
+  assert.equal(resolveCombat(state).destroyed.indexOf('good'), -1, 'the 2/2 survives the old order');
+
+  // A subset would silently drop a creature out of combat. Refused.
+  const short = applyAction(ordered, {
+    type: 'ORDER_BLOCKERS',
+    attackerId: 'big',
+    blockerIds: ['good'],
+  });
+  assert.equal(short, ordered, 'a partial order must be refused, not applied');
+
+  // A creature that is not in this lane cannot be ordered into it.
+  const alien = applyAction(ordered, {
+    type: 'ORDER_BLOCKERS',
+    attackerId: 'big',
+    blockerIds: ['good', 'big'],
+  });
+  assert.equal(alien, ordered, 'an id that is not blocking must be refused');
+
+  // The same order again changes nothing and must return the same reference,
+  // or the transport records a no-op as an undoable step.
+  const same = applyAction(ordered, {
+    type: 'ORDER_BLOCKERS',
+    attackerId: 'big',
+    blockerIds: ['good', 'small'],
+  });
+  assert.equal(same, ordered);
+});
+
+test('lanesNeedingDamageOrder answers for the attacking seat only, and only on a double block', () => {
+  let state = table([
+    { id: 'big', owner: 'p1', power: '3', toughness: '3' },
+    { id: 'solo', owner: 'p1', power: '1', toughness: '1' },
+    { id: 'small', owner: 'p2', power: '1', toughness: '1' },
+    { id: 'good', owner: 'p2', power: '2', toughness: '2' },
+    { id: 'spare', owner: 'p2', power: '1', toughness: '1' },
+  ]);
+  state = withCombat(state, [
+    { attacker: 'big', blockedBy: ['small', 'good'] },
+    { attacker: 'solo', blockedBy: ['spare'] },
+  ]);
+
+  const mine = lanesNeedingDamageOrder(state, 'p1');
+  assert.equal(mine.length, 1);
+  assert.equal(mine[0].attackerId, 'big');
+
+  // The defender does not get to reorder the damage coming at them.
+  assert.equal(lanesNeedingDamageOrder(state, 'p2').length, 0);
 });

@@ -46,10 +46,11 @@ function HomeFooter() {
       links: [
         { label: 'Deck builder', to: '/decks' },
         { label: 'Collection', to: '/collection' },
-        { label: 'Storage', to: '/collection/storage' },
         { label: 'Card search', to: '/cards' },
         { label: 'Precons', to: '/precons' },
         { label: 'Wishlist', to: '/wishlist' },
+        /* Last, for the same reason it moved down the page itself. */
+        { label: 'Storage', to: '/collection/storage' },
       ],
     },
     /* These five ship today and were absent from the site map entirely — the
@@ -225,6 +226,22 @@ export default function Homepage() {
           when I do. Every figure in this run is a live count. */}
       <HomeShowcase />
       <HomeCatalogue />
+      {/*
+        WHERE "FEATURES" IN THE HEADER LANDS.
+
+        `PublicNavigation` has linked to `#features` since it was written and
+        NOTHING ON THE PAGE HAS CARRIED THAT ID. The only `id="features"` in the
+        repo is on `HomeFeatures`, a component this page has not rendered for a
+        long time. Measured on the built bundle: `document.getElementById(
+        'features')` is null, so one of the two links in the marketing header
+        did nothing at all when clicked, on every anonymous visit. `#faq`
+        resolves; this one did not.
+
+        It is anchored here rather than on the hero because this is where the
+        tour of what the product does actually starts. `scroll-mt` clears the
+        fixed header, or the heading lands underneath it.
+      */}
+      <div id="features" className="scroll-mt-20" />
       <HomeSearch />
       <HomeAppVisual />
 
@@ -237,13 +254,17 @@ export default function Homepage() {
           what you own" is the sentence it answers. */}
       <HomeCollection />
 
-      {/* ------------------------------------------------- the differentiator
-          Everything above this line, Moxfield and Archidekt also do. This is
-          the part they do not, so it lands early — roughly a quarter of the way
-          down — rather than being buried in a feature list. Scanner follows it
-          because "know which box it is in" is worthless until getting cards in
-          is cheap, and the camera is the answer to that. */}
-      <HomeStorage />
+      {/* --------------------------------------------- getting cards in fast
+          The camera, straight after the collection, because a collection page
+          is worth nothing until putting cards into it is cheap.
+
+          Storage used to sit here, ahead of the scanner and ahead of every
+          other product on the page, on the argument that it is the thing
+          Moxfield and Archidekt do not do. The owner has ruled on that
+          directly: "Storage should not be second, its not a main feature." It
+          is now down in the depth block with the rest of the detail. The
+          argument was not wrong about it being unusual; it was wrong about
+          unusual meaning first. */}
       <HomeScanner />
 
       {/* ------------------------------------------------------- the breadth
@@ -265,6 +286,10 @@ export default function Homepage() {
       <HomeTutor />
       <HomePower />
       <HomeFormatPicker />
+      {/* Storage, in the depth block where the owner put it. It still earns a
+          section: knowing which box a card is in is real and nothing else on
+          this list does it. It just is not the second thing anyone is told. */}
+      <HomeStorage />
 
       {/* ---------------------------------------------------------- the close
           Freshness, then no lock-in, then the objections, then the ask. */}

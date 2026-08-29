@@ -183,7 +183,7 @@ function WorkstreamRow({ ws, tasks }: { ws: Workstream; tasks: DevTask[] }) {
           <div className="p-4 pt-3">
             {tasks.length === 0 ? (
               <p className="text-sm text-muted-foreground italic">
-                No tasks yet — this workstream is scoped but not broken down.
+                No tasks yet. This workstream is scoped but not broken down.
               </p>
             ) : (
               <ul className="space-y-2">

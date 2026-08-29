@@ -1,292 +1,381 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { useCallback, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Shuffle, Play, RotateCcw, TrendingUp } from 'lucide-react';
-import { toast } from 'sonner';
 import { CardImage } from '@/components/cards/CardImage';
 import { getBestCardImage } from '@/lib/scryfall/card-utils';
 import { MetricRow } from '@/components/listing';
 import { cn } from '@/lib/utils';
+import {
+  fanned,
+  handKey as key,
+  handVerdict,
+  isLand,
+  shuffled,
+  statsFor,
+  type DeckCard,
+} from './openingHand';
 
-interface DeckCard {
-  id: string;
-  name: string;
-  cmc: number;
-  type_line: string;
-  mana_cost?: string;
-  image_uris?: {
-    small?: string;
-    normal?: string;
-    large?: string;
+export type { DeckCard } from './openingHand';
+
+export interface PastHand {
+  /** 1 for the first hand of the session, counting up. */
+  ordinal: number;
+  /** How many mulligans had been taken when this one was dealt. */
+  mulligans: number;
+  cards: DeckCard[];
+  /** Cards sent to the bottom, kept so the row shows what was turned down. */
+  bottomed: DeckCard[];
+}
+
+export interface OpeningHand {
+  /** The cards on the table, already fanned. Empty before the first draw. */
+  hand: DeckCard[];
+  /** Marked to go to the bottom. Only ever non-empty mid-mulligan. */
+  bottoming: Set<string>;
+  /** How many still have to be chosen before the hand can be kept. */
+  toBottom: number;
+  mulligans: number;
+  /** True once the seven are settled, so the figures mean something. */
+  settled: boolean;
+  drawn: boolean;
+  /** Every hand before this one, newest first. */
+  history: PastHand[];
+  draw: () => void;
+  mulligan: () => void;
+  toggleBottom: (key: string) => void;
+  keep: () => void;
+}
+
+/**
+ * Opening hands, the London mulligan, and the figures that follow from them.
+ *
+ * The state lives here rather than inside the panel so `/deck/:id/testhand`
+ * can put Draw and Mulligan in the page's own action row, beside "Play a whole
+ * game". They used to sit inside the panel, which meant the page carried its
+ * controls in two places and a second heading to hang them off.
+ *
+ * ## The mulligan is the London mulligan
+ *
+ * It drew six cards, then five, then four. That is the Paris mulligan and it
+ * was retired from every format in 2019. Under the London mulligan you always
+ * draw a fresh seven and put N cards on the bottom of your library, which is a
+ * different decision and usually a much better hand, so a tester that models
+ * the old rule gives advice about a game nobody is playing.
+ *
+ * So: mulligan deals seven again and asks which N go to the bottom. Until they
+ * are chosen the hand is not settled and no verdict is offered, because a
+ * verdict on eight-minus-N cards would be a verdict on a hand that cannot
+ * exist.
+ */
+export function useOpeningHand(library: DeckCard[]): OpeningHand {
+  const [hand, setHand] = useState<DeckCard[]>([]);
+  const [bottoming, setBottoming] = useState<Set<string>>(new Set());
+  const [mulligans, setMulligans] = useState(0);
+  const [drawn, setDrawn] = useState(false);
+  /*
+    Every hand dealt this session, newest first.
+
+    The page's own description says "draw an opening hand, mulligan, and see
+    what the seven looked like", and until now the previous seven was thrown
+    away the instant you mulliganed, so the one thing the sentence promised was
+    the one thing the page could not do. Comparing the hands you turned down is
+    also the actual job: you are testing whether the deck opens well, and that
+    is a question about several hands, not one.
+
+    Session only, in memory. Nothing is written anywhere.
+  */
+  const [history, setHistory] = useState<PastHand[]>([]);
+  const [dealt, setDealt] = useState(0);
+
+  const deal = useCallback(
+    (count: number) => {
+      const seven = shuffled(library).slice(0, Math.min(7, library.length));
+
+      /* File the hand being replaced before it goes.
+
+         This reads `hand` out of the closure rather than from inside a
+         `setHand` updater. The first version called `setHistory` from within
+         that updater, which is a side effect in a function React requires to
+         be pure and may call more than once; the filing was dropped every time
+         and "Earlier hands" never appeared. */
+      if (hand.length > 0) {
+        setHistory(h =>
+          [
+            {
+              ordinal: dealt,
+              mulligans,
+              cards: hand.filter((c, i) => !bottoming.has(key(c, i))),
+              bottomed: hand.filter((c, i) => bottoming.has(key(c, i))),
+            },
+            ...h,
+          ].slice(0, 8)
+        );
+      }
+
+      setHand(fanned(seven));
+      setBottoming(new Set());
+      setMulligans(count);
+      setDrawn(true);
+      setDealt(n => n + 1);
+    },
+    [library, hand, bottoming, mulligans, dealt]
+  );
+
+  const draw = useCallback(() => deal(0), [deal]);
+  const mulligan = useCallback(() => deal(mulligans + 1), [deal, mulligans]);
+
+  const toggleBottom = useCallback((k: string) => {
+    setBottoming(prev => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+  }, []);
+
+  /* A mulligan to seven cannot ask for more cards on the bottom than there are
+     cards in hand — a two-card library mulliganed twice would otherwise want
+     to bottom more than it holds. */
+  const owed = Math.min(mulligans, hand.length);
+  const toBottom = Math.max(0, owed - bottoming.size);
+
+  const keep = useCallback(() => {
+    setHand(prev => fanned(prev.filter((c, i) => !bottoming.has(key(c, i)))));
+    setBottoming(new Set());
+  }, [bottoming]);
+
+  return {
+    hand,
+    bottoming,
+    toBottom,
+    mulligans,
+    settled: drawn && owed === 0,
+    drawn,
+    history,
+    draw,
+    mulligan,
+    toggleBottom,
+    keep,
   };
 }
 
 interface QuickDeckTesterProps {
-  deck: DeckCard[];
+  state: OpeningHand;
 }
 
-interface HandStats {
-  avgCmc: number;
-  lands: number;
-  creatures: number;
-  spells: number;
-  manaCurve: Record<number, number>;
-}
+/**
+ * The seven cards, at the size the page can afford, above everything else.
+ *
+ * The cards used to be the last thing on the page and the smallest, sitting
+ * under a hand-quality box, a four-figure strip and the curve chart. The seven
+ * cards are the reason the page exists, so they come first and they are the
+ * biggest thing on it. The figures read as a caption underneath, which is the
+ * order you actually use them in: look at the hand, then check the count.
+ */
+export function QuickDeckTester({ state }: QuickDeckTesterProps) {
+  const { hand, bottoming, toBottom, mulligans, settled, history, toggleBottom, keep } = state;
 
-export function QuickDeckTester({ deck }: QuickDeckTesterProps) {
-  const [hand, setHand] = useState<DeckCard[]>([]);
-  const [mulliganCount, setMulliganCount] = useState(0);
-  const [handStats, setHandStats] = useState<HandStats | null>(null);
-
-  const isLand = (card: DeckCard) => {
-    return card.type_line.toLowerCase().includes('land');
-  };
-
-  const calculateHandStats = (cards: DeckCard[]): HandStats => {
-    const lands = cards.filter(isLand).length;
-    const nonLands = cards.filter(c => !isLand(c));
-    const creatures = nonLands.filter(c => c.type_line.toLowerCase().includes('creature')).length;
-    const spells = nonLands.length - creatures;
-    
-    const avgCmc = nonLands.length > 0
-      ? nonLands.reduce((sum, c) => sum + c.cmc, 0) / nonLands.length
-      : 0;
-
-    const manaCurve: Record<number, number> = {};
-    cards.forEach(card => {
-      const cmc = Math.min(card.cmc, 7); // Cap at 7+
-      manaCurve[cmc] = (manaCurve[cmc] || 0) + 1;
-    });
-
-    return { avgCmc, lands, creatures, spells, manaCurve };
-  };
-
-  const drawHand = (mulligan: boolean = false) => {
-    if (deck.length < 7) {
-      toast.error('Deck must have at least 7 cards to test');
-      return;
-    }
-
-    // Shuffle deck
-    const shuffled = [...deck].sort(() => Math.random() - 0.5);
-    
-    // Draw 7 cards (or 6 for mulligan)
-    const handSize = mulligan ? Math.max(7 - mulliganCount - 1, 1) : 7;
-    const newHand = shuffled.slice(0, handSize);
-    
-    setHand(newHand);
-    setHandStats(calculateHandStats(newHand));
-    
-    if (mulligan) {
-      setMulliganCount(prev => prev + 1);
-      toast.info(`Mulligan ${mulliganCount + 1} - Drew ${handSize} cards`);
-    } else {
-      setMulliganCount(0);
-      toast.success('Opening hand drawn!');
-    }
-  };
-
-  /**
-   * The read on the opening hand.
-   *
-   * ## Two things were broken here and neither was visible in a diff
-   *
-   * This returned a `color` that was interpolated into a class name —
-   * ``bg-${quality.color}/5 border-${quality.color}/20`` — and Tailwind reads
-   * source files for literal strings and cannot see a template. None of those
-   * eight classes was ever generated, so the panel drew `p-3 rounded-lg border`
-   * and nothing else: a bare hairline box, which is the one thing the design
-   * law rules out, and the only styling on it was the part that should not have
-   * been there.
-   *
-   * The same value was passed to `Badge variant=`, and two of the four values
-   * it can take — `warning` and `success` — are not Badge variants and are not
-   * tokens in this palette at all. A good hand and a risky hand both fell
-   * through to the default badge, so the two states in the middle were
-   * indistinguishable.
-   *
-   * `tone` is a literal class now, so Tailwind can see it, and it is monochrome
-   * apart from `destructive`, which is the one reading that is a real warning.
-   */
-  const getHandQuality = (
-    stats: HandStats
-  ): { quality: string; tone: string; badge: 'secondary' | 'destructive'; message: string } => {
-    const plain = { tone: 'bg-muted/40', badge: 'secondary' as const };
-    const bad = { tone: 'bg-destructive/10', badge: 'destructive' as const };
-
-    if (stats.lands < 2) {
-      return { quality: 'Poor', ...bad, message: 'Too few lands, so this is likely a mulligan' };
-    }
-    if (stats.lands > 5) {
-      return { quality: 'Poor', ...bad, message: 'Too many lands, so this is worth a mulligan' };
-    }
-    if (stats.lands === 2 && stats.avgCmc > 4) {
-      return { quality: 'Risky', ...plain, message: 'Two lands under a high curve' };
-    }
-    if (stats.lands >= 3 && stats.lands <= 4) {
-      return { quality: 'Good', ...plain, message: 'A keepable hand' };
-    }
-    return { quality: 'Average', ...plain, message: 'Borderline, and it depends on the deck' };
-  };
+  const choosing = toBottom > 0 || bottoming.size > 0;
+  const keeping = useMemo(
+    () => hand.filter((c, i) => !bottoming.has(key(c, i))),
+    [hand, bottoming]
+  );
+  const stats = useMemo(() => statsFor(keeping), [keeping]);
+  const verdict = handVerdict(stats, keeping.length);
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Play className="h-5 w-5" />
-            Quick Deck Tester
-          </CardTitle>
-          <div className="flex gap-2">
-            <Button
-              onClick={() => drawHand(false)}
-              size="sm"
-              variant="outline"
+    <div className="space-y-4">
+      {/*
+        Seven across from `md` up, because seven across is what a hand looks
+        like. The cards take whatever width the column gives them rather than a
+        fixed size, so the hand grows with the window instead of stranding the
+        page's widest element at 170px in a 1656px column.
+      */}
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-3 md:grid-cols-7">
+        {hand.map((card, index) => {
+          const k = key(card, index);
+          const marked = bottoming.has(k);
+          const hasArt = Boolean(getBestCardImage(card));
+          const card_ = (
+            <CardImage
+              card={card}
+              size="md"
+              fill
+              interactive={choosing}
+              title={card.name}
             >
-              <Shuffle className="h-4 w-4 mr-2" />
-              Draw Hand
-            </Button>
-            {hand.length > 0 && (
-              <Button
-                onClick={() => drawHand(true)}
-                size="sm"
-                variant="secondary"
-              >
-                <RotateCcw className="h-4 w-4 mr-2" />
-                Mulligan
-              </Button>
+              {!hasArt && (
+                <div className="pointer-events-none absolute inset-x-0 bottom-2 flex flex-wrap items-center justify-center gap-1">
+                  <Badge variant="outline" className="text-[10px]">
+                    {card.cmc}
+                  </Badge>
+                  {isLand(card) && (
+                    <Badge variant="secondary" className="text-[10px]">
+                      Land
+                    </Badge>
+                  )}
+                </div>
+              )}
+            </CardImage>
+          );
+
+          /* Not choosing: the card is a picture, not a control. */
+          if (!choosing) return <div key={k}>{card_}</div>;
+
+          return (
+            <button
+              type="button"
+              key={k}
+              onClick={() => toggleBottom(k)}
+              aria-pressed={marked}
+              aria-label={`${card.name}${marked ? ', going to the bottom' : ', staying in hand'}`}
+              className={cn(
+                'group relative block w-full rounded-xl text-left transition-opacity',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                /* Marked cards fade. Never `grayscale`: desaturating a Scryfall
+                   image is a licence problem and this project has taken it out
+                   of five other components already. */
+                marked ? 'opacity-35 hover:opacity-55' : 'opacity-100'
+              )}
+            >
+              {card_}
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'pointer-events-none absolute inset-0 rounded-xl ring-2 transition-colors',
+                  marked ? 'ring-primary' : 'ring-transparent group-hover:ring-muted-foreground/40'
+                )}
+              />
+            </button>
+          );
+        })}
+      </div>
+
+      {choosing ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/40 p-3">
+          <div>
+            <p className="font-semibold">
+              {toBottom > 0
+                ? `Put ${toBottom} ${toBottom === 1 ? 'card' : 'cards'} on the bottom`
+                : 'Ready to keep'}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              You drew a fresh seven. Pick the ones you do not want and they go under the library.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={keep}
+            disabled={toBottom > 0}
+            className={cn(
+              'rounded-md px-4 py-2 text-sm font-medium transition-colors',
+              toBottom > 0
+                ? 'bg-muted text-muted-foreground'
+                : 'bg-primary text-primary-foreground hover:bg-primary/90'
             )}
-          </div>
+          >
+            Keep these {keeping.length}
+          </button>
         </div>
-      </CardHeader>
-
-      <CardContent className="space-y-4">
-        {hand.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <p>Click "Draw Hand" to test your opening hand</p>
+      ) : (
+        settled && (
+          <div className={cn('rounded-lg p-3', verdict.tone)}>
+            <div className="mb-2 flex items-center justify-between">
+              <span className="font-semibold">Hand quality</span>
+              <Badge variant={verdict.badge}>{verdict.verdict}</Badge>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {verdict.message}
+              {mulligans > 0 &&
+                ` After ${mulligans} ${mulligans === 1 ? 'mulligan' : 'mulligans'}.`}
+            </p>
           </div>
-        ) : (
-          <>
-            {/* Hand Quality */}
-            {handStats && (
-              <div className="space-y-2">
-                {(() => {
-                  const quality = getHandQuality(handStats);
-                  return (
-                    <div className={cn('rounded-lg p-3', quality.tone)}>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-semibold">Hand quality</span>
-                        <Badge variant={quality.badge}>{quality.quality}</Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{quality.message}</p>
-                    </div>
-                  );
-                })()}
+        )
+      )}
 
-                {/*
-                  What is actually in the seven.
+      {/*
+        What is actually in the seven. `MetricRow` so a figure here is the same
+        tile as the one on the deck page and on My Decks, and `on="card"`
+        because this sits in a raised panel.
+      */}
+      <MetricRow
+        on="card"
+        columns={4}
+        metrics={[
+          { id: 'lands', label: 'Lands', value: String(stats.lands), raw: stats.lands },
+          {
+            id: 'creatures',
+            label: 'Creatures',
+            value: String(stats.creatures),
+            raw: stats.creatures,
+          },
+          { id: 'spells', label: 'Spells', value: String(stats.spells), raw: stats.spells },
+          {
+            id: 'cmc',
+            label: 'Avg mana value',
+            value: stats.avgCmc.toFixed(1),
+            raw: stats.avgCmc,
+          },
+        ]}
+      />
 
-                  Four `text-2xl font-bold` figures on a `p-2 bg-muted` pad with
-                  the label underneath — the deck folder's last hand-built metric
-                  row, and it is the body of `/deck/:id/testhand`, so it was one
-                  of the sub pages that had stopped matching the deck page.
-                  `MetricRow` puts the label above the figure and the figure at
-                  the weight every other figure in the product uses.
+      {/*
+        The hands you already turned down.
 
-                  "Avg CMC" is "Avg mana value" now: the deck page's own tile
-                  has said mana value since the merge, and the same number
-                  reading two different names on two screens of the same deck is
-                  the drift this pass is about. `on="card"` because this sits in
-                  a raised panel.
-                */}
-                <MetricRow
-                  on="card"
-                  columns={4}
-                  metrics={[
-                    { id: 'lands', label: 'Lands', value: String(handStats.lands), raw: handStats.lands },
-                    {
-                      id: 'creatures',
-                      label: 'Creatures',
-                      value: String(handStats.creatures),
-                      raw: handStats.creatures,
-                    },
-                    {
-                      id: 'spells',
-                      label: 'Spells',
-                      value: String(handStats.spells),
-                      raw: handStats.spells,
-                    },
-                    {
-                      id: 'cmc',
-                      label: 'Avg mana value',
-                      value: handStats.avgCmc.toFixed(1),
-                      raw: handStats.avgCmc,
-                    },
-                  ]}
-                />
+        Half the point of testing an opening hand is comparing it with the last
+        one, and this is also what fills the page: without it the body ended
+        420px down a 1000px window and the rest was flat charcoal, which is the
+        dead space the design law rules out. It is real data, not a filler
+        panel, and it appears only once there is a second hand to compare.
 
-                {/* Mana Curve in Hand */}
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">Mana Curve in Hand</p>
-                  {[0, 1, 2, 3, 4, 5, 6, 7].map(cmc => (
-                    <div key={cmc} className="flex items-center gap-2">
-                      <span className="text-xs w-8">{cmc}{cmc === 7 ? '+' : ''}</span>
-                      <Progress 
-                        value={(handStats.manaCurve[cmc] || 0) * 14.28} 
-                        className="flex-1 h-2"
-                      />
-                      <span className="text-xs w-4">{handStats.manaCurve[cmc] || 0}</span>
+        Cards that went to the bottom stay in the row at reduced opacity, so a
+        mulligan reads as "these seven, minus those two" rather than a shorter
+        row with no explanation.
+      */}
+      {history.length > 0 && (
+        <div className="space-y-3 pt-2">
+          <p className="text-sm font-medium text-muted-foreground">Earlier hands</p>
+          {history.map(past => {
+            /* The same reading the current hand gets, on the hand you turned
+               down. Without it the row trailed off into empty charcoal at the
+               right, and the comparison the list exists for — was that one
+               actually better? — had to be made by eye. */
+            const pastStats = statsFor(past.cards);
+            const pastVerdict = handVerdict(pastStats, past.cards.length);
+            return (
+              <div key={past.ordinal} className="flex items-start gap-4">
+                <div className="w-24 shrink-0 pt-1">
+                  <p className="text-sm font-medium">Hand {past.ordinal}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {past.mulligans === 0
+                      ? 'On the draw'
+                      : `${past.mulligans} ${past.mulligans === 1 ? 'mulligan' : 'mulligans'}`}
+                  </p>
+                </div>
+                <div className="grid flex-1 grid-cols-4 gap-2 sm:grid-cols-7 md:grid-cols-9 lg:grid-cols-11">
+                  {[...past.cards, ...past.bottomed].map((card, i) => (
+                    <div
+                      key={`${past.ordinal}-${card.id}-${i}`}
+                      className={cn(i >= past.cards.length && 'opacity-35')}
+                      title={
+                        i >= past.cards.length ? `${card.name}, put on the bottom` : card.name
+                      }
+                    >
+                      <CardImage card={card} size="sm" fill hideFlip title={card.name} />
                     </div>
                   ))}
                 </div>
+                <div className="hidden w-40 shrink-0 pt-1 text-right sm:block">
+                  <Badge variant={pastVerdict.badge}>{pastVerdict.verdict}</Badge>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {pastStats.lands} {pastStats.lands === 1 ? 'land' : 'lands'}, curve{' '}
+                    {pastStats.avgCmc.toFixed(1)}
+                  </p>
+                </div>
               </div>
-            )}
-
-            {/* Hand Display - Visual Cards */}
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Cards in Hand ({hand.length})</p>
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2">
-                {hand.map((card, index) => {
-                  /* `CardImage` renders the missing-image case itself (card-shaped,
-                     card name centred), so the only thing the old hand-rolled
-                     fallback block still owns is the mana value and the land
-                     marker — kept, but only when there is no art to read them off. */
-                  const hasArt = Boolean(getBestCardImage(card));
-                  return (
-                    <CardImage
-                      key={`${card.id}-${index}`}
-                      card={card}
-                      size="md"
-                      fill
-                      interactive
-                      title={card.name}
-                    >
-                      {!hasArt && (
-                        <div className="pointer-events-none absolute inset-x-0 bottom-2 flex flex-wrap items-center justify-center gap-1">
-                          <Badge variant="outline" className="text-[10px]">
-                            {card.cmc}
-                          </Badge>
-                          {isLand(card) && (
-                            <Badge variant="secondary" className="text-[10px]">Land</Badge>
-                          )}
-                        </div>
-                      )}
-                    </CardImage>
-                  );
-                })}
-              </div>
-            </div>
-
-            {mulliganCount > 0 && (
-              <p className="text-sm text-muted-foreground text-center">
-                Mulligans: {mulliganCount}
-              </p>
-            )}
-          </>
-        )}
-      </CardContent>
-    </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }

@@ -332,7 +332,7 @@ export function AIGeneratedDeckList({
             {edhPowerLevel.toFixed(1)}/10
           </span>
           <span className="text-xs text-muted-foreground">
-            a second opinion — the score above is DeckMatrix&apos;s own
+            a second opinion. The score above is DeckMatrix&apos;s own
           </span>
         </div>
       )}

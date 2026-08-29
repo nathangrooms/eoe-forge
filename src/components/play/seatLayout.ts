@@ -511,6 +511,32 @@ export interface PileGrid {
 }
 
 /**
+ * What a pile tile needs on top of the card inside it.
+ *
+ * The library is the tallest of the four: `SeatMat` draws it with
+ * `LibraryStack maxLayers={4}`, which offsets each layer up by
+ * `max(1.2, width * 0.045)` and then hangs its count badge below the stack.
+ * On top of that `ZoneTile` pads its children down by `pt-2.5` to clear the
+ * zone's name.
+ *
+ * The three numbers below are that arrangement, written where the height is
+ * decided. They are duplicated from `CardBack.LibraryStack` and `ZoneTile`
+ * deliberately and with their names on them, because those two files have JSX
+ * in them and `node --test` cannot import either — so a constant that lived
+ * there could not be asserted against. `seatLayout.test.ts` asserts the tile
+ * fits a four-layer stack, which is the thing that actually matters and will
+ * fail if any of the three drifts.
+ */
+const PILE_STACK_LAYERS = 4;
+const PILE_STACK_STEP = 0.045;
+/** `ZoneTile`'s `pt-2.5` above, and the count badge's `-bottom-1` below. */
+const PILE_TILE_PAD = 16;
+
+export function pileTileChrome(cardWidth: number): number {
+  return Math.ceil(Math.max(1.2, cardWidth * PILE_STACK_STEP) * PILE_STACK_LAYERS) + PILE_TILE_PAD;
+}
+
+/**
  * The four piles' grid on a mat of this size.
  *
  * Takes the mat and nothing else — no counts, no zone contents — so a card
@@ -519,14 +545,50 @@ export interface PileGrid {
  */
 export function pileGrid(matWidth: number, matHeight: number): PileGrid {
   const usable = Math.max(60, matHeight - identityBandHeight(matHeight) - 16);
-  const tileHeight = Math.max(34, Math.floor(usable / PILE_ROWS) - 4);
+  const byHeight = Math.max(34, Math.floor(usable / PILE_ROWS) - 4);
   /* A quarter of the mat, never more, and never so little that a tile cannot
      hold a card at all. */
   const cap = Math.max(96, Math.min(matWidth * 0.24, 268));
   const byWidth = Math.floor((cap - 6) / PILE_COLUMNS) - 12;
   /* 12px of the tile's height is its label and its count badge. */
-  const cardWidth = Math.max(20, Math.min(Math.round((tileHeight - 12) * CARD_RATIO), byWidth));
+  const cardWidth = Math.max(20, Math.min(Math.round((byHeight - 12) * CARD_RATIO), byWidth));
   const tileWidth = cardWidth + 10;
+
+  /*
+   * A TILE IS AS TALL AS WHAT IS IN IT, AND NOT AS TALL AS THE MAT.
+   *
+   * The height above is a half share of the mat, and the card inside is capped
+   * by the rail's WIDTH, so on a tall mat the two come apart badly. Measured on
+   * 29 Aug 2026, one seat filling a 1600 x 1000 viewport (the View tab), a real
+   * game at turn 16:
+   *
+   *   tile 129 x 425   card 119 x 166   259px of every tile empty
+   *
+   * Four of those is roughly 280 x 870 of the screen — 15% of it — reading as
+   * four tall empty boxes down the left edge with a small card back in the top
+   * of one. It is the largest single piece of dead space on the surface, and it
+   * is the thing that makes a mat look like a wireframe of a mat.
+   *
+   * The cap can only ever REDUCE the tile, so nothing this file promises is
+   * weakened: two rows still fit the mat, a tile still holds its card, and the
+   * rail's WIDTH is untouched, so the two board rows beside it do not move by a
+   * pixel. On a short mat the card is height-bound already and the cap is a
+   * no-op — measured at two seats on 1600 x 1000, tileHeight 156 against a cap
+   * of 157, unchanged.
+   *
+   * It still reads the mat and nothing else, so a card arriving in a graveyard
+   * cannot move anything. That is the rule this whole file exists for.
+   *
+   * `pileTileChrome` is what the tallest thing in a tile needs ON TOP of a
+   * card, and it is not a guess: the first version of this cap allowed a flat
+   * 14px and clipped the library's own count badge off the bottom of the tile,
+   * which is a defect introduced in the act of fixing one. See that function.
+   */
+  const tileHeight = Math.min(
+    byHeight,
+    Math.round(cardWidth / CARD_RATIO) + pileTileChrome(cardWidth)
+  );
+
   return { rail: tileWidth * PILE_COLUMNS + 6, tileWidth, tileHeight, cardWidth };
 }
 

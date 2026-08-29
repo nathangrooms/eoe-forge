@@ -117,6 +117,7 @@ import { AimLayer } from '@/components/play/AimLayer';
 import { useAimRequest } from '@/components/play/useAiming';
 import { ZoneTravelLayer } from '@/components/play/ZoneTravelLayer';
 import { GameMenu } from '@/components/play/GameMenu';
+import { SeatPanel } from '@/components/play/SeatPanel';
 import { useCastSpotlight, useLifeDeltas } from '@/components/play/useTableMotion';
 import {
   canReachCombat,
@@ -165,6 +166,29 @@ import {
   type SeatingVariant,
   type Zone,
 } from '@/lib/game';
+
+/**
+ * Where the log sits while the opening hand is being judged.
+ *
+ * Both numbers are "clear of furniture that is always there", and both were
+ * arrived at from a screenshot rather than by reasoning.
+ *
+ * LEFT clears any seat's pile rail. `pileGrid` caps the rail at
+ * `min(matWidth * 0.24, 268)` and builds it as two tiles plus 6px, which tops
+ * out at 264px however wide the table is, so 276 is clear on every layout.
+ *
+ * TOP clears the far seat's identity band. The first attempt used
+ * `HUD_INSET + 8` and put the log squarely on that band, drawn over the seat's
+ * life total and its name, which is worse than the pile rail it had just been
+ * moved off. `identityBandHeight` caps the band at 54px and the mat carries
+ * about 8px above it, so 62 clears it on every layout.
+ *
+ * What it lands on instead is the far seat's CREATURE ROW, empty by definition
+ * at the opening hand because no permanent has entered the battlefield on any
+ * seat yet. That is the one screen where this space is genuinely free.
+ */
+const OPENING_FEED_LEFT = 276;
+const OPENING_FEED_TOP = HUD_INSET + 8 + 62;
 
 const HUMAN_SEAT: PlayerId = 'p1';
 
@@ -305,6 +329,8 @@ export default function Play() {
   const [inspectId, setInspectId] = useState<string | null>(null);
   const [zoneTarget, setZoneTarget] = useState<{ playerId: PlayerId; zone: Zone } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  /* Which seat's by-hand controls the rail is showing, if any. */
+  const [seatTarget, setSeatTarget] = useState<PlayerId | null>(null);
   /** Whose board "View" is looking at. */
   const [viewSeatId, setViewSeatId] = useState<PlayerId | null>(null);
 
@@ -560,6 +586,7 @@ export default function Play() {
       setEndingTurn(null);
       setInspectId(null);
       setZoneTarget(null);
+      setSeatTarget(null);
       setMenuOpen(false);
       setViewSeatId(null);
       setTable(dealt);
@@ -971,13 +998,21 @@ export default function Play() {
     [dispatch]
   );
 
+  /**
+   * Put a card somewhere by hand.
+   *
+   * The END of a library is the caller's to choose and is no longer decided
+   * here. This used to hardcode `'top'`, so "To library" quietly meant "on
+   * top" for every card including the ones that say bottom. `cardActions.ts`
+   * now offers the two ends as two controls and each carries its own position.
+   */
   const handleMoveZone = useCallback(
-    (card: CardInstance, to: Zone) => {
+    (card: CardInstance, to: Zone, position?: 'top' | 'bottom') => {
       dispatch({
         type: 'MOVE_ZONE',
         instanceId: card.instanceId,
         to,
-        position: to === 'library' ? 'top' : undefined,
+        position: to === 'library' ? (position ?? 'top') : undefined,
       });
       setInspectId(null);
     },
@@ -1007,6 +1042,7 @@ export default function Play() {
     setEndingTurn(null);
     setInspectId(null);
     setZoneTarget(null);
+    setSeatTarget(null);
     setMenuOpen(false);
     setViewSeatId(null);
   }, []);
@@ -1017,6 +1053,7 @@ export default function Play() {
     setInspectId(null);
     setMenuOpen(false);
     setZoneTarget(null);
+    setSeatTarget(null);
     setView('view');
   }, []);
 
@@ -1494,7 +1531,8 @@ export default function Play() {
   /* The rail no longer holds the card preview — that is the centre of the mat
      now. What is left in it is the two things that are about BROWSING rather
      than deciding, and they can be open at the same time as a preview. */
-  const railContent = zoneTarget !== null ? 'zone' : menuOpen ? 'menu' : null;
+  const railContent =
+    zoneTarget !== null ? 'zone' : seatTarget !== null ? 'seat' : menuOpen ? 'menu' : null;
   const railWidth = railWidthFor(viewport.width);
   /* The board's own box, which the centre preview sizes itself against. It is
      the viewport minus the rail when the rail is open, minus the HUD along the
@@ -1598,9 +1636,19 @@ export default function Play() {
                   onOpenZone={(playerId, zone) => {
                     setInspectId(null);
                     setMenuOpen(false);
+                    setSeatTarget(null);
                     setZoneTarget({ playerId, zone });
                   }}
                   onFocusSeat={handleFocusSeat}
+                  /* Press a life badge, get that seat's by-hand controls. It
+                     opens in the same rail the zone browser and the menu use,
+                     so the table moves over rather than being covered. */
+                  onOpenSeatControls={playerId => {
+                    setInspectId(null);
+                    setMenuOpen(false);
+                    setZoneTarget(null);
+                    setSeatTarget(playerId);
+                  }}
                   attackerIds={attackerIds}
                   blockerIds={blockerIds}
                   inspectedId={inspectId}
@@ -1685,7 +1733,7 @@ export default function Play() {
           because the rail ends at x=230, so nothing on the board is behind it.
         */}
         <div
-          className="pointer-events-none absolute left-2 z-40 max-w-[46vw]"
+          className="pointer-events-none absolute z-40 max-w-[46vw]"
           /*
            * THE FEED GOES TO THE TOP WHILE THE OPENING HAND IS BEING JUDGED.
            *
@@ -1695,14 +1743,20 @@ export default function Play() {
            * seat's command zone, and it would be drawn straight over the
            * commander's art, which the project's own design law forbids.
            *
-           * Top left is empty on that screen. The bar naming the decision is
-           * centred, the two answers are on the right, and the log stays
-           * reachable rather than being hidden for the duration.
+           * AND IT IS NOT AT `left-2` UP THERE, which the comment this replaces
+           * asserted was empty. It is not: the top-left of the board is the FAR
+           * seat's pile rail, and measured on the opening hand at 1600 x 1000
+           * the feed was drawn across the top 40px of that seat's library and
+           * graveyard tiles, taking both of their names with it.
+           *
+           * `OPENING_FEED_LEFT` and `OPENING_FEED_TOP` clear the widest rail
+           * and the tallest identity band any mat can have. See them for what
+           * each was measured against.
            */
           style={
             opening !== null
-              ? { top: HUD_INSET + 8 }
-              : { bottom: (showHand ? hand.inset : FEED_INSET) + 8 }
+              ? { top: OPENING_FEED_TOP, left: OPENING_FEED_LEFT }
+              : { left: 8, bottom: (showHand ? hand.inset : FEED_INSET) + 8 }
           }
         >
           <GameFeed state={state} feed={feed} variant="feed" />
@@ -1885,7 +1939,24 @@ export default function Play() {
               viewerPlayerId={HUMAN_SEAT}
               onInspect={card => setInspectId(card.instanceId)}
               onZoneChange={zone => setZoneTarget(target => (target ? { ...target, zone } : null))}
+              /* Same contract as the card and seat panels: `manual.ts` binds
+                 each control to the actions it produces and the page only
+                 dispatches the batch. */
+              onDispatch={dispatch}
               onClose={() => setZoneTarget(null)}
+            />
+          )}
+
+          {railContent === 'seat' && seatTarget && (
+            <SeatPanel
+              state={state}
+              playerId={seatTarget}
+              viewerPlayerId={HUMAN_SEAT}
+              /* Same as the card panel: `manual.ts` binds each control to the
+                 actions it produces and the page only dispatches the batch. */
+              onDispatch={dispatch}
+              onSeatChange={setSeatTarget}
+              onClose={() => setSeatTarget(null)}
             />
           )}
 
@@ -1899,6 +1970,9 @@ export default function Play() {
               onToggleAuto={() => setAutoAdvance(value => !value)}
               botsPaused={botsPaused}
               onToggleBots={() => setBotsPaused(paused => !paused)}
+              /* Goldfish has one seat and no bots, so the toggle is not drawn
+                 there. `usePlayGame` already knows which seats it plays. */
+              botCount={botPlayerIds.length}
               freeCast={freeCast}
               onToggleFreeCast={() => setFreeCast(value => !value)}
               variant={variant}
@@ -1946,6 +2020,7 @@ export default function Play() {
             setMenuOpen(open => !open);
             setInspectId(null);
             setZoneTarget(null);
+            setSeatTarget(null);
           }}
           menuOpen={menuOpen}
           viewSeatId={viewSeatId}

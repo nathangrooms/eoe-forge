@@ -274,19 +274,42 @@ function offeredToAPlayer(action: string): boolean {
  * in the ratchet below and get "fixed" by wiring a button to them.
  */
 const ENGINE_OWNED = new Set([
-  'DRAW',
-  'MILL',
-  'DAMAGE',
-  'DAMAGE_CARD',
+  /* `DRAW`, `DAMAGE` and `DAMAGE_CARD` were all here, on the argument this
+     file's own header makes: a game where the interface hands out cards behind
+     the rules' back is broken. That argument describes a table where the cards
+     run themselves, and it had already been overturned once, for `SET_MONARCH`,
+     for exactly the reason it fails again here. The compiled bridge runs about
+     2.7% of the catalogue, so "draw two cards" and "deal 3 damage to any
+     target" — between them most of the printed instructions in Magic — are
+     overwhelmingly on cards the engine never read.
+
+     Measured 29 Aug 2026 by `scripts/playtest/action-census.mjs`, which walks
+     the real import graph rather than looking for a name anywhere in the tree:
+     the turn's own draw step was the ONLY thing in the app that had ever put a
+     card into a hand, and combat and ability resolution the only things that
+     had ever dealt damage. A player resolving Rhystic Study or a Shock by hand
+     had nothing to press, and the nearest control — Toughness −3 — records
+     something that is not damage and does not wear off at cleanup.
+
+     Being listed here meant the check below could never ask whether a player
+     could do either. `libraryControlsFor` and the `damage` groups of
+     `manualControlsFor` and `playerControlsFor` offer them now.
+
+     `MILL`, `LOSE`, `WIN` and `CLEANUP` were also on this list and are not
+     actions: no such member exists in the `GameAction` union, so all four were
+     inert. Removed rather than left as decoration. */
   'SHUFFLE',
-  'LOSE',
-  'WIN',
-  'CLEANUP',
   'RESOLVE_STACK',
   'PHASE_CHANGE',
-  /* Built by a compiled ability resolving, in `abilities/to-actions.ts`. Being
-     the monarch is something a card does to you, not a button you press. */
-  'SET_MONARCH',
+  /* `SET_MONARCH` was here, on the argument that being the monarch is something
+     a card does to you rather than a button you press. That argument describes
+     a table where the cards run themselves, and this is not one: the compiled
+     bridge owns about 2.7% of the catalogue, so the card that just crowned
+     somebody is overwhelmingly likely to be one the engine never read. Being
+     listed as engine-owned meant the check below could never ask whether a
+     player could say so, and nothing could — measured on 29 Aug 2026, no
+     control anywhere built one and no seat on the mat drew `state.monarchId`.
+     `playerControlsFor` offers it now and `SeatMat` shows who holds it. */
 ]);
 
 /**
@@ -345,6 +368,93 @@ test('the unoffered list does not outlive the gaps it records', () => {
     [],
     `Now offered to a player, so remove from KNOWN_UNOFFERED: ${fixed.join(', ')}. ` +
       `Leaving a closed gap on the list lets the next one hide behind it.`,
+  );
+});
+
+/* -------------------------------------------------------------------------- */
+/* The third door: reachable SOMEWHERE is not reachable AT THE TABLE          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * `offeredToAPlayer` above is fooled in two ways it cannot see, and both were
+ * caught by hand on 29 Aug 2026 rather than by this file.
+ *
+ * IT SEEDS ON A MENTION, NOT AN IMPORT. Any engine export whose NAME appears
+ * anywhere outside `src/lib/game` counts as reached — including a name that
+ * only appears in a comment, and including an identically-named export in a
+ * module nothing imports. `src/lib/simulation/tokenGenerator.ts` exports its
+ * own unrelated `createToken` and no file imports that module, so dead code was
+ * vouching for a live engine name.
+ *
+ * IT DOES NOT ASK WHICH SURFACE. `LIFE_CHANGE` has a producer — the
+ * phone-on-the-table life counter at `/life`, a different page — so it read as
+ * offered for months while no control in play mode could change a life total.
+ *
+ * `scripts/playtest/action-census.mjs` answers both: it parses every `import`
+ * in `src` into a graph, resolves `@/`, follows the re-export barrel, and then
+ * asks whether the specific export that BUILDS an action is imported,
+ * transitively, by a module the play page itself loads. It is a script as well
+ * as a ratchet because the list it prints is worth reading on purpose, and it
+ * is imported here rather than reimplemented so the two can never disagree.
+ */
+const NOT_AT_THE_TABLE = new Set([
+  /* Resolving the stack is the engine's, and correctly so: objects leave the
+     stack by resolving or being countered, and both are consequences of
+     priority rather than a button. */
+  'RESOLVE_STACK',
+  /* Renaming a seat is offered on the life counter and nowhere in play. Low
+     stakes and listed rather than quietly excused. */
+  'SET_PLAYER_NAME',
+  /* Floating mana. `mana.ts::paymentActions` pays for a cast by tapping lands,
+     so casting works; what is missing is a POOL a player can put mana into by
+     hand, which is what "Add {B}{B}{B}" needs when the compiler could not read
+     the card. The free-cast toggle in the game menu is the escape hatch that
+     exists today. */
+  'ADD_MANA',
+  /* An anthem by hand: "creatures you control get +1/+1 until end of turn".
+     A player can nudge each creature's stats instead, which is correct per
+     creature and does not expire on its own. Listed as the real gap it is. */
+  'ADD_CONTINUOUS',
+  /* Countering a spell. Casting a counterspell the compiler CAN read works; for
+     one it cannot, the nearest by-hand move is taking the spell off the stack
+     to a graveyard, which is the right result and does not fire "whenever a
+     spell is countered". */
+  'COUNTER_SPELL',
+]);
+
+test('every player choice has a control ON THE PLAY SURFACE that builds it', async () => {
+  const { census } = await import('../../../scripts/playtest/action-census.mjs');
+  const { rows } = census();
+
+  const missing = rows
+    .filter(row => !row.atTheTable)
+    // An action nothing builds at all is already covered by the first test, and
+    // reporting it twice would make this list about something else.
+    .filter(row => row.resolution.length > 0 || row.moves.length > 0 || row.liveUi.length > 0)
+    .map(row => row.action)
+    .filter(action => !NOT_AT_THE_TABLE.has(action))
+    .sort();
+
+  assert.deepEqual(
+    missing,
+    [],
+    `Built somewhere, but nothing the play page loads ever builds one: ` +
+      `${missing.join(', ')}. An action reachable on another screen is not ` +
+      `reachable at the table, and this is the third way that distinction has ` +
+      `been missed on this project.`,
+  );
+});
+
+test('the not-at-the-table list does not outlive the gaps it records', async () => {
+  const { census } = await import('../../../scripts/playtest/action-census.mjs');
+  const { rows } = census();
+  const fixed = [...NOT_AT_THE_TABLE].filter(
+    action => rows.find(row => row.action === action)?.atTheTable
+  );
+  assert.deepEqual(
+    fixed,
+    [],
+    `Now reachable from play mode, so remove from NOT_AT_THE_TABLE: ${fixed.join(', ')}.`,
   );
 });
 

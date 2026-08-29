@@ -178,6 +178,12 @@ export interface SeatMatProps {
   combatFor?: (card: CardInstance) => { chip: CombatChipProps | null; dimmed: boolean } | null;
   /** Give this seat the whole viewport, read-only. */
   onFocusSeat?: (playerId: PlayerId) => void;
+  /**
+   * Open this seat's by-hand controls: life, poison, commander damage,
+   * counters, and the two roles one seat holds for the table. Left unset on a
+   * watched table, where nothing is anybody's to change.
+   */
+  onOpenSeatControls?: (playerId: PlayerId) => void;
   attackerIds?: readonly string[];
   blockerIds?: readonly string[];
   /** The card currently in the preview, so the board says which one it is. */
@@ -241,7 +247,12 @@ function ZoneTile({
       <span
         aria-hidden="true"
         className={cn(
-          'pointer-events-none absolute left-1.5 top-0.5 max-w-[calc(100%-0.75rem)] select-none truncate font-semibold uppercase tracking-[0.14em] text-foreground/60 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]',
+          /* `z-10`, because the library's stack of card backs is drawn after
+             this in the DOM and was painting over the top half of the word
+             LIBRARY on every seat — visible in a 2x crop of any board
+             screenshot, and the reason one pass thought the mat was clipping
+             its own labels. Nothing else in a tile reaches the label line. */
+          'pointer-events-none absolute left-1.5 top-0.5 z-10 max-w-[calc(100%-0.75rem)] select-none truncate font-semibold uppercase tracking-[0.14em] text-foreground/60 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]',
           roomy ? 'text-[10px]' : 'text-[8px]'
         )}
       >
@@ -326,6 +337,7 @@ export function SeatMat({
   onOpenZone,
   combatFor,
   onFocusSeat,
+  onOpenSeatControls,
   attackerIds = [],
   blockerIds = [],
   inspectedId,
@@ -857,6 +869,7 @@ export function SeatMat({
         deltas={lifeDeltas}
         active={active}
         dead={dead}
+        onOpenControls={onOpenSeatControls ? () => onOpenSeatControls(player.id) : undefined}
         className="shrink-0"
       />
 
@@ -890,6 +903,37 @@ export function SeatMat({
           {active && !dead && (
             <span className="shrink-0 rounded-full bg-foreground px-1.5 text-[9px] font-semibold uppercase leading-4 text-background">
               Turn
+            </span>
+          )}
+          {/*
+            THE MONARCH AND THE INITIATIVE, DRAWN AT LAST.
+
+            `state.monarchId` and `state.initiativeId` have both been in the
+            engine with a reducer case each. Grepped on 29 Aug 2026: `monarchId`
+            was read in exactly one place, a target selector in
+            `abilities/context.ts`, and `initiativeId` WAS READ BY NOTHING AT
+            ALL. So a card could make you the monarch and no seat at the table
+            would ever show it.
+
+            They belong on the seat rather than in the HUD because the question
+            is always *who has it*, and this row is where a seat's chip-sized
+            facts already live. Each is one word, which is what the row's own
+            note says a chip has to be.
+          */}
+          {state.monarchId === player.id && (
+            <span
+              title="The monarch. Draws an extra card each end step, and passes to whoever deals them combat damage."
+              className="shrink-0 rounded-full bg-foreground/[0.14] px-1.5 text-[9px] font-semibold uppercase leading-4 text-foreground"
+            >
+              Monarch
+            </span>
+          )}
+          {state.initiativeId === player.id && (
+            <span
+              title="Has the initiative. Ventures into Undercity at each upkeep, and passes to whoever deals them combat damage."
+              className="shrink-0 rounded-full bg-foreground/[0.14] px-1.5 text-[9px] font-semibold uppercase leading-4 text-foreground"
+            >
+              Initiative
             </span>
           )}
           {/*

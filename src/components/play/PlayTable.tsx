@@ -93,6 +93,8 @@ export interface PlayTableProps {
   onTapCard?: (card: CardInstance) => void;
   onOpenZone?: (playerId: PlayerId, zone: Zone) => void;
   onFocusSeat?: (playerId: PlayerId) => void;
+  /** Open a seat's by-hand controls: life, poison, commander damage, counters. */
+  onOpenSeatControls?: (playerId: PlayerId) => void;
   attackerIds?: readonly string[];
   blockerIds?: readonly string[];
   inspectedId?: string | null;
@@ -133,6 +135,7 @@ export function PlayTable({
   onTapCard,
   onOpenZone,
   onFocusSeat,
+  onOpenSeatControls,
   attackerIds,
   blockerIds,
   inspectedId,
@@ -598,6 +601,12 @@ export function PlayTable({
                      viewport mid-announcement would take the other seats'
                      legal targets off the screen. */
                   onFocusSeat={isViewer || aim ? undefined : onFocusSeat}
+                  /* Withheld while a question is open, for the same reason:
+                     one thing is being asked and the rail is where the answer
+                     goes. Available on EVERY seat otherwise, including an
+                     opponent's, because a card of yours changes their life
+                     total as often as it changes your own. */
+                  onOpenSeatControls={aim ? undefined : onOpenSeatControls}
                   attackerIds={attackerIds}
                   blockerIds={blockerIds}
                   inspectedId={inspectedId}

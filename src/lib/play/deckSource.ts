@@ -118,6 +118,49 @@ const CARD_COLUMNS =
 const SEED_CARD_COLUMNS: string =
   'id, oracle_id, name, mana_cost, cmc, type_line, oracle_text, power, toughness, loyalty, color_identity, keywords, is_legendary, image_url:image_uris->>normal';
 
+/**
+ * THE SEEDED POOLS READ `cards_unique`, NOT `cards`.
+ *
+ * CLAUDE.md 6.3 already required this — "deck-building candidate pools" are
+ * named in the list of things that must go through the one-row-per-`oracle_id`
+ * view — and until now this file did not. The visible cost was on the board.
+ *
+ * MEASURED, 29 Aug 2026. A seeded bot game dealt Timber Wolves and Wall of Wood
+ * and drew both as Scryfall's **"Localized Image Not Available"** plate. Both
+ * were downloaded and looked at:
+ *
+ *   Timber Wolves  8f435889…  60,893 B  the plate, marked FR   usd null
+ *   Timber Wolves  d8f84fc8… 142,214 B  real English art       usd 0.77
+ *   Wall of Wood   89e6b4c6…  64,111 B  the plate, marked ES   usd null
+ *   Wall of Wood   39f236da… 126,792 B  real English art       usd 0.09
+ *
+ * and in both cases the printing `cards_unique` picks is the second one. That
+ * is not luck. Since the sync moved to `unique=prints`, `cards` holds every
+ * localized printing, Scryfall prices English printings and not localized ones,
+ * and `cards_unique` breaks ties by "a priced printing beats an unpriced one".
+ * Across the commander-legal spell pool, unpriced rows go from
+ * **15.2% (759 of 5,000) to 0.3% (14 of 5,000)**.
+ *
+ * Two things this does NOT claim, because neither could be measured:
+ *
+ *   - that every plate is gone. A plate is served at 488 x 680 from an ordinary
+ *     URL and there is no `lang` or `image_status` column on `cards`, so it
+ *     cannot be detected in SQL or in the browser. Sampling by file size was
+ *     tried and abandoned: real art on a simple card compresses to 64 kB, which
+ *     is inside the range the two known plates occupy. Unpriced is a superset
+ *     of localized, not a synonym for it.
+ *   - that this is faster. It is not, quite. Cold, the white spell pool plans
+ *     and runs in 822 ms against `cards_unique` and 684 ms against `cards`,
+ *     both dominated by heap reads and both far inside the 3 s `anon`
+ *     `statement_timeout` this file's header is about. Same order, no regression
+ *     worth the word.
+ *
+ * It also removes the hazard the basic-land note below is entirely about: there
+ * is exactly ONE Plains in `cards_unique` against 768 in `cards`, so an
+ * unordered page can no longer come back as 120 Forests and no Swamp.
+ */
+const SEED_TABLE = 'cards_unique';
+
 function readImage(value: unknown): string | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const uris = value as Record<string, string | undefined>;
@@ -613,7 +656,7 @@ function legendPool(): Promise<CardRow[]> {
   return cachedPool('legends', async () => {
     const rows = await selectCardRows('commander pool', () =>
       supabase
-        .from('cards')
+        .from(SEED_TABLE as 'cards')
         .select(SEED_CARD_COLUMNS)
         .eq('is_legendary', true)
         .ilike('type_line', 'Legendary Creature%')
@@ -637,7 +680,7 @@ function spellPool(identity: readonly ManaColor[]): Promise<CardRow[]> {
   return cachedPool(`spells:${colors.join('') || 'C'}`, async () => {
     const rows = await selectCardRows('spell pool', () =>
       supabase
-        .from('cards')
+        .from(SEED_TABLE as 'cards')
         .select(SEED_CARD_COLUMNS)
         .eq('legalities->>commander' as never, 'legal')
         .containedBy('color_identity', colors)
@@ -678,6 +721,14 @@ function spellPool(identity: readonly ManaColor[]): Promise<CardRow[]> {
  * Asking per name makes the limit per name, so a Swamp can never be crowded
  * out by a Forest.
  *
+ * ## And now the pool is `cards_unique`, which removes the hazard entirely
+ *
+ * One row per `oracle_id` means ONE Plains, not 768, so there is nothing left
+ * for a limit to crowd out. Six queries returning one row each is also the
+ * cheapest this has ever been. The per-name limit and the JavaScript sort stay
+ * as they are: they cost nothing, and they are what keeps the choice the same
+ * on every client if the view ever holds more than one row for a name.
+ *
  * ## And still no `ORDER BY`
  *
  * The module header above explains at length that `.order(...)` is what timed
@@ -698,7 +749,7 @@ function basicPool(): Promise<CardRow[]> {
       names.map(name =>
         selectCardRows(`basic land ${name}`, () =>
           supabase
-            .from('cards')
+            .from(SEED_TABLE as 'cards')
             .select(SEED_CARD_COLUMNS)
             .eq('name', name)
             .not('image_uris', 'is', null)

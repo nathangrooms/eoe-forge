@@ -26,7 +26,16 @@ import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GameCardView } from './GameCardView';
 import { CardBack } from './CardBack';
-import { ZONES, type CardInstance, type GameState, type PlayerId, type Zone } from '@/lib/game';
+import {
+  libraryControlsFor,
+  ZONES,
+  type CardInstance,
+  type GameAction,
+  type GameState,
+  type LibraryControl,
+  type PlayerId,
+  type Zone,
+} from '@/lib/game';
 
 const ZONE_LABEL: Record<Zone, string> = {
   library: 'Library',
@@ -48,8 +57,82 @@ export interface ZonePanelProps {
   /** Click a card here and the preview opens, exactly as on the board. */
   onInspect: (card: CardInstance) => void;
   onZoneChange: (zone: Zone) => void;
+  /** Every by-hand library control ends here. The page holds the reducer. */
+  onDispatch: (actions: GameAction[]) => void;
   onClose: () => void;
   className?: string;
+}
+
+/**
+ * Draw, mill, exile and bottom, off the top of your own library.
+ *
+ * ---------------------------------------------------------------------------
+ * THE ONLY WAY TO MILL A CARD WAS TO READ YOUR WHOLE DECK
+ * ---------------------------------------------------------------------------
+ * Measured on 29 Aug 2026, driving a real goldfish game and reading every
+ * button on the table: nothing anywhere put a card from a library into a
+ * graveyard, exiled the top card, or drew one. The turn's own draw step was the
+ * only thing in the app that had ever moved a card out of a library, and the
+ * only control that touched a library at all was "Search your library", which
+ * shows every card in it.
+ *
+ * So a player asked to mill four had to open their library, reveal all 86
+ * cards to themselves, and move four of them one at a time. That is not a
+ * missing shortcut. It is a rule the interface made them break, and they cannot
+ * un-know their next ten draws afterwards.
+ *
+ * These four controls never reveal anything. They read the ids off the top of
+ * the pile and build the moves from those, so what lands in the graveyard
+ * becomes public because a graveyard is public, which is what the rules say.
+ *
+ * Draw is here rather than on a card because drawing is a LIBRARY action: the
+ * card comes off the top of this pile, and this is the pile.
+ */
+function LibraryReach({
+  controls,
+  onDispatch,
+}: {
+  controls: LibraryControl[];
+  onDispatch: (actions: GameAction[]) => void;
+}) {
+  const rows: Array<{ group: LibraryControl['group']; title: string; note: string }> = [
+    { group: 'draw', title: 'Draw', note: 'into your hand' },
+    { group: 'mill', title: 'Mill', note: 'top cards to your graveyard' },
+    { group: 'exile', title: 'Exile', note: 'top cards, face up' },
+    { group: 'bottom', title: 'To the bottom', note: 'top cards under the pile' },
+  ];
+
+  return (
+    <div className="shrink-0 space-y-1.5 px-3 pb-3">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+        Off the top, without looking
+      </p>
+      {rows.map(row => {
+        const inRow = controls.filter(control => control.group === row.group);
+        if (inRow.length === 0) return null;
+        return (
+          <div key={row.group} className="flex items-center gap-2">
+            <span className="w-[6.5rem] shrink-0 truncate text-[11px] text-foreground">
+              {row.title}
+            </span>
+            <div className="flex flex-wrap gap-1">
+              {inRow.map(control => (
+                <button
+                  key={control.id}
+                  type="button"
+                  onClick={() => onDispatch(control.actions)}
+                  title={control.hint}
+                  className="h-7 min-w-7 rounded-md bg-foreground/[0.08] px-2 text-[11px] font-medium tabular-nums text-foreground transition-colors hover:bg-foreground/[0.16] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {control.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 /** Big enough to recognise, small enough that a 99-card library still scans. */
@@ -62,6 +145,7 @@ export function ZonePanel({
   viewerPlayerId,
   onInspect,
   onZoneChange,
+  onDispatch,
   onClose,
   className,
 }: ZonePanelProps) {
@@ -153,17 +237,28 @@ export function ZonePanel({
             : `${cards.length} card${cards.length === 1 ? '' : 's'}. Click one to preview it.`}
       </p>
 
-      {/* The declared search. Only your own library, and only one way in. */}
+      {/* Reaching into the top of the pile, and only then the declared search.
+          In that order on purpose: mill, exile and scry-to-the-bottom are what
+          a player wants from their library twenty times a game and none of them
+          involve looking, while a search is the rare one and the one that costs
+          the information. Putting the search first was what made it the only
+          door. */}
       {isLibrary && isMine && (
-        <div className="shrink-0 px-3 pb-2">
-          <button
-            type="button"
-            onClick={() => setSearching(value => !value)}
-            className="rounded-md bg-foreground/[0.07] px-2.5 py-1.5 text-[11px] font-medium text-foreground transition-colors hover:bg-foreground/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {searching ? 'Stop searching' : 'Search your library'}
-          </button>
-        </div>
+        <>
+          <LibraryReach
+            controls={libraryControlsFor(state, playerId, Date.now())}
+            onDispatch={onDispatch}
+          />
+          <div className="shrink-0 px-3 pb-2">
+            <button
+              type="button"
+              onClick={() => setSearching(value => !value)}
+              className="rounded-md bg-foreground/[0.07] px-2.5 py-1.5 text-[11px] font-medium text-foreground transition-colors hover:bg-foreground/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {searching ? 'Stop searching' : 'Search your library'}
+            </button>
+          </div>
+        </>
       )}
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">

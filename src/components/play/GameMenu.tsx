@@ -34,6 +34,24 @@ export interface GameMenuProps {
   onToggleAuto: () => void;
   botsPaused: boolean;
   onToggleBots: () => void;
+  /**
+   * How many seats are played by the engine.
+   *
+   * ---------------------------------------------------------------------------
+   * "PAUSE OPPONENTS" WAS DRAWN IN GOLDFISH, WHERE THERE ARE NO OPPONENTS
+   * ---------------------------------------------------------------------------
+   * Goldfish is one seat. `playModes.ts` says so in the words on the door:
+   * *"1 seat. Nothing blocks and nothing attacks back."* The toggle was drawn
+   * there anyway, promising to *"stop the bots without tearing the table down"*,
+   * and pressing it changed nothing because there was nothing to stop.
+   *
+   * The owner's report was that the settings *"dont seem right"*. A control that
+   * is present, pressable, and incapable of doing what its own hint says is
+   * exactly that, and it is worse than a missing one: the player presses it,
+   * sees no change, and learns not to trust the menu. So it is drawn only when
+   * there is a bot to pause.
+   */
+  botCount?: number;
   freeCast: boolean;
   onToggleFreeCast: () => void;
   /** Seating arrangements this pod size offers, so quads can be swapped back. */
@@ -129,6 +147,7 @@ export function GameMenu({
   onToggleAuto,
   botsPaused,
   onToggleBots,
+  botCount = 0,
   freeCast,
   onToggleFreeCast,
   variant,
@@ -220,12 +239,14 @@ export function GameMenu({
             active={autoAdvance}
             onClick={onToggleAuto}
           />
-          <MenuToggle
-            label="Pause opponents"
-            hint="Stop the bots without tearing the table down"
-            active={botsPaused}
-            onClick={onToggleBots}
-          />
+          {botCount > 0 && (
+            <MenuToggle
+              label={botCount === 1 ? 'Pause the opponent' : 'Pause opponents'}
+              hint="Stop the bots without tearing the table down"
+              active={botsPaused}
+              onClick={onToggleBots}
+            />
+          )}
           <MenuToggle
             label="Free cast"
             hint="Goldfishing. Ignore mana entirely"

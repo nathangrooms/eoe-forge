@@ -522,6 +522,9 @@ export function ManualPanel({ state, card, onDispatch, className }: ManualPanelP
   const namedTokens = tokens.filter(control => control.id.startsWith('token-named:'));
   const copyControl = tokens.find(control => control.id === 'token:copy');
 
+  const damage = byGroup('damage');
+  const attach = byGroup('attach');
+
   const engineKeywords = keywords.filter(c => c.support === 'engine');
   const advisoryKeywords = keywords.filter(c => c.support !== 'engine');
   const shownKeywords = showKeywords
@@ -588,6 +591,81 @@ export function ManualPanel({ state, card, onDispatch, className }: ManualPanelP
               onClick={() => onDispatch(control.actions)}
             />
           ))}
+        </div>
+      )}
+
+      {/*
+        Damage, and it has its own heading for the same reason tokens do: it is
+        a different KIND of change from the toughness nudge sitting above it.
+        Three damage on a 3/3 kills it now and is gone at cleanup; Toughness −3
+        kills it now and leaves it a 3/0 forever. With no damage control at all
+        the second one was the only way to record a Shock, so the board quietly
+        went wrong every time a creature survived.
+      */}
+      {damage.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="flex items-baseline gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Damage
+            </span>
+            <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground/70">
+              {card.damage > 0
+                ? `${card.damage} marked, gone at end of turn`
+                : 'wears off at end of turn, unlike toughness'}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {damage.map(control => (
+              <Chip
+                key={control.id}
+                label={control.label}
+                tone={control.id === 'damage:clear' ? 'active' : 'quiet'}
+                title={
+                  control.id === 'damage:deathtouch'
+                    ? 'One damage from a source with deathtouch. Any amount is lethal (CR 702.2b).'
+                    : control.id === 'damage:clear'
+                      ? `Take all ${card.damage} damage back off`
+                      : `Mark damage on ${card.name}`
+                }
+                onClick={() => onDispatch(control.actions)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/*
+        Equip and enchant. `ATTACH` is the action this project's reachability
+        check was written about, and it was back to being built only by ability
+        resolution: the compiler expands a printed "Equip {2}" for the cards it
+        can read, and it reads about 2.7% of them. For the rest the sword sat on
+        the battlefield with nothing to press.
+      */}
+      {attach.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="flex items-baseline gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Put it on
+            </span>
+            <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground/70">
+              {card.attachedTo ? 'attached now' : 'nothing is carrying it'}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {attach.map(control => (
+              <Chip
+                key={control.id}
+                label={control.label}
+                tone={control.active ? 'active' : 'quiet'}
+                title={
+                  control.active
+                    ? `Take ${card.name} off what it is on`
+                    : `Attach ${card.name} to ${control.label}`
+                }
+                onClick={() => onDispatch(control.actions)}
+              />
+            ))}
+          </div>
         </div>
       )}
 

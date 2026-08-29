@@ -27,6 +27,7 @@ import {
   identityBandHeight,
   layoutRow,
   pileGrid,
+  pileTileChrome,
   railWidth,
   rowGap,
   rowSpan,
@@ -440,6 +441,54 @@ test('the four piles are laid two across, and the card inside one is readable', 
     assert.equal(grid.rail, grid.tileWidth * PILE_COLUMNS + 6, 'the rail is its two columns');
     assert.ok(grid.tileWidth >= grid.cardWidth, 'a tile holds its card');
     assert.ok(grid.tileHeight * PILE_ROWS <= height, 'and two rows of them fit the mat');
+  }
+});
+
+test('a pile tile is as tall as what is in it, not as tall as the mat', () => {
+  /*
+   * Measured on 29 Aug 2026, one seat filling a 1600 x 1000 viewport: a tile
+   * 129 x 425 holding a card 119 x 166, so 259px of every tile was empty and
+   * four of them made roughly 15% of the screen read as tall empty boxes.
+   *
+   * The cap can only reduce, so this is an upper bound and never a size. The
+   * chrome allowance is the tile's own label and count badge; anything under a
+   * card plus that would be a tile that clips its card, which the assertion
+   * below is the other half of.
+   */
+  for (const [width, height] of [
+    [1560, 880],  // one seat, the whole viewport — where it was 425 for a 166 card
+    [1904, 401],
+    [1264, 288],
+    [948, 369],
+    [640, 220],
+  ]) {
+    const grid = pileGrid(width, height);
+    const cardHeight = Math.round(grid.cardWidth / CARD_RATIO);
+    const chrome = pileTileChrome(grid.cardWidth);
+
+    /* The library is the tallest thing a tile holds: four card backs stepped up
+       off each other with a count badge hanging below them. The FIRST version
+       of this cap allowed a flat 14px and clipped that badge — a defect
+       introduced in the act of fixing one — which is why the tile is measured
+       against `pileTileChrome` rather than against a card. */
+    assert.ok(
+      grid.tileHeight <= cardHeight + chrome,
+      `a ${grid.tileHeight}px tile around a ${cardHeight}px card on ${width}x${height} is ` +
+        `${grid.tileHeight - cardHeight - chrome}px of empty box`
+    );
+
+    /* And the cap is the ONLY thing that may have shortened it. On a short mat
+       the half share is already smaller than a stack plus its chrome, and this
+       does not make that case worse — the card there is sized from the half
+       share exactly as it was before the cap existed. Fixing the short-mat case
+       means shrinking the pile card below `MIN_BOARD_CARD`, which the test
+       above forbids; it is a real and separate trade, not this one. */
+    const halfShare = Math.max(34, Math.floor((height - identityBandHeight(height) - 16) / 2) - 4);
+    assert.equal(
+      grid.tileHeight,
+      Math.min(halfShare, cardHeight + chrome),
+      `tile height on ${width}x${height}`
+    );
   }
 });
 

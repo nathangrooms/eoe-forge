@@ -224,7 +224,10 @@ test('the zone a card is already in is never offered as a destination', () => {
   const state = put(table(), 'forest', { name: 'Forest', typeLine: 'Basic Land — Forest' }, 'graveyard');
   const { moves } = actionsForCard(state, 'p1', state.cards.forest);
   assert.equal(moves.some(move => move.zone === 'graveyard'), false);
-  assert.equal(moves.length, 4);
+  /* Hand, battlefield, exile, and the two ends of the library. It was four
+     until the library grew a second control: "To library" used to mean "on
+     top" and never said so. See the pair of tests at the bottom of this file. */
+  assert.equal(moves.length, 5);
 });
 
 /* -------------------------------------------------------------------------- */
@@ -746,4 +749,56 @@ test('the mulligan hold reason reaches the fan as a sentence rather than as sile
   });
   assert.equal(verdict.ok, false);
   assert.match(verdict.reason, /opening hand/i);
+});
+
+/* -------------------------------------------------------------------------- *
+ * A library has two ends                                                     *
+ * -------------------------------------------------------------------------- */
+
+/**
+ * "To library" meant "on top", silently, and the label never said so.
+ *
+ * `moveTo` in `manual.ts` has always taken a position and no caller ever passed
+ * one, so `Play.tsx` filled in `'top'` for every card. Measured on a real
+ * goldfish run on 29 Aug 2026, the opening hand held Condemn, whose whole
+ * effect is *put target attacking creature on the bottom of its owner's
+ * library*. The engine does not automate it and the only control available did
+ * the opposite, with a label that gave the player nothing to notice.
+ */
+test('a card can be put on either end of a library, and each control says which', () => {
+  const state = put(
+    payingTable(),
+    'bear',
+    { name: 'Grizzly Bears', typeLine: 'Creature — Bear' },
+    'battlefield'
+  );
+
+  const { moves } = actionsForCard(state, 'p1', state.cards.bear);
+  const library = moves.filter(move => move.zone === 'library');
+
+  assert.equal(library.length, 2, 'both ends, or the player can only reach one');
+  assert.deepEqual(
+    library.map(move => move.position),
+    ['top', 'bottom']
+  );
+  for (const move of library) {
+    assert.match(
+      move.label,
+      /top of library|bottom of library/,
+      `"${move.label}" does not say which end it means`
+    );
+  }
+});
+
+test('no other zone claims a position, because no other zone has ends', () => {
+  const state = put(
+    payingTable(),
+    'bear',
+    { name: 'Grizzly Bears', typeLine: 'Creature — Bear' },
+    'battlefield'
+  );
+  const { moves } = actionsForCard(state, 'p1', state.cards.bear);
+  for (const move of moves.filter(m => m.zone !== 'library')) {
+    assert.equal(move.position, undefined, `${move.label} carries a position`);
+  }
 });

@@ -57,6 +57,19 @@ export interface LifeBadgeProps {
   active?: boolean;
   /** Ephemeral life changes, floated and faded above the circle. */
   deltas?: Array<{ id: number; delta: number }>;
+  /**
+   * Open this seat's by-hand controls.
+   *
+   * The badge is the obvious thing to press to change a life total, and until
+   * 29 Aug 2026 it was inert: measured across the whole play table, no control
+   * anywhere could change life, poison, a player counter or commander damage,
+   * though the engine reduces all four. So the number a player wants to edit
+   * becomes the way to edit it, rather than a fifth entry in a menu.
+   *
+   * Optional: the same badge is drawn on watched tables, where nothing is
+   * yours to change, and it stays a plain circle there.
+   */
+  onOpenControls?: () => void;
   className?: string;
 }
 
@@ -70,6 +83,7 @@ export function LifeBadge({
   dead,
   active,
   deltas = [],
+  onOpenControls,
   className,
 }: LifeBadgeProps) {
   const reduceMotion = useReducedMotion();
@@ -90,7 +104,9 @@ export function LifeBadge({
     pips.push({
       key: 'poison',
       label: `${poison}☠`,
-      title: `${poison} poison counters. ${poisonLethal} is lethal.`,
+      // "1 poison counters" was on screen until the seat controls made a single
+      // counter easy to put on and somebody read the tooltip.
+      title: `${poison} poison counter${poison === 1 ? '' : 's'}. ${poisonLethal} is lethal.`,
       danger: poison >= poisonLethal,
     });
   }
@@ -107,12 +123,29 @@ export function LifeBadge({
       className={cn('relative', className)}
       style={{ width: diameter, height: diameter }}
     >
-      <div
+      {/* A button only when there is something to open. `as` rather than two
+          copies of the circle: the badge is drawn on watched tables too, where
+          nothing is yours, and a second copy would be the divergence the
+          one-table law warns about. */}
+      {(() => {
+        const Circle = onOpenControls ? 'button' : 'div';
+        return (
+      <Circle
+        {...(onOpenControls
+          ? {
+              type: 'button' as const,
+              onClick: onOpenControls,
+              title: 'Life, poison, commander damage and counters for this seat',
+              'aria-label': `${life} life. Open this seat's controls.`,
+            }
+          : {})}
         className={cn(
           'flex h-full w-full flex-col items-center justify-center rounded-full backdrop-blur-md',
           'shadow-[0_10px_28px_rgba(0,0,0,0.6)]',
           active ? 'bg-background/85' : 'bg-background/70',
-          dead && 'opacity-50 saturate-0'
+          dead && 'opacity-50 saturate-0',
+          onOpenControls &&
+            'transition-colors hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
         )}
       >
         <span
@@ -129,7 +162,9 @@ export function LifeBadge({
             life
           </span>
         )}
-      </div>
+      </Circle>
+        );
+      })()}
 
       {/* Pips around the rim. */}
       {pips.map((pip, index) => {

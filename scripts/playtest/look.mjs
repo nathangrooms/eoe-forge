@@ -258,6 +258,32 @@ const run = async () => {
   }
   await shot(page, 'board-late');
 
+  /*
+   * ONE POPULATED SEAT, FILLING THE VIEWPORT.
+   *
+   * The driver keeps the game moving by pressing the primary control, which on
+   * your own turn is END TURN, so the VIEWER'S mat stays empty all game and the
+   * near half of every screenshot above is bare mat. The opponent's is not:
+   * `View` draws that seat with the whole board, by the same `SeatMat`, so this
+   * is the honest picture of a mat with a board on it.
+   */
+  await page.evaluate(() => {
+    const b = [...document.querySelectorAll('button')]
+      .find(x => /opponent.s board, full screen/i.test(x.getAttribute('title') || ''));
+    if (b) b.click();
+  });
+  await sleep(1800);
+  await shot(page, 'seat-focus-populated');
+
+  /* And the same seat on a laptop, where the row arithmetic is under real
+     pressure. If the brief's "overlaps into unreadable slivers" is going to
+     show anywhere, it is here. */
+  await page.setViewport({ width: 1366, height: 768, deviceScaleFactor: 1 });
+  await sleep(1800);
+  await shot(page, 'seat-focus-1366x768');
+  await page.setViewport({ width: W, height: H, deviceScaleFactor: 1 });
+  await sleep(1200);
+
   console.log(`\nHEALTH page=${health.pageErrors.length} console=${health.consoleErrors.length} net=${health.netFails.length}`);
   [...new Set(health.pageErrors)].slice(0, 8).forEach(e => console.log('  PAGEERR ' + e));
   [...new Set(health.consoleErrors)].slice(0, 8).forEach(e => console.log('  CONSOLE ' + e));

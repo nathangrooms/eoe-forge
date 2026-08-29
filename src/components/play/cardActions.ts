@@ -82,6 +82,25 @@ export interface CardAction {
   attackerId?: string;
   /** `move`: where the card is being put. */
   zone?: Zone;
+  /**
+   * `move` into a library: which END of it.
+   *
+   * ---------------------------------------------------------------------------
+   * "TO LIBRARY" USED TO MEAN "ON TOP", SILENTLY, AND THE LABEL NEVER SAID SO
+   * ---------------------------------------------------------------------------
+   * `moveTo` in `manual.ts` has always taken a position and no caller has ever
+   * passed one; `handleMoveZone` in `Play.tsx` filled in `'top'`. So the one
+   * control for putting a card into a library did the opposite of what half the
+   * cards that ask for it say, with a label that gave the player nothing to
+   * notice.
+   *
+   * Measured, and it is not hypothetical: a real goldfish run on 29 Aug 2026
+   * dealt Condemn into the opening hand, whose entire effect is *put target
+   * attacking creature on the bottom of its owner's library*. The engine does
+   * not automate it, and the only by-hand control available put the creature on
+   * top instead. The two ends are now two controls that say which they are.
+   */
+  position?: 'top' | 'bottom';
 }
 
 /** A play that is not available, and the reason, as a sentence. */
@@ -147,6 +166,7 @@ const MOVE_TARGETS: ReadonlyArray<{ zone: Zone; label: string }> = [
   { zone: 'battlefield', label: 'To battlefield' },
   { zone: 'graveyard', label: 'To graveyard' },
   { zone: 'exile', label: 'To exile' },
+  /* Drawn as two controls, top and bottom. The label here is unused. */
   { zone: 'library', label: 'To library' },
 ];
 
@@ -497,6 +517,31 @@ export function actionsForCard(
   if (mine) {
     for (const target of MOVE_TARGETS) {
       if (target.zone === card.zone) continue;
+      /* A library has two ends and Magic asks for both by name, so it gets two
+         controls. Every other zone is one place. */
+      if (target.zone === 'library') {
+        moves.push(
+          {
+            id: 'move:library:top',
+            kind: 'move',
+            label: 'To top of library',
+            hint: `Put ${card.name} on top of your library`,
+            tone: 'quiet',
+            zone: 'library',
+            position: 'top',
+          },
+          {
+            id: 'move:library:bottom',
+            kind: 'move',
+            label: 'To bottom of library',
+            hint: `Put ${card.name} on the bottom of your library`,
+            tone: 'quiet',
+            zone: 'library',
+            position: 'bottom',
+          }
+        );
+        continue;
+      }
       moves.push({
         id: `move:${target.zone}`,
         kind: 'move',

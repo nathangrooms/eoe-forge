@@ -37,6 +37,7 @@ import type {
 } from './types.ts';
 import { ZONES } from './types.ts';
 import { FLAGGABLE_KEYWORDS, hasKeyword, keywordSupport } from './keywords.ts';
+import { isAttachment, legalHostsFor } from './attach.ts';
 import {
   DIE_LABEL,
   markKey,
@@ -265,6 +266,153 @@ export function setLife(playerId: PlayerId, life: number, at = 0): GameAction[] 
   return [{ type: 'SET_LIFE', playerId, life, at }];
 }
 
+/** Poison counters. Ten kills, and `state.rules.poisonLethal` says so. */
+export function poison(playerId: PlayerId, delta: number, at = 0): GameAction[] {
+  if (!delta) return [];
+  return [{ type: 'POISON', playerId, delta, at }];
+}
+
+/**
+ * Record commander damage by hand.
+ *
+ * It takes life as well as tallying, because `applyDamage` is what the reducer
+ * calls and twenty-one damage from one commander is twenty-one life lost on the
+ * way. A negative amount refunds both, which is the shape the action already
+ * documents for a misclick.
+ */
+export function commanderDamage(
+  targetPlayerId: PlayerId,
+  commanderId: string,
+  amount: number,
+  at = 0
+): GameAction[] {
+  if (!amount) return [];
+  return [{ type: 'COMMANDER_DAMAGE', targetPlayerId, commanderId, amount, at }];
+}
+
+/* -------------------------------------------------------------------------- */
+/* Things one seat holds on behalf of the table                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Damage, by hand, and it is NOT the same thing as losing life.
+ *
+ * This module already had `adjustLife`, so the temptation is to answer "deal 3
+ * damage to target player" with a −3 and move on. The two are different in
+ * ways that decide games:
+ *
+ *   damage has a SOURCE, so lifelink, deathtouch and "whenever a source deals
+ *   damage" all hang off it, and `applyDamage` is what tallies commander
+ *   damage when a commander is the source;
+ *   damage can be dealt as POISON instead of life, which infect and toxic do
+ *   and a life change cannot express at all;
+ *   damage marked on a permanent WEARS OFF at cleanup (CR 514.2), while a
+ *   toughness the player nudged down stays down forever.
+ *
+ * That last one is the one that was actually happening. With no damage control
+ * at all, the only way to record "Lightning Bolt your Grizzly Bears" was
+ * Toughness −3, which kills the bear correctly this turn and then, if it
+ * somehow survives, leaves it a 2/-1 for the rest of the game. The engine has
+ * carried `DAMAGE` and `DAMAGE_CARD` since the beginning, fully reduced, with
+ * `sba.ts` checking lethality straight after — and nothing outside ability
+ * resolution had ever built either one.
+ */
+export function damagePlayer(
+  playerId: PlayerId,
+  amount: number,
+  options: { infect?: boolean; sourceInstanceId?: string; at?: number } = {}
+): GameAction[] {
+  if (amount <= 0) return [];
+  return [
+    {
+      type: 'DAMAGE',
+      targetPlayerId: playerId,
+      amount,
+      infect: options.infect,
+      sourceInstanceId: options.sourceInstanceId,
+      at: options.at ?? 0,
+    },
+  ];
+}
+
+/**
+ * Mark damage on a permanent. A negative amount rubs it out, which the reducer
+ * already clamps at zero, so a misclick costs one press rather than a restart.
+ *
+ * `deathtouch` rides along because CR 702.2b makes ANY nonzero amount from such
+ * a source lethal and the number alone cannot say so. It is offered as its own
+ * control rather than inferred, because the source is usually a card the engine
+ * could not read — which is the whole reason the player is doing this by hand.
+ */
+export function damageCard(
+  instanceId: string,
+  amount: number,
+  options: { deathtouch?: boolean; at?: number } = {}
+): GameAction[] {
+  if (amount === 0) return [];
+  return [
+    {
+      type: 'DAMAGE_CARD',
+      instanceId,
+      amount,
+      deathtouch: options.deathtouch,
+      at: options.at ?? 0,
+    },
+  ];
+}
+
+/** Take every point of marked damage back off a permanent. */
+export function clearCardDamage(card: CardInstance, at = 0): GameAction[] {
+  if (!card.damage) return [];
+  return damageCard(card.instanceId, -card.damage, { at });
+}
+
+/**
+ * Attach an Equipment or an Aura to a permanent, or pass `null` to take it off.
+ *
+ * `ATTACH` is the action this codebase's reachability check was written about.
+ * It came off the unreachable list when the compiler learned to expand a
+ * printed "Equip {2}" into the activated ability CR 702.6a says it is — which
+ * is true, and covers only the cards the compiler can read. The bridge owns
+ * about 2.7% of the catalogue, so for the other 97% the equip ability does not
+ * exist, no control anywhere builds an `ATTACH`, and an Equipment sits on the
+ * battlefield doing nothing forever. Measured 29 Aug 2026: `ATTACH` was back in
+ * the column of actions only ability resolution ever builds.
+ *
+ * No legality is asked, for the same reason `moveTo` asks none: this is the
+ * escape hatch for the effects the engine does not implement. `sba.ts` still
+ * runs afterwards and will unattach an Equipment from an illegal host under CR
+ * 704.5n, so the rules the engine DOES know still apply on top.
+ */
+export function attachTo(instanceId: string, hostId: string | null, at = 0): GameAction[] {
+  return [{ type: 'ATTACH', instanceId, toInstanceId: hostId, at }];
+}
+
+/**
+ * Become the monarch (CR 720), or take the initiative (CR 721).
+ *
+ * These were in the engine with a reducer case each and no way to reach either.
+ * `SET_INITIATIVE` had no producer ANYWHERE, and `SET_MONARCH` was classified
+ * as engine-owned on the argument that *being the monarch is something a card
+ * does to you, not a button you press*.
+ *
+ * That argument holds for a table where the cards run themselves and does not
+ * hold here. The compiled-ability bridge owns about 2.7% of the catalogue, so
+ * the overwhelmingly likely truth about the card that just made somebody the
+ * monarch is that the engine did not read it. The player is the one who has to
+ * say so, exactly as they are the one who has to add the charge counter.
+ *
+ * Passing `null` takes it off the table, which is what happens when the game
+ * ends or a mistake is undone.
+ */
+export function setMonarch(playerId: PlayerId | null, at = 0): GameAction[] {
+  return [{ type: 'SET_MONARCH', playerId, at }];
+}
+
+export function setInitiative(playerId: PlayerId | null, at = 0): GameAction[] {
+  return [{ type: 'SET_INITIATIVE', playerId, at }];
+}
+
 /* -------------------------------------------------------------------------- */
 /* Tokens                                                                     */
 /* -------------------------------------------------------------------------- */
@@ -448,6 +596,186 @@ export function moveTo(
   return [{ type: 'MOVE_ZONE', instanceId, to, position: options.position, at: options.at ?? 0 }];
 }
 
+/* -------------------------------------------------------------------------- */
+/* The top of your library                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The cards on top of a library, top first, without showing anybody.
+ *
+ * `player.zones.library` is stored top-first, which is the order `ZonePanel`
+ * relies on when it labels index 0 "Top", so this is a slice and not a search.
+ */
+export function topOfLibrary(state: GameState, playerId: PlayerId, count: number): CardInstance[] {
+  const player = state.players.find(p => p.id === playerId);
+  if (!player) return [];
+  return player.zones.library
+    .slice(0, Math.max(0, count))
+    .map(id => state.cards[id])
+    .filter(Boolean);
+}
+
+/**
+ * Draw cards, by hand.
+ *
+ * `DRAW` was classified as an action only the engine may build, on the argument
+ * that *a game where the interface hands out cards behind the rules' back is
+ * broken*. That is the same argument that was made for `SET_MONARCH` and it
+ * fails here for the same reason. The compiled bridge runs about 2.7% of the
+ * catalogue, so "draw two cards" — the most printed instruction in Magic — is
+ * overwhelmingly on a card the engine never read. Measured 29 Aug 2026: the
+ * turn's own draw step was the ONLY thing in the whole app that put a card in a
+ * hand, and no control anywhere let a player draw one. A player resolving
+ * Rhystic Study by hand had nothing to press.
+ *
+ * It is `DRAW` rather than a `MOVE_ZONE` into the hand because drawing is a
+ * thing the rules have a name for: the reducer knows an empty library means
+ * losing, and a surface counting draws this turn counts these too.
+ */
+export function drawCards(playerId: PlayerId, count = 1, at = 0): GameAction[] {
+  if (count <= 0) return [];
+  return [{ type: 'DRAW', playerId, count, at }];
+}
+
+/**
+ * Put the top cards of a library somewhere else, without looking at them.
+ *
+ * This is milling, impulse-draw exile, and scry-to-the-bottom, and none of the
+ * three could be done at all. The only control that touched a library was
+ * `ZonePanel`'s "Search your library", which shows every card in it — so a
+ * player asked to put four cards in their graveyard had to read their whole
+ * deck to do it, learning their next ten draws in the process. That is not a
+ * missing shortcut, it is a rule the interface forced them to break.
+ *
+ * The moves are built from the ids alone. Nothing here returns the cards to a
+ * caller and nothing reveals them; what lands in the graveyard becomes public
+ * because a graveyard is public, which is exactly what the rules say happens.
+ */
+function moveTopOfLibrary(
+  state: GameState,
+  playerId: PlayerId,
+  count: number,
+  to: Zone,
+  options: { position?: 'top' | 'bottom'; at?: number } = {}
+): GameAction[] {
+  return topOfLibrary(state, playerId, count).map(card => ({
+    type: 'MOVE_ZONE' as const,
+    instanceId: card.instanceId,
+    to,
+    position: options.position,
+    at: options.at ?? 0,
+  }));
+}
+
+export function millTop(state: GameState, playerId: PlayerId, count = 1, at = 0): GameAction[] {
+  return moveTopOfLibrary(state, playerId, count, 'graveyard', { at });
+}
+
+export function exileTop(state: GameState, playerId: PlayerId, count = 1, at = 0): GameAction[] {
+  return moveTopOfLibrary(state, playerId, count, 'exile', { at });
+}
+
+/**
+ * Put the top card of a library on the bottom. Scry, and the back half of every
+ * "look at the top card; you may put it on the bottom".
+ *
+ * Each card is moved on its own, so putting three on the bottom keeps their
+ * order rather than reversing it: the first move takes the old top card to the
+ * bottom, the second takes what is now the top card and puts it under that one.
+ */
+export function bottomTop(state: GameState, playerId: PlayerId, count = 1, at = 0): GameAction[] {
+  return moveTopOfLibrary(state, playerId, count, 'library', { position: 'bottom', at });
+}
+
+/**
+ * How far a by-hand library reach goes in one press.
+ *
+ * Six numbers rather than a stepper, because every one of them is printed on
+ * real cards a Commander player owns: mill one is a Dredge, mill four is
+ * Glimpse the Unthinkable's half, five is Mesmeric Orb's neighbourhood, ten is
+ * the big one. Anything else is two presses, which is cheaper than a number
+ * field on a narrow rail.
+ */
+const LIBRARY_STEPS = [1, 2, 3, 4, 5, 10] as const;
+
+export type LibraryGroup = 'draw' | 'mill' | 'exile' | 'bottom';
+
+export interface LibraryControl {
+  id: string;
+  label: string;
+  group: LibraryGroup;
+  /** Dispatch these. Empty when the library cannot answer, e.g. it is empty. */
+  actions: GameAction[];
+  /** How many cards this control moves. */
+  count: number;
+  hint: string;
+}
+
+/**
+ * Everything a player can do to the top of their own library, already bound.
+ *
+ * Only their own: reaching into somebody else's library is a thing cards do and
+ * a thing this panel deliberately will not offer, because the four controls
+ * here are the ones a player presses about their own deck twenty times a game.
+ * A card that mills an opponent is rare enough to go through that opponent's
+ * own seat, and offering it here would put "put four of their cards in the bin"
+ * one press from "draw a card".
+ */
+export function libraryControlsFor(
+  state: GameState,
+  playerId: PlayerId,
+  at = 0
+): LibraryControl[] {
+  const player = state.players.find(p => p.id === playerId);
+  if (!player) return [];
+  const size = player.zones.library.length;
+
+  const controls: LibraryControl[] = [];
+  for (const count of LIBRARY_STEPS) {
+    // A control that would move more cards than the library holds is not
+    // offered. Drawing from an empty library is a loss the rules already know
+    // about, and it should happen because the game asked, not because a button
+    // was there.
+    const available = Math.min(count, size);
+    if (available < count) continue;
+    controls.push(
+      {
+        id: `library:draw:${count}`,
+        label: String(count),
+        group: 'draw',
+        actions: drawCards(playerId, count, at),
+        count,
+        hint: `Draw ${count} card${count === 1 ? '' : 's'}`,
+      },
+      {
+        id: `library:mill:${count}`,
+        label: String(count),
+        group: 'mill',
+        actions: millTop(state, playerId, count, at),
+        count,
+        hint: `Put the top ${count === 1 ? 'card' : `${count} cards`} into your graveyard`,
+      },
+      {
+        id: `library:exile:${count}`,
+        label: String(count),
+        group: 'exile',
+        actions: exileTop(state, playerId, count, at),
+        count,
+        hint: `Exile the top ${count === 1 ? 'card' : `${count} cards`}`,
+      },
+      {
+        id: `library:bottom:${count}`,
+        label: String(count),
+        group: 'bottom',
+        actions: bottomTop(state, playerId, count, at),
+        count,
+        hint: `Put the top ${count === 1 ? 'card' : `${count} cards`} on the bottom`,
+      }
+    );
+  }
+  return controls;
+}
+
 /** Tap or untap directly, which is what a player does five times a turn. */
 export function toggleTap(card: CardInstance, at = 0): GameAction[] {
   return [{ type: card.tapped ? 'UNTAP' : 'TAP', instanceId: card.instanceId, at }];
@@ -478,7 +806,11 @@ export type ManualGroup =
   /** Making a token by hand, and copying a permanent as one. */
   | 'tokens'
   /** Free markers and dice a player put on the permanent themselves. */
-  | 'marks';
+  | 'marks'
+  /** Damage marked on the permanent, which is not a toughness change. */
+  | 'damage'
+  /** Putting an Equipment or an Aura on something, or taking it off. */
+  | 'attach';
 
 export interface ManualControl {
   /** Stable within one card, so React can key on it. */
@@ -665,6 +997,81 @@ export function manualControlsFor(
   }
 
   /*
+   * Damage, on a creature or a planeswalker.
+   *
+   * Separate from the stat nudges directly above it and that separation is the
+   * whole point. Toughness −3 and three damage look identical for one turn and
+   * are different facts: damage is wiped at cleanup (CR 514.2) and a toughness
+   * override is not, so a bear that survives a Shock comes back a 2/2 by one
+   * route and a 2/-1 by the other. With no damage control at all the second
+   * route was the only one, and it silently corrupted the board.
+   *
+   * Small numbers, because they are what cards deal. Anything larger is a few
+   * more presses, and the removal control below takes it all back at once.
+   */
+  if (onBattlefield && (isCreatureCard || isPlaneswalker)) {
+    for (const amount of [1, 2, 3]) {
+      controls.push({
+        id: `damage:+${amount}`,
+        label: `Damage +${amount}`,
+        group: 'damage',
+        actions: damageCard(card.instanceId, amount, { at }),
+        count: card.damage,
+      });
+    }
+    controls.push({
+      id: 'damage:deathtouch',
+      label: 'Deathtouch damage',
+      group: 'damage',
+      // CR 702.2b — any nonzero amount from a deathtouch source is lethal, so
+      // one point carrying the flag is the whole effect and the number does not
+      // matter. `sba.ts` reads `damagedByDeathtouch` and destroys it.
+      actions: damageCard(card.instanceId, 1, { deathtouch: true, at }),
+      count: card.damage,
+    });
+    if (card.damage > 0) {
+      controls.push({
+        id: 'damage:clear',
+        label: 'Clear damage',
+        group: 'damage',
+        actions: clearCardDamage(card, at),
+        count: card.damage,
+      });
+    }
+  }
+
+  /*
+   * Equip and enchant, by hand.
+   *
+   * `legalHostsFor` is the engine's own answer, the same one the cast path and
+   * the bot are given, so an Aura that says "Enchant creature" cannot be put on
+   * a land from here. It is asked rather than re-derived, because an attach
+   * control that disagreed with the cast path would be a second set of rules.
+   */
+  if (onBattlefield && isAttachment(card)) {
+    if (card.attachedTo) {
+      controls.push({
+        id: 'attach:off',
+        label: 'Take it off',
+        group: 'attach',
+        actions: attachTo(card.instanceId, null, at),
+        active: true,
+      });
+    }
+    for (const hostId of legalHostsFor(state, controller, card)) {
+      if (hostId === card.attachedTo) continue;
+      const host = state.cards[hostId];
+      if (!host) continue;
+      controls.push({
+        id: `attach:${hostId}`,
+        label: host.name,
+        group: 'attach',
+        actions: attachTo(card.instanceId, hostId, at),
+      });
+    }
+  }
+
+  /*
    * Marks the player has already put on this permanent.
    *
    * MAKING one is not here, and that is the same split the tokens above take:
@@ -720,6 +1127,248 @@ export function manualControlsFor(
   // `state` is taken so the signature can grow into legality-aware controls
   // (attach, give control to another player) without every caller changing.
   void state;
+  return controls;
+}
+
+/* -------------------------------------------------------------------------- */
+/* The other menu: what a player can do to a SEAT                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * By-hand control of a PLAYER, the way `manualControlsFor` is by-hand control
+ * of a card.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THIS EXISTS: LIFE COULD NOT BE CHANGED AT THE PLAY TABLE. AT ALL.
+ * ---------------------------------------------------------------------------
+ * `adjustLife` and `setLife` have been in this file, exported, reduced by
+ * `rules.ts`, logged and undoable. Measured on 29 Aug 2026 by grepping every
+ * file under `src` outside `src/lib/game` for each name: NOBODY IMPORTED
+ * EITHER. The same was true of `playerCounter`, `PLAYER_COUNTER_PRESETS` and
+ * `setCardCounter`. Driving a real goldfish game and reading back every button
+ * on the table agreed: eight permanents on the mat, twenty-eight by-hand
+ * controls on a card, and not one control anywhere that could change a life
+ * total, add a poison counter or record commander damage.
+ *
+ * The reachability ratchet did not catch it, and the reason is worth writing
+ * down because it will happen again. `LIFE_CHANGE` has a producer — in
+ * `src/components/life/useLifeGame.ts`, the phone-on-the-table life counter,
+ * which is a DIFFERENT SURFACE. An action reachable on one surface counts as
+ * reachable everywhere, so the check went green while the play table had no
+ * way to say "I took three".
+ *
+ * With the compiled-ability bridge owning about 2.7% of the catalogue, a life
+ * total that only the engine may change is a life total that is wrong from
+ * roughly the second turn of every game. This is the single most-hit thing a
+ * player does by hand and it was the one thing they could not do.
+ *
+ * Same contract as the card menu: every control is bound to `GameAction[]`
+ * built here, so a hand-typed life total goes down the identical path as a
+ * Lightning Bolt — validated, logged, undoable, broadcastable. Nothing in the
+ * interface knows a rule.
+ */
+export type PlayerGroup =
+  /** Life, the thing changed most and the thing that ends games. */
+  | 'life'
+  /** Damage dealt to the seat, which is not the same as losing life. */
+  | 'damage'
+  | 'poison'
+  | 'commander-damage'
+  /** Energy, experience, rad, tickets. */
+  | 'counters'
+  /** Held by one seat on behalf of the table: the monarch, the initiative. */
+  | 'table-role';
+
+export interface PlayerControl {
+  /** Stable within one seat, so React can key on it. */
+  id: string;
+  label: string;
+  group: PlayerGroup;
+  /** Dispatch these. Never empty. */
+  actions: GameAction[];
+  /** Current value, for rows that want to show where they are starting from. */
+  count?: number;
+  /** Set for toggles: whether this seat currently holds the thing. */
+  active?: boolean;
+  /** The longer sentence, for a tooltip. */
+  hint?: string;
+}
+
+/**
+ * How far a life nudge goes.
+ *
+ * One and five, not one and ten. A shock, a fetchland and a Sol Ring's worth of
+ * drain are all small numbers; the big ones are typed rather than tapped,
+ * because tapping +5 four times to record a twenty-point swing is worse than a
+ * number field and the field is right there.
+ */
+const LIFE_STEPS = [-5, -1, 1, 5] as const;
+
+export function playerControlsFor(
+  state: GameState,
+  playerId: PlayerId,
+  at = 0
+): PlayerControl[] {
+  const player = state.players.find(p => p.id === playerId);
+  if (!player) return [];
+
+  const controls: PlayerControl[] = [];
+
+  for (const delta of LIFE_STEPS) {
+    const signed = delta > 0 ? `+${delta}` : `${delta}`;
+    controls.push({
+      // Signed, so `life:+5` and `life:-5` read as opposites rather than as
+      // `life:5` and `life:-5`, which look like the same control mistyped.
+      id: `life:${signed}`,
+      label: signed,
+      group: 'life',
+      actions: adjustLife(playerId, delta, at),
+      count: player.life,
+      hint: `${player.name} ${delta > 0 ? 'gains' : 'loses'} ${Math.abs(delta)} life`,
+    });
+  }
+
+  /*
+   * Damage, which is a different fact from a life change and reads differently
+   * in the log. "You took 3 damage" is what a burn spell did; "you lost 3 life"
+   * is what a Phyrexian cost or a Necropotence did, and a card that punishes
+   * one does not punish the other. The engine has always separated them and no
+   * control had ever built the damage half.
+   */
+  for (const amount of [1, 2, 3, 5]) {
+    controls.push({
+      id: `damage:${amount}`,
+      label: String(amount),
+      group: 'damage',
+      actions: damagePlayer(playerId, amount, { at }),
+      count: player.life,
+      hint: `${player.name} is dealt ${amount} damage`,
+    });
+  }
+  controls.push({
+    id: 'damage:infect',
+    label: 'as poison',
+    group: 'damage',
+    // Infect and toxic deal damage to a player as poison counters rather than
+    // as life loss. A `POISON` action alone would not be the same thing: this
+    // one is damage, so anything that cares that damage was dealt still sees it.
+    actions: damagePlayer(playerId, 1, { infect: true, at }),
+    count: player.poison,
+    hint: 'One damage, dealt as a poison counter (infect, toxic)',
+  });
+
+  controls.push({
+    id: 'poison:+1',
+    label: 'Poison +1',
+    group: 'poison',
+    actions: poison(playerId, 1, at),
+    count: player.poison,
+    hint: `${state.rules.poisonLethal} poison counters end the game for this seat`,
+  });
+  if (player.poison > 0) {
+    controls.push({
+      id: 'poison:-1',
+      label: 'Poison −1',
+      group: 'poison',
+      actions: poison(playerId, -1, at),
+      count: player.poison,
+      hint: 'Take one poison counter off',
+    });
+  }
+
+  for (const preset of PLAYER_COUNTER_PRESETS) {
+    const current = player.counters[preset.key] ?? 0;
+    controls.push({
+      id: `pcounter+:${preset.key}`,
+      label: `${preset.label} +1`,
+      group: 'counters',
+      actions: playerCounter(playerId, preset.key, 1, at),
+      count: current,
+    });
+    if (current > 0) {
+      controls.push({
+        id: `pcounter-:${preset.key}`,
+        label: `${preset.label} −1`,
+        group: 'counters',
+        actions: playerCounter(playerId, preset.key, -1, at),
+        count: current,
+      });
+    }
+  }
+
+  /*
+   * Commander damage, one row per commander at the table.
+   *
+   * EVERY commander, including this seat's own, and that is not an oversight.
+   * A commander that has been stolen deals commander damage to the player who
+   * owns it, and if the list left it out the player would be back where this
+   * whole module started: watching something happen that the app refuses to
+   * record. It is ordered with the seat's own last, because it is the rare one.
+   *
+   * The engine takes the life with it — `COMMANDER_DAMAGE` reduces through
+   * `applyDamage` — so this is one press, not two.
+   */
+  const commanders = state.players.flatMap(p => p.commanders);
+  const ordered = [
+    ...commanders.filter(c => c.playerId !== playerId),
+    ...commanders.filter(c => c.playerId === playerId),
+  ];
+  for (const commander of ordered) {
+    const tally = player.commanderDamage[commander.id] ?? 0;
+    controls.push({
+      id: `cmdr+:${commander.id}`,
+      label: commander.name,
+      group: 'commander-damage',
+      actions: commanderDamage(playerId, commander.id, 1, at),
+      count: tally,
+      hint:
+        `One more from ${commander.name}. ` +
+        `${tally} so far, and ${state.rules.commanderDamageLethal} is lethal.`,
+    });
+    if (tally > 0) {
+      controls.push({
+        id: `cmdr-:${commander.id}`,
+        label: `${commander.name} −1`,
+        group: 'commander-damage',
+        actions: commanderDamage(playerId, commander.id, -1, at),
+        count: tally,
+        hint: 'Take one back, and the life with it',
+      });
+    }
+  }
+
+  /*
+   * The monarch and the initiative.
+   *
+   * Both are a single seat's, table-wide, so the control is a toggle: taking it
+   * sets it here, pressing it again while you hold it clears the table. A
+   * second seat taking it moves it, which is what the rules do and what the
+   * reducer already does with a plain assignment.
+   */
+  const isMonarch = state.monarchId === playerId;
+  controls.push({
+    id: 'role:monarch',
+    label: isMonarch ? 'Give up the crown' : 'Take the crown',
+    group: 'table-role',
+    actions: setMonarch(isMonarch ? null : playerId, at),
+    active: isMonarch,
+    hint: isMonarch
+      ? 'Nobody is the monarch after this'
+      : `${player.name} becomes the monarch`,
+  });
+
+  const hasInitiative = state.initiativeId === playerId;
+  controls.push({
+    id: 'role:initiative',
+    label: hasInitiative ? 'Give up the initiative' : 'Take the initiative',
+    group: 'table-role',
+    actions: setInitiative(hasInitiative ? null : playerId, at),
+    active: hasInitiative,
+    hint: hasInitiative
+      ? 'Nobody has the initiative after this'
+      : `${player.name} takes the initiative`,
+  });
+
   return controls;
 }
 

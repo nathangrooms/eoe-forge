@@ -314,8 +314,14 @@ export function ManaSourcesPanel({
                         explanation?.cost
                       )
                     }
+                    /* Not on the commander. It can appear in this list —
+                       Atraxa is a four-colour four-drop and comes in at 27% —
+                       but swapping it is not a card swap: it changes the
+                       deck's colour identity and what every other card in the
+                       list is allowed to be. The header's own Change control
+                       is the door for that. */
                     actions={
-                      onReplace && row ? (
+                      onReplace && row && !row.is_commander ? (
                         <Button
                           variant="secondary"
                           size="sm"

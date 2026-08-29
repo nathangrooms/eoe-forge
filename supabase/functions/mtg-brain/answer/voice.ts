@@ -216,6 +216,15 @@ const SUPERSEDED: Record<string, string[]> = {
   'ramp': ['mana-rock', 'mana-dork', 'fast-mana'],
 };
 
+/**
+ * Whether a tag says what a card DOES, rather than what it is.
+ *
+ * `creature` and `planeswalker` describe the type line, which is printed above
+ * anything built from these, and treating them as roles makes every
+ * planeswalker look like every other planeswalker.
+ */
+export const isRoleTag = (tag: string): boolean => !TYPE_TAGS.has(tag) && Boolean(TAG_WORDS[tag]);
+
 export function roleWords(tags: string[] | null | undefined): string[] {
   if (!Array.isArray(tags)) return [];
   const held = new Set(tags);
@@ -318,6 +327,19 @@ export const NO_RULES_CORPUS = [
 export const NO_META_DATA = [
   'Nothing here tracks what is winning right now. The deck lists we hold are preconstructed decks and published lists, and the biggest group of them is 552 decks, none of it tournament results.',
   'So an answer about the current field would be me making it up, and a made up answer about the field is worse than no answer.',
+].join('\n\n');
+
+/**
+ * We hold no deck lists grouped by commander, and we never will from what we
+ * ingest. `meta_card_inclusion` carries format scope only, two scopes, and the
+ * rule that a scope under 30 decks publishes nothing at all is what keeps it
+ * honest: preconstructed decks give roughly one deck per commander, so a per
+ * commander rate would be one deck reported as a percentage.
+ */
+export const NO_COMMANDER_DATA = [
+  'I cannot tell you which commanders want a card. The deck lists we hold are grouped by format, not by commander, so there is no honest number to give you.',
+  'The reason there is no per commander number is that most of what we hold is preconstructed decks, which is about one deck per commander. A rate worked out from one deck is not a rate.',
+  'What I can tell you is what the card does, what it combos with and how many Commander decks run it overall. Ask for any of those.',
 ].join('\n\n');
 
 /** Judgement we do not hold and will not fake. */

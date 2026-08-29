@@ -1244,7 +1244,14 @@ export default function DeckInterface() {
             <DeckManaPanel
               curveCards={mainboard}
               format={deck.format}
-              rows={listRows}
+              /* Every row, commander included. This tab's panels use `rows`
+                 only to find a card by name so they can draw it, and
+                 castability is solved over the whole deck, so the commander
+                 can land in "Hardest to cast" — Atraxa did, at 4 mana in four
+                 colours. Handed `listRows` the lookup missed it and the one
+                 card in that list with no picture was the deck's own
+                 commander. */
+              rows={rows}
               profile={playabilityEngine.profile}
               playability={playability}
               powerEntries={powerEntries}

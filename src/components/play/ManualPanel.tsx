@@ -327,6 +327,186 @@ function TokenMaker({
 }
 
 /**
+ * Dice and free markers: the bit of Magic that is not in any rulebook.
+ *
+ * Owner, naming it: *"everything like tokens ... dice markers etc."* At a table
+ * you reach for whatever is nearest when the rules run out. A d20 on a creature
+ * to hold the number an effect chose. A bead for a counter this engine has
+ * never heard of. A scrap that says *sac at end*. None of it existed here, and
+ * without it a card the engine cannot resolve leaves the player with nowhere to
+ * write down what they decided.
+ *
+ * Three ways in, and they are three different acts rather than three sizes of
+ * the same one:
+ *
+ *   ROLL      one press. The face is rolled here, in the browser, and the
+ *             ACTION carries the number, so every seat at a networked table
+ *             sees the same face and the log records it. `manual.ts` is pure by
+ *             contract and would have had to consume `state.rng` to roll for
+ *             itself, which exists so shuffles replay identically.
+ *   MARK      a word and a number. This is the counter the engine does not know
+ *             about, and it is also the reminder: a mark standing at one draws
+ *             as its words alone, because *sac at end 1* is not a sentence.
+ *   ADJUST    every mark already on the card, with a way to take it off. A mark
+ *             you cannot remove is worse than no mark.
+ *
+ * Every one of them ends at `CARD_COUNTER`, fenced by `marks.ts`, so a die and
+ * an ability-placed +1/+1 counter are the same object downstream: validated,
+ * logged, undoable, broadcast.
+ */
+function MarkMaker({
+  card,
+  controls,
+  onDispatch,
+}: {
+  card: CardInstance;
+  controls: ManualControl[];
+  onDispatch: (actions: GameAction[]) => void;
+}) {
+  const [writing, setWriting] = useState(false);
+  const [draft, setDraft] = useState({ label: '', value: '1' });
+
+  const marks = marksOn(card);
+
+  const write = () => {
+    const label = draft.label.trim();
+    if (!label) return;
+    const value = Number.parseInt(draft.value, 10);
+    onDispatch(setPlayerMark(card, label, Number.isFinite(value) ? value : 1));
+    setDraft({ label: '', value: '1' });
+    setWriting(false);
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-baseline gap-2">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          Dice and markers
+        </span>
+        <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground/70">
+          yours, not the rules
+        </span>
+      </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        {/* The two dice a Magic player has on the table, then the rest. */}
+        {DICE.slice(0, 3).map(sides => (
+          <button
+            key={sides}
+            type="button"
+            onClick={() =>
+              onDispatch(
+                rollDieOnCard(card, sides, 1 + Math.floor(Math.random() * sides))
+              )
+            }
+            title={`Roll a d${sides} and leave it on ${card.name}. Rolling again replaces the face.`}
+            className="rounded-md bg-foreground/[0.08] px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-foreground/[0.16] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Roll d{sides}
+          </button>
+        ))}
+
+        <button
+          type="button"
+          onClick={() => setWriting(value => !value)}
+          className="rounded-md px-2 py-1.5 text-xs text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {writing ? 'Cancel' : 'Write a marker'}
+        </button>
+      </div>
+
+      {/* Inline, in the flow of the panel. Project law is no centred modals in
+          play, and a form over the board would hide the card being marked. */}
+      {writing && (
+        <div className="flex flex-wrap items-center gap-1.5 rounded-lg bg-foreground/[0.05] p-2">
+          <input
+            value={draft.label}
+            onChange={event => setDraft(d => ({ ...d, label: event.target.value }))}
+            onKeyDown={event => {
+              if (event.key === 'Enter') write();
+            }}
+            maxLength={MARK_LABEL_MAX}
+            placeholder="What it says"
+            aria-label="Marker"
+            autoFocus
+            className="h-8 min-w-0 flex-1 rounded-md bg-background/60 px-2 text-xs text-foreground placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+          <input
+            value={draft.value}
+            onChange={event => setDraft(d => ({ ...d, value: event.target.value }))}
+            aria-label="How many"
+            className="h-8 w-12 rounded-md bg-background/60 px-2 text-center text-xs tabular-nums text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+          <button
+            type="button"
+            onClick={write}
+            disabled={!draft.label.trim()}
+            className="rounded-md bg-foreground px-3 py-1.5 text-xs font-semibold text-background transition-colors hover:bg-foreground/90 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Put it on
+          </button>
+          <p className="w-full text-[11px] leading-snug text-muted-foreground">
+            Leave it at one and the card just shows the words.
+          </p>
+        </div>
+      )}
+
+      {/* What is on the card now, and how to change it. Reads as a row per
+          mark rather than a heap of pills, because each row is about one thing
+          and the whole complaint about this panel was fifteen pills that all
+          looked alike. */}
+      {marks.length > 0 && (
+        <div className="space-y-1">
+          {marks.map(mark => {
+            const find = (prefix: string) =>
+              controls.find(control => control.id === `${prefix}:${mark.label}`);
+            const up = find('mark+');
+            const down = find('mark-');
+            const off = find('mark:clear');
+            return (
+              <div key={mark.key} className="flex items-center gap-1.5">
+                <span className="flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md bg-background/60 px-2 text-xs text-foreground">
+                  <span className="min-w-0 truncate">{mark.label}</span>
+                  <span className="ml-auto shrink-0 font-semibold tabular-nums">{mark.value}</span>
+                </span>
+                {down && (
+                  <Chip label="−1" title={`One off ${mark.label}`} onClick={() => onDispatch(down.actions)} />
+                )}
+                {up && (
+                  <Chip label="+1" title={`One on ${mark.label}`} onClick={() => onDispatch(up.actions)} />
+                )}
+                {mark.die && (
+                  <Chip
+                    label="Reroll"
+                    title={`Roll the ${mark.label} again`}
+                    onClick={() =>
+                      onDispatch(
+                        rollDieOnCard(
+                          card,
+                          Number.parseInt(mark.label.slice(1), 10),
+                          1 + Math.floor(Math.random() * Number.parseInt(mark.label.slice(1), 10))
+                        )
+                      )
+                    }
+                  />
+                )}
+                {off && (
+                  <Chip
+                    label="Off"
+                    title={`Take ${mark.label} off ${card.name}`}
+                    onClick={() => onDispatch(off.actions)}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * Mana colour, and the only hue in this panel. Project law reserves colour for
  * MTG semantics, and a colour pip is the clearest case there is.
  */
@@ -460,6 +640,11 @@ export function ManualPanel({ state, card, onDispatch, className }: ManualPanelP
           a card that is already there, this puts a new permanent on the board.
           Fifteen identical pills in undifferentiated rows was the complaint. */}
       <TokenMaker card={card} named={namedTokens} onDispatch={onDispatch} />
+
+      {/* Dice and free markers. Its own section for the same reason tokens got
+          one: a marker is not a smaller counter, it is the thing you reach for
+          when the rules have run out and the engine cannot help. */}
+      <MarkMaker card={card} controls={byGroup('marks')} onDispatch={onDispatch} />
 
       {copyControl && (
         <button

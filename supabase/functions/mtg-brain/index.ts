@@ -392,7 +392,13 @@ serve(async (req) => {
       const cost = measure(decklist);
       console.log(`decklist: ${deckCards.length} entries, ${cost.chars} chars, about ${cost.approxTokens} tokens`);
     } else {
-      console.warn('decklist: NO CARDS were sent with this deck; saying so rather than implying an empty deck');
+      /* Only when a deck was actually attached. It used to fire on every
+         question with no deck at all, so the warning that means "the deck came
+         through empty and something is wrong" was printed on every card
+         question, which is how a real warning stops being read. */
+      if (deckContext) {
+        console.warn('decklist: NO CARDS were sent with this deck; saying so rather than implying an empty deck');
+      }
     }
 
     /* ---------------------------------------------------------------------- *

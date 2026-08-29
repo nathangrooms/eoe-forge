@@ -52,7 +52,7 @@ import {
   type PlayDecision,
 } from './turnFlow';
 
-export type PlayViewId = 'table' | 'hand' | 'view' | 'combat';
+export type PlayViewId = 'table' | 'hand' | 'view';
 
 export interface PlayHUDProps {
   state: GameState;
@@ -129,14 +129,15 @@ export interface PlayHUDProps {
 }
 
 /**
- * The places you can be. Combat is deliberately not one of them any more.
+ * The places you can be. Combat is deliberately not one of them.
  *
  * Owner: *"this game engine does not support attacking very well, its an
  * absolute mess and moves onto different screens"*. Attackers and blockers are
- * declared on the table now — swords on the creatures, `CombatBar` for the
- * confirm — so offering Combat here as a fourth destination would advertise the
- * takeover that was just removed. `/play` still has a `'combat'` view id and
- * still switches to it; that view renders the table, so it lights Table.
+ * declared on the table — swords on the creatures, `CombatBar` for the confirm
+ * — so offering Combat here as a fourth destination would advertise a takeover
+ * that no longer happens. The `'combat'` view id is gone from the union too:
+ * while it existed, `/play` still switched to it and still rendered a second
+ * copy of the board. There are three places, and combat is on all of them.
  */
 const VIEWS: Array<{ id: PlayViewId; label: string; icon: typeof LayoutGrid; hint: string }> = [
   { id: 'table', label: 'Table', icon: LayoutGrid, hint: 'All four quadrants, everything upright' },
@@ -285,9 +286,7 @@ export function PlayHUD({
           className="flex items-center gap-0.5 rounded-lg bg-muted/50 p-0.5"
         >
           {VIEWS.map(entry => {
-            /* `'combat'` renders the table, so it lights the Table tab — the
-               board on screen is the board that tab describes. */
-            const selected = view === entry.id || (view === 'combat' && entry.id === 'table');
+            const selected = view === entry.id;
             return (
               <button
                 key={entry.id}

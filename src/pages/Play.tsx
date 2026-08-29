@@ -99,7 +99,8 @@ import { uniqueSeatNames } from '@/components/play/seatNames';
 import { PlayTable } from '@/components/play/PlayTable';
 import { ViewerHand } from '@/components/play/ViewerHand';
 import { CastSpotlight } from '@/components/play/CastSpotlight';
-import { CombatView, combatIsLive } from '@/components/play/CombatView';
+import { combatIsLive } from '@/components/play/combatUi';
+import { useCardPrewarm } from '@/components/play/useCardPrewarm';
 import { illegalBlockReason } from '@/components/play/combatUi';
 import { GameFeed } from '@/components/play/GameFeed';
 import { TurnBanner } from '@/components/play/TurnBanner';
@@ -325,10 +326,18 @@ export default function Play() {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  /** The view combat interrupted, so it can be handed back afterwards. */
-  const autoOpenedFrom = useRef<PlayViewId | null>(null);
-  /** Turn number on which the player deliberately left the combat view. */
-  const dismissedCombatOnTurn = useRef<number | null>(null);
+  /*
+   * COMBAT NO LONGER HAS A VIEW OF ITS OWN, so there is no view to remember.
+   *
+   * `autoOpenedFrom` and `dismissedCombatOnTurn` used to exist because reaching
+   * declare attackers swapped this page's board for `CombatView`, and something
+   * had to hand the board back afterwards. `CombatView` was a second copy of
+   * the table — the same `PlayTable` and the same `ViewerHand`, with a thinner
+   * set of props — so every turn the game reached combat the player quietly
+   * lost their seating choice, the zone tiles stopped opening, the life change
+   * animation stopped, free cast was ignored and hand view was dropped. It is
+   * gone; combat is declared on the table that is already on screen.
+   */
 
   const { state, dispatch, undo, canUndo, botPlayerIds, botThinking, feed } = usePlayGame({
     /* A watched table is driven by the other hook. `usePlayGame` always
@@ -553,8 +562,6 @@ export default function Play() {
       setZoneTarget(null);
       setMenuOpen(false);
       setViewSeatId(null);
-      autoOpenedFrom.current = null;
-      dismissedCombatOnTurn.current = null;
       setTable(dealt);
 
       // A substitution is an error the player has to know about, not an aside.
@@ -646,6 +653,16 @@ export default function Play() {
     () => (state ? botsAwaitingMove(state, botPlayerIds, botOptions).length > 0 : false),
     [state, botPlayerIds, botOptions]
   );
+
+  /*
+   * A card that appears has already been fetched.
+   *
+   * Measured: a spell's whole life on the stack is under 2.5 seconds and a cold
+   * image fetch plus the fade is longer, so four times out of four the player
+   * watched an empty rectangle instead of the card. `useCardPrewarm` has the
+   * measurement and says what it does and does not warm.
+   */
+  useCardPrewarm(state);
 
   const combatLive = state ? combatIsLive(state, HUMAN_SEAT) : false;
   const canAttack = state ? canReachCombat(state, HUMAN_SEAT) : false;
@@ -884,9 +901,8 @@ export default function Play() {
 
     if (simulated.step !== 'declare_attackers') return;
     if (batch.length > 0) dispatch(batch);
-    autoOpenedFrom.current = null;
-    dismissedCombatOnTurn.current = null;
-    setView('combat');
+    /* Nothing else to do. The swords appear on the creatures that can swing,
+       on the board the player was already looking at. */
   }, [state, dispatch]);
 
   /** One press. The effect below sweeps the rest of the turn. */
@@ -993,8 +1009,6 @@ export default function Play() {
     setZoneTarget(null);
     setMenuOpen(false);
     setViewSeatId(null);
-    autoOpenedFrom.current = null;
-    dismissedCombatOnTurn.current = null;
   }, []);
 
   /** Look at somebody's board, full screen. Read-only for an opponent. */
@@ -1003,7 +1017,6 @@ export default function Play() {
     setInspectId(null);
     setMenuOpen(false);
     setZoneTarget(null);
-    autoOpenedFrom.current = null;
     setView('view');
   }, []);
 
@@ -1065,40 +1078,35 @@ export default function Play() {
   }, [state, opening, endingTurn, autoAdvance, botsPaused, decision, othersPending, dispatch]);
 
   /* ---------------------------------------------------------------------- */
-  /* Combat takes over the view when it matters                             */
+  /* Combat does NOT take over the view. There is nothing to take it over.   */
   /* ---------------------------------------------------------------------- */
-
-  useEffect(() => {
-    if (!state) return;
-
-    // A combat *decision*, not merely the combat phase. Steps the page walks
-    // through on its own must never yank the view sideways for a frame.
-    const myDecision = decision === 'attackers' || decision === 'blockers';
-
-    // Auto-opening is a convenience, so leaving has to stick. Without the
-    // dismissal check the effect would drag the player straight back and the
-    // switcher would look broken for the rest of the turn.
-    const dismissed = dismissedCombatOnTurn.current === state.turn;
-
-    if (myDecision && view !== 'combat' && !dismissed) {
-      autoOpenedFrom.current = view;
-      setView('combat');
-      return;
-    }
-
-    // Combat is done and we opened this view ourselves — give the table back.
-    if (!combatLive && view === 'combat' && autoOpenedFrom.current) {
-      setView(autoOpenedFrom.current);
-      autoOpenedFrom.current = null;
-    }
-  }, [state, view, combatLive, decision]);
+  /*
+   * An effect used to sit here that switched `view` to `'combat'` the moment
+   * this seat owed an attack or a block, and switched it back afterwards.
+   *
+   * `'combat'` rendered `CombatView`, which was a second copy of this page's
+   * board: the same `PlayTable` and the same `ViewerHand`, mounted with fewer
+   * props. Every turn the game reached a declare step, the player lost
+   *
+   *   - the seating they chose (it fell back to `defaultSeatingFor`),
+   *   - hand view and view mode (`focusPlayerId` was not passed),
+   *   - opening a graveyard, exile, library or command zone (`onOpenZone`),
+   *   - the life change animation (`lifeDeltas`),
+   *   - free cast, the fan stepping back while a target is being chosen, and
+   *     the mulligan's marked cards (`freeCast` / `receded` / `markedIds`),
+   *   - the cast spotlight,
+   *
+   * and got them back when combat ended. That is CLAUDE.md's "one table, one
+   * set of logic" broken in the one place it costs the most, and it is what the
+   * owner meant by combat *"moves onto different screens"*.
+   *
+   * Nothing replaced it, because nothing needed to: `PlayTable` already
+   * declares combat on the mats — swords and shields on the cards themselves —
+   * and it is already on screen.
+   */
 
   const changeView = useCallback(
     (next: PlayViewId) => {
-      if (view === 'combat' && next !== 'combat' && state) {
-        dismissedCombatOnTurn.current = state.turn;
-      }
-      autoOpenedFrom.current = null;
       if (next === 'view' && state && !viewSeatId) {
         const firstOpponent = state.players.find(p => p.id !== HUMAN_SEAT);
         if (firstOpponent) setViewSeatId(firstOpponent.id);
@@ -1128,18 +1136,18 @@ export default function Play() {
    *     press DECLARE ATTACKERS (top right)       turn 13 -> turn 13. nothing.
    *     press ATTACK WITH 1 in the bar            turn 13 -> postcombat main
    *
-   * The cause is two lines above this one. The effect that opens the combat
-   * view fires the moment the decision arrives, so by the time the label reads
-   * DECLARE BLOCKERS the view is ALREADY 'combat', and `changeView('combat')`
-   * sets the state it is already in. React bails, and the loudest control on
-   * the page does nothing at the two moments the game is waiting for you.
+   * The cause was the effect that used to sit two blocks above this one. It
+   * opened the combat view the moment the decision arrived, so by the time the
+   * label read DECLARE BLOCKERS the view was ALREADY 'combat', and
+   * `changeView('combat')` set the state it was already in. React bailed, and
+   * the loudest control on the page did nothing at the two moments the game was
+   * waiting for you.
    *
-   * That is the same defect the paragraph above says was fixed: the label was
-   * corrected and the dead press was left. So the rule is now the behaviour,
-   * not the wording. Take me there if I am not there; COMMIT if I am. The
-   * commit is `ADVANCE_STEP`, the identical action `PlayTable.confirmCombat`
-   * sends from the combat bar, and both refuse for the same reason through
-   * `illegalBlockReason`, so the two controls cannot drift apart again.
+   * There is no combat view now, so there is no "take me there" half left. The
+   * control COMMITS, on the first press, always. The commit is `ADVANCE_STEP`,
+   * the identical action `PlayTable.confirmCombat` sends from the combat bar,
+   * and both refuse for the same reason through `illegalBlockReason`, so the
+   * two controls cannot drift apart.
    */
   const blockIssue = useMemo(
     () => (state ? illegalBlockReason(state, HUMAN_SEAT) : ''),
@@ -1153,10 +1161,6 @@ export default function Play() {
       return;
     }
     if (decision === 'attackers' || decision === 'blockers') {
-      if (view !== 'combat') {
-        changeView('combat');
-        return;
-      }
       if (blockIssue) return;
       dispatch([{ type: 'ADVANCE_STEP', at: Date.now() }]);
       return;
@@ -1180,7 +1184,7 @@ export default function Play() {
       return;
     }
     changeView('table');
-  }, [decision, canAttack, handleAttack, changeView, view, blockIssue, dispatch]);
+  }, [decision, canAttack, handleAttack, changeView, blockIssue, dispatch]);
 
   /*
    * Is anything on this table asking what it is aimed at?
@@ -1575,8 +1579,7 @@ export default function Play() {
             transition={transition}
             className="absolute inset-0 z-0"
           >
-            {view !== 'combat' ? (
-              <div className="relative h-full w-full">
+            <div className="relative h-full w-full">
                 <PlayTable
                   className="h-full w-full"
                   state={state}
@@ -1643,23 +1646,7 @@ export default function Play() {
                     }
                   />
                 )}
-              </div>
-            ) : (
-              /* Combat owns its own insets rather than sitting in a padded box:
-                 it measures the room it has and sizes its cards from that, the
-                 same bargain every mat on the table makes. */
-              <CombatView
-                className="h-full w-full"
-                state={state}
-                viewerPlayerId={HUMAN_SEAT}
-                botPlayerIds={botPlayerIds}
-                onInspect={card => setInspectId(card.instanceId)}
-                inspectedId={inspectId}
-                onAdvance={handleAdvance}
-                topInset={HUD_INSET}
-                bottomInset={FEED_INSET}
-              />
-            )}
+            </div>
           </motion.div>
         </AnimatePresence>
 

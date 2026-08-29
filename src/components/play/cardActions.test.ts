@@ -11,7 +11,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { addCard, applyAction, createGame } from '../../lib/game/index.ts';
+import { addCard, applyAction, createGame, markKey } from '../../lib/game/index.ts';
 import type { GameState, PlayerId, Zone } from '../../lib/game/index.ts';
 import { actionsForCard, cardNotes, handPlayVerdict } from './cardActions.ts';
 
@@ -243,7 +243,35 @@ test('the notes say what is true about the card and no more', () => {
   state = applyAction(state, { type: 'TAP', instanceId: 'bear', at: 1 });
   state = applyAction(state, { type: 'CARD_COUNTER', instanceId: 'bear', counter: '+1/+1', delta: 2, at: 1 });
 
-  assert.deepEqual(cardNotes(state, state.cards.bear), ['Tapped', '+2 +1/+1']);
+  /* Counters are NOT here any more. They are drawn in the preview's state row
+     and on the card's own mark rail, in one visual family and at a size that
+     can be read, so a third grey pill saying the same thing is noise. The
+     header on `cardNotes` carries the measurement that moved them: walking
+     every counter key also put the storage prefix `mark:d20` on screen. */
+  assert.deepEqual(cardNotes(state, state.cards.bear), ['Tapped']);
+});
+
+test('the notes never print a counter key, so a mark cannot leak its prefix', () => {
+  let state = put(
+    table(),
+    'bear',
+    { name: 'Grizzly Bears', typeLine: 'Creature — Bear', power: '2', toughness: '2' },
+    'battlefield'
+  );
+  state = applyAction(state, {
+    type: 'CARD_COUNTER',
+    instanceId: 'bear',
+    counter: markKey('d20'),
+    delta: 17,
+    at: 1,
+  });
+  state = applyAction(state, { type: 'DAMAGE_CARD', instanceId: 'bear', amount: 1, at: 1 });
+
+  const notes = cardNotes(state, state.cards.bear);
+  assert.ok(
+    notes.every(note => !note.includes('mark:')),
+    `a storage prefix reached the card notes: ${notes.join(' | ')}`
+  );
 });
 
 test('a creature that just arrived says so', () => {

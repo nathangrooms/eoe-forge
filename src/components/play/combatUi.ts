@@ -125,6 +125,19 @@ export function combatStageFor(state: GameState, viewerId: PlayerId): CombatStag
   return null;
 }
 
+/**
+ * Is there anything combat-related worth saying to this seat right now?
+ *
+ * Moved here from `CombatView.tsx` when that file was deleted. Combat used to
+ * open a screen of its own, `CombatView` was that screen, and this predicate
+ * was what told the page when to open it. Nothing opens now — combat is
+ * declared on the mats — but the HUD still wants to put a marker on the Table
+ * tab while somebody is swinging, and that is one honest caller for it.
+ */
+export function combatIsLive(state: GameState, viewerId: PlayerId): boolean {
+  return state.combat.attackers.length > 0 || combatStageFor(state, viewerId) !== null;
+}
+
 /** Everything this seat has swinging, as instance ids. */
 export function declaredAttackerIds(state: GameState, viewerId: PlayerId): string[] {
   return state.combat.attackers

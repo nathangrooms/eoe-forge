@@ -166,6 +166,12 @@ function PreconTileBase({
                 <CardImage
                   card={card}
                   size="lg"
+                  /* `fill`, not a width token with `w-full` beside it. The
+                     token sets an inline width and a class cannot beat one, so
+                     on a phone this drew a 250px card into a 91.5px slot and
+                     the tile clipped away 47% of the commander. `fill` means
+                     the card is exactly as wide as the space it was given. */
+                  fill
                   className={cn(
                     'w-full drop-shadow-[0_10px_24px_rgba(0,0,0,0.55)]',
                     'transition-transform duration-500 ease-out group-hover:scale-[1.03]',

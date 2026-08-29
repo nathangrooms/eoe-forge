@@ -219,7 +219,23 @@ export function CardImage({
   return (
     <div
       className={cn('group relative select-none', fill ? 'w-full' : 'shrink-0', className)}
-      style={fill ? undefined : { width: renderedWidth }}
+      /*
+       * A card can be smaller than its size token asks for. It can never be
+       * bigger than the space it was given.
+       *
+       * The width here is an inline style and a caller's `className="w-full"`
+       * is a class, so the inline width won and the card was drawn at its token
+       * width inside a narrower slot. Measured on `/precons` at 390px: the tile
+       * was 175px, the card's slot 91.5px, and the card 250px, so 47% of the
+       * commander was cut off by the tile's own `overflow-hidden`. That is the
+       * cut the owner has reported repeatedly, and the design law forbids it
+       * outright.
+       *
+       * `maxWidth: 100%` cannot make any card larger and cannot change a layout
+       * where the slot was already wide enough, which is every desktop case.
+       * It only stops a card spilling out of a box that then clips it.
+       */
+      style={fill ? undefined : { width: renderedWidth, maxWidth: '100%' }}
     >
       <div
         role={onClick ? 'button' : undefined}
@@ -343,7 +359,12 @@ export function CardImageSkeleton({
       style={{
         aspectRatio: CARD_ASPECT,
         borderRadius: CARD_RADIUS,
-        ...(fill ? {} : { width: width ?? CARD_IMAGE_SIZES[resolved].width }),
+        /* Same cap as the real card above, so the placeholder holds the space
+           the card will actually take rather than a wider one that shifts the
+           layout when the picture arrives. */
+        ...(fill
+          ? {}
+          : { width: width ?? CARD_IMAGE_SIZES[resolved].width, maxWidth: '100%' }),
       }}
       aria-hidden="true"
     />

@@ -64,6 +64,20 @@ const CARD_COLUMNS =
   'mana_cost, cmc, colors, color_identity, keywords, tags, legalities, prices, ' +
   'edhrec_rank, rarity, power, toughness, loyalty, game_changer, printings_count, faces';
 
+/**
+ * What a row in a LIST needs, which is far less than one card being explained.
+ *
+ * Asking for the full set on a list query drags `image_uris`, `faces`,
+ * `oracle_text` and `legalities` out of the heap for every candidate row.
+ * Measured on the staples lists: with the wide list three of the five colours
+ * hit the 3 s limit and returned nothing; with this one all five come back.
+ * The art is attached separately by `resolveCards` and does not need to ride
+ * along here.
+ */
+const LIST_COLUMNS =
+  'id, oracle_id, name, set_code, type_line, mana_cost, cmc, color_identity, tags, ' +
+  'prices, edhrec_rank, rarity, game_changer';
+
 export interface Combo {
   comboId: string;
   popularity: number | null;
@@ -193,6 +207,11 @@ export interface RoleQuery {
   tag?: string | null;
   /** Colour letters the card must fit inside. Empty means any colour. */
   colours?: string[];
+  /**
+   * One colour the card must actually be. Different from `colours`: "removal a
+   * WUBG deck can play" fits inside four colours, "black removal" is black.
+   */
+  mustInclude?: string | null;
   /** An exact mana value, when the question asked for one. */
   manaValue?: number | null;
   /** Cards to leave out, by name. Used to keep a deck's own cards off a shortlist. */
@@ -212,14 +231,23 @@ export async function topByRole(db: any, q: RoleQuery): Promise<Read<CardRow[]>>
   const limit = q.limit ?? 10;
   let query = db
     .from('cards_unique')
-    .select(CARD_COLUMNS)
+    .select(LIST_COLUMNS)
     .not('edhrec_rank', 'is', null)
     .eq('legalities->>commander', 'legal')
     .order('edhrec_rank', { ascending: true })
-    .limit(Math.max(limit * 4, 40));
+    /* Only fetch spare rows when something below is going to throw rows away.
+       Reading forty when five are wanted looks free and is not: measured on the
+       colour staple lists, limit 40 took 3.1 s and hit the 3 s ceiling while
+       limit 5 took 0.07 s. Blue and black came back empty for that reason and
+       for no other. */
+    .limit(q.colours?.length || q.exclude?.length ? Math.max(limit * 4, 40) : limit);
 
   if (q.tag) query = query.contains('tags', [q.tag]);
   if (q.manaValue != null) query = query.eq('cmc', q.manaValue);
+  /* Pushed into the query rather than filtered afterwards. Without a job tag to
+     narrow on, the first N rows in rank order are almost all colourless, so
+     filtering a page of 40 in JavaScript found nothing for any colour. */
+  if (q.mustInclude) query = query.contains('color_identity', [q.mustInclude]);
 
   const { data, error } = await query;
   if (error) return failed(error.message);
@@ -261,9 +289,16 @@ export async function similarTo(
   db: any,
   card: CardRow,
   tagRarity: Map<string, number>,
+  isRoleTag: (tag: string) => boolean,
   limit = 8
 ): Promise<Read<CardRow[]>> {
-  const roleTags = (card.tags ?? []).filter(t => tagRarity.has(t));
+  /* Type tags are excluded, and leaving them in was measured to matter.
+     Tezzeret the Seeker carries `planeswalker` along with three real role tags,
+     so "sharing two tags" was satisfied by any planeswalker that also untaps,
+     and the answer to "what does a similar job" came back as Kaito Shizuki,
+     Sarkhan Unbroken and Vivien, Monsters' Advocate. Being the same card type
+     is not doing the same job. */
+  const roleTags = (card.tags ?? []).filter(t => tagRarity.has(t) && isRoleTag(t));
   if (!roleTags.length) return ok([]);
 
   const rarest = [...roleTags].sort(
@@ -272,7 +307,7 @@ export async function similarTo(
 
   const { data, error } = await db
     .from('cards_unique')
-    .select(CARD_COLUMNS)
+    .select(LIST_COLUMNS)
     .contains('tags', [rarest])
     .not('edhrec_rank', 'is', null)
     .eq('legalities->>commander', 'legal')

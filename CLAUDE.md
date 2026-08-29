@@ -22,7 +22,7 @@ Judge all UI/UX **as an MTG enthusiast**, not as a generic web app.
 |---|---|
 | **Working repo** | `C:\Users\natha\Desktop\Software\Deckmatrix` |
 | **GitHub** | `https://github.com/nathangrooms/eoe-forge` (branch `main`) |
-| **Live site** | `https://deckmatrix.com` (apex only — `www.` does **not** resolve) |
+| **Live site** | `https://www.deckmatrix.com`. The apex 308-redirects to `www.`, which is the opposite of what this line said before Vercel. Measured 29 Aug 2026: `curl -I https://deckmatrix.com/` returns 308 to `https://www.deckmatrix.com/`. |
 | **Hosting** | **Vercel** (moved 29 Aug 2026, was Lovable) |
 | **Supabase project** | `MTG` — ref `udnaflcohfyljrsgqggy`, region `eu-west-2`, Postgres 17 |
 
@@ -94,7 +94,23 @@ local edit → git push origin main → Lovable picks up → publish from Lovabl
 writes. **Always `git pull` before starting a session.** Recent history shows Lovable-generated commits
 (paired same-timestamp commits, messages like "Changes").
 
-Vercel migration was considered and **deliberately deferred** — Lovable hosting is free and working.
+~~Vercel migration was considered and deliberately deferred.~~ **It happened on 29 Aug 2026.**
+
+### Re-measured against the live site, 29 Aug 2026
+
+Section 8's "the audit backlog is STILL LIVE" warning is **closed**, and three separate passes
+repeated it without checking. What the live site actually serves now:
+
+```
+GET https://deckmatrix.com/                              -> 308 to https://www.deckmatrix.com/
+GET https://www.deckmatrix.com/assets/index-BSOQhzGg.js  -> 200, 693,094 bytes, names 222 chunks
+GET https://deckmatrix.com/assets/auditFindings-B6Ihw0Jk.js -> 404
+```
+
+The entry chunk was 3,323,814 bytes and is 693,094. The findings chunk is gone, and neither
+`auditFindings` nor `af-001` appears anywhere in the entry chunk. Code splitting shipped and the
+backlog is no longer downloadable. **Do not write "still live" about anything again without a
+`curl` in the same paragraph.**
 
 ---
 
@@ -351,7 +367,11 @@ client-visible, and the same values are hardcoded in `src/integrations/supabase/
 what actually gets used. **No rotation is needed.** History was deliberately left un-rewritten — a
 force-push to scrub a non-secret is not worth breaking every clone.
 
-### The audit backlog is a public download. Fixed in the repo, STILL LIVE.
+### ~~The audit backlog is a public download. Fixed in the repo, STILL LIVE.~~ CLOSED 29 Aug 2026
+
+> ✅ **Re-measured and closed.** `auditFindings-B6Ihw0Jk.js` now returns **404** and the live entry
+> chunk is **693,094 bytes** across 222 chunks, not the 3,323,814-byte one below. See section 4. The
+> paragraphs that follow are kept because the reasoning is worth having; the alarm is not.
 
 > 🔴 **This is not closed.** The code change is in `main`. Lovable has not published since, so the
 > file is still being served. Re-measured 2026-08-19, after the fix was committed and pushed:

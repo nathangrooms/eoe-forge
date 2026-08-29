@@ -189,6 +189,22 @@ export interface GameCardViewProps {
   title?: string;
   /** Play the "just arrived on the battlefield" entrance. */
   entering?: boolean;
+  /**
+   * Draw the mark rail along the card's bottom edge. On by default.
+   *
+   * The one caller that turns it off is `CenterPreview`, and it is a slot
+   * rather than a fork: the panel states power and toughness, damage, counters
+   * and the player's own marks BESIDE the card, in the same visual family and
+   * several times the size, so drawing them on the card as well would be the
+   * same facts twice on one screen — the complaint that started this work. The
+   * rail also hangs a third of a badge below the card, and the preview clips at
+   * its own rounded corner, so on that surface the marks were cut in half.
+   *
+   * Said out loud here because "one table, one set of logic" means a mode never
+   * gets a second copy of a surface. A prop on the shared component is the
+   * sanctioned way to let one context ask for less.
+   */
+  showMarks?: boolean;
 }
 
 /**
@@ -323,6 +339,7 @@ export const GameCardView = memo(function GameCardView({
   ignoreTapped,
   title,
   entering,
+  showMarks = true,
 }: GameCardViewProps) {
   const reduceMotion = useReducedMotion();
   const renderedWidth = width ?? GAME_CARD_WIDTH[size];
@@ -838,7 +855,7 @@ export const GameCardView = memo(function GameCardView({
         has become a label. It runs to the right instead, where a crowded row
         will cover the tail — which is the correct thing to lose first.
       */}
-      {onBattlefield && !hidden && (stats || counters.length > 0 || damage > 0 || playerMarks.length > 0) && (
+      {showMarks && onBattlefield && !hidden && (stats || counters.length > 0 || damage > 0 || playerMarks.length > 0) && (
         <div
           className="pointer-events-none absolute z-10 flex flex-nowrap items-end"
           style={{
@@ -912,11 +929,17 @@ export const GameCardView = memo(function GameCardView({
           ))}
 
           {/* A MARK A PERSON PUT THERE, and it has to look like one.
-              Glass rather than filled, so it reads as something laid ON the
-              card instead of stamped by the rules, and it carries its own words
-              rather than only a number: a die shows its face, a reminder shows
-              what you wrote, a tally shows both. `marks.ts` owns that choice so
-              the mat, the panel and the log cannot word it three ways. */}
+
+              Two signals, both of which survive a glance and neither of which
+              is a hue: it is GLASS rather than filled, so it reads as something
+              laid ON the card instead of stamped by the rules, and it is a
+              rounded RECTANGLE where a counter and damage are circles — the
+              shape of a die or a scrap of paper rather than a bead.
+
+              It carries its own words rather than only a number: a die shows
+              its face, a reminder shows what you wrote, a tally shows both.
+              `marks.ts` owns that choice so the mat, the panel and the log
+              cannot word it three ways. */}
           {playerMarks.map(mark => (
             <span
               key={mark.key}

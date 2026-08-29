@@ -352,9 +352,14 @@ export default function Templates() {
                       ))}
                     </ul>
 
+                    {/* Was "{n} role quotas · at least {n} slots defined".
+                        The note on this page's own description says "role
+                        quotas" is a term this product invented and that copy
+                        rule 1 rules it out, and then it was printed twice more
+                        below. A role is a role; a slot is a card. */}
                     <p className="text-xs text-muted-foreground">
-                      {Object.keys(template.quotas.counts).length} role quotas · at least{' '}
-                      {totalMinimum} slots defined
+                      {Object.keys(template.quotas.counts).length} roles · at least{' '}
+                      {totalMinimum} cards
                     </p>
 
                     <div className="mt-auto flex gap-2 pt-2">
@@ -424,7 +429,7 @@ export default function Templates() {
                 </div>
 
                 <section>
-                  <h3 className="mb-2 text-sm font-semibold">Role quotas</h3>
+                  <h3 className="mb-2 text-sm font-semibold">How many of each</h3>
                   <ul className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
                     {Object.entries(previewTemplate.quotas.counts).map(([tag, quota]) => (
                       <li key={tag} className="flex justify-between rounded px-2 py-1 odd:bg-muted/30">

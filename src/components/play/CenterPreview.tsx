@@ -75,6 +75,11 @@ import {
   activationsFor,
   auraNeedsHost,
   enchantClauseOf,
+  markDescription,
+  markText,
+  playerMarksOn,
+  rulesCountersOn,
+  statLine,
   statLineIn,
   type CardInstance,
   type GameAction,
@@ -308,6 +313,18 @@ export function CenterPreview({
   const controller = state.players.find(p => p.id === card.controllerId);
   const notes = cardNotes(state, card);
   const stats = statLineIn(state, card);
+  /* The printed line beside the live one. A number that changed is only
+     obviously a change if you can see the old one, which is the same reason
+     `GameCardView` holds both for its badge. */
+  const printedStats = statLine(card);
+  const statsModified = Boolean(stats && printedStats && stats !== printedStats);
+  /* The card's state, split the way `marks.ts` splits it: what the game put on
+     this permanent, and what a person did. Battlefield only, because damage and
+     counters on a card in a graveyard are not a thing a player is reading. */
+  const onBattlefield = card.zone === 'battlefield';
+  const damage = onBattlefield ? card.damage : 0;
+  const rulesCounters = onBattlefield ? rulesCountersOn(card.counters) : [];
+  const handMarks = onBattlefield ? playerMarksOn(card.counters) : [];
 
   /* WHAT THIS CARD DOES, AND WHO HAS TO DO IT.
      `automationFor` already works this out for every card and nothing had ever
@@ -520,6 +537,11 @@ export function CenterPreview({
               card={card}
               width={cardWidth}
               ignoreTapped
+              /* The state row beside the card says all of this several times
+                 larger, so the rail here would be the same facts twice on one
+                 screen — and the panel clips at its own rounded corner, which
+                 cut the marks in half. See `showMarks` on `GameCardView`. */
+              showMarks={false}
               className="shrink-0 self-center drop-shadow-[0_18px_40px_rgba(0,0,0,0.8)]"
               title={card.name}
             />
@@ -573,10 +595,74 @@ export function CenterPreview({
               {card.typeLine && (
                 <p className="mt-1 text-sm leading-snug text-muted-foreground">{card.typeLine}</p>
               )}
-              {stats && (
-                <p className="mt-2 text-3xl font-bold leading-none tabular-nums text-foreground">
-                  {stats}
-                </p>
+              {/*
+                WHAT THIS CREATURE IS RIGHT NOW, at the size the question is
+                asked. Owner: the stats *"should be large for their power,
+                toughness, dice markers etc."*
+
+                Power and toughness leads at 48px, larger than the name, because
+                it is the only number on this panel a player checks in the
+                middle of combat with a hand of cards in the other hand. It is
+                also, deliberately, the same reading order as the rail on the
+                mat: what it IS, then what has hit it, then what is on it, then
+                what the player wrote on it. Two surfaces, one order, so a
+                glance at the board and a look at the panel agree.
+
+                It says PRINTED N/N underneath when the live line differs, which
+                is the fact a player is actually checking when they open this:
+                not "it is a 6/6" but "it is a 6/6 and the card says 2/2".
+              */}
+              {(stats || damage > 0 || rulesCounters.length > 0 || handMarks.length > 0) && (
+                <div className="mt-2 flex flex-wrap items-end gap-x-3 gap-y-1.5">
+                  {stats && (
+                    <div className="shrink-0">
+                      <p className="text-5xl font-bold leading-none tabular-nums text-foreground">
+                        {stats}
+                      </p>
+                      {statsModified && printedStats && (
+                        <p className="mt-1 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                          printed {printedStats}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex min-w-0 flex-wrap items-center gap-1.5 pb-1">
+                    {damage > 0 && (
+                      <span
+                        title={`${damage} damage marked on ${card.name}. It is destroyed when this reaches its toughness.`}
+                        className="rounded-full bg-destructive px-2.5 text-sm font-semibold leading-7 tabular-nums text-destructive-foreground"
+                      >
+                        {damage} damage
+                      </span>
+                    )}
+                    {/* "+1 +1/+1" is what `${delta} ${key}` produces for the
+                        commonest counter in Magic, and it is not a thing anyone
+                        says. A player says one plus-one-plus-one counter. */}
+                    {rulesCounters.map(counter => (
+                      <span
+                        key={counter.key}
+                        title={`${counter.key} counters. The game put these here.`}
+                        className="rounded-full bg-foreground px-2.5 text-sm font-semibold leading-7 tabular-nums text-background"
+                      >
+                        {counter.value === 1
+                          ? `${counter.key} counter`
+                          : `${counter.value} ${counter.key} counters`}
+                      </span>
+                    ))}
+                    {/* Glass rather than filled, exactly as on the mat, because
+                        a person laid this on the card and the rules did not. */}
+                    {handMarks.map(mark => (
+                      <span
+                        key={mark.key}
+                        title={markDescription(mark)}
+                        className="rounded-md bg-foreground/[0.10] px-2.5 text-sm font-medium leading-7 text-foreground"
+                      >
+                        {mark.die ? `${mark.label} ${mark.value}` : markText(mark)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               )}
               {notes.length > 0 && (
                 <div className="mt-2 flex flex-wrap items-center gap-1">

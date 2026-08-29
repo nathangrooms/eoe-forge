@@ -28,6 +28,26 @@ export interface LandVerdict {
 
 const TAPPED = /enters tapped|enters the battlefield tapped/i;
 
+/**
+ * Whether a land really does come down tapped, said the way a player says it.
+ *
+ * The plain test above is a substring match and a lot of lands say "enters
+ * tapped" inside a condition. Watery Grave says you may pay 2 life and it does
+ * not, and reporting that as "enters tapped" is a wrong fact about a card in an
+ * answer that is otherwise correct. It was on screen in the first run of this.
+ *
+ * Only the two conditions worth naming are separated out. Anything else that
+ * qualifies its own tapped clause is reported as "sometimes enters tapped",
+ * which is vague and true, rather than flatly wrong.
+ */
+export function tappedNote(oracleText: string | null | undefined): string {
+  const text = String(oracleText ?? '');
+  if (!TAPPED.test(text)) return 'enters untapped';
+  if (/pay \d+ life/i.test(text)) return 'enters untapped if you pay the life';
+  if (/\bunless\b|\bif you don't\b|\bif you do\b|\byou may\b/i.test(text)) return 'sometimes enters tapped';
+  return 'enters tapped';
+}
+
 export function gradeLands(cards: NormalisedCard[], identity: string[]): LandVerdict[] {
   const colours = identity.filter(c => 'WUBRG'.includes(c));
   return cards
@@ -130,13 +150,37 @@ export async function findLandCandidates(
   const colours = identity.filter(c => 'WUBRG'.includes(c));
   if (colours.length < 2) return [];
 
+  /* 600 rows, not 1,500. Measured over HTTP with the anon key, four colours:
+   *
+   *   cards        limit 1500   3.48 s   over the 3 s statement_timeout
+   *   cards        limit  600   0.40 s
+   *
+   * At 1,500 this returned nothing at all, so "which lands can I upgrade" gave
+   * the list of weak lands and then said the shortlist could not be read. The
+   * loop below drops every land that does not make two of the deck's colours,
+   * so 600 in popularity order is still far more than the 45 that survive it.
+   *
+   * WHY THIS STILL READS `cards` RATHER THAN `cards_unique`
+   * ------------------------------------------------------
+   * CLAUDE.md 10b says the source should move, and it cannot yet. Measured the
+   * same way on the same day:
+   *
+   *   cards_unique limit  600   3.08 s   times out
+   *   cards_unique limit 1500   3.20 s   times out
+   *
+   * `cards` carries an index on `produced_mana` and `cards_unique` does not, so
+   * the view has to scan for the overlap. Moving the source means adding that
+   * index first, and this file is not the place to decide that: the database
+   * discipline note is explicit that the two already carry near duplicate index
+   * sets. Results are unaffected either way, because the loop below dedupes by
+   * name, which is why the note called it tidiness rather than a bug. */
   const { data, error } = await supabase
     .from('cards')
     .select('id, name, type_line, oracle_text, produced_mana, prices, edhrec_rank, legalities')
     .overlaps('produced_mana', colours)
     .not('edhrec_rank', 'is', null)
     .order('edhrec_rank', { ascending: true })
-    .limit(1500);
+    .limit(600);
 
   /* null, not []. An empty list and a failed lookup are different facts, and the
      caller has to be able to tell them apart: "there are no candidates" is worth
@@ -148,12 +192,20 @@ export async function findLandCandidates(
   }
 
   const excluded = new Set(excludeNames.map(n => n.toLowerCase()));
-  const seen = new Set<string>();
-  const out: LandCandidate[] = [];
+
+  /* One entry per card, and the entry is the printing worth quoting a price
+     from. `cards` holds every printing, so the same land arrives several times
+     and keeping whichever came first printed "no price on file" beside Watery
+     Grave, a card that plainly has a price. That is the missing price rule
+     broken from the other end: absence reported where there is none.
+
+     The tie break is the project's existing one rather than a new one: a priced
+     printing beats an unpriced printing, then the cheaper price wins. Same rule
+     as `cards_unique`'s own ordering and as `comparePrintings`. */
+  const best = new Map<string, LandCandidate>();
 
   for (const row of data ?? []) {
     const name = String(row.name);
-    if (seen.has(name.toLowerCase())) continue;
     if (excluded.has(name.toLowerCase())) continue;
     // The type check the database used to do, done here for nothing.
     if (!/\bland\b/i.test(row.type_line ?? '')) continue;
@@ -164,8 +216,7 @@ export async function findLandCandidates(
     const relevant = produces.filter((m: string) => colours.includes(m));
     if (relevant.length < 2) continue;
 
-    seen.add(name.toLowerCase());
-    out.push({
+    const candidate: LandCandidate = {
       id: row.id,
       name,
       type_line: row.type_line,
@@ -173,11 +224,31 @@ export async function findLandCandidates(
       produced_mana: produces,
       prices: row.prices,
       edhrec_rank: row.edhrec_rank,
-    });
-    if (out.length >= limit) break;
+    };
+
+    const key = name.toLowerCase();
+    const held = best.get(key);
+    if (!held || betterPrinting(candidate, held)) best.set(key, candidate);
   }
 
-  return out;
+  return [...best.values()]
+    .sort((a, b) => (a.edhrec_rank ?? 1e9) - (b.edhrec_rank ?? 1e9))
+    .slice(0, limit);
+}
+
+/** A priced printing beats an unpriced one, then the cheaper price wins. */
+function betterPrinting(a: LandCandidate, b: LandCandidate): boolean {
+  const priceOf = (c: LandCandidate): number | null => {
+    const raw = c.prices?.usd;
+    if (raw == null) return null;
+    const n = typeof raw === 'number' ? raw : parseFloat(String(raw));
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+  const one = priceOf(a);
+  const two = priceOf(b);
+  if (one != null && two == null) return true;
+  if (one == null) return false;
+  return one < (two as number);
 }
 
 export function renderCandidates(candidates: LandCandidate[], colours: string[]): string {

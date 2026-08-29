@@ -56,11 +56,11 @@ import {
   type CardRow,
   type Combo,
   type DeckHit,
-  type Read,
 } from './catalogue.ts';
 import {
   countFrom,
   coloursFrom,
+  looksLikeAPlayerAsking,
   manaValueFrom,
   pointsAtSomething,
   readQuestion,
@@ -70,19 +70,22 @@ import {
 } from './route.ts';
 import {
   FORMATS,
+  NO_COMMANDER_DATA,
   NO_META_DATA,
   NO_RULES_CORPUS,
   colourName,
+  isRoleTag,
   joinWords,
   looksWrong,
   priceLine,
   priceTag,
+  readAmount,
   roleWords,
   thousands,
   judgementGap,
   TAG_SYNONYMS,
 } from './voice.ts';
-import { gradeLands, upgradeTargets, findLandCandidates } from '../manabase.ts';
+import { gradeLands, upgradeTargets, findLandCandidates, tappedNote } from '../manabase.ts';
 import { isLand, type NormalisedCard } from '../deck-context.ts';
 import { resolveCards, type ResolvedCard } from '../resolve-cards.ts';
 
@@ -112,6 +115,16 @@ function render(blocks: Block[]): string {
 function checkVoice(blocks: Block[]): string[] {
   const faults: string[] = [];
   for (const block of blocks) {
+    const text = 'said' in block ? block.said : block.quoted;
+
+    /* The zero price rule applies to EVERY block, quoted ones included.
+       A list row reads as quoted because a card name sits in it, but the money
+       on that row was formatted by us, and a rendered $0.00 is always something
+       we produced. No card's own printed text contains it. */
+    if (/\$0\.00|€0\.00/.test(text)) faults.push(`a price printed as zero in: ${text.slice(0, 60)}`);
+
+    // The rest is about how WE write. A card's type line carries an em dash and
+    // its name can carry anything, and neither is ours to edit.
     if (!('said' in block)) continue;
     for (const fault of looksWrong(block.said)) {
       faults.push(`${fault} in: ${block.said.slice(0, 60)}`);
@@ -172,6 +185,11 @@ export async function answerFromCatalogue(req: AnswerRequest): Promise<Answered 
   const { question, card: attached } = readQuestion(req.message);
   if (!question) return null;
 
+  /* Six other screens invoke this function with a template rather than a
+     question. Reading one of those as if a player had typed it would produce a
+     confident answer to something nobody asked. */
+  if (!looksLikeAPlayerAsking(question)) return null;
+
   // A card can also be named in the question with nothing attached: "budget
   // alternatives to Rhystic Study". The name has to appear in what they typed,
   // which is a hard guard against a card being conjured out of a coincidence.
@@ -186,6 +204,12 @@ export async function answerFromCatalogue(req: AnswerRequest): Promise<Answered 
   const routing = route(question, have);
   if (!routing) return null;
 
+  /* A rules question about a card still gets the card. We cannot answer the
+     rulings half, and saying only that leaves somebody staring at a card we
+     could have read out. So the printed text goes with the refusal. */
+  if (routing.gap === 'rules' && named) {
+    return answerAboutCard(req, routing, named, ['what', 'text'], NO_RULES_CORPUS);
+  }
   if (routing.gap) return refuse(routing);
 
   /* The ask needs something the request did not carry. Saying "pick a card"
@@ -216,7 +240,7 @@ export async function answerFromCatalogue(req: AnswerRequest): Promise<Answered 
     case 'staples':
       return answerWithStaples(req, routing);
     case 'upgrades':
-      return upgradesAreWorkedOutElsewhere(req, routing);
+      return upgradesAreWorkedOutElsewhere(routing);
     case 'lands':
       return answerAboutLands(req, routing);
     default:
@@ -253,7 +277,7 @@ function combosAreOneCardAtATime(routing: Routing): Answered {
  * here is the duplication the whole overhaul exists to remove, and it is the
  * project's own standing rule: one way to do each thing.
  */
-function upgradesAreWorkedOutElsewhere(req: AnswerRequest, routing: Routing): Answered {
+function upgradesAreWorkedOutElsewhere(routing: Routing): Answered {
   const said = [
     'Adds and cuts are worked out on this deck\'s own Optimise view. It ranks every card the deck could play against what the deck is short of, and it says what comes out for what goes in, with the reason on each line.',
     'I am not going to do a rougher version of that here and have the two disagree with each other.',
@@ -320,15 +344,35 @@ async function cardNamedInQuestion(db: any, question: string): Promise<{ name: s
   const { names } = extractCardNames(question);
   const asked = question.toLowerCase();
 
-  const worthTrying = names
-    .filter(n => n.length >= 4 && asked.includes(n.toLowerCase()))
-    .sort((a, b) => b.length - a.length)
-    .slice(0, 4);
+  const present = names.filter(n => n.length >= 4 && asked.includes(n.toLowerCase()));
+  const worthTrying = [...present].sort((a, b) => b.length - a.length).slice(0, 4);
 
   for (const candidate of worthTrying) {
     const found = await cardByName(db, candidate);
     if (!found.ok || !found.value) continue;
-    if (!asked.includes(found.value.name.toLowerCase().split(' // ')[0])) continue;
+
+    const resolved = found.value.name.toLowerCase().split(' // ')[0];
+    if (!asked.includes(resolved)) continue;
+
+    /* THE FRAGMENT TRAP, found by running it.
+     *
+     * "Explain Blastoderm Supreme, what does it do?" names a card that does not
+     * exist. The full phrase resolved to nothing, the loop fell through to
+     * "Blastoderm", which is a real card, and the answer came back confidently
+     * about a different card than the one asked about. That is the fabrication
+     * rule broken by a substring.
+     *
+     * So a match is rejected when the question also contains a longer phrase
+     * that this one sits inside. If they meant Blastoderm they would not have
+     * written another capitalised word after it. */
+    const isAFragment = present.some(
+      other =>
+        other.toLowerCase() !== resolved &&
+        other.toLowerCase().includes(resolved) &&
+        other.length > resolved.length
+    );
+    if (isAFragment) continue;
+
     return { name: found.value.name, setCode: null, collectorNumber: null };
   }
   return null;
@@ -342,7 +386,8 @@ function refuse(routing: Routing): Answered {
   const blocks: Block[] = [];
   if (routing.gap === 'rules') blocks.push(say(NO_RULES_CORPUS));
   else if (routing.gap === 'meta') blocks.push(say(NO_META_DATA));
-  else blocks.push(say(judgementGap('That')));
+  else if (routing.gap === 'commander-scope') blocks.push(say(NO_COMMANDER_DATA));
+  else blocks.push(say(judgementGap(routing.subject === 'deck' ? 'How to play a deck' : 'That')));
 
   return finish(blocks, [], routing, [], 'refused');
 }
@@ -368,7 +413,9 @@ async function answerAboutCard(
   req: AnswerRequest,
   routing: Routing,
   focus: { name: string; setCode: string | null; collectorNumber: string | null },
-  parts: Part[]
+  parts: Part[],
+  /** Something honest to add at the end, such as the rules gap. */
+  closing?: string
 ): Promise<Answered> {
   const basis: string[] = ['cards_unique'];
   const blocks: Block[] = [];
@@ -481,7 +528,7 @@ async function answerAboutCard(
   /* -- other cards doing the same job ------------------------------------ */
   if (parts.includes('alternatives')) {
     const rarity = await tagRarity(req.db, TAG_SYNONYMS.map(t => t.tag));
-    const similar = await similarTo(req.db, card, rarity, 6);
+    const similar = await similarTo(req.db, card, rarity, isRoleTag, 6);
     if (!similar.ok) {
       blocks.push(say('The shortlist of cards doing the same job could not be read just now.'));
       standing = 'partial';
@@ -489,17 +536,35 @@ async function answerAboutCard(
       blocks.push(say(`Nothing else in the catalogue is filed the same way as ${card.name}, so I have no honest shortlist to give you.`));
       standing = 'partial';
     } else {
-      const mine = card.prices?.usd != null ? Number(card.prices.usd) : null;
+      const mine = readAmount(card.prices?.usd);
+
+      /* "Budget alternatives to Rhystic Study" is a question about money, and
+         answering it in popularity order put a $56 card at the top of a budget
+         list. When the question says budget, the list is ordered by price and
+         says so. Cards with no price on file go last, because a card we cannot
+         price is not a cheap card. */
+      const onABudget = /\bbudget\b|\bcheap(er|est)?\b|\bafford/i.test(routing.question);
+      const listed = onABudget
+        ? [...similar.value].sort(
+            (a, b) => (readAmount(a.prices?.usd) ?? Infinity) - (readAmount(b.prices?.usd) ?? Infinity)
+          )
+        : similar.value;
+
       blocks.push(say(
-        `Cards filed the same way as ${card.name}, most played first. Whether any of them is better for your deck is your call, but here is what each one costs and how much Commander runs it.`
+        onABudget
+          ? `Cards filed the same way as ${card.name}, cheapest first. Whether any of them is right for your deck is your call, so here is the price and how many decks run each one.`
+          : `Cards filed the same way as ${card.name}, closest first and then by how much Commander plays them. Whether any of them is better for your deck is your call, so here is what each one costs and how many decks run it.`
       ));
-      blocks.push(quote(similar.value.map(row => {
+      blocks.push(quote(listed.map(row => {
         const rank = row.edhrec_rank != null ? `rank ${thousands(row.edhrec_rank)}` : 'no popularity number';
         const price = priceTag(row.prices);
-        const cheaper = mine != null && row.prices?.usd != null && Number(row.prices.usd) < mine ? ', cheaper' : '';
+        const theirs = readAmount(row.prices?.usd);
+        /* Not worth saying on a list already sorted by price: every row would
+           carry it and it would stop meaning anything. */
+        const cheaper = !onABudget && mine != null && theirs != null && theirs < mine ? ', cheaper' : '';
         return `- ${row.name} ${row.mana_cost ?? ''} ${price}, ${rank}${cheaper}`.replace(/\s+/g, ' ');
       }).join('\n')));
-      for (const row of similar.value) attach.push(row.name);
+      for (const row of listed) attach.push(row.name);
     }
   }
 
@@ -507,20 +572,30 @@ async function answerAboutCard(
   if (parts.includes('decks')) {
     const mine = await decksPlaying(req.userDb, card.name);
     if (mine === null) {
-      // Signed out. Say nothing rather than "none of your decks", which is a
-      // claim we have not checked. Same rule as a missing price.
+      /* Signed out. Never "none of your decks", which is a claim we have not
+         checked, the same rule as a missing price. When the whole question was
+         about their decks, silence is its own wrong answer, so that one case
+         says why there is nothing. */
+      if (routing.ask === 'in-my-decks') {
+        blocks.push(say('I can only check your decks while you are signed in. Sign in and ask again and I will tell you which ones run it.'));
+        standing = 'partial';
+      }
     } else if (!mine.ok) {
       blocks.push(say('I could not read your decks just now, so I cannot say whether you already run it.'));
       standing = 'partial';
     } else {
       basis.push('user_decks', 'deck_cards');
-      blocks.push(say(deckHitLine(card.name, mine.value)));
+      blocks.push(say(deckHitLine(mine.value)));
     }
   }
 
   /* -- the part that is not ours ------------------------------------------ */
   if (asksWhenItIsGood(routing.question)) {
     blocks.push(say(judgementGap('When it is good')));
+    standing = standing === 'full' ? 'partial' : standing;
+  }
+  if (closing) {
+    blocks.push(say(closing));
     standing = standing === 'full' ? 'partial' : standing;
   }
 
@@ -660,7 +735,7 @@ function comboLines(combos: Combo[], cardName: string): { intro: string; lines: 
   return { intro, lines, pieces };
 }
 
-function deckHitLine(cardName: string, hits: DeckHit[]): string {
+function deckHitLine(hits: DeckHit[]): string {
   if (!hits.length) return `It is not in any of your decks.`;
   const said = hits.map(h => {
     const where = h.isCommander ? ' as the commander' : h.quantity > 1 ? `, ${h.quantity} copies` : '';
@@ -710,7 +785,7 @@ async function answerWithAList(req: AnswerRequest, routing: Routing): Promise<An
 
   const shape = [
     manaValue != null ? `${manaValue} mana` : '',
-    useColours.length ? useColours.map(colourName).join(' and ') : '',
+    useColours.length ? joinWords(useColours.map(colourName)) : '',
     role.says,
   ].filter(Boolean).join(' ');
 
@@ -755,6 +830,7 @@ async function answerWithStaples(req: AnswerRequest, routing: Routing): Promise<
 
   const blocks: Block[] = [];
   const attach: string[] = [];
+  let standing: Answered['standing'] = 'full';
 
   if (!colours.length) {
     const found = await topByRole(req.db, { limit: perColour });
@@ -766,15 +842,27 @@ async function answerWithStaples(req: AnswerRequest, routing: Routing): Promise<
     for (const r of found.value) attach.push(r.name);
   } else {
     blocks.push(say(`The cards Commander runs most in ${joinWords(colours.map(colourName))}, counted by how many decks play them:`));
+    let read = 0;
     for (const colour of colours) {
-      const found = await topByRole(req.db, { colours: [colour], limit: perColour });
+      const found = await topByRole(req.db, { mustInclude: colour, limit: perColour });
       if (!found.ok) {
         blocks.push(say(`The ${colourName(colour)} list could not be read just now.`));
+        /* A list that failed is not a list. Reporting this as a whole answer is
+           how the first run of this function said "full" while every one of the
+           five colours had timed out. */
+        standing = 'partial';
         continue;
       }
+      read++;
       blocks.push(say(`**${colourName(colour).replace(/^./, c => c.toUpperCase())}**`));
       blocks.push(quote(found.value.map((r, i) => staplesLine(r, i)).join('\n')));
       for (const r of found.value.slice(0, 2)) attach.push(r.name);
+    }
+    if (!read) {
+      return finish(
+        [say('The catalogue could not be read just now, so I have no list for you. Try again in a moment.')],
+        [], routing, ['cards_unique'], 'refused'
+      );
     }
   }
 
@@ -783,7 +871,7 @@ async function answerWithStaples(req: AnswerRequest, routing: Routing): Promise<
   ));
 
   const cards = await resolveCards(req.db, attach, attach.length, 10);
-  return finish(blocks, cards, routing, ['cards_unique'], 'full');
+  return finish(blocks, cards, routing, ['cards_unique'], standing);
 }
 
 function staplesLine(row: CardRow, index: number): string {
@@ -843,6 +931,17 @@ async function answerAboutLands(req: AnswerRequest, routing: Routing): Promise<A
     return `- ${t.name}: ${taps}. That is ${why}.`;
   }).join('\n')));
 
+  /* The caveat is not optional. `gradeLands` judges a land on the colours it
+     makes and nothing else, so Rogue's Passage and Academy Ruins come out at
+     the top of the weak list for making no colour, which is true and is not the
+     same as being bad cards. Leaving that unsaid turns a fair measurement into
+     an unfair recommendation. */
+  if (targets.some(t => (t.produces ?? []).length > 0 || t.verdict === 'no colour')) {
+    blocks.push(say(
+      'One thing to hold in mind. This is judged on colours only, so a land that makes no colour sits at the top of the list whatever else it does. If one of those is in there for what it does rather than what it taps for, keep it.'
+    ));
+  }
+
   const candidates = await findLandCandidates(req.db, colours, req.deckCards.map(c => c.name));
   const attach = targets.slice(0, 3).map(t => t.name);
 
@@ -861,10 +960,7 @@ async function answerAboutLands(req: AnswerRequest, routing: Routing): Promise<A
     blocks.push(quote(swaps.map((land, i) => {
       const out = targets[i]?.name;
       const makes = (land.produced_mana ?? []).filter(m => colours.includes(m)).join('');
-      const tapped = /enters tapped|enters the battlefield tapped/i.test(land.oracle_text ?? '')
-        ? ', enters tapped'
-        : ', enters untapped';
-      return `- Cut ${out}, play ${land.name}. Taps for ${makes}${tapped}. ${priceTag(land.prices)}.`;
+      return `- Cut ${out}, play ${land.name}. Taps for ${makes}, ${tappedNote(land.oracle_text)}. ${priceTag(land.prices)}.`;
     }).join('\n')));
     for (const land of swaps) attach.push(land.name);
   }

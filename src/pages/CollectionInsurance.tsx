@@ -86,7 +86,15 @@ export default function CollectionInsurance() {
 
   return (
     <div className="w-full max-w-full overflow-x-hidden px-3 pb-24 pt-2 md:px-6 md:pt-4">
-      <div className="mx-auto w-full max-w-3xl">
+      {/* Full width, not a centred ribbon.
+
+          This was `mx-auto w-full max-w-3xl`: a 768px column in a 1592px
+          window, measured, with roughly 285px of empty background down each
+          side. Settings was taken off exactly that wrapper for exactly that
+          reason and the note above its COLUMNS constant records the numbers.
+          The heading paragraph keeps a readable measure of its own; nothing
+          else on the page wants to be narrow. */}
+      <div className="w-full">
         <div className="mb-3 flex items-center gap-2">
           <Link
             to="/collection?tab=analytics"
@@ -105,7 +113,7 @@ export default function CollectionInsurance() {
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">
               Insurance report
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
               Valuation of your collection as of today
             </p>
           </div>

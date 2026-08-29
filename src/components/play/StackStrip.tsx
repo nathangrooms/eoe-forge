@@ -163,23 +163,30 @@ export function StackStrip({
         Top first: the next thing to resolve reads first, and it is drawn as
         the CARD it is.
 
-        The next object gets a card you can actually read at 108px; everything
-        under it gets a 56px one, because the stack under the top is context
+        The next object gets a card you can actually read at 172px; everything
+        under it gets an 84px one, because the stack under the top is context
         rather than the decision. Both are real card views, so both carry the
         art, the frame and the layer engine's stat line, and neither of them is
         a rectangle with a name in it.
+
+        108px was a thumbnail, and it is worth saying why it was raised rather
+        than left alone: this is the ONE card on screen the player is being
+        asked about, and at 108px it was smaller than every permanent on the
+        board behind it and smaller than every card in their own hand. The
+        thing being decided should be the biggest thing in its own panel. Five
+        at these sizes is 172 + four at 84 plus gaps, about 530 of the strip's
+        672, so nothing had to be given up for it.
       */}
       {/* Centred, because the headline above is a sentence and the row below it
           is usually one card: left-aligned, a single spell sat in the corner of
           a strip that was two thirds empty. */}
       <div className="relative flex items-end justify-center gap-2">
-        {/* Five is what fits: 108 + four at 56 plus the gaps is about 390 of
-            the strip's 672. A deeper stack says how much deeper rather than
-            running off the end, because a scroll bar inside the table is the
-            one thing this surface may never grow. */}
+        {/* A deeper stack says how much deeper rather than running off the
+            end, because a scroll bar inside the table is the one thing this
+            surface may never grow. */}
         {topFirst.slice(0, STACK_SHOWN).map((object, index) => {
           const card = cardFor(object);
-          const width = index === 0 ? 108 : 56;
+          const width = index === 0 ? 172 : 84;
           const kind = isSpell(object) ? 'spell' : 'ability';
           const label = `${object.name}, ${kind} cast by ${nameOf(object.controllerId)}`;
 

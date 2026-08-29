@@ -30,8 +30,11 @@ const TURNS = Number(process.env.TURNS || 9);
 fs.mkdirSync(OUT, { recursive: true });
 const log = (...a) => console.log(...a);
 
-const { browser, page } = await launch();
-await startGame(page, { base: BASE, mode: 'GOLDFISH' });
+const { browser, page } = await launch({
+  width: Number(process.env.W || 1600),
+  height: Number(process.env.H || 1000),
+});
+await startGame(page, { base: BASE, mode: process.env.MODE || 'GOLDFISH' });
 await playTurns(page, TURNS, log);
 
 const report = await page.evaluate(() => {

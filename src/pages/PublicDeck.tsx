@@ -543,7 +543,9 @@ export default function PublicDeck() {
                     <DeckManaPanel
                       curveCards={mainboard}
                       format={deck.format}
-                      rows={rows.filter(row => !row.is_commander)}
+                      /* Commander included, for the reason written at the
+                         matching mount in DeckInterface. */
+                      rows={rows}
                       profile={playabilityEngine.profile}
                       playability={playability}
                       powerEntries={powerEntries}

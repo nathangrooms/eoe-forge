@@ -246,11 +246,20 @@ export function ZoneRow({
         laid from the left, "CREATURES" was drawn straight over the first
         creature's title bar. A gutter costs 14px of row width and cannot
         collide with anything, because the cards start after it.
+
+        IT IS ALSO NOW LEGIBLE, which it was not. Measured on 29 Aug 2026 over
+        eleven screens of a real game: the faintest painted text on every board
+        screen was this label and its two siblings, at alpha 0.25 and 8px on a
+        mat whose own weave has a standard deviation of about 6 luminance
+        levels. A zone name nobody can read is not restraint, it is a label that
+        failed. It is 9px at 0.55 with a shadow now, which is the weight a
+        screen-printed area on a real mat carries: you can read it when you look
+        for it and it does not compete with a card.
       */}
       {labelFits && (
         <span
           aria-hidden="true"
-          className="pointer-events-none flex w-[14px] shrink-0 select-none items-center justify-center overflow-hidden text-[8px] font-medium uppercase tracking-[0.16em] text-foreground/25"
+          className="pointer-events-none flex w-[14px] shrink-0 select-none items-center justify-center overflow-hidden text-[9px] font-semibold uppercase tracking-[0.16em] text-foreground/55 [text-shadow:0_1px_2px_hsl(0_0%_0%/0.85)]"
         >
           <span className="whitespace-nowrap" style={{ writingMode: 'vertical-rl', rotate: '180deg' }}>
             {label}
@@ -347,7 +356,7 @@ export function ZoneBlock({
       >
         <span
           aria-hidden="true"
-          className="pointer-events-none select-none truncate whitespace-nowrap text-[8px] font-medium uppercase tracking-[0.16em] text-foreground/30"
+          className="pointer-events-none select-none truncate whitespace-nowrap text-[9px] font-semibold uppercase tracking-[0.16em] text-foreground/55 [text-shadow:0_1px_2px_hsl(0_0%_0%/0.85)]"
           style={spine ? { writingMode: 'vertical-rl' } : undefined}
         >
           {label}
@@ -396,7 +405,7 @@ export function ZoneBlock({
     >
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute left-2 top-0.5 z-10 max-w-[calc(100%-1rem)] select-none truncate text-[8px] font-medium uppercase tracking-[0.16em] text-foreground/30 drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)]"
+        className="pointer-events-none absolute left-2 top-0.5 z-10 max-w-[calc(100%-1rem)] select-none truncate text-[9px] font-semibold uppercase tracking-[0.16em] text-foreground/55 drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)]"
       >
         {label}
       </span>

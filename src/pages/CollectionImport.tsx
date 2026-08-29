@@ -17,7 +17,15 @@ export default function CollectionImport() {
 
   return (
     <div className="w-full max-w-full overflow-x-hidden px-3 pb-24 pt-2 md:px-6 md:pt-4">
-      <div className="mx-auto w-full max-w-3xl">
+      {/* Full width, not a centred ribbon.
+
+          This was `mx-auto w-full max-w-3xl`: a 768px column in a 1592px
+          window, measured, with roughly 285px of empty background down each
+          side. Settings was taken off exactly that wrapper for exactly that
+          reason and the note above its COLUMNS constant records the numbers.
+          The heading paragraph keeps a readable measure of its own; nothing
+          else on the page wants to be narrow. */}
+      <div className="w-full">
         <div className="mb-3 flex items-center gap-2">
           <Link
             to="/collection"
@@ -34,7 +42,7 @@ export default function CollectionImport() {
           </div>
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">Import cards</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
               Paste a list from Arena, MTGO, Moxfield or a CSV. Set codes, collector numbers and{' '}
               <code className="font-mono">*F*</code> foil markers are understood.
             </p>

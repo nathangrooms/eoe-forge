@@ -63,12 +63,48 @@ export interface CardInFocus {
  */
 const CARD_BLOCK = 'CARD IN FOCUS.';
 
+/**
+ * Six other screens invoke this function, and none of them sends a question.
+ *
+ * They send a template with the player's words buried inside it. `BrainAnalysis`
+ * writes a whole briefing and puts what the player typed after a heading;
+ * `ScanInsightsHelper` and `AITemplateRecommendations` send numbered
+ * instructions to a writer. Reading those as questions is how "Analyze my
+ * deck's mana base and color sources" would be answered as one thing and
+ * "Analyze these recently scanned cards" as another, both by accident.
+ *
+ * So a template is recognised and left alone, and where a template marks off
+ * the player's own words those words are lifted out and used.
+ */
+const PLAYER_SAID = '**User Question**:';
+
+/** Written for a writer, not asked by a player. */
+const TEMPLATE_MARKS = [
+  'you are deckmatrix', 'your tone', 'response style', 'provide:', 'finish with:',
+  'end with:', 'referenced cards',
+];
+
+/**
+ * A question this router should read at all.
+ *
+ * Length is the last check and the crudest. The longest prompt the Tutor page
+ * offers is about 120 characters, and every caller template is several hundred,
+ * so 400 sits well clear of both.
+ */
+export function looksLikeAPlayerAsking(question: string): boolean {
+  const text = question.toLowerCase();
+  if (TEMPLATE_MARKS.some(mark => text.includes(mark))) return false;
+  const numbered = question.split('\n').filter(line => /^\s*\d+[.)]\s/.test(line)).length;
+  if (numbered >= 2) return false;
+  return question.length <= 400;
+}
+
 export function readQuestion(raw: string): { question: string; card: CardInFocus | null } {
   const text = String(raw ?? '');
   const at = text.indexOf(CARD_BLOCK);
-  if (at < 0) return { question: text.trim(), card: null };
+  if (at < 0) return { question: playerPart(text), card: null };
 
-  const question = text.slice(0, at).trim();
+  const question = playerPart(text.slice(0, at));
   const block = text.slice(at);
 
   const field = (label: string): string | null => {
@@ -95,6 +131,12 @@ export function readQuestion(raw: string): { question: string; card: CardInFocus
   };
 }
 
+/** The player's own words, when a template marked them off from its own. */
+function playerPart(text: string): string {
+  const at = text.indexOf(PLAYER_SAID);
+  return (at >= 0 ? text.slice(at + PLAYER_SAID.length) : text).trim();
+}
+
 /* -------------------------------------------------------------------------- *
  * Step two: what is being asked
  * -------------------------------------------------------------------------- */
@@ -106,7 +148,7 @@ export type SubjectKind = 'card' | 'deck' | 'catalogue';
  * measured, and the measurements are in `voice.ts` next to the words the player
  * reads.
  */
-export type Gap = 'rules' | 'meta' | 'judgement';
+export type Gap = 'rules' | 'meta' | 'commander-scope' | 'judgement';
 
 export interface Ask {
   id: string;
@@ -170,7 +212,7 @@ export const ASKS: Ask[] = [
     id: 'which-commanders',
     wants: 'Which commanders and archetypes want a particular card.',
     subjects: ['card'],
-    gap: 'meta',
+    gap: 'commander-scope',
     cues: ['which commanders want', 'what commanders want', 'which commanders and', 'what commanders play', 'which decks want'],
   },
   {

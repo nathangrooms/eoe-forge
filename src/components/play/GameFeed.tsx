@@ -140,7 +140,7 @@ function useLines(
   }, [state.log, state.players, feed, limit, full, everything]);
 }
 
-export function GameFeed({ state, feed, className, limit = 3, variant = 'feed' }: GameFeedProps) {
+export function GameFeed({ state, feed, className, limit = 2, variant = 'feed' }: GameFeedProps) {
   const [expanded, setExpanded] = useState(variant === 'panel');
   /* Off by default. See STRUCTURAL: the record is complete either way, and the
      control below says which of the two the reader is looking at. */
@@ -158,11 +158,16 @@ export function GameFeed({ state, feed, className, limit = 3, variant = 'feed' }
   return (
     <div
       className={cn(
-        'pointer-events-none flex flex-col justify-end gap-1',
+        'pointer-events-none flex gap-1',
+        /* Collapsed the panel is a ROW: the LOG toggle, then two lines of feed.
+           It used to be a column with the toggle on a line of its own, which
+           made the strip 93px tall and put its top over the near seat's command
+           zone. See the cap on the list below for the measurement. */
+        isPanel ? 'flex-col justify-end' : 'flex-row items-end',
         /* The panel needs room for a sentence. 224px with `truncate` on it cut
            31 of 200 measured lines off mid-word, which is most of why a wired
            control read as a dead one. */
-        isPanel ? 'w-[min(30rem,42vw)]' : 'w-56',
+        isPanel ? 'w-[min(30rem,42vw)]' : 'w-64',
         className
       )}
     >
@@ -200,12 +205,23 @@ export function GameFeed({ state, feed, className, limit = 3, variant = 'feed' }
         aria-live="polite"
         aria-label="Game log"
         className={cn(
-          'flex min-h-0 flex-col gap-0.5',
+          'flex min-h-0 min-w-0 flex-1 flex-col gap-0.5',
           isPanel
             ? 'pointer-events-auto max-h-[46vh] overflow-y-auto bg-background/85 p-2 shadow-lg shadow-black/40 backdrop-blur-md'
-            : // Capped so the strip can never climb up over the viewer's own
-              // life badge, which sits directly above it on every layout.
-              'max-h-[62px] overflow-hidden',
+            : /*
+               * Capped so the strip can never climb up over the viewer's own
+               * life badge, which sits directly above it on every layout.
+               *
+               * 62px, three lines and a LOG button on a row of its own made the
+               * collapsed panel 93px tall, and measured on 29 Aug 2026 that put
+               * its top at y=709 on a 1000px window — 3px above the bottom of
+               * the commander in the near seat's command zone, with the EXILE
+               * and COMMAND count badges stamped straight through the newest
+               * log line. 2,616 px of the log lay over card art on every board
+               * screen of an eleven screen walk. Two lines and an inline toggle
+               * is 42px, which clears the card by 48px and the badges by 30.
+               */
+              'max-h-[42px] overflow-hidden',
           isPanel && variant === 'feed' ? 'rounded-b-lg' : isPanel ? 'rounded-lg' : ''
         )}
       >
@@ -270,7 +286,15 @@ export function GameFeed({ state, feed, className, limit = 3, variant = 'feed' }
         <button
           type="button"
           onClick={() => setExpanded(value => !value)}
-          className="pointer-events-auto flex h-7 w-fit items-center gap-1.5 rounded-md bg-background/55 px-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground shadow-sm shadow-black/30 backdrop-blur-sm transition-colors hover:bg-background/80 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          title={expanded ? 'Hide the game log' : 'Show the whole game log'}
+          className={cn(
+            'pointer-events-auto flex h-7 items-center gap-1.5 rounded-md bg-background/55 px-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground shadow-sm shadow-black/30 backdrop-blur-sm transition-colors hover:bg-background/80 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            /* Collapsed it sits BESIDE the newest line, not under it. A row of
+               its own cost the panel 31px of height it was spending on the near
+               seat's command zone. Open, it goes back to being a control on its
+               own line, because the panel is then 46vh tall and has the room. */
+            expanded ? 'order-last w-fit' : 'order-first shrink-0 px-1.5'
+          )}
           aria-expanded={expanded}
         >
           {expanded ? <ChevronDown className="h-3 w-3" /> : <ScrollText className="h-3 w-3" />}

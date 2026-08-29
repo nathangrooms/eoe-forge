@@ -241,8 +241,8 @@ function ZoneTile({
       <span
         aria-hidden="true"
         className={cn(
-          'pointer-events-none absolute left-1.5 top-0.5 max-w-[calc(100%-0.75rem)] select-none truncate font-medium uppercase tracking-[0.14em] text-foreground/35 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]',
-          roomy ? 'text-[9px]' : 'text-[7px]'
+          'pointer-events-none absolute left-1.5 top-0.5 max-w-[calc(100%-0.75rem)] select-none truncate font-semibold uppercase tracking-[0.14em] text-foreground/60 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]',
+          roomy ? 'text-[10px]' : 'text-[8px]'
         )}
       >
         {label}

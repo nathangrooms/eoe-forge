@@ -132,8 +132,11 @@ export async function startGame(page, { base, mode = 'GOLDFISH' } = {}) {
   }, mode);
   await sleep(900);
 
+  /* VERSUS BOTS stops at step two behind "Choose opponents", which no earlier
+     wording covered, so a bots run sat on the deck wall for seven turns and
+     reported an empty battlefield. Read off the screen, not guessed. */
   const FORWARD =
-    /(Set up your seat|Fill the seats|Watch the \d-player game|Shuffle|Deal|Start|Begin|Play the|Keep|Continue|Next)/i;
+    /(Set up your seat|Choose opponents|Fill the seats|Watch the \d-player game|Start \d-player game|Shuffle|Deal|Start|Begin|Play the|Keep|Continue|Next)/i;
   for (let step = 0; step < 8; step++) {
     if ((await page.evaluate(() => document.querySelectorAll('[data-instance]').length)) > 0) break;
     await press(page, FORWARD);

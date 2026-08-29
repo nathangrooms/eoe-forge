@@ -512,19 +512,37 @@ export function actionsForCard(
 }
 
 /**
- * The card's current standing, as short chips: tapped, sick, damaged, counters.
+ * The card's current standing, as short chips: tapped, sick, attacking,
+ * blocking.
  *
  * Presentation reads this rather than assembling it, so the preview and any
  * other surface that wants the same summary say the same words.
+ *
+ * ---------------------------------------------------------------------------
+ * IT NO LONGER CARRIES DAMAGE OR COUNTERS, AND THAT IS TWO FIXES AT ONCE
+ * ---------------------------------------------------------------------------
+ * It used to walk `card.counters` and print `${delta} ${key}` for every entry.
+ * Measured on a real board by `scripts/play-mark-shots.mjs`, that put
+ * *"+6 mark:d20"* and *"+1 mark:sac at end"* on screen at 11px: the storage
+ * prefix `marks.ts` exists to fence, on the table, in front of the player. This
+ * project has shipped a parser's notation onto the mat once already — the `~`
+ * in the upkeep strip, recorded in `manual.ts` — and this was the same bug
+ * arriving by a different door.
+ *
+ * The prefix could have been stripped here. It is the wrong fix, because these
+ * chips were also the THIRD drawing of the same facts. `CenterPreview` states
+ * damage, counters and marks in the state row beside the power and toughness,
+ * in the same visual family the mat uses; `GameCardView` draws them on the card
+ * itself. A row of small grey pills repeating both is the wall of undifferentiated
+ * text the owner asked to be rid of.
+ *
+ * So this keeps only what the state row does NOT say: the four standings that
+ * are about what the permanent is DOING rather than what it is carrying.
  */
 export function cardNotes(state: GameState, card: CardInstance): string[] {
   const notes: string[] = [];
   if (card.tapped) notes.push('Tapped');
   if (card.summoningSick && card.zone === 'battlefield') notes.push('Summoning sick');
-  if (card.damage > 0) notes.push(`${card.damage} damage`);
-  for (const [key, value] of Object.entries(card.counters)) {
-    if (value !== 0) notes.push(`${value > 0 ? '+' : ''}${value} ${key}`);
-  }
   if (state.combat.attackers.some(d => d.attackerId === card.instanceId)) notes.push('Attacking');
   const blocking = state.combat.attackers.find(d => d.blockedBy.indexOf(card.instanceId) !== -1);
   if (blocking) {

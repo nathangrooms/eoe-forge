@@ -646,7 +646,12 @@ Goldfishing. Ignore mana entirely". An end-anchored
         /* Then put whatever will go onto the board, so there is something with
            an ability to activate. */
         for (let c = 0; c < 4; c++) {
-          if (!(await openHandCard(page, 'You can cast this'))) break;
+          /* The plain-cast sentence only. Without the full stop this also
+             matched "You can cast this once you pick what it is aimed at",
+             opened a targeted spell, found no plain CAST button and broke the
+             loop, so the board never got a creature and the target row never
+             became available. */
+          if (!(await openHandCard(page, 'You can cast this\.'))) break;
           await sleep(600);
           if (!(await press(page, /^Cast/))) { await press(page, /Close the preview/); break; }
           await sleep(1500);

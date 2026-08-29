@@ -58,33 +58,35 @@ const game = () =>
 await page.goto(`${BASE}/play-flow-harness.html?view=flow`, { waitUntil: 'networkidle2' });
 await sleep(1200);
 
-const pressedMode = await page.evaluate(() => {
+/* WHICH DOOR, and why it matters more than it looks.
+   PLAYTEST is a WATCHED table: bots take every seat, so the panel renders
+   read-only and hides the manual controls entirely. Photographing it there
+   showed a tidy panel and proved nothing, because the part the owner called
+   confusing is the interactive part. GOLDFISH gives a seat you actually play.
+     MODE=goldfish node scripts/card-panel-shot.mjs   (default)
+     MODE=playtest node scripts/card-panel-shot.mjs */
+const MODE = (process.env.MODE || 'goldfish').toUpperCase();
+const pressedMode = await page.evaluate(mode => {
   const el = [...document.querySelectorAll('button[aria-pressed]')].find(b =>
-    /PLAYTEST/.test(b.innerText || '')
+    new RegExp(mode).test(b.innerText || '')
   );
   el?.click();
   return Boolean(el);
-});
-log('  playtest door:', pressedMode);
+}, MODE);
+log('  door pressed:', pressedMode, MODE);
 await sleep(900);
-log('  step two heading:', await page.evaluate(() => document.querySelector('h1')?.innerText));
-log('  fill the seats:', await press(/Fill the seats/));
-await sleep(900);
-log('  step three heading:', await page.evaluate(() => document.querySelector('h1')?.innerText));
-const started = await press(/Watch the \d-player game/);
-log('  start:', started);
-if (!started) {
-  log('  buttons on screen:', await page.evaluate(() =>
-    [...document.querySelectorAll('button')].map(b => (b.innerText || '').trim().slice(0, 40)).filter(Boolean).join(' | ')
-  ));
-}
 
-/* The board is read from the DOM, not from a debug hook.
-   `window.__deckmatrixGame` is what scripts/play-merge-check.mjs uses and it
-   is not always exposed by the time the table appears, which made this script
-   report "no game" while the screenshot plainly showed Thrakkus the Butcher
-   on a battlefield. What this script needs is a card it can click, and that is
-   a DOM question, so it asks a DOM question. */
+/* WALK FORWARD GENERICALLY, because the four modes do not share a step
+   sequence. Playtest goes mode, deck, seats, "Watch the N-player game".
+   Goldfish goes mode, deck, "Set up your seat", and then its own start
+   control. Hard-coding one mode's button names is what made this script fall
+   out of the flow at step two and report that no cards existed.
+
+   So it presses whatever forward control is on screen, up to a bounded number
+   of times, and stops as soon as cards appear. Bounded rather than
+   while(true): a step that never advances should fail loudly rather than spin. */
+const FORWARD = /(Set up your seat|Fill the seats|Watch the \d-player game|Shuffle|Deal|Start|Begin|Play the|Keep|Continue|Next)/i;
+
 const cardShapes = () =>
   page.evaluate(() =>
     [...document.querySelectorAll('button, [role="button"], img')].filter(el => {
@@ -93,6 +95,25 @@ const cardShapes = () =>
     }).length
   );
 
+for (let step = 0; step < 8; step++) {
+  if ((await cardShapes()) > 0) break;
+  const heading = await page.evaluate(() => document.querySelector('h1')?.innerText?.split('\n').join(' ') ?? '');
+  const went = await press(FORWARD);
+  log(`  step ${step}: ${heading.slice(0, 40)} -> forward ${went}`);
+  if (!went) {
+    log('    buttons:', await page.evaluate(() =>
+      [...document.querySelectorAll('button')].map(b => (b.innerText || '').split('\n').join(' ').trim().slice(0, 28)).filter(Boolean).slice(0, 12).join(' | ')
+    ));
+  }
+  await sleep(1400);
+}
+
+/* The board is read from the DOM, not from a debug hook.
+   `window.__deckmatrixGame` is what scripts/play-merge-check.mjs uses and it
+   is not always exposed by the time the table appears, which made this script
+   report "no game" while the screenshot plainly showed Thrakkus the Butcher
+   on a battlefield. What this script needs is a card it can click, and that is
+   a DOM question, so it asks a DOM question. */
 log('waiting for a card to appear on a battlefield...');
 let seen = 0;
 for (let i = 0; i < 90; i++) {
@@ -115,14 +136,32 @@ await press(/^Pause$/);
 await sleep(400);
 
 const clicked = await page.evaluate(() => {
-  const cards = [...document.querySelectorAll('[data-card-instance], [role="button"], button')].filter(el => {
-    const r = el.getBoundingClientRect();
-    return r.width > 50 && r.width < 200 && r.height > r.width && r.top > 60 && r.bottom < 820;
-  });
+  /* A CARD, not a zone chip. The first version of this took anything with a
+     card's aspect ratio and clicked the middle of the list, which on a goldfish
+     table is the Exile zone box: it is tall, it is the right width, and it is
+     not a card. The panel that opened said "Nothing here" and the measurement
+     read a heading that belonged to something else entirely.
+
+     A card in HAND is the reliable target. It is in the bottom strip, it always
+     exists on turn one, and clicking one is exactly what the owner does when
+     they say the panel is confusing. */
+  const h = window.innerHeight;
+  const cards = [...document.querySelectorAll('button, [role="button"]')]
+    .map(el => ({ el, r: el.getBoundingClientRect() }))
+    .filter(({ el, r }) =>
+      r.width > 60 && r.width < 240 &&
+      r.height > r.width * 1.1 &&
+      r.top > h * 0.6 &&
+      !/zone|exile|graveyard|library|command|stack/i.test(
+        (el.getAttribute('aria-label') || el.innerText || '')
+      )
+    )
+    .sort((a, b) => a.r.left - b.r.left);
   if (!cards.length) return null;
-  const el = cards[Math.floor(cards.length / 2)];
-  const label = (el.getAttribute('title') || el.getAttribute('aria-label') || el.innerText || '').slice(0, 80);
-  el.click();
+  const pick = cards[Math.min(2, cards.length - 1)];
+  const label = (pick.el.getAttribute('title') || pick.el.getAttribute('aria-label') || pick.el.innerText || '')
+    .split('\n').join(' ').slice(0, 70);
+  pick.el.click();
   return label;
 });
 log('clicked:', clicked ?? 'nothing matched a card shape');

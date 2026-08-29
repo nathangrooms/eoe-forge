@@ -370,6 +370,29 @@ export function CenterPreview({
     note => !enforcedByEngine(note)
   );
 
+  /* A KEYWORD IS A CHIP. A CLAUSE IS A SENTENCE. They were the same list.
+     ---------------------------------------------------------------------
+     Owner, on this panel: *"still confusing and unclear"*, and before that
+     *"Thought this would have so much more to it and look way better"*.
+
+     `yours` is advisoryKeywords concatenated with manualNotes, and those are
+     two different shapes of thing. A keyword is one word: proliferate,
+     landwalk. A manual note is a whole clause off the card, and Atraxa's is 143
+     characters. Both were drawn as rounded chips, so a paragraph was rendered
+     as a pill and the row it sat in became the wall the owner is describing.
+
+     Worse, the clause was ALREADY ON SCREEN TWICE MORE: once printed on the
+     card image, which is the largest and most legible thing in the panel, and
+     once inside `ManualPanel` below, which is the place that actually offers
+     the controls to resolve it. Three copies of one paragraph.
+
+     So the chips carry the KEYWORDS only, which is what a chip is for, and the
+     clauses stay in `ManualPanel` beside the controls that act on them. The
+     count is still stated here, because "there are two things the engine will
+     not do" is worth knowing before you scroll to them. */
+  const yourKeywords = automation.advisoryKeywords.filter(note => !enforcedByEngine(note));
+  const yourClauses = automation.manualNotes.filter(note => !enforcedByEngine(note));
+
   /* CARD LEFT, EVERYTHING ELSE RIGHT, and the sizing follows from that.
      Stacked, the card ate the height and the text below it overflowed, so the
      panel scrolled. Owner: "i dont really like the modal window, and scroll bar
@@ -672,35 +695,45 @@ export function CenterPreview({
             {(handled.length > 0 || yours.length > 0) && (
               <div className="w-full shrink-0 space-y-1.5">
                 {handled.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-1">
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                       Automatic
                     </span>
                     {handled.map(word => (
                       <span
                         key={word}
                         title="The rules engine applies this for you"
-                        className="rounded-full bg-emerald-400/[0.14] px-2 text-[11px] capitalize leading-5 text-emerald-200/90"
+                        className="rounded-full bg-emerald-400/[0.14] px-2.5 text-xs capitalize leading-6 text-emerald-200/90"
                       >
                         {word}
                       </span>
                     ))}
                   </div>
                 )}
-                {yours.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-1">
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                {(yourKeywords.length > 0 || yourClauses.length > 0) && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                       You resolve
                     </span>
-                    {yours.map(word => (
+                    {yourKeywords.map(word => (
                       <span
                         key={word}
                         title="The engine does not apply this. Use the controls below."
-                        className="rounded-full bg-amber-400/[0.14] px-2 text-[11px] leading-5 text-amber-200/90"
+                        className="rounded-full bg-amber-400/[0.14] px-2.5 text-xs leading-6 text-amber-200/90"
                       >
                         {word}
                       </span>
                     ))}
+                    {yourClauses.length > 0 && (
+                      <span
+                        title="Written out in full beside the controls that resolve them"
+                        className="rounded-full bg-amber-400/[0.14] px-2.5 text-xs leading-6 text-amber-200/90"
+                      >
+                        {yourClauses.length === 1
+                          ? '1 ability, below'
+                          : `${yourClauses.length} abilities, below`}
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
@@ -709,7 +742,7 @@ export function CenterPreview({
             {/* A watched table has no plays for the same reason all the way
                 down, so it is said once here rather than card by card. */}
             {readOnly && (
-              <p className="w-full shrink-0 text-[11px] leading-snug text-muted-foreground">
+              <p className="w-full shrink-0 text-xs leading-snug text-muted-foreground">
                 You are watching. The bot is playing every seat at this table.
               </p>
             )}
@@ -717,7 +750,7 @@ export function CenterPreview({
             {/* Not a button you cannot press: a sentence saying why there is no
                 button. The engine never silently does nothing. */}
             {blocked.map(entry => (
-              <p key={entry.id} className="w-full shrink-0 text-[11px] leading-snug text-muted-foreground">
+              <p key={entry.id} className="w-full shrink-0 text-xs leading-snug text-muted-foreground">
                 {entry.reason}
               </p>
             ))}
@@ -730,10 +763,10 @@ export function CenterPreview({
             {!readOnly && !holdReason && onDispatch && card.controllerId === viewerPlayerId && (
               <div className="w-full shrink-0 rounded-lg bg-foreground/[0.04] p-2.5">
                 <div className="mb-1.5 flex items-baseline gap-2">
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                     Play it yourself
                   </span>
-                  <span className="text-[10px] text-muted-foreground/70">
+                  <span className="text-[11px] text-muted-foreground/70">
                     {automation.needsManual
                       ? 'This card needs you'
                       : 'Override anything the engine did'}
@@ -743,19 +776,32 @@ export function CenterPreview({
               </div>
             )}
 
+            {/* MOVING THE CARD SOMEWHERE ELSE, said out loud.
+                Owner: *"Including sending to graveyard, exile, etc"*. These
+                already existed. They were 10px grey text in an unlabelled row
+                at the very bottom, the same shape and weight as every other
+                control on the panel, so finding "To graveyard" meant reading
+                fifteen chips that all looked alike. They are one KIND of
+                action, they are the last resort when the engine will not do
+                something, and they now say so and are big enough to hit. */}
             {moves.length > 0 && (
-              <div className="flex w-full shrink-0 flex-wrap gap-1 border-0 pt-0.5">
-                {moves.map(move => (
-                  <button
-                    key={move.id}
-                    type="button"
-                    onClick={() => run(move)}
-                    title={move.hint}
-                    className="rounded-md bg-foreground/[0.06] px-2 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-foreground/[0.12] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    {move.label}
-                  </button>
-                ))}
+              <div className="w-full shrink-0 space-y-1.5 pt-0.5">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  Move this card
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {moves.map(move => (
+                    <button
+                      key={move.id}
+                      type="button"
+                      onClick={() => run(move)}
+                      title={move.hint}
+                      className="rounded-md bg-foreground/[0.08] px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-foreground/[0.16] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {move.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
             </div>

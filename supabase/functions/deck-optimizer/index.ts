@@ -448,12 +448,12 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
   //
   // IT RUNS BEFORE THE RANKING NOW, and that is the point of moving it. The
   // mana base it measures is an input the ranker was never given: `castability`
-  // carries the second-largest weight of the eight scoring signals (2.5 of
-  // 12.5) and `scoreCandidate` is deliberately silent when the profile has no
-  // mana profile to measure against, so it contributed nothing to any
+  // carries the second-largest of the seven weights in `WEIGHTS` (2.5 of the
+  // 12.5 they sum to) and `scoreCandidate` is deliberately silent when the
+  // profile has no mana profile to measure against, so it contributed to no
   // suggestion this function has ever made. Same rule as everywhere else in the
-  // engine: unknown produces no signal rather than a zero. The consequence was
-  // simply that nobody had supplied the knowledge.
+  // engine: unknown produces no signal rather than a zero. Nobody had supplied
+  // the knowledge, so the rule did the right thing with nothing.
   //
   // `input.edhAnalysis` is still accepted and ignored for this purpose; nothing
   // here reads a castability figure out of it. It used to be the only source,

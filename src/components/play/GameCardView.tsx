@@ -230,10 +230,28 @@ function TypographicFace({
   card,
   size,
   stats,
+  nameInset = 0,
 }: {
   card: CardInstance;
   size: GameCardSize;
   stats: string | null;
+  /**
+   * Pixels to keep clear at the start of the title bar, for a corner mark that
+   * hangs over it.
+   *
+   * Measured, not guessed: three Soldier tokens made by hand read "oldier",
+   * "oldier", "oldier" on the battlefield, because the summoning-sickness chip
+   * sits at `left: -chip * 0.2` and so reaches `chip * 0.62` into the card,
+   * straight through the first letter of the name. On a card with real art that
+   * mark lands on the illustration and costs nothing. This face has no
+   * illustration, so it lands on the only words there are.
+   *
+   * It matters most for tokens, because this face IS a token's permanent face
+   * rather than a loading state, and a token you cannot read the name of is
+   * half made. Nothing about the mark itself moves: it is a documented corner
+   * and it stays where it is.
+   */
+  nameInset?: number;
 }) {
   const compact = size === 'xs' || size === 'sm';
 
@@ -246,7 +264,10 @@ function TypographicFace({
           and that shape alone is most of what makes a card recognisable at a
           glance across a table. */}
       <div className="flex min-w-0 items-center gap-1 rounded-[3px] bg-[hsl(30_10%_17%)] px-1 py-[2px] shadow-[inset_0_0_0_1px_hsl(40_20%_70%/0.1)]">
-        <p className={cn('min-w-0 flex-1 truncate font-medium text-foreground', NAME_TEXT[size])}>
+        <p
+          className={cn('min-w-0 flex-1 truncate font-medium text-foreground', NAME_TEXT[size])}
+          style={nameInset ? { paddingLeft: nameInset } : undefined}
+        >
           {card.name}
         </p>
         {!compact && card.manaCost && <ManaCost cost={card.manaCost} size="xs" className="shrink-0" />}
@@ -593,7 +614,14 @@ export const GameCardView = memo(function GameCardView({
             )}
             style={{ aspectRatio: '488 / 680', borderRadius: CARD_RADIUS }}
           >
-            <TypographicFace card={card} size={size} stats={stats} />
+            <TypographicFace
+              card={card}
+              size={size}
+              stats={stats}
+              /* Only when a corner mark is actually drawn, so a card with a
+                 clear corner keeps its name hard against the left edge. */
+              nameInset={restrained || hasty ? Math.round(chip * 0.5) : 0}
+            />
           </div>
         )}
 

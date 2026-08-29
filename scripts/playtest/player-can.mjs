@@ -552,36 +552,90 @@ const main = async () => {
          is "Free cast
 Goldfishing. Ignore mana entirely". An end-anchored
          regex matched nothing and the pass silently ran with cost still on. */
-      const on = await press(page, /^Free cast/);
+      const on = await press(page, /^Free cast\b/);
+      if (!on) {
+        const seen = (await buttons(page)).map(b => b.label).filter(Boolean);
+        console.log('  free cast not found. buttons on screen: ' + JSON.stringify(seen.slice(0, 30)));
+      }
       await press(page, /Game menu/);
       await sleep(700);
       console.log(`\n  second pass, free cast turned on: ${on}`);
 
-      for (let round = 0; round < 10 && wants.length; round++) {
+      /*
+       * WITH COST REMOVED, EMPTY THE HAND ONTO THE BOARD FIRST.
+       *
+       * Both remaining rows need a card that the seeded deck may simply not
+       * have drawn yet: a spell that names a target, and a permanent with an
+       * activated ability. Casting everything castable for a few of my own
+       * turns is the cheapest way to put one of each on the table, and an
+       * Equipment is both (it is cast, and then it has Equip).
+       */
+      for (let round = 0; round < 12 && wants.length; round++) {
         const g = await myMainPhase(page);
         if (!g) break;
 
+        for (let l = 0; l < 2; l++) {
+          if (!(await openHandCard(page, 'You can play this as a land drop'))) break;
+          await sleep(450);
+          if (!(await press(page, /^Play land$/))) break;
+          await sleep(800);
+        }
+
+        /* THE TARGET ROW, asked of every card in hand rather than of the ones
+           the fan labels. Joust Through can only be aimed at an attacking or
+           blocking creature, so outside combat the fan correctly greys it and a
+           search keyed on the fan's own wording finds nothing. The question
+           here is whether the CONTROL exists, so it is asked directly. */
         if (wants.includes('choose a target')) {
-          const label = await openHandCard(page, 'once you pick what it is aimed at');
-          if (label) {
-            await sleep(900);
+          const handLabels = await page.evaluate(() =>
+            [...document.querySelectorAll('button')]
+              .map(b => b.getAttribute('aria-label') || '')
+              .filter(l => /Click to preview/i.test(l))
+          );
+          for (const label of handLabels) {
+            const opened = await page.evaluate(l => {
+              const el = [...document.querySelectorAll('button')]
+                .find(b => (b.getAttribute('aria-label') || '') === l);
+              if (!el) return false;
+              el.click();
+              return true;
+            }, label);
+            if (!opened) continue;
+            await sleep(800);
             const hasRow = await page.evaluate(() => /Cast it at/i.test(document.body.innerText || ''));
             const aimable = (await buttons(page)).filter(b => /^Aim |^Cast at /i.test(b.title || b.label));
-            const before = await gameState(page);
-            const pressed = aimable.length > 0 && (await press(page, /^Aim |^Cast at /));
-            await sleep(1800);
-            const after = await gameState(page);
-            record('choose a target, free cast on', {
-              found: hasRow, pressed,
-              effect: !!(after && before && (after.stack > before.stack || after.hand < before.hand)),
-              note: `${label.split('.')[0]}: ${aimable.length} target controls, hand ${before?.hand}->${after?.hand}, stack ${before?.stack}->${after?.stack}`,
-            });
-            await shot(page, '12-target-freecast');
-            wants.splice(wants.indexOf('choose a target'), 1);
+            if (hasRow && aimable.length > 0) {
+              const before = await gameState(page);
+              const pressed = await press(page, /^Aim |^Cast at /);
+              await sleep(1800);
+              const after = await gameState(page);
+              record('choose a target, free cast on', {
+                found: true, pressed,
+                effect: !!(after && before && (after.stack > before.stack || after.hand < before.hand)),
+                note: `${label.split('.')[0]}: ${aimable.length} target controls, hand ${before?.hand}->${after?.hand}, stack ${before?.stack}->${after?.stack}`,
+              });
+              await shot(page, '12-target-freecast');
+              wants.splice(wants.indexOf('choose a target'), 1);
+              break;
+            }
             await press(page, /Close the preview|Do not cast it/);
-            await sleep(600);
+            await sleep(300);
           }
+          await press(page, /Close the preview/);
+          await sleep(300);
         }
+
+        /* Then put whatever will go onto the board, so there is something with
+           an ability to activate. */
+        for (let c = 0; c < 4; c++) {
+          if (!(await openHandCard(page, 'You can cast this'))) break;
+          await sleep(600);
+          if (!(await press(page, /^Cast/))) { await press(page, /Close the preview/); break; }
+          await sleep(1500);
+          await unblock(page);
+          await sleep(600);
+        }
+        await press(page, /Close the preview/);
 
         if (wants.includes('activate an ability')) {
           const names = await page.evaluate(() => {
@@ -599,32 +653,33 @@ Goldfishing. Ignore mana entirely". An end-anchored
               return true;
             }, name);
             if (!opened) continue;
-            await sleep(900);
+            await sleep(850);
             const found = (await buttons(page)).filter(b => /^Use .+:/i.test(b.title));
             if (found.length) {
               const pressed = await press(page, /^Use .+:/);
               await sleep(1400);
               record('activate an ability, free cast on', {
                 found: true, pressed, effect: pressed,
-                note: `${name}: ${found[0].title.slice(0, 64)}`,
+                note: `${name}: ${found[0].title.slice(0, 70)}`,
               });
               await shot(page, '13-ability-freecast');
               wants.splice(wants.indexOf('activate an ability'), 1);
               break;
             }
             await press(page, /Close the preview/);
-            await sleep(300);
+            await sleep(250);
           }
           await press(page, /Close the preview/);
         }
 
-        for (let k = 0; k < 12; k++) {
+        for (let k = 0; k < 14; k++) {
           const now = await gameState(page);
           if (!now || now.status === 'complete' || now.active !== 'p1') break;
           await unblock(page);
           await sleep(260);
         }
       }
+
       for (const n of wants) {
         record(n + ', free cast on', { note: 'still never came up, even with cost removed' });
       }

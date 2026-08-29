@@ -191,24 +191,37 @@ export function setLife(playerId: PlayerId, life: number, at = 0): GameAction[] 
 
 /**
  * The tokens people actually make. Everything else goes through `createToken`
- * with a hand-built spec.
+ * with a hand-built spec, so this list is a shortcut and never a limit.
  *
  * No `imageUrl`: token art is not in our `cards` table and this core does no
  * I/O, so the UI draws a placeholder from the name, type line and stats. Said
  * plainly here rather than discovered as a missing image.
+ *
+ * Ordered by how often a Commander player reaches for one. The four artifacts
+ * lead because they are made by cards of every colour and are the ones spent
+ * rather than attacked with; the creatures follow smallest-first, which is also
+ * roughly most-printed-first.
  */
 export const TOKEN_PRESETS: readonly TokenSpec[] = [
   { name: 'Treasure', typeLine: 'Token Artifact — Treasure', oracleText: '{T}, Sacrifice this token: Add one mana of any color.' },
   { name: 'Clue', typeLine: 'Token Artifact — Clue', oracleText: '{2}, Sacrifice this token: Draw a card.' },
   { name: 'Food', typeLine: 'Token Artifact — Food', oracleText: '{2}, {T}, Sacrifice this token: You gain 3 life.' },
+  { name: 'Blood', typeLine: 'Token Artifact — Blood', oracleText: '{1}, {T}, Discard a card, Sacrifice this token: Draw a card.' },
   { name: 'Soldier', typeLine: 'Token Creature — Soldier', power: '1', toughness: '1', colorIdentity: ['W'] },
   { name: 'Spirit', typeLine: 'Token Creature — Spirit', power: '1', toughness: '1', colorIdentity: ['W'], keywords: ['flying'] },
+  { name: 'Cat', typeLine: 'Token Creature — Cat', power: '1', toughness: '1', colorIdentity: ['W'] },
   { name: 'Zombie', typeLine: 'Token Creature — Zombie', power: '2', toughness: '2', colorIdentity: ['B'] },
   { name: 'Goblin', typeLine: 'Token Creature — Goblin', power: '1', toughness: '1', colorIdentity: ['R'] },
+  { name: 'Elemental', typeLine: 'Token Creature — Elemental', power: '1', toughness: '1', colorIdentity: ['R'] },
   { name: 'Saproling', typeLine: 'Token Creature — Saproling', power: '1', toughness: '1', colorIdentity: ['G'] },
-  { name: 'Beast', typeLine: 'Token Creature — Beast', power: '3', toughness: '3', colorIdentity: ['G'] },
-  { name: 'Thopter', typeLine: 'Token Artifact Creature — Thopter', power: '1', toughness: '1', keywords: ['flying'] },
   { name: 'Insect', typeLine: 'Token Creature — Insect', power: '1', toughness: '1', colorIdentity: ['G'] },
+  { name: 'Plant', typeLine: 'Token Creature — Plant', power: '0', toughness: '1', colorIdentity: ['G'] },
+  { name: 'Wolf', typeLine: 'Token Creature — Wolf', power: '2', toughness: '2', colorIdentity: ['G'] },
+  { name: 'Beast', typeLine: 'Token Creature — Beast', power: '3', toughness: '3', colorIdentity: ['G'] },
+  { name: 'Servo', typeLine: 'Token Artifact Creature — Servo', power: '1', toughness: '1' },
+  { name: 'Thopter', typeLine: 'Token Artifact Creature — Thopter', power: '1', toughness: '1', keywords: ['flying'] },
+  { name: 'Angel', typeLine: 'Token Creature — Angel', power: '4', toughness: '4', colorIdentity: ['W'], keywords: ['flying'] },
+  { name: 'Dragon', typeLine: 'Token Creature — Dragon', power: '5', toughness: '5', colorIdentity: ['R'], keywords: ['flying'] },
 ];
 
 export function createToken(
@@ -227,6 +240,92 @@ export function createToken(
       at: options.at ?? 0,
     },
   ];
+}
+
+/**
+ * The tokens THIS card talks about, in the order it names them.
+ *
+ * The point is to POINT AT the ability rather than reprint it. A player looking
+ * at Anointed Procession is already reading "create a 1/1 white Soldier"; what
+ * they need is the button, next to the card, that makes that exact one. So the
+ * oracle text is read for the token it names and the matching preset is
+ * offered first, ahead of the twenty generic ones.
+ *
+ * Deliberately conservative. It matches a preset by name and reports nothing
+ * when it cannot, because a wrong token put onto the battlefield is worse than
+ * no shortcut: the player would have to notice it, work out that it is wrong,
+ * and remove it. `TOKEN_PRESETS` stays reachable underneath either way, so a
+ * miss costs one extra tap and never costs correctness.
+ *
+ * It reads `oracleText` only. Nothing here consults the compiled abilities:
+ * this is the path for the 97% of the catalogue the engine does NOT run, and
+ * asking the compiler about a card it could not compile would return nothing.
+ */
+export function tokensNamedBy(card: CardInstance): TokenSpec[] {
+  const text = card.oracleText ?? '';
+  if (!text) return [];
+  // "create", "creates" and "created" all appear; "put ... token" does not
+  // survive on modern templating but older wordings still say it.
+  if (!/\b(create|put)\w*\b/i.test(text)) return [];
+
+  const found: TokenSpec[] = [];
+  for (const preset of TOKEN_PRESETS) {
+    /* Word-bounded so "Elemental" does not match inside "Elementals" only by
+       accident of a substring, and so "Cat" cannot fire on "Catapult". */
+    const named = new RegExp(String.raw`\b${preset.name}s?\b`, 'i').test(text);
+    if (!named) continue;
+    // The word has to be near the token-making verb rather than anywhere on
+    // the card, or every Dragon tribal lord would offer a 5/5 Dragon token.
+    if (!/\btoken/i.test(text)) continue;
+    found.push(preset);
+  }
+  return found;
+}
+
+/**
+ * Copy a permanent as a token. CR 111.1a, and the other half of making tokens
+ * by hand: "create a token that's a copy of target creature" is as common at a
+ * Commander table as making a Treasure, and this app could do neither.
+ *
+ * CR 707.2 decides what is copied, and it is narrower than it looks: the
+ * COPIABLE values are what the card was printed with, plus any copy effects
+ * already applied. Counters are NOT copied. Damage is not copied. A +1/+1
+ * counter, an Aura, an anthem and a hand-set power override are all changes to
+ * the object rather than to its copiable values, so a copy of a 2/2 Bear
+ * carrying four +1/+1 counters is a 2/2, not a 6/6.
+ *
+ * That is why this reads `card.power` and not `combatPowerIn(state, card)`.
+ * The layered value is the right number to DISPLAY and the wrong number to
+ * copy, and the two are one character apart, so the reason is written here.
+ *
+ * The art comes with it, because a copy of Serra Angel looks like Serra Angel.
+ * That is the one case where a token has real card art, and it is the whole
+ * unmodified Scryfall image rather than a crop.
+ */
+export function copyAsToken(
+  card: CardInstance,
+  controllerId: PlayerId,
+  count = 1,
+  options: { tapped?: boolean; at?: number } = {}
+): GameAction[] {
+  /* Copying a token is legal and does happen, so the prefix is normalised
+     rather than blindly prepended: a copy of a Treasure is a Treasure, not a
+     "Token Token Artifact". */
+  const printedLine = (card.typeLine ?? '').replace(/^token\s+/i, '').trim();
+
+  const spec: TokenSpec = {
+    name: card.name,
+    // A copy is not printed with the word "Token" in its type line, but every
+    // other token here carries it and the board reads it to tell them apart.
+    typeLine: printedLine ? `Token ${printedLine}` : `Token — ${card.name}`,
+    power: card.power,
+    toughness: card.toughness,
+    colorIdentity: card.colorIdentity,
+    keywords: card.keywords,
+    oracleText: card.oracleText,
+    imageUrl: card.imageUrl,
+  };
+  return createToken(controllerId, spec, count, options);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -289,7 +388,15 @@ export function note(message: string, instanceId?: string, at = 0): GameAction[]
 /* The menu                                                                   */
 /* -------------------------------------------------------------------------- */
 
-export type ManualGroup = 'tap' | 'counters' | 'stats' | 'keywords' | 'zones' | 'marker';
+export type ManualGroup =
+  | 'tap'
+  | 'counters'
+  | 'stats'
+  | 'keywords'
+  | 'zones'
+  | 'marker'
+  /** Making a token by hand, and copying a permanent as one. */
+  | 'tokens';
 
 export interface ManualControl {
   /** Stable within one card, so React can key on it. */
@@ -435,6 +542,43 @@ export function manualControlsFor(
       label: `Move to ${ZONE_LABELS[zone].toLowerCase()}`,
       group: 'zones',
       actions: moveTo(card.instanceId, zone, { at }),
+    });
+  }
+
+  /*
+   * Tokens.
+   *
+   * `CREATE_TOKEN` has been in the engine, validated, reduced, triggering ETB
+   * and cleaned up under CR 704.5d, with no producer outside ability
+   * resolution: no player could make a Treasure. That is the same shape as
+   * `ATTACH`, which this codebase has already been caught by once, and it is
+   * the most common thing a Commander player does by hand.
+   *
+   * The controls hang off a CARD rather than off the player because that is
+   * how it happens at a table: a card told you to make the token, so the
+   * button is on that card. `tokensNamedBy` puts the token THIS card talks
+   * about first, and the twenty generic ones stay underneath it.
+   *
+   * They are offered for a card the player controls in any zone, not only on
+   * the battlefield: "when this dies, create two 1/1 Spirits" is answered from
+   * the graveyard, and an instant that makes tokens is read on the stack.
+   */
+  const controller = card.controllerId;
+  for (const preset of tokensNamedBy(card)) {
+    controls.push({
+      id: `token-named:${preset.name}`,
+      label: preset.name,
+      group: 'tokens',
+      actions: createToken(controller, preset, 1, { at }),
+    });
+  }
+
+  if (card.zone === 'battlefield') {
+    controls.push({
+      id: 'token:copy',
+      label: `Copy ${card.name}`,
+      group: 'tokens',
+      actions: copyAsToken(card, controller, 1, { at }),
     });
   }
 

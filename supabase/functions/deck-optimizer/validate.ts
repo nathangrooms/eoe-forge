@@ -1,36 +1,34 @@
 /**
- * The gate on every card the response names in a card-bearing FIELD.
+ * What a card has to be before it may be named, and what is left of the gate.
  *
- * The prompt is grounded — the model is handed a pool of real, legal,
- * in-identity cards and told to choose from it — but a prompt is a request,
- * not a guarantee. Grounding reduces how often the model invents a card;
- * this file is what makes inventing one harmless. Every name in a card-bearing
- * field is resolved before it ships, and anything that fails is dropped with a
- * recorded reason.
+ * MOST OF THIS FILE NO LONGER RUNS IN PRODUCTION, and saying so is the point of
+ * this paragraph. It was written to make a language model's answer harmless:
+ * every card name that came back was resolved against rows actually fetched
+ * from `cards`, and anything that failed was dropped with a recorded reason.
+ * `index.ts` has no language model in it any more. Every card it names came out
+ * of `rankCandidates`, `rankLands` or the user's own decklist, and
+ * `ineligibility` refuses an illegal, off-identity, already-in-deck or basic
+ * card before it is ever scored. There is nothing left to catch.
  *
- * WHAT THIS DOES NOT COVER. Stated because the previous wording here was "the
- * gate; nothing reaches the user without passing through here", and that is
- * not true:
+ * Still used by `index.ts`:
  *
- *   - `summary`, `strengths`, `strategy` and `manabase` are free prose written
- *     by the model and shipped verbatim. The prompt tells it to name no cards
- *     there, but nothing enforces it, so a card named in a sentence is
- *     unverified. It carries no `cardId`, so it cannot be clicked or added —
- *     the exposure is a sentence rather than an action — but it is an exposure,
- *     and `validation.dropRate` does not measure it.
- *   - `currentPowerLevel` and `projectedPowerLevel` are the model's opinion,
- *     passed through unclamped. Both are pre-existing fields.
+ *   CardIndex      resolving the user's deck names against the catalogue
+ *   isLandCard     counting the lands in a deck
+ *   isBasicLand    keeping a basic out of the copy-count issue and the cut list
  *
- * Two card-bearing fields are checked against the DECK rather than against
- * `cards`: `removals` / `replacements.remove`, and `issues[].card`. That is the
- * stronger check for what they claim — "cut this card you play" is false unless
- * the deck plays it — and it is why a card the deck contains but the catalogue
- * does not is still cuttable.
+ * No production caller, reached only by `src/engine/advise/cut-rules.test.ts`
+ * and `src/engine/advise/land-repeat.test.ts`:
  *
- * The reasons are recorded rather than merely counted because the count is the
- * point: it is the measurement of how often the ungrounded path was wrong, and
- * the owner should be able to read it off the response instead of taking
- * anyone's word for it.
+ *   ValidationLog, diagnose, cutRefusal, landRepeatDisposition, DropReason,
+ *   DroppedItem
+ *
+ * They are KEPT rather than deleted, deliberately. Each one encodes a rule that
+ * was learned the hard way — `cutRefusal` exists because an accepted removal
+ * naming the commander was an edit a player could apply in one click, and
+ * applying it dismantles the deck around the one card the format will not let
+ * them replace by drawing it. Deleting the code means deleting the tests that
+ * state the rule, and a rule nobody has written down is a rule that comes back.
+ * If a second source of card names ever arrives, this is what it goes through.
  *
  * Pure apart from the diagnostic lookup, which is injected.
  */

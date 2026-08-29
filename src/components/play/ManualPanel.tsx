@@ -39,9 +39,7 @@ import {
   createToken,
   manualControlsFor,
   marksOn,
-  rollDieOnCard,
   setPlayerMark,
-  DICE,
   MARK_LABEL_MAX,
   TOKEN_PRESETS,
   type CardInstance,
@@ -381,31 +379,26 @@ function MarkMaker({
     <div className="space-y-1.5">
       <div className="flex items-baseline gap-2">
         <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          Dice and markers
+          Markers
         </span>
         <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground/70">
           yours, not the rules
         </span>
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
-        {/* The two dice a Magic player has on the table, then the rest. */}
-        {DICE.slice(0, 3).map(sides => (
-          <button
-            key={sides}
-            type="button"
-            onClick={() =>
-              onDispatch(
-                rollDieOnCard(card, sides, 1 + Math.floor(Math.random() * sides))
-              )
-            }
-            title={`Roll a d${sides} and leave it on ${card.name}. Rolling again replaces the face.`}
-            className="rounded-md bg-foreground/[0.08] px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-foreground/[0.16] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            Roll d{sides}
-          </button>
-        ))}
+      {/* NO ROLLING. Owner: "Dice is an absolute mess - we dont roll dice in
+          MTG...?" and they are right. A die on a Magic table is a MARKER: it
+          sits on a permanent showing a number you SET, because six dice are
+          easier to find than six +1/+1 counters. Almost no card asks you to
+          roll one, and the handful that do are their own card text rather than
+          a control that belongs on every permanent in the game.
 
+          What was here rolled `Math.random()` per press and called it a game
+          action, which is wrong twice over: it is not a thing Magic asks for,
+          and a random number generated in a click handler cannot be replayed,
+          logged the same way at another seat, or undone to the same face. The
+          marker below sets a number you choose, which is what a die does. */}
+      <div className="flex flex-wrap gap-1.5">
         <button
           type="button"
           onClick={() => setWriting(value => !value)}
@@ -474,21 +467,6 @@ function MarkMaker({
                 )}
                 {up && (
                   <Chip label="+1" title={`One on ${mark.label}`} onClick={() => onDispatch(up.actions)} />
-                )}
-                {mark.die && (
-                  <Chip
-                    label="Reroll"
-                    title={`Roll the ${mark.label} again`}
-                    onClick={() =>
-                      onDispatch(
-                        rollDieOnCard(
-                          card,
-                          Number.parseInt(mark.label.slice(1), 10),
-                          1 + Math.floor(Math.random() * Number.parseInt(mark.label.slice(1), 10))
-                        )
-                      )
-                    }
-                  />
                 )}
                 {off && (
                   <Chip

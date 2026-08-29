@@ -154,7 +154,7 @@ export interface CenterPreviewProps {
   onTapToggle?: (card: CardInstance) => void;
   onAttack?: (card: CardInstance, defenderPlayerId: PlayerId) => void;
   onBlock?: (card: CardInstance, attackerId: string) => void;
-  onMoveZone?: (card: CardInstance, to: Zone) => void;
+  onMoveZone?: (card: CardInstance, to: Zone, position?: 'top' | 'bottom') => void;
   onFocusSeat?: (playerId: PlayerId) => void;
   /**
    * Send raw actions from the by-hand controls.
@@ -452,7 +452,7 @@ export function CenterPreview({
       case 'block':
         return action.attackerId && onBlock?.(card, action.attackerId);
       case 'move':
-        return action.zone && onMoveZone?.(card, action.zone);
+        return action.zone && onMoveZone?.(card, action.zone, action.position);
       case 'focus-seat':
         return controller && onFocusSeat?.(controller.id);
     }
@@ -547,7 +547,22 @@ export function CenterPreview({
             />
 
             {/* Everything else, beside it. */}
-            <div className="flex min-w-0 flex-1 flex-col gap-2.5">
+            {/* THE OPTIONS SCROLL. THE CARD DOES NOT.
+                Owner: "All options dont fit into the card window".
+
+                The panel is `max-h-full overflow-hidden`, so until now anything
+                past the bottom was not merely off screen, it was INVISIBLE with
+                nothing to say so. The controls that had grown out of the bottom
+                were the zone moves, which is why the same screenshot also asked
+                "this has a sacrifice ability which I cannot cast?" — sacrificing
+                is To graveyard, it was already built, and it had been pushed
+                below the fold by the token and marker rows added above it.
+
+                Only this column scrolls. The card keeps its full height beside
+                it, because reading the card is the reason the panel opened, and
+                `min-h-0` is what lets a flex child shrink enough to scroll at
+                all rather than growing its parent. */}
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2.5 overflow-y-auto pr-1">
             <div className="flex w-full shrink-0 items-center gap-2">
               <span className="rounded-full bg-foreground/[0.08] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 {ZONE_LABEL[card.zone]}

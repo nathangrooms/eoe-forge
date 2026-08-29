@@ -235,7 +235,9 @@ UUIDs and one literal string `'sol-ring'` (a slug, not an id: a bug in the wishl
 `daily-price-capture` edge function survives as a thin RPC wrapper for manual/admin triggers; it is
 deployed `verify_jwt = false`, so its `?scope=all` override is gated on the caller presenting the
 service-role key — otherwise an anonymous request could write all 34,088 rows in 1.6 s on repeat.
-**The rewritten wrapper is not yet deployed** (`git push` → Lovable). Cron does not touch it, so
+~~**The rewritten wrapper is not yet deployed**~~ — **it is deployed**, verified 2026-08-29 by
+reading the live function source: version 47 is the set-based RPC wrapper with the service-role
+scope gate. Cron does not touch it, so
 nightly capture is already correct; a manual invoke still runs the old loop until it ships.
 
 ### oracle_text — established 2026-08-19
@@ -550,6 +552,105 @@ to name cards, not to guess what the commander usually plays, and not to ask the
   `statement_timeout`. That is passing, not comfortable. If it starts timing out again, a partial
   index on `(edhrec_rank) where edhrec_rank is not null and type_line ilike '%Land%'` is the fix; it
   was not created at the time because the database was saturated and the build kept being cancelled.
+
+---
+
+## 10c. Deploying is a separate act from pushing, and it is the bottleneck — 2026-08-29
+
+The owner, on the deck generator: *"Deck generator still not working properly."* They were right,
+and the reason was not the generator.
+
+**The live function was `ai-deck-builder-v2/6-grounded`. The repo is `7-behaviour`.** The whole
+behaviour and facet pipeline had never been deployed. Four requests against the LIVE deployed
+function, anon key, measured 2026-08-29:
+
+| commander | creatures | artifacts | colourless | keyed off the commander |
+|---|---:|---:|---:|---:|
+| Krenko | 4 | 54 | 82 | 0 / 64 |
+| Talrand | 5 | 54 | 87 | 7 / 64 |
+| Kaalia | 1 | 49 | 58 | 0 / 64 |
+| Sram | 1 | 64 | 92 | 23 / 64 |
+
+That is the owner's sentence reproduced exactly, *"would always give artifacts colourless"*, and it
+is what production does now rather than what it once did. The same commanders on the repo code give
+Krenko 29 creatures and Kaalia 33 with 33 of 52 keyed off her.
+
+So the rule from section 8 generalises beyond the bundle: **pushing to GitHub is not deploying, and
+for an edge function Lovable is not the deployer either.** Before reporting any edge-function fix as
+live, read the deployed source or a version header and compare it with the repo. Section 10b records
+the identical trap on `mtg-brain`, which sat at version 80 while the rewrite lived in the repo.
+
+Checked the same day, so the list is not assumed: `daily-price-capture` IS deployed and correct, and
+the section 7 note claiming otherwise was stale.
+
+---
+
+## 10d. The pool query could not finish, so nothing measured the generator — 2026-08-29
+
+`catalog.ts` walks the candidate pool by keyset, `order=id.asc` with a cursor. The six partial
+legality indexes on `cards_unique` were keyed on the legality EXPRESSION under a predicate pinning
+that expression to `'legal'`, so every entry in each index held the same key. **An index whose key is
+a constant can act as a filtered row set and nothing else**: it cannot answer a lookup and it cannot
+supply an order. `order by id` therefore had to sort, a sort must see every row before it yields the
+first, and `LIMIT 1000` could never terminate early.
+
+    before   Sort (top-N heapsort) over 31,829 rows, Buffers hit=4 read=9826    13,717 ms
+    after    Index Scan, no sort, 1,252 rows for 1,000, hit=1252 read=11            25 ms
+
+against a 3 s `statement_timeout`. Migration
+`20260828120000_pool_query_id_ordered_indexes.sql`. **Applied with `execute_sql`, so it is NOT in
+`supabase_migrations.schema_migrations`** — it is idempotent (`IF NOT EXISTS` / `IF EXISTS`), so a
+re-run is harmless, but see the double-recording section: this is the opposite failure, a file with
+no recorded version.
+
+**The damage was wider than the timeout.** Because the live query could not finish, every
+measurement of the generator was taken against `.shots/pool-snapshot.json` instead, and **zero of
+its 31,833 pool rows carry `oracle_text`**. Facets computed from that file are computed from
+nothing. Kaalia of the Vast was diagnosed as a compiler bug on the strength of it; compiled from the
+real corpus she reads correctly. **Never measure the generator against the snapshot again.**
+
+---
+
+## 10e. One record, two consumers, and the one that was never fed — 2026-08-29
+
+Owner: *"deck generation and gameplay should share their engine"*, and *"Deck generator and
+optimisers should also work from the backend engine."*
+
+They do share, verified by hash rather than assumed. `src/engine/knowledge/behaviour.ts` is
+**byte-identical** in `deck-optimizer/_engine/` and `ai-deck-builder-v2/_engine/`, kept so by
+`npm run vendor` with `engine-parity.test.ts` failing on drift. Both deck building and gameplay
+import `src/lib/cards/abilities/dsl.ts`. One compiler, two readers: facets for deck building,
+effects for gameplay.
+
+How completely that shared compiler reads a card, over 35,663 cards with rules text
+(`scratch/shared-seam.mjs`): **`rec:full` 30.3%, `rec:partial` 46.4%, no record 23.3%.** That figure
+caps both sides at once. `rec:full` is the compiler saying it consumed every paragraph, NOT that it
+was right; accuracy is `scripts/verify-ability-coverage.mjs` and they must never be conflated.
+
+**The optimiser was wired to the engine and never fed.** `rank.ts` scores every candidate with
+`planFit(profile.commanderPlan, card)`, which reads `card.facets` and is deliberately silent for a
+card with no record. Nothing under `deck-optimizer/` set that field and `poolFor` was called without
+`withOracleText`. So the commander-fit signal contributed **exactly zero to every suggestion the
+optimiser has ever made**. Measured through its own vendored ranker over 3,000 real cards,
+candidates receiving the signal: Krenko 0 → 548, Talrand 0 → 1069, Sram 0 → 409, Kaalia 0 → 96.
+
+Cause: `vendor-engine.mjs` mirrored the facet producer to exactly ONE target. Its own comment
+documents fixing this same bug for the generator. `FACET_SUBDIR` is now `FACET_SUBDIRS` and both
+functions that rank a pool get it.
+
+---
+
+## 10f. The lobby was a read doing a write — 2026-08-29
+
+`open_game_tables()` swept tables idle for 30 minutes before returning the listing, on every poll
+from every signed-in player. The guard meant the DELETE only fired when there was something to
+collect, which is exactly the moment every concurrent poller fires it at once and they queue on the
+same row locks. Measured over 2,453 calls: mean 52 ms, **max 3,515 ms** against a 3 s
+`statement_timeout`. So when the lobby had stale tables in it, which is when a player is most likely
+to be looking, the listing could time out and show nothing.
+
+Now behind `pg_try_advisory_xact_lock`: one poller sweeps, the rest read straight through. `pg_cron`
+is not installed on this project or the sweep would live there instead.
 
 ---
 

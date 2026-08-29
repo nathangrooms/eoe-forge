@@ -92,7 +92,6 @@ const KNOWN_UNREACHABLE = new Set([
   'PHASE_CHANGE',
   'REMOVE_REPLACEMENT',
   'RESET',
-  'SET_INITIATIVE',
   'UNTAP_ALL',
 ]);
 
@@ -320,7 +319,6 @@ const KNOWN_UNOFFERED = new Set([
      measured commander tax being charged 0 times in 80 games. */
   'REMOVE_REPLACEMENT',
   'RESET',
-  'SET_INITIATIVE',
   'UNTAP_ALL',
 ]);
 

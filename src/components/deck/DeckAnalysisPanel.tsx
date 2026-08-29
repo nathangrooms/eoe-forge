@@ -21,7 +21,6 @@ import type { Card as StoreCard } from '@/stores/deckStore';
 import type { DeckCardRow } from '@/lib/deck/deckCards';
 import type { DeckPower } from '@/lib/deck/power';
 import { ArchetypeDetection } from '@/components/deck-builder/ArchetypeDetection';
-import { BrainAnalysis } from '@/components/deck-builder/BrainAnalysis';
 import { DeckCardTile, TileBadge } from './DeckCardTile';
 
 /**
@@ -42,7 +41,7 @@ import { DeckCardTile, TileBadge } from './DeckCardTile';
  *
  * ## What is here now
  *
- * Three blocks and one chat, in the order the question is asked.
+ * Three blocks, in the order the question is asked.
  *
  * 1. **What kind of deck is this**, with the cards that say so and the shell a
  *    well-built version of it is made of. `ArchetypeDetection`, which now also
@@ -54,8 +53,9 @@ import { DeckCardTile, TileBadge } from './DeckCardTile';
  *    of every pair are drawn, at the size slider's width.
  * 3. **What the deck is built around.** The mechanic clusters, each one a set
  *    of cards rather than a count.
- * 4. **`BrainAnalysis`**, the single chat, briefed with the canonical
- *    `DeckPower` including its subscores, drivers and drags.
+ * The chat that used to sit under these was removed on the owner's
+ * instruction. Tutor is its own page, takes the same deck as an attachment and
+ * can hold a conversation, which a box at the bottom of a tab never could.
  *
  * ## Where the two things that left this tab went
  *
@@ -374,16 +374,27 @@ export function DeckAnalysisPanel({
         </Card>
       )}
 
-      {/* ONE CHAT. This tab drew two boxes against the same edge function and,
-          counting the section triggers, four routes to one model. The one that
-          survived is the one handed the canonical score. */}
-      <BrainAnalysis
-        deck={mainboard}
-        commander={commander}
-        powerScore={power}
-        deckId={deckId}
-        format={format}
-      />
+      {/* THE CHAT IS GONE FROM THIS TAB.
+
+          Owner: "analysis should remove that AI chat section its useless now".
+
+          It was the last of four routes to one model on this tab, and by the
+          time it was the only one left it had stopped earning the space. Tutor
+          is its own page, it takes the same deck as an attachment, and it can
+          hold a conversation, which a box at the bottom of an analysis tab
+          never could. Two places to ask the same question, one of them worse,
+          is the duplication this whole overhaul exists to remove.
+
+          It also could not answer. Every model call on this project goes
+          through one gateway and that gateway is out of credits, so the box
+          rendered, invited a question, and returned a refusal to anybody who
+          typed one.
+
+          `BrainAnalysis` itself is NOT deleted. This was its only live caller,
+          so it is orphaned now, and an earlier sweep on this project deleted
+          ten deck components that were genuinely in use and had to restore
+          them. Removing the file is a separate decision made against the
+          current tree, not a tidy-up bundled into a copy change. */}
     </div>
   );
 }

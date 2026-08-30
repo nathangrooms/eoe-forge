@@ -1047,6 +1047,122 @@ and the most expensive kind to maintain on write, plus `idx_cards_legalities`
 near-duplicate index sets over the same data. One of them can probably lose most
 of its indexes once usage stats exist to prove which.
 
+## The generator: three costs, all measured, all removed (30 Aug 2026)
+
+Owner: *"especially the engine"*. The deck generator was the worst thing in the
+product. Measured against the DEPLOYED function that night:
+
+    Krenko   mono-red     HTTP 500 after  19s   statement timeout on the pool
+    Teysa    two colours  HTTP 500 after  17s   statement timeout on the pool
+    Atraxa   four         HTTP 200 after  60s
+    Najeela  five         546 resource limit after 114s
+
+Three separate causes. All three are now fixed and all three were invisible
+from the code alone.
+
+**1. `card_facet_memo` existed and held ZERO ROWS.** Nothing wrote it, nothing
+read it. `pipeline.ts` compiled facets from oracle text on EVERY REQUEST,
+capped at 6,000 cards, into a `Map` on the module that dies with the instance;
+every measured run reported `cached: 0`. A five-colour pool is roughly 100,000
+facets compiled from scratch inside one CPU budget.
+
+`scripts/fill-facet-memo.mjs` was written for this and never run, because it
+needs `SUPABASE_SERVICE_ROLE_KEY` and nobody working on this holds one. An edge
+function is handed that key by the platform, so **`facet-memo-fill`** does it,
+gated by a run token on `facet_memo_runs` (admin-only), the same shape that
+guards `dsl-compile-batch`. The whole catalogue takes **43 seconds**:
+
+    33,032 cards   compiler 22,455 · xmage 2,019 · no record 7,058
+
+**2. The pool ordered by `id` while filtering on rank.** The rank filter is
+served by an index that cannot supply `id` order, so every page read all 14,984
+matching rows and sorted them, and a sort must see everything before it yields
+the first row, so `LIMIT 1000` could never stop early.
+
+    ORDER BY id                Sort, 14,984 rows, hit=16743   4,078 ms
+    ORDER BY edhrec_rank, id   Incremental Sort, 1,001 rows       5 ms
+
+The cursor carries `(rank, id)`, because rank is not unique and a cursor on it
+alone steps over every row sharing a boundary rank.
+
+**3. The pool read 105 MB of rows to use 6.7 MB of them.** `cards_unique` rows
+average 3.2 KB because they carry `oracle_text`, `faces`, `image_uris`,
+`legalities` and `prices`. One fat row is one heap block, so scanning 7,495
+mono-red candidates touched 6,441 blocks.
+
+**`public.cards_pool`** is the nine ranking columns, the precompiled facets, and
+the two projections PostgREST used to compute per row per request. 13 MB.
+
+    cards_unique, ORDER BY id                    2,923 ms, 6,441 heap blocks
+    cards_pool,   ORDER BY id                    1,167 ms, no sort
+    cards_pool,   ORDER BY edhrec_rank, id           6 ms
+
+End to end on the deployed function, warm:
+
+    Isamaru   mono-white   37.2s     ->  1.3s   88 cards
+    Krenko    mono-red     HTTP 500  ->  1.3s   88 cards
+    Teysa     two colours  HTTP 500  ->  2.0s   92 cards
+    Atraxa    four         59.8s     ->  3.4s   97 cards
+    Najeela   five         546       ->  4.4s   98 cards
+
+Deck QUALITY was re-measured after all of it and did not move: 74% of non-land
+cards keyed off the commander, the same as before.
+
+### Four things about this that will bite again
+
+**`cards_pool` carries COMMANDER legality and nothing else.** `poolFor` branches
+on the format; anything else reads `cards_unique`. Reading `commander_legal` for
+a Standard deck would not error, it would quietly build the wrong pool.
+
+**It is pinned to facet `compiler_version = 1`,** in three places:
+`facet-memo-fill`, `public.facets(cards_unique)`, and the view's own definition.
+A reader on one version and a writer on another is SILENT: every card reads as
+having no facets, which the ranker cannot tell apart from a card that genuinely
+does nothing. Bump all three together and refill.
+
+**A materialized view has no visibility map after a refresh,** so every
+index-only scan falls back to the heap. `cards_unique` had NEVER been vacuumed
+(`last_vacuum` was NULL) because autovacuum does not visit a matview on refresh:
+an index-only scan reported `Heap Fetches: 31762`, and the first VACUUM took the
+mono-red page from 7-12 s to 2.9 s.
+
+**VACUUM CANNOT RUN INSIDE A FUNCTION.** It was added to
+`refresh_cards_unique` and would have raised `25001` and ROLLED THE WHOLE
+REFRESH BACK every night, the same shape as the sync watchdog whose `format()`
+threw after its work and undid it. It lives in its own cron job,
+`cards-views-vacuum` at 07:00 and 13:00.
+
+## The nightly sync rewrote every card to change nothing (30 Aug 2026)
+
+Owner: *"we should only be posting changes and new, not writing every card."*
+
+The walk upserted all ~96,700 printings whether or not anything moved. `cards`
+carries 28 indexes and a BEFORE trigger that reclassifies every written row, so
+a full pass was roughly 2.7 million index updates for a night on which nothing
+was printed. **56,230 cards were rewritten in one hour**, and while that ran the
+deck generator returned HTTP 500 and the pool query took 4 s a page. The sync
+was not merely wasteful, it took a headline feature down for the hours it ran.
+
+Scryfall's cards carry no "changed at" and its search has no "modified since",
+so `supabase/functions/scryfall-sync/changed.ts` compares what is about to be
+written against what is stored. One read of a page's ids replaces up to 175
+writes.
+
+    5,244 cards scanned, 0 written        (a walk over an already-current catalogue)
+
+**The comparison has to be CANONICAL or it saves nothing.** Five columns are
+jsonb, and Postgres stores jsonb with keys sorted while the object built from
+Scryfall's response is in Scryfall's order. A plain `JSON.stringify` of each
+side reports every card as changed on every run: the whole write load, zero
+saving, and no error anywhere to say so. Numbers also arrive from PostgREST as
+strings, so `cmc: 1` meets `cmc: "1"`. Array ORDER stays significant, because
+`colors` is WUBRG-ordered and `faces` is front then back.
+
+Measured with `scripts/sync-what-changes.mjs`, two samples 300 pages apart:
+**98.1% and 99.2% byte-identical**, and the only column that ever differed was
+`faces`, on under 2% of cards.
+
+
 ## The generated tagger and the deployed tagger have diverged (30 Aug 2026)
 
 `scripts/generate-tagger-sql.ts` is meant to be the only source of truth for

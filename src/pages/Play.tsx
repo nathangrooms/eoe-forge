@@ -64,7 +64,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { useAuth } from '@/components/AuthProvider';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCardSize } from '@/components/cards/CardSizeSlider';
 import {
@@ -87,9 +87,13 @@ import {
   breadcrumbFor,
   forwardLabelFor,
   headingFor,
+  isLastStep,
+  previousStep,
   startLabelFor,
+  stepFromUrl,
   type PlayStepId,
 } from '@/components/play/playFlow';
+import { TableSettingsPanel } from '@/components/play/TableSettingsPanel';
 import { isPlayMode, modeOf, seatsFor, type PlayModeId } from '@/components/play/playModes';
 import { reconcileDeck } from '@/components/play/playDeckView';
 import { usePlayDecks, type PlayDeckOption } from '@/components/play/usePlayDecks';
@@ -242,20 +246,62 @@ export default function Play() {
   /**
    * Which step is on screen, and which mode it belongs to.
    *
-   * Both live in the URL as well as in state, so back and forward work, a link
-   * to `/play?mode=playtest` lands on the right door, and `/simulate?deck=x`
-   * can redirect here without losing what it was pointing at. `ModernDeckTile`
-   * and `DeckTile` both send people here that way.
+   * ---------------------------------------------------------------------------
+   * THE URL IS THE STEP. IT IS NOT A COPY OF IT.
+   * ---------------------------------------------------------------------------
+   * Both used to be React state with the mode mirrored into the query string on
+   * an effect, and the step not written at all. Measured 30 Aug 2026 by walking
+   * the flow: the address on step two and the address on step three were the
+   * same string, `/play?mode=bots&deck=e0909132…`. Three consequences, all of
+   * them things the owner would read as confusion:
+   *
+   *   - browser Back on the last step did not go back a step. It left the play
+   *     section altogether, because no history entry had ever been pushed for
+   *     the step;
+   *   - a refresh on the last step dropped the reader back to step two;
+   *   - no link could point at the seats, so nothing could be sent or bookmarked
+   *     mid-flow.
+   *
+   * Design law 4 says back and forward work universally. So mode and step are
+   * READ from the query string rather than mirrored into it, `goToStep` pushes,
+   * and the browser's own history is the flow's history. A link to
+   * `/play?mode=playtest` still lands on the right door, and `/simulate?deck=x`
+   * still redirects here without losing what it was pointing at.
+   * `ModernDeckTile` and `DeckTile` both send people here that way.
    */
   const urlMode = params.get('mode');
-  const [mode, setMode] = useState<PlayModeId | null>(() =>
-    isPlayMode(urlMode) ? urlMode : null
+  const mode: PlayModeId | null = isPlayMode(urlMode) ? urlMode : null;
+  const step = stepFromUrl(params.get('step'), mode);
+
+  /**
+   * Walk to a step, PUSHING a history entry.
+   *
+   * Pushing is the whole point: it is what makes Back mean "the step before"
+   * rather than "the page before". Changing a deck still replaces, below, so
+   * pressing five decks in a row does not cost five presses of Back.
+   */
+  const goToStep = useCallback(
+    (next: PlayStepId, nextMode?: PlayModeId | null) => {
+      const query = new URLSearchParams(params);
+      const target = nextMode === undefined ? mode : nextMode;
+      if (target) {
+        query.set('mode', target);
+        query.set('step', next);
+      } else {
+        query.delete('mode');
+        query.delete('step');
+      }
+      setParams(query, { replace: false });
+    },
+    [params, mode, setParams]
   );
-  const [step, setStep] = useState<PlayStepId>(() => (isPlayMode(urlMode) ? 'deck' : 'mode'));
-  /** Which seat the deck wall on step three is filling. */
+
+  /** Which seat the deck wall on the last step is filling. */
   const [armedSeat, setArmedSeat] = useState(1);
   /** The opening hand study, which is goldfish's second question. */
   const [studying, setStudying] = useState(false);
+  /** The right-hand slide-out holding the playmat and the shuffle seed. */
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const [setup, setSetup] = useState({
     deckId: params.get('deck'),
@@ -465,21 +511,25 @@ export default function Play() {
     });
   }, [decks, mode]);
 
-  /* The URL follows the flow rather than the other way round, so Back leaves
-     the step it was on and a link can be sent. `replace` while walking forward,
-     because three steps should not cost three presses of the back button to
-     leave the page. */
+  /* The chosen deck rides in the URL so a link carries it, and it REPLACES
+     rather than pushes: pressing five decks on the wall must not cost five
+     presses of Back to leave. The step is the thing that pushes, in
+     `goToStep` above, because the step is what Back should walk. */
   useEffect(() => {
     const next = new URLSearchParams(params);
-    if (mode) next.set('mode', mode);
-    else next.delete('mode');
     if (setup.deckId) next.set('deck', setup.deckId);
     else next.delete('deck');
+    /* And the address is corrected when it names a step this mode does not
+       own. `?mode=goldfish&step=table` renders the deck step, correctly, and
+       leaving `step=table` in the bar would mean the address and the screen
+       disagreed for anyone who then copied it. */
+    if (mode) next.set('step', step);
+    else next.delete('step');
     if (next.toString() !== params.toString()) setParams(next, { replace: true });
     // `params` is deliberately out of the dependency list: it is the thing
     // being written, and including it re-runs this on its own result.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, setup.deckId, setParams]);
+  }, [setup.deckId, mode, step, setParams]);
 
   /* ---------------------------------------------------------------------- */
   /* Starting a game                                                        */
@@ -1331,21 +1381,24 @@ export default function Play() {
       tableLabel: step === 'table' ? `${seats} seat${seats === 1 ? '' : 's'}` : null,
     });
 
+    /** The step that deals the game. Goldfish has two steps, the rest have three. */
+    const last = mode !== null && isLastStep(step, mode);
+
     const goBack = () => {
       if (studying) {
         setStudying(false);
         return;
       }
-      if (step === 'table') setStep('deck');
-      else if (step === 'deck') setStep('mode');
+      const back = previousStep(step, mode);
+      if (back) goToStep(back);
     };
 
     const goForward = () => {
       if (step === 'mode') {
-        setStep('deck');
+        goToStep('deck');
         return;
       }
-      if (step === 'deck') {
+      if (step === 'deck' && !last) {
         /* Online carries on at the lobby, taking the deck with it. It is the
            third step of THIS flow rather than a fresh start: the lobby wears
            the same step label and the same breadcrumb, and its back control
@@ -1359,7 +1412,7 @@ export default function Play() {
           );
           return;
         }
-        setStep('table');
+        goToStep('table');
         return;
       }
       void startGame();
@@ -1367,79 +1420,99 @@ export default function Play() {
 
     /* Whether the forward control can move, and why not when it cannot. */
     const blocked =
-      step === 'mode' && !mode
-        ? 'Pick a mode to carry on.'
-        : step === 'deck' && mode === 'online' && !setup.deckId
-          ? 'Online needs one of your decks with cards in it.'
-          : null;
+      step === 'deck' && mode === 'online' && !setup.deckId
+        ? 'Online needs one of your decks with cards in it.'
+        : null;
 
+    /*
+     * ONE CONTROL FOR THE WAY ON, IN ONE PLACE, ON EVERY STEP.
+     *
+     * The start button used to live in the layout's action slot beside the
+     * title, and only on the last step, while every other step's forward
+     * control was in the step bar underneath. Measured 30 Aug 2026 at
+     * 1600 x 1000: forward at y=216 on steps one and two, "Start 2-player
+     * game" at y=108 on step three. At 390px the start control was at y=170
+     * and the back control at y=278, so the last screen read bottom to top.
+     *
+     * The start IS the forward control now. Same slot, same size, same corner,
+     * every step, and it says what it deals.
+     */
     return (
       <StandardPageLayout
         title={<StepTitle label={heading.label} title={heading.title} />}
         description={heading.note ?? undefined}
-        /* The start control lives here, beside the title, in the layout's own
-           action slot, matching every other page in the app. It was moved out
-           of a full width bar at the bottom of the setup panel once already and
-           must not go back. */
-        action={
-          step === 'table' && mode && mode !== 'online' && !studying ? (
-            <Button size="lg" onClick={() => void startGame()} disabled={starting}>
-              {starting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-                  Shuffling up
-                </>
-              ) : (
-                startLabelFor(mode, seats)
-              )}
-            </Button>
-          ) : null
-        }
       >
         <div className="w-full space-y-4">
           {/* Everything about moving, at the TOP, on every step. Back, the
               choices so far and the way on used to be a bar at the bottom of
               steps one and two and a control 1470px down on step three. See
-              the header of `StepChrome.tsx`. */}
-          {!studying && (
+              the header of `StepChrome.tsx`.
+
+              NOT ON STEP ONE. Nothing has been chosen there, so the trail is
+              three rows of "Not yet", there is nowhere back to, and the forward
+              control was permanently disabled under the sentence "Pick a mode
+              to carry on" while four large buttons underneath were the actual
+              way on. Measured: `Choose a deck` at 1357,216, disabled, on the
+              entry screen of the section. The doors are the way on. */}
+          {!studying && step !== 'mode' && (
             <StepBar
               crumbs={trail}
               current={step}
               onJump={next => {
                 setStudying(false);
-                setStep(next);
+                goToStep(next);
               }}
-              backLabel={
-                step === 'deck' ? 'Change mode' : step === 'table' ? 'Change deck' : undefined
+              backLabel={step === 'deck' ? 'Change mode' : 'Change deck'}
+              onBack={goBack}
+              forwardLabel={
+                last && mode
+                  ? starting
+                    ? 'Shuffling up'
+                    : startLabelFor(mode, seats)
+                  : forwardLabelFor(step, mode)
               }
-              onBack={step === 'mode' ? undefined : goBack}
-              forwardLabel={forwardLabelFor(step, mode)}
-              onForward={step === 'table' ? undefined : goForward}
+              onForward={goForward}
               forwardDisabled={Boolean(blocked) || starting}
+              forwardBusy={starting}
               note={blocked}
               extra={
-                /* Goldfish asks two questions with two different measurements:
-                   how the deck plays, and how it opens. Playing it is the
-                   control in the header; the opening hand study is this, and it
-                   is the tab that used to live on `/simulate`. Neither half was
-                   dropped in the merge. */
-                step === 'table' && mode === 'goldfish' ? (
-                  <Button
-                    variant="secondary"
-                    onClick={() => setStudying(true)}
-                    disabled={!setup.deckId}
-                    /* Shown and disabled rather than hidden. A control that
-                       vanishes leaves the reader wondering whether the feature
-                       exists; one that says what it needs does not. */
-                    title={
-                      setup.deckId
-                        ? undefined
-                        : 'The study samples a real list, so it needs one of your own decks rather than a seeded one.'
-                    }
-                  >
-                    Study opening hands
-                  </Button>
-                ) : null
+                <>
+                  {/* Goldfish asks two questions with two different
+                      measurements: how the deck plays, and how it opens.
+                      Playing it is the forward control; the opening hand study
+                      is this, and it is the tab that used to live on
+                      `/simulate`. Neither half was dropped in the merge.
+
+                      It sits beside the way on rather than on a third screen,
+                      because goldfish's last step is the deck step now. */}
+                  {last && mode === 'goldfish' && (
+                    <Button
+                      variant="secondary"
+                      onClick={() => setStudying(true)}
+                      disabled={!setup.deckId}
+                      /* Shown and disabled rather than hidden. A control that
+                         vanishes leaves the reader wondering whether the feature
+                         exists; one that says what it needs does not. */
+                      title={
+                        setup.deckId
+                          ? undefined
+                          : 'The study samples a real list, so it needs one of your own decks rather than a seeded one.'
+                      }
+                    >
+                      Study opening hands
+                    </Button>
+                  )}
+
+                  {/* Playmat and shuffle, on whichever screen deals the game.
+                      A slide-out rather than 750px of catalogue in the middle
+                      of the flow. See `TableSettingsPanel`. */}
+                  {last && mode !== 'online' && (
+                    <Button variant="ghost" onClick={() => setSettingsOpen(true)}>
+                      <Settings2 className="mr-2 h-4 w-4" aria-hidden="true" />
+                      Table settings
+                    </Button>
+                  )}
+                </>
               }
             />
           )}
@@ -1450,9 +1523,8 @@ export default function Play() {
                 value={mode}
                 live={{ online: onlineLive }}
                 onChoose={next => {
-                  setMode(next);
                   setArmedSeat(1);
-                  setStep('deck');
+                  goToStep('deck', next);
                 }}
               />
 
@@ -1514,7 +1586,7 @@ export default function Play() {
               variant={setup.variant}
               onVariant={variant => setSetup(previous => ({ ...previous, variant }))}
               seed={setup.seed}
-              onSeed={seed => setSetup(previous => ({ ...previous, seed }))}
+              onOpenSettings={() => setSettingsOpen(true)}
               error={setupError}
             />
           )}
@@ -1527,7 +1599,27 @@ export default function Play() {
             />
           )}
 
+          {/* A table that would not deal says so on the screen the button was
+              pressed on. `SeatStep` carries its own copy for the modes that
+              have one; goldfish deals from the deck step and has none. */}
+          {setupError && step === 'deck' && (
+            <p className="rounded-lg bg-destructive/15 px-3 py-2 text-xs text-foreground">
+              {setupError}
+            </p>
+          )}
         </div>
+
+        {/* The playmat and the shuffle seed, in the right-hand slide-out the
+            owner approves for an action taken without leaving the page. Never a
+            centred dialog. It is mounted for every mode that deals its own
+            table, so the control in the step bar always has something to open. */}
+        <TableSettingsPanel
+          open={settingsOpen}
+          onOpenChange={setSettingsOpen}
+          colors={chosenDeck?.colors}
+          seed={setup.seed}
+          onSeed={seed => setSetup(previous => ({ ...previous, seed }))}
+        />
         {/*
           There is deliberately NO overlay here.
 

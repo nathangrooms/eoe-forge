@@ -33,7 +33,7 @@
  */
 
 import type { ReactNode } from 'react';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { UNCHOSEN, type Crumb, type PlayStepId } from './playFlow';
@@ -137,6 +137,15 @@ export interface StepBarProps {
   onForward?: () => void;
   forwardDisabled?: boolean;
   /**
+   * The forward control is dealing a game right now.
+   *
+   * The last step's control used to be a separate button in the page header and
+   * it carried its own spinner. It is the forward control now, so the spinner
+   * comes with it: a button that says "Shuffling up" and does not move is a
+   * button somebody presses twice.
+   */
+  forwardBusy?: boolean;
+  /**
    * The sentence that says why the forward control is refusing to move, or
    * what is not finished about this step. Sits UNDER the bar's controls rather
    * than between them, so it is read after the button it is about and does not
@@ -160,6 +169,7 @@ export function StepBar({
   forwardLabel,
   onForward,
   forwardDisabled,
+  forwardBusy,
   note,
   extra,
 }: StepBarProps) {
@@ -185,12 +195,28 @@ export function StepBar({
           />
         )}
 
-        <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-3">
+        {/*
+          A ROW OF ITS OWN ON A PHONE, and this is a bug fix rather than taste.
+
+          This group used to be `shrink-0`, which sizes it to its content and
+          lets it overflow the bar. Measured at 390px on the goldfish deck step,
+          where the group holds three controls: the row wanted 445px in a 342px
+          bar, and the one that ran off the right edge was `Start goldfish`, the
+          control the whole screen exists to be pressed. It was clipped to a
+          15px sliver.
+
+          `w-full` below `sm` gives it its own line to wrap inside, so nothing
+          can be pushed off the edge however many controls a step carries.
+        */}
+        <div className="ml-auto flex w-full min-w-0 flex-wrap items-center justify-end gap-2 sm:w-auto sm:gap-3">
           {extra}
           {onForward && (
             <Button size="lg" onClick={onForward} disabled={forwardDisabled}>
+              {forwardBusy && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+              )}
               {forwardLabel ?? 'Next'}
-              <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
+              {!forwardBusy && <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />}
             </Button>
           )}
         </div>

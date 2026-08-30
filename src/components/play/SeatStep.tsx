@@ -16,11 +16,26 @@
  * deck wall and its own temperament row, and the drift it caused is exactly what
  * the project law exists to stop. It is gone; this is what replaced it.
  *
- * Goldfish is the same screen with no opponents, so the seats half collapses to
- * one and says why.
+ * Goldfish never reaches this screen: it seats one chair and has nothing to
+ * fill, so `stepsFor` gives it two steps and this is not one of them. The
+ * goldfish branches below are kept because a URL can still name this screen and
+ * a screen that throws on a hand typed address is worse than a quiet one.
  *
- * The playmat picker lives here, in Your seat, and again in the in game menu.
- * Both stay reachable: owner, *"I dont see the themed playmats?"*
+ * ---------------------------------------------------------------------------
+ * THE PLAYMAT CATALOGUE IS NOT ON THE CRITICAL PATH ANY MORE
+ * ---------------------------------------------------------------------------
+ * Measured 30 Aug 2026, versus bots, at 1600 x 1000: this screen ran 1,645px in
+ * a 1,000px window and 750px of it was the playmat picker. Fourteen texture
+ * tiles, eight colour buttons and an upload link, stacked between the seats and
+ * the game. At 390px it ran 3,216px in an 844px window with the playmat
+ * starting at y=1,751.
+ *
+ * A playmat lasts for every game you ever play here. It is not a decision about
+ * THIS game. It moved into `TableSettingsPanel`, the right-hand slide-out, with
+ * the shuffle seed, and what is left on the page is a LIVE PREVIEW of the mat
+ * you will actually get with the way to change it beside it. Owner:
+ * *"I dont see the themed playmats?"* They are still on screen and still one
+ * press from being changed, in the in game menu and on `/play/mats` as well.
  */
 
 import { Bot, Loader2, Plus, UserRound, X } from 'lucide-react';
@@ -28,7 +43,9 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { CardImage, CARD_ASPECT } from '@/components/cards';
 import { ColorIdentity } from '@/components/ui/mana-cost';
-import { MatStylePicker } from './MatStylePicker';
+import { Playmat } from './Playmat';
+import { matStyleOf } from './matStyles';
+import { usePlaymatPrefs } from './usePlaymatStyle';
 import { DeckWall } from './DeckWall';
 import { cardCountLine } from './playDeckView';
 import type { PlayDeckOption } from './usePlayDecks';
@@ -63,7 +80,8 @@ export interface SeatStepProps {
   variant: SeatingVariant;
   onVariant: (next: SeatingVariant) => void;
   seed: number;
-  onSeed: (next: number) => void;
+  /** Opens the right-hand slide-out holding the playmat and the shuffle seed. */
+  onOpenSettings: () => void;
   error?: string | null;
 }
 
@@ -168,9 +186,12 @@ export function SeatStep({
   variant,
   onVariant,
   seed,
-  onSeed,
+  onOpenSettings,
   error,
 }: SeatStepProps) {
+  /* The mat the reader will actually sit down on, read from the same account
+     preference the board reads. The preview below is that mat, not a swatch. */
+  const mats = usePlaymatPrefs();
   const byId = new Map(decks.map(deck => [deck.id, deck]));
   const deckFor = (id: string | null) => (id ? byId.get(id) ?? null : null);
 
@@ -346,107 +367,80 @@ export function SeatStep({
         </div>
         )}
         </div>
+
+        {/* The surface, as ONE ROW rather than a catalogue.
+
+            It is the mat this seat is about to get, painted by the same
+            component the board paints it with, at the chosen deck's colours. It
+            says which one it is, and it opens the picker. 90px instead of 750,
+            and the playmat is still the first thing you see when you look for
+            it. */}
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <Playmat
+            className="h-14 w-28 shrink-0"
+            rounded="rounded-lg"
+            tone="active"
+            colors={deckFor(deckId)?.colors}
+          />
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium text-muted-foreground">Your playmat</p>
+            <p className="truncate text-sm text-foreground">
+              {matStyleOf(mats.style).name}
+              {mats.matUrl ? ' over your own picture' : ''}
+            </p>
+          </div>
+          <Button variant="secondary" size="sm" className="h-8 text-xs" onClick={onOpenSettings}>
+            Playmat and shuffle
+          </Button>
+          <span className="text-[11px] text-muted-foreground">Seed {seed}</span>
+        </div>
       </section>
 
-      {/* The surface and the shuffle, beside the deck wall.
+      {/* The wall that fills the armed seat, the full width of the page.
 
-          Two equal halves rather than a 24rem column and the rest. Measured on
-          22 Aug 2026: on a 1920 page that column was 384px holding the whole
-          playmat picker, six texture tiles stacked into a strip, while the page
-          was 1510px tall. Half the page each is the width these two actually
-          want. */}
-      <div className="grid w-full items-start gap-4 lg:grid-cols-2">
-        <section className="min-w-0 rounded-xl bg-card p-4 shadow-sm md:p-5">
-          {/* "Your seat" is a lie in playtest, where the step above it has just
-              said none of the seats are yours. */}
+          It shared a row with the playmat catalogue until 29 Aug 2026, which
+          halved it: at 1280 the wall was five 145px cards in an 800px column.
+          The catalogue is in the slide-out now and the decks get the room. */}
+      <section className="w-full min-w-0 rounded-xl bg-card p-4 shadow-sm md:p-5">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            {mode === 'playtest' ? 'The table' : 'Your seat'}
+            {mode === 'goldfish'
+              ? 'Change your deck'
+              : armedIsYours
+                ? mode === 'playtest'
+                  ? 'Deck for seat 1'
+                  : 'Deck for your seat'
+                : mode === 'playtest'
+                  ? `Deck for seat ${activeSeat + 1}`
+                  : `Deck for opponent ${activeSeat}`}
           </h2>
-
-          <div className="mt-4">
-            <span className="text-[11px] font-medium text-muted-foreground">Shuffle seed</span>
-            <div className="mt-1 flex items-center gap-2">
-              <span className="rounded-md bg-muted px-2.5 py-1.5 font-mono text-xs text-foreground">
-                {seed}
-              </span>
-              <Button
-                size="sm"
-                variant="secondary"
-                className="h-8 text-xs"
-                onClick={() => onSeed(Math.floor(Math.random() * 100000) + 1)}
-              >
-                New seed
-              </Button>
-            </div>
-            <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
-              The shuffle is seeded, so the same seed and the same decks deal the same game. That
-              is what makes a bad draw reproducible instead of anecdotal.
+          {armedIsYours && mode !== 'goldfish' && (
+            <p className="text-xs text-muted-foreground">
+              Seat one was chosen at step two. Choosing here changes it.
             </p>
-          </div>
-
-          <div className="mt-5">
-            <span className="text-[11px] font-medium text-muted-foreground">Playmat</span>
-            {/* The chosen deck's colours, so the preview is the mat this seat
-                actually gets rather than six charcoal rectangles. Also in the
-                in game menu; both stay reachable. */}
-            <MatStylePicker
-              className="mt-2"
-              colors={deckFor(deckId)?.colors}
-              showManageLink
-            />
-            <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
-              Drawn rather than photographed, so it stays sharp on any screen. Saved to your
-              account, so it is the same on every device.
-            </p>
-          </div>
-        </section>
-
-        {/* The wall that fills the armed seat. Same component as step two. */}
-        <section className="min-w-0 rounded-xl bg-card p-4 shadow-sm md:p-5">
-          <div className="flex flex-wrap items-baseline justify-between gap-3">
-            <h2 className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              {mode === 'goldfish'
-                ? 'Change your deck'
-                : armedIsYours
-                  ? mode === 'playtest'
-                    ? 'Deck for seat 1'
-                    : 'Deck for your seat'
-                  : mode === 'playtest'
-                    ? `Deck for seat ${activeSeat + 1}`
-                    : `Deck for opponent ${activeSeat}`}
-            </h2>
-            {armedIsYours && mode !== 'goldfish' && (
-              <p className="text-xs text-muted-foreground">
-                Seat one was chosen at step two. Choosing here changes it.
-              </p>
-            )}
-          </div>
-
-          {loadingDecks ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
-            </div>
-          ) : (
-            <DeckWall
-              /* Fewer columns than the wall on step two gets, because this one
-                 shares its row with Your seat. Tailwind's breakpoints are the
-                 VIEWPORT, not this container, so leaving the defaults on made a
-                 1280 screen draw five 145px cards in an 800px column. */
-              className="mt-4 grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
-              decks={decks}
-              mode={mode}
-              value={seatDecks[activeSeat] ?? null}
-              onChoose={id => setSeatDeck(activeSeat, id)}
-              seeded={{
-                label: 'Seeded commander deck',
-                hint: 'No deck of my own for this seat',
-                chosen: seatDecks[activeSeat] === null,
-                onChoose: () => setSeatDeck(activeSeat, null),
-              }}
-            />
           )}
-        </section>
-      </div>
+        </div>
+
+        {loadingDecks ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
+          </div>
+        ) : (
+          <DeckWall
+            className="mt-4"
+            decks={decks}
+            mode={mode}
+            value={seatDecks[activeSeat] ?? null}
+            onChoose={id => setSeatDeck(activeSeat, id)}
+            seeded={{
+              label: 'Seeded commander deck',
+              hint: 'No deck of my own for this seat',
+              chosen: seatDecks[activeSeat] === null,
+              onChoose: () => setSeatDeck(activeSeat, null),
+            }}
+          />
+        )}
+      </section>
 
       {error && (
         <p className="rounded-lg bg-destructive/15 px-3 py-2 text-xs text-foreground">{error}</p>

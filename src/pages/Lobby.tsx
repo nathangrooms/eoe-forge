@@ -64,7 +64,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { useAuth } from '@/components/AuthProvider';
 import { Button } from '@/components/ui/button';
@@ -244,21 +244,23 @@ export default function Lobby() {
           ? heading.note ?? undefined
           : 'Read what people are saying about games. Sign in to sit down at one.'
       }
-      action={
-        user ? (
-          <Button size="lg" onClick={() => setCreateOpen(true)} disabled={!canPlay}>
-            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
-            Open a table
-          </Button>
-        ) : null
-      }
+      /* No action slot. The way on is the step bar's forward control, below,
+         because that is where it is on every other step of every other mode.
+         Signed out there is no way on at all: `EntryGate` says what an account
+         is for, which is the honest answer for somebody who arrived on a link. */
     >
       <div className="w-full space-y-6">
         {/* The same bar the other three modes carry, at the top, so this reads
-            as the third step of one flow rather than a different screen. There
-            is no forward control: the way on is a table, and a table is a
-            destination with its own address. Signed out there is no flow to be
-            in, and no deck, so it is not drawn. */}
+            as the last step of one flow rather than a different screen.
+
+            The way on is here, in the forward slot, like every other step.
+            Measured 30 Aug 2026 at 1600 x 1000: "Open a table" sat at y=161 in
+            the page header while the step bar underneath at y=267 carried back
+            and the trail and no forward at all, which is the same split the
+            seat step had. One control, one corner, every step of every mode.
+
+            Signed out there is no flow to be in, and no deck, so it is not
+            drawn. */}
         {user && (
           <StepBar
             crumbs={breadcrumbFor({
@@ -273,6 +275,9 @@ export default function Lobby() {
             }}
             backLabel="Change deck"
             onBack={backToDeck}
+            forwardLabel="Open a table"
+            onForward={() => setCreateOpen(true)}
+            forwardDisabled={!canPlay}
             note={
               carriedDeck
                 ? `Sitting down with ${carriedDeck.name}.`

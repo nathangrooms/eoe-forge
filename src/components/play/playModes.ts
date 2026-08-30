@@ -3,9 +3,8 @@
  *
  * Owner: *"we need to redesign the entire play a game UI - leading with
  * online"*, and then, on the reference they gave: four cards across, each
- * full bleed, each carrying an eyebrow label, a large title, one or two lines
- * saying what the mode IS, a quiet fact bottom left and the way in bottom
- * right.
+ * carrying a label, a large title, one line saying what the mode IS, a quiet
+ * fact bottom left and the way in bottom right.
  *
  * ---------------------------------------------------------------------------
  * WHY THIS IS DATA AND NOT FOUR COMPONENTS
@@ -18,49 +17,67 @@
  * mode is a row in this array, not a screen.
  *
  * This file imports nothing, so `node --test` reads it and `playModes.test.ts`
- * asserts the copy as whole strings. The copy IS the feature here: an eyebrow
- * that says nothing and a description that describes a machine rather than a
- * game are the two failures this screen is replacing.
+ * asserts the copy as whole strings. The copy IS the feature here.
  *
  * ---------------------------------------------------------------------------
- * THE COVERS EXIST, AND THE DOOR IS CUT TO THE PICTURE
+ * THE COVER PHOTOGRAPHS ARE GONE
  * ---------------------------------------------------------------------------
- * `cover` is one asset per mode in the PUBLIC `art` bucket on Supabase:
+ * Owner, 29 Aug 2026: *"those images look awful so probably remove them."*
  *
- *     .../storage/v1/object/public/art/play-mode-<id>.png
+ * They were four generated fantasy illustrations in the public `art` bucket,
+ * and the fault was not only that they were ugly. Measured on the screenshot
+ * they came off: all four were a glowing circular table in a purple and teal
+ * vault, so the picture at the top of each door said the SAME THING on all
+ * four doors, on the one screen whose entire job is telling four things apart.
+ * A wall of four identical pictures is worse than no picture, because it
+ * spends the reader's first look and returns nothing for it.
  *
- * Checked on 22 Aug 2026, not assumed: all four answer 200, all four are
- * `content-type: image/jpeg` under a `.png` name, which browsers decide from
- * the header rather than the extension, and all four decode 1376 x 768.
+ * What replaces them is the difference itself, drawn. `table` below is who is
+ * actually at the table in each mode, and `ModeWall` draws it: a surface with
+ * a person at your chair and either people, bots or nobody in the others. That
+ * is the answer to the question this screen asks in its own subtitle, "who is
+ * sitting opposite you", and it is read at a glance rather than in a sentence.
  *
- * That is a ratio of 1.7917, which is NOT 16/9 (1.7778). The difference is
- * small and it is exactly the difference that gets cropped away, so
- * `COVER_ASPECT` is the picture's own ratio written as a fraction. The door is
- * cut to the cover, so `object-cover` has nothing to throw away in either
- * direction and no part of any of the four is lost. They were drawn wide
- * precisely so nothing has to be cropped.
+ * It also costs nothing to serve: no bucket, no 404 path, no licence, and it
+ * is sharp at any size because it is drawn rather than photographed. Same
+ * reasoning as `matStyles.ts`, and it reuses those surfaces.
  *
- * They carry a deliberate dark lower third for type to sit in, so the title
- * goes THERE. There is no wash over the whole picture.
- *
- * The procedural playmat surface stays underneath as the fallback, which is CSS
- * gradients (`matStyles.ts`), draws at any size, downloads nothing and carries
- * no licence. `fallback` gives each mode its own surface and its own colour so
- * a door whose picture fails to load is still a different door.
- *
- * NEVER point `cover` at Scryfall card art. A cover has to be darkened for
- * type to sit on it, and Scryfall's guidelines forbid modifying card images.
- * That rule has caught this project twice; `Playmat.tsx` records the second
- * time. A deck tile shows a card WHOLE and unmodified, which is the permitted
- * case, and that is why art is allowed one step later and not here.
+ * NEVER point a door at Scryfall card art. A cover has to be darkened for type
+ * to sit on it, and Scryfall's guidelines forbid modifying card images. A deck
+ * tile shows a card WHOLE and unmodified, which is the permitted case, and
+ * that is why art is allowed one step later and not here.
  */
 
 export type PlayModeId = 'online' | 'bots' | 'goldfish' | 'playtest';
 
+/**
+ * Who is at the table, as a shape that can be drawn.
+ *
+ * Every number here is real: `filled` is the seats a mode always deals and
+ * `max` is what `seatsFor` below will clamp to, so the faint extra chairs on a
+ * door are seats that genuinely exist rather than decoration.
+ */
+export interface ModeTable {
+  /** Seats this mode always deals. */
+  filled: number;
+  /** The most it can seat. Chairs beyond `filled` are drawn faint. */
+  max: number;
+  /** Whether the near chair is played by the reader. */
+  yours: boolean;
+  /** What the other chairs hold. */
+  others: 'people' | 'bots' | 'none';
+}
+
 export interface PlayModeDoor {
   id: PlayModeId;
-  /** Small caps above the title. What kind of game this is, in two words. */
-  eyebrow: string;
+  /**
+   * Who is opposite you, in two or three words. Small caps above the title.
+   *
+   * This used to be an eyebrow that said OTHER PEOPLE, YOU AGAINST THE RULES,
+   * ONE SEAT and HANDS OFF: four moods rather than four answers. The page asks
+   * one question at the top and this is the answer to it.
+   */
+  opposite: string;
   /** The display title. */
   title: string;
   /** One or two lines saying what the mode IS. Not what it is built from. */
@@ -69,28 +86,17 @@ export interface PlayModeDoor {
   meta: string;
   /** The action bottom right. */
   action: string;
-  /** Where a cover image goes when there is one. See the note above. */
-  cover: string;
-  /** The procedural surface drawn until then. */
-  fallback: { style: string; tint: string };
-}
-
-/**
- * The shape every door is cut to: the covers' own pixel ratio, 1376 x 768.
- *
- * Written as the two real numbers rather than reduced or rounded to 16/9, so
- * that a reader can see it is the picture's shape and not a shape the picture
- * is being made to fit. `object-cover` into this box crops nothing.
- */
-export const COVER_ASPECT = '1376 / 768';
-
-/** Where the four covers live. Public bucket, no signing, no expiry. */
-export const COVER_BASE =
-  'https://udnaflcohfyljrsgqggy.supabase.co/storage/v1/object/public/art';
-
-/** The cover for a mode. JPEG bytes under a .png name, served with the right type. */
-export function coverPathFor(id: PlayModeId): string {
-  return `${COVER_BASE}/play-mode-${id}.png`;
+  /** Who is at the table. Drawn, not described. */
+  table: ModeTable;
+  /**
+   * The weave the door's table is painted with, from `matStyles.ts`.
+   *
+   * No tint on any of them. The mat tints are the five MTG colours and handing
+   * one to a mode would be inventing a meaning the mode does not have, which
+   * the design law reserves colour against. Four different weaves in the same
+   * charcoal is enough to make four doors four doors.
+   */
+  surface: string;
 }
 
 /**
@@ -100,55 +106,51 @@ export function coverPathFor(id: PlayModeId): string {
 export const PLAY_MODES: readonly PlayModeDoor[] = [
   {
     id: 'online',
-    eyebrow: 'Other people',
+    opposite: 'Another player',
     title: 'Online',
     lines: [
-      'A real person on the other side of the table.',
-      'Open a table and send the link to a friend, or sit down at one somebody is already waiting at.',
+      'A real person on the other side of the table. Open one and send the link to a friend, or sit down at a table somebody is already waiting at.',
     ],
     meta: '2 to 4 seats. Needs an account and one deck with cards in it.',
     action: 'Enter',
-    cover: coverPathFor('online'),
-    fallback: { style: 'slate', tint: 'U' },
+    table: { filled: 2, max: 4, yours: true, others: 'people' },
+    surface: 'slate',
   },
   {
     id: 'bots',
-    eyebrow: 'You against the rules',
+    opposite: 'The computer',
     title: 'Versus bots',
     lines: [
-      'You play your deck. The computer plays theirs.',
-      'It blocks, it holds up answers and it swings back, and you choose how hard it pushes.',
+      'You play your deck and the computer plays theirs. It blocks, it holds up answers and it swings back, and you choose how hard it pushes.',
     ],
     meta: '2 to 4 seats. One of them is yours.',
     action: 'Enter',
-    cover: coverPathFor('bots'),
-    fallback: { style: 'leather', tint: 'R' },
+    table: { filled: 2, max: 4, yours: true, others: 'bots' },
+    surface: 'leather',
   },
   {
     id: 'goldfish',
-    eyebrow: 'One seat',
+    opposite: 'Nobody',
     title: 'Goldfish',
     lines: [
-      'Your deck and nobody opposite.',
-      'Draw, mulligan, curve out, and find out how the list actually plays before you take it anywhere.',
+      'Your deck and nobody opposite. Draw, mulligan and curve out, and find out how the list actually plays before you take it anywhere.',
     ],
     meta: '1 seat. Nothing blocks and nothing attacks back.',
     action: 'Enter',
-    cover: coverPathFor('goldfish'),
-    fallback: { style: 'felt', tint: 'G' },
+    table: { filled: 1, max: 1, yours: true, others: 'none' },
+    surface: 'felt',
   },
   {
     id: 'playtest',
-    eyebrow: 'Hands off',
+    opposite: 'Your own decks',
     title: 'Playtest',
     lines: [
-      'Two to four of your own decks play each other while you watch.',
-      'Every seat is played for you, at whatever speed you set.',
+      'Two to four of your own decks play each other while you watch. Every seat is played for you, at whatever speed you set.',
     ],
     meta: '2 to 4 seats. None of them are yours.',
     action: 'Enter',
-    cover: coverPathFor('playtest'),
-    fallback: { style: 'carbon', tint: 'B' },
+    table: { filled: 2, max: 4, yours: false, others: 'bots' },
+    surface: 'carbon',
   },
 ];
 

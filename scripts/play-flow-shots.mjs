@@ -123,7 +123,7 @@ import { StandardPageLayout } from '../components/layouts/StandardPageLayout';
 import Play from '../pages/Play';
 import { DeckStep } from '../components/play/DeckStep';
 import { SeatStep } from '../components/play/SeatStep';
-import { ChoiceTrail, StepFooter, StepTitle } from '../components/play/StepChrome';
+import { StepBar, StepTitle } from '../components/play/StepChrome';
 import { breadcrumbFor, headingFor } from '../components/play/playFlow';
 
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -144,10 +144,9 @@ function Fixtures() {
     <StandardPageLayout
       title={<StepTitle label={heading.label} title={heading.title} />}
       description={heading.note ?? undefined}
-      action={step === 'table' ? <button className="rounded-md bg-primary px-6 py-2 text-sm font-medium text-primary-foreground">Start 3-player game</button> : null}
     >
       <div className="w-full space-y-4">
-        <ChoiceTrail
+        <StepBar
           crumbs={breadcrumbFor({
             mode: 'bots',
             deckName: chosen?.name ?? 'Seeded deck',
@@ -155,6 +154,10 @@ function Fixtures() {
           })}
           current={step}
           onJump={next => setStep(next === 'table' ? 'table' : 'deck')}
+          backLabel={step === 'deck' ? 'Change mode' : 'Change deck'}
+          onBack={() => setStep('deck')}
+          forwardLabel={step === 'deck' ? 'Choose opponents' : 'Start 3-player game'}
+          onForward={step === 'deck' ? () => setStep('table') : () => {}}
         />
         {step === 'deck' ? (
           <DeckStep
@@ -181,15 +184,9 @@ function Fixtures() {
             variant="table"
             onVariant={() => {}}
             seed={7}
-            onSeed={() => {}}
+            onOpenSettings={() => {}}
           />
         )}
-        <StepFooter
-          backLabel={step === 'deck' ? 'Change mode' : 'Change deck'}
-          onBack={() => setStep('deck')}
-          forwardLabel={step === 'deck' ? 'Choose opponents' : undefined}
-          onForward={step === 'deck' ? () => setStep('table') : undefined}
-        />
       </div>
     </StandardPageLayout>
   );

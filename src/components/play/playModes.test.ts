@@ -1,7 +1,7 @@
 /**
  * The four doors, asserted as whole strings.
  *
- * The copy IS the feature on this screen. An eyebrow that says nothing and a
+ * The copy IS the feature on this screen. A label that says nothing and a
  * description that describes a machine rather than a game are the two failures
  * the redesign is replacing, and neither is catchable by a type.
  */
@@ -9,15 +9,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import {
-  COVER_ASPECT,
-  COVER_BASE,
-  PLAY_MODES,
-  coverPathFor,
-  isPlayMode,
-  modeOf,
-  seatsFor,
-} from './playModes.ts';
+import { PLAY_MODES, isPlayMode, modeOf, seatsFor } from './playModes.ts';
 
 test('there are exactly four doors, and online leads', () => {
   assert.equal(PLAY_MODES.length, 4);
@@ -40,7 +32,7 @@ test('every door says what the mode IS, in one or two lines', () => {
 test('no em-dashes anywhere in the copy', () => {
   const emdash = /[—–]/;
   for (const mode of PLAY_MODES) {
-    const all = [mode.eyebrow, mode.title, mode.meta, ...mode.lines];
+    const all = [mode.opposite, mode.title, mode.meta, mode.action, ...mode.lines];
     for (const piece of all) {
       assert.ok(!emdash.test(piece), `${mode.id}: "${piece}" holds a dash`);
     }
@@ -57,35 +49,79 @@ test('the metadata line is a real fact, and it names seats or what is needed', (
   for (const mode of PLAY_MODES) assert.equal(mode.meta, facts[mode.id]);
 });
 
-test('a cover is one asset per mode at a known path and a known shape', () => {
-  /* The covers decode 1376 x 768, checked on 22 Aug 2026 by reading the JPEG
-     frame header of all four. The door is cut to that, not to 16/9, because
-     the 0.8% between the two ratios is the only thing `object-cover` would
-     have had to throw away and the brief is that nothing is cropped. */
-  assert.equal(COVER_ASPECT, '1376 / 768');
-  assert.equal(
-    coverPathFor('online'),
-    'https://udnaflcohfyljrsgqggy.supabase.co/storage/v1/object/public/art/play-mode-online.png'
-  );
-  for (const mode of PLAY_MODES) assert.equal(mode.cover, coverPathFor(mode.id));
+/**
+ * The label above the title answers the question the page asks in its subtitle.
+ *
+ * It used to be a mood: OTHER PEOPLE, YOU AGAINST THE RULES, ONE SEAT, HANDS
+ * OFF. Four moods do not tell four modes apart, and telling them apart is the
+ * only job this screen has.
+ */
+test('each door names who is opposite you, and no two are the same', () => {
+  const opposites: Record<string, string> = {
+    online: 'Another player',
+    bots: 'The computer',
+    goldfish: 'Nobody',
+    playtest: 'Your own decks',
+  };
+  for (const mode of PLAY_MODES) assert.equal(mode.opposite, opposites[mode.id]);
+  assert.equal(new Set(PLAY_MODES.map(mode => mode.opposite)).size, 4);
 });
 
-test('the door is cut to the picture, so object-cover crops nothing', () => {
-  const [w, h] = COVER_ASPECT.split('/').map(part => Number(part.trim()));
-  assert.equal(w, 1376);
-  assert.equal(h, 768);
-});
-
-test('no cover points at card art, which the licence forbids darkening', () => {
+/**
+ * The drawn table has to agree with the seat counter, or a door promises a
+ * table the flow will not deal.
+ */
+test('the drawn table matches the seats the mode actually deals', () => {
   for (const mode of PLAY_MODES) {
-    assert.ok(!/scryfall|gatherer|cards\//i.test(mode.cover), mode.id);
-    assert.ok(mode.cover.startsWith(`${COVER_BASE}/play-mode-`), mode.id);
+    assert.equal(
+      mode.table.filled,
+      seatsFor(mode.id, 1),
+      `${mode.id}: the chairs drawn are not the seats dealt by default`
+    );
+    assert.equal(
+      mode.table.max,
+      seatsFor(mode.id, 9),
+      `${mode.id}: the faint chairs are not seats this mode can hold`
+    );
+    assert.ok(mode.table.filled <= mode.table.max, mode.id);
   }
 });
 
-test('each door falls back to a different procedural surface', () => {
-  const seen = new Set(PLAY_MODES.map(mode => `${mode.fallback.style}/${mode.fallback.tint}`));
+test('only playtest has no chair of your own', () => {
+  const yours = PLAY_MODES.filter(mode => mode.table.yours).map(mode => mode.id);
+  assert.deepEqual(yours, ['online', 'bots', 'goldfish']);
+  assert.equal(modeOf('playtest').table.yours, false);
+});
+
+test('goldfish is the one door with nobody opposite', () => {
+  const none = PLAY_MODES.filter(mode => mode.table.others === 'none').map(mode => mode.id);
+  assert.deepEqual(none, ['goldfish']);
+  assert.equal(modeOf('online').table.others, 'people');
+  assert.equal(modeOf('bots').table.others, 'bots');
+});
+
+/**
+ * No door carries a photograph any more, and none may carry card art.
+ *
+ * The second half is the licence: a cover has to be darkened for type to sit on
+ * it and Scryfall forbid modifying card images. The first half is the owner's,
+ * 29 Aug 2026, and this test is what stops a URL creeping back into this file.
+ */
+test('a door is drawn, never photographed, and never from card art', () => {
+  for (const mode of PLAY_MODES) {
+    const json = JSON.stringify(mode);
+    assert.ok(!/https?:\/\//.test(json), `${mode.id} carries a URL`);
+    assert.ok(!/scryfall|gatherer|\.png|\.jpg|\.webp/i.test(json), `${mode.id} carries an image`);
+  }
+});
+
+test('each door is painted on a different weave, and none of them is tinted', () => {
+  const seen = new Set(PLAY_MODES.map(mode => mode.surface));
   assert.equal(seen.size, 4);
+  /* The mat tints are the five MTG colours. Handing one to a mode invents a
+     meaning the mode does not have, which the design law reserves colour
+     against, so a door names a weave and nothing else. */
+  for (const mode of PLAY_MODES) assert.ok(!/^(W|U|B|R|G|WUBRG|deck)$/.test(mode.surface));
 });
 
 test('an unknown mode never breaks the page', () => {

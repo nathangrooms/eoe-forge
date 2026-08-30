@@ -85,6 +85,12 @@ const ROUTES = [
   ['shopping', '/shopping'],
   ['proxies', '/proxies'],
   ['play', '/play'],
+  /* The load-in flow's later steps. They are URL addressable, so they are
+     walkable: `step` is a search param exactly so back, forward and a pasted
+     link all land on the screen they name. */
+  ['play-deck', '/play?mode=bots'],
+  ['play-seats', '/play?mode=bots&step=table'],
+  ['play-goldfish', '/play?mode=goldfish&step=table'],
   ['play-online', '/play/online'],
   ['play-mats', '/play/mats'],
   ['life', '/life'],

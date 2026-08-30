@@ -1,138 +1,135 @@
 /**
  * Four doors.
  *
- * Owner's reference: four cards across, each full bleed, each carrying an
- * eyebrow in small caps, a large display title, one or two lines saying what
- * the mode IS, a quiet fact bottom left and the way in bottom right. The image
- * is the whole card, darkened enough that the type sits on it, with the text
- * weighted low. Nothing has an outline. It should read as four doors, not four
- * form controls.
+ * Owner's reference: four cards across, each carrying a label in small caps, a
+ * large display title, a line saying what the mode IS, a quiet fact and the way
+ * in. Nothing has an outline. It should read as four doors, not four form
+ * controls.
  *
  * ---------------------------------------------------------------------------
- * THE ARTWORK IS REAL NOW, AND THE DOOR IS CUT TO IT
+ * THE PHOTOGRAPHS ARE GONE, AND THE TABLE IS DRAWN INSTEAD
  * ---------------------------------------------------------------------------
- * Four covers live in the public `art` bucket. They decode 1376 x 768 and the
- * door's aspect ratio is those two numbers, so `object-cover` crops nothing off
- * any edge. They were drawn wide precisely so nothing has to be.
+ * Owner, 29 Aug 2026: *"those images look awful so probably remove them."*
  *
- * Two doors across rather than four, for the same reason. Four 16:9 doors on a
- * 1920 page are 460px wide and 258px tall, which is a thumbnail strip. Two
- * across gives each cover about 940 x 525 and lets the picture be the thing you
- * see first, which is what a door is for.
+ * They were four generated illustrations, and the measurable fault was worse
+ * than taste. On the screenshot they came off, all four were a glowing circular
+ * table in the same purple and teal vault: the picture at the top of each door
+ * said the same thing on all four doors, on the one screen whose entire job is
+ * telling four things apart. And they were expensive to be told nothing by. At
+ * 390px the wall ran 2,333px in an 844px window with the fourth door starting
+ * at y=1,711, two full screens down, because each cover was a 209px band.
  *
- * The procedural playmat surface is still painted underneath, so a cover that
- * fails to load reveals a finished surface rather than a hole, and a failure is
- * remembered for the life of the tab so one 404 does not become one per visit.
+ * What is in that space now is the difference itself. `mode.table` says who is
+ * at the table in that mode and this draws it: a surface with a chair at each
+ * seat, YOUR chair marked, and the other chairs holding either people or bots
+ * or nobody. The seats a mode can add but does not always deal are drawn faint,
+ * so "2 to 4 seats" is a picture as well as a sentence.
  *
- * ---------------------------------------------------------------------------
- * THE COPY CAME OFF THE PICTURE. MEASURED, 28 Aug 2026
- * ---------------------------------------------------------------------------
- * Four doors across a 1592px page are 386px wide, and at the cover's own 1.79
- * ratio that is 386 x 216. Every word of the door — eyebrow, title, two lines
- * of body, the quiet fact and the way in — was being set inside that 216px
- * letterbox, on top of the artwork, under one gradient. Both halves lost:
+ * Three things it buys, all of them measured rather than argued:
  *
- *   - the eyebrows OTHER PEOPLE / ONE SEAT / HANDS OFF were unreadable over
- *     stained glass and bright spell art, and the body copy under ONLINE and
- *     PLAYTEST fought the picture the whole way across;
- *   - the picture, which is the thing a door is for, was reduced to a 216px
- *     strip with type over four fifths of it.
+ *   - the four doors no longer look alike, and what tells them apart is the
+ *     thing the reader is choosing between;
+ *   - no bucket, no 404, no licence, no bytes over the wire, and it is sharp at
+ *     any size because it is drawn. Same reasoning as `matStyles.ts`, whose
+ *     weaves it paints the table with;
+ *   - the wall is short enough to read on a phone.
  *
- * And directly below, the play page ended at y=580 of a 1000px window: 42% of
- * the screen was empty black. So the room to fix it was already on the page.
+ * The table is painted by `Playmat` at each mode's own weave with NO tint. The
+ * mat tints are the five MTG colours and handing one to a mode would invent a
+ * meaning the mode does not have, which the design law reserves colour against.
  *
- * The door is now a picture AND a card, stacked: the cover at its own aspect
- * ratio with NOTHING drawn over it, and the words below it on the surface tint
- * every other card on this app uses. Contrast stops depending on which part of
- * an illustration landed behind a given letter, the artwork is finally shown
- * whole and unmodified, and the wall fills the window instead of stranding it.
- *
- * Still ONE ROW of four. Owner: *"all modes one line not 2 they are massive."*
- * The row got taller, not narrower, which is what the empty 42% was for.
+ * NEVER put card art here. A door has to be darkened for type to sit on it and
+ * Scryfall's guidelines forbid modifying card images. A deck tile shows a card
+ * WHOLE and unmodified, which is the permitted case, and that is why art is
+ * allowed at step two and not at step one.
  */
 
-import { useState } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Bot, UserRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Playmat } from './Playmat';
 import type { MatStyleId } from './matStyles';
-import type { MatTintId } from './usePlaymatStyle';
-import { COVER_ASPECT, PLAY_MODES, type PlayModeId } from './playModes';
-
-/** Covers that are not there. Remembered so the 404 happens once per tab. */
-const missingCovers = new Set<string>();
+import { PLAY_MODES, type ModeTable, type PlayModeId } from './playModes';
 
 /**
- * `fetchpriority`, lowercase, spread onto the img.
+ * Where a chair sits around the table, in the order seats are dealt.
  *
- * This is React 18.3.1. `fetchPriority` in camelCase is a React 19 prop; on 18
- * it still reaches the DOM lowercased — measured, the attribute reads back as
- * `fetchpriority="high"` and the browser honours it — but on the way React logs
- *
- *   Warning: React does not recognize the `fetchPriority` prop on a DOM element
- *
- * through `console.error`, on every load of this page. A console error that is
- * not an error is how everybody learns to stop reading the console, which is
- * how a real one gets missed. Spelling it lowercase is what the warning itself
- * asks for, and it is a plain pass-through attribute either way.
+ * Seat one is nearest the reader, which is where their own seat is on the real
+ * board too. Two is opposite, then the two flanks, so a two-player table reads
+ * as head to head and a four-player one as a pod.
  */
-const priority = (eager: boolean) => ({ fetchpriority: eager ? 'high' : 'auto' });
+const CHAIRS = [
+  'bottom-[9%] left-1/2 -translate-x-1/2',
+  'top-[9%] left-1/2 -translate-x-1/2',
+  'left-[8%] top-1/2 -translate-y-1/2',
+  'right-[8%] top-1/2 -translate-y-1/2',
+] as const;
 
-function Cover({
-  src,
-  fallback,
-  alt,
-  eager,
+/** One chair. Solid means you, muted means somebody, faint means a spare seat. */
+function Chair({
+  at,
+  kind,
+  spare,
 }: {
-  src: string;
-  fallback: { style: string; tint: string };
-  alt: string;
-  /**
-   * A door above the fold is fetched straight away.
-   *
-   * They were all four `loading="lazy"`, which is right for a picture further
-   * down a page and wrong for the picture that IS the page: the reader is
-   * looking at the doors while the browser waits to be told they matter.
-   *
-   * It used to be the first two, because the wall was two columns and the
-   * second row began at y=601 in an 800px window. The wall is one row now, so
-   * "the two above the fold" is all four of them: measured on 22 Aug 2026,
-   * every door sits at y=248 and is 164px tall at 1280 x 800 and 253px tall at
-   * 1920 x 1080. Doors three and four were still lazy and still auto priority,
-   * on screen, for a reason that had stopped being true.
-   */
-  eager: boolean;
+  at: string;
+  kind: 'you' | 'person' | 'bot';
+  spare: boolean;
 }) {
-  const [failed, setFailed] = useState(() => missingCovers.has(src));
+  const Icon = kind === 'bot' ? Bot : UserRound;
+  return (
+    <span
+      className={cn(
+        'absolute flex h-8 w-8 items-center justify-center rounded-xl sm:h-9 sm:w-9',
+        at,
+        spare
+          ? 'bg-muted/30 text-muted-foreground/40'
+          : kind === 'you'
+            ? 'bg-foreground text-background shadow-[0_6px_16px_rgba(0,0,0,0.45)]'
+            : 'bg-muted text-foreground/70'
+      )}
+    >
+      <Icon className="h-4 w-4 sm:h-[1.1rem] sm:w-[1.1rem]" aria-hidden="true" />
+    </span>
+  );
+}
+
+/**
+ * The table, drawn.
+ *
+ * Decorative in the accessibility tree: every fact it carries is written in
+ * words on the door beneath it, so a screen reader that skips it loses nothing.
+ */
+function ModeTableArt({ table, surface }: { table: ModeTable; surface: string }) {
+  const seats = Array.from({ length: table.max }, (_, index) => index);
 
   return (
-    <>
-      {/* Always painted, so a cover that fails to decode reveals a finished
-          surface underneath rather than a hole. */}
+    <span aria-hidden="true" className="absolute inset-0 block">
+      {/* The mat itself, at the size a table takes on a board: wide, low, and
+          well inside the door so the chairs have somewhere to sit. */}
+      {/* `board` rather than `active` or `seat`. Both of those are lit tones,
+          meant to say whose turn it is from across a room, and at this size
+          their weave read as static rather than as cloth. The board tone is the
+          quiet one: darker than the ground it sits on, so the mat reads as the
+          dark playmat it is and the chairs are the brightest thing on the
+          door after the one that is you. */}
       <Playmat
-        className="absolute inset-0 h-full w-full"
-        rounded="rounded-none"
-        tone="active"
-        style={fallback.style as MatStyleId}
-        tintOverride={fallback.tint as MatTintId}
+        className="absolute left-1/2 top-1/2 h-[46%] w-[56%] -translate-x-1/2 -translate-y-1/2"
+        rounded="rounded-[2rem]"
+        tone="board"
+        style={surface as MatStyleId}
+        tintOverride="none"
         image={null}
         colors={null}
       />
-      {!failed && (
-        <img
-          src={src}
-          alt={alt}
-          loading={eager ? 'eager' : 'lazy'}
-          {...priority(eager)}
-          decoding="async"
-          className="absolute inset-0 h-full w-full object-cover"
-          onError={() => {
-            missingCovers.add(src);
-            setFailed(true);
-          }}
+
+      {seats.map(index => (
+        <Chair
+          key={index}
+          at={CHAIRS[index]}
+          kind={index === 0 && table.yours ? 'you' : table.others === 'people' ? 'person' : 'bot'}
+          spare={index >= table.filled}
         />
-      )}
-    </>
+      ))}
+    </span>
   );
 }
 
@@ -141,22 +138,15 @@ export interface ModeWallProps {
   value: PlayModeId | null;
   onChoose: (mode: PlayModeId) => void;
   /**
-   * A live fact per mode, printed beside the static one. Online uses it for
-   * the number of tables actually waiting, which is the thing that makes the
-   * lead door worth leading with.
+   * A live fact per mode, printed above the static one. Online uses it for the
+   * number of tables actually waiting, which is the thing that makes the lead
+   * door worth leading with and the thing that says so when it is not.
    */
   live?: Partial<Record<PlayModeId, string>>;
 }
 
 export function ModeWall({ value, onChoose, live }: ModeWallProps) {
-  /* NO "STILL BEING BUILT" BADGE. Owner: "Still being built can just go, it's
-     gonna be ready soon anyway." It was also the one thing on these cards that
-     did not fit once they went to four across, running 43px into the title.
-
-     ONE ROW, not a 2x2. Owner: "all modes one line not 2 they are massive."
-     At two columns a 16:9 door is around 500px tall, so the four of them stacked
-     a thousand pixels of artwork above the thing you came here to press. Four
-     across quarters the width and therefore quarters the height. */
+  /* ONE ROW, not a 2x2. Owner: "all modes one line not 2 they are massive." */
   return (
     <div className="grid w-full items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {PLAY_MODES.map(mode => {
@@ -176,30 +166,32 @@ export function ModeWall({ value, onChoose, live }: ModeWallProps) {
                 : 'shadow-[0_10px_30px_rgba(0,0,0,0.35)] hover:shadow-[0_18px_46px_rgba(0,0,0,0.5)]'
             )}
           >
-            {/* THE PICTURE. Its own box, its own ratio, nothing drawn over it.
-                All four are on screen at once, so all four are eager. */}
-            <span className="relative block w-full shrink-0 overflow-hidden" style={{ aspectRatio: COVER_ASPECT }}>
-              <Cover src={mode.cover} fallback={mode.fallback} alt="" eager />
+            {/* WHO IS AT THE TABLE. A fixed band rather than an aspect ratio:
+                a ratio makes the picture grow with the column, which is how
+                four doors became 209px of illustration each on a desktop and
+                two screens of scrolling on a phone. */}
+            <span className="relative block h-[136px] w-full shrink-0 bg-muted/40 sm:h-[168px] xl:h-[196px]">
+              <ModeTableArt table={mode.table} surface={mode.surface} />
 
               {/* Hover and selection are light on the surface, never an
-                  outline, and they sit on the picture rather than under the
-                  words so the copy's contrast never moves. */}
+                  outline, and they sit up here rather than under the words so
+                  the copy's contrast never moves. */}
               <span
-                aria-hidden="true"
                 className={cn(
                   'pointer-events-none absolute inset-0 transition-opacity duration-200',
-                  active ? 'bg-white/[0.06] opacity-100' : 'bg-white/[0.05] opacity-0 group-hover:opacity-100'
+                  active
+                    ? 'bg-white/[0.06] opacity-100'
+                    : 'bg-white/[0.05] opacity-0 group-hover:opacity-100'
                 )}
               />
             </span>
 
-            {/* THE WORDS. On the card surface, so every one of them reads at
-                full contrast whatever the illustration above happens to be
-                doing. `flex-1` so the four bodies line their actions up even
-                when one mode says more than another. */}
             <span className="relative flex min-w-0 flex-1 flex-col gap-2 p-5">
+              {/* The answer to the question the page asks at the top: who is
+                  sitting opposite you. It used to be a mood (OTHER PEOPLE,
+                  HANDS OFF) and four moods do not tell four modes apart. */}
               <span className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-                {mode.eyebrow}
+                {mode.opposite}
               </span>
 
               <span className="text-2xl font-bold uppercase leading-none tracking-tight text-foreground">
@@ -208,22 +200,19 @@ export function ModeWall({ value, onChoose, live }: ModeWallProps) {
 
               <span className="mt-1 space-y-1">
                 {mode.lines.map(line => (
-                  <span key={line} className="block text-[0.8rem] leading-snug text-muted-foreground">
+                  <span
+                    key={line}
+                    className="block text-[0.8rem] leading-snug text-muted-foreground"
+                  >
                     {line}
                   </span>
                 ))}
               </span>
 
-              {/* Pushed to the bottom of the body, so ENTER sits on one line
-                  across all four doors however long the copy above it runs.
-
-                  The fact and the way in are STACKED, not set beside each
+              {/* The fact and the way in are STACKED, not set beside each
                   other. Side by side they collided on the two doors whose fact
-                  is longest: "2 to 4 seats. Needs an account and one deck with
-                  cards in it." wrapped to two lines and ran into ENTER, and
-                  "1 seat. Nothing blocks and nothing attacks back." finished
-                  hard against it. A door is 374px wide and a sentence plus a
-                  button does not fit on one line of it. */}
+                  is longest. A door is 374px wide and a sentence plus a button
+                  does not fit on one line of it. */}
               <span className="mt-auto flex flex-col gap-2 pt-4">
                 <span className="min-w-0 text-[0.7rem] leading-snug text-muted-foreground/70">
                   {liveLine ? (

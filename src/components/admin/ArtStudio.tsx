@@ -15,6 +15,19 @@
  * symbol, or anything resembling Wizards' artwork or a named artist's style.
  * A cover sits behind type, so every prompt asks for a dark frame and an empty
  * lower third for the words to sit in.
+ *
+ * ---------------------------------------------------------------------------
+ * NOTHING RENDERS THE PLAY MODE COVERS ANY MORE, 30 Aug 2026
+ * ---------------------------------------------------------------------------
+ * Owner: *"those images look awful so probably remove them."* The four doors on
+ * `/play` draw the table itself now, in `ModeWall.tsx`, and no code reads
+ * `play-mode-<id>.png` from the `art` bucket.
+ *
+ * The four presets below stay because this panel is a general art tool and they
+ * are a worked example of a prompt that names a mood rather than Wizards'
+ * artwork. They are NOT a covers pipeline: generating one puts a file in the
+ * bucket and nothing on the site will show it. Wiring them back into the doors
+ * is a decision to argue with the owner, not a tidy-up.
  */
 
 import { useState } from 'react';

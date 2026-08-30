@@ -1182,19 +1182,77 @@ Owner: *"we need to redesign the entire play a game UI - leading with online"*,
 full cards - maybe reuse from deck pages?"* and *"playtest can probably merge
 with the play page as a main option"*.
 
-`/play` is now **mode, then deck, then the table**, and all four modes walk the
-same three screens:
+`/play` is now **mode, then deck, then the table**:
 
 | Step | What it is | Where it lives |
 |---|---|---|
-| One | Four full bleed doors: ONLINE, VERSUS BOTS, GOLDFISH, PLAYTEST | `ModeWall.tsx`, copy in `playModes.ts` |
+| One | Four doors: ONLINE, VERSUS BOTS, GOLDFISH, PLAYTEST | `ModeWall.tsx`, copy in `playModes.ts` |
 | Two | One deck wall, commander cards whole and at full size | `DeckStep.tsx` over `DeckWall.tsx` |
-| Three | Seats and the shuffle, or for online the lobby | `SeatStep.tsx`, or `/play/online` |
+| Three | Seats, or for online the lobby | `SeatStep.tsx`, or `/play/online` |
 
-The step label, the big title, the breadcrumb of choices and back bottom left
-with the next step bottom right are `StepChrome.tsx` and `playFlow.ts`, shared by
+The step label, the big title, the breadcrumb of choices and back on the left
+with the way on at the top right are `StepChrome.tsx` and `playFlow.ts`, shared by
 every step of every mode including the online lobby. That is what makes four
 modes read as one product.
+
+### The load-in was redone on 30 Aug 2026. Owner: *"its super confusing"*
+
+Four things were measured against the built app and all four are now different.
+Do not walk any of them back without re-measuring.
+
+1. **The step is in the URL** (`?mode=bots&step=table`) and `goToStep` PUSHES.
+   Before, step two and step three had the identical address, so browser Back on
+   the last step left the play section, a refresh dropped you to step two, and
+   no link could point at the seats. Design law 4 says back and forward work
+   universally. `stepFromUrl` makes a hand typed step safe.
+2. **A mode has as many steps as it has decisions, and the label says how many.**
+   `Step two of three`, and `stepsFor('goldfish')` is two steps because
+   goldfish's third screen held one chair and nothing to decide. Goldfish is now
+   two clicks from `/play` to a dealt game.
+3. **One control for the way on, in the step bar, on every step of every mode**,
+   including the lobby's "Open a table". The start button used to be in the page
+   header on the last step only: forward at y=216 on steps one and two, start at
+   y=108 on step three, and on a 390px phone the start sat ABOVE the back
+   control. Step one has no step bar at all now, because its forward control was
+   permanently disabled under "Pick a mode to carry on" while four large doors
+   underneath were the actual way on.
+4. **The playmat catalogue came off the critical path** into
+   `TableSettingsPanel`, the right-hand slide-out, with the shuffle seed. It was
+   750px of the last screen's 1,645px at 1600 x 1000 and started at y=1,751 on a
+   phone. A live preview of the mat you will get stays on the page, so
+   *"I dont see the themed playmats?"* does not come back.
+
+Measured before and after at 1600 x 1000 and 390 x 844:
+
+| screen | before | after |
+|---|---|---|
+| mode wall, 390 | 2,333px, fourth door at y=1,711 | 1,868px |
+| seats, 1600 | 1,645px | 1,374px |
+| seats, 390 | 3,216px | 2,485px |
+
+### The four cover photographs are gone. Do not put them back
+
+Owner, 29 Aug 2026: *"those images look awful so probably remove them."*
+
+They were `play-mode-<id>.png` in the public `art` bucket, and the fault was not
+only taste: all four were a glowing circular table in the same purple and teal
+vault, so the picture said the SAME THING on all four doors, on the one screen
+whose entire job is telling four things apart.
+
+What is in that space now is the difference itself, drawn. `mode.table` in
+`playModes.ts` says who is at each table and `ModeWall` draws it: a `Playmat`
+surface with a chair per seat, YOUR chair marked solid, the others holding people
+or bots or nobody, and the seats the mode can add but does not always deal drawn
+faint. No bucket, no 404, no licence, no bytes, sharp at any size.
+
+The label above each title is the answer to the question the page asks:
+`ANOTHER PLAYER`, `THE COMPUTER`, `NOBODY`, `YOUR OWN DECKS`. It used to be a
+mood (OTHER PEOPLE, HANDS OFF) and four moods do not tell four modes apart.
+
+`playModes.test.ts` asserts that no door carries a URL or an image path. The
+Scryfall rule still stands and is the same rule: a door has to be darkened for
+type to sit on it and card images may not be modified. Art is allowed at step
+two, on a deck tile, whole and unmodified.
 
 ### `/simulate` is gone as a page and kept as a redirect
 
@@ -1227,18 +1285,23 @@ deck count** and shares one React Query key with the lobby. It is deliberately
 not `DeckAPI.getDeckSummaries()`, which is one `compute_deck_summary` RPC per
 deck and is the shape that took this app down twice.
 
-### Mode covers: the path, the shape, and the rule
+### ~~Mode covers: the path, the shape, and the rule~~ THERE ARE NO COVERS
 
-One asset per mode at **`public/covers/play/<id>.webp`, 3:4 portrait, 1200 x
-1600**. None exist yet and the page ships without them: every door falls back to
-the procedural playmat (`matStyles.ts`), each mode carrying its own weave and
-tint so four coverless doors are still four different doors.
+A door has no picture at all, as of 30 Aug 2026. See "The four cover
+photographs are gone" above. `public/covers/play/` held only a README for a
+mechanism that had already moved to the `art` bucket and is now gone twice over;
+both are deleted.
 
-**Never point a cover at Magic card art.** A cover has to be darkened for type
-to sit on it and Scryfall's guidelines forbid modifying card images. A deck tile
-shows a card WHOLE and UNMODIFIED, which is the permitted case, and that is the
-whole reason art is allowed at step two and not at step one.
-`public/covers/play/README.md` repeats this where the files go.
+**The rule that outlived them: never point a door at Magic card art.** A door has
+to be darkened for type to sit on it and Scryfall's guidelines forbid modifying
+card images. A deck tile shows a card WHOLE and UNMODIFIED, which is the
+permitted case, and that is the whole reason art is allowed at step two and not
+at step one.
+
+`ArtStudio` in Admin still carries four `play-mode-*` prompt presets. **Nothing
+renders what they generate.** They are kept because the panel is a general art
+tool and the prompts are a worked example of a prompt that names a mood rather
+than Wizards' artwork; they are not a covers pipeline.
 
 ## The discussion: who may read, who may post (22 Aug 2026)
 

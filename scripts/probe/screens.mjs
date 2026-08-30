@@ -20,6 +20,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
 const DECK = process.env.DECK || 'e0909132-5a48-4416-924c-dd2374d3d34d';
 
@@ -38,7 +39,7 @@ function deckViews() {
   return guard ? [guard[1], guard[2], guard[3]] : ['visual'];
 }
 
-const SETS = {
+export const SETS = {
   /* The deck page: every tab, and every card view of the tab that has them. */
   deck() {
     const out = [];
@@ -88,10 +89,22 @@ const SETS = {
   ],
 };
 
-const which = process.argv[2];
-if (!which || !SETS[which]) {
-  console.error(`usage: node scripts/probe/screens.mjs <${Object.keys(SETS).join('|')}>`);
-  process.exit(1);
-}
+/* CLI only when run directly. `nav-audit` imports SETS instead, because
+   passing a route list through the shell is not safe on Windows: Git Bash
+   POSIX-path-converts an argument that looks like an absolute path, so
+   ROUTES=$(node screens.mjs deck-routes) turned the FIRST route from
+   "/deck/<id>/commander" into "C:/Program Files/Git/deck/<id>/commander" and
+   the walk died on an invalid URL. Only the first one, which is the kind of
+   corruption that reads as a code bug for twenty minutes. */
+const invokedDirectly =
+  Boolean(process.argv[1]) &&
+  path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
 
-process.stdout.write(SETS[which]().map(([n, r]) => `${n}=${r}`).join(','));
+if (invokedDirectly) {
+  const which = process.argv[2];
+  if (!which || !SETS[which]) {
+    console.error(`usage: node scripts/probe/screens.mjs <${Object.keys(SETS).join('|')}>`);
+    process.exit(1);
+  }
+  process.stdout.write(SETS[which]().map(([n, r]) => `${n}=${r}`).join(','));
+}

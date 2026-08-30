@@ -2,6 +2,7 @@ import { useParams } from 'react-router-dom';
 import { DeckSubpageLayout, useDeckReturn } from '@/components/deck/DeckSubpageLayout';
 import { DeckSharePanel } from '@/components/deck-builder/DeckSharePanel';
 import { useDeckRecord } from '@/components/deck/useDeckRecord';
+import { DeckIdentityHero } from '@/components/deck/DeckIdentityHero';
 
 /**
  * `/deck/:id/share` — was a 90vh drawer with an `AlertDialog` nested inside it.
@@ -22,7 +23,11 @@ export default function DeckShare() {
   const { id } = useParams();
   /* The deck, on the tab it was open on, when that is where this came from. */
   const backTo = useDeckReturn(id);
-  const { deck, loading, error, reload } = useDeckRecord(id);
+  /* WITH the commander, which the other five sub-routes do not ask for.
+     This page publishes a deck, so it has to be able to show which one: it
+     measured 422 of 1,000 pixels empty below the fold and named the deck
+     three times in prose without ever drawing it. */
+  const { deck, loading, error, reload } = useDeckRecord(id, { withCommander: true });
 
   return (
     <DeckSubpageLayout
@@ -33,6 +38,19 @@ export default function DeckShare() {
       loading={loading}
       error={loading ? null : (error ?? (deck ? null : 'This deck could not be found.'))}
     >
+      {deck && (
+        <DeckIdentityHero
+          className="mb-4"
+          eyebrow="What people will see"
+          name={deck.name}
+          format={deck.format}
+          commanderCard={deck.commanderCard}
+          commanderName={deck.commanderName}
+          cardCount={deck.cardCount}
+          colors={deck.colors}
+        />
+      )}
+
       {deck && (
         <DeckSharePanel
           deckId={deck.id}

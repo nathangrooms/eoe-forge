@@ -844,7 +844,31 @@ XMage is MIT so this is legal with attribution. Forge remains GPL-3.0 and
 strictly off-limits.
 
 
-## Approved pattern: blurred art as identity ground
+## ~~Approved pattern: blurred art as identity ground~~ WITHDRAWN
+
+> 🔴 **DO NOT BLUR CARD ART. This whole section is history.**
+>
+> Scryfall's image guidelines are explicit: *"Do not blur, sharpen,
+> desaturate, or color-shift card images."* Our use was decorative with the
+> sharp card composited over it and may well have been accepted, but the
+> downside of guessing wrong is losing the API this entire product is built
+> on, so we do not guess.
+>
+> **The replacement is `identityGround(colors)` in
+> `src/lib/cards/identityGround.ts`**, a gradient built from the card or
+> deck's COLOUR IDENTITY, which is our own derived data rather than Wizards'
+> artwork. It carries the same meaning and arguably carries it better: a Simic
+> deck reads blue-green whether or not its commander's illustration happens
+> to. `PreconTile`, `PreconDeckView`, `Playmat` and `DeckIdentityHero` all use
+> it.
+>
+> This section stayed here after the change and cost real work on 2026-08-30:
+> building the deck share hero I followed it, wrote `filter: blur(40px)` over
+> a commander's `art_crop`, and only caught it by opening `identityGround.ts`
+> for its settings. **The paragraphs below are kept for the reasoning about
+> WHEN a surface wants an identity ground, which still holds. Everything they
+> say about blurring does not.**
+
 
 The owner, on the precon hero: "you added blurred artwork behind - adds beautiful
 colour actually, identify if other areas can use it based on what is being shown".

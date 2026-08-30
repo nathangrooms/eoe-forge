@@ -77,12 +77,38 @@ const ONLY = process.env.ONLY ? new Set(process.env.ONLY.split(',')) : null;
  * hand. Anything measured here is measured the same way as the menu, which is
  * the point of putting it here instead of in a second copy of the file.
  */
-const ROUTES = process.env.ROUTES
-  ? process.env.ROUTES.split(',').map(pair => {
-      const at = pair.indexOf('=');
-      return [pair.slice(0, at).trim(), pair.slice(at + 1).trim()];
-    })
-  : null;
+const parsePairs = spec =>
+  spec.split(',').map(pair => {
+    const at = pair.indexOf('=');
+    return [pair.slice(0, at).trim(), pair.slice(at + 1).trim()];
+  });
+
+/*
+ * `SCREENS=<set>` is the safe way in, and `ROUTES=` is kept for one-offs.
+ *
+ * Passing a route list through the shell is not safe on Windows. Git Bash
+ * POSIX-path-converts an argument that looks like an absolute path, so
+ * `ROUTES=$(node screens.mjs deck-routes)` turned the FIRST route from
+ * `/deck/<id>/commander` into `C:/Program Files/Git/deck/<id>/commander` and
+ * the walk died on `Cannot navigate to invalid URL`. Only the first one, which
+ * is exactly the kind of corruption that reads as a code bug rather than as an
+ * environment quirk.
+ *
+ * Importing the set removes the shell from the path entirely:
+ *
+ *   SCREENS=deck-routes node scripts/probe/nav-audit.mjs
+ */
+const { SETS } = await import('./screens.mjs');
+const wanted = process.env.SCREENS;
+if (wanted && !SETS[wanted]) {
+  console.error(`unknown screen set "${wanted}". Known: ${Object.keys(SETS).join(', ')}`);
+  process.exit(1);
+}
+const ROUTES = wanted
+  ? SETS[wanted]()
+  : process.env.ROUTES
+    ? parsePairs(process.env.ROUTES)
+    : null;
 
 const MIME = {
   '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',

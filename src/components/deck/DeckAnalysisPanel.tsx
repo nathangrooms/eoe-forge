@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Grid3X3 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { CardGrid } from '@/components/cards';
 import {
@@ -19,7 +21,7 @@ import { useListingView } from '@/components/listing/useListingView';
 import { SynergyEngine, type SynergyAnalysis } from '@/lib/magic/synergy';
 import type { Card as StoreCard } from '@/stores/deckStore';
 import type { DeckCardRow } from '@/lib/deck/deckCards';
-import type { DeckPower } from '@/lib/deck/power';
+import type { CutTarget, DeckPower } from '@/lib/deck/power';
 import { ArchetypeDetection } from '@/components/deck-builder/ArchetypeDetection';
 import { DeckCardTile, TileBadge } from './DeckCardTile';
 
@@ -149,6 +151,28 @@ export function DeckAnalysisPanel({
       row,
     };
   };
+
+  /*
+   * THE CUT LIST THE ENGINE HAS ALWAYS PRODUCED.
+   *
+   * `chooseCuts` runs inside every deck evaluation and lands in `power.cuts`,
+   * ranked worst first. Until now no screen in the product read the field, so
+   * the answer existed on every page load and reached nobody. The chat that
+   * used to sit at the bottom of this tab answered the same question by asking
+   * a model, with none of these numbers in front of it.
+   *
+   * A stored score rehydrates with `cuts: []` on purpose, because a cut list
+   * is only meaningful against the decklist in front of you. This page calls
+   * `computeDeckPower` live, so the field is populated here. The block is
+   * hidden rather than empty when it is not.
+   *
+   * Six each. The engine returns the whole deck ranked, which is the right
+   * thing for it to return and the wrong thing to draw: a cut list as long as
+   * the decklist says "cut everything" and means nothing.
+   */
+  const cutList: CutTarget[] = power.cuts ?? [];
+  const uncastable = cutList.filter(cut => cut.grounds === 'uncastable').slice(0, 6);
+  const poorFit = cutList.filter(cut => cut.grounds === 'poor-fit').slice(0, 6);
 
   const pairs = synergy?.strongestSynergies.slice(0, 8) ?? [];
   const clusters = synergy?.mechanicClusters.slice(0, 8) ?? [];
@@ -381,6 +405,136 @@ export function DeckAnalysisPanel({
         </Card>
       )}
 
+      {/* WHAT TO CUT, ANSWERED BY THE ENGINE INSTEAD OF BY A MODEL.
+
+          This is the one preset off the removed chat that nothing replaced,
+          and the engine had already answered it. Both halves come from
+          functions the score itself uses: castability is the roll-up that IS
+          the castability subscore, so a card here is one of the cards named in
+          that subscore, and fit is the same ranker that decides which cards to
+          suggest ADDING, so the reason to cut a card is the reverse of the
+          reason its replacement would be offered. A player can follow one
+          thread from the number at the top of this page to the card at the top
+          of this list.
+
+          NO APPLY BUTTONS. The optimiser owns proposing and applying changes
+          and draws its own removals with select-and-apply. A second apply flow
+          here would be two ways to do one thing, which is the duplication this
+          overhaul exists to remove. This block explains, and links there. */}
+      {(uncastable.length > 0 || poorFit.length > 0) && (
+        <Card>
+          <CardContent className="space-y-6 p-5 md:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-semibold">What to cut</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Your own cards, weakest first, judged on this deck rather than in general.
+                  Every reason below is the arithmetic that produced the score at the top of
+                  this page.
+                </p>
+              </div>
+              <Button asChild variant="secondary" size="sm" className="shrink-0">
+                <Link to={`/deck/${deckId}/optimise`}>Open the optimiser</Link>
+              </Button>
+            </div>
+
+            {uncastable.length > 0 && (
+              <section className="space-y-3">
+                <div>
+                  <h4 className="text-sm font-medium">You cannot reliably cast these</h4>
+                  {/* The engine writes one sentence per card and it ends the same way on
+                      every one of them: "which is the same reason your castability score is
+                      where it is." True, and six copies of it is a wall of type saying one
+                      thing. It is said here, once, and each card keeps the half that differs.
+                      The poor-fit list below does the opposite for the opposite reason. */}
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    How often you can pay for each card by the turn you want it, measured on
+                    this deck’s own mana. These are the cards holding your castability score
+                    down, so this list and that number are the same fact twice.
+                  </p>
+                </div>
+                <CardGrid width={view.size}>
+                  {uncastable.map(cut => {
+                    const tile = tileFor(cut.name);
+                    return (
+                      <DeckCardTile
+                        key={cut.name}
+                        card={tile.card}
+                        width={view.size}
+                        onClick={
+                          onCardClick && tile.row
+                            ? () => onCardClick(tile.row as DeckCardRow)
+                            : undefined
+                        }
+                        badge={
+                          cut.castabilityPct === null ? undefined : (
+                            <TileBadge>{Math.round(cut.castabilityPct)}%</TileBadge>
+                          )
+                        }
+                        caption={
+                          cut.castabilityTurn === null
+                            ? undefined
+                            : `by turn ${cut.castabilityTurn}`
+                        }
+                      />
+                    );
+                  })}
+                </CardGrid>
+              </section>
+            )}
+
+            {poorFit.length > 0 && (
+              <section className="space-y-3">
+                <div>
+                  <h4 className="text-sm font-medium">These do the least for the deck</h4>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Castable, and doing little for this particular deck. Under each card is
+                    what it has in common with the rest of the list, then which job it covers.
+                    This is a judgement about fit rather than a measurement, so read it as a
+                    place to start rather than an answer.
+                  </p>
+                </div>
+                {/* The engine's own `reason` is one sentence built from the same two fields
+                    read below, and it is the right shape for a context with no heading over
+                    it. Six of them in a grid is two sentence frames repeated with one word
+                    swapped, and the words that differ are exactly these two arrays. Drawing
+                    the fields is a second rendering of the same data, not a second
+                    implementation: a role or tag the engine learns later appears here with
+                    no change. */}
+                <CardGrid width={view.size}>
+                  {poorFit.map(cut => {
+                    const tile = tileFor(cut.name);
+                    return (
+                      <DeckCardTile
+                        key={cut.name}
+                        card={tile.card}
+                        width={view.size}
+                        onClick={
+                          onCardClick && tile.row
+                            ? () => onCardClick(tile.row as DeckCardRow)
+                            : undefined
+                        }
+                        badge={cut.quantity > 1 ? <TileBadge>{cut.quantity}</TileBadge> : undefined}
+                        caption={
+                          cut.sharedTags.length > 0
+                            ? `shares ${cut.sharedTags.slice(0, 2).join(', ')}`
+                            : 'shares nothing with the deck'
+                        }
+                        detail={
+                          cut.fillsRoles.length > 0
+                            ? `covers ${cut.fillsRoles.join(' and ')}`
+                            : 'covers no job the deck is short of'
+                        }
+                      />
+                    );
+                  })}
+                </CardGrid>
+              </section>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* THE CHAT IS GONE FROM THIS TAB.
 
           Owner: "analysis should remove that AI chat section its useless now".
@@ -397,11 +551,15 @@ export function DeckAnalysisPanel({
           rendered, invited a question, and returned a refusal to anybody who
           typed one.
 
-          `BrainAnalysis` itself is NOT deleted. This was its only live caller,
-          so it is orphaned now, and an earlier sweep on this project deleted
-          ten deck components that were genuinely in use and had to restore
-          them. Removing the file is a separate decision made against the
-          current tree, not a tidy-up bundled into a copy change. */}
+          `BrainAnalysis.tsx` is deleted as of 30 Aug 2026, on the owner:
+          "just remove deck analysis chat we have tutor for that". It sat with
+          no importer for as long as this comment has, which is not a reason to
+          delete a file on its own: an earlier sweep on this project removed ten
+          deck components that were genuinely in use and had to restore them.
+          What made it safe was checking the import PATH rather than the name,
+          against the tree as it stands, plus the two components it pulled in
+          that looked like they would be orphaned with it and were not.
+          `CardRecommendationDisplay` and `AIVisualDisplay` are both Tutor's. */}
     </div>
   );
 }

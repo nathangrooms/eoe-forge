@@ -530,10 +530,18 @@ on the output too.
 A directory name under `supabase/functions/` **is** the deployed function id. Renaming it does not
 move a function, it creates a second one and leaves the first deployed with the old code. Deployment
 is `git push` → Lovable, and the bundle and the function do not go live in the same instant, so the
-gap is a window where every question 404s. Seven call sites invoke it and six live in files owned by
-other work (`AIAnalysisPanel`, `BrainAnalysis`, `EnhancedDeckAnalysis`, `ScanInsightsHelper`,
+gap is a window where every question 404s. It had seven call sites in files owned by other work
+(`AIAnalysisPanel`, `BrainAnalysis`, `EnhancedDeckAnalysis`, `ScanInsightsHelper`,
 `AITemplateRecommendations`, `AIBuilder`). The endpoint name is never seen by a player. The reason is
 written at the top of `index.ts` so nobody "tidies" it.
+
+**`BrainAnalysis` is gone as of 30 Aug 2026** — owner: *"just remove deck analysis chat we have
+tutor for that"*. It was the deck page's chat box, nine preset analyses answered by a model, and
+Tutor takes the same deck as an attachment and can hold a conversation, which a box at the bottom
+of a tab never could. Deleted after checking the import PATH rather than the name against the
+current tree, and after checking that the two components it pulled in are Tutor's rather than its
+own. The preset a player would actually miss, "what to cut", is answered by the engine now: see
+"The engine answered what to cut all along" below.
 
 ---
 
@@ -1290,6 +1298,43 @@ other thing on the schedule that names it, and a vacuum is not a refresh.
 propagates only because writing `tags` bumps `updated_at`. Until it runs, the
 tags in the app are the old ones: the deck page, the generator and the optimiser
 all read the views, never `cards`.
+
+## The engine answered "what to cut" all along, and no screen read it (30 Aug 2026)
+
+`src/engine/advise/cuts.ts` ranks a deck's own cards worst first. Castability
+comes from the roll-up that IS the castability subscore, so a card on the list is
+one of the cards named in that subscore. Fit comes from `scoreCandidate`, the
+same ranker that chooses which cards to suggest ADDING, so the reason to cut a
+card is the reverse of the reason its replacement would be offered. It carries a
+sentence per card built entirely from those numbers.
+
+It runs inside **every** `computeDeckPower` call and lands in `power.cuts`.
+Nothing in `src/` read the field. Third instance of the section 10e shape: wired
+to the engine, never fed to a screen.
+
+It is the Analysis tab's fourth block now. Two lists, because uncastable and
+poor-fit are different problems with different fixes, both drawn as whole cards.
+No apply controls: the optimiser owns proposing and applying changes and already
+draws its own removals with select-and-apply, so this block explains and links
+there.
+
+**A stored score rehydrates with `cuts: []` on purpose**, because a cut list is
+only meaningful against the decklist in front of you. `/deck/:id` calls
+`computeDeckPower` live so the field is populated there. Any surface reading a
+STORED score gets an empty list and must hide the block rather than draw an
+empty one.
+
+### The engine's sentence is one rendering of the fields, not the only one
+
+`fitReason` builds "This shares 1 thing with the deck (lifegain) but covers no
+job you are short of" from `sharedTags` and `fillsRoles`. Correct for a context
+with no heading over it. Six of them in a grid is two sentence frames repeated
+with one word swapped, so the tiles draw the two arrays directly and the framing
+is said once in the section intro. Same for the uncastable list, where every
+sentence ends "which is the same reason your castability score is where it is."
+
+Drawing the fields is a second RENDERING, not a second implementation. A tag or
+role the engine learns later appears without a change here.
 
 ## The probes have an index now, and that is why (30 Aug 2026)
 

@@ -41,6 +41,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import puppeteer from 'puppeteer';
+import { pressControl, CONTROLS } from './pressControl.mjs';
 
 const arg = (name, fallback = null) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -109,22 +110,6 @@ const skipped = label => {
   });
 };
 
-/**
- * What counts as a control, and what does NOT.
- *
- * `:not(nav *)` and `:not(header *)` are the whole point. The left menu and the
- * top bar are on every page, so a sweep of `/templates` spent FIFTEEN of its
- * eighteen presses on Home, Card Search, Tutor, My Collection, My Decks and the
- * rest — the same fifteen links it had already pressed on `/collection`,
- * `/decks` and `/wishlist` — and the limit then cut the run off before it ever
- * reached "Use template" or "Details", which are the controls that only exist
- * on this page and have therefore never been pressed by anything.
- *
- * The chrome is worth sweeping once. It is not worth sweeping on every route.
- */
-const CONTROLS =
-  'button:not(nav *):not(header *), a[role="button"]:not(nav *):not(header *), a[href]:not(nav *):not(header *)';
-
 const MIME = {
   '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
   '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png',
@@ -181,71 +166,6 @@ const snapshot = () =>
     href: location.pathname + location.search,
   });
 
-/**
- * Press a control BY ITS REAL POINTER EVENTS.
- *
- * The first version of this did `el.click()` inside `page.evaluate`, which
- * dispatches a synthetic `click` and nothing else. Radix, which is every
- * shadcn tab, dropdown, switch, select and dialog trigger in this app, opens
- * on `pointerdown`, so a synthetic click activates none of them. The sweep
- * reported all nine admin tabs as "no request and no change" while a real
- * click on the same page moved the URL to `?tab=dev` and drew the console.
- *
- * That is worse than a missing check: it is a check that says "fine" about the
- * majority of the interface. Puppeteer's own `.click()` sends the pointer,
- * mouse and click events a browser sends, so what it presses is what a person
- * presses.
- *
- * The synthetic click stays as a FALLBACK, for the one case Puppeteer refuses:
- * an element scrolled out of view or covered by something else has no
- * clickable point. It is reported separately so the two are never confused.
- */
-async function pressControl(page, label) {
-  const want = label.trim().toLowerCase();
-  const handles = await page.$$(CONTROLS);
-  let exact = null;
-  let loose = null;
-  for (const h of handles) {
-    const info = await page.evaluate(
-      /* Same label rule as the discovery pass above, or a control found by its
-         title is one this can never locate again. */
-      el => ({
-        text: (
-          (el.textContent || '').trim() ||
-          el.getAttribute('title') ||
-          el.getAttribute('aria-label') ||
-          ''
-        )
-          .replace(/\s+/g, ' ')
-          .toLowerCase(),
-        off: el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true',
-      }),
-      h
-    );
-    if (info.off) continue;
-    if (info.text === want) { exact = h; break; }
-    if (!loose && info.text.startsWith(want)) loose = h;
-  }
-  const target = exact ?? loose;
-  if (!target) return false;
-
-  try {
-    await target.click({ delay: 20 });
-    return true;
-  } catch {
-    /* No clickable point: off screen, covered, or zero sized. Scroll it in and
-       try once more before falling back to the synthetic event. */
-    try {
-      await target.evaluate(el => el.scrollIntoView({ block: 'center' }));
-      await new Promise(r => setTimeout(r, 250));
-      await target.click({ delay: 20 });
-      return true;
-    } catch {
-      await target.evaluate(el => el.click());
-      return 'synthetic';
-    }
-  }
-}
 
 try {
   /* One load to find out what is on the page. */

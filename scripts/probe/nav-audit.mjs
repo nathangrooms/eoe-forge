@@ -595,7 +595,7 @@ const desk = rows.filter(r => r.w >= 1000);
    DESIGN, not because the fixture failed them, and an empty Wishlist is a real
    state a real user sees on their first visit. An empty state still has to fill
    the screen well, so it is exactly the kind of surface this audit exists for.
-    is still recorded, because it explains WHY a judged page has no
+   The flag is still recorded, because it explains WHY a judged page has no
    art, but it no longer buys an exemption. */
 const starved = desk.filter(r => r.unanswered.length > 0);
 const starvedNames = new Set(starved.map(r => r.name));

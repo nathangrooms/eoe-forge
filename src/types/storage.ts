@@ -102,6 +102,8 @@ export interface StorageOverview {
     /** Same reason as `StorageContainerSummary.unpricedCopies`. */
     unpricedCopies: number;
     uniqueCards: number;
+    /** The best of them, most valuable first, so the count can be shown as cards. */
+    preview: StoragePreviewCard[];
   };
 }
 

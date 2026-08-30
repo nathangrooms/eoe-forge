@@ -6,7 +6,9 @@ import { StorageAPI } from '@/lib/api/storageAPI';
 import type {
   StorageOverview as StorageOverviewType,
   StorageContainerSummary,
+  StoragePreviewCard,
 } from '@/types/storage';
+import { CardImage } from '@/components/cards';
 import { CreateContainerPanel } from './CreateContainerPanel';
 import { ContainerObject } from './ContainerObject';
 import { containerCountLine } from './containerCount';
@@ -220,6 +222,7 @@ export function StorageManagement({
             onPick={openCreate}
             unassignedCount={unassignedCount}
             unassignedValue={unassignedValue}
+            unassignedPreview={overview?.unassigned.preview ?? []}
           />
         ) : (
           <>
@@ -386,12 +389,15 @@ function EmptyShelf({
   onPick,
   unassignedCount,
   unassignedValue,
+  unassignedPreview,
 }: {
   onPick: (type: string) => void;
   unassignedCount: number;
   unassignedValue: number;
+  unassignedPreview: StoragePreviewCard[];
 }) {
   const icons: Record<string, typeof Layers> = { binder: Layers, deckbox: Box, box: Archive };
+  const shown = unassignedPreview.slice(0, 6);
 
   return (
     <section className="rounded-2xl bg-card px-4 py-8 shadow-lg shadow-black/20 md:px-8 md:py-10">
@@ -417,6 +423,41 @@ function EmptyShelf({
           </p>
         )}
       </div>
+
+      {/* THE CARDS THE SENTENCE ABOVE IS ABOUT.
+          This screen made the entire argument for the feature as a number and
+          then showed nothing. The nav audit put it in a list of three screens
+          in the whole product with no card image on them at all, and it is the
+          one where the missing picture is the point: "worth $364.85" is an
+          abstraction, and your own Craterhoof is not.
+
+          Most valuable first, the same order a container's pockets use, and
+          whole cards rather than crops, because the value being claimed lives
+          in the printing. They are not clickable: nothing has been filed yet,
+          so there is nowhere for a click to go, and the one thing to do on
+          this screen is underneath. */}
+      {shown.length > 0 && (
+        <div className="mt-8">
+          <p className="mb-3 text-center text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            {shown.length === 1
+              ? 'The card with nowhere recorded'
+              : `The ${shown.length} most valuable of them`}
+          </p>
+          {/* SIX, ACROSS THE WHOLE SECTION, RATHER THAN NINE INSIDE A 1024px CAP.
+              The API returns nine because that is a binder page and a container
+              tile fills its pockets with them. Nine in a capped column drew
+              100px cards on a 1600px screen, which is too small to recognise a
+              card from, and a card you cannot recognise is not evidence of
+              anything. Six across the full width is ~194px, which reads. */}
+          <ul className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+            {shown.map((card, i) => (
+              <li key={`${card.id}-${card.foil ? 'f' : 'n'}-${i}`}>
+                <CardImage card={card} fill quality="normal" />
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="mx-auto mt-8 grid max-w-4xl gap-5 sm:grid-cols-3">
         {QUICK_TYPES.map(type => {

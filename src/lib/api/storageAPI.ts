@@ -54,7 +54,7 @@ export class StorageAPI {
      */
     const { data: collectionItems, error: collectionError } = await supabase
       .from('user_collections')
-      .select('card_id, quantity, foil, cards(prices)');
+      .select('card_id, quantity, foil, cards(id, name, image_uris, prices)');
 
     if (collectionError) throw collectionError;
 
@@ -83,6 +83,17 @@ export class StorageAPI {
     let unassignedValue = 0;
     let unassignedUnpriced = 0;
     const unassignedCards = new Set<string>();
+    /*
+     * The unassigned cards THEMSELVES, not just how many there are.
+     *
+     * The storage tab's empty state makes the whole argument for the feature in
+     * one sentence: "161 cards in your collection, worth $364.85, have nowhere
+     * recorded." It was a screen with no card image on it saying that. The
+     * cards are already being walked here to produce the count and the value,
+     * so keeping the best of them costs one more column on a query that was
+     * already running.
+     */
+    const unassignedCandidates: StoragePreviewCard[] = [];
 
     collectionItems?.forEach((item: any) => {
       const assigned = assignedQuantities.get(item.card_id) || { normal: 0, foil: 0 };
@@ -91,6 +102,32 @@ export class StorageAPI {
 
       if (unassignedNormal > 0 || unassignedFoil > 0) {
         unassignedCards.add(item.card_id);
+        /* One entry per FINISH, the same shape a container's pockets use: a
+           foil and a non-foil of the same card are different objects on a
+           shelf and are priced differently. */
+        const card = item.cards;
+        if (card?.id) {
+          if (unassignedNormal > 0) {
+            unassignedCandidates.push({
+              id: card.id,
+              name: card.name ?? 'Unknown card',
+              image_uris: (card.image_uris as StoragePreviewCard['image_uris']) ?? undefined,
+              qty: unassignedNormal,
+              foil: false,
+              usd: unitPrice(card.prices, false),
+            });
+          }
+          if (unassignedFoil > 0) {
+            unassignedCandidates.push({
+              id: card.id,
+              name: card.name ?? 'Unknown card',
+              image_uris: (card.image_uris as StoragePreviewCard['image_uris']) ?? undefined,
+              qty: unassignedFoil,
+              foil: true,
+              usd: unitPrice(card.prices, true),
+            });
+          }
+        }
         unassignedCount += unassignedNormal + unassignedFoil;
         unassignedValue += ownedValueUSD(item.cards?.prices, unassignedNormal, unassignedFoil);
         // Copies the sum above added as nothing. Counted rather than inferred
@@ -184,13 +221,20 @@ export class StorageAPI {
       };
     }) || [];
 
+    /* Same order as a container's pockets, and for the same reason: the cards
+       you would actually reach for tell you what the pile is. */
+    unassignedCandidates.sort(
+      (a, b) => b.usd - a.usd || b.qty - a.qty || a.name.localeCompare(b.name)
+    );
+
     return {
       containers: enrichedContainers,
       unassigned: {
         count: unassignedCount,
         valueUSD: unassignedValue,
         unpricedCopies: unassignedUnpriced,
-        uniqueCards: unassignedCards.size
+        uniqueCards: unassignedCards.size,
+        preview: unassignedCandidates.slice(0, PREVIEW_LIMIT)
       }
     };
   }

@@ -67,6 +67,26 @@ const SHADOW: Record<CardImageSize, string> = {
   xl: 'shadow-xl shadow-black/40',
 };
 
+/**
+ * The name, when there is no picture to show instead.
+ *
+ * It used to be `0.7rem` at every size, which is fine on a thumbnail and absurd
+ * on a big one: the Tournaments deck rail draws its tiles at about 350 by 490,
+ * and a deck with no commander was a large flat grey rectangle with eleven
+ * pixel type floating in the middle of it. This is the fallback every surface
+ * hits when a card has no art, so it is worth the tokens rather than a patch at
+ * one call site.
+ *
+ * Sized off the same token the picture is, so the words grow with the box.
+ */
+const FALLBACK_TEXT: Record<CardImageSize, string> = {
+  xs: 'text-[0.6rem] leading-tight',
+  sm: 'text-[0.7rem] leading-tight',
+  md: 'text-sm leading-snug',
+  lg: 'text-base leading-snug',
+  xl: 'text-lg leading-snug',
+};
+
 export interface CardImageProps {
   /** Any card shape: a Scryfall object or a row from the `cards` table. */
   card: any;
@@ -287,10 +307,19 @@ export function CardImage({
           />
         )}
 
-        {/* Skeleton for cards with no image at all, or before anything decodes. */}
+        {/* Cards with no image at all, or whose image failed.
+            The name is the only true thing we have, so it is the whole tile
+            rather than a caption inside one. `line-clamp-4` because a long
+            commander name wraps to three at `lg` and losing the last word of
+            "Ulamog, the Ceaseless Hunger" is worse than a taller block. */}
         {(!src || failed) && (
-          <div className="absolute inset-0 flex items-center justify-center bg-muted p-2">
-            <span className="line-clamp-3 text-center text-[0.7rem] font-medium leading-tight text-muted-foreground">
+          <div className="absolute inset-0 flex items-center justify-center bg-muted px-3 py-2">
+            <span
+              className={cn(
+                'line-clamp-4 text-balance text-center font-medium text-muted-foreground',
+                FALLBACK_TEXT[resolved]
+              )}
+            >
               {name}
             </span>
           </div>

@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { TemplateFitPanel } from '@/components/templates/TemplateFitPanel';
+import { useArchetypeFaces } from '@/components/templates/useArchetypeFaces';
+import { CardImage, CardImageSkeleton, cardDetailPath } from '@/components/cards';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -128,6 +130,10 @@ export default function Templates() {
     searchQuery.trim() ? 1 : 0,
     selectedFormat !== 'all' ? 1 : 0
   );
+
+  /* Keyed on the WHOLE template list rather than the filtered one, so
+     narrowing to a format does not refetch. One query for the page. */
+  const { faces: archetypeFaces, loading: facesLoading } = useArchetypeFaces(TEMPLATES);
 
   /* The clear control this page did not have. A reader who narrowed to a format
      with nothing in it had a blank panel and no way out of it. */
@@ -322,8 +328,48 @@ export default function Templates() {
                 0
               );
 
+              const faces = archetypeFaces[template.id] ?? [];
+
               return (
-                <Card key={template.id} className="flex flex-col">
+                <Card key={template.id} className="flex flex-col overflow-hidden">
+                  {/*
+                   * WHAT THE DECK LOOKS LIKE, ON THE TILE.
+                   *
+                   * This page measured `art 0`: eleven Magic archetypes drawn
+                   * as eleven blocks of grey text chips. "Aristocrats" teaches
+                   * a player nothing; Blood Artist and a sacrifice outlet teach
+                   * them everything, and they are the cards the deck builder
+                   * itself would reach for, because both read the same tags.
+                   *
+                   * Whole cards, never cropped — `CardImage` sizes the Scryfall
+                   * asset to the box and the box is the card's own aspect.
+                   * Nothing is drawn on top of them.
+                   *
+                   * A template with no card scoring above zero draws no strip
+                   * at all rather than falling back to popular cards, which
+                   * would put Sol Ring under Aggressive Burn.
+                   */}
+                  {(faces.length > 0 || facesLoading) && (
+                    <div className="flex gap-1.5 bg-muted/25 px-3 pt-3">
+                      {facesLoading && faces.length === 0
+                        ? [0, 1, 2].map(i => (
+                            <div key={i} className="min-w-0 flex-1">
+                              <CardImageSkeleton />
+                            </div>
+                          ))
+                        : faces.map(face => (
+                            <Link
+                              key={face.id}
+                              to={cardDetailPath(face) ?? `/cards/${face.id}`}
+                              title={face.name}
+                              className="min-w-0 flex-1 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                              <CardImage card={face} fill hideFlip />
+                            </Link>
+                          ))}
+                    </div>
+                  )}
+
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between gap-3">
                       <CardTitle className="text-base">{template.name}</CardTitle>

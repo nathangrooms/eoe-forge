@@ -352,6 +352,71 @@ for (const [name, route] of (ROUTES ?? NAV)) {
     const sideWaste = Math.max(0, m.viewW - m.widest);
 
     rows.push({ name, route, w, h, ...m, deadBelow, sideWaste, errors: errors.length });
+
+    /*
+     * SCROLL THE WHOLE PAGE BEFORE CAPTURING IT.
+     *
+     * `fullPage: true` stitches a tall image without ever scrolling the
+     * viewport, and `CardImage` is `loading="lazy"` like every image should be,
+     * so anything below the first screenful has never been asked for. The
+     * screenshot then shows real card art at the top and empty grey boxes
+     * underneath — which looks exactly like a page whose images are broken.
+     *
+     * That misread three separate screens on 30 Aug: the dashboard's activity
+     * rail, the collection value rail, and four of the eleven archetype tiles,
+     * each time sending me to look for a defect that a probe then proved was
+     * not there (`naturalWidth > 0` on every one of them).
+     *
+     * So the page is walked to the bottom, given a moment for what that
+     * triggers, and returned to the top before the capture. The MEASUREMENTS
+     * above are taken first and are untouched by this.
+     */
+    await page.evaluate(async () => {
+      const step = window.innerHeight;
+      const end = document.documentElement.scrollHeight;
+      for (let y = 0; y < end; y += step) {
+        window.scrollTo(0, y);
+        await new Promise(r => setTimeout(r, 120));
+      }
+      window.scrollTo(0, 0);
+    });
+    /*
+     * Then WAIT FOR THEM, rather than waiting a fixed moment and hoping.
+     *
+     * The first version awaited `decode()` on whatever was incomplete at that
+     * instant, which misses every image the last scroll step had only just
+     * requested — measured, it left the bottom two tiles of the Templates page
+     * grey while the nine above them were correct, which is the same misread
+     * this whole block exists to stop.
+     *
+     * Polls instead, with a ceiling, because an image that genuinely 404s must
+     * not hang the walk. A capture with a broken image in it is a finding; a
+     * walk that never finishes is not.
+     */
+    await page
+      .evaluate(async () => {
+        const deadline = performance.now() + 8000;
+        const pending = () => [...document.images].filter(i => !i.complete);
+        while (pending().length > 0 && performance.now() < deadline) {
+          await Promise.race([
+            Promise.all(pending().map(i => i.decode().catch(() => {}))),
+            new Promise(r => setTimeout(r, 400)),
+          ]);
+        }
+      })
+      .catch(() => {});
+    /* `complete` means decoded, not painted, and `fullPage` re-rasterises the
+       whole document in one pass. Two frames plus a beat, or the bottom of a
+       long page captures the frame before its images were composited. */
+    await page
+      .evaluate(
+        () =>
+          new Promise(resolve =>
+            requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 1200)))
+          )
+      )
+      .catch(() => {});
+
     await page.screenshot({ path: path.join(path.resolve(OUT), `${name}-${w}.png`), fullPage: true });
     await page.close();
   }

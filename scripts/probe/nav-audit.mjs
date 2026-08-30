@@ -342,10 +342,46 @@ for (const [name, route] of (ROUTES ?? NAV)) {
       const emptyState = /\b(no |0 |nothing |create new|get started|none yet|nobody has)/.test(body)
         && main.querySelectorAll('img').length === 0;
 
+      /*
+       * A CARD GRID LAYING OUT ONE COLUMN IN A BOX THAT COULD FIT TWO.
+       *
+       * The measurement that was missing. `/deck/:id` on a 390px phone was
+       * 36,111 pixels of scroll — forty-three screens for a hundred cards —
+       * while scoring perfectly on dead space, unused width, cropped art and
+       * horizontal overflow, because none of those is about how many cards sit
+       * on a row. Every other surface managed two columns at that width; this
+       * one missed by two pixels of padding and nothing said so.
+       *
+       * THE TEST IS NOT THE GRID'S OWN WIDTH, and the first draft of this got
+       * that wrong: it skipped anything under 320px, and the grid it was
+       * written to catch was 310. Two 150px cards plus a 12px gap need 312, so
+       * by its own width that grid genuinely could not fit two — the fault was
+       * 48px of desktop padding upstream of it, not the grid.
+       *
+       * So the comparison is against the PAGE. A card grid narrower than the
+       * widest block on the same screen is losing room something else is
+       * keeping, and one column is what that costs. 40px of slack, because a
+       * card inside a panel with its own frame is not the same thing.
+       */
+      const oneColumn = [];
+      for (const el of document.querySelectorAll('*')) {
+        const cs = getComputedStyle(el);
+        if (cs.display !== 'grid') continue;
+        if (el.querySelectorAll('img').length < 5) continue;
+        const tracks = cs.gridTemplateColumns.split(' ').filter(Boolean);
+        if (tracks.length !== 1) continue;
+        const w = Math.round(el.getBoundingClientRect().width);
+        if (w >= widest - 40) continue; // it has the room the page has
+        oneColumn.push(
+          `${w}px inside ${Math.round(widest)}px, ${el.querySelectorAll('img').length} cards`
+        );
+      }
+
       const mainRect = main.getBoundingClientRect();
       return {
         unanswered,
         emptyState,
+        oneColumn,
         pageH: document.documentElement.scrollHeight,
         contentEnds: Math.round(lowest),
         viewH: view.h,
@@ -493,6 +529,9 @@ const dead = [...real].sort((a, b) => b.deadBelow - a.deadBelow).filter(r => r.d
 const side = [...real].sort((a, b) => b.sideWaste - a.sideWaste).filter(r => r.sideWaste > 120);
 const crop = [...real].filter(r => r.cropped > 0).sort((a, b) => b.cropped - a.cropped);
 const bare = [...real].filter(r => r.cardArt === 0);
+/* Judged at EVERY width, not only desktop, because this is the one rule that
+   only ever fired on a phone. */
+const oneCol = rows.filter(r => (r.oneColumn ?? []).length > 0);
 
 console.log(`  empty below the fold (${dead.length}):`);
 for (const r of dead) console.log(`    ${r.name.padEnd(14)} ${r.deadBelow}px of ${r.viewH}`);
@@ -500,6 +539,10 @@ console.log(`  unused width (${side.length}):`);
 for (const r of side) console.log(`    ${r.name.padEnd(14)} ${r.sideWaste}px of ${r.viewW}`);
 console.log(`  cropped card art (${crop.length}):`);
 for (const r of crop) console.log(`    ${r.name.padEnd(14)} ${r.cropped} of ${r.cardArt}   ${r.croppedExamples.join(', ')}`);
+console.log(`  a card grid in one column with room for two (${oneCol.length}):`);
+for (const r of oneCol) {
+  console.log(`    ${r.name.padEnd(14)} at ${r.w}px: ${r.oneColumn.join(' | ')}, page ${r.pageH}px`);
+}
 console.log(`  no card art at all (${bare.length}):`);
 for (const r of bare) console.log(`    ${r.name.padEnd(14)} ${r.h1}`);
 

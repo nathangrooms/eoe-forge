@@ -40,12 +40,67 @@ const TAPPED = /enters tapped|enters the battlefield tapped/i;
  * qualifies its own tapped clause is reported as "sometimes enters tapped",
  * which is vague and true, rather than flatly wrong.
  */
+/**
+ * A card's text with the reminder brackets taken out.
+ *
+ * REMINDER TEXT IS NOT THE RULE, and reading it as one printed a wrong fact.
+ * Path of Ancestry says "This land enters tapped." flatly, and the only "you
+ * may" on the whole card is inside the scry reminder,
+ * "(Look at the top card of your library. You may put that card on the
+ * bottom.)". The qualifier test below saw that and downgraded a flat statement
+ * to "sometimes enters tapped", which was offered to a player as a swap.
+ *
+ * Measured over the catalogue on 2026-08-30: 59 lands say "This land enters
+ * tapped." and also carry the words "you may" somewhere. After the brackets
+ * come out, 18 still do. **41 of the 59 were being described wrongly**, and
+ * Path of Ancestry is the second most played land in Commander among them.
+ */
+function withoutReminders(text: string): string {
+  return text.replace(/\([^)]*\)/g, ' ');
+}
+
 export function tappedNote(oracleText: string | null | undefined): string {
   const text = String(oracleText ?? '');
   if (!TAPPED.test(text)) return 'enters untapped';
-  if (/pay \d+ life/i.test(text)) return 'enters untapped if you pay the life';
-  if (/\bunless\b|\bif you don't\b|\bif you do\b|\byou may\b/i.test(text)) return 'sometimes enters tapped';
+  const rules = withoutReminders(text);
+  if (/pay \d+ life/i.test(rules)) return 'enters untapped if you pay the life';
+  if (/\bunless\b|\bif you don't\b|\bif you do\b|\byou may\b/i.test(rules)) return 'sometimes enters tapped';
   return 'enters tapped';
+}
+
+/**
+ * What a land's colours depend on, when they depend on something.
+ *
+ * `produced_mana` is the list of colours a land CAN EVER make, and a swap list
+ * printed it as what the land WILL make. Exotic Orchard carries
+ * `["B","G","R","U","W"]` and its ability is
+ * `{T}: Add one mana of any color that a land an opponent controls could
+ * produce.` Against three mono red opponents it makes {R} and casts nothing in
+ * a four colour deck. It was offered as a straight upgrade over a land that at
+ * least reliably makes {C}, and it is the third land in the shortlist for any
+ * four colour deck because it is ranked 9.
+ *
+ * Two conditions and no more, because only two are worth naming and a wider net
+ * would hedge lands that are fine:
+ *
+ *   - "could produce" makes the colours depend on somebody's board. Six lands.
+ *   - "Spend this mana only" makes the colours real and the mana restricted.
+ *     Forty nine lands.
+ *
+ * Command Tower is deliberately NOT flagged. Its condition is the commander's
+ * own colour identity, which is the deck being asked about, so "taps for BGUW"
+ * is exactly right for a BGUW deck. That is the line between a condition that
+ * matters to the answer and one that does not.
+ */
+export function conditionNote(oracleText: string | null | undefined): string | null {
+  const rules = withoutReminders(String(oracleText ?? ''));
+  if (/could produce/i.test(rules)) {
+    return 'though only the colours somebody else\'s lands are already making';
+  }
+  if (/spend this mana only/i.test(rules)) {
+    return 'though the card limits what that mana may be spent on';
+  }
+  return null;
 }
 
 export function gradeLands(cards: NormalisedCard[], identity: string[]): LandVerdict[] {

@@ -1,7 +1,7 @@
 {
   "title": "Fifty questions Magic players really ask",
   "asked_from": "scripts/tutor-fifty.json",
-  "ran": "2026-08-30T05:51:54.445Z",
+  "ran": "2026-08-30T06:11:17.167Z",
   "endpoint": "https://udnaflcohfyljrsgqggy.supabase.co/functions/v1/mtg-brain",
   "transport_failures": 0,
   "harness": {
@@ -22,7 +22,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 1236,
+      "wall_clock_ms": 1331,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -50,7 +50,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 1583,
+      "wall_clock_ms": 930,
       "answered_from": "catalogue",
       "standing": "partial",
       "routing": {
@@ -83,7 +83,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 288,
+      "wall_clock_ms": 305,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -103,7 +103,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 1527,
+      "wall_clock_ms": 1037,
       "answered_from": "catalogue",
       "standing": "partial",
       "routing": {
@@ -135,7 +135,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 263,
+      "wall_clock_ms": 222,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -155,7 +155,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 613,
+      "wall_clock_ms": 591,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -188,7 +188,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 369,
+      "wall_clock_ms": 341,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -208,7 +208,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 1001,
+      "wall_clock_ms": 602,
       "answered_from": "catalogue",
       "standing": "partial",
       "routing": {
@@ -241,7 +241,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 807,
+      "wall_clock_ms": 533,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -275,7 +275,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 970,
+      "wall_clock_ms": 701,
       "answered_from": "catalogue",
       "standing": "partial",
       "routing": {
@@ -316,7 +316,7 @@
       "deck_cards_sent": 0,
       "prediction": "generative",
       "http_status": 200,
-      "wall_clock_ms": 961,
+      "wall_clock_ms": 775,
       "answered_from": "catalogue",
       "standing": "partial",
       "routing": {
@@ -355,7 +355,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 2420,
+      "wall_clock_ms": 1380,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -396,7 +396,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 619,
+      "wall_clock_ms": 1106,
       "answered_from": "catalogue",
       "standing": "partial",
       "routing": {
@@ -430,7 +430,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 457,
+      "wall_clock_ms": 387,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -462,7 +462,7 @@
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 695,
+      "wall_clock_ms": 492,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -495,7 +495,7 @@
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 598,
+      "wall_clock_ms": 440,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -528,7 +528,7 @@
       "deck_cards_sent": 0,
       "prediction": "generative",
       "http_status": 200,
-      "wall_clock_ms": 495,
+      "wall_clock_ms": 435,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -560,7 +560,7 @@
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 942,
+      "wall_clock_ms": 609,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -598,7 +598,7 @@
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 212,
+      "wall_clock_ms": 233,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -626,7 +626,7 @@
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 433,
+      "wall_clock_ms": 243,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -654,7 +654,7 @@
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 216,
+      "wall_clock_ms": 270,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -682,7 +682,7 @@
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 901,
+      "wall_clock_ms": 213,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -710,7 +710,7 @@
       "deck_cards_sent": 92,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 224,
+      "wall_clock_ms": 275,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -738,7 +738,7 @@
       "deck_cards_sent": 92,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 227,
+      "wall_clock_ms": 238,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -766,7 +766,7 @@
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 258,
+      "wall_clock_ms": 340,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -796,7 +796,7 @@
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 450,
+      "wall_clock_ms": 362,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -828,7 +828,7 @@
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 343,
+      "wall_clock_ms": 344,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -860,9 +860,9 @@
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 3744,
+      "wall_clock_ms": 1260,
       "answered_from": "catalogue",
-      "standing": "partial",
+      "standing": "full",
       "routing": {
         "question": "Is my mana base any good?",
         "ask": "lands",
@@ -876,14 +876,19 @@
         "cards"
       ],
       "cached": false,
-      "cards_attached": 3,
+      "cards_attached": 8,
       "card_names": [
         "Zoetic Cavern",
         "Roadside Reliquary",
-        "Rogue's Passage"
+        "Rogue's Passage",
+        "Command Tower",
+        "Exotic Orchard",
+        "Path of Ancestry",
+        "Watery Grave",
+        "Breeding Pool"
       ],
       "charts": [],
-      "answer": "33 lands. These are the weakest slots, worst first, judged on what each one taps for against BGUW:\n\n- Zoetic Cavern: taps for C. That is none of your colours.\n- Roadside Reliquary: taps for C. That is none of your colours.\n- Rogue's Passage: taps for C. That is none of your colours.\n- Academy Ruins: taps for C. That is none of your colours.\n- Accursed Duneyard: taps for C. That is none of your colours.\n- Ruins of Oran-Rief: taps for C. That is none of your colours.\n- Zhalfirin Void: taps for C. That is none of your colours.\n- Blast Zone: taps for C. That is none of your colours.\n- Adagia, Windswept Bastion: taps for W. That is one colour, and it enters tapped.\n\nOne thing to hold in mind. This is judged on colours only, so a land that makes no colour sits at the top of the list whatever else it does. If one of those is in there for what it does rather than what it taps for, keep it.\n\nThe list of lands to put in their place could not be read just now, so I am not naming any from memory. The lands above still stand, because they came out of your own list."
+      "answer": "33 lands. These are the weakest slots, worst first, judged on what each one taps for against BGUW:\n\n- Zoetic Cavern: taps for C. That is none of your colours.\n- Roadside Reliquary: taps for C. That is none of your colours.\n- Rogue's Passage: taps for C. That is none of your colours.\n- Academy Ruins: taps for C. That is none of your colours.\n- Accursed Duneyard: taps for C. That is none of your colours.\n- Ruins of Oran-Rief: taps for C. That is none of your colours.\n- Zhalfirin Void: taps for C. That is none of your colours.\n- Blast Zone: taps for C. That is none of your colours.\n- Adagia, Windswept Bastion: taps for W. That is one colour, and it enters tapped.\n\nOne thing to hold in mind. This is judged on colours only, so a land that makes no colour sits at the top of the list whatever else it does. If one of those is in there for what it does rather than what it taps for, keep it.\n\nStraight swaps, keeping the land count where it is at 33:\n\n- Cut Zoetic Cavern, play Command Tower. Taps for BGUW, enters untapped. $0.26.\n- Cut Roadside Reliquary, play Exotic Orchard. Taps for BGUW, though only the colours somebody else's lands are already making, enters untapped. $0.21.\n- Cut Rogue's Passage, play Path of Ancestry. Taps for BGUW, enters tapped. $0.23.\n- Cut Academy Ruins, play Watery Grave. Taps for BU, enters untapped if you pay the life. $9.76.\n- Cut Accursed Duneyard, play Breeding Pool. Taps for GU, enters untapped if you pay the life. $9.53.\n- Cut Ruins of Oran-Rief, play Godless Shrine. Taps for BW, enters untapped if you pay the life. $8.01."
     },
     {
       "id": "q29",
@@ -894,7 +899,7 @@
       "deck_cards_sent": 100,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 210,
+      "wall_clock_ms": 306,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -924,7 +929,7 @@
       "deck_cards_sent": 100,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 245,
+      "wall_clock_ms": 186,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -952,7 +957,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 372,
+      "wall_clock_ms": 540,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -984,7 +989,7 @@
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 209,
+      "wall_clock_ms": 225,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -1014,7 +1019,7 @@
       "deck_cards_sent": 0,
       "prediction": "generative",
       "http_status": 200,
-      "wall_clock_ms": 289,
+      "wall_clock_ms": 972,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -1042,9 +1047,9 @@
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 3271,
+      "wall_clock_ms": 3199,
       "answered_from": "catalogue",
-      "standing": "refused",
+      "standing": "full",
       "routing": {
         "question": "What is the best black removal spell under one dollar?",
         "ask": "best-of",
@@ -1058,10 +1063,19 @@
         "cards_unique"
       ],
       "cached": false,
-      "cards_attached": 0,
-      "card_names": [],
+      "cards_attached": 8,
+      "card_names": [
+        "Feed the Swarm",
+        "Infernal Grasp",
+        "Withering Torment",
+        "Go for the Throat",
+        "Murder",
+        "Bitter Triumph",
+        "Tragic Slip",
+        "Noxious Gearhulk"
+      ],
       "charts": [],
-      "answer": "The catalogue could not be read just now, so I have no list for you. Try again in a moment."
+      "answer": "The 8 most played black removal under $1.00, Commander legal:\n\n1. Feed the Swarm {1}{B} $0.16, rank 89\n2. Infernal Grasp {1}{B} $0.26, rank 261\n3. Withering Torment {2}{B} $0.88, rank 271\n4. Go for the Throat {1}{B} $0.37, rank 373\n5. Murder {1}{B}{B} $0.09, rank 836\n6. Bitter Triumph {1}{B} $0.30, rank 859\n7. Tragic Slip {B} $0.16, rank 870\n8. Noxious Gearhulk {4}{B}{B} $0.42, rank 980\n\nThat order is how many Commander decks run each card, which is popularity and not quality. It is the honest measure we hold, and the top of a popularity list is usually where you want to start anyway.\n\nThat is inside your $1.00, checked against each card's own dollar price, looking down the 300 most played that match. A card we hold no dollar price for is left out rather than counted as cheap."
     },
     {
       "id": "q35",
@@ -1072,7 +1086,7 @@
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 146,
+      "wall_clock_ms": 211,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -1100,7 +1114,7 @@
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 784,
+      "wall_clock_ms": 5055,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -1138,7 +1152,7 @@
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 790,
+      "wall_clock_ms": 566,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -1176,7 +1190,7 @@
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 713,
+      "wall_clock_ms": 1080,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -1216,7 +1230,7 @@
       "deck_cards_sent": 0,
       "prediction": "generative",
       "http_status": 200,
-      "wall_clock_ms": 273,
+      "wall_clock_ms": 264,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -1244,7 +1258,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 378,
+      "wall_clock_ms": 724,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -1276,7 +1290,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 453,
+      "wall_clock_ms": 489,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -1308,7 +1322,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 425,
+      "wall_clock_ms": 845,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -1340,7 +1354,7 @@
       "deck_cards_sent": 92,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 227,
+      "wall_clock_ms": 560,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -1370,7 +1384,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 407,
+      "wall_clock_ms": 452,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -1402,7 +1416,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 936,
+      "wall_clock_ms": 2698,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -1443,7 +1457,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 354,
+      "wall_clock_ms": 253,
       "answered_from": "catalogue",
       "standing": "partial",
       "routing": {
@@ -1475,7 +1489,7 @@
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 461,
+      "wall_clock_ms": 479,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -1507,7 +1521,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 564,
+      "wall_clock_ms": 1248,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -1537,7 +1551,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 294,
+      "wall_clock_ms": 290,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -1557,7 +1571,7 @@
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 619,
+      "wall_clock_ms": 1164,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {

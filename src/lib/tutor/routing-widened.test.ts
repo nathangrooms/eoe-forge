@@ -31,6 +31,7 @@ import {
 } from '../../../supabase/functions/mtg-brain/answer/route.ts';
 import { printedCopyException } from '../../../supabase/functions/mtg-brain/answer/legality.ts';
 import { keywordsNamedIn } from '../../../supabase/functions/mtg-brain/answer/glossary.ts';
+import { conditionNote, tappedNote } from '../../../supabase/functions/mtg-brain/manabase.ts';
 
 const askFor = (question: string): string | null => chooseAsk(question)?.ask.id ?? null;
 
@@ -263,5 +264,61 @@ describe('a card that prints its own copy allowance', () => {
       ),
       null
     );
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * The two land facts that contradicted the card
+ * ------------------------------------------------------------------ */
+
+describe('what a swap line may claim about a land', () => {
+  /* Oracle text copied from our own rows on 2026-08-30. */
+  const PATH_OF_ANCESTRY =
+    'This land enters tapped.\n' +
+    "{T}: Add one mana of any color in your commander's color identity. When that mana is spent " +
+    'to cast a creature spell that shares a creature type with your commander, scry 1. ' +
+    '(Look at the top card of your library. You may put that card on the bottom.)';
+  const WATERY_GRAVE =
+    '({T}: Add {U} or {B}.)\nAs this land enters, you may pay 2 life. If you don\'t, it enters tapped.';
+  const EXOTIC_ORCHARD =
+    '{T}: Add one mana of any color that a land an opponent controls could produce.';
+  const COMMAND_TOWER =
+    "{T}: Add one mana of any color in your commander's color identity.";
+
+  /**
+   * The fault this fixes was on screen: "Cut Rogue's Passage, play Path of
+   * Ancestry. Taps for BGUW, sometimes enters tapped." The card says "This land
+   * enters tapped." with no condition at all, and the only "you may" on it is
+   * inside the scry reminder.
+   */
+  it('a flat tapped clause is not softened by a you may inside a reminder', () => {
+    assert.equal(tappedNote(PATH_OF_ANCESTRY), 'enters tapped');
+  });
+
+  it('a shockland is still reported as a shockland', () => {
+    assert.equal(tappedNote(WATERY_GRAVE), 'enters untapped if you pay the life');
+  });
+
+  it('a land with no tapped clause enters untapped', () => {
+    assert.equal(tappedNote(COMMAND_TOWER), 'enters untapped');
+  });
+
+  /**
+   * The other one: "Cut Roadside Reliquary, play Exotic Orchard. Taps for BGUW,
+   * enters untapped." Its colours are whatever an opponent's lands make, and
+   * against three mono red opponents it makes {R} and casts nothing.
+   */
+  it('a land whose colours depend on somebody else says so', () => {
+    const note = conditionNote(EXOTIC_ORCHARD);
+    assert.ok(note && /somebody else/.test(note), String(note));
+  });
+
+  /**
+   * And the line that decides this is a real rule rather than a blanket hedge.
+   * Command Tower's condition IS the commander's colour identity, which is the
+   * deck being asked about, so there is nothing to warn anybody about.
+   */
+  it('a land keyed to your own commander is not hedged', () => {
+    assert.equal(conditionNote(COMMAND_TOWER), null);
   });
 });

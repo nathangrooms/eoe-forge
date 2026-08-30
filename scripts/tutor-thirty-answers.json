@@ -1,7 +1,7 @@
 {
   "title": "Thirty more questions, chosen for the shapes the first fifty missed",
   "asked_from": "scripts/tutor-thirty.json",
-  "ran": "2026-08-30T05:52:49.350Z",
+  "ran": "2026-08-30T06:12:17.737Z",
   "endpoint": "https://udnaflcohfyljrsgqggy.supabase.co/functions/v1/mtg-brain",
   "transport_failures": 0,
   "harness": {
@@ -22,7 +22,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 816,
+      "wall_clock_ms": 1527,
       "answered_from": "catalogue",
       "standing": "partial",
       "routing": {
@@ -55,7 +55,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 667,
+      "wall_clock_ms": 511,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -87,7 +87,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 1458,
+      "wall_clock_ms": 1830,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -119,7 +119,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 742,
+      "wall_clock_ms": 983,
       "answered_from": "catalogue",
       "standing": "partial",
       "routing": {
@@ -151,7 +151,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 764,
+      "wall_clock_ms": 1106,
       "answered_from": "catalogue",
       "standing": "partial",
       "routing": {
@@ -184,7 +184,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 351,
+      "wall_clock_ms": 369,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -216,7 +216,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 260,
+      "wall_clock_ms": 314,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -244,7 +244,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 299,
+      "wall_clock_ms": 375,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -276,7 +276,7 @@
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 185,
+      "wall_clock_ms": 183,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -306,9 +306,9 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 392,
+      "wall_clock_ms": 352,
       "answered_from": "catalogue",
-      "standing": "full",
+      "standing": "partial",
       "routing": {
         "question": "Has Rhystic Study gone up in price this year?",
         "ask": "price",
@@ -327,7 +327,7 @@
         "Rhystic Study"
       ],
       "charts": [],
-      "answer": "**Rhystic Study** {2}{U}\n\nEnchantment.\n\nAbout $64.33, or €33.74 in euros. There are 11 printings and they do not all cost the same."
+      "answer": "**Rhystic Study** {2}{U}\n\nEnchantment.\n\nAbout $64.33, or €33.74 in euros. There are 11 printings and they do not all cost the same.\n\nThat is what it costs now. Whether it has moved I cannot tell you: we keep a daily snapshot of prices, it has gaps in it, and drawing a trend through gaps would give you a shape rather than a fact."
     },
     {
       "id": "t11",
@@ -338,7 +338,7 @@
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 209,
+      "wall_clock_ms": 230,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -366,7 +366,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 295,
+      "wall_clock_ms": 197,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -394,7 +394,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 520,
+      "wall_clock_ms": 313,
       "answered_from": "catalogue",
       "standing": "partial",
       "routing": {
@@ -426,7 +426,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 225,
+      "wall_clock_ms": 191,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -443,7 +443,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "A price is a fact about one card, and often about one printing of it, so I need to know which. Pick a card at the top of the page or name it in the question and I will give you what we hold in dollars and in euros.\n\nIf you are asking what your own cards are worth rather than one card, your collection page prices the whole thing from the same numbers I would use."
+      "answer": "Your wishlist page is where this lives. It holds a target price against each card and tells you when one comes down to it, which is the thing you are asking for.\n\nI cannot produce that list from here. Your wishlist is yours, so I can only read it while you are signed in, and even then a card coming down in price is something that page watches rather than something I work out on the spot."
     },
     {
       "id": "t15",
@@ -454,7 +454,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 399,
+      "wall_clock_ms": 358,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -486,7 +486,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 532,
+      "wall_clock_ms": 503,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -518,7 +518,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 836,
+      "wall_clock_ms": 555,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -559,7 +559,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 424,
+      "wall_clock_ms": 407,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -591,7 +591,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 287,
+      "wall_clock_ms": 242,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -623,7 +623,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 427,
+      "wall_clock_ms": 526,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -661,7 +661,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 885,
+      "wall_clock_ms": 799,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -699,7 +699,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 1287,
+      "wall_clock_ms": 1098,
       "answered_from": "catalogue",
       "standing": "partial",
       "routing": {
@@ -737,7 +737,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 441,
+      "wall_clock_ms": 716,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -777,7 +777,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 463,
+      "wall_clock_ms": 553,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -809,7 +809,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 1563,
+      "wall_clock_ms": 2855,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -848,7 +848,7 @@
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 2021,
+      "wall_clock_ms": 4532,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -887,7 +887,7 @@
       "deck_cards_sent": 0,
       "prediction": "hostile",
       "http_status": 200,
-      "wall_clock_ms": 967,
+      "wall_clock_ms": 876,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -917,7 +917,7 @@
       "deck_cards_sent": 0,
       "prediction": "hostile",
       "http_status": 200,
-      "wall_clock_ms": 289,
+      "wall_clock_ms": 1316,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -937,7 +937,7 @@
       "deck_cards_sent": 0,
       "prediction": "hostile",
       "http_status": 200,
-      "wall_clock_ms": 231,
+      "wall_clock_ms": 253,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -957,7 +957,7 @@
       "deck_cards_sent": 0,
       "prediction": "hostile",
       "http_status": 200,
-      "wall_clock_ms": 215,
+      "wall_clock_ms": 214,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,

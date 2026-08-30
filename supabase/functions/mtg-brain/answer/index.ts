@@ -107,7 +107,7 @@ import {
 } from './behaviour.ts';
 import { copyVerdict, deckRuleVerdicts, printedCopyException, type Fault } from './legality.ts';
 import { bandForScore, bracketIdForScore } from '../_engine/power/weights.ts';
-import { gradeLands, upgradeTargets, findLandCandidates, tappedNote } from '../manabase.ts';
+import { gradeLands, upgradeTargets, findLandCandidates, tappedNote, conditionNote } from '../manabase.ts';
 import { isLand, type NormalisedCard } from '../deck-context.ts';
 import { resolveCards, type ResolvedCard } from '../resolve-cards.ts';
 
@@ -1167,8 +1167,40 @@ function winConditionIsAJudgement(routing: Routing): Answered {
  * database down twice. So this says what it needs and where the other answer
  * lives, rather than serving a list that was sorted wrongly.
  */
+/**
+ * Whether the question is about a price MOVING rather than about a price.
+ *
+ * "Has Rhystic Study gone up in price this year?" came back with $64.33 and
+ * nothing else, which reads as an answer and is not one.
+ */
+const PRICE_OVER_TIME = [
+  'gone up', 'going up', 'gone down', 'going down', 'risen', 'rising', 'fallen',
+  'falling', 'dropped', 'dropping', 'spiked', 'spiking', 'this year', 'last year',
+  'over time', 'price history', 'trend', 'getting cheaper', 'getting more expensive',
+  'used to cost', 'was it cheaper',
+];
+
+function asksAboutPriceOverTime(question: string): boolean {
+  const text = normalise(question);
+  return PRICE_OVER_TIME.some(p => text.includes(` ${normalise(p).trim()} `));
+}
+
 function priceNeedsACard(routing: Routing): Answered {
   const text = normalise(routing.question);
+
+  /* The wishlist tracks a price against a target and says when it drops. That
+     is a page in this product, and it is per card rather than a list I can
+     produce, so the answer names it instead of printing the generic paragraph
+     about needing a card. */
+  if (/ wishlist | want list | watchlist /.test(text)) {
+    return finish(
+      [
+        say('Your wishlist page is where this lives. It holds a target price against each card and tells you when one comes down to it, which is the thing you are asking for.'),
+        say('I cannot produce that list from here. Your wishlist is yours, so I can only read it while you are signed in, and even then a card coming down in price is something that page watches rather than something I work out on the spot.'),
+      ],
+      [], routing, [], 'refused'
+    );
+  }
 
   /* THE SAME PARAGRAPH WAS BEING PRINTED AT THREE DIFFERENT QUESTIONS, and for
      two of them it answered something else. "What is the most expensive card in
@@ -1712,6 +1744,19 @@ async function answerAboutCard(
        spend forty dollars on a card banned in the format this whole product is
        built around. One line, and only when the legality is not already being
        printed underneath, so no answer says it twice. */
+    /* "HAS IT GONE UP?" IS NOT "WHAT IS IT?" and answering the second at
+       somebody who asked the first lets today's number read as an answer about
+       a change. We do keep a daily snapshot, in `card_price_history`, and it is
+       not continuous, so a trend read off it would be a line drawn through
+       gaps. The limit is stated without a number, because any number written
+       here goes stale the next time capture runs. */
+    if (asksAboutPriceOverTime(routing.question)) {
+      blocks.push(say(
+        'That is what it costs now. Whether it has moved I cannot tell you: we keep a daily snapshot of prices, it has gaps in it, and drawing a trend through gaps would give you a shape rather than a fact.'
+      ));
+      standing = 'partial';
+    }
+
     if (!parts.includes('legality')) {
       const state = (card.legalities ?? {})['commander'];
       if (state === 'banned') {
@@ -2911,7 +2956,11 @@ async function answerAboutLands(req: AnswerRequest, routing: Routing): Promise<A
     blocks.push(quote(swaps.map((land, i) => {
       const out = targets[i]?.name;
       const makes = (land.produced_mana ?? []).filter(m => colours.includes(m)).join('');
-      return `- Cut ${out}, play ${land.name}. Taps for ${makes}, ${tappedNote(land.oracle_text)}. ${priceTag(land.prices)}.`;
+      /* `produced_mana` is what a land CAN EVER make and this line used to print
+         it as what the land WILL make. Exotic Orchard makes the colours an
+         opponent's lands make. See `conditionNote`. */
+      const condition = conditionNote(land.oracle_text);
+      return `- Cut ${out}, play ${land.name}. Taps for ${makes}${condition ? `, ${condition}` : ''}, ${tappedNote(land.oracle_text)}. ${priceTag(land.prices)}.`;
     }).join('\n')));
     for (const land of swaps) attach.push(land.name);
   }

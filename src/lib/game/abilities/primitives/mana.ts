@@ -138,9 +138,23 @@ export function parseManaSymbols(mana: string): ManaParse {
       symbols.push({ sym: 'monocolor-hybrid', color: mono[2] as ManaColor, generic: Number(mono[1]) });
       continue;
     }
-    const hybrid = upper.match(/^([WUBRGC])\/([WUBRGC])$/);
+    /*
+     * Two or more colours, not exactly two.
+     *
+     * Printed hybrid is always two, so widening this changes no real card's
+     * cost. It exists for `{W/U/B/R/G}`, which is how the compiler spells "one
+     * mana of any colour" for Command Tower, Arcane Signet, Fellwar Stone and
+     * the rest of the cards that name where the colour comes from. Those carry
+     * an `among` on the effect saying which source narrows the five.
+     *
+     * It lands in `hybrid` on purpose rather than in a symbol of its own,
+     * because the consequence is the one that matters and it is already right:
+     * a hybrid is a CHOICE, and P05 defers every choice instead of picking a
+     * colour for the player.
+     */
+    const hybrid = upper.match(/^[WUBRGC](?:\/[WUBRGC])+$/);
     if (hybrid) {
-      symbols.push({ sym: 'hybrid', colors: [hybrid[1] as ManaColor, hybrid[2] as ManaColor] });
+      symbols.push({ sym: 'hybrid', colors: upper.split('/') as ManaColor[] });
       continue;
     }
     unrecognised.push(token);

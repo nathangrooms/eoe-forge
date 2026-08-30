@@ -647,7 +647,13 @@ test('no silent drops: the clause-accounting proof still holds on every new shap
   // is really about the shapes that PARTIALLY parse — where a new rule is most
   // likely to consume text without recording that it did.
   for (const [name, typeLine, text] of [
-    ['Half Read', 'Sorcery', 'You gain 1 life for each creature you control. Scry 2.'],
+    /* This fixture used to end "Scry 2." and it stopped being half read on
+       2026-08-30, when scry got the rule its DSL member had been waiting for.
+       The card now genuinely IS fully covered, so the fixture was wrong rather
+       than the assertion, and the unreadable half is a clause that is still
+       unreadable. Proliferate needs a player-directed choice across any number
+       of permanents and the vocabulary has no member for it. */
+    ['Half Read', 'Sorcery', 'You gain 1 life for each creature you control. Proliferate.'],
     ['Restriction Only', 'Land', '{T}: Add {C}. Spend this mana only on costs that contain {X}.'],
     ['Bad Binding', 'Sorcery', 'Draw X cards, where X is the number of gizmos you control.'],
   ] as const) {

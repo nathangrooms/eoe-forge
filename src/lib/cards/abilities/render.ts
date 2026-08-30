@@ -55,6 +55,17 @@ import type {
 } from './dsl.ts';
 import { assertNever } from './dsl.ts';
 
+/**
+ * Oracle vocabulary for a named mana source. The round-trip comparison is
+ * lexical, so these are the printed words rather than a paraphrase.
+ */
+const MANA_SOURCE_WORDS: Record<string, string> = {
+  'commander-identity': "of any color in your commander's color identity",
+  'opponent-lands': 'of any color that a land an opponent controls could produce',
+  'your-lands': 'of any type that a land you control could produce',
+  'your-legendary-permanents': 'of any color among legendary creatures and planeswalkers you control',
+};
+
 const join = (parts: Array<string | undefined | null>, sep = ' '): string =>
   parts.filter((p): p is string => Boolean(p && p.trim())).join(sep).replace(/\s+/g, ' ').trim();
 
@@ -323,7 +334,8 @@ export function renderEffect(effect: Effect): string {
       return `${renderPlayer(effect.who)} returns ${renderValue(effect.count)} ${renderSelector(effect.what)} from ${zoneWords(effect.zone)} to ${zoneWords(effect.to)}`;
     case 'search-library':
       return join([
-        renderPlayer(effect.who), 'searches library for', renderValue(effect.count),
+        renderPlayer(effect.who), 'searches library for', effect.upTo ? 'up to' : undefined,
+        renderValue(effect.count),
         // The thing found in a library is a card, whatever the selector's zone says.
         renderSelector(effect.what), effect.what.sel === 'all' && effect.what.zone === undefined ? 'card' : undefined,
         `put into ${zoneWords(effect.to)}`, effect.tapped && 'tapped', effect.thenShuffle && 'then shuffle',
@@ -372,6 +384,7 @@ export function renderEffect(effect: Effect): string {
     case 'add-mana':
       return join([
         renderPlayer(effect.who), 'adds', effect.mana,
+        effect.among ? MANA_SOURCE_WORDS[effect.among] : undefined,
         effect.count !== undefined ? `for each ${renderValue(effect.count)}` : undefined,
         effect.restriction ? renderRestrictionText(effect.restriction.spendOn, effect.restriction.what) : undefined,
       ]);

@@ -120,6 +120,14 @@ interface FieldSpec {
   optional?: boolean;
 }
 
+/** The four sources a card may name for "one mana of any colour". */
+const isManaColourSource = isEnum([
+  'commander-identity',
+  'opponent-lands',
+  'your-lands',
+  'your-legendary-permanents',
+] as const);
+
 const req = (check: Check<unknown>): FieldSpec => ({ check });
 const opt = (check: Check<unknown>): FieldSpec => ({ check, optional: true });
 
@@ -462,7 +470,7 @@ const effectImpl = union<Effect>('do', {
   }, 'do'),
   'search-library': object({
     who: req(playerSelector), what: req(selector), count: req(valueExpr), to: req(zone),
-    thenShuffle: req(isBool), tapped: opt(isBool),
+    thenShuffle: req(isBool), tapped: opt(isBool), upTo: opt(isBool),
   }, 'do'),
   shuffle: object({ who: req(playerSelector) }, 'do'),
   'create-token': object({
@@ -480,6 +488,7 @@ const effectImpl = union<Effect>('do', {
   attach: object({ what: req(selector), to: req(selector) }, 'do'),
   'add-mana': object({
     who: req(playerSelector), mana: req(manaString), count: opt(valueExpr), restriction: opt(manaSpendRestriction),
+    among: opt(isManaColourSource),
   }, 'do'),
   'player-counter': object({ who: req(playerSelector), counter: req(isNonEmptyString), count: req(valueExpr) }, 'do'),
   'set-monarch': object({ who: req(playerSelector) }, 'do'),

@@ -336,7 +336,20 @@ export type Effect =
   | { do: 'sacrifice'; who: PlayerSelector; what: Selector; count: ValueExpr }
   | { do: 'exile'; what: Selector }
   | { do: 'return-from'; zone: Zone; who: PlayerSelector; what: Selector; count: ValueExpr; to: Zone }
-  | { do: 'search-library'; who: PlayerSelector; what: Selector; count: ValueExpr; to: Zone; thenShuffle: boolean; tapped?: boolean }
+  /**
+   * `upTo` is the difference between Rampant Growth and Cultivate.
+   *
+   * "Search your library for A basic land card" fetches one. "Search your
+   * library for UP TO TWO basic land cards" lets the searcher take nought, one
+   * or two, and `count` alone cannot say that: a fixed 2 would fetch two every
+   * time. The rule used to refuse the whole card rather than say the wrong
+   * number, which was right about the number and wrong about the silence,
+   * because it cost Cultivate and Kodama's Reach any record at all. They are
+   * ranked 20 and 37 in Commander.
+   *
+   * Same shape `look-and-pick` already uses for the same reason.
+   */
+  | { do: 'search-library'; who: PlayerSelector; what: Selector; count: ValueExpr; to: Zone; thenShuffle: boolean; tapped?: boolean; upTo?: boolean }
   | { do: 'shuffle'; who: PlayerSelector }
   /*
    * CR 701.18. Look at the top N cards of your library, then put any number of
@@ -448,7 +461,7 @@ export type Effect =
    * `count` is E9 meeting E8: "Add {G} for each creature you control" is the
    * same mana string produced a computed number of times. Absent means once.
    */
-  | { do: 'add-mana'; who: PlayerSelector; mana: string; count?: ValueExpr; restriction?: ManaSpendRestriction }
+  | { do: 'add-mana'; who: PlayerSelector; mana: string; count?: ValueExpr; restriction?: ManaSpendRestriction; among?: ManaColourSource }
   | { do: 'player-counter'; who: PlayerSelector; counter: string; count: ValueExpr }
   | { do: 'set-monarch'; who: PlayerSelector }
   | { do: 'lose-game' | 'win-game'; who: PlayerSelector }
@@ -568,6 +581,37 @@ export interface CardDestination {
  * with no filter and no kind would be no restriction at all, and the compiler
  * refuses the clause instead of emitting one.
  */
+/**
+ * Where the COLOUR of "one mana of any colour" comes from, when the card names
+ * a source rather than letting the player pick freely.
+ *
+ * These are among the most played mana sources in the format and they had no
+ * ability record at all before this existed. Measured 30 Aug 2026 over the
+ * hundred most played Commander cards, 26 of which the compiler could not read:
+ *
+ *   Command Tower     rank 2    any colour in your commander's identity
+ *   Arcane Signet     rank 3    the same sentence
+ *   Exotic Orchard    rank 9    any colour a land an opponent controls produces
+ *   Fellwar Stone     rank 17   the same sentence
+ *   Reflecting Pool   rank 173  any type a land YOU control could produce
+ *   Mox Amber         rank 205  any colour among your legendary permanents
+ *
+ * It is a FIELD on `add-mana` rather than a verb of its own, and that is the
+ * point rather than a shortcut. A new verb would need a line in `EFFECT_VERBS`,
+ * a facet of its own, and an entry in `ROLE_FACETS.ramp` before any of these
+ * counted as ramp anywhere. As a field, the facet stays `eff:add-mana` and
+ * every consumer that already understands Sol Ring understands these too.
+ *
+ * The colour is still a decision, so `mana` carries the five-way hybrid and P05
+ * defers it exactly as it defers `{R/G}`. Picking a colour on a player's behalf
+ * is the one thing that folder does not do.
+ */
+export type ManaColourSource =
+  | 'commander-identity'
+  | 'opponent-lands'
+  | 'your-lands'
+  | 'your-legendary-permanents';
+
 export interface ManaSpendRestriction {
   spendOn: 'cast' | 'activate' | 'cast-or-activate';
   what?: CardFilter;

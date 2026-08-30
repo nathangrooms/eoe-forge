@@ -170,7 +170,19 @@ export function searchLibraryForced(
     const pool = zonePool('library', playerId, effect.what, ctx);
     const name = playerOf(ctx.state, playerId)?.name ?? 'A player';
 
-    if (count > 0 && pool.length > count) {
+    /*
+     * "Up to two" is ALWAYS the player's number, even when the library holds
+     * exactly two. Cultivate may fetch nought, and an engine that fetched both
+     * because both were there would be picking on the player's behalf, which is
+     * the one thing this folder does not do.
+     *
+     * So `upTo` defers before the size comparison rather than inside it.
+     */
+    if (effect.upTo && count > 0) {
+      deferred.push(
+        `${name} searches their library for up to ${count} of ${pool.length} matching card${pool.length === 1 ? '' : 's'}`
+      );
+    } else if (count > 0 && pool.length > count) {
       deferred.push(`${name} searches their library for ${count} of ${pool.length} matching cards`);
     } else if (count > 0) {
       for (const instanceId of pool) {

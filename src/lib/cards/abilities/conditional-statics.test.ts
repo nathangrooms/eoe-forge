@@ -366,14 +366,42 @@ describe('"up to N" is a number the player picks, not every match', () => {
     assert.equal(JSON.stringify(compiled).includes('"do":"untap"'), false);
   });
 
-  it('Disciples of Gix no longer fetches exactly three when the card says up to three', () => {
+  /**
+   * This used to assert SILENCE: no `search-library` at all, because a fixed
+   * count of three would have fetched three every time off a card that may
+   * fetch none.
+   *
+   * Silence was the wrong half of the fix. It was right that the number must
+   * not be three and wrong that the answer was no record, because refusing the
+   * clause refuses the whole card: Cultivate and Kodama's Reach, ranked 20 and
+   * 37 in Commander, carried NO ability record, and every consumer reads that
+   * as "does nothing" rather than "unread".
+   *
+   * The premise of the test is unchanged and still asserted. Nothing fetches
+   * three. It is now said with a flag instead of with nothing.
+   */
+  it('Disciples of Gix says "up to three" rather than fetching three', () => {
     const compiled = compileCardAbilities({
       name: 'Disciples of Gix',
       type_line: 'Creature — Phyrexian Human',
       oracle_text:
         'When this creature enters, search your library for up to three artifact cards, put them into your graveyard, then shuffle.',
     });
-    assert.equal(JSON.stringify(compiled).includes('"do":"search-library"'), false);
+    const json = JSON.stringify(compiled);
+    assert.equal(json.includes('"do":"search-library"'), true, 'the clause is unread again');
+    assert.equal(json.includes('"upTo":true'), true, 'nothing says the count is the player\'s to pick');
+  });
+
+  it('a search for a fixed number carries no upTo', () => {
+    const compiled = compileCardAbilities({
+      name: 'Rampant Growth',
+      type_line: 'Sorcery',
+      oracle_text:
+        'Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.',
+    });
+    const json = JSON.stringify(compiled);
+    assert.equal(json.includes('"do":"search-library"'), true);
+    assert.equal(json.includes('"upTo"'), false, 'a fixed count was marked as a choice');
   });
 
   it('a TARGETED "up to" is untouched, because TargetSpec can say min 0', () => {

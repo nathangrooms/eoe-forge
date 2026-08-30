@@ -15,15 +15,22 @@
  * deliberate refusal, and the comment next to it says what we refused.
  *
  * ## Effects deliberately not modelled, and why they are frequent
- * Scry, surveil, explore, investigate and proliferate are all common and all
- * absent from the DSL's effect vocabulary. They come out as `{do:'manual'}`
- * with a hint rather than being approximated, and `coverage.ts` counts them, so
- * "what should the vocabulary grow next" is a number rather than an opinion.
+ * Explore, investigate and proliferate are common and absent from the DSL's
+ * effect vocabulary. They come out as `{do:'manual'}` with a hint rather than
+ * being approximated, and `coverage.ts` counts them, so "what should the
+ * vocabulary grow next" is a number rather than an opinion.
+ *
+ * Scry and surveil USED to be on that list and are not any more. They had a DSL
+ * member, a validator entry and a renderer case, and nothing produced either,
+ * so the hint saying the vocabulary had no member for them had been false for
+ * as long as the member existed. Measured before the fix: `Scry 2.` compiled to
+ * nothing at all, not even a counted manual, so no number said it was missing.
  */
 
 import type {
   Cost,
   Effect,
+  ManaColourSource,
   ManaSpendRestriction,
   PlayerSelector,
   Selector,
@@ -115,6 +122,15 @@ export interface BuildCtx {
    * the binding refuses once this is above zero.
    */
   targetsSoFar?: number;
+  /**
+   * Who the FIRST half of a split sentence was about, while the second half is
+   * being read, and undefined at every other moment.
+   *
+   * "Target player draws two cards and loses 2 life" gives its second half no
+   * subject because the first half already supplied one. Set and restored around
+   * that one read, so the carry cannot leak into the next sentence.
+   */
+  subjectFallback?: PlayerSelector;
 }
 
 /**
@@ -222,10 +238,32 @@ export function phraseSelector(phrase: string, ctx: BuildCtx, prompt: string): S
   return objectSelector(ref);
 }
 
-/** A player phrase, defaulting to the ability's controller when omitted. */
+/**
+ * A player phrase, defaulting to the ability's controller when omitted.
+ *
+ * `ctx.subjectFallback` beats the controller when it is set, which happens only
+ * while the second half of "A does X and does Y" is being read. See the
+ * ellipsis note in `compileEffectPhrase`.
+ */
 function playerOr(phrase: string | undefined, ctx: BuildCtx, fallback: PlayerSelector = { who: 'you' }): PlayerSelector | null {
-  if (!phrase) return fallback;
+  if (!phrase) return ctx.subjectFallback ?? fallback;
   return parsePlayer(phrase, (spec) => ctx.addTarget(spec));
+}
+
+/**
+ * Who the first half of a split sentence was about, if it was about anybody.
+ *
+ * The RESOLVED selector, not the words. That distinction is the whole point:
+ * re-reading the text "target player" would call `ctx.addTarget` a second time
+ * and Sign in Blood would ask the caster to choose a target twice, once to draw
+ * and once to lose the life, off a card that has one target.
+ */
+function subjectOf(effects: readonly Effect[]): PlayerSelector | null {
+  for (const e of effects) {
+    const who = (e as { who?: PlayerSelector }).who;
+    if (who) return who;
+  }
+  return null;
 }
 
 /** Damage and similar effects take either an object or a player. */
@@ -459,6 +497,42 @@ export const EFFECT_RULES: EffectRule[] = [
       return [{ do: 'draw', who, count }];
     },
   },
+  /*
+   * Scry and surveil had a DSL member, a validator entry and a line in
+   * `render.ts`, and NOTHING PRODUCED EITHER. `NAMED_MANUAL_EFFECTS` still
+   * carried them with the hint "no library-ordering effect in the vocabulary",
+   * which stopped being true when `{do:'scry'}` was added and nobody came back.
+   *
+   * That is the unreachable-capability shape CLAUDE.md records from play mode,
+   * happening inside the compiler: every part of the path existed except the
+   * one that starts it. Measured before the fix, `Scry 2.` on its own compiled
+   * to nothing at all, not even a counted manual, so it did not appear in the
+   * coverage histogram either and there was no number saying it was missing.
+   *
+   * Scry is on Preordain, Serum Visions, Opt and several hundred more.
+   */
+  {
+    id: 'scry',
+    re: new RegExp(`^(?:(${P}) )?(?:scry|scries) (${N})$`),
+    note: '"Scry 2" and "each player scries 1". The reminder text in brackets is stripped upstream.',
+    build(m, ctx) {
+      const who = playerOr(m[1], ctx);
+      const count = countOf(m[2], ctx);
+      if (!who || count === null) return null;
+      return [{ do: 'scry', who, count }];
+    },
+  },
+  {
+    id: 'surveil',
+    re: new RegExp(`^(?:(${P}) )?surveils? (${N})$`),
+    note: 'Same shape as scry, and the same reason it was missing.',
+    build(m, ctx) {
+      const who = playerOr(m[1], ctx);
+      const count = countOf(m[2], ctx);
+      if (!who || count === null) return null;
+      return [{ do: 'surveil', who, count }];
+    },
+  },
   {
     id: 'mill',
     re: new RegExp(`^(?:(${P}) )?mills? (${N}) cards?$`),
@@ -506,7 +580,13 @@ export const EFFECT_RULES: EffectRule[] = [
   },
   {
     id: 'lose-life',
-    re: new RegExp(`^(${P}) loses? (${N}) life$`),
+    /* The player is optional here for the same reason it always was on
+       `gain-life` directly above, which had it and this did not. The asymmetry
+       was an oversight and it cost real cards: the second half of "You draw two
+       cards and lose 2 life" could not be read, so Night's Whisper compiled to
+       nothing at all. Who "lose" refers to is decided by `playerOr`, which
+       prefers a subject carried over from the first half of the sentence. */
+    re: new RegExp(`^(?:(${P}) )?loses? (${N}) life$`),
     build(m, ctx) {
       const who = playerOr(m[1], ctx);
       const amount = countOf(m[2], ctx);
@@ -668,11 +748,6 @@ export const EFFECT_RULES: EffectRule[] = [
     build(m, ctx) {
       const ref = parseObject(m[1]);
       if (!ref || ref.targeted) return null;
-      // "Search your library for up to three artifact cards" lets the searcher
-      // stop at nought, one or two. `count` is a fixed number, so compiling it
-      // would fetch exactly three every time — Disciples of Gix milled three
-      // artifacts off a card that says it may fetch none.
-      if (ref.upTo) return null;
       if (/ reveal /.test(m[0])) ctx.approximate = true;
       const to = m[2] === 'onto the battlefield' ? 'battlefield' : m[2] === 'into your hand' ? 'hand' : 'graveyard';
       const e: Effect = {
@@ -680,6 +755,23 @@ export const EFFECT_RULES: EffectRule[] = [
         what: objectSelector({ ...ref, zone: 'library' }),
         count: ref.count, to, thenShuffle: true,
       };
+      /*
+       * "Search your library for up to three artifact cards" lets the searcher
+       * stop at nought, one or two, and `count` alone cannot say that: a fixed
+       * three would fetch three every time, which is how Disciples of Gix
+       * milled three artifacts off a card that says it may fetch none.
+       *
+       * This used to `return null` for that reason, and it was right about the
+       * number and wrong about the silence. Refusing the whole card left
+       * Cultivate and Kodama's Reach, ranked 20 and 37 in Commander, with NO
+       * ability record at all, which every consumer reads as "this card does
+       * nothing" rather than "we did not read this clause".
+       *
+       * The flag is the same one `look-and-pick` already carries for the same
+       * sentence, and P06 defers the choice to the player rather than picking
+       * a number on their behalf.
+       */
+      if (ref.upTo) (e as { upTo?: boolean }).upTo = true;
       if (m[3]) (e as { tapped?: boolean }).tapped = true;
       return [e];
     },
@@ -812,6 +904,52 @@ export const EFFECT_RULES: EffectRule[] = [
           effects: [restrictedMana({ do: 'add-mana', who: { who: 'you' }, mana: s }, ctx)],
         })),
       }];
+    },
+  },
+  /*
+   * "One mana of any colour, from a source the card names."
+   *
+   * Command Tower and Arcane Signet are ranked 2 and 3 in Commander and neither
+   * produced an ability record before this rule, because `add-mana-any-color`
+   * below anchors on `$` and every one of these sentences carries a qualifier
+   * after "color". Four sentences, six of the most played mana sources in the
+   * format, and one `among` field that keeps the facet `eff:add-mana` so
+   * everything reading Sol Ring reads these too.
+   *
+   * The five-way hybrid is a colour CHOICE, so P05 defers it. `among` is what
+   * says which colours the choice is actually between, and it is on the record
+   * rather than inferred, so a mono-red deck's Arcane Signet is never read as
+   * making blue.
+   */
+  {
+    id: 'add-mana-any-color-among',
+    re: new RegExp(
+      '^add (one|two|three) mana of any (?:color|type)' +
+      /* No apostrophe: `normalize.ts` strips them, so the phrase that reaches
+         here is "commanders color identity". Matching the printed form instead
+         is why Command Tower and Arcane Signet, ranked 2 and 3, stayed blind
+         through the first draft of this rule while the four cards without an
+         apostrophe in them all worked. */
+      ' (?:in your commanders color identity' +
+      '|that a land an opponent controls could produce' +
+      '|that a land you control could produce' +
+      '|among legendary creatures and planeswalkers you control)$'
+    ),
+    note: 'Command Tower, Arcane Signet, Exotic Orchard, Fellwar Stone, Reflecting Pool, Mox Amber.',
+    build(m, ctx) {
+      const n = m[1] === 'one' ? 1 : m[1] === 'two' ? 2 : 3;
+      const phrase = m[0];
+      const among: ManaColourSource | null =
+        phrase.includes("commanders color identity") ? 'commander-identity'
+        : phrase.includes('a land an opponent controls') ? 'opponent-lands'
+        : phrase.includes('a land you control') ? 'your-lands'
+        : phrase.includes('legendary creatures and planeswalkers you control') ? 'your-legendary-permanents'
+        : null;
+      if (!among) return null;
+      return [restrictedMana(
+        { do: 'add-mana', who: { who: 'you' }, mana: '{W/U/B/R/G}'.repeat(n), among },
+        ctx
+      )];
     },
   },
   {
@@ -959,8 +1097,6 @@ export const EFFECT_RULES: EffectRule[] = [
  * ------------------------------------------------------------------ */
 
 export const NAMED_MANUAL_EFFECTS: Array<{ id: string; re: RegExp; hint: string }> = [
-  { id: 'scry', re: new RegExp(`^scry ${N}$`), hint: 'scry: no library-ordering effect in the vocabulary' },
-  { id: 'surveil', re: new RegExp(`^surveil ${N}$`), hint: 'surveil: no library-ordering effect in the vocabulary' },
   { id: 'explore', re: /^it explores$|^~ explores$/, hint: 'explore: compound reveal + branch, not modelled' },
   { id: 'investigate', re: /^investigate$/, hint: 'investigate: Clue token plus its own ability' },
   { id: 'proliferate', re: /^proliferate$/, hint: 'proliferate: needs a player-directed multi-permanent choice' },
@@ -1062,9 +1198,60 @@ export function compileEffectPhrase(phrase: string, ctx: BuildCtx, depth = 0): E
       const at = p.indexOf(connective, from);
       if (at < 0) break;
       from = at + 1;
-      const left = compileEffectPhrase(p.slice(0, at), ctx, depth + 1);
+      const leftText = p.slice(0, at);
+      const rightText = p.slice(at + connective.length);
+      const left = compileEffectPhrase(leftText, ctx, depth + 1);
       if (!left) continue;
-      const right = compileEffectPhrase(p.slice(at + connective.length), ctx, depth + 1);
+
+      /*
+       * The second half is read with the FIRST half's subject in scope, not
+       * after failing without it.
+       *
+       * Reading it without the subject first and only retrying on failure looks
+       * more conservative and is worse, measured on Sign in Blood: "loses 2
+       * life" reads perfectly well on its own, so the retry never happened and
+       * the card compiled to the TARGET player drawing and YOU losing the life.
+       * A wrong ability, off a card ranked 232 in Commander, which is exactly
+       * what this file treats as worse than a missing one.
+       *
+       * `subjectOf` returns the resolved selector rather than the words, so the
+       * one "target player" is announced once. Restored straight after, so the
+       * carry cannot leak into the next sentence.
+       */
+      const carried = subjectOf(left);
+      const savedSubject = ctx.subjectFallback;
+      if (carried) ctx.subjectFallback = carried;
+      let right: Effect[] | null;
+      try {
+        right = compileEffectPhrase(rightText, ctx, depth + 1);
+      } finally {
+        ctx.subjectFallback = savedSubject;
+      }
+
+      /*
+       * ENGLISH ELLIPSIS. The second half of "Target player draws two cards and
+       * loses 2 life" has no subject because the first half already gave it one,
+       * and Magic templates that way constantly.
+       *
+       * Both halves read perfectly well on their own WITH a subject and the
+       * split still failed, which is how Night's Whisper (rank 182) and Sign in
+       * Blood (232) had no ability record at all:
+       *
+       *   "You lose 2 life."   READ
+       *   "Lose 2 life."       BLIND
+       *
+       * The obvious repair, letting the life rules default to "you" the way
+       * `draw` does, is WRONG and the second card is why: Sign in Blood would
+       * compile to the target player drawing and YOU losing the life. That is a
+       * wrong ability rather than a missing one, and this folder treats those as
+       * worse.
+       *
+       * So the subject is carried over from the left half rather than assumed,
+       * and only when the right half could not be read alone. The right half
+       * keeps its own verb, so "target player" meets "loses" and "you" meets
+       * "lose" without either being rewritten.
+       */
+
       if (!right) continue;
       return [...left, ...right];
     }

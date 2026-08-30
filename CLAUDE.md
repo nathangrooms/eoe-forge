@@ -1480,3 +1480,82 @@ that account wrote on the board), `remove_forum_topic` and
 report one; `report_count` is kept on the post row so the moderator view costs
 no extra read. **Removal nulls the body**: the words leave the database, and the
 row stays only so the reply written underneath it still makes sense.
+
+## A function cannot raise its own statement_timeout (30 Aug 2026)
+
+The nightly `cards-unique-refresh` was found failing every run since 28 Aug,
+diagnosed at 06:11, and failed again at 06:00 the same morning after exactly 120
+seconds. The fix was dead code that read as the fix.
+
+    set statement_timeout = '2s';
+    do $$ begin
+      perform set_config('statement_timeout','30s',true);
+      perform pg_sleep(5);
+    end $$;
+    -- ERROR: 57014 canceling statement due to statement timeout
+
+**`statement_timeout` is armed when the TOP-LEVEL statement begins and is never
+re-armed.** A function that raises it raises it for the NEXT statement, not for
+itself. So `perform set_config('statement_timeout','20min',true)` at the top of
+`refresh_cards_unique` never bought it a second, and the rebuild kept dying at
+the cluster default of 120 s against the 575 s it needs.
+
+The caller has to set it, in its own statement, before the one that needs it.
+The cron command is now:
+
+    set statement_timeout = '20min'; select public.refresh_cards_unique(false);
+
+And the function RAISES with a sentence saying exactly that when it is handed
+between 60 s and 15 minutes, so the next caller that gets this wrong fails in
+one run with an actionable message instead of a generic 57014 nine minutes
+later.
+
+### A pg_cron command holding more than one statement is a transaction block
+
+Same session, same shape, found before it ever ran:
+
+    set statement_timeout = '20min'; vacuum (analyze) public.cards_pool;
+    -- ERROR: 25001 VACUUM cannot run inside a transaction block
+
+Moving VACUUM out of a function and into a two-statement cron command moved it
+from one transaction into another. A multi-statement simple query IS an implicit
+transaction block. VACUUM now gets one job per view, ONE statement each, at the
+120 s default: `cards-unique-vacuum` (07:00, 13:00) and `cards-pool-vacuum`
+(07:05, 13:05). Both measured well inside 120 s. **Do not add a `set` line to
+either of them** — that is precisely what breaks them.
+
+### Why this went unnoticed for two days
+
+**A failed cron job writes only to `cron.job_run_details`.** Nothing in the app
+reads it, so `cards_unique` and `cards_pool` silently described 28 August while
+every search, commander pick, suggestion, pool read, optimiser run and Tutor
+answer was served from them. When a scheduled job matters, check
+`cron.job_run_details` by hand; a green-looking app is not evidence.
+
+## Tutor failed one question in six, and not for a reason about the question
+
+Scoring 80 real questions against the deployed function, **12 of the first 50
+came back `502 Bad Gateway` in 24 to 151 ms.** Asking one trivial question 25
+times gave 19 answers and **6 CONSECUTIVE 502s**.
+
+A 502 in 24 ms never reached the function, which takes about half a second to
+answer. It is the load balancer, and the next attempt usually works. Nothing
+retried, so the page printed its own failure.
+
+All six call sites now go through **`askEdgeFunctionRaw`** in
+`src/lib/tutor/edgeInvoke.ts`, a drop-in with the same two arguments and the
+same `{ data, error }` back. The rules live in `invokeWithRetry.ts`, which
+imports nothing so it can be tested, and the tests state the limits as loudly as
+the behaviour:
+
+| status | retried | why |
+|---|---|---|
+| 502 / 503 / 504 | yes, twice, 250 ms then 650 ms | the gateway, not us |
+| 500 | **no** | raised BY the function, carries our own error, the work was attempted and a retry could repeat a side effect |
+| 4xx | **no** | the request is wrong and will be wrong again |
+| 546 | **no** | the resource limit the deck generator surfaces deliberately |
+
+Use `askEdgeFunctionRaw` for any edge function a person is waiting on. It cannot
+live in `src/lib/tutor/invokeWithRetry.ts` itself because `node:test` does not
+resolve the `@/` alias, and a module that imported the client would be a module
+with no tests.

@@ -124,7 +124,38 @@ export function FilterBar({
   const showSize = Boolean(
     view && (view.activeMode.sized ?? view.activeMode.layout === 'grid')
   );
-  const hasViewRow = Boolean(children || trailing || (view && (showSize || view.modes.length > 1)));
+
+  const viewControls =
+    view && (showSize || view.modes.length > 1) ? (
+      <>
+        {showSize && (
+          <CardSizeSlider
+            storageKey={view.sizeSurface}
+            value={view.size}
+            onValueChange={view.setSize}
+            showValue={false}
+            className="hidden sm:flex"
+          />
+        )}
+        <ViewModeToggle modes={view.modes} value={view.mode} onChange={view.setMode} />
+      </>
+    ) : null;
+
+  /*
+   * A ROW FOR TWO BUTTONS IS NOT A ROW.
+   *
+   * On My Decks the view row held nothing but the grid/list toggle: measured at
+   * 1600px it was a 36px band whose left 1,200 pixels were empty, sitting under
+   * a search field that had room to spare. A deck tile has no width to set, so
+   * there is no size slider to keep it company either, and the same is true of
+   * every listing that passes neither `children` nor `trailing`.
+   *
+   * When the view controls are the ONLY thing in that row they join the control
+   * row instead. The row comes back the moment a page has selection controls or
+   * something trailing, because then it is carrying its own weight.
+   */
+  const foldViewIntoControlRow = Boolean(viewControls) && !children && !trailing && hasControlRow;
+  const hasViewRow = Boolean(children || trailing || viewControls) && !foldViewIntoControlRow;
   const hasChipRow = Boolean(chips) || (activeCount > 0 && Boolean(onClear));
 
   return (
@@ -132,11 +163,12 @@ export function FilterBar({
       {hasControlRow && (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           {search}
-          {(presets || filters || sort) && (
+          {(presets || filters || sort || foldViewIntoControlRow) && (
             <div className="flex items-center gap-2">
               {presets}
               {filters}
               {sort}
+              {foldViewIntoControlRow && viewControls}
             </div>
           )}
         </div>
@@ -149,18 +181,7 @@ export function FilterBar({
           <div className="flex items-center gap-2">{children}</div>
           <div className="flex items-center gap-3">
             {trailing}
-            {view && showSize && (
-              <CardSizeSlider
-                storageKey={view.sizeSurface}
-                value={view.size}
-                onValueChange={view.setSize}
-                showValue={false}
-                className="hidden sm:flex"
-              />
-            )}
-            {view && (
-              <ViewModeToggle modes={view.modes} value={view.mode} onChange={view.setMode} />
-            )}
+            {viewControls}
           </div>
         </div>
       )}

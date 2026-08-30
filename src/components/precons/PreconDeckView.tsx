@@ -50,11 +50,13 @@ export interface PreconDeckViewProps {
 
 const CURVE_BINS = ['0', '1', '2', '3', '4', '5', '6', '7+'] as const;
 
-function Stat({ label, value }: { label: string; value: string }) {
+/** `note` carries what a figure leaves out. Omitted when it leaves out nothing. */
+function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
     <div className="rounded-lg bg-muted/40 px-3 py-2">
       <p className="text-lg font-semibold tabular-nums leading-tight">{value}</p>
       <p className="text-[0.7rem] uppercase tracking-wide text-muted-foreground">{label}</p>
+      {note && <p className="mt-0.5 text-[0.7rem] text-muted-foreground">{note}</p>}
     </div>
   );
 }
@@ -251,10 +253,19 @@ export function PreconDeckView({
               <Stat label="Cards" value={String(totalCards)} />
               <Stat label="Lands" value={ready ? String(landCount) : '—'} />
               <Stat label="Avg MV" value={ready ? stats.avgManaValue.toFixed(2) : '—'} />
+              {/* A partial total is a confident number wrong by an unstated
+                  amount, which is the same rule the deck page's own value tile
+                  follows. A precon is 100 cards and the ones with no USD price
+                  on record are usually its tokens and its display commander. */}
               <Stat
                 label="Est. value"
                 value={
-                  ready && stats.totalValueUSD > 0 ? `$${stats.totalValueUSD.toFixed(0)}` : '—'
+                  ready && stats.totalValueUSD > 0 ? `${stats.totalValueUSD.toFixed(0)}` : '—'
+                }
+                note={
+                  ready && stats.unpricedCopies > 0
+                    ? `${stats.unpricedCopies} unpriced`
+                    : undefined
                 }
               />
             </div>

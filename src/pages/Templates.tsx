@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
-import { AITemplateRecommendations } from '@/components/templates/AITemplateRecommendations';
+import { TemplateFitPanel } from '@/components/templates/TemplateFitPanel';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -253,7 +253,7 @@ export default function Templates() {
       description="Ready-made shapes for a deck: how many creatures, how much removal, and where the curve should sit"
     >
       <div className="space-y-4">
-        <AITemplateRecommendations
+        <TemplateFitPanel
           selectedFormat={selectedFormat !== 'all' ? selectedFormat : undefined}
           userDecks={userDecks}
         />

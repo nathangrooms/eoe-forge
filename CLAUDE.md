@@ -1299,6 +1299,62 @@ propagates only because writing `tags` bumps `updated_at`. Until it runs, the
 tags in the app are the old ones: the deck page, the generator and the optimiser
 all read the views, never `cards`.
 
+## Owning a card is not owning one printing of it (30 Aug 2026)
+
+`user_collections.card_id` and `deck_cards.card_id` are both PRINTING ids, and
+five surfaces matched one straight against the other. That nearly worked while
+the catalogue held one printing per card. Since 19 Aug it holds every printing,
+so a deck listing the Commander Legends Sol Ring and a collection holding the
+Revised one are two ids for one card, and the product said you did not own it.
+
+Measured on the real database before the fix: **of 16 deck rows whose card the
+owner genuinely holds, 4 were reported missing.** Four of the seven real decks
+gained a card they own, and two went from owning none of their deck to one.
+
+    deck                              required   owned before   owned after
+    Syr Vondam aristocrats                 100          8             9
+    Atraxa superfriends                    100          2             3
+    Ulamog tron                            100          0             1
+    Syr Vondam counters                    100          0             1
+
+Fixed in three places, all keyed on `oracle_id` now:
+
+| where | what it drives |
+|---|---|
+| `compute_deck_summary` | "Missing", "Complete", "Collection progress" on every deck tile |
+| `src/pages/Wishlist.tsx` | which cards the wishlist tells you to buy |
+| `DeckTile`'s "Add missing to wishlist" | what lands on the wishlist |
+
+**`src/lib/cards/ownership.ts` is the rule, and it imports nothing** so it can
+be tested, the same reason `invokeWithRetry.ts` gives. It counts by `oracle_id`
+and hands the answer back **keyed by printing id**, so no consumer had to
+change. An id the index cannot resolve falls back to itself, which degrades to
+the old printing-only behaviour for that row rather than to "you own none".
+
+**`spendOwned` is the other half and is not optional.** Copies are spent down a
+list rather than counted against every line that wants them. A deck listing two
+printings of Sol Ring against one owned copy is short one, not short none, and
+`least(required, held)` stops a spare box of Sol Rings reading as 900% of one
+deck slot. The old `compute_deck_summary` had the opposite bug in the same
+statement: `CASE WHEN uc.card_id IS NOT NULL THEN dc.quantity` counted the
+whole requirement as owned the moment any row matched, so one Forest covered
+ten.
+
+**`AIOptimizerPanel` never had this bug** — it matches on card NAME, which is
+printing-independent already. Checked, not assumed.
+
+`oracleIndexFor` in `cardQuery.ts` does the lookup, chunked at 150 the way
+`collectionBatch.ts` does, because an `.in()` list is a URL segment and a URL
+has a length. One extra read whatever the deck count.
+
+> ⚠️ **The audit fixture had to be fixed twice for this.** It first reported
+> `missing: 0` outright, a number nobody counted, which had My Decks drawing a
+> green tick and "Collection progress 100% 100/100" over a fixture owning 52
+> cards and a deck of 100 — while the Wishlist on the same data said the deck
+> was short 90. Then, once it counted, it counted by printing and so
+> reproduced the very bug the app had just stopped having. **A fixture that
+> reproduces a fixed bug hides the fix.**
+
 ## What still calls a model, measured 30 Aug 2026
 
 Owner: *"we are replacing all AI with the backend engine"*. Here is the actual

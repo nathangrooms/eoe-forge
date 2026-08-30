@@ -45,6 +45,16 @@ export interface DeckQuickStatsProps {
   ownedPct?: number | null;
   missingCards?: number | null;
   ownershipLoading?: boolean;
+  /**
+   * Copies `totalValue` could not price and therefore leaves out.
+   *
+   * A dash instead of $0 was only half the rule. The other half is that a
+   * PARTIAL total is a confident number that is wrong by an unstated amount,
+   * and the deck page proved it: the header read "Est. value $425" while the
+   * Value tab three hundred pixels below read "2 cards unpriced" beside the
+   * same figure. Omit it where the caller genuinely cannot count.
+   */
+  unpricedCopies?: number | null;
 }
 
 export function DeckQuickStats({
@@ -58,6 +68,7 @@ export function DeckQuickStats({
   ownedPct,
   missingCards,
   ownershipLoading,
+  unpricedCopies,
 }: DeckQuickStatsProps) {
   const isCommander = format === 'commander' || format === 'edh';
   const targetCards = isCommander ? 100 : 60;
@@ -86,9 +97,15 @@ export function DeckQuickStats({
       /* A dash, never $0. The smallest real price in the database is 0.01, so a
          rendered zero is always invented, and an empty deck is not worth
          nothing, it is worth nothing yet. */
-      value: totalValue > 0 ? `$${totalValue.toFixed(0)}` : '—',
+      value: totalValue > 0 ? `${totalValue.toFixed(0)}` : '—',
       raw: totalValue,
-      subtext: 'market, USD',
+      subtext:
+        unpricedCopies && unpricedCopies > 0
+          /* "unpriced", not "not priced": the Value tab on this same page
+             already says "97 copies · 2 unpriced" one screen down, and three
+             wordings for one fact on one page is worse than any of them. */
+          ? `market, USD · ${unpricedCopies} unpriced`
+          : 'market, USD',
     },
     {
       id: 'cmc',

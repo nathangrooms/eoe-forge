@@ -8,6 +8,7 @@ import { OracleText } from '@/components/cards/OracleText';
 import { VisualDeckView } from '@/components/deck-builder/VisualDeckView';
 import { GeneratedDeckOptimizerPanel } from '@/components/deck-builder/GeneratedDeckOptimizerPanel';
 import { DeckQuickStats } from '@/components/deck-builder/DeckQuickStats';
+import { totalPrices } from '@/lib/pricing';
 import { EdhAnalysisPanel, EdhAnalysisData } from '@/components/deck-builder/EdhAnalysisPanel';
 import { DeckValidationPanel } from '@/components/deck-builder/DeckValidationPanel';
 import { DeckCompatibilityChecker } from '@/components/deck-builder/DeckCompatibilityChecker';
@@ -162,18 +163,29 @@ export function AIGeneratedDeckList({
       }
     }
 
-    const value =
-      totalValue ||
-      cards.reduce((sum, card) => {
-        const price = parseFloat(card.prices?.usd || '0');
-        return sum + price * (card.quantity || 1);
-      }, 0);
+    /*
+     * `totalPrices` rather than a local reduce.
+     *
+     * The reduce was `parseFloat(card.prices?.usd || '0')`, which is the exact
+     * line CLAUDE.md says to grep for before adding a price surface: a card
+     * Scryfall holds no USD price for contributed a confident zero, and the
+     * total then understated the deck by an amount nothing recorded. The
+     * canonical helper skips what it cannot price and COUNTS it, so the tile
+     * below can say how much it left out.
+     */
+    const priced = totalPrices(
+      cards.map(card => ({ prices: card.prices, quantity: card.quantity || 1 }))
+    );
 
     return {
       totalCards,
       typeCounts,
       avgCmc: nonLandCopies > 0 ? cmcSum / nonLandCopies : 0,
-      totalValue: value,
+      /* A caller-supplied total still wins, because it is the generator's own
+         figure for the deck it just built. The count of what could not be
+         priced is read off the cards either way. */
+      totalValue: totalValue || priced.amount,
+      unpricedCopies: priced.unpricedCopies,
     };
   }, [cards, totalValue]);
 
@@ -342,6 +354,7 @@ export function AIGeneratedDeckList({
         typeCounts={stats.typeCounts}
         avgCmc={stats.avgCmc}
         totalValue={stats.totalValue}
+        unpricedCopies={stats.unpricedCopies}
         format="commander"
         commanderName={commander?.name}
         colors={commanderColors}

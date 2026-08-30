@@ -1150,6 +1150,7 @@ export default function DeckInterface() {
             typeCounts={typeCounts}
             avgCmc={avgManaValue}
             totalValue={stats.totalValueUSD}
+            unpricedCopies={stats.unpricedCopies}
             format={deck.format}
             commanderName={commander?.card?.name || commander?.card_name}
             colors={identity}

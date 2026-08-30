@@ -201,6 +201,15 @@ export interface DeckStats {
    */
   avgManaValue: number;
   totalValueUSD: number;
+  /**
+   * Copies `totalValueUSD` could not price, and therefore does NOT include.
+   *
+   * The sum already skipped them rather than adding a guessed zero, which is
+   * right, but nothing counted them, so the figure understated the deck by an
+   * unstated amount. The Value tab on the same page has always said "2 cards
+   * unpriced" beside its own total; the header said "$425" and nothing else.
+   */
+  unpricedCopies: number;
   /** Rows whose printing is not present in the local card table. */
   missingMetadata: number;
 }
@@ -208,6 +217,7 @@ export interface DeckStats {
 export function computeDeckStats(rows: DeckCardRow[]): DeckStats {
   let totalCards = 0;
   let totalValueUSD = 0;
+  let unpricedCopies = 0;
   let missingMetadata = 0;
 
   for (const row of rows) {
@@ -216,11 +226,15 @@ export function computeDeckStats(rows: DeckCardRow[]): DeckStats {
 
     if (!row.card) {
       missingMetadata += 1;
+      /* A row with no card row is also a row with no price, and it was
+         previously counted as neither. */
+      unpricedCopies += row.quantity;
       continue;
     }
 
     const usd = parseFloat(row.card.prices?.usd ?? '');
-    if (!Number.isNaN(usd)) totalValueUSD += usd * row.quantity;
+    if (Number.isNaN(usd)) unpricedCopies += row.quantity;
+    else totalValueUSD += usd * row.quantity;
   }
 
   return {
@@ -251,6 +265,7 @@ export function computeDeckStats(rows: DeckCardRow[]): DeckStats {
      */
     avgManaValue: deckAverageManaValue(rows),
     totalValueUSD,
+    unpricedCopies,
     missingMetadata,
   };
 }

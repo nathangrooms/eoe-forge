@@ -114,7 +114,7 @@ export function WishlistQuickStats({
     },
     {
       id: 'deck-demand',
-      label: 'A deck is short of',
+      label: 'On your list for a deck',
       value: stats.deckDemand.toLocaleString(),
       raw: stats.deckDemand,
       subtext: 'Waiting on in a real deck',

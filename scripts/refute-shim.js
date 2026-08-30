@@ -82,6 +82,98 @@
     return out;
   }
 
+  /**
+   * One deck summary, counted off this fixture's own rows.
+   *
+   * Mirrors `compute_deck_summaries`. It exists because returning null made
+   * /decks and /tutor draw empty states, and an audit cannot tell a starved
+   * page from a badly designed one.
+   *
+   * Every number here is COUNTED. A deck with no cards returns zeros and a
+   * card with no USD price contributes nothing rather than a zero, which is
+   * the project's own rule: a missing price is null, never 0, and the smallest
+   * real price in the catalogue is 0.01 so a rendered zero is always invented.
+   */
+  function deckSummaryFor(deckId) {
+    const deck = user_decks.find(d => d.id === deckId);
+    if (!deck) return null;
+
+    const rows = deck_cards.filter(c => c.deck_id === deckId);
+    const cards = rows
+      .map(r => ({ row: r, card: cardCache.get(r.card_id) }))
+      .filter(x => x.card);
+
+    const qty = x => Math.max(1, Number(x.row.quantity) || 1);
+    const total = cards.reduce((n, x) => n + qty(x), 0);
+    const line = x => String(x.card.type_line || '').toLowerCase();
+    const has = (x, word) => line(x).includes(word);
+    const count = word => cards.filter(x => has(x, word)).reduce((n, x) => n + qty(x), 0);
+
+    const bins = { '0-1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6-7': 0, '8-9': 0, '10+': 0 };
+    for (const x of cards) {
+      if (has(x, 'land')) continue;
+      const cmc = Number(x.card.cmc) || 0;
+      const key =
+        cmc <= 1 ? '0-1' : cmc <= 5 ? String(Math.round(cmc)) :
+        cmc <= 7 ? '6-7' : cmc <= 9 ? '8-9' : '10+';
+      bins[key] = (bins[key] || 0) + qty(x);
+    }
+
+    const sources = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
+    for (const x of cards) {
+      if (!has(x, 'land')) continue;
+      const produced = x.card.produced_mana || x.card.color_identity || [];
+      if (!produced.length) sources.C += qty(x);
+      for (const c of produced) if (c in sources) sources[c] += qty(x);
+    }
+
+    const commanderRow = cards.find(x => x.row.is_commander);
+    const priced = cards
+      .map(x => Number(x.card.prices?.usd) * qty(x))
+      .filter(v => Number.isFinite(v) && v > 0);
+
+    return {
+      id: deck.id,
+      name: deck.name,
+      format: deck.format,
+      colors: deck.colors || [],
+      identity: deck.colors || [],
+      commander: commanderRow
+        ? {
+            name: commanderRow.card.name,
+            image: commanderRow.card.image_uris?.normal || commanderRow.card.image_uris?.large || '',
+          }
+        : undefined,
+      counts: {
+        total,
+        unique: cards.length,
+        lands: count('land'),
+        creatures: count('creature'),
+        instants: count('instant'),
+        sorceries: count('sorcery'),
+        artifacts: count('artifact'),
+        enchantments: count('enchantment'),
+        planeswalkers: count('planeswalker'),
+        battles: count('battle'),
+      },
+      curve: { bins },
+      mana: { sources, untappedPctByTurn: { t1: 0, t2: 0, t3: 0 } },
+      legality: { ok: total === 100, issues: total === 100 ? [] : [`${total} cards, not 100`] },
+      /* Null, not a number. This fixture has not scored anything and the
+         project's rule is that an unscored deck shows no score rather than a
+         placeholder one. */
+      power: null,
+      economy: {
+        priceUSD: priced.reduce((a, b) => a + b, 0),
+        ownedPct: 0,
+        missing: 0,
+      },
+      tags: [],
+      updatedAt: deck.updated_at,
+      favorite: false,
+    };
+  }
+
   async function load() {
     const triples = ATRAXA.split(',').map(t => t.split(':'));
     const ids = triples.map(t => t[0]);
@@ -320,6 +412,25 @@
     if (!table) return realFetch(input, init);
 
     if (isRpc) {
+      /* SOME RPCs ARE ANSWERED FROM THE FIXTURE'S OWN ROWS.
+         Returning null to everything is what made an audit of the left menu
+         unable to judge half of it: /decks and /tutor both drew empty states
+         because `compute_deck_summaries` came back null, and an empty page
+         looks identical whether the design is wrong or the harness starved it.
+
+         This is COMPUTED, not invented. Every figure below is counted off the
+         same real card rows the rest of this shim serves, which were read from
+         the live catalogue. Nothing is a plausible-looking number typed in by
+         hand, because a fixture that lies is worse than one that is silent. */
+      if (table === 'compute_deck_summaries') {
+        window.__dmReq.push({ method, table: `rpc:${table}`, computed: true });
+        let ids = [];
+        try {
+          ids = JSON.parse(init?.body || '{}').p_deck_ids || [];
+        } catch { ids = []; }
+        return json(ids.map(deckSummaryFor).filter(Boolean));
+      }
+
       window.__dmRpc.push(`rpc:${table}`);
       window.__dmReq.push({ method, table: `rpc:${table}` });
       return json(null);

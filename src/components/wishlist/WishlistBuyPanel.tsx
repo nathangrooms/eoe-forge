@@ -108,7 +108,7 @@ export function WishlistBuyPanel({
   const metrics: Metric[] = [
     summary.forDeckCount > 0 && {
       id: 'for-decks',
-      label: 'A deck is short of',
+      label: 'On your list for a deck',
       value: `${summary.forDeckCount} card${summary.forDeckCount === 1 ? '' : 's'}`,
       raw: summary.forDeckCount,
       subtext: `${formatPrice(summary.forDeckTotal)} of the total`,

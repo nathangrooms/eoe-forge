@@ -871,7 +871,7 @@ export default function Wishlist() {
               },
               {
                 id: 'by-deck',
-                label: 'Deck gaps',
+                label: 'Decks with gaps',
                 icon: Layers,
                 count: gapsLoading ? null : deckGaps.length,
               },

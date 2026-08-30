@@ -163,11 +163,21 @@ for (const [name, route] of NAV) {
          function returns 184 rows in 627 ms. Two ghosts, and acting on either
          would have been a change to working code. */
       const rpc = window.__dmRpc;
-      const unanswered = Array.isArray(rpc)
-        ? [...new Set(rpc.filter(Boolean).map(String))].slice(0, 6)
+      const all = Array.isArray(rpc)
+        ? [...new Set(rpc.filter(Boolean).map(String))]
         : rpc && typeof rpc === 'object'
-          ? Object.keys(rpc).slice(0, 6)
+          ? Object.keys(rpc)
           : [];
+
+      /* A WRITE THAT WENT NOWHERE IS NOT A STARVED PAGE. The harness must not
+         write, so `persist_deck_power_batch`, `touch_presence` and their kind
+         returning null is the fixture behaving correctly, and counting them
+         made /decks report itself unjudgeable on a run where it rendered both
+         decks with real card art. Only a READ coming back empty can leave a
+         page with nothing to draw. */
+      const isWrite = (n) =>
+        /^(rpc|fn):(persist|set|touch|track|record|log|upsert|save|insert|update|delete|increment|claim|sweep)_/.test(n);
+      const unanswered = all.filter((n) => !isWrite(n)).slice(0, 6);
 
       /* An empty state is a page telling you it has nothing, which is a
          different thing from a page that is thin. Recognised by the words the
@@ -233,7 +243,15 @@ const desk = rows.filter(r => r.w >= 1000);
 /* A page the fixture starved is not a page with a layout problem. It is
    excluded from the verdict and listed separately, so nobody spends an hour
    fixing a screen that works in production. */
-const starved = desk.filter(r => r.emptyState || r.unanswered.length > 0);
+/* STARVED MEANS A READ WENT UNANSWERED, and nothing else.
+   The emptyState heuristic used to sit here too and it was excluding pages
+   that deserve judging: Settings and the Life Counter have no card images BY
+   DESIGN, not because the fixture failed them, and an empty Wishlist is a real
+   state a real user sees on their first visit. An empty state still has to fill
+   the screen well, so it is exactly the kind of surface this audit exists for.
+    is still recorded, because it explains WHY a judged page has no
+   art, but it no longer buys an exemption. */
+const starved = desk.filter(r => r.unanswered.length > 0);
 const starvedNames = new Set(starved.map(r => r.name));
 const real = desk.filter(r => !starvedNames.has(r.name));
 const dead = [...real].sort((a, b) => b.deadBelow - a.deadBelow).filter(r => r.deadBelow > 80);

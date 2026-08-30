@@ -116,7 +116,14 @@ export function CollectionQuickStats({
       label: 'No price',
       value: unpricedCards > 0 ? unpricedCards.toLocaleString() : '—',
       raw: unpricedCards,
-      subtext: unpricedCards > 0 ? 'Left out of the total' : 'Every copy is priced',
+      /* "ENTRIES", because the line 90px below this one counts the same thing
+         in COPIES and the two therefore disagree on screen: this tile read
+         "No price 5 / Left out of the total" directly above "52 entries · 161
+         cards · $364.85 · 6 copies with no price". Both are right — five rows
+         hold six cards between them — and neither said which it was counting,
+         so the page looked like it could not add up. `collectionSummary`
+         documents `unpriced` as rows; the tile just never repeated it. */
+      subtext: unpricedCards > 0 ? 'Entries left out of the total' : 'Every copy is priced',
     },
     {
       id: 'average',

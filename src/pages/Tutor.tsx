@@ -688,7 +688,7 @@ ${cardBrief(selectedCard)}` : message,
     {/* 13.5rem is the page chrome above and below this block — top bar, the
         StandardPageLayout header and its padding — so the chat fills the
         viewport exactly and the document itself never scrolls. */}
-    <div className="flex h-[calc(100vh-13.5rem)] min-h-[34rem] w-full flex-col gap-3 overflow-hidden">
+    <div className="flex h-[calc(100vh-12.5rem)] min-h-[34rem] w-full flex-col gap-3 overflow-hidden">
       {/*
         The top line.
 
@@ -792,23 +792,35 @@ ${cardBrief(selectedCard)}` : message,
           <div className="mx-auto w-full max-w-6xl space-y-6">
             {messages.length === 0 ? (
               /* Empty state with quick actions */
-              <div className="space-y-6 py-4">
-                <div className="space-y-3 text-center">
-                  <h2 className="text-2xl font-semibold tracking-tight">
-                    {selectedCard
-                      ? `Reading ${selectedCard.name}`
-                      : selectedDeck
-                        ? `Analysing ${selectedDeck.name}`
-                        : 'Ask anything about Magic'}
-                  </h2>
-                  <p className="mx-auto max-w-xl text-sm text-muted-foreground">
-                    {selectedCard
-                      ? 'Every question below is answered about this exact printing. Its oracle text, cost and type line are sent with the question, not recalled.'
-                      : selectedDeck
-                        ? 'Every question below is answered with this list attached. The cards it holds are shown, not asserted.'
-                        : 'Rules, deck building, card recommendations and strategy. Attach a deck or a card above to make every answer about it.'}
-                  </p>
-                </div>
+              /* No `py-4`: the ScrollArea around this already carries
+                 `p-6`, so the two stacked to 80px of vertical padding inside a
+                 pane that was 48px short of its own content. */
+              <div className="space-y-6">
+                {/* ONLY WHEN SOMETHING IS ATTACHED.
+                    "Reading Sol Ring" and "Analysing Atraxa" name the subject
+                    and are worth 110px. The third branch was not: it said "Ask
+                    anything about Magic" directly under a page whose title is
+                    Tutor and whose subtitle already reads "Rules, strategy and
+                    card advice. Attach one of your decks or any card", and
+                    directly above a composer whose placeholder is the same five
+                    words again. Three statements of one sentence.
+
+                    It was also not free. This block sits in a fixed-height
+                    scroll pane: measured at 1600x1000 the pane is 564px and the
+                    welcome content was 720px, so 156px of it was hidden and the
+                    example prompts could not be seen at all. */}
+                {(selectedCard || selectedDeck) && (
+                  <div className="space-y-3 text-center">
+                    <h2 className="text-2xl font-semibold tracking-tight">
+                      {selectedCard ? `Reading ${selectedCard.name}` : `Analysing ${selectedDeck!.name}`}
+                    </h2>
+                    <p className="mx-auto max-w-xl text-sm text-muted-foreground">
+                      {selectedCard
+                        ? 'Every question below is answered about this exact printing. Its oracle text, cost and type line are sent with the question, not recalled.'
+                        : 'Every question below is answered with this list attached. The cards it holds are shown, not asserted.'}
+                    </p>
+                  </div>
+                )}
 
                 {/* The context that travels with the question, whichever it is. */}
                 {selectedCard && (

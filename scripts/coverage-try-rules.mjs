@@ -77,7 +77,11 @@ rules.forEach((r, i) => {
   if (!r.reads) problems.push(`rule ${i + 1}: no \`reads\`, so it cannot say why`);
   if (/—|–/.test(r.reads ?? '')) problems.push(`${label}: em-dash in player-facing text`);
   if (!Array.isArray(r.wants) || !r.wants.length) { problems.push(`${label}: no wants`); return; }
-  for (const [facet, weight] of r.wants) {
+  /* Two shapes accepted. A tuple is compact to write by hand; an object is what
+     a structured-output schema can describe without draft-07 tuple syntax, which
+     is what killed the first fan-out. Neither is more correct, so read both. */
+  const wants = r.wants.map(w => (Array.isArray(w) ? w : [w.facet, w.weight]));
+  for (const [facet, weight] of wants) {
     if (vocab && !vocab.has(facet) && !facet.startsWith('sub:') && !facet.startsWith('tok:')) {
       problems.push(`${label}: wants \`${facet}\`, which no sampled card carries`);
     }

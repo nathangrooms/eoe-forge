@@ -370,6 +370,14 @@ for (const [name, route] of (ROUTES ?? NAV)) {
      * So the page is walked to the bottom, given a moment for what that
      * triggers, and returned to the top before the capture. The MEASUREMENTS
      * above are taken first and are untouched by this.
+     *
+     * IT IS NOT COMPLETE, AND THE REMAINDER IS KNOWN. On the Templates page two
+     * tiles out of eleven still capture grey, reproducibly, under three
+     * different wait strategies — while a probe reading `naturalWidth` on the
+     * same page after the same scroll finds all 33 images loaded. So a grey box
+     * in a screenshot is EVIDENCE, not proof. Before acting on one, read the
+     * image with a probe: `naturalWidth > 0` is the authority and a picture is
+     * not.
      */
     await page.evaluate(async () => {
       const step = window.innerHeight;
@@ -396,7 +404,13 @@ for (const [name, route] of (ROUTES ?? NAV)) {
     await page
       .evaluate(async () => {
         const deadline = performance.now() + 8000;
-        const pending = () => [...document.images].filter(i => !i.complete);
+        /* `complete` alone is the wrong test: it is ALSO true for an image
+           that has finished failing, and true for one with no src, so a poll
+           on it exits while the picture is still absent. `naturalWidth > 0`
+           is the condition that means there is something to paint, and it is
+           the same test the probes use to judge a tile loaded. */
+        const pending = () =>
+          [...document.images].filter(i => !(i.complete && i.naturalWidth > 0));
         while (pending().length > 0 && performance.now() < deadline) {
           await Promise.race([
             Promise.all(pending().map(i => i.decode().catch(() => {}))),

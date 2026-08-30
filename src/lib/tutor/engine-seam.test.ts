@@ -157,7 +157,12 @@ describe('the asks the request body can now answer', () => {
        correct reply rather than a downgrade. Its own property is checked below
        instead. `lands` and `upgrades` predate this rule and were measured into
        their current shape. */
-    const held = new Set(['deck-rating', 'deck-value', 'deck-legal', 'does-it-fit']);
+    const held = new Set([
+      'deck-rating', 'deck-value', 'deck-legal', 'does-it-fit',
+      /* Added with the asks themselves. An ask that joins the list without
+         joining this set is an ask nothing is checking. */
+      'deck-missing', 'deck-colours', 'win-condition',
+    ]);
 
     /* TWO NAMED EXCEPTIONS, asserted as an exact list so a third cannot join
        them quietly. A bracket is a property of a deck and of nothing else, so
@@ -168,7 +173,19 @@ describe('the asks the request body can now answer', () => {
        commander" on `deck-legal`, which sits inside "Is Sol Ring legal for
        commander?" and would have answered that card question by asking the
        player to attach a deck. */
-    const allowed = ['deck-rating: "what bracket is this"', 'deck-rating: "what bracket is my"'];
+    /* The win condition cues are exceptions for the same reason the bracket
+       ones are. A win condition is a property of a deck and of nothing else, so
+       "what is my win condition" has no card answer for it to steal, and a
+       question with no deck attached correctly gets "attach a deck". */
+    const allowed = [
+      'deck-rating: "what bracket is this"',
+      'deck-rating: "what bracket is my"',
+      'win-condition: "win condition"',
+      'win-condition: "win conditions"',
+      'win-condition: "wincon"',
+      'win-condition: "wincons"',
+      'win-condition: "win con"',
+    ];
     const offenders = nameless.filter(n => held.has(n.split(':')[0]) && !allowed.includes(n));
     assert.deepEqual(offenders, [], offenders.join('\n'));
     assert.deepEqual(

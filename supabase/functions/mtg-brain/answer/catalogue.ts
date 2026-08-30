@@ -471,7 +471,27 @@ export async function similarTo(
      the 9,937 cards carrying two or more of them, since it would demand a match
      on every one; over raw names it was satisfied by a single idea whenever
      that idea happened to have a legacy spelling. */
-  const scored = ((data ?? []) as CardRow[])
+  /* A CARD YOU CANNOT CAST IS NOT AN ALTERNATIVE.
+   *
+   * "What is a cheaper alternative to Smothering Tithe?" came back with six
+   * cards, all genuinely cheaper, all prices right, and none of them white.
+   * Smothering Tithe is {3}{W}. Anybody who plays it is in a white deck and
+   * could not cast five of the six. The tag basis was fine, measured: all six
+   * share four tags with it. The missing thing was this.
+   *
+   * A card fits when its colour identity sits inside the colour identity of the
+   * card being replaced. Colourless fits everywhere, which is why Sol Ring is a
+   * real alternative in any deck. A colourless SOURCE card constrains nothing,
+   * so the filter does not run at all in that case rather than narrowing the
+   * shortlist to other colourless cards. */
+  const mineIdentity = Array.isArray(card.color_identity) ? card.color_identity : [];
+  const castable = ((data ?? []) as CardRow[]).filter(row => {
+    if (!mineIdentity.length) return true;
+    const theirs = Array.isArray(row.color_identity) ? row.color_identity : [];
+    return theirs.every(c => mineIdentity.includes(c));
+  });
+
+  const scored = castable
     .filter(row => row.name.toLowerCase() !== card.name.toLowerCase())
     .map(row => ({ row, score: sharedTagScore(mine, row.tags) }))
     .sort((a, b) => b.score - a.score || (a.row.edhrec_rank ?? 1e9) - (b.row.edhrec_rank ?? 1e9))

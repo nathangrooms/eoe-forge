@@ -212,6 +212,25 @@ export const ASKS: Ask[] = [
          part we cannot give. That is better than the stock paragraph, which
          mentions neither keyword. */
       'how much damage', 'if my creature', 'if a creature', 'if it has',
+      /* "Does deathtouch work with trample?" and "If I block a creature that
+         has first strike, does my creature die?" both routed nowhere. Both
+         name two keywords we hold definitions for, and the honest answer reads
+         both out and says the interaction is the part we do not have. Missing
+         that is worse than the interaction being missing, because the player is
+         told we know nothing when we know half. */
+      'work with', 'works with', 'combine with', 'combined with',
+      'interact', 'interacts', 'interaction with',
+      'if i block', 'when i block', 'if i attack', 'when i attack',
+      'blocked by', 'blocks a creature',
+      /* A player asking about summoning sickness does not write the word haste
+         and does not write the word rules either. "Can a creature I just played
+         tap for mana the same turn?" is the shape, and the nickname table in
+         `glossary.ts` is what turns that phrase into a keyword. Broad phrases
+         are safe here only because `needs` below still requires the question to
+         name a keyword: a question with this shape and no keyword in it falls
+         through to the asks underneath exactly as before. */
+      'can a creature', 'can my creature', 'can this creature',
+      'the same turn', 'right away', 'do i have to wait',
     ],
     needs: {
       said: 'the question has to name a keyword a card prints a definition for',
@@ -309,6 +328,34 @@ export const ASKS: Ask[] = [
       'my deck worth', 'value of this deck', 'value of my deck', 'deck value',
       'how much does this deck cost', 'how much did this deck cost',
       'cost to build this deck', 'price of this deck', 'price of my deck',
+      /* "How much would it cost me to buy every card in this deck?" is the same
+         question and matched none of the above. A player asking what a deck
+         costs is usually asking what buying it costs. Every one of these names
+         the deck, because a cue on a deck-only ask that does not would answer
+         a card question by telling the player to attach a deck. */
+      'buy every card in this deck', 'buy every card in my deck',
+      'buy all the cards in this deck', 'buy all the cards in my deck',
+      'buy this whole deck', 'buy the whole deck', 'buy this deck', 'buy my deck',
+    ],
+  },
+
+  /* ---- what of this deck the player does not own ----
+     `economy.missing` and `economy.ownedPct` are both in the request body and
+     the question got the stock paragraph. WHICH cards are missing is not in the
+     body, so the answer gives the count and names the page that lists them
+     rather than making a list up. ---- */
+  {
+    id: 'deck-missing',
+    wants: 'How much of the attached deck the player does not own yet.',
+    subjects: ['deck'],
+    cues: [
+      'missing for this deck', 'missing for my deck',
+      'missing from this deck', 'missing from my deck',
+      'still need for this deck', 'still need for my deck',
+      'need to buy for this deck', 'need to buy for my deck',
+      'of this deck do i own', 'of my deck do i own',
+      'own of this deck', 'own of my deck',
+      'this deck do i already own', 'my deck do i already own',
     ],
   },
   {
@@ -364,6 +411,142 @@ export const ASKS: Ask[] = [
       'do i have the mana', 'will i have the mana', 'have the mana for',
       'enough sources for', 'can i pay for',
     ],
+  },
+
+  /* ---- which colours the attached deck is thin on ----
+     The deck's own list says how many cards want each colour and how many
+     lands make it. Both halves were in the request body and the question got
+     the stock paragraph. Above `lands`, which owns the word colour screw, and
+     above `best-of`, which owns "short on". ---- */
+  {
+    id: 'deck-colours',
+    wants: 'Which of the deck\'s own colours it has too few sources for.',
+    subjects: ['deck'],
+    /* Every cue names the deck. A bare "short on colour" would fire on a
+       question with no deck attached and answer it with "attach a deck", and
+       the rule that stops that is checked by a test. */
+    cues: [
+      'which colours is this deck', 'which colors is this deck',
+      'what colours is this deck', 'what colors is this deck',
+      'which colours is my deck', 'which colors is my deck',
+      'what colours is my deck', 'what colors is my deck',
+      'this deck short on', 'my deck short on',
+      'this deck short of', 'my deck short of',
+      'colour balance of this deck', 'color balance of this deck',
+      'colour balance of my deck', 'color balance of my deck',
+      'colour sources in this deck', 'color sources in this deck',
+      'colour sources in my deck', 'color sources in my deck',
+      'is this deck colour screwed', 'is this deck color screwed',
+      'colours does this deck', 'colors does this deck',
+    ],
+  },
+
+  /* ---- how the deck wins ----
+     A win condition is a judgement about a list, and tags do not make one: the
+     Atraxa deck's tags say counters and proliferate, which is a theme. Saying
+     so and naming the two things we CAN show beats the stock paragraph, which
+     mentions neither. ---- */
+  {
+    id: 'win-condition',
+    wants: 'How the attached deck actually wins, which is a judgement we do not hold.',
+    subjects: ['deck'],
+    /* No `gap`, deliberately, even though the answer is a refusal. The generic
+       judgement paragraph would say "that is a table call" and stop, and this
+       one names the two things near it that we CAN do. A refusal is still owed
+       a next move. */
+    /* The bare forms are kept and are declared exceptions to the rule that a
+       deck-only cue names the deck. A win condition is a property of a deck and
+       of nothing else, so "what is my win condition" cannot be stealing a card
+       question: there is no card answer for it to steal. Same reasoning as the
+       bracket cues on `deck-rating`, and the test names both. */
+    cues: [
+      'win condition', 'win conditions', 'wincon', 'wincons', 'win con',
+      'how does this deck win', 'how does my deck win', 'how do i win with this deck',
+      'how is this deck supposed to win',
+    ],
+  },
+
+  /* ---- building a deck from nothing ----
+     The Deck Generator does this, with a budget, and Tutor never named it. A
+     hand-off to the thing that does the job is a better answer than a refusal
+     that pretends the job cannot be done here. ---- */
+  {
+    id: 'build-a-deck',
+    wants: 'Building a whole deck from scratch, which the Deck Generator does.',
+    subjects: ['catalogue'],
+    cues: [
+      'build a commander deck', 'build a deck', 'build me a deck', 'how do i build',
+      'build an edh deck', 'deck from scratch', 'start a new deck', 'starting a deck',
+      'first commander deck', 'brew a deck', 'make a commander deck', 'make a deck',
+    ],
+  },
+
+  /* ---- how many of a thing a deck in this format runs ----
+
+     "How many lands should I run in a commander deck?" and "How much ramp does
+     a commander deck need?" are two of the questions a Commander player asks
+     most, and both got the paragraph Tutor prints when it has no route at all.
+     We hold 192 complete 100-card Commander lists and every card in them. The
+     median is 38 lands and 9 ramp cards, and it took one function to read.
+
+     ABOVE `lands`, `price` and `best-of`, all of which own a word in these
+     questions. "How many LANDS should I run" would otherwise be read as a
+     request to grade the attached deck's own lands, and "How MUCH ramp" would
+     be read by `price`, whose cue is "how much is".
+
+     `needs` is what stops it swallowing them back. The question has to name a
+     thing we can actually count, so "How much is Black Lotus worth?" names no
+     shape, matches nothing here, and reaches `price` exactly as before. ---- */
+  {
+    id: 'deck-shape',
+    wants: 'How many of one kind of card the lists we hold for a format run.',
+    subjects: ['catalogue'],
+    cues: [
+      'how many', 'how much', 'should i run', 'should i play', 'should a deck',
+      'does a deck need', 'do i need', 'should a commander deck', 'typical',
+      'average number', 'usual number', 'the right number', 'how big should',
+    ],
+    needs: {
+      said: 'the question has to name something we can count in a list, like lands or ramp',
+      met: q => shapeAskedIn(q) !== null,
+    },
+  },
+
+  /* ---- what colour identity actually counts ----
+
+     "My commander is blue and white. Can I play a card that has a green mana
+     symbol in its rules text?" is a rule, and it is a rule we can show rather
+     than recite: `color_identity` is a column on every card and it already
+     counts the symbols in the rules text. Talisman of Curiosity costs {2} and
+     its identity is green and blue purely because of the {G} it prints.
+
+     Above `legality-in-format`, whose cue "can i play" is in this question. ---- */
+  {
+    id: 'colour-identity',
+    wants: 'Whether a mana symbol somewhere on a card counts towards colour identity.',
+    subjects: ['catalogue'],
+    cues: [
+      'colour identity', 'color identity', 'mana symbol', 'mana symbols',
+      'symbol in its rules text', 'symbol in the rules text',
+      'symbol in its text', 'outside my commander', 'outside my colours',
+      'outside my colors', 'in my commander s colours', 'in my commander s colors',
+    ],
+  },
+
+  /* ---- why a card was banned ----
+     We hold WHETHER a card is banned, on the card, and we hold nothing at all
+     about why. Answering with a card page and never saying that is how q46
+     printed "Commander plays it at rank 8,914" four lines above "Banned in
+     Commander" and left the player to reconcile them. ---- */
+  {
+    id: 'ban-reason',
+    wants: 'Why a card was banned, which we do not hold, said before its status is given.',
+    subjects: ['card'],
+    cues: ['why was', 'why is', 'why did', 'why are', 'reason for the ban', 'what got'],
+    needs: {
+      said: 'the question has to be about a ban',
+      met: q => / ban/i.test(` ${q}`),
+    },
   },
 
   /* ---- the ones we can answer ---- */
@@ -624,6 +807,42 @@ export function roleFrom(question: string): RoleAsked | null {
     }
   }
   return best;
+}
+
+/* -------------------------------------------------------------------------- *
+ * A shape a list can be counted in
+ *
+ * `meta_deck_shape` counts three kinds of thing: lands, creatures, and anything
+ * carrying a role tag. Lands and creatures are not askable roles, deliberately,
+ * because the tagger treats them as type tags and `TAG_SYNONYMS` drops those.
+ * So they are named here and everything else is read off the same synonym table
+ * every other list question uses, which means a job Tutor can list is a job
+ * Tutor can also count.
+ * -------------------------------------------------------------------------- */
+
+export interface ShapeAsked {
+  /** What `meta_deck_shape` counts: 'land', 'creature' or 'tag'. */
+  kind: 'land' | 'creature' | 'tag';
+  /** The tag, when the kind is a tag. */
+  tag: string | null;
+  /** How to say it back: "lands", "ramp", "board wipes". */
+  says: string;
+}
+
+const TYPE_SHAPES: { kind: 'land' | 'creature'; says: string; words: string[] }[] = [
+  { kind: 'land', says: 'lands', words: ['land', 'lands'] },
+  { kind: 'creature', says: 'creatures', words: ['creature', 'creatures'] },
+];
+
+export function shapeAskedIn(question: string): ShapeAsked | null {
+  const text = normalise(question);
+  for (const shape of TYPE_SHAPES) {
+    if (shape.words.some(word => text.includes(` ${word} `))) {
+      return { kind: shape.kind, tag: null, says: shape.says };
+    }
+  }
+  const role = roleFrom(question);
+  return role ? { kind: 'tag', tag: role.tag, says: role.says } : null;
 }
 
 /** Guild names are plain player words and mean a pair of colours. */

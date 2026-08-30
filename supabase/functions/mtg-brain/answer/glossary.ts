@@ -60,6 +60,33 @@ const KEYWORD_NICKNAMES: { said: string; keyword: string }[] = [
   { said: 'summoning sick', keyword: 'Haste' },
   { said: 'firststrike', keyword: 'First strike' },
   { said: 'doublestrike', keyword: 'Double strike' },
+
+  /* MOST PLAYERS ASK ABOUT SUMMONING SICKNESS WITHOUT KNOWING THE WORDS FOR IT.
+   *
+   * "Can a creature I just played tap for mana the same turn?" was refused with
+   * the stock paragraph, and haste's reminder text answers it in Wizards' own
+   * words: "This creature can attack and {T} as soon as it comes under your
+   * control." The question names no keyword, so nothing routed.
+   *
+   * These are the phrases that mean that rule and nothing else. They are
+   * deliberately whole phrases rather than single words: "the same turn" on its
+   * own is in every question about casting two spells, and "attack" is in half
+   * the questions there are. Each one has to say both the action and the timing
+   * before it means haste.
+   *
+   * The answer built on this says plainly that what it is reading out is the
+   * keyword that IGNORES the rule, not the rule itself, because we hold the
+   * first and not the second. */
+  { said: 'tap for mana the same turn', keyword: 'Haste' },
+  { said: 'tap the same turn', keyword: 'Haste' },
+  { said: 'tap it the same turn', keyword: 'Haste' },
+  { said: 'attack the same turn', keyword: 'Haste' },
+  { said: 'attack the turn it comes', keyword: 'Haste' },
+  { said: 'attack the turn i play', keyword: 'Haste' },
+  { said: 'attack the turn i cast', keyword: 'Haste' },
+  { said: 'attack right away', keyword: 'Haste' },
+  { said: 'attack immediately', keyword: 'Haste' },
+  { said: 'use it the turn it comes', keyword: 'Haste' },
 ];
 
 /** Punctuation squashed to spaces, padded, so a whole word can be matched. */
@@ -332,6 +359,15 @@ const INTERACTION = [
   'work together', 'works together', 'work with', 'interact', 'interaction',
   'combined', 'combine', 'at the same time', 'both', 'how much damage',
   'do i have to assign', 'assign to the blocker', 'together',
+  /* A TIMING QUESTION IS THE SAME GAP AS AN INTERACTION QUESTION, and it can
+     name one keyword rather than two. "If I block a creature that has first
+     strike, does my creature die before it gets to deal damage?" is asking what
+     happens across the two damage steps. First strike's own reminder text is a
+     real and useful thing to read out, and on its own it reads as though it
+     settled the question. It does not. */
+  'die before', 'dies before', 'before it', 'first or', 'goes first',
+  'if i block', 'if i attack', 'blocks a creature', 'blocked by',
+  'what order', 'which happens first', 'happens first',
 ];
 
 export function asksHowTheyMeet(question: string): boolean {

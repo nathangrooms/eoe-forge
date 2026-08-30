@@ -72,6 +72,8 @@ import {
   readQuestion,
   roleFrom,
   route,
+  shapeAskedIn,
+  ASKS,
   type Routing,
 } from './route.ts';
 import { asksHowTheyMeet, keywordDefinition, keywordsNamedIn } from './glossary.ts';
@@ -102,7 +104,7 @@ import {
   type CardRecord,
   type DeckPlan,
 } from './behaviour.ts';
-import { copyVerdict, deckRuleVerdicts, type Fault } from './legality.ts';
+import { copyVerdict, deckRuleVerdicts, printedCopyException, type Fault } from './legality.ts';
 import { bandForScore, bracketIdForScore } from '../_engine/power/weights.ts';
 import { gradeLands, upgradeTargets, findLandCandidates, tappedNote } from '../manabase.ts';
 import { isLand, type NormalisedCard } from '../deck-context.ts';
@@ -263,6 +265,34 @@ export async function answerFromCatalogue(req: AnswerRequest): Promise<Answered 
     return pointsAtSomething(question) ? askForContext(routing) : null;
   }
 
+  /* A CARD THAT DOES NOT EXIST, NAMED IN A QUESTION THAT NEEDS ONE.
+   *
+   * "What does Sol Ring of the Infinite Void do?" resolved to no card, which is
+   * right, and then routed on the word "infinite" to the combo list and asked
+   * the player to name a card. They had named one. It does not exist, and that
+   * is the answer they were owed.
+   *
+   * Only when the ask WANTED a card and settled for the catalogue instead, and
+   * only for a phrase of two words or more that survives having its grammar
+   * trimmed off. A single capitalised word is as likely to be the start of a
+   * sentence as a card. Nothing is guessed at and nothing is corrected to a
+   * near miss: naming the phrase back is the whole answer. */
+  if (!named && routing.subject === 'catalogue') {
+    const wanted = ASKS.find(a => a.id === routing.ask)?.subjects[0];
+    if (wanted === 'card') {
+      const invented = await unresolvedCardName(req.db, question);
+      if (invented) {
+        return finish(
+          [
+            say(`There is no card called ${invented} in our catalogue, so I have nothing to tell you about it.`),
+            say('If that is close to a real name, try the exact printed one and I will read you the card. I am not going to guess at which card you meant and answer about a different one.'),
+          ],
+          [], routing, ['cards_unique'], 'refused'
+        );
+      }
+    }
+  }
+
   /* The second card, when there is one and the question was not a comparison.
      Not silence: the answer says which card it is about before it starts. */
   const alsoNamed = namedInText.slice(1).map(c => c.name);
@@ -301,8 +331,22 @@ export async function answerFromCatalogue(req: AnswerRequest): Promise<Answered 
       return answerDeckRating(req, routing);
     case 'deck-value':
       return answerDeckValue(req, routing);
+    case 'deck-missing':
+      return answerDeckMissing(req, routing);
     case 'deck-legal':
       return answerDeckIsLegal(req, routing);
+    case 'deck-shape':
+      return answerDeckShape(req, routing);
+    case 'colour-identity':
+      return answerColourIdentity(req, routing);
+    case 'ban-reason':
+      return answerBanReason(req, routing, named!);
+    case 'deck-colours':
+      return answerDeckColours(req, routing);
+    case 'build-a-deck':
+      return buildingADeckIsElsewhere(routing);
+    case 'win-condition':
+      return winConditionIsAJudgement(routing);
     case 'best-of':
       return answerWithAList(req, routing);
     case 'staples':
@@ -414,6 +458,34 @@ async function answerAboutKeyword(
 
   let standing: Answered['standing'] = 'full';
 
+  /* THE QUESTION DID NOT USE THE WORD, AND THE ANSWER HAS TO SAY SO.
+   *
+   * "Can a creature I just played tap for mana the same turn?" reaches haste
+   * through the nickname table, because that is the rule the question is
+   * about and nobody asking it knows to write the word. Printing haste's
+   * definition and stopping leaves the player to make the connection, and
+   * worse, it lets the definition read as though it were the rule underneath.
+   * It is not. Haste's reminder says what a creature WITH haste may do. The
+   * rule that stops one without it is not printed on any card and we do not
+   * hold it, so this says both halves out loud.
+   *
+   * `words` is what the player typed and `keyword` is what the catalogue calls
+   * it, so they differ exactly when a nickname did the work. */
+  const nicknamed = asked.filter(
+    k =>
+      found.some(f => f.keyword === k.name) &&
+      k.words !== k.name.toLowerCase() &&
+      /* A run-together spelling is not a description. Somebody who wrote
+         "firststrike" knows the word and does not need telling what it is. */
+      k.words.includes(' ')
+  );
+  if (nicknamed.length) {
+    blocks.push(say(
+      `You asked that without using the word, so to be plain about it: ${joinWords(nicknamed.map(n => n.name.toLowerCase()))} is the keyword for what you are describing. What is above is Wizards' definition of the keyword. The rule underneath it, the one that applies when a card does not have it, is not printed on any card and is not something we hold.`
+    ));
+    standing = 'partial';
+  }
+
   /* SOME KEYWORDS HAVE NO ONE WORDING, and saying nothing about that is how
      this prints a wrong rule. Protection is always protection FROM something,
      so the reminder on the card names a colour; cycling, kicker, equip, crew
@@ -444,9 +516,17 @@ async function answerAboutKeyword(
      combat damage rule and it is written nowhere in this database. Printing the
      two definitions and stopping would let the answer read as though it settled
      the interaction. */
-  if (asksHowTheyMeet(routing.question) && found.length > 1) {
+  /* ONE KEYWORD AND A TIMING QUESTION IS THE SAME GAP. "If I block a creature
+     that has first strike, does my creature die before it gets to deal damage?"
+     names one keyword, and printing its definition and stopping lets the
+     definition read as the answer to a question about the order of the damage
+     steps. It is not. Both cases say the same missing thing, in the number the
+     sentence needs. */
+  if (asksHowTheyMeet(routing.question)) {
     blocks.push(say(
-      'What each one does is above. What happens when they meet is a rule about combat and the order things happen in, and that is the part we do not hold, so I am not going to work it out for you here.'
+      found.length > 1
+        ? 'What each one does is above. What happens when they meet is a rule about combat and the order things happen in, and that is the part we do not hold, so I am not going to work it out for you here.'
+        : 'That is what the keyword says. What you are asking is about the order things happen in during combat, and that rule is not printed on any card, so it is not something we hold and I am not going to work it out for you here.'
     ));
     standing = 'partial';
   }
@@ -653,7 +733,15 @@ async function answerWithTopCombos(req: AnswerRequest, routing: Routing): Promis
      picked yet, and answering it with the format's most played combos would be
      answering something else. The catalogue is the subject only when the
      question asks about the format rather than about a card. */
-  const aboutTheFormat = /\bbest\b|\btop\b|\bmost\b|\bwhat are\b|\blist\b|\bstrongest\b|\bfamous\b|\bcommon\b/.test(text);
+  /* "What two cards make infinite mana?" is a question about the format and it
+     says none of the words this looked for, so it got the paragraph asking the
+     player to name a card when the whole point of the question is that they do
+     not know which card to name. Every phrase added here asks for cards rather
+     than about one, and the subject is already the catalogue, which means no
+     card resolved out of the question in the first place. */
+  const aboutTheFormat =
+    /\bbest\b|\btop\b|\bmost\b|\bwhat are\b|\blist\b|\bstrongest\b|\bfamous\b|\bcommon\b/.test(text) ||
+    /\bwhat (two |three )?cards\b|\bwhich (two |three )?cards\b|\bwhat two\b|\bwhich two\b|\bany two cards\b/.test(text);
   if (!aboutTheFormat) {
     return finish(
       [say('Pick a card at the top of the page, or name it in the question, and I will tell you every combo we hold that it is part of, what the other pieces are and what it produces.')],
@@ -661,7 +749,14 @@ async function answerWithTopCombos(req: AnswerRequest, routing: Routing): Promis
     );
   }
 
-  const wanted = countFrom(routing.question, COMBO_LIST);
+  /* "WHAT TWO CARDS MAKE INFINITE MANA" ASKS FOR TWO PIECES, NOT TWO ANSWERS.
+     `countFrom` already knows a number in front of the singular "card" is
+     describing the combo, which is what fixed "the best two card combos". The
+     plural slips past it, and "two cards" in a combo question means the same
+     thing. Every combo in this list has two pieces by construction, so the
+     number is never the list length here. */
+  const sizeIsInTheWords = /\b(two|three|2|3)\s+cards?\b/.test(text);
+  const wanted = sizeIsInTheWords ? COMBO_LIST : countFrom(routing.question, COMBO_LIST);
   const found = await topTwoCardCombos(req.db, wanted);
   if (!found.ok) {
     return finish(
@@ -673,11 +768,29 @@ async function answerWithTopCombos(req: AnswerRequest, routing: Routing): Promis
   /* "Infinite" is a word the question can carry, and Spellbook writes what a
      combo produces, so it can be honoured rather than ignored. It is applied
      after the read because `produces` is an array of free text. */
+  /* "Infinite mana" is a narrower request than "infinite", and Spellbook writes
+     what a combo produces in words, so the word after infinite can be honoured
+     rather than dropped. Without it "what two cards make infinite mana" came
+     back led by infinite lifegain, which is a true list and the wrong one. */
   const wantsInfinite = /\binfinite\b/.test(text);
-  const rows = (wantsInfinite
+  const broad = wantsInfinite
     ? found.value.filter(c => c.produces.some(p => /infinite/i.test(p)))
-    : found.value
-  ).filter(c => c.pieces.length === 2).slice(0, wanted);
+    : found.value;
+
+  /* NARROW ONLY IF NARROWING FINDS SOMETHING. The word after "infinite" is
+     "mana" in "what two cards make infinite mana" and "combos" in "the best two
+     card infinite combos", and the second is not a thing a combo produces. A
+     word list separating them would go stale; letting the data decide does not.
+     If the narrower read is empty the broader one stands, which is the same
+     rule as never printing a confident zero. */
+  const ofWhat = wantsInfinite ? text.match(/\binfinite\s+([a-z]+)/)?.[1] ?? null : null;
+  const narrowed = ofWhat
+    ? broad.filter(c => c.produces.some(p => /infinite/i.test(p) && p.toLowerCase().includes(ofWhat)))
+    : [];
+
+  const rows = (narrowed.length ? narrowed : broad)
+    .filter(c => c.pieces.length === 2)
+    .slice(0, wanted);
 
   if (!rows.length) {
     return finish(
@@ -708,6 +821,339 @@ function comboPairLine(combo: ComboPair, index: number): string {
     : 'something the combo list does not describe';
   const mana = combo.manaNeeded ? ` Needs ${combo.manaNeeded}.` : '';
   return `${index + 1}. ${joinWords(combo.pieces)}: ${produces}.${mana}`;
+}
+
+/* -------------------------------------------------------------------------- *
+ * How many of a thing a list in this format runs
+ *
+ * "How many lands should I run in a commander deck?" is one of the most asked
+ * questions in the format and it got the paragraph Tutor prints when it has no
+ * route. The number was two joins away. `meta_deck_shape` does them.
+ * -------------------------------------------------------------------------- */
+
+/**
+ * What the lists we hold are, said every time a number off them is printed.
+ *
+ * They are preconstructed decks and published lists, not tournament results,
+ * and the difference matters: a precon is a fair answer to "how many lands do
+ * published Commander decks run" and no answer at all to "how many lands does a
+ * deck need to win". Saying which one this is takes one clause.
+ */
+const WHAT_THE_LISTS_ARE =
+  'complete 100 card lists we hold, which are preconstructed decks and published lists rather than tournament results';
+
+async function answerDeckShape(req: AnswerRequest, routing: Routing): Promise<Answered | null> {
+  const shape = shapeAskedIn(routing.question);
+  if (!shape) return null;
+
+  /* The format the question named, or Commander, and it is said out loud. A
+     number counted over Commander lists must never be printed at somebody who
+     asked about Modern without the word Commander in the sentence. */
+  const format = formatFrom(routing.question) ?? 'commander';
+  const says = FORMATS.find(f => f.key === format)?.says ?? format;
+
+  const { data, error } = await req.db.rpc('meta_deck_shape', {
+    p_format: format,
+    p_kind: shape.kind,
+    p_tag: shape.tag,
+  });
+
+  if (error) {
+    return finish(
+      [say('I could not read the deck lists just now, so I am not going to give you a number from memory. Try again in a moment.')],
+      [], routing, ['meta_decks'], 'refused'
+    );
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  /* NO ROW IS AN ANSWER. The function refuses to publish a median over fewer
+     than thirty lists, which is the same floor the inclusion tables use, so an
+     empty result means we hold too little to say anything rather than that the
+     answer is zero. */
+  if (!row) {
+    return finish(
+      [say(
+        `I do not hold enough ${says} lists to give you a number for that. The lists we hold are grouped by format, and a median worked out from a handful of them would be a made up convention rather than a measurement.`
+      )],
+      [], routing, ['meta_decks'], 'refused'
+    );
+  }
+
+  const median = Math.round(Number(row.median));
+  const p10 = Math.round(Number(row.p10));
+  const p90 = Math.round(Number(row.p90));
+  const blocks: Block[] = [];
+
+  blocks.push(say(
+    `${median} ${shape.says}. That is the middle of ${thousands(row.decks_in_scope)} ${says} ${WHAT_THE_LISTS_ARE}.`
+  ));
+  blocks.push(say(
+    `Most of them sit between ${p10} and ${p90}, and the whole spread is ${row.lowest} to ${row.highest}. So anywhere in the middle band is normal and the ends are somebody doing something on purpose.`
+  ));
+
+  /* Lands and creatures are read off the type line, which the deck page sends
+     with every card, so the attached deck can be counted here and put beside
+     the number. A tag is not sent with the deck and is not going to be guessed
+     at, so that comparison is simply not offered rather than being invented. */
+  if (req.deckCards.length && shape.kind !== 'tag') {
+    const own = req.deckCards
+      .filter(c => !c.isSideboard)
+      .filter(c =>
+        shape.kind === 'land'
+          ? isLand(c)
+          : /creature/i.test(c.typeLine) && !isLand(c)
+      )
+      .reduce((n, c) => n + c.quantity, 0);
+    const gap = own - median;
+    const where =
+      gap === 0 ? 'exactly the middle'
+        : own < p10 ? `${p10 - own} under where most of them sit`
+          : own > p90 ? `${own - p90} over where most of them sit`
+            : 'inside the band most of them sit in';
+    blocks.push(say(
+      `The deck you have attached runs ${own}, which is ${where}.`
+    ));
+  }
+
+  if (shape.kind === 'tag') {
+    blocks.push(say(
+      `Lands are not counted in that. A land that ramps carries the same label, and counting it twice would make the two numbers overlap without saying so.`
+    ));
+  }
+
+  return finish(blocks, [], routing, ['meta_decks', 'meta_deck_cards', 'cards_unique'], 'full');
+}
+
+/* -------------------------------------------------------------------------- *
+ * Colour identity
+ *
+ * "My commander is blue and white. Can I play a card that has a green mana
+ * symbol in its rules text?" is a rule, and it is the one rule question we can
+ * settle by SHOWING rather than reciting: `color_identity` is a column on every
+ * card and it already counts the symbols printed in the rules text.
+ * -------------------------------------------------------------------------- */
+
+async function answerColourIdentity(req: AnswerRequest, routing: Routing): Promise<Answered> {
+  const asked = coloursFrom(routing.question);
+  const colour = asked[asked.length - 1] ?? null;
+
+  const blocks: Block[] = [
+    say('Yes it counts, and it is not only the mana cost. A card\'s colour identity is every mana symbol printed on it, in the cost and in the rules text, and a Commander deck may only play cards whose identity fits inside its commander\'s.'),
+  ];
+
+  /* The claim is checked against our own rows before it is made. Cards whose
+     identity comes ONLY from a symbol in the rules text are the whole point, so
+     one is fetched and named. If the read fails, the sentence above still
+     stands on the column itself and nothing is invented to fill the gap. */
+  let shown = false;
+  if (colour) {
+    const symbol = `{${colour}}`;
+    /* LANDS ARE THROWN OUT, and the first version of this did not and it
+       showed the player Breeding Pool. A land has no mana cost at all, so
+       "costs nothing and its identity is green and blue" reads as a nonsense
+       and teaches nothing: the interesting case is a card with a real cost in
+       one set of colours and an identity in another. Talisman of Curiosity
+       costs {2} and is green and blue purely because of the {G} it prints. */
+    const { data } = await req.db
+      .from('cards_unique')
+      .select('name, mana_cost, color_identity, oracle_text, edhrec_rank')
+      .contains('color_identity', [colour])
+      .not('tags', 'cs', '{land}')
+      .not('mana_cost', 'ilike', `%${symbol}%`)
+      .ilike('oracle_text', `%${symbol}%`)
+      .not('edhrec_rank', 'is', null)
+      .order('edhrec_rank', { ascending: true })
+      .limit(3);
+
+    const rows = ((data ?? []) as CardRow[]).filter(row => row.mana_cost);
+    if (rows.length) {
+      shown = true;
+      blocks.push(say(
+        `Here are cards from our own catalogue where that is the whole reason, ${colourName(colour)} in the rules text and nowhere in the cost:`
+      ));
+      blocks.push(quote(rows.map(row => {
+        const identity = (row.color_identity ?? []).map(colourName);
+        return `- ${row.name} costs ${row.mana_cost} and its colour identity is ${joinWords(identity)}.`;
+      }).join('\n')));
+      blocks.push(say(
+        `So a deck whose commander is not ${colourName(colour)} cannot play ${rows[0].name}, whatever its cost says.`
+      ));
+    }
+  }
+
+  if (!shown) {
+    blocks.push(say(
+      'Every card in our catalogue carries its colour identity as its own field, so if you name a card I will read you its identity and you can hold that against your commander.'
+    ));
+  }
+
+  blocks.push(say(
+    'Two things it does not count. Reminder text in brackets does not, and neither does a colour word written out in letters. A hybrid symbol counts as both of its colours.'
+  ));
+
+  return finish(blocks, [], routing, ['cards_unique'], shown ? 'full' : 'partial');
+}
+
+/* -------------------------------------------------------------------------- *
+ * Why a card was banned
+ * -------------------------------------------------------------------------- */
+
+/**
+ * We hold WHETHER, on the card, and nothing at all about WHY.
+ *
+ * The old answer to "Why was Jeweled Lotus banned?" was the card's whole page,
+ * which printed "Commander plays it at rank 8,914" four lines above "Banned in
+ * Commander" and never said the reason was missing. Read together those two
+ * lines say nobody plays it in the format it is banned in, and it is banned in
+ * that format. Saying the gap first fixes both halves.
+ */
+async function answerBanReason(
+  req: AnswerRequest,
+  routing: Routing,
+  named: { name: string; setCode: string | null; collectorNumber: string | null }
+): Promise<Answered> {
+  return answerAboutCard(
+    req,
+    routing,
+    named,
+    ['what', 'legality', 'price'],
+    undefined,
+    [],
+    'Why a card was banned is not something we hold. Our catalogue carries whether it is banned and nothing about the thinking, so anything I said about the reason would be me making it up. The format\'s own banned list announcement is where that is written down. Here is what we do hold.'
+  );
+}
+
+/* -------------------------------------------------------------------------- *
+ * Which colours the attached deck is thin on
+ * -------------------------------------------------------------------------- */
+
+/** Every coloured pip in a mana cost, so {2}{W}{W} counts white twice. */
+function pipsIn(manaCost: string): string[] {
+  return [...String(manaCost ?? '').matchAll(/\{([^}]+)\}/g)]
+    .flatMap(m => m[1].split('/').filter(part => 'WUBRG'.includes(part)));
+}
+
+async function answerDeckColours(req: AnswerRequest, routing: Routing): Promise<Answered> {
+  const identity = req.identity.filter(c => 'WUBRG'.includes(c));
+  const main = req.deckCards.filter(c => !c.isSideboard);
+
+  if (!identity.length) {
+    return finish(
+      [say(
+        'This deck is colourless. There is no colour for it to be short of, and every land in it that makes any colour is making mana the deck has nothing to spend it on.'
+      )],
+      [], routing, [], 'full'
+    );
+  }
+
+  /* Two counts per colour, both read off the deck's own list and nothing else.
+     Wanted is coloured pips across every nonland card, which is what the deck
+     will actually have to pay. Sources is lands that make it, which is where
+     the mana comes from. Neither is a verdict and both are printed. */
+  const wanted = new Map<string, number>();
+  const sources = new Map<string, number>();
+  for (const colour of identity) {
+    wanted.set(colour, 0);
+    sources.set(colour, 0);
+  }
+
+  let unknownLands = 0;
+  for (const card of main) {
+    if (isLand(card)) {
+      if (card.producedMana === null) {
+        unknownLands += card.quantity;
+        continue;
+      }
+      for (const colour of new Set(card.producedMana)) {
+        if (sources.has(colour)) sources.set(colour, sources.get(colour)! + card.quantity);
+      }
+      continue;
+    }
+    for (const pip of pipsIn(card.manaCost)) {
+      if (wanted.has(pip)) wanted.set(pip, wanted.get(pip)! + card.quantity);
+    }
+  }
+
+  const rows = identity
+    .map(colour => ({
+      colour,
+      wanted: wanted.get(colour) ?? 0,
+      sources: sources.get(colour) ?? 0,
+      /* Sources per pip wanted. Lower means the deck asks for a colour more
+         often than its lands make it. It is a ratio off the list, not a
+         recommendation, and it is never presented as one. */
+      ratio: (wanted.get(colour) ?? 0) === 0 ? Infinity : (sources.get(colour) ?? 0) / (wanted.get(colour) ?? 1),
+    }))
+    .sort((a, b) => a.ratio - b.ratio);
+
+  const blocks: Block[] = [
+    say(
+      `Counted off your own list: how often each colour is asked for, and how many of your lands make it.`
+    ),
+    quote(rows.map(r =>
+      `- ${colourName(r.colour).replace(/^./, m => m.toUpperCase())}: ${r.wanted} coloured symbol${r.wanted === 1 ? '' : 's'} across the nonland cards, ${r.sources} land${r.sources === 1 ? '' : 's'} that make it.`
+    ).join('\n')),
+  ];
+
+  const thinnest = rows[0];
+  const widest = rows[rows.length - 1];
+  if (rows.length > 1 && thinnest.ratio < widest.ratio) {
+    blocks.push(say(
+      `${colourName(thinnest.colour).replace(/^./, m => m.toUpperCase())} is the one your lands cover least well against how often the deck asks for it. ${colourName(widest.colour).replace(/^./, m => m.toUpperCase())} is the best covered.`
+    ));
+  }
+
+  let standing: Answered['standing'] = 'full';
+  if (unknownLands) {
+    blocks.push(say(
+      `${unknownLands} of your lands are left out of the source counts because we do not know what they tap for. Treat the numbers above as at least that many short rather than exact.`
+    ));
+    standing = 'partial';
+  }
+
+  blocks.push(say(
+    'That is symbols against sources and nothing else. It does not know which of your spells you cast early and which sit in hand, and that is the part that decides whether a colour actually feels short at the table.'
+  ));
+
+  return finish(blocks, [], routing, [], standing);
+}
+
+/* -------------------------------------------------------------------------- *
+ * Two hand-offs
+ * -------------------------------------------------------------------------- */
+
+/**
+ * Building a whole deck.
+ *
+ * The Deck Generator does this, with a budget, and Tutor has never named it. A
+ * refusal that does not point at the thing in the same product that does the
+ * job reads as the product not knowing itself.
+ */
+function buildingADeckIsElsewhere(routing: Routing): Answered {
+  return finish(
+    [
+      say('Building a whole deck is what the Deck Generator is for. Give it a commander and a budget and it picks the list, and it works from the same catalogue I read, so the two of us will not disagree with each other.'),
+      say('What I will do from here is the parts. Ask me for the most played cards doing a job and I will list them with prices, so *best ramp in green under a dollar* or *best removal in white* gets you a shortlist you can build from.'),
+    ],
+    [], routing, [], 'refused'
+  );
+}
+
+/**
+ * How a deck wins.
+ *
+ * The tags on the Atraxa list say counters and proliferate. That is a theme,
+ * not a win condition, and printing it as one would be the kind of confident
+ * wrong answer this whole answerer exists to avoid.
+ */
+function winConditionIsAJudgement(routing: Routing): Answered {
+  return finish(
+    [
+      say('How a deck actually wins is a judgement about the list, and I do not hold one. What we store is what each card does and how many decks play it, and neither of those adds up to a plan for closing a game.'),
+      say('Two things near it I can do. Pick a card from the deck and I will give you every combo we hold that it is part of, which is usually where the fast win is. And the deck page works out a power score from the list, which says how quickly it can win without saying how.'),
+    ],
+    [], routing, [], 'refused'
+  );
 }
 
 /**
@@ -839,6 +1285,13 @@ const EDGE_STOPWORDS = new Set([
      so the card was thrown away and the reply asked the player to name a card
      they had just named. */
   'explain', 'tell', 'me', 'about', 'show', 'give', 'find', 'name',
+  /* THE AUXILIARY VERBS A QUESTION OPENS WITH. Same fault as "Is", found on
+     "Has Rhystic Study gone up in price this year?": the phrase "Has Rhystic
+     Study" kept its "has", so it read as a longer name containing the card, the
+     card was thrown away as a fragment, and the answer said there is no card
+     called Has Rhystic Study. Only words that are grammar go in here, and only
+     the ends of a phrase are ever trimmed. */
+  'has', 'have', 'had', 'did', 'could', 'might', 'must', 'am', 'been', 'shall',
 ]);
 
 /**
@@ -910,6 +1363,40 @@ const COMPARISON_WORDS = [
 export function looksLikeAComparison(question: string): boolean {
   const text = ` ${question.toLowerCase().replace(/[^a-z0-9.]+/g, ' ').trim()} `;
   return COMPARISON_WORDS.some(word => text.includes(word.replace(/\s+/g, ' ')));
+}
+
+/**
+ * The card-shaped phrase in a question that turned out not to be a card.
+ *
+ * Returns the longest such phrase, or null when nothing in the question looks
+ * like a name. Deliberately strict, because the cost of a false positive is
+ * telling somebody a real card does not exist:
+ *
+ *   - two words or more AFTER the grammar is trimmed off both ends, so "Is" and
+ *     "Explain" and a trailing format name cannot make a phrase qualify
+ *   - the phrase has to be capitalised the way a name is, which
+ *     `extractCardNames` already requires
+ *   - and it is only ever called when the catalogue has already been asked and
+ *     said no
+ */
+async function unresolvedCardName(db: any, question: string): Promise<string | null> {
+  const { extractCardNames } = await import('../resolve-cards.ts');
+  const { names } = extractCardNames(question);
+  const asked = question.toLowerCase();
+
+  const shaped = names
+    .filter(n => asked.includes(n.toLowerCase()))
+    .filter(n => coreName(n).split(' ').filter(Boolean).length >= 2)
+    .sort((a, b) => b.length - a.length);
+
+  for (const phrase of shaped) {
+    const hit = await cardByName(db, phrase);
+    /* A read that failed is not a card that does not exist. Saying nothing is
+       the honest outcome when the catalogue could not be asked. */
+    if (!hit.ok) return null;
+    if (!hit.value) return phrase;
+  }
+  return null;
 }
 
 /** One card, which is what every ask other than a comparison wants. */
@@ -1064,12 +1551,26 @@ async function answerAboutCard(
    * an answer about one of them without a word about the other is the fault
    * this exists to stop: it reads as a complete answer and is half of one.
    */
-  alsoNamed: string[] = []
+  alsoNamed: string[] = [],
+  /**
+   * Something that has to be said BEFORE the card, because it is the answer.
+   *
+   * "Why was Jeweled Lotus banned?" is answered by "we do not hold why". Put
+   * that at the bottom and the player reads a card page first and has to get to
+   * the end to find out the question was not answered. One case uses this and
+   * it is worth the parameter.
+   */
+  opening?: string
 ): Promise<Answered> {
   const basis: string[] = ['cards_unique'];
   const blocks: Block[] = [];
   const attach: string[] = [];
   let standing: Answered['standing'] = 'full';
+
+  if (opening) {
+    blocks.push(say(opening));
+    standing = 'partial';
+  }
 
   if (alsoNamed.length) {
     blocks.push(say(
@@ -1154,6 +1655,15 @@ async function answerAboutCard(
 
   /* -- legality ---------------------------------------------------------- */
   if (parts.includes('legality')) {
+    /* The format they asked about, first and in plain words, then the rest.
+       Only when the question is ABOUT legality: "What does Sol Ring do?" with
+       an attached Commander deck names a format too, and opening the card's
+       page with "Yes, Sol Ring is legal in Commander" answers a question
+       nobody asked. */
+    if (routing.ask === 'legality' || routing.ask === 'legality-in-format') {
+      const verdict = verdictInFormat(card, routing.question);
+      if (verdict) blocks.push(say(verdict));
+    }
     blocks.push(say(legalityLine(card)));
   }
 
@@ -1211,10 +1721,18 @@ async function answerAboutCard(
           )
         : similar.value;
 
+      /* Said out loud, because it is the difference between a list you can use
+         and a list of cards you cannot cast. Only when the card has a colour:
+         a colourless card constrains nothing and the sentence would be noise. */
+      const identity = (card.color_identity ?? []).filter(c => 'WUBRG'.includes(c));
+      const inColour = identity.length
+        ? ` Every one is inside ${joinWords(identity.map(colourName))}, so a deck that plays ${card.name} can play it.`
+        : '';
+
       blocks.push(say(
-        onABudget
+        (onABudget
           ? `Cards filed the same way as ${card.name}, cheapest first. Whether any of them is right for your deck is your call, so here is the price and how many decks run each one.`
-          : `Cards filed the same way as ${card.name}, closest first and then by how much Commander plays them. Whether any of them is better for your deck is your call, so here is what each one costs and how many decks run it.`
+          : `Cards filed the same way as ${card.name}, closest first and then by how much Commander plays them. Whether any of them is better for your deck is your call, so here is what each one costs and how many decks run it.`) + inColour
       ));
       blocks.push(quote(listed.map(row => {
         const rank = row.edhrec_rank != null ? `rank ${thousands(row.edhrec_rank)}` : 'no popularity number';
@@ -1238,7 +1756,13 @@ async function answerAboutCard(
          about their decks, silence is its own wrong answer, so that one case
          says why there is nothing. */
       if (routing.ask === 'in-my-decks') {
-        blocks.push(say('I can only check your decks while you are signed in. Sign in and ask again and I will tell you which ones run it.'));
+        /* "Do I own a Sol Ring?" and "which of my decks play it" are two
+           different questions and this used to answer only the second one at a
+           player asking the first. Both are owner scoped, both need a sign in,
+           and the collection is where owning is answered. */
+        blocks.push(say(
+          'I can only read your decks and your collection while you are signed in. Sign in and ask again and I will tell you which of your decks run it. What you own rather than what you play is on your collection page.'
+        ));
         standing = 'partial';
       }
     } else if (!mine.ok) {
@@ -1303,22 +1827,64 @@ function legalityLine(card: CardRow): string {
   const legal: string[] = [];
   const not: string[] = [];
   const banned: string[] = [];
+  const restricted: string[] = [];
   for (const format of FORMATS) {
     const state = legalities[format.key];
     if (!state) continue;
     if (state === 'legal') legal.push(format.says);
     else if (state === 'banned') banned.push(format.says);
-    else if (state === 'restricted') legal.push(`${format.says} (one copy only)`);
+    /* RESTRICTED GETS ITS OWN SENTENCE, and this is the fix for a line that
+       read as permission to break the singleton rule.
+       "Legal in Commander and Vintage (one copy only)" was one array with a
+       qualifier glued onto one item, so the bracket landed at the end and
+       attached to the whole list. Sol Ring is restricted in VINTAGE. A player
+       asking whether they may run two copies in Commander was shown a sentence
+       that says one copy applies to something, somewhere. */
+    else if (state === 'restricted') restricted.push(format.says);
     else not.push(format.says);
   }
-  if (!legal.length && !not.length && !banned.length) {
+  if (!legal.length && !not.length && !banned.length && !restricted.length) {
     return 'We hold no legality for this card, so I will not guess which formats take it.';
   }
   const parts: string[] = [];
   if (legal.length) parts.push(`Legal in ${joinWords(legal)}.`);
+  if (restricted.length) {
+    parts.push(
+      `Restricted in ${joinWords(restricted)}, which means you may play it there but only one copy.`
+    );
+  }
   if (banned.length) parts.push(`Banned in ${joinWords(banned)}.`);
   if (not.length) parts.push(`Not legal in ${joinWords(not)}.`);
   return parts.join(' ');
+}
+
+/**
+ * The answer to the format the question actually named, first, in one line.
+ *
+ * "Is Sol Ring legal in Modern?" was answered with every format the card has a
+ * state for, and Modern sat sixth in the "Not legal in" list at the end. The
+ * fact was there and the player had to find it. Every legality answer that
+ * names a format now opens with yes or no about that format and then gives the
+ * rest, which is the order a person answers a question in.
+ *
+ * Null when the question named no format, or when we hold no state for it, and
+ * a null falls through to the full line rather than guessing at one.
+ */
+function verdictInFormat(card: CardRow, question: string): string | null {
+  const key = formatFrom(question);
+  if (!key) return null;
+  const says = FORMATS.find(f => f.key === key)?.says ?? key;
+  const state = (card.legalities ?? {})[key];
+  if (!state) return null;
+  if (state === 'legal') return `Yes. ${card.name} is legal in ${says}.`;
+  if (state === 'banned') return `No. ${card.name} is banned in ${says}.`;
+  if (state === 'restricted') {
+    return `Yes, but one copy only. ${card.name} is restricted in ${says}.`;
+  }
+  /* Just the state. Why a card is outside a format's pool is not a column we
+     hold, and "it was never printed in a set that format uses" is true of most
+     of them and not all, so it is not mine to add. */
+  return `No. ${card.name} is not legal in ${says}.`;
 }
 
 async function pricePart(
@@ -1561,6 +2127,29 @@ async function answerAboutCopies(
   }
 
   if (verdict.rule) blocks.push(say(`The rule is: ${verdict.rule.toLowerCase()}.`));
+
+  /* THE CARD BEATS THE FORMAT WHEN THE CARD SAYS SO.
+     Checked before any copy verdict is read out, and the other faults are kept:
+     Shadowborn Apostle may be run in any number and still cannot go in a deck
+     whose commander is not black. Only the copy limit is set aside, because
+     only the copy limit is what the card overrode. */
+  const exception = printedCopyException(printedText(card));
+  if (exception) {
+    const others = verdict.faults.filter(f => f.fault !== 'copy-limit');
+    blocks.push(say(`${card.name} says otherwise on the card itself:`));
+    blocks.push(quote(`> ${exception.line}`));
+    blocks.push(say(
+      exception.allowance.startsWith('any number')
+        ? `That is printed on the card and it beats the format's rule, so run as many as you like.`
+        : `That is printed on the card and it beats the format's rule, so ${exception.allowance} is your limit rather than one.`
+    ));
+    if (others.length) {
+      blocks.push(say('Something else does stop it though:'));
+      blocks.push(quote(others.map(f => `- ${f.detail}`).join('\n')));
+    }
+    const cards = await resolveCards(req.db, attach, attach.length, 4);
+    return finish(blocks, cards, routing, ['cards_unique'], 'full');
+  }
 
   if (verdict.basicLandExempt && !verdict.faults.length) {
     blocks.push(say(
@@ -1909,6 +2498,49 @@ async function answerDeckRating(req: AnswerRequest, routing: Routing): Promise<A
 }
 
 /** What the deck costs, from the valuation the body carried. */
+/**
+ * How much of the attached deck the player already owns.
+ *
+ * `economy.missing` and `economy.ownedPct` are computed by the deck page and
+ * travel on the request, so this is a read of what was already sent. WHICH
+ * cards are missing is not sent, and it is not going to be guessed at: the
+ * count is given and the page that lists them is named.
+ */
+async function answerDeckMissing(req: AnswerRequest, routing: Routing): Promise<Answered | null> {
+  const missing = bodyNumber(req.deckContext?.economy?.missing);
+  const ownedPct = bodyNumber(req.deckContext?.economy?.ownedPct);
+  const total = bodyNumber(req.deckContext?.counts?.total);
+
+  if (missing == null) {
+    return finish(
+      [say('The deck page works out what you already own and it did not send that with this question, so I have nothing to count. Open the deck and ask again and the number comes with it.')],
+      [], routing, [], 'refused'
+    );
+  }
+
+  const blocks: Block[] = [];
+  if (missing === 0) {
+    blocks.push(say(
+      `Nothing. Every card in this list is already in your collection${total != null ? `, all ${thousands(total)} of them` : ''}.`
+    ));
+  } else {
+    blocks.push(say(
+      `${thousands(missing)} card${missing === 1 ? '' : 's'} in this list ${missing === 1 ? 'is' : 'are'} not in your collection${
+        ownedPct != null ? `, so you own about ${ownedPct}% of it` : ''
+      }.`
+    ));
+    blocks.push(say(
+      `Which ones is on the deck page itself, where every row says whether you have it. That is ${ATTACHED_DECK} counted by the page and sent with your question, so it is the same number you see there.`
+    ));
+  }
+
+  blocks.push(say(
+    'Cards we hold no price for are not counted in the value beside it, and there is no way to count them honestly.'
+  ));
+
+  return finish(blocks, [], routing, [], 'full');
+}
+
 async function answerDeckValue(req: AnswerRequest, routing: Routing): Promise<Answered | null> {
   const economy = req.deckContext?.economy ?? {};
   const usd = readAmount(economy.priceUSD);

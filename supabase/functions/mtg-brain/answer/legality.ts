@@ -228,3 +228,40 @@ export function deckRuleVerdicts(
     formatLabel: formatKeyLabel(key),
   };
 }
+
+/* -------------------------------------------------------------------------- *
+ * A card that says the singleton rule does not apply to it
+ * -------------------------------------------------------------------------- */
+
+/**
+ * The copy allowance a card prints on itself, or null.
+ *
+ * THIS IS THE MIRROR IMAGE OF THE BUG THAT STARTED ALL OF THIS. The stored
+ * fault was a Commander deck being told it "could add another copy" of Mystic
+ * Remora. The other way round is Relentless Rats being told "one copy, and one
+ * only", and measured on 2026-08-30 that is exactly what Tutor said. It is
+ * wrong, it is confident, and a player would take it to a table.
+ *
+ * Fifteen cards in the catalogue carry their own allowance in their own printed
+ * text, the same way a keyword carries its own definition: Relentless Rats, Rat
+ * Colony, Shadowborn Apostle, Persistent Petitioners, Dragon's Approach, Slime
+ * Against Humanity, Hare Apparent, Templar Knight, Tempest Hawk, Cid, Nazgul at
+ * nine and Seven Dwarves at seven. We hold every one of those sentences.
+ * Nothing here is remembered and nothing is listed by name.
+ *
+ * The WORDS are returned rather than a number, because "up to nine" is what the
+ * card says and nine is a reading of it. The caller quotes the line either way.
+ *
+ * It lives beside the copy rule rather than beside the answer that prints it,
+ * because it IS a copy rule, and because here it can be tested without a
+ * network.
+ */
+export function printedCopyException(
+  oracleText: string | null | undefined
+): { line: string; allowance: string } | null {
+  const found = String(oracleText ?? '').match(
+    /A deck can have (any number of|up to [a-z]+) cards named ([^.\n]+)\./i
+  );
+  if (!found) return null;
+  return { line: found[0], allowance: found[1].toLowerCase() };
+}

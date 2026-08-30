@@ -74,7 +74,13 @@ const DECKS: Record<string, ReturnType<typeof enrich> | null> = {
   ulamog: enrich(raw['1']),
 };
 
-const fifty = JSON.parse(await Deno.readTextFile('scripts/tutor-fifty.json'));
+/* `--questions=` so the thirty later questions run through this same harness.
+   A second harness asking the same answerer a slightly different way is how two
+   scores stop being comparable. */
+const askFile =
+  Deno.args.find(a => a.startsWith('--questions='))?.slice('--questions='.length) ??
+  'scripts/tutor-fifty.json';
+const fifty = JSON.parse(await Deno.readTextFile(askFile));
 
 interface Row {
   id: string;

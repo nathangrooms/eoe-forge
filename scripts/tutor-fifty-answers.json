@@ -1,9 +1,12 @@
 {
-  "title": "Fifty real Magic questions, put through the deployed Tutor endpoint",
-  "ran": "2026-08-29T20:22:20.691Z",
+  "title": "Fifty questions Magic players really ask",
+  "asked_from": "scripts/tutor-fifty.json",
+  "ran": "2026-08-30T05:39:44.314Z",
   "endpoint": "https://udnaflcohfyljrsgqggy.supabase.co/functions/v1/mtg-brain",
+  "transport_failures": 0,
   "harness": {
     "path": "HTTP POST, the same body src/pages/Tutor.tsx sends from generateResponse",
+    "retries": "a non-200 is asked again up to three times; the count is on each row as transport_failures",
     "signed_in": false,
     "signed_in_note": "The anon key with no session. The function uses the caller token for one section only, which decks of yours already play this card. Every other section is unaffected.",
     "conversation_history": "empty for every question; each is a fresh chat",
@@ -15,10 +18,11 @@
       "category": "rules",
       "question": "How does the stack work in Magic?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 812,
+      "wall_clock_ms": 613,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -35,36 +39,51 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I can read you a card and everything we hold about it, but we do not keep a copy of the rules, so I will not answer a timing or stack question from memory.\n\nGatherer carries the official rulings for a card, and the Comprehensive Rules cover the rest. A judge at your local shop will beat both."
+      "answer": "What I do not keep is the rules themselves. Timing, the stack, priority, what happens when two things want to happen at once: I will not answer any of those from memory.\n\nWhat I can do is read you a keyword. Wizards prints the definition of a keyword on the card itself, in brackets, and we hold 208 keywords that way. Ask what flying or hexproof or overload means and you get Wizards' own words back.\n\nFor the rest, Gatherer carries the official rulings for a card and the Comprehensive Rules cover everything else. A judge at your local shop will beat both."
     },
     {
       "id": "q02",
       "category": "rules",
       "question": "If my creature has deathtouch and trample, how much damage do I have to assign to the blocker?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 233,
-      "answered_from": "nothing",
-      "standing": "refused",
-      "routing": null,
-      "basis": null,
+      "wall_clock_ms": 2414,
+      "answered_from": "catalogue",
+      "standing": "partial",
+      "routing": {
+        "question": "If my creature has deathtouch and trample, how much damage do I have to assign to the blocker?",
+        "ask": "keyword",
+        "wants": "What a keyword on a card means, in Wizards' own printed words.",
+        "cue": "how much damage",
+        "subject": "catalogue",
+        "missing": null,
+        "gap": null
+      },
+      "basis": [
+        "cards_unique"
+      ],
       "cached": false,
-      "cards_attached": 0,
-      "card_names": [],
+      "cards_attached": 2,
+      "card_names": [
+        "Sedge Scorpion",
+        "Stampeding Rhino"
+      ],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
+      "answer": "Each one, in the words Wizards prints on the card:\n\n**Deathtouch**\n> Any amount of damage this deals to a creature is enough to destroy it.\n\n**Trample**\n> This creature can deal excess combat damage to the player or planeswalker it's attacking.\n\nThose are the reminder texts off Sedge Scorpion and Stampeding Rhino, not something I wrote.\n\nWhat each one does is above. What happens when they meet is a rule about combat and the order things happen in, and that is the part we do not hold, so I am not going to work it out for you here."
     },
     {
       "id": "q03",
       "category": "rules",
       "question": "What happens if I have two legendary creatures with the same name on the battlefield?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 228,
+      "wall_clock_ms": 260,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -73,36 +92,50 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
+      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black under a dollar*.\n- **Ask what a keyword means** and I will read you Wizards' own words off the card. Try *what does hexproof mean* or *what is overload*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is the rules that are not printed on a card, which is timing, the stack and priority. Nor anything about what is winning at the moment, nor an opinion on whether a card is good."
     },
     {
       "id": "q04",
       "category": "rules",
       "question": "Can a creature I just played tap for mana the same turn?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 423,
-      "answered_from": "nothing",
-      "standing": "refused",
-      "routing": null,
-      "basis": null,
+      "wall_clock_ms": 1053,
+      "answered_from": "catalogue",
+      "standing": "partial",
+      "routing": {
+        "question": "Can a creature I just played tap for mana the same turn?",
+        "ask": "keyword",
+        "wants": "What a keyword on a card means, in Wizards' own printed words.",
+        "cue": "can a creature",
+        "subject": "catalogue",
+        "missing": null,
+        "gap": null
+      },
+      "basis": [
+        "cards_unique"
+      ],
       "cached": false,
-      "cards_attached": 0,
-      "card_names": [],
+      "cards_attached": 1,
+      "card_names": [
+        "Vulshok Berserker"
+      ],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
+      "answer": "**Haste**, in the words Wizards prints on the card:\n\n> This creature can attack and {T} as soon as it comes under your control.\n\nThat is the reminder text off Vulshok Berserker itself, not something I wrote.\n\nYou asked that without using the word, so to be plain about it: haste is the keyword for what you are describing. What is above is Wizards' definition of the keyword. The rule underneath it, the one that applies when a card does not have it, is not printed on any card and is not something we hold."
     },
     {
       "id": "q05",
       "category": "rules",
       "question": "What is the difference between exile and destroy?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 239,
+      "wall_clock_ms": 293,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -111,36 +144,51 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
+      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black under a dollar*.\n- **Ask what a keyword means** and I will read you Wizards' own words off the card. Try *what does hexproof mean* or *what is overload*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is the rules that are not printed on a card, which is timing, the stack and priority. Nor anything about what is winning at the moment, nor an opinion on whether a card is good."
     },
     {
       "id": "q06",
       "category": "rules",
       "question": "What does hexproof do and how is it different from shroud?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 186,
-      "answered_from": "nothing",
-      "standing": "refused",
-      "routing": null,
-      "basis": null,
+      "wall_clock_ms": 1877,
+      "answered_from": "catalogue",
+      "standing": "full",
+      "routing": {
+        "question": "What does hexproof do and how is it different from shroud?",
+        "ask": "keyword",
+        "wants": "What a keyword on a card means, in Wizards' own printed words.",
+        "cue": "what does",
+        "subject": "catalogue",
+        "missing": null,
+        "gap": null
+      },
+      "basis": [
+        "cards_unique"
+      ],
       "cached": false,
-      "cards_attached": 0,
-      "card_names": [],
+      "cards_attached": 2,
+      "card_names": [
+        "Xathrid Slyblade",
+        "Kodama of the North Tree"
+      ],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
+      "answer": "Each one, in the words Wizards prints on the card:\n\n**Hexproof**\n> This creature can't be the target of spells or abilities your opponents control.\n\n**Shroud**\n> This creature can't be the target of spells or abilities.\n\nThose are the reminder texts off Xathrid Slyblade and Kodama of the North Tree, not something I wrote."
     },
     {
       "id": "q07",
       "category": "rules",
       "question": "Do I lose the game as soon as my library is empty?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 501,
+      "wall_clock_ms": 833,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -149,36 +197,51 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
+      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black under a dollar*.\n- **Ask what a keyword means** and I will read you Wizards' own words off the card. Try *what does hexproof mean* or *what is overload*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is the rules that are not printed on a card, which is timing, the stack and priority. Nor anything about what is winning at the moment, nor an opinion on whether a card is good."
     },
     {
       "id": "q08",
       "category": "rules",
       "question": "How do first strike and deathtouch work together?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 584,
-      "answered_from": "nothing",
-      "standing": "refused",
-      "routing": null,
-      "basis": null,
+      "wall_clock_ms": 1399,
+      "answered_from": "catalogue",
+      "standing": "partial",
+      "routing": {
+        "question": "How do first strike and deathtouch work together?",
+        "ask": "keyword",
+        "wants": "What a keyword on a card means, in Wizards' own printed words.",
+        "cue": "how do",
+        "subject": "catalogue",
+        "missing": null,
+        "gap": null
+      },
+      "basis": [
+        "cards_unique"
+      ],
       "cached": false,
-      "cards_attached": 0,
-      "card_names": [],
+      "cards_attached": 2,
+      "card_names": [
+        "Lyra Dawnbringer",
+        "Sedge Scorpion"
+      ],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
+      "answer": "Each one, in the words Wizards prints on the card:\n\n**First strike**\n> This creature deals combat damage before creatures without first strike.\n\n**Deathtouch**\n> Any amount of damage this deals to a creature is enough to destroy it.\n\nThose are the reminder texts off Lyra Dawnbringer and Sedge Scorpion, not something I wrote.\n\nWhat each one does is above. What happens when they meet is a rule about combat and the order things happen in, and that is the part we do not hold, so I am not going to work it out for you here."
     },
     {
       "id": "q09",
       "category": "card_text",
       "question": "What does Rhystic Study do?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 737,
+      "wall_clock_ms": 703,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -201,19 +264,20 @@
         "Rhystic Study"
       ],
       "charts": [],
-      "answer": "**Rhystic Study** {2}{U}\n\nEnchantment.\n\nWhat it says, straight off the card:\n\n> Whenever an opponent casts a spell, you may draw a card unless that player pays {1}.\n\nWe file it under: draws cards, slows everyone down.\n\nCommander plays it at rank 44. That is a place in a list of every card sorted by how many decks run it, so rank 1 is the most played card there is.\n\nIt is on the Commander game changer list, which matters for bracket three and below.\n\nLegal in Commander, Legacy, Vintage, Pauper, Brawl, Historic and Oathbreaker. Not legal in Standard, Pioneer and Modern.\n\nAbout $64.33, or €33.74 in euros. There are 11 printings and they do not all cost the same.\n\nNothing in the combo list we hold pairs it with anything. That list comes from Commander Spellbook and it is not everything anybody has ever found."
+      "answer": "**Rhystic Study** {2}{U}\n\nEnchantment.\n\nWhat it says, straight off the card:\n\n> Whenever an opponent casts a spell, you may draw a card unless that player pays {1}.\n\nIn short: draws cards, taxes the opponent.\n\nWe file it under: slows everyone down, draws cards.\n\nCommander plays it at rank 44. That is a place in a list of every card sorted by how many decks run it, so rank 1 is the most played card there is.\n\nIt is on the Commander game changer list, which matters for bracket three and below.\n\nLegal in Commander, Legacy, Vintage, Pauper, Brawl, Historic and Oathbreaker. Not legal in Standard, Pioneer and Modern.\n\nAbout $64.33, or €33.74 in euros. There are 11 printings and they do not all cost the same.\n\nNothing in the combo list we hold pairs it with anything. That list comes from Commander Spellbook and it is not everything anybody has ever found."
     },
     {
       "id": "q10",
       "category": "card_text",
       "question": "What does Agadeem's Awakening do?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 976,
+      "wall_clock_ms": 2258,
       "answered_from": "catalogue",
-      "standing": "full",
+      "standing": "partial",
       "routing": {
         "question": "What does Agadeem's Awakening do?",
         "ask": "explain",
@@ -241,44 +305,57 @@
         "Ardent Elementalist"
       ],
       "charts": [],
-      "answer": "**Agadeem's Awakening // Agadeem, the Undercrypt**\n\nSorcery // Land.\n\nWhat it says, straight off the card:\n\n> Agadeem's Awakening {X}{B}{B}{B}\n> Sorcery\n> Return from your graveyard to the battlefield any number of target creature cards that each have a different mana value X or less.\n> \n> Agadeem, the Undercrypt\n> Land\n> As this land enters, you may pay 3 life. If you don't, it enters tapped.\n> {T}: Add {B}.\n\nWe file it under: gets things back from the graveyard.\n\nCommander plays it at rank 958. That is a place in a list of every card sorted by how many decks run it, so rank 1 is the most played card there is.\n\nLegal in Commander, Pioneer, Modern, Legacy, Vintage, Brawl, Historic and Oathbreaker. Not legal in Standard and Pauper.\n\nAbout $27.39, or €24.62 in euros. There are 3 printings and they do not all cost the same.\n\nIt turns up in 4 combos we hold:\n\n- with Archaeomancer, Ashnod's Altar and Dockside Extortionist: infinite artifact ETB and infinite artifact LTB, plus 11 more. Needs {B}{B}{B}.\n- with Archaeomancer, Ashnod's Altar, Panharmonicon and Priest of Gix: infinite black mana and infinite colorless mana, plus 5 more. Needs {4}{B}{B}{B}.\n- with Archaeomancer, Ashnod's Altar, Priest of Gix and Yarok, the Desecrated: infinite black mana and infinite colorless mana, plus 5 more. Needs {4}{B}{B}{B}.\n- with Ardent Elementalist, Ashnod's Altar and Dockside Extortionist: infinite artifact ETB and infinite artifact LTB, plus 11 more. Needs {B}{B}{B}."
+      "answer": "**Agadeem's Awakening // Agadeem, the Undercrypt**\n\nSorcery // Land.\n\nWhat it says, straight off the card:\n\n> Agadeem's Awakening {X}{B}{B}{B}\n> Sorcery\n> Return from your graveyard to the battlefield any number of target creature cards that each have a different mana value X or less.\n> \n> Agadeem, the Undercrypt\n> Land\n> As this land enters, you may pay 3 life. If you don't, it enters tapped.\n> {T}: Add {B}.\n\nI could not work this card's text out into anything I can reason about, so I can quote it and I am not going to summarise it.\n\nWe file it under: gets things back from the graveyard.\n\nCommander plays it at rank 958. That is a place in a list of every card sorted by how many decks run it, so rank 1 is the most played card there is.\n\nLegal in Commander, Pioneer, Modern, Legacy, Vintage, Brawl, Historic and Oathbreaker. Not legal in Standard and Pauper.\n\nAbout $27.39, or €24.62 in euros. There are 3 printings and they do not all cost the same.\n\nIt turns up in 4 combos we hold:\n\n- with Archaeomancer, Ashnod's Altar and Dockside Extortionist: infinite artifact ETB and infinite artifact LTB, plus 11 more. Needs {B}{B}{B}.\n- with Archaeomancer, Ashnod's Altar, Panharmonicon and Priest of Gix: infinite black mana and infinite colorless mana, plus 5 more. Needs {4}{B}{B}{B}.\n- with Archaeomancer, Ashnod's Altar, Priest of Gix and Yarok, the Desecrated: infinite black mana and infinite colorless mana, plus 5 more. Needs {4}{B}{B}{B}.\n- with Ardent Elementalist, Ashnod's Altar and Dockside Extortionist: infinite artifact ETB and infinite artifact LTB, plus 11 more. Needs {B}{B}{B}."
     },
     {
       "id": "q11",
       "category": "card_text",
       "question": "Explain Cyclonic Rift in plain terms and when it is good.",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "generative",
       "http_status": 200,
-      "wall_clock_ms": 729,
+      "wall_clock_ms": 1081,
       "answered_from": "catalogue",
-      "standing": "refused",
+      "standing": "partial",
       "routing": {
         "question": "Explain Cyclonic Rift in plain terms and when it is good.",
         "ask": "explain",
         "wants": "What a card is, what it does, what it costs and how much it is played.",
         "cue": "explain",
-        "subject": null,
-        "missing": "card",
+        "subject": "card",
+        "missing": null,
         "gap": null
       },
-      "basis": [],
+      "basis": [
+        "cards_unique",
+        "meta_combos",
+        "meta_combo_cards"
+      ],
       "cached": false,
-      "cards_attached": 0,
-      "card_names": [],
+      "cards_attached": 6,
+      "card_names": [
+        "Cyclonic Rift",
+        "Archaeomancer",
+        "Brago, King Eternal",
+        "Eternal Witness",
+        "Mnemonic Wall",
+        "Timeless Witness"
+      ],
       "charts": [],
-      "answer": "Pick a card at the top of the page and ask again, or name it in the question and I will look it up."
+      "answer": "**Cyclonic Rift** {1}{U}\n\nInstant.\n\nWhat it says, straight off the card:\n\n> Return target nonland permanent you don't control to its owner's hand.\n> Overload {6}{U} (You may cast this spell for its overload cost. If you do, change \"target\" in its text to \"each.\")\n\nIn short: moves cards between zones, has overload.\n\nWe file it under: bounces things back to hand, a board wipe.\n\nCommander plays it at rank 54. That is a place in a list of every card sorted by how many decks run it, so rank 1 is the most played card there is.\n\nIt is on the Commander game changer list, which matters for bracket three and below.\n\nLegal in Commander, Pioneer, Modern, Legacy, Vintage, Brawl, Historic and Oathbreaker. Not legal in Standard and Pauper.\n\nAbout $28.45, or €24.40 in euros. There are 15 printings and they do not all cost the same.\n\nIt turns up in 16 combos we hold. The 4 most played:\n\n- with Archaeomancer and Brago, King Eternal: lock and return all nonland permanents opponents control to their hand on each of your turns. Needs {6}{U} every turn.\n- with Brago, King Eternal and Eternal Witness: lock and return all nonland permanents opponents control to their hand on each of your turns. Needs {6}{U} every turn.\n- with Brago, King Eternal and Mnemonic Wall: lock and return all nonland permanents opponents control to their hand on each of your turns. Needs {6}{U} every turn.\n- with Brago, King Eternal and Timeless Witness: lock and return all nonland permanents opponents control to their hand on each of your turns. Needs {6}{U} every turn.\n\nWhen it is good is a table call. We hold what a card does, what it costs and how many decks play it, and none of those add up to that, so I am leaving it to you rather than dressing a guess up as an answer."
     },
     {
       "id": "q12",
       "category": "card_text",
       "question": "What does Doubling Season do with planeswalkers?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 1651,
+      "wall_clock_ms": 2019,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -315,12 +392,13 @@
       "category": "card_text",
       "question": "What does Esper Sentinel actually tax?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 400,
+      "wall_clock_ms": 474,
       "answered_from": "catalogue",
-      "standing": "full",
+      "standing": "partial",
       "routing": {
         "question": "What does Esper Sentinel actually tax?",
         "ask": "explain",
@@ -341,108 +419,116 @@
         "Esper Sentinel"
       ],
       "charts": [],
-      "answer": "**Esper Sentinel** {W}\n\nArtifact Creature — Human Soldier. 1/1.\n\nWhat it says, straight off the card:\n\n> Whenever an opponent casts their first noncreature spell each turn, draw a card unless that player pays {X}, where X is this creature's power.\n\nWe file it under: draws cards, slows everyone down.\n\nCommander plays it at rank 77. That is a place in a list of every card sorted by how many decks run it, so rank 1 is the most played card there is.\n\nLegal in Commander, Modern, Legacy, Vintage, Brawl, Historic and Oathbreaker. Not legal in Standard, Pioneer and Pauper.\n\nAbout $56.15, or €42.45 in euros. There are 5 printings and they do not all cost the same.\n\nNothing in the combo list we hold pairs it with anything. That list comes from Commander Spellbook and it is not everything anybody has ever found."
+      "answer": "**Esper Sentinel** {W}\n\nArtifact Creature — Human Soldier. 1/1.\n\nWhat it says, straight off the card:\n\n> Whenever an opponent casts their first noncreature spell each turn, draw a card unless that player pays {X}, where X is this creature's power.\n\nI could not work this card's text out into anything I can reason about, so I can quote it and I am not going to summarise it.\n\nWe file it under: slows everyone down, draws cards.\n\nCommander plays it at rank 77. That is a place in a list of every card sorted by how many decks run it, so rank 1 is the most played card there is.\n\nLegal in Commander, Modern, Legacy, Vintage, Brawl, Historic and Oathbreaker. Not legal in Standard, Pioneer and Pauper.\n\nAbout $56.15, or €42.45 in euros. There are 5 printings and they do not all cost the same.\n\nNothing in the combo list we hold pairs it with anything. That list comes from Commander Spellbook and it is not everything anybody has ever found."
     },
     {
       "id": "q14",
       "category": "card_text",
       "question": "What does overload mean?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 202,
-      "answered_from": "nothing",
-      "standing": "refused",
-      "routing": null,
-      "basis": null,
+      "wall_clock_ms": 528,
+      "answered_from": "catalogue",
+      "standing": "full",
+      "routing": {
+        "question": "What does overload mean?",
+        "ask": "keyword",
+        "wants": "What a keyword on a card means, in Wizards' own printed words.",
+        "cue": "what does",
+        "subject": "catalogue",
+        "missing": null,
+        "gap": null
+      },
+      "basis": [
+        "cards_unique"
+      ],
       "cached": false,
-      "cards_attached": 0,
-      "card_names": [],
+      "cards_attached": 1,
+      "card_names": [
+        "Scale Up"
+      ],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
+      "answer": "**Overload**, in the words Wizards prints on the card:\n\n> You may cast this spell for its overload cost. If you do, change \"target\" in its text to \"each.\"\n\nThat is the reminder text off Scale Up itself, not something I wrote."
     },
     {
       "id": "q15",
       "category": "comparison",
       "question": "Swords to Plowshares or Path to Exile, which is better?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 498,
+      "wall_clock_ms": 560,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
         "question": "Swords to Plowshares or Path to Exile, which is better?",
-        "ask": "explain",
-        "wants": "What a card is, what it does, what it costs and how much it is played.",
+        "ask": "compare",
+        "wants": "Two cards side by side, on every number we hold for both.",
         "cue": null,
         "subject": "card",
         "missing": null,
         "gap": null
       },
       "basis": [
-        "cards_unique",
-        "meta_combos",
-        "meta_combo_cards"
+        "cards_unique"
       ],
       "cached": false,
-      "cards_attached": 7,
+      "cards_attached": 2,
       "card_names": [
         "Swords to Plowshares",
-        "Jumbo Cactuar",
-        "Sanguine Bond",
-        "Serra Avatar",
-        "Vizkopa Guildmage",
-        "Wall of Blood",
-        "Vito, Thorn of the Dusk Rose"
+        "Path to Exile"
       ],
       "charts": [],
-      "answer": "**Swords to Plowshares** {W}\n\nInstant.\n\nWhat it says, straight off the card:\n\n> Exile target creature. Its controller gains life equal to its power.\n\nWe file it under: spot removal.\n\nCommander plays it at rank 11. That is a place in a list of every card sorted by how many decks run it, so rank 1 is the most played card there is.\n\nLegal in Commander, Legacy, Vintage, Brawl and Oathbreaker. Banned in Historic. Not legal in Standard, Pioneer, Modern and Pauper.\n\nAbout $1.34, or €1.52 in euros. There are 75 printings and they do not all cost the same.\n\nIt turns up in 8 combos we hold. The 4 most played:\n\n- with Jumbo Cactuar: near-infinite lifegain. Needs {W}.\n- with Sanguine Bond and Serra Avatar: near-infinite lifegain and near-infinite lifeloss for target opponent, plus 1 more. Needs {W}.\n- with Vizkopa Guildmage and Wall of Blood: infinite lifeloss and near-infinite lifegain. Needs {1}{W}{W}{B}.\n- with Serra Avatar and Vito, Thorn of the Dusk Rose: near-infinite lifegain and near-infinite lifeloss for target opponent, plus 1 more. Needs {W}."
+      "answer": "Swords to Plowshares and Path to Exile, side by side. Here is everything we hold about each of them.\n\n**Swords to Plowshares** {W}\n\nInstant.\nExile target creature. Its controller gains life equal to its power.\n\nCommander plays it at rank 11. About $1.34, or €1.52 in euros. Legal in Commander, Legacy, Vintage, Brawl and Oathbreaker. Banned in Historic. Not legal in Standard, Pioneer, Modern and Pauper.\n\n**Path to Exile** {W}\n\nInstant.\nExile target creature. Its controller may search their library for a basic land card, put that card onto the battlefield tapped, then shuffle.\n\nCommander plays it at rank 15. About $1.24, or €1.47 in euros. Legal in Commander, Modern, Legacy, Vintage, Brawl, Historic and Oathbreaker. Not legal in Standard, Pioneer and Pauper.\n\nOn the numbers we hold:\n\n- Both cost 1 mana.\n- Swords to Plowshares is played more, at rank 11 against 15.\n- Path to Exile costs less to buy: $1.24 against $1.34.\n\nWhich of two cards is better is a table call. We hold what a card does, what it costs and how many decks play it, and none of those add up to that, so I am leaving it to you rather than dressing a guess up as an answer."
     },
     {
       "id": "q16",
       "category": "comparison",
       "question": "Is Cultivate or Rampant Growth better in commander?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 549,
+      "wall_clock_ms": 635,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
         "question": "Is Cultivate or Rampant Growth better in commander?",
-        "ask": "explain",
-        "wants": "What a card is, what it does, what it costs and how much it is played.",
+        "ask": "compare",
+        "wants": "Two cards side by side, on every number we hold for both.",
         "cue": null,
         "subject": "card",
         "missing": null,
         "gap": null
       },
       "basis": [
-        "cards_unique",
-        "meta_combos",
-        "meta_combo_cards"
+        "cards_unique"
       ],
       "cached": false,
-      "cards_attached": 1,
+      "cards_attached": 2,
       "card_names": [
+        "Cultivate",
         "Rampant Growth"
       ],
       "charts": [],
-      "answer": "**Rampant Growth** {1}{G}\n\nSorcery.\n\nWhat it says, straight off the card:\n\n> Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.\n\nWe file it under: ramp.\n\nCommander plays it at rank 26. That is a place in a list of every card sorted by how many decks run it, so rank 1 is the most played card there is.\n\nLegal in Commander, Modern, Legacy, Vintage, Pauper, Brawl, Historic and Oathbreaker. Not legal in Standard and Pioneer.\n\nAbout $0.36. There are 48 printings and they do not all cost the same.\n\nNothing in the combo list we hold pairs it with anything. That list comes from Commander Spellbook and it is not everything anybody has ever found."
+      "answer": "Cultivate and Rampant Growth, side by side. Here is everything we hold about each of them.\n\n**Cultivate** {2}{G}\n\nSorcery.\nSearch your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.\n\nCommander plays it at rank 20. About $0.37, or €0.42 in euros. Legal in Commander, Pioneer, Modern, Legacy, Vintage, Pauper, Brawl, Historic and Oathbreaker. Not legal in Standard.\n\n**Rampant Growth** {1}{G}\n\nSorcery.\nSearch your library for a basic land card, put that card onto the battlefield tapped, then shuffle.\n\nCommander plays it at rank 26. About $0.36. Legal in Commander, Modern, Legacy, Vintage, Pauper, Brawl, Historic and Oathbreaker. Not legal in Standard and Pioneer.\n\nOn the numbers we hold:\n\n- Rampant Growth costs less mana: 2 against 3.\n- Cultivate is played more, at rank 20 against 26.\n- Rampant Growth costs less to buy: $0.36 against $0.37.\n\nWhich of two cards is better is a table call. We hold what a card does, what it costs and how many decks play it, and none of those add up to that, so I am leaving it to you rather than dressing a guess up as an answer."
     },
     {
       "id": "q17",
       "category": "comparison",
       "question": "Is Rhystic Study worth sixty dollars?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "generative",
       "http_status": 200,
-      "wall_clock_ms": 531,
+      "wall_clock_ms": 354,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -470,10 +556,11 @@
       "category": "comparison",
       "question": "What is a cheaper alternative to Smothering Tithe?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 1922,
+      "wall_clock_ms": 1248,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -492,44 +579,54 @@
       "cards_attached": 7,
       "card_names": [
         "Smothering Tithe",
-        "Deadly Dispute",
-        "Big Score",
-        "Storm-Kiln Artist",
-        "Tireless Provisioner",
-        "An Offer You Can't Refuse",
-        "Black Market Connections"
+        "Monologue Tax",
+        "Treasure Vault",
+        "Fountainport",
+        "Academy Manufactor",
+        "Tataru Taru",
+        "Monument to Endurance"
       ],
       "charts": [],
-      "answer": "**Smothering Tithe** {3}{W}\n\nEnchantment.\n\nCards filed the same way as Smothering Tithe, cheapest first. Whether any of them is right for your deck is your call, so here is the price and how many decks run each one.\n\n- Deadly Dispute {1}{B} $0.28, rank 130\n- Big Score {3}{R} $0.40, rank 139\n- Storm-Kiln Artist {3}{R} $1.48, rank 203\n- Tireless Provisioner {2}{G} $1.97, rank 184\n- An Offer You Can't Refuse {U} $2.94, rank 35\n- Black Market Connections {2}{B} $10.75, rank 131"
+      "answer": "**Smothering Tithe** {3}{W}\n\nEnchantment.\n\nCards filed the same way as Smothering Tithe, cheapest first. Whether any of them is right for your deck is your call, so here is the price and how many decks run each one. Every one is inside white, so a deck that plays Smothering Tithe can play it.\n\n- Monologue Tax {2}{W} $0.94, rank 1,101\n- Treasure Vault $1.39, rank 470\n- Fountainport $2.74, rank 924\n- Academy Manufactor {3} $7.61, rank 262\n- Tataru Taru {1}{W} $9.63, rank 1,153\n- Monument to Endurance {3} $20.04, rank 979"
     },
     {
       "id": "q19",
       "category": "deckbuilding",
       "question": "What cards should I cut from this deck and why?",
       "deck_attached": "atraxa",
+      "transport_failures": 0,
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 248,
-      "answered_from": "nothing",
+      "wall_clock_ms": 205,
+      "answered_from": "catalogue",
       "standing": "refused",
-      "routing": null,
-      "basis": null,
+      "routing": {
+        "question": "What cards should I cut from this deck and why?",
+        "ask": "upgrades",
+        "wants": "Which cards to add to a deck, and which to take out.",
+        "cue": "should i cut",
+        "subject": "deck",
+        "missing": null,
+        "gap": null
+      },
+      "basis": [],
       "cached": false,
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Ask about your lands** and I will go through this deck one slot at a time, say which are weak and what to play instead.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
+      "answer": "Adds and cuts are worked out on this deck's own Optimise view. It ranks every card the deck could play against what the deck is short of, and it says what comes out for what goes in, with the reason on each line.\n\nI am not going to do a rougher version of that here and have the two disagree with each other.\n\nWhat I will do from this page is your lands. Ask which lands to upgrade and I will go through them one by one against your colours."
     },
     {
       "id": "q20",
       "category": "deckbuilding",
       "question": "What card should I replace for more ramp?",
       "deck_attached": "atraxa",
+      "transport_failures": 0,
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 178,
+      "wall_clock_ms": 401,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -553,10 +650,11 @@
       "category": "deckbuilding",
       "question": "what should i swap out to get more card draw",
       "deck_attached": "atraxa",
+      "transport_failures": 0,
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 174,
+      "wall_clock_ms": 221,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -580,10 +678,11 @@
       "category": "deckbuilding",
       "question": "Give me ten upgrades for this deck that each cost under five dollars.",
       "deck_attached": "atraxa",
+      "transport_failures": 0,
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 188,
+      "wall_clock_ms": 212,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -607,29 +706,39 @@
       "category": "deckbuilding",
       "question": "What is my win condition in this deck?",
       "deck_attached": "atraxa",
+      "transport_failures": 0,
       "deck_cards_sent": 92,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 271,
-      "answered_from": "nothing",
+      "wall_clock_ms": 205,
+      "answered_from": "catalogue",
       "standing": "refused",
-      "routing": null,
-      "basis": null,
+      "routing": {
+        "question": "What is my win condition in this deck?",
+        "ask": "win-condition",
+        "wants": "How the attached deck actually wins, which is a judgement we do not hold.",
+        "cue": "win condition",
+        "subject": "deck",
+        "missing": null,
+        "gap": null
+      },
+      "basis": [],
       "cached": false,
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Ask about your lands** and I will go through this deck one slot at a time, say which are weak and what to play instead.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
+      "answer": "How a deck actually wins is a judgement about the list, and I do not hold one. What we store is what each card does and how many decks play it, and neither of those adds up to a plan for closing a game.\n\nTwo things near it I can do. Pick a card from the deck and I will give you every combo we hold that it is part of, which is usually where the fast win is. And the deck page works out a power score from the list, which says how quickly it can win without saying how."
     },
     {
       "id": "q24",
       "category": "deckbuilding",
       "question": "Are there any combos in my deck?",
       "deck_attached": "atraxa",
+      "transport_failures": 0,
       "deck_cards_sent": 92,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 269,
+      "wall_clock_ms": 217,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -653,67 +762,103 @@
       "category": "deckbuilding",
       "question": "Rate this deck out of ten and tell me what is holding it back.",
       "deck_attached": "atraxa",
+      "transport_failures": 0,
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 280,
-      "answered_from": "nothing",
-      "standing": "refused",
-      "routing": null,
-      "basis": null,
+      "wall_clock_ms": 333,
+      "answered_from": "catalogue",
+      "standing": "full",
+      "routing": {
+        "question": "Rate this deck out of ten and tell me what is holding it back.",
+        "ask": "deck-rating",
+        "wants": "How strong the attached deck is, as the score the deck page already computed.",
+        "cue": "rate this deck",
+        "subject": "deck",
+        "missing": null,
+        "gap": null
+      },
+      "basis": [
+        "the deck attached to the question"
+      ],
       "cached": false,
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Ask about your lands** and I will go through this deck one slot at a time, say which are weak and what to play instead.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
+      "answer": "7.3 out of 10, which is high power and sits in bracket 4.\n\nThat score is worked out from the list itself: how fast it can win, how much it interacts, how well it draws, how the mana holds up and what it can find. It is one measure and it is not the same as whether the deck is fun at your table.\n\nCounted over 100 cards, which is what the deck page sent with this question.\n\nAsk about your lands and I will go through the weak slots one at a time, which is the part of that score I can act on from this page."
     },
     {
       "id": "q26",
       "category": "mana_curve",
       "question": "How many lands should I run in a commander deck?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 186,
-      "answered_from": "nothing",
+      "wall_clock_ms": 3792,
+      "answered_from": "catalogue",
       "standing": "refused",
-      "routing": null,
-      "basis": null,
+      "routing": {
+        "question": "How many lands should I run in a commander deck?",
+        "ask": "deck-shape",
+        "wants": "How many of one kind of card the lists we hold for a format run.",
+        "cue": "how many",
+        "subject": "catalogue",
+        "missing": null,
+        "gap": null
+      },
+      "basis": [
+        "meta_decks"
+      ],
       "cached": false,
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
+      "answer": "I could not read the deck lists just now, so I am not going to give you a number from memory. Try again in a moment."
     },
     {
       "id": "q27",
       "category": "mana_curve",
       "question": "How much ramp does a commander deck need?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 223,
-      "answered_from": "nothing",
-      "standing": "refused",
-      "routing": null,
-      "basis": null,
+      "wall_clock_ms": 1610,
+      "answered_from": "catalogue",
+      "standing": "full",
+      "routing": {
+        "question": "How much ramp does a commander deck need?",
+        "ask": "deck-shape",
+        "wants": "How many of one kind of card the lists we hold for a format run.",
+        "cue": "how much",
+        "subject": "catalogue",
+        "missing": null,
+        "gap": null
+      },
+      "basis": [
+        "meta_decks",
+        "meta_deck_cards",
+        "cards_unique"
+      ],
       "cached": false,
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
+      "answer": "9 ramp. That is the middle of 192 Commander complete 100 card lists we hold, which are preconstructed decks and published lists rather than tournament results.\n\nMost of them sit between 6 and 14, and the whole spread is 2 to 26. So anywhere in the middle band is normal and the ends are somebody doing something on purpose.\n\nLands are not counted in that. A land that ramps carries the same label, and counting it twice would make the two numbers overlap without saying so."
     },
     {
       "id": "q28",
       "category": "mana_curve",
       "question": "Is my mana base any good?",
       "deck_attached": "atraxa",
+      "transport_failures": 0,
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 3311,
+      "wall_clock_ms": 2461,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -741,17 +886,18 @@
         "Breeding Pool"
       ],
       "charts": [],
-      "answer": "33 lands. These are the weakest slots, worst first, judged on what each one taps for against BGUW:\n\n- Zoetic Cavern: taps for C. That is none of your colours.\n- Roadside Reliquary: taps for C. That is none of your colours.\n- Rogue's Passage: taps for C. That is none of your colours.\n- Academy Ruins: taps for C. That is none of your colours.\n- Accursed Duneyard: taps for C. That is none of your colours.\n- Ruins of Oran-Rief: taps for C. That is none of your colours.\n- Zhalfirin Void: taps for C. That is none of your colours.\n- Blast Zone: taps for C. That is none of your colours.\n- Adagia, Windswept Bastion: taps for W. That is one colour, and it enters tapped.\n\nOne thing to hold in mind. This is judged on colours only, so a land that makes no colour sits at the top of the list whatever else it does. If one of those is in there for what it does rather than what it taps for, keep it.\n\nStraight swaps, keeping the land count where it is at 33:\n\n- Cut Zoetic Cavern, play Command Tower. Taps for BGUW, enters untapped. $0.26.\n- Cut Roadside Reliquary, play Exotic Orchard. Taps for BGUW, enters untapped. $0.19.\n- Cut Rogue's Passage, play Path of Ancestry. Taps for BGUW, sometimes enters tapped. $0.22.\n- Cut Academy Ruins, play Watery Grave. Taps for BU, enters untapped if you pay the life. $9.42.\n- Cut Accursed Duneyard, play Breeding Pool. Taps for GU, enters untapped if you pay the life. $9.27.\n- Cut Ruins of Oran-Rief, play Godless Shrine. Taps for BW, enters untapped if you pay the life. $7.99."
+      "answer": "33 lands. These are the weakest slots, worst first, judged on what each one taps for against BGUW:\n\n- Zoetic Cavern: taps for C. That is none of your colours.\n- Roadside Reliquary: taps for C. That is none of your colours.\n- Rogue's Passage: taps for C. That is none of your colours.\n- Academy Ruins: taps for C. That is none of your colours.\n- Accursed Duneyard: taps for C. That is none of your colours.\n- Ruins of Oran-Rief: taps for C. That is none of your colours.\n- Zhalfirin Void: taps for C. That is none of your colours.\n- Blast Zone: taps for C. That is none of your colours.\n- Adagia, Windswept Bastion: taps for W. That is one colour, and it enters tapped.\n\nOne thing to hold in mind. This is judged on colours only, so a land that makes no colour sits at the top of the list whatever else it does. If one of those is in there for what it does rather than what it taps for, keep it.\n\nStraight swaps, keeping the land count where it is at 33:\n\n- Cut Zoetic Cavern, play Command Tower. Taps for BGUW, enters untapped. $0.26.\n- Cut Roadside Reliquary, play Exotic Orchard. Taps for BGUW, enters untapped. $0.21.\n- Cut Rogue's Passage, play Path of Ancestry. Taps for BGUW, sometimes enters tapped. $0.23.\n- Cut Academy Ruins, play Watery Grave. Taps for BU, enters untapped if you pay the life. $9.76.\n- Cut Accursed Duneyard, play Breeding Pool. Taps for GU, enters untapped if you pay the life. $9.53.\n- Cut Ruins of Oran-Rief, play Godless Shrine. Taps for BW, enters untapped if you pay the life. $8.01."
     },
     {
       "id": "q29",
       "category": "mana_curve",
       "question": "My curve feels too high. What should I take out?",
       "deck_attached": "ulamog",
+      "transport_failures": 0,
       "deck_cards_sent": 100,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 219,
+      "wall_clock_ms": 224,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -777,29 +923,39 @@
       "category": "mana_curve",
       "question": "What colours is this deck short on?",
       "deck_attached": "ulamog",
+      "transport_failures": 0,
       "deck_cards_sent": 100,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 248,
-      "answered_from": "nothing",
-      "standing": "refused",
-      "routing": null,
-      "basis": null,
+      "wall_clock_ms": 231,
+      "answered_from": "catalogue",
+      "standing": "full",
+      "routing": {
+        "question": "What colours is this deck short on?",
+        "ask": "deck-colours",
+        "wants": "Which of the deck's own colours it has too few sources for.",
+        "cue": "what colours is this deck",
+        "subject": "deck",
+        "missing": null,
+        "gap": null
+      },
+      "basis": [],
       "cached": false,
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Ask about your lands** and I will go through this deck one slot at a time, say which are weak and what to play instead.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
+      "answer": "This deck is colourless. There is no colour for it to be short of, and every land in it that makes any colour is making mana the deck has nothing to spend it on."
     },
     {
       "id": "q31",
       "category": "price_budget",
       "question": "How much is Black Lotus worth?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 259,
+      "wall_clock_ms": 453,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -827,19 +983,50 @@
       "category": "price_budget",
       "question": "What is this deck worth?",
       "deck_attached": "atraxa",
+      "transport_failures": 0,
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 145,
+      "wall_clock_ms": 204,
+      "answered_from": "catalogue",
+      "standing": "full",
+      "routing": {
+        "question": "What is this deck worth?",
+        "ask": "deck-value",
+        "wants": "What the attached deck costs to buy, as the value the deck page already computed.",
+        "cue": "what is this deck worth",
+        "subject": "deck",
+        "missing": null,
+        "gap": null
+      },
+      "basis": [
+        "the deck attached to the question"
+      ],
+      "cached": false,
+      "cards_attached": 0,
+      "card_names": [],
+      "charts": [],
+      "answer": "About $423.02 for the whole list.\n\nYou own about 2% of it from your collection, and 98 cards are missing.\n\nThat is the value the deck page worked out and sent with your question, so it is the same number you see there. Cards we hold no price for are not counted in it, and there is no way to count them honestly."
+    },
+    {
+      "id": "q33",
+      "category": "price_budget",
+      "question": "How do I know if my Magic cards are worth money?",
+      "deck_attached": null,
+      "transport_failures": 0,
+      "deck_cards_sent": 0,
+      "prediction": "generative",
+      "http_status": 200,
+      "wall_clock_ms": 356,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
-        "question": "What is this deck worth?",
+        "question": "How do I know if my Magic cards are worth money?",
         "ask": "price",
         "wants": "What a card costs to buy.",
         "cue": "worth",
-        "subject": null,
-        "missing": "card",
+        "subject": "catalogue",
+        "missing": null,
         "gap": null
       },
       "basis": [],
@@ -847,36 +1034,18 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "Pick a card at the top of the page and ask again, or name it in the question and I will look it up."
-    },
-    {
-      "id": "q33",
-      "category": "price_budget",
-      "question": "How do I know if my Magic cards are worth money?",
-      "deck_attached": null,
-      "deck_cards_sent": 0,
-      "prediction": "generative",
-      "http_status": 200,
-      "wall_clock_ms": 317,
-      "answered_from": "nothing",
-      "standing": "refused",
-      "routing": null,
-      "basis": null,
-      "cached": false,
-      "cards_attached": 0,
-      "card_names": [],
-      "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
+      "answer": "A price is a fact about one card, and often about one printing of it, so I need to know which. Pick a card at the top of the page or name it in the question and I will give you what we hold in dollars and in euros.\n\nIf you are asking what your own cards are worth rather than one card, your collection page prices the whole thing from the same numbers I would use."
     },
     {
       "id": "q34",
       "category": "price_budget",
       "question": "What is the best black removal spell under one dollar?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 3294,
+      "wall_clock_ms": 3440,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -902,29 +1071,39 @@
       "category": "price_budget",
       "question": "How do I build a commander deck for under fifty dollars?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 217,
-      "answered_from": "nothing",
+      "wall_clock_ms": 337,
+      "answered_from": "catalogue",
       "standing": "refused",
-      "routing": null,
-      "basis": null,
+      "routing": {
+        "question": "How do I build a commander deck for under fifty dollars?",
+        "ask": "build-a-deck",
+        "wants": "Building a whole deck from scratch, which the Deck Generator does.",
+        "cue": "build a commander deck",
+        "subject": "catalogue",
+        "missing": null,
+        "gap": null
+      },
+      "basis": [],
       "cached": false,
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
+      "answer": "Building a whole deck is what the Deck Generator is for. Give it a commander and a budget and it picks the list, and it works from the same catalogue I read, so the two of us will not disagree with each other.\n\nWhat I will do from here is the parts. Ask me for the most played cards doing a job and I will list them with prices, so *best ramp in green under a dollar* or *best removal in white* gets you a shortlist you can build from."
     },
     {
       "id": "q36",
       "category": "combos",
       "question": "How does the Thassa's Oracle and Demonic Consultation combo work?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 639,
+      "wall_clock_ms": 1182,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -958,29 +1137,49 @@
       "category": "combos",
       "question": "What are the best two card infinite combos in commander?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 249,
-      "answered_from": "nothing",
-      "standing": "refused",
-      "routing": null,
-      "basis": null,
+      "wall_clock_ms": 631,
+      "answered_from": "catalogue",
+      "standing": "full",
+      "routing": {
+        "question": "What are the best two card infinite combos in commander?",
+        "ask": "combos",
+        "wants": "What a card combos with, and what the combo produces.",
+        "cue": "combos",
+        "subject": "catalogue",
+        "missing": null,
+        "gap": null
+      },
+      "basis": [
+        "meta_combos",
+        "meta_combo_cards"
+      ],
       "cached": false,
-      "cards_attached": 0,
-      "card_names": [],
+      "cards_attached": 6,
+      "card_names": [
+        "Exquisite Blood",
+        "Sanguine Bond",
+        "Vito, Thorn of the Dusk Rose",
+        "Dramatic Reversal",
+        "Isochron Scepter",
+        "Bloodthirsty Conqueror"
+      ],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
+      "answer": "The 8 most played two card infinite combos we hold, both pieces named and Commander legal:\n\n1. Exquisite Blood and Sanguine Bond: infinite lifegain and infinite lifegain triggers, plus 1 more.\n2. Exquisite Blood and Vito, Thorn of the Dusk Rose: infinite lifegain and infinite lifegain triggers, plus 1 more.\n3. Dramatic Reversal and Isochron Scepter: infinite magecraft triggers and infinite mana nonland permanents you control can produce, plus 2 more.\n4. Bloodthirsty Conqueror and Vito, Thorn of the Dusk Rose: infinite lifegain and infinite lifegain triggers, plus 1 more.\n5. Dualcaster Mage and Twinflame: infinite creature ETB and infinite creature LTB, plus 2 more. Needs {2}{R}{R}{R}.\n6. Gravecrawler and Phyrexian Altar: infinite creature ETB and infinite creature LTB, plus 3 more.\n7. Bloodthirsty Conqueror and Sanguine Bond: infinite lifegain and infinite lifegain triggers, plus 1 more.\n8. Enduring Tenacity and Exquisite Blood: infinite lifegain and infinite lifegain triggers, plus 1 more.\n\nThat order is how many decks the combo list records each one in, which is popularity and not power. Both pieces are named cards: a combo that needs something described rather than named, like a creature with flying, is left out because it is not a two card combo."
     },
     {
       "id": "q38",
       "category": "combos",
       "question": "What combos does Sol Ring go in?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 606,
+      "wall_clock_ms": 1033,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -1016,10 +1215,11 @@
       "category": "combos",
       "question": "How do I stop someone comboing off with Thassa's Oracle?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "generative",
       "http_status": 200,
-      "wall_clock_ms": 305,
+      "wall_clock_ms": 238,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -1043,10 +1243,11 @@
       "category": "legality",
       "question": "Is Sol Ring legal in Modern?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 1897,
+      "wall_clock_ms": 470,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -1067,17 +1268,18 @@
         "Sol Ring"
       ],
       "charts": [],
-      "answer": "**Sol Ring** {1}\n\nArtifact.\n\nLegal in Commander and Vintage (one copy only). Banned in Legacy and Oathbreaker. Not legal in Standard, Pioneer, Modern, Pauper, Brawl and Historic."
+      "answer": "**Sol Ring** {1}\n\nArtifact.\n\nNo. Sol Ring is not legal in Modern.\n\nLegal in Commander. Restricted in Vintage, which means you may play it there but only one copy. Banned in Legacy and Oathbreaker. Not legal in Standard, Pioneer, Modern, Pauper, Brawl and Historic."
     },
     {
       "id": "q41",
       "category": "legality",
       "question": "Which formats can I play Lightning Bolt in?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 574,
+      "wall_clock_ms": 449,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -1105,48 +1307,73 @@
       "category": "legality",
       "question": "Can I play Swords to Plowshares in Modern?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 1635,
-      "answered_from": "nothing",
-      "standing": "refused",
-      "routing": null,
-      "basis": null,
+      "wall_clock_ms": 505,
+      "answered_from": "catalogue",
+      "standing": "full",
+      "routing": {
+        "question": "Can I play Swords to Plowshares in Modern?",
+        "ask": "legality-in-format",
+        "wants": "Whether a card may be played in a format the question named.",
+        "cue": "can i play",
+        "subject": "card",
+        "missing": null,
+        "gap": null
+      },
+      "basis": [
+        "cards_unique"
+      ],
       "cached": false,
-      "cards_attached": 0,
-      "card_names": [],
+      "cards_attached": 1,
+      "card_names": [
+        "Swords to Plowshares"
+      ],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
+      "answer": "**Swords to Plowshares** {W}\n\nInstant.\n\nNo. Swords to Plowshares is not legal in Modern.\n\nLegal in Commander, Legacy, Vintage, Brawl and Oathbreaker. Banned in Historic. Not legal in Standard, Pioneer, Modern and Pauper."
     },
     {
       "id": "q43",
       "category": "legality",
       "question": "Is my deck legal for commander?",
       "deck_attached": "atraxa",
+      "transport_failures": 0,
       "deck_cards_sent": 92,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 972,
-      "answered_from": "nothing",
-      "standing": "refused",
-      "routing": null,
-      "basis": null,
+      "wall_clock_ms": 234,
+      "answered_from": "catalogue",
+      "standing": "full",
+      "routing": {
+        "question": "Is my deck legal for commander?",
+        "ask": "deck-legal",
+        "wants": "Whether the attached deck is a legal deck for its format.",
+        "cue": "is my deck legal",
+        "subject": "deck",
+        "missing": null,
+        "gap": null
+      },
+      "basis": [
+        "the deck attached to the question"
+      ],
       "cached": false,
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Ask about your lands** and I will go through this deck one slot at a time, say which are weak and what to play instead.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
+      "answer": "Against the Commander rules, this list passes every one I can check from it:\n\n- Yes. Exactly 100 cards, commander included, and this deck has 100.\n- Yes. A commander in the command zone, and Atraxa, Praetors' Voice.\n- Yes. One copy of each card, basics excepted, and every card is within the limit.\n\nCard by card, the deck page checked every one of these against the format and found nothing wrong. That check reads each card's own legality, which is why it happens there and not here."
     },
     {
       "id": "q44",
       "category": "banned",
       "question": "Is Dockside Extortionist banned in commander?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 1027,
+      "wall_clock_ms": 421,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -1167,134 +1394,153 @@
         "Dockside Extortionist"
       ],
       "charts": [],
-      "answer": "**Dockside Extortionist** {1}{R}\n\nCreature — Goblin Pirate. 1/2.\n\nLegal in Legacy, Vintage, Brawl, Historic and Oathbreaker. Banned in Commander. Not legal in Standard, Pioneer, Modern and Pauper."
+      "answer": "**Dockside Extortionist** {1}{R}\n\nCreature — Goblin Pirate. 1/2.\n\nNo. Dockside Extortionist is banned in Commander.\n\nLegal in Legacy, Vintage, Brawl, Historic and Oathbreaker. Banned in Commander. Not legal in Standard, Pioneer, Modern and Pauper."
     },
     {
       "id": "q45",
       "category": "banned",
       "question": "What cards are banned in commander?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 246,
-      "answered_from": "nothing",
-      "standing": "refused",
-      "routing": null,
-      "basis": null,
+      "wall_clock_ms": 1194,
+      "answered_from": "catalogue",
+      "standing": "full",
+      "routing": {
+        "question": "What cards are banned in commander?",
+        "ask": "legality",
+        "wants": "Which formats a card may be played in.",
+        "cue": "banned in",
+        "subject": "catalogue",
+        "missing": null,
+        "gap": null
+      },
+      "basis": [
+        "cards_unique"
+      ],
       "cached": false,
-      "cards_attached": 0,
-      "card_names": [],
+      "cards_attached": 10,
+      "card_names": [
+        "Mana Crypt",
+        "Jeweled Lotus",
+        "Dockside Extortionist",
+        "Nadu, Winged Wisdom",
+        "Tempest Efreet",
+        "Ancestral Recall",
+        "Library of Alexandria",
+        "Chaos Orb",
+        "Bronze Tablet",
+        "Recurring Nightmare"
+      ],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
+      "answer": "76 cards are banned in Commander. The 20 most played of them:\n\n1. Mana Crypt {0} $40.03, rank 6,960\n2. Jeweled Lotus {0} $41.17, rank 8,914\n3. Dockside Extortionist {1}{R} $5.82, rank 9,120\n4. Nadu, Winged Wisdom {1}{G}{U} $0.30, rank 19,740\n5. Tempest Efreet {1}{R}{R}{R} $0.40, no popularity number\n6. Ancestral Recall {U} $4,999.95, no popularity number\n7. Library of Alexandria $1,810.00, no popularity number\n8. Chaos Orb {2} $1,148.46, no popularity number\n9. Bronze Tablet {6} $0.33, no popularity number\n10. Recurring Nightmare {2}{B} $83.07, no popularity number\n11. Yawgmoth's Bargain {4}{B}{B} $18.85, no popularity number\n12. Amulet of Quoz {6} $1.41, no popularity number\n13. Balance {1}{W} $0.70, no popularity number\n14. Sundering Titan {8} $0.84, no popularity number\n15. Power Play $0.18, no popularity number\n16. Channel {G}{G} $0.32, no popularity number\n17. Weight Advantage $0.12, no popularity number\n18. Timmerian Fiends {1}{B}{B} $0.67, no popularity number\n19. Contract from Below {B} $1.88, no popularity number\n20. Immediate Action $0.12, no popularity number\n\nThat is read straight off each card's own legality, which is where the list comes from rather than from a page somebody typed up. Why any one of them is banned is not something we hold."
     },
     {
       "id": "q46",
       "category": "banned",
       "question": "Why was Jeweled Lotus banned?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 892,
+      "wall_clock_ms": 328,
       "answered_from": "catalogue",
-      "standing": "full",
+      "standing": "partial",
       "routing": {
         "question": "Why was Jeweled Lotus banned?",
-        "ask": "explain",
-        "wants": "What a card is, what it does, what it costs and how much it is played.",
-        "cue": null,
+        "ask": "ban-reason",
+        "wants": "Why a card was banned, which we do not hold, said before its status is given.",
+        "cue": "why was",
         "subject": "card",
         "missing": null,
         "gap": null
       },
       "basis": [
-        "cards_unique",
-        "meta_combos",
-        "meta_combo_cards"
+        "cards_unique"
       ],
       "cached": false,
-      "cards_attached": 8,
+      "cards_attached": 1,
       "card_names": [
-        "Jeweled Lotus",
-        "Displacer Kitten",
-        "Eternal Witness",
-        "Lotus Petal",
-        "Aether Channeler",
-        "Sol Ring",
-        "Venser, Shaper Savant",
-        "Muldrotha, the Gravetide"
+        "Jeweled Lotus"
       ],
       "charts": [],
-      "answer": "**Jeweled Lotus** {0}\n\nArtifact.\n\nWhat it says, straight off the card:\n\n> {T}, Sacrifice this artifact: Add three mana of any one color. Spend this mana only to cast your commander.\n\nWe file it under: fast mana.\n\nCommander plays it at rank 8,914. That is a place in a list of every card sorted by how many decks run it, so rank 1 is the most played card there is.\n\nLegal in Legacy and Vintage. Banned in Commander and Oathbreaker. Not legal in Standard, Pioneer, Modern, Pauper, Brawl and Historic.\n\nAbout $41.17, or €40.11 in euros. There are 6 printings and they do not all cost the same.\n\nIt turns up in 42 combos we hold. The 4 most played:\n\n- with Displacer Kitten, Eternal Witness and Lotus Petal: infinite colored mana and infinite storm count.\n- with Aether Channeler, Displacer Kitten and Sol Ring: infinite colorless mana and infinite creature ETB, plus 2 more. Needs {1}.\n- with Displacer Kitten and Venser, Shaper Savant: infinite creature ETB and infinite creature LTB, plus 1 more.\n- with Displacer Kitten and Muldrotha, the Gravetide: infinite colored mana that can only be spent to cast your commander and infinite storm count."
+      "answer": "Why a card was banned is not something we hold. Our catalogue carries whether it is banned and nothing about the thinking, so anything I said about the reason would be me making it up. The format's own banned list announcement is where that is written down. Here is what we do hold.\n\n**Jeweled Lotus** {0}\n\nArtifact.\n\nLegal in Legacy and Vintage. Banned in Commander and Oathbreaker. Not legal in Standard, Pioneer, Modern, Pauper, Brawl and Historic.\n\nAbout $41.17, or €40.11 in euros. There are 6 printings and they do not all cost the same."
     },
     {
       "id": "q47",
       "category": "commander_rules",
       "question": "Can I run two copies of Sol Ring in my commander deck?",
       "deck_attached": "atraxa",
+      "transport_failures": 0,
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 731,
+      "wall_clock_ms": 500,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
         "question": "Can I run two copies of Sol Ring in my commander deck?",
-        "ask": "explain",
-        "wants": "What a card is, what it does, what it costs and how much it is played.",
-        "cue": null,
+        "ask": "copies",
+        "wants": "How many copies of a card a format allows, and whether this deck may run it at all.",
+        "cue": "two copies",
         "subject": "card",
         "missing": null,
         "gap": null
       },
       "basis": [
-        "cards_unique",
-        "meta_combos",
-        "meta_combo_cards"
+        "cards_unique"
       ],
       "cached": false,
-      "cards_attached": 7,
+      "cards_attached": 1,
       "card_names": [
-        "Sol Ring",
-        "Hullbreaker Horror",
-        "Displacer Kitten",
-        "Teferi, Time Raveler",
-        "Tidespout Tyrant",
-        "Retraction Helix",
-        "Valley Floodcaller"
+        "Sol Ring"
       ],
       "charts": [],
-      "answer": "**Sol Ring** {1}\n\nArtifact.\n\nWhat it says, straight off the card:\n\n> {T}: Add {C}{C}.\n\nWe file it under: fast mana, a mana rock.\n\nCommander plays it at rank 1. That is a place in a list of every card sorted by how many decks run it, so rank 1 is the most played card there is.\n\nLegal in Commander and Vintage (one copy only). Banned in Legacy and Oathbreaker. Not legal in Standard, Pioneer, Modern, Pauper, Brawl and Historic.\n\nAbout $1.44, or €1.57 in euros. There are 129 printings and they do not all cost the same.\n\nIt turns up in 106 combos we hold. The 4 most played:\n\n- with Hullbreaker Horror: infinite colorless mana and infinite storm count. Plus 1 more piece the combo list describes rather than names, so check it before you count on it.\n- with Displacer Kitten and Teferi, Time Raveler: infinite card draw and infinite draw triggers, plus 2 more. Needs {1}.\n- with Tidespout Tyrant: infinite colorless mana and infinite storm count. Needs {1}.\n- with Retraction Helix and Valley Floodcaller: infinite colorless mana and infinite power and toughness for certain creatures until end of turn, plus 2 more. Needs {1}{U}."
+      "answer": "You asked about Commander.\n\nThe rule is: one copy of each card, basics excepted.\n\nNo.\n\n- This format is singleton and the deck runs 2."
     },
     {
       "id": "q48",
       "category": "commander_rules",
       "question": "My commander is blue and white. Can I play a card that has a green mana symbol in its rules text?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 403,
-      "answered_from": "nothing",
-      "standing": "refused",
-      "routing": null,
-      "basis": null,
+      "wall_clock_ms": 2335,
+      "answered_from": "catalogue",
+      "standing": "full",
+      "routing": {
+        "question": "My commander is blue and white. Can I play a card that has a green mana symbol in its rules text?",
+        "ask": "colour-identity",
+        "wants": "Whether a mana symbol somewhere on a card counts towards colour identity.",
+        "cue": "mana symbol",
+        "subject": "catalogue",
+        "missing": null,
+        "gap": null
+      },
+      "basis": [
+        "cards_unique"
+      ],
       "cached": false,
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
+      "answer": "Yes it counts, and it is not only the mana cost. A card's colour identity is every mana symbol printed on it, in the cost and in the rules text, and a Commander deck may only play cards whose identity fits inside its commander's.\n\nHere are cards from our own catalogue where that is the whole reason, green in the rules text and nowhere in the cost:\n\n- Talisman of Curiosity costs {2} and its colour identity is green and blue.\n- Talisman of Resilience costs {2} and its colour identity is black and green.\n- Talisman of Impulse costs {2} and its colour identity is green and red.\n\nSo a deck whose commander is not green cannot play Talisman of Curiosity, whatever its cost says.\n\nTwo things it does not count. Reminder text in brackets does not, and neither does a colour word written out in letters. A hybrid symbol counts as both of its colours."
     },
     {
       "id": "q49",
       "category": "commander_rules",
       "question": "How much commander damage kills a player?",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 238,
+      "wall_clock_ms": 289,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -1303,17 +1549,18 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is a rules reference, anything about what is winning at the moment, or an opinion on whether a card is good."
+      "answer": "I cannot answer that one, and I would rather say so than guess.\n\nHere is what I can settle right now, straight from the catalogue:\n\n- **Pick a card** at the top of the page and I will tell you what it does, what it is legal in, what it costs, what it combos with and whether you already run it.\n- **Ask for the most played cards doing a job** and I will list them. Try *best three mana counterspells* or *best removal in black under a dollar*.\n- **Ask what a keyword means** and I will read you Wizards' own words off the card. Try *what does hexproof mean* or *what is overload*.\n- **Attach a deck** and I will go through its lands and say which slots are weak.\n\nWhat I do not hold is the rules that are not printed on a card, which is timing, the stack and priority. Nor anything about what is winning at the moment, nor an opinion on whether a card is good."
     },
     {
       "id": "q50",
       "category": "commander_rules",
       "question": "whats a good 3 mana counterspell card",
       "deck_attached": null,
+      "transport_failures": 0,
       "deck_cards_sent": 0,
       "prediction": "derivable",
       "http_status": 200,
-      "wall_clock_ms": 1681,
+      "wall_clock_ms": 959,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {

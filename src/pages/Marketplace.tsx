@@ -13,6 +13,7 @@ import {
   useUnreadByListing,
 } from '@/components/marketplace/MessageNotificationBadge';
 import { MarketplaceHeader } from '@/components/marketplace/MarketplaceHeader';
+import { listingCopies } from '@/components/marketplace/listingCounts';
 import { PriceSearchPanel } from '@/components/marketplace/PriceSearchPanel';
 import { PriceTrendCard } from '@/components/marketplace/PriceTrendCard';
 import { PriceWatchlist } from '@/components/marketplace/PriceWatchlist';
@@ -344,6 +345,11 @@ export default function Marketplace() {
     sum + (listing.price_usd * listing.qty), 0
   );
 
+  /* The same `qty` the total above is multiplied by, counted on its own, so
+     the Listings tile can say what the Listing value tile is the price of.
+     Without it the header showed a row count beside a copies total. */
+  const myListingCopies = listingCopies(myListings);
+
   const renderListingCard = (listing: Listing) => {
     const cardName = listing.cards?.name ?? listing.card_id;
     /* Owner: "Marketplace doesnt let you click into a card detail page". The
@@ -530,6 +536,7 @@ export default function Marketplace() {
         <MarketplaceHeader
           watchlistCount={watchlist.length}
           myListingsCount={myListings.length}
+          myListingCopies={myListingCopies}
           totalListingValue={totalListingValue}
           shoppingListCount={shoppingList.filter(i => !i.purchased).length}
         />

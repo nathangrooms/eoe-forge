@@ -5,13 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { TwoFactorSetup } from '@/components/auth/TwoFactorSetup';
+import { AccountDataCard } from '@/components/settings/AccountDataCard';
 import { useSubscriptionLimits } from '@/hooks/useFeatureAccess';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { exportDeckToText } from '@/lib/deckExport';
@@ -20,18 +20,7 @@ import {
   PASSWORD_RULE_TEXT,
   validatePasswordPair,
 } from '@/lib/validation/password';
-import {
-  Mail,
-  Lock,
-  ShieldCheck,
-  CreditCard,
-  LogOut,
-  Check,
-  Download,
-  FileText,
-  Sun,
-  Moon,
-} from 'lucide-react';
+import { Mail, Lock, ShieldCheck, CreditCard, Check, Sun, Moon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface UserProfile {
@@ -299,9 +288,12 @@ export default function Settings() {
         'application/json'
       );
 
+      /* The same three figures, in the same three words, as the line printed
+         above the button before it was pressed. Two counts of one file that
+         are worded differently read as two different files. */
       showSuccess(
         'Export downloaded',
-        `${data.collections.length} collection rows, ${data.decks.length} decks, ${data.wishlist.length} wishlist rows`
+        `${data.collections.length} collection entries, ${data.decks.length} decks, ${data.wishlist.length} wishlist entries`
       );
     } catch (error: any) {
       console.error('Export failed:', error);
@@ -743,65 +735,23 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        {/* Data & account */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Data &amp; account</CardTitle>
-            <CardDescription>Take your data with you at any time</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium text-foreground">Full export (JSON)</p>
-                <p className="text-sm text-muted-foreground">
-                  Collection, decks, deck cards and wishlist.
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExportJson}
-                disabled={exporting !== null}
-              >
-                <Download className="mr-2 h-4 w-4" />
-                {exporting === 'json' ? 'Preparing…' : 'Download'}
-              </Button>
-            </div>
+        </div>
 
-            <Separator />
-
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium text-foreground">Decklists (.txt)</p>
-                <p className="text-sm text-muted-foreground">
-                  Plain decklists that import into Moxfield, Archidekt and Arena.
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExportDecklists}
-                disabled={exporting !== null}
-              >
-                <FileText className="mr-2 h-4 w-4" />
-                {exporting === 'text' ? 'Preparing…' : 'Download'}
-              </Button>
-            </div>
-
-            <Separator />
-
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium text-foreground">Sign out</p>
-                <p className="text-sm text-muted-foreground">End this session on this device.</p>
-              </div>
-              <Button variant="outline" size="sm" onClick={handleSignOut}>
-                <LogOut className="mr-2 h-4 w-4" />
-                Sign out
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Data & account runs the full width under both columns.
+            It carries the real size of each download and the decks the
+            decklist file will contain, drawn as their commanders, and a card
+            is 63mm wide for a reason: squeezed into the right hand column the
+            rail could fit one deck per row and left the other column empty for
+            1,200px underneath. It is also the only card here whose height
+            depends on how many decks somebody has, so it is the wrong one to
+            put in a column that has to balance against another. */}
+        <div className="xl:col-span-2">
+          <AccountDataCard
+            exporting={exporting}
+            onExportJson={handleExportJson}
+            onExportDecklists={handleExportDecklists}
+            onSignOut={handleSignOut}
+          />
         </div>
       </div>
     </StandardPageLayout>

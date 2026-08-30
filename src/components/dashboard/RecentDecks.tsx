@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { describeDeckPower, formatPowerScore, powerTextClass } from '@/lib/deck/power';
 import { RailSection, RailEmpty, railTileWidth } from './RailSection';
 import { RailTile } from './RailTile';
+import { recentDecksCount } from './railCount';
 
 /**
  * The decks you touched last, three at a time, paging through the rest.
@@ -75,7 +76,11 @@ export function RecentDecks({
   return (
     <RailSection
       title="Recent decks"
-      count={deckCount > 0 ? `${deckCount} ${deckCount === 1 ? 'deck' : 'decks'}` : undefined}
+      /* Counts what is on the rail. `deckCount` is an exact count of every deck
+         the account owns and `visible` is a 24-deck window with the Starred
+         toggle applied on top, so the old heading kept saying "9 decks" while
+         the rail showed the two that are starred. */
+      count={recentDecksCount(deckCount, visible.length, starredOnly)}
       to="/decks"
       linkLabel="All decks"
       perView={PER_VIEW}

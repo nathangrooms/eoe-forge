@@ -45,9 +45,13 @@ export function DecksToFinish({ className, decks, loading, error }: DecksToFinis
   return (
     <RailSection
       title="Decks to finish"
+      /* "of your N most recent", not "of N". `decks` is a 24-deck window, and
+         the rail beside this one prints an exact count of the whole library, so
+         "5 of 24" sat next to "30 decks" with the denominator quietly changing
+         meaning between them. */
       count={
         unfinished.length > 0
-          ? `${unfinished.length} of ${decks.length} need something`
+          ? `${unfinished.length} of your ${decks.length} most recent need something`
           : undefined
       }
       perView={PER_VIEW}

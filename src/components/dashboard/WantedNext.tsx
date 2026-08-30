@@ -4,6 +4,7 @@ import { useCardLookup } from '@/features/dashboard/cardLookup';
 import type { DashboardSummary } from '@/features/dashboard/hooks';
 import { RailSection, RailEmpty, railTileWidth } from './RailSection';
 import { RailTile } from './RailTile';
+import { showingFirst } from './railCount';
 
 /**
  * What to pick up next: the cards you want, cheapest first.
@@ -64,11 +65,18 @@ export function WantedNext({ className, summary, loading }: WantedNextProps) {
    */
   const unpriced = wishlist?.unpricedCards ?? 0;
 
+  /*
+   * The rail draws one tile per wishlist ROW and stops at eighteen, so a
+   * ninety four row list used to read "96 cards, $8,102.41 to buy" above
+   * eighteen pictures. The money and the card count still describe the whole
+   * list, which is what somebody budgets against, and the cap now says so.
+   */
+  const rows = wishlist?.totalItems ?? 0;
   const countLabel =
     total > 0
       ? `${total} cards, ${asUSD(value)} to buy${
           unpriced > 0 ? ` · ${unpriced} with no price yet` : ''
-        }`
+        }${showingFirst(wanted.length, rows)}`
       : undefined;
 
   return (

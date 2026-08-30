@@ -92,7 +92,21 @@ export function WishlistQuickStats({
   }, [items, neededByDeck, ownedByCard]);
 
   const metrics: Metric[] = [
-    { id: 'cards', label: 'Cards', value: stats.totalCards.toLocaleString(), raw: stats.totalCards },
+    /*
+     * "Copies", not "Cards", for the same reason the collection's row was
+     * renamed. This tile counts copies; the "Cards" tab badge directly above it
+     * counts ROWS, because the grid draws one tile per row. A wishlist wanting
+     * three Sol Rings read "Cards 94" in the tab and "Cards 96" in the tile,
+     * and the tile that matched the tab was the one next to it saying
+     * "Entries". One word, one number.
+     */
+    {
+      id: 'cards',
+      label: 'Copies',
+      value: stats.totalCards.toLocaleString(),
+      raw: stats.totalCards,
+      subtext: 'Cards you want in total',
+    },
     {
       id: 'entries',
       label: 'Entries',

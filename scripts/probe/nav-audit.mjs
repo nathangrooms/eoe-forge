@@ -30,7 +30,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import puppeteer from 'puppeteer';
 
-const DIST = 'dist';
+/* Overridable so a run can be pointed at a COPY of `dist`. Two agents sharing
+   one checkout means `npm run build` elsewhere empties `dist` mid-walk, and the
+   audit then dies on a missing `index.html` halfway through the menu. Snapshot
+   the build, point DIST at the snapshot, and the walk is immune. */
+const DIST = process.env.DIST || 'dist';
 const PORT = Number(process.env.PORT || 4587);
 const OUT = process.env.OUT || '.shots/nav-audit';
 const WIDTHS = (process.env.WIDTHS || '1600x1000,390x844').split(',').map(s => s.split('x').map(Number));

@@ -393,7 +393,20 @@ export function StorageContainerView({
     })),
     'USD'
   );
-  const uniqueCards = new Set(items.map(item => item.card_id)).size;
+  /**
+   * ROWS, not distinct card ids.
+   *
+   * This figure is labelled "Entries" with the subtext "Rows in this
+   * container", and it was `new Set(items.map(i => i.card_id)).size`, which is
+   * a different thing. `storage_items` is unique on container, slot, card and
+   * finish, so one card id legitimately occupies several rows: a foil beside a
+   * non-foil, or the same basic land in four binder pockets. The card browser
+   * directly beneath prints its own count off `items.length`, so a binder with
+   * four Islands in four pockets read "Entries 37" above a list saying "40
+   * entries". The export line sixteen lines up this file already counted
+   * `items.length` and called them entries, which is the honest one.
+   */
+  const entryCount = items.length;
 
   /* Counts, never fill percentages. Nobody ever set a capacity for a binder, a
      bulk box or a shelf, so there is no denominator here and nothing invents
@@ -408,12 +421,22 @@ export function StorageContainerView({
    * identical row on My Decks: the label already says what the number is.
    */
   const stats: Metric[] = [
-    { id: 'cards', label: 'Cards', value: totalCards.toLocaleString(), raw: totalCards },
+    /* "Copies" rather than "Cards", matching My Collection. The figure counts
+       copies and the browser under it counts rows, and two things called Cards
+       on one screen holding different numbers is how somebody stops believing
+       either. */
+    {
+      id: 'cards',
+      label: 'Copies',
+      value: totalCards.toLocaleString(),
+      raw: totalCards,
+      subtext: 'Cards filed in here',
+    },
     {
       id: 'entries',
       label: 'Entries',
-      value: uniqueCards.toLocaleString(),
-      raw: uniqueCards,
+      value: entryCount.toLocaleString(),
+      raw: entryCount,
       subtext: 'Rows in this container',
     },
     {

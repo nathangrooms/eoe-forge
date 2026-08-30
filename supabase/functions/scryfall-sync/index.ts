@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.54.0';
+import { splitChanged, SYNCED_COLUMNS, type ChangeSplit } from './changed.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -103,6 +104,12 @@ function pointerMatchesCatalogue(url: string | null | undefined): boolean {
   if (!url) return false;
   return url.includes(`unique=${CATALOGUE_UNIQUE}`);
 }
+
+/* Supabase's own global for background work after the response is sent.
+   Declared because the Deno type check does not know the platform globals and
+   was reporting it as an undefined name, which buried two real errors of mine
+   in the same output. */
+declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -367,6 +374,43 @@ function isStatementTimeout(error: { code?: string; message?: string } | null): 
  * not fix itself by being sent in smaller groups, and retrying it would turn
  * one clear failure into sixteen confusing ones.
  */
+/**
+ * Drop the rows the database already holds unchanged.
+ *
+ * Owner, 2026-08-30: "we should only be posting changes and new, not writing
+ * every card". The nightly walk upserted all ~96,700 printings whether or not
+ * anything moved. `cards` carries 28 indexes and a BEFORE trigger that
+ * reclassifies every written row, so a full pass is roughly 2.7 million index
+ * updates for a night on which nothing was printed, and while it runs the deck
+ * generator returns HTTP 500 on a statement timeout.
+ *
+ * One read of a page's ids replaces up to 175 writes. A read that FAILS returns
+ * everything unchanged rather than throwing: the filter is an optimisation, and
+ * an optimisation that can stop the sync is worse than one that occasionally
+ * does not fire.
+ */
+async function onlyChanged(
+  rows: Record<string, unknown>[]
+): Promise<ChangeSplit<Record<string, unknown>>> {
+  if (rows.length === 0) return { changed: rows, unchanged: 0, isNew: 0, columns: {} };
+
+  const ids = rows.map(r => String(r.id)).filter(Boolean);
+  const { data, error } = await supabase
+    .from('cards')
+    .select(['id', ...SYNCED_COLUMNS].join(','))
+    .in('id', ids);
+
+  if (error || !data) {
+    console.warn(`change filter could not read the page, writing all of it: ${error?.message ?? 'no rows'}`);
+    return { changed: rows, unchanged: 0, isNew: rows.length, columns: {} };
+  }
+
+  const stored = new Map<string, Record<string, unknown>>();
+  for (const row of data as unknown as Record<string, unknown>[]) stored.set(String(row.id), row);
+
+  return splitChanged(rows, stored);
+}
+
 async function upsertCards(rows: Record<string, unknown>[], depth = 0): Promise<void> {
   if (rows.length === 0) return;
 
@@ -516,6 +560,9 @@ async function syncCards(resumeState?: SyncState): Promise<{ success: boolean; p
     let currentPage = resumeState?.current_page || 1;
     let estimatedTotal = resumeState?.total_cards || 0;
     let pagesProcessedThisRun = 0;
+    /* Rows the change filter found identical, for the log. The number this
+       whole filter exists to make large. */
+    let skippedThisRun = 0;
     
     // Start URL
     let currentUrl: string | null = resumeState?.next_page_url || cataloguePageUrl(1);
@@ -546,10 +593,22 @@ async function syncCards(resumeState?: SyncState): Promise<{ success: boolean; p
         const validCards = cards.filter(c => c.type_line && !c.type_line.includes('Token'));
         const transformed = validCards.map(transformCard);
         
+        let writtenThisPage = 0;
+        /* Which columns the filter reacted to. See ChangeSplit.columns. */
+        const pageColumns: Record<string, number> = {};
         if (transformed.length > 0) {
           // Insert in smaller batches
           for (let i = 0; i < transformed.length; i += BATCH_SIZE) {
-            const batch = transformed.slice(i, i + BATCH_SIZE);
+            const whole = transformed.slice(i, i + BATCH_SIZE);
+            /* Only what moved. See `onlyChanged`. */
+            const split = await onlyChanged(whole);
+            skippedThisRun += split.unchanged;
+            for (const [col, n] of Object.entries(split.columns)) {
+              pageColumns[col] = (pageColumns[col] ?? 0) + n;
+            }
+            const batch = split.changed;
+            if (batch.length === 0) continue;
+            writtenThisPage += batch.length;
             try {
               await upsertCards(batch);
             } catch (writeError) {
@@ -563,11 +622,16 @@ async function syncCards(resumeState?: SyncState): Promise<{ success: boolean; p
               throw writeError;
             }
 
-            await tagWrittenCards(batch.map((c) => c.id));
+            await tagWrittenCards(batch.map((c) => String(c.id)));
           }
 
           totalProcessed += transformed.length;
-          console.log(`✅ Page ${currentPage}: saved ${transformed.length} cards (total: ${totalProcessed})`);
+          console.log(`✅ Page ${currentPage}: wrote ${writtenThisPage} of ${transformed.length} cards, ${transformed.length - writtenThisPage} already current (total written this run: ${totalProcessed})`);
+          if (writtenThisPage > 0) {
+            const why = Object.entries(pageColumns).sort((a, b) => b[1] - a[1]).slice(0, 6)
+              .map(([c, n]) => `${c}:${n}`).join(' ');
+            console.log(`   changed columns: ${why || '(all rows were new)'}`);
+          }
         }
         
         // Update status every 5 pages
@@ -874,7 +938,7 @@ serve(async (req) => {
       const useResume = action === 'resume' || (resumeState !== null && status?.status === 'running');
       
       // Run sync
-      const result = await syncCards(useResume ? resumeState : undefined);
+      const result = await syncCards(useResume ? (resumeState ?? undefined) : undefined);
       
       // If needs resume, trigger continuation in background
       if (result.needsResume) {

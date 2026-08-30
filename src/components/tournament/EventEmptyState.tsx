@@ -9,13 +9,25 @@
  *
  * The deck count and the artwork are read from the database. If the library is
  * empty the strip is simply absent; nothing is invented to fill it.
+ *
+ * ## What changed, 30 Aug 2026
+ *
+ * The rail used to be `decks.filter(d => d.commanderCard)`, so a deck whose
+ * commander has no artwork on file vanished from the strip while still counting
+ * towards the sentence above it. That is the bug `deckRailCount` was written
+ * for. `DeckRail` draws every deck instead, a commander card where there is one
+ * and a card-shaped panel carrying the deck's name where there is not, so the
+ * count and the tiles cannot disagree at all.
+ *
+ * It also sat below three columns of small print and ended 151px above the fold
+ * on a 1600x1000 screen. The decks lead now, at a size where a commander is a
+ * card rather than a thumbnail, and the small print follows them.
  */
 
 import { Link } from 'react-router-dom';
 import { ListOrdered, MousePointerClick, Swords, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { CardImage } from '@/components/cards';
-import { deckRailCount } from './deckRailCount';
+import { DeckRail } from '@/components/deck/DeckRail';
 import type { DeckOption } from './useEventDecks';
 
 const CAPABILITIES = [
@@ -36,6 +48,9 @@ const CAPABILITIES = [
   },
 ];
 
+/** Tiles drawn before the rail admits it is holding some back. */
+const RAIL_CAP = 12;
+
 export interface EventEmptyStateProps {
   /** Passed down rather than queried again — the manager has already loaded these. */
   decks: DeckOption[];
@@ -43,7 +58,7 @@ export interface EventEmptyStateProps {
 }
 
 export function EventEmptyState({ decks, loading }: EventEmptyStateProps) {
-  const withArt = decks.filter(d => d.commanderCard).slice(0, 12);
+  const shown = decks.slice(0, RAIL_CAP);
 
   return (
     <section className="overflow-hidden rounded-2xl bg-card shadow-sm">
@@ -72,6 +87,26 @@ export function EventEmptyState({ decks, loading }: EventEmptyStateProps) {
           </Link>
         </Button>
 
+        {/* The decks come first because they are the only real thing on this
+            screen. Three paragraphs of what the tool can do are worth reading
+            second. */}
+        {!loading && shown.length > 0 && (
+          <div className="mt-8">
+            <DeckRail
+              label="Your decks, ready to register"
+              decks={shown.map(deck => ({
+                id: deck.id,
+                name: deck.name,
+                card: deck.commanderCard,
+                href: `/deck/${deck.id}`,
+                note: noteFor(deck),
+              }))}
+              total={decks.length}
+              purpose="ready to register"
+            />
+          </div>
+        )}
+
         <div className="mt-8 grid gap-5 sm:grid-cols-3">
           {CAPABILITIES.map(item => {
             const Icon = item.icon;
@@ -85,26 +120,20 @@ export function EventEmptyState({ decks, loading }: EventEmptyStateProps) {
           })}
         </div>
       </div>
-
-      {!loading && withArt.length > 0 && (
-        <div className="bg-muted/30 px-6 py-5 sm:px-10">
-          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-            {deckRailCount(decks.length, withArt.length)}
-          </p>
-          {/* A grid across the whole width, not a 84px strip ending a third of
-              the way across it. The cards are the reason anybody believes this
-              is a Magic tool rather than a bracket generator, so they get the
-              room. */}
-          <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),15rem))] gap-3">
-            {withArt.map(deck => (
-              <div key={deck.id} className="min-w-0">
-                <CardImage card={deck.commanderCard} size="md" fill title={deck.name} />
-                <p className="mt-2 truncate text-xs text-muted-foreground">{deck.name}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </section>
   );
+}
+
+/**
+ * The line under a deck's name: what format it is and how big it is.
+ *
+ * `cardCount` is mainboard copies, the same figure the deck page prints, so a
+ * player reading "99 cards" here and "99 cards" there is reading one number
+ * rather than two that happen to match. A deck with nothing in it says so
+ * rather than printing a zero, because "0 cards" reads like a failed load.
+ */
+function noteFor(deck: DeckOption): string {
+  const format = deck.format ? deck.format[0].toUpperCase() + deck.format.slice(1) : 'Deck';
+  if (deck.cardCount <= 0) return `${format}, no cards yet`;
+  return `${format}, ${deck.cardCount} card${deck.cardCount === 1 ? '' : 's'}`;
 }

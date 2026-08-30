@@ -23,6 +23,7 @@ import { WishlistQuickStats } from '@/components/wishlist/WishlistQuickStats';
 import { WishlistCardGrid } from '@/components/wishlist/WishlistCardGrid';
 import { WishlistListView } from '@/components/wishlist/WishlistListView';
 import { WishlistByDeck, type DeckGap, type DeckGapCard } from '@/components/wishlist/WishlistByDeck';
+import { WishlistEmpty } from '@/components/wishlist/WishlistEmpty';
 import { WishlistBuyPanel } from '@/components/wishlist/WishlistBuyPanel';
 import {
   MoveToCollectionPanel,
@@ -846,13 +847,21 @@ export default function Wishlist() {
           They used to be four boxes with a 40px icon each, and the page title
           carried a second, smaller copy of two of the same numbers. One row,
           one size, one place.
+
+          NOT DRAWN ON AN EMPTY LIST. Six tiles reading 0, 0, dash, 0, 0, dash
+          is the first thing a new account saw on this page, and a row of
+          structural zeroes says nothing except that the product has nothing to
+          say. `WishlistEmpty` takes the space instead and puts real cards in
+          it. The row returns the moment there is a figure worth reading.
         */}
-        <WishlistQuickStats
-          items={wishlistItems}
-          neededByDeck={neededByDeck}
-          ownedByCard={ownedByCard}
-          loading={loading}
-        />
+        {(loading || wishlistItems.length > 0) && (
+          <WishlistQuickStats
+            items={wishlistItems}
+            neededByDeck={neededByDeck}
+            ownedByCard={ownedByCard}
+            loading={loading}
+          />
+        )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <PageTabs
@@ -881,6 +890,28 @@ export default function Wishlist() {
           />
 
           <TabsContent value="wishlist" className="mt-4 space-y-4">
+            {/*
+              An empty wishlist is a different screen, not a smaller one.
+
+              `ListingFrame`'s empty panel is right for "your filter matched
+              nothing", which can only happen when there ARE rows. It was also
+              doing duty for "you have never wanted a card", and that is the
+              first thing a new account sees on this page: a heart in a grey
+              circle over 292px of black. The gap grid below is the same data
+              the "Decks with gaps" tab already computes, cut by card instead of
+              by deck, and it is the reason a wishlist exists.
+            */}
+            {!loading && wishlistItems.length === 0 ? (
+              <WishlistEmpty
+                gaps={deckGaps}
+                gapsLoading={gapsLoading}
+                hasDecks={userDecks.length > 0}
+                onAddCard={addToWishlist}
+                onCardClick={cardId => openCard(cardId)}
+                onSearch={() => setActiveTab('add')}
+              />
+            ) : (
+            <>
             {/*
               One band, and every control that was on the page before is still
               on it.
@@ -997,22 +1028,15 @@ export default function Wishlist() {
                  `WishlistEmptyState` before, with a heart in a circle; the
                  heart is the frame's `icon` slot now, so the shell is the same
                  one the collection and card search draw. */
-              empty={
-                hasActiveFilter
-                  ? {
-                      icon: Heart,
-                      title: 'No cards match your filters',
-                      description: 'Try widening the search or clearing the priority filter.',
-                      onClearFilters: clearFilters,
-                    }
-                  : {
-                      icon: Heart,
-                      title: 'Your wishlist is empty',
-                      description:
-                        'Track the cards you want, set a target price, and see which of your decks are still missing them.',
-                      action: { label: 'Add your first card', onClick: () => setActiveTab('add') },
-                    }
-              }
+              /* Only one case reaches this now. A list with no rows at all is
+                 `WishlistEmpty` above, so the panel here is always the filter
+                 having emptied a list that does have cards on it. */
+              empty={{
+                icon: Heart,
+                title: 'No cards match your filters',
+                description: 'Try widening the search or clearing the priority filter.',
+                onClearFilters: clearFilters,
+              }}
             >
               {view.mode === 'list' ? (
                 <WishlistListView
@@ -1046,6 +1070,8 @@ export default function Wishlist() {
                 />
               )}
             </ListingFrame>
+            </>
+            )}
           </TabsContent>
 
           <TabsContent value="by-deck" className="mt-4">

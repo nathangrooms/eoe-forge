@@ -18,8 +18,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatLabel } from '@/lib/deck/formats';
-import { CardImage } from '@/components/cards';
-import { deckRailCount } from './deckRailCount';
+import { DeckRail } from '@/components/deck/DeckRail';
 import { CommanderPortrait, RecordLine } from './PlayerIdentity';
 import { viewFor, type PlayerView } from './playerViews';
 import { DeckPicker } from './DeckPicker';
@@ -49,7 +48,12 @@ export interface PlayerRosterProps {
  * invented to fill it.
  */
 function EmptyRoster({ decks, loading }: { decks: DeckOption[]; loading: boolean }) {
-  const withArt = decks.filter(d => d.commanderCard).slice(0, 12);
+  /* Every deck, not only the ones with artwork on file. Filtering on the
+     commander image and then counting the whole library is exactly how the
+     heading came to read "2 decks in your library" above one card; `DeckRail`
+     draws the ones with no art as a card-shaped panel carrying the deck's name,
+     so there is nothing left to count wrongly. */
+  const shown = decks.slice(0, 12);
 
   return (
     <div className="rounded-2xl bg-muted/30 p-6 sm:p-8">
@@ -63,19 +67,17 @@ function EmptyRoster({ decks, loading }: { decks: DeckOption[]; loading: boolean
         </p>
       </div>
 
-      {!loading && withArt.length > 0 && (
+      {!loading && shown.length > 0 && (
         <div className="mt-7">
-          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-            {deckRailCount(decks.length, withArt.length)}
-          </p>
-          <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),15rem))] gap-3">
-            {withArt.map(deck => (
-              <div key={deck.id} className="min-w-0">
-                <CardImage card={deck.commanderCard} size="md" fill title={deck.name} />
-                <p className="mt-2 truncate text-xs text-muted-foreground">{deck.name}</p>
-              </div>
-            ))}
-          </div>
+          {/* No links on these tiles. The sign-in sheet above may be half
+              typed, and a card that navigates away from it would throw the
+              names out. */}
+          <DeckRail
+            label="Your decks, ready to register"
+            decks={shown.map(deck => ({ id: deck.id, name: deck.name, card: deck.commanderCard }))}
+            total={decks.length}
+            purpose="ready to register"
+          />
         </div>
       )}
     </div>

@@ -1,11 +1,20 @@
 import { Store, ExternalLink } from 'lucide-react';
 import { formatPrice, formatPriceCompact } from '@/components/collection/browser/types';
 import { MetricRow, type Metric } from '@/components/listing';
+import { listingsSubtext } from './listingCounts';
 
 interface MarketplaceHeaderProps {
   watchlistCount: number;
   shoppingListCount: number;
   myListingsCount: number;
+  /**
+   * Physical cards across those listings.
+   *
+   * Separate from the count because `totalListingValue` is `price × qty` and
+   * the count is rows, so the two tiles were describing different things. See
+   * `listingCounts.ts`.
+   */
+  myListingCopies: number;
   totalListingValue: number;
   loading?: boolean;
 }
@@ -43,6 +52,7 @@ export function MarketplaceHeader({
   watchlistCount,
   shoppingListCount,
   myListingsCount,
+  myListingCopies,
   totalListingValue,
   loading = false,
 }: MarketplaceHeaderProps) {
@@ -66,7 +76,10 @@ export function MarketplaceHeader({
       label: 'Listings',
       value: myListingsCount.toLocaleString(),
       raw: myListingsCount,
-      subtext: 'Cards you have for sale',
+      /* A listing can hold several cards, and the tile beside this one prices
+         all of them. Saying "Cards you have for sale" over a row count put
+         four Sol Rings' asking price next to the figure 1. */
+      subtext: listingsSubtext(myListingsCount, myListingCopies),
     },
     {
       id: 'listing-value',

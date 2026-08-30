@@ -62,7 +62,27 @@ export function CollectionQuickStats({
   loading = false,
 }: CollectionQuickStatsProps) {
   const metrics: Metric[] = [
-    { id: 'cards', label: 'Cards', value: totalCards.toLocaleString(), raw: totalCards },
+    /*
+     * "Copies", not "Cards", and the rename is the point.
+     *
+     * This tile was labelled `Cards` and counts COPIES. The tab strip roughly
+     * 30px above it also says `Cards` and counts ROWS, because the grid under
+     * it draws one tile per row. Any collection holding a playset therefore
+     * read "Cards 420" in the tab and "Cards 1,180" in the tile, thirty pixels
+     * apart, and the tile that actually matched the tab was the one beside it
+     * labelled "Entries".
+     *
+     * Two numbers under one word is how somebody learns not to trust the
+     * numbers, and this product asks people to trust an EDH power score. The
+     * word "Cards" now appears once on the screen and has one value.
+     */
+    {
+      id: 'cards',
+      label: 'Copies',
+      value: totalCards.toLocaleString(),
+      raw: totalCards,
+      subtext: 'Cards you physically own',
+    },
     {
       id: 'unique',
       label: 'Entries',

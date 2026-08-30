@@ -209,10 +209,14 @@ export function StorageQuickAddPanel({
          that resolved to nothing and a card that could not be filed are each
          one that "could not be". */
       const refused = new Set(filed.failed.map(failure => failure.card_id));
-      const successCount = intoCollection.filter(
-        row => !refused.has(row.cardId as string)
-      ).length;
-      const errorCount = deck.cards.length - successCount;
+      /* COPIES on both sides, and the same unit the panel promised before the
+         button was pressed. It used to count rows, so a deck of playsets said
+         "24 cards go into your collection", wrote 60, and then reported "24
+         cards added". Three figures about one action, two of them wrong. */
+      const successCount = intoCollection
+        .filter(row => !refused.has(row.cardId as string))
+        .reduce((sum, row) => sum + (Number(row.quantity) || 1), 0);
+      const errorCount = Math.max(0, deckCopies(deck) - successCount);
 
       /* "Deck filed, 0 cards added" was still a success message. If nothing
          landed, nothing was filed, and the screen has to say so. */
@@ -402,7 +406,7 @@ export function StorageQuickAddPanel({
                           <ColorIdentity colors={deck.colors ?? []} size="xs" />
                           <span className="font-medium">{deck.name}</span>
                           <Badge variant="secondary" className="ml-auto">
-                            {deck.cards.length} cards
+                            {deckCopies(deck)} cards
                           </Badge>
                         </div>
                       </SelectItem>
@@ -421,8 +425,11 @@ export function StorageQuickAddPanel({
                       <h4 className="text-lg font-semibold">
                         {decks.find(d => d.id === selectedDeck)?.name}
                       </h4>
+                      {/* COPIES, because copies are what gets written. This
+                          counted rows, so a Standard deck of playsets promised
+                          "24 cards go into your collection" and filed 60. */}
                       <p className="text-sm text-muted-foreground">
-                        {decks.find(d => d.id === selectedDeck)?.cards.length} cards go into your
+                        {deckCopies(decks.find(d => d.id === selectedDeck))} cards go into your
                         collection and this container
                       </p>
                     </div>
@@ -567,4 +574,17 @@ export function StorageQuickAddPanel({
       </Tabs>
     </div>
   );
+}
+
+/**
+ * How many physical cards a deck holds.
+ *
+ * `deck.cards` is one row per card, and a row can ask for four. Every figure
+ * this panel shows about a deck describes what will be written, and what gets
+ * written is copies, so the badge, the promise and the toast all read this.
+ * A row with no quantity recorded is one card, never none.
+ */
+function deckCopies(deck: { cards: { quantity?: number | null }[] } | undefined): number {
+  if (!deck) return 0;
+  return deck.cards.reduce((sum, card) => sum + Math.max(1, Number(card.quantity) || 1), 0);
 }

@@ -61,6 +61,8 @@ import { ListCardBadges } from './ListCardBadges';
 import { ProxyExportPanel } from './ProxyExportPanel';
 import { ListToProxiesPanel } from './ListToProxiesPanel';
 import { PasteCardList } from './PasteCardList';
+import { PlaytestOnlyNote } from './PlaytestOnlyNote';
+import { ProxyListEmpty } from './ProxyListEmpty';
 import { useProxyArt, type ProxyArt, type RowArtState } from './useProxyArt';
 
 /**
@@ -375,55 +377,18 @@ export default function ProxyListPage() {
          * that tells you to do something the product cannot do is worse than an
          * empty page. It is the paste box now, because pasting a list is the
          * thing you can actually do, and it is the way most people will.
+         *
+         * It is a component rather than more JSX here because it reads the
+         * player's decks to offer them as sheets, and a page that already has
+         * cards on it must not pay for that read. See `ProxyListEmpty`.
          */
-        <div className="space-y-4">
-          <PasteCardList kind="proxy" />
-
-          {(fromShopping.length > 0 || fromWishlist.length > 0) && (
-            <div className="rounded-xl bg-card p-4 shadow-lg shadow-black/20">
-              <p className="text-sm text-foreground">
-                You already keep lists of cards you do not own yet. Bring one straight over.
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {fromShopping.length > 0 && (
-                  <Button variant="secondary" size="sm" className="gap-2" onClick={() => setBringing('shopping')}>
-                    <ShoppingCart className="h-4 w-4" />
-                    Your shopping list, {showListItemCount(shoppingCopies)}
-                  </Button>
-                )}
-                {fromWishlist.length > 0 && (
-                  <Button variant="secondary" size="sm" className="gap-2" onClick={() => setBringing('wishlist')}>
-                    <Heart className="h-4 w-4" />
-                    Your wishlist, {showListItemCount(wishlistCopies)}
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className="rounded-xl bg-muted/20 p-4 text-sm text-muted-foreground">
-            <p>
-              A deck you already have in DeckMatrix does not need pasting. Open it and use Proxies
-              in the deck tools to print the whole thing.
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button variant="secondary" size="sm" asChild>
-                <Link to="/decks">Open a deck</Link>
-              </Button>
-              <Button variant="secondary" size="sm" asChild>
-                <Link to="/cards">Search for cards</Link>
-              </Button>
-              {/* Only when the bring-in row above is not already offering it,
-                  so the same words are not on the page twice. */}
-              {fromShopping.length === 0 && fromWishlist.length === 0 && (
-                <Button variant="secondary" size="sm" asChild>
-                  <Link to="/shopping">Your shopping list</Link>
-                </Button>
-              )}
-            </div>
-          </div>
-          <PlaytestOnlyNote />
-        </div>
+        <ProxyListEmpty
+          fromShopping={fromShopping.length}
+          fromWishlist={fromWishlist.length}
+          shoppingCopies={shoppingCopies}
+          wishlistCopies={wishlistCopies}
+          onBring={setBringing}
+        />
       ) : (
         <div className="space-y-6">
           {pasting && <PasteCardList kind="proxy" onAdded={() => setPasting(false)} />}
@@ -864,24 +829,6 @@ function BringInButtons({
         </Button>
       )}
     </>
-  );
-}
-
-/**
- * What these sheets are for, said plainly and never hidden.
- *
- * Wizards' Fan Content Policy requires fan content to be free, so a proxy sheet
- * must never sit behind a payment and nothing in this product may suggest these
- * are sellable or legal at an event. The sentence is short and it is on the
- * page rather than in a help article, because the person about to press print
- * is the person who needs to read it.
- */
-function PlaytestOnlyNote() {
-  return (
-    <p className="text-sm text-muted-foreground">
-      These are for playtesting at your own table. They are free, they are not real cards, and they
-      are not legal at any event. Do not sell them.
-    </p>
   );
 }
 

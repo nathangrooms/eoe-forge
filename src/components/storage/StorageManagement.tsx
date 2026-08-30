@@ -9,6 +9,7 @@ import type {
 } from '@/types/storage';
 import { CreateContainerPanel } from './CreateContainerPanel';
 import { ContainerObject } from './ContainerObject';
+import { containerCountLine } from './containerCount';
 import { showError } from '@/components/ui/toast-helpers';
 import { formatPrice, formatPriceCompact } from '@/components/collection/browser/types';
 import { MetricRow } from '@/components/listing';
@@ -290,11 +291,18 @@ function ContainerTile({
    */
   const isBinder = container.type === 'binder';
   /**
-   * How many distinct cards the object could not show. Real subtraction, and
-   * the only honest way to say "there are 1,240 more in here" under a picture
-   * of five.
+   * How much is in here, said so the reader cannot work out a false answer.
+   *
+   * This used to be `uniqueCards - shown` printed as "more inside" directly
+   * after `itemCount` printed as "cards", which are copies and distinct cards
+   * respectively. `containerCountLine` decides which of the two facts can be
+   * stated as a difference and which has to be stated on its own.
    */
-  const hidden = Math.max(0, (container.uniqueCards ?? 0) - shown);
+  const countLine = containerCountLine(
+    container.itemCount ?? 0,
+    container.uniqueCards ?? 0,
+    shown
+  );
   const empty = (container.itemCount ?? 0) === 0;
 
   return (
@@ -339,15 +347,7 @@ function ContainerTile({
             {isBinder ? 'Empty · nine pockets a page, waiting' : 'Empty · nothing filed here yet'}
           </span>
         ) : (
-          <span className="text-muted-foreground">
-            <span className="font-semibold tabular-nums text-foreground">
-              {(container.itemCount ?? 0).toLocaleString()}
-            </span>{' '}
-            {container.itemCount === 1 ? 'card' : 'cards'}
-            {hidden > 0 && (
-              <span className="tabular-nums"> · {hidden.toLocaleString()} more inside</span>
-            )}
-          </span>
+          <span className="tabular-nums text-muted-foreground">{countLine}</span>
         )}
         {(container.valueUSD ?? 0) > 0 && (
           /* The figure, and what it is leaving out. Opening this container has

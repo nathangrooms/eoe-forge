@@ -120,6 +120,25 @@ export interface CatalogRow extends RawCardRow {
    * unknown. Measured cost is on `poolFor`.
    */
   oracle_text?: string | null;
+  /**
+   * The card's faces, when it has more than one.
+   *
+   * Selected only for the deck's own cards, never for the pool, for the same
+   * width reason as `oracle_text`. It matters because `oracle_text` is NULL on
+   * every transform, modal DFC, split, adventure and prepare layout, and the
+   * commander plan is read off text: without this a double-faced legend
+   * reaches the reader as a card that says nothing. Measured 2026-08-30, that
+   * was 186 of 586 silent commanders, 31.7% of all commander silence.
+   */
+  faces?: { oracle_text?: string | null; type_line?: string | null; name?: string | null }[] | null;
+  /**
+   * The precompiled behaviour facets, when the caller asked for them.
+   *
+   * A computed column on `cards_unique` backed by `card_facet_memo`. An EMPTY
+   * ARRAY IS A REAL ANSWER, not a miss: 7,058 of 33,032 cards genuinely
+   * compile to no facets. Absent means the filler has not reached that card.
+   */
+  facets?: string[] | null;
   keywords?: string[] | null;
   prices?: { usd?: string | number | null } | null;
 }
@@ -276,14 +295,25 @@ export class Catalog {
    * page failed. A linear scheme that finishes beats a parallel one that is
    * cancelled.
    */
-  async fetchAll<T>(pathAndQuery: string): Promise<T[]> {
+  /**
+   * @param by Which key the walk is ordered and cursored on.
+   *   `id` is the default and is right for any query with no other order.
+   *   `rank` orders by `(edhrec_rank, id)` and is for the CANDIDATE POOL, whose
+   *   filter is a rank ceiling: ordering that by `id` made every page read all
+   *   14,984 matching rows and sort them, 4,078 ms a page against a 3 s
+   *   statement timeout. See `withRankKeyset`.
+   */
+  async fetchAll<T>(pathAndQuery: string, by: 'id' | 'rank' = 'id'): Promise<T[]> {
     const rows: T[] = [];
     let after: string | null = null;
+    let rankAfter: RankCursor | null = null;
 
     // A hard stop, so a malformed cursor can never spin forever. 200 pages is
     // 200,000 rows, comfortably past the whole catalogue.
     for (let page = 0; page < 200; page++) {
-      const url = withKeyset(pathAndQuery, after);
+      const url = by === 'rank'
+        ? withRankKeyset(pathAndQuery, rankAfter)
+        : withKeyset(pathAndQuery, after);
       const result = await this.#get<T>(url, {
         Range: `0-${PAGE_SIZE - 1}`,
         'Range-Unit': 'items',
@@ -291,7 +321,7 @@ export class Catalog {
       rows.push(...result.rows);
       if (result.rows.length < PAGE_SIZE) return rows;
 
-      const last = result.rows[result.rows.length - 1] as { id?: unknown };
+      const last = result.rows[result.rows.length - 1] as { id?: unknown; edhrec_rank?: unknown };
       const lastId = typeof last?.id === 'string' ? last.id : null;
       if (!lastId) {
         // A caller that did not select `id` cannot be keyset-paged. That is a
@@ -301,7 +331,26 @@ export class Catalog {
           `fetchAll needs "id" in the select to page: ${pathAndQuery.slice(0, 120)}`
         );
       }
-      after = lastId;
+
+      if (by === 'rank') {
+        const lastRank = typeof last?.edhrec_rank === 'number' ? last.edhrec_rank : null;
+        if (lastRank === null) {
+          /* A null rank cannot be a cursor and the walk cannot continue past
+             it. Saying so beats looping on the same page or, worse, silently
+             returning a partial pool that nothing downstream can tell is
+             partial: a legal card that never reaches the pool cannot be
+             suggested and nothing reports its absence. The pool query filters
+             `edhrec_rank < 15000`, which already excludes nulls, so reaching
+             here means the caller ordered by rank without that filter. */
+          throw new Error(
+            'a rank-ordered walk needs a non-null edhrec_rank on every row; ' +
+            `filter them out with edhrec_rank=lt.<n>: ${pathAndQuery.slice(0, 120)}`
+          );
+        }
+        rankAfter = { rank: lastRank, id: lastId };
+      } else {
+        after = lastId;
+      }
     }
     return rows;
   }
@@ -360,9 +409,23 @@ export class Catalog {
       'color_identity',
       'tags',
       'mana_cost',
-      // A popularity prior for the ranker. Cheap: one integer column.
+      // A popularity prior for the ranker, and the walk's own sort key. Cheap:
+      // one integer column, and it is in the index the filter already uses.
       'edhrec_rank',
-      ...(opts?.withOracleText ? ['oracle_text'] : []),
+      /* THE COMPILED FACETS, READ RATHER THAN COMPUTED.
+         ----------------------------------------------
+         `facets` is a computed column on `cards_unique`: a PostgREST function
+         over `card_facet_memo`, filled once by the `facet-memo-fill` edge
+         function. Before it existed, `pipeline.ts` compiled facets from
+         `oracle_text` on EVERY REQUEST, capped at 6,000 cards, into a Map on
+         the module that dies with the instance. Every measured run reported
+         `cached: 0`; a five-colour pool is roughly 100,000 facets computed
+         from scratch inside one CPU budget, and the budget lost.
+
+         Asking for facets instead of oracle text also takes 4.93 MB off the
+         five-colour pool response, which is most of why that query timed out
+         whenever the nightly sync was writing. */
+      ...(opts?.withOracleText ? ['facets'] : []),
       'usd:prices->>usd',
       `legal_in_format:legalities->>${fmt}`,
     ].join(',');
@@ -391,17 +454,72 @@ export class Catalog {
          WHERE edhrec_rank < 15000          Index Cond, 14,984 rows,   382 ms
 
        served by `cards_unique_commander_rank_idx`. */
+    /* A CEILING ONLY WHEN THE CALLER ASKED FOR ONE, and the reason a wider one
+       was tried and rejected is worth keeping.
+
+       One and two colour pools carry no ceiling, so they cannot take the
+       rank-ordered walk, so they take the `id` path and are the slowest builds
+       in the product. The obvious fix was to send a ceiling so large it
+       excludes nothing, purely to get the range condition the ordered plan
+       needs. Measured on mono-red, it makes things WORSE:
+
+         edhrec_rank < 15000     Index Scan + Incremental Sort        5 ms
+         edhrec_rank < 20000     BitmapAnd + Sort, 5,284 heap blocks
+         edhrec_rank < 1000000   BitmapAnd + Sort, 6,953 heap blocks
+
+       Past a selectivity threshold the planner stops believing the rank index
+       is worth walking, bitmap-ANDs it with the colour index, and that
+       destroys the index ordering so the sort comes back. A range condition
+       only buys the ordered plan while it is SELECTIVE, which is the same
+       lesson as CLAUDE.md section 10d in a different disguise: an ORDER BY is
+       only free when an index can actually supply it.
+
+       So one and two colour pools keep the id walk for now, and the fix for
+       them is a different one: an index that can serve colour identity and
+       rank together. Left undone deliberately rather than shipped as a
+       regression. */
     const rankCeiling =
       typeof opts?.maxRank === 'number' && Number.isFinite(opts.maxRank)
         ? `&edhrec_rank=lt.${Math.round(opts.maxRank)}`
         : '';
 
-    return this.fetchAll<CatalogRow>(
+    /* ORDERED BY RANK, NOT BY ID, and that is worth four seconds a page.
+       The rank ceiling is served by `cards_unique_commander_rank_idx`, which
+       cannot supply `id` order, so ordering by id made every page read all
+       14,984 matching rows and sort them, and a sort must see everything
+       before it yields the first row so `LIMIT 1000` could never stop early:
+
+         ORDER BY id                Sort, 14,984 rows, hit=16743   4,078 ms
+         ORDER BY edhrec_rank, id   Incremental Sort, 1,001 rows       5 ms
+
+       Measured end to end on the deployed function, four-colour Atraxa went
+       from 59.8 s to 3.1 s and mono-red Krenko from HTTP 500 to a built deck.
+
+       A rank-ordered walk needs a rank on every row, because a null cannot be
+       a cursor, and `edhrec_rank=lt.<n>` excludes nulls in SQL. That is why
+       the unranked tail is fetched separately below rather than lost: 67 of
+       the 31,829 commander-legal cards carry no rank, and dropping them
+       silently would be a pool that is quietly incomplete, which is the one
+       failure nothing downstream can detect. */
+    const base =
       `${POOL_TABLE}?select=${encodeURIComponent(select)}` +
-        `&legalities->>${encodeURIComponent(fmt)}=eq.${query.legalityFilter.equals}` +
-        `&color_identity=cd.${encodeURIComponent(identity)}` +
-        rankCeiling
-    );
+      `&legalities->>${encodeURIComponent(fmt)}=eq.${query.legalityFilter.equals}` +
+      `&color_identity=cd.${encodeURIComponent(identity)}`;
+
+    /* Rank-ordered only when there is a selective ceiling to order against,
+       for the reason set out above. Without one the id walk is still the best
+       plan available. */
+    if (!rankCeiling) return this.fetchAll<CatalogRow>(base, 'id');
+
+    const ranked = await this.fetchAll<CatalogRow>(base + rankCeiling, 'rank');
+
+    /* No unranked tail here on purpose. `edhrec_rank=lt.<n>` excludes the 67
+       commander-legal cards that carry no rank at all, and at three colours
+       and up the ceiling exists precisely to keep the pool inside the
+       runtime's memory. A card nobody has ever been recorded playing is what
+       that ceiling is for, and fetching it back would undo the thing that
+       makes those builds possible. */
+    return ranked;
   }
 
   /**
@@ -629,6 +747,55 @@ export function withKeyset(pathAndQuery: string, after: string | null): string {
   const sep = pathAndQuery.includes('?') ? '&' : '?';
   const cursor = after === null ? '' : `&id=gt.${encodeURIComponent(after)}`;
   return `${pathAndQuery}${sep}order=id.asc${cursor}`;
+}
+
+/** Where a `(edhrec_rank, id)` walk got to. Both halves, because rank ties. */
+export interface RankCursor {
+  rank: number;
+  id: string;
+}
+
+/**
+ * The same keyset walk, ordered by POPULARITY instead of by id.
+ *
+ * WHY THIS EXISTS, measured 2026-08-30 on the five-colour pool.
+ *
+ * The pool query filters on `edhrec_rank < 15000` and then ordered by `id`. The
+ * rank filter is served by `cards_unique_commander_rank_idx`, but that index
+ * cannot supply `id` order, so every page read ALL 14,984 matching rows and
+ * sorted them, and a sort must see everything before it yields the first row,
+ * so `LIMIT 1000` could never terminate early:
+ *
+ *   ORDER BY id            Sort (top-N heapsort), 14,984 rows, hit=16743   4,078 ms
+ *   ORDER BY edhrec_rank, id   Incremental Sort, 1,001 rows,   hit=1095        5 ms
+ *
+ * Fifteen pages at four seconds each is the sixty seconds a four-colour
+ * generate took, and it is why mono-red and two-colour builds returned HTTP 500
+ * on the three-second statement timeout. This is the same shape as the pool
+ * failure in CLAUDE.md section 10d: an ORDER BY no index can supply.
+ *
+ * ORDERING BY RANK IS ALSO THE RIGHT ORDER. The pool is a candidate list and
+ * `edhrec_rank` is the only evidence we hold about what people actually play,
+ * so a truncated walk keeps the cards most likely to matter rather than an
+ * arbitrary slice of the id space.
+ *
+ * THE CURSOR NEEDS BOTH HALVES. `edhrec_rank` is not unique, so a cursor on
+ * rank alone would either re-read or step over every row sharing a boundary
+ * rank. `(rank, id)` is unique and total because `id` is, which is the exact
+ * property `withKeyset`'s comment above says the scheme depends on.
+ */
+export function withRankKeyset(pathAndQuery: string, after: RankCursor | null): string {
+  if (/[?&]order=/.test(pathAndQuery)) return pathAndQuery;
+  const sep = pathAndQuery.includes('?') ? '&' : '?';
+  const order = 'order=edhrec_rank.asc,id.asc';
+  if (!after) return `${pathAndQuery}${sep}${order}`;
+
+  /* Row-value comparison, spelled the way PostgREST spells it:
+       (rank, id) > (R, I)  ==  rank > R OR (rank = R AND id > I)          */
+  const clause =
+    `or=(edhrec_rank.gt.${after.rank},` +
+    `and(edhrec_rank.eq.${after.rank},id.gt.${encodeURIComponent(after.id)}))`;
+  return `${pathAndQuery}${sep}${order}&${clause}`;
 }
 
 /**

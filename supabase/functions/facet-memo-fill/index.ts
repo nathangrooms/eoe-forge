@@ -1,0 +1,276 @@
+/**
+ * facet-memo-fill — computes every card's behaviour facets once, into Postgres.
+ *
+ * ## Why this exists
+ *
+ * `public.card_facet_memo` has existed for a while and held ZERO ROWS.
+ * Measured 2026-08-30: nothing wrote it and nothing read it. It is a designed
+ * optimisation that was never wired up, and its absence is why the deck
+ * generator fails.
+ *
+ *   Krenko   mono-red    HTTP 500 after  19s   statement timeout on the pool
+ *   Teysa    two colours HTTP 500 after  17s   statement timeout on the pool
+ *   Atraxa   four        HTTP 200 after  60s
+ *   Najeela  five        546 resource limit after 114s
+ *
+ * `pipeline.ts` compiles facets from oracle text on every request, capped at
+ * 6,000 cards, into a `Map` that lives on the module and dies with the
+ * instance. Every measured run reports `cached: 0`. A five-colour pool is
+ * roughly 100,000 facets computed from scratch inside one CPU budget, and the
+ * budget loses. It also forces `oracle_text` into the pool query, which is
+ * 4.93 MB on a five-colour pool, and that is most of why the query times out
+ * while the nightly sync is saturating the database.
+ *
+ * Facets are a pure function of oracle text and the compiler's rules, so the
+ * answer cannot change between requests. Computing them once turns the hot path
+ * into an indexed read.
+ *
+ * ## Why an edge function and not a script
+ *
+ * `scripts/fill-facet-memo.mjs` does the same job and needs
+ * `SUPABASE_SERVICE_ROLE_KEY`, which is why it was never run: nobody working on
+ * this has held that key. An edge function is handed it by the platform, so the
+ * work can be started by anyone who can create a run row, and creating a run
+ * row is an admin act.
+ *
+ * ## The gate
+ *
+ * Same shape as `dsl-compile-batch`: a run token on a row in
+ * `facet_memo_runs`, a table under admin-only RLS. Every edge function here is
+ * reachable with the publishable key, so the key cannot be the gate. A caller
+ * must present a token whose run is `running`, unexpired, and under budget.
+ * The budget is charged BEFORE the work, because an uncharged crash is how a
+ * budget stops being a budget.
+ *
+ * The worst a leaked token can do is fill a cache of derived public data with
+ * correct values, bounded by `max_calls`. That is why this gate is simpler than
+ * the one guarding model spend.
+ *
+ * ## Resumable, and bounded per call
+ *
+ * One call walks `cards_unique` by `oracle_id` from the run's cursor, computes
+ * what is missing at the current compiler version, writes it, and advances the
+ * cursor. Repeated calls converge. Nothing here runs long enough to hit the CPU
+ * limit that this function exists to remove from somewhere else, which would be
+ * a poor joke.
+ */
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
+import { facetsForCard } from './_lib/deck/recommend/behaviour.ts';
+
+const cors = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
+
+/**
+ * The compiler's version, which is the memo's cache key alongside the oracle id.
+ *
+ * BUMP THIS whenever the facet compiler's OUTPUT changes for cards it already
+ * reads. A rule change that does not alter the output does not need it. Getting
+ * this wrong is silent: the memo keeps serving answers from the previous
+ * compiler and the generator ranks on stale facets, which looks exactly like
+ * the generator being bad at its job.
+ */
+const COMPILER_VERSION = 1;
+
+/**
+ * Cards read per call.
+ *
+ * CAPPED AT POSTGREST'S OWN LIMIT, and that is not a detail. This project's
+ * `db-max-rows` is 1000, measured and recorded at the top of `catalog.ts`, so a
+ * request for more silently returns 1000. The first version of this function
+ * asked for 1500, got 1000, and concluded from "fewer rows than I asked for"
+ * that it had reached the end of the catalogue. It reported `done: true` after
+ * writing 1,000 of 33,032 cards and the run was marked finished.
+ *
+ * A completion test that reads a truncation as an ending is the same class of
+ * bug as a count that does not match what is under it: nothing errors, and the
+ * wrong answer looks exactly like the right one.
+ */
+const POSTGREST_MAX_ROWS = 1000;
+const DEFAULT_BATCH = POSTGREST_MAX_ROWS;
+const MAX_BATCH = POSTGREST_MAX_ROWS;
+
+/** Rows per upsert. PostgREST is happy well above this; the network is not. */
+const WRITE_CHUNK = 500;
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
+  if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
+
+  const url = Deno.env.get('SUPABASE_URL');
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!url || !serviceKey) return json({ error: 'function is not configured' }, 500);
+
+  const db = createClient(url, serviceKey, { auth: { persistSession: false } });
+
+  let body: Record<string, unknown> = {};
+  try {
+    body = await req.json();
+  } catch {
+    return json({ error: 'body must be JSON' }, 400);
+  }
+
+  const runToken = String(body.run_token ?? '').trim();
+  if (!runToken) return json({ error: 'run_token required' }, 400);
+  const batch = Math.min(MAX_BATCH, Math.max(1, Number(body.batch ?? DEFAULT_BATCH)));
+
+  /* ------------------------------------------------------------------ gate */
+
+  const { data: run, error: runErr } = await db
+    .from('facet_memo_runs')
+    .select('id, status, expires_at, max_calls, calls_made, cursor, written, scanned')
+    .eq('run_token', runToken)
+    .maybeSingle();
+
+  if (runErr) return json({ error: 'run lookup failed' }, 500);
+  if (!run) return json({ error: 'unknown run_token' }, 403);
+  if (run.status !== 'running') return json({ error: `run is ${run.status}` }, 403);
+  if (new Date(run.expires_at).getTime() < Date.now()) return json({ error: 'run token expired' }, 403);
+  if (run.calls_made >= run.max_calls) {
+    return json({ error: 'run call budget exhausted', budget: run.max_calls }, 429);
+  }
+
+  /* Charge before working, and charge optimistically so two callers cannot
+     both take the same slot. */
+  const { error: chargeErr, count: charged } = await db
+    .from('facet_memo_runs')
+    .update({ calls_made: run.calls_made + 1 }, { count: 'exact' })
+    .eq('id', run.id)
+    .eq('calls_made', run.calls_made);
+  if (chargeErr || charged === 0) return json({ error: 'could not charge the run budget' }, 409);
+
+  const startedAt = Date.now();
+
+  /* ------------------------------------------------------------------ read */
+
+  /* Keyset by oracle_id. An OFFSET walk re-reads everything it has already
+     passed, and CLAUDE.md section 10d records what an unindexable ORDER BY did
+     to the pool query: a sort of 31,829 rows against a statement timeout. */
+  const { data: cards, error: readErr } = await db
+    .from('cards_unique')
+    .select('oracle_id, name, type_line, oracle_text, mana_cost, cmc, keywords, colors, color_identity, faces, power, toughness, layout')
+    .gt('oracle_id', run.cursor)
+    .order('oracle_id', { ascending: true })
+    .limit(batch);
+
+  if (readErr) return json({ error: `reading cards failed: ${readErr.message}` }, 500);
+  if (!cards || cards.length === 0) {
+    await db.from('facet_memo_runs').update({ status: 'done' }).eq('id', run.id);
+    return json({
+      done: true,
+      cursor: run.cursor,
+      scanned: run.scanned,
+      written: run.written,
+      message: 'the walk reached the end of the catalogue',
+    });
+  }
+
+  const ids = cards.map((c) => c.oracle_id).filter(Boolean) as string[];
+
+  /* What is already computed at THIS version, so a resumed run does not redo
+     work and a version bump redoes all of it. */
+  const already = new Set<string>();
+  for (let i = 0; i < ids.length; i += 1000) {
+    const slice = ids.slice(i, i + 1000);
+    const { data: have } = await db
+      .from('card_facet_memo')
+      .select('oracle_id')
+      .eq('compiler_version', COMPILER_VERSION)
+      .in('oracle_id', slice);
+    for (const row of have ?? []) already.add(row.oracle_id as string);
+  }
+
+  /* --------------------------------------------------------------- compile */
+
+  const pending: Array<Record<string, unknown>> = [];
+  const census: Record<string, number> = { compiler: 0, xmage: 0, none: 0 };
+  let threw = 0;
+
+  for (const card of cards) {
+    const oracleId = card.oracle_id as string | null;
+    if (!oracleId || already.has(oracleId)) continue;
+
+    let facets: readonly string[] = [];
+    let source = 'none';
+    try {
+      const result = facetsForCard(card as never);
+      facets = result.facets;
+      source = result.source;
+    } catch (_e) {
+      /* A card the compiler throws on is RECORDED as having no facets rather
+         than skipped. Skipping means every future run recompiles it and the
+         walk never converges, which is a worse failure than an empty record. */
+      threw += 1;
+      facets = [];
+      source = 'none';
+    }
+    census[source] = (census[source] ?? 0) + 1;
+
+    pending.push({
+      oracle_id: oracleId,
+      facets,
+      source,
+      compiler_version: COMPILER_VERSION,
+      computed_at: new Date().toISOString(),
+    });
+  }
+
+  /* ----------------------------------------------------------------- write */
+
+  let written = 0;
+  for (let i = 0; i < pending.length; i += WRITE_CHUNK) {
+    const chunk = pending.slice(i, i + WRITE_CHUNK);
+    const { error: writeErr } = await db
+      .from('card_facet_memo')
+      .upsert(chunk, { onConflict: 'oracle_id' });
+    if (writeErr) {
+      /* Advance the cursor only as far as what was actually written, so a
+         partial failure is retried rather than skipped. */
+      const safeCursor = i > 0 ? (pending[i - 1].oracle_id as string) : run.cursor;
+      await db
+        .from('facet_memo_runs')
+        .update({
+          cursor: safeCursor,
+          written: run.written + written,
+          scanned: run.scanned + cards.length,
+          note: `write failed: ${writeErr.message}`.slice(0, 300),
+        })
+        .eq('id', run.id);
+      return json({ error: `writing the memo failed: ${writeErr.message}`, written }, 500);
+    }
+    written += chunk.length;
+  }
+
+  const cursor = cards[cards.length - 1].oracle_id as string;
+  /* Short page means the end of the catalogue, and `batch` can never exceed
+     what PostgREST will return, so a short page cannot be a truncation. */
+  const finished = cards.length < batch;
+
+  await db
+    .from('facet_memo_runs')
+    .update({
+      cursor,
+      written: run.written + written,
+      scanned: run.scanned + cards.length,
+      status: finished ? 'done' : 'running',
+      note: null,
+    })
+    .eq('id', run.id);
+
+  return json({
+    done: finished,
+    scanned: cards.length,
+    skipped: cards.length - pending.length,
+    written,
+    threw,
+    census,
+    cursor,
+    totals: { scanned: run.scanned + cards.length, written: run.written + written },
+    callsLeft: run.max_calls - (run.calls_made + 1),
+    ms: Date.now() - startedAt,
+  });
+});

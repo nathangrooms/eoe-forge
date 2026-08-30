@@ -182,6 +182,34 @@ function facetsForPoolRows(
     const id = row.oracle_id;
     if (!id || byOracleId.has(id)) continue;
 
+    /* THE ROW ALREADY CARRIES ITS FACETS, computed once and stored.
+       ------------------------------------------------------------
+       `poolFor` now selects the `facets` computed column, which reads
+       `card_facet_memo` in Postgres. That table held ZERO ROWS until
+       2026-08-30 and nothing read it: the memo below was the only cache, it
+       is a Map on this module, and it dies with the instance. Every measured
+       run reported `cached: 0`.
+
+       Compiling roughly 100,000 facets from oracle text is what put a
+       five-colour build over the CPU limit and a four-colour build at sixty
+       seconds. Reading them is free, and it lets the pool query drop
+       `oracle_text`, which is 4.93 MB on that pool.
+
+       An EMPTY array is a real answer and must not be treated as a miss:
+       7,058 of 33,032 cards genuinely compile to no facets, and recompiling
+       those every request would put back the cost this removes for exactly
+       the cards the compiler cannot read anyway. `null` and `undefined` are
+       the miss, which is a card the filler has not reached yet. */
+    const stored = (row as { facets?: unknown }).facets;
+    if (Array.isArray(stored)) {
+      const facets = stored as readonly string[];
+      byOracleId.set(id, facets);
+      census.cards += 1;
+      census.facets += facets.length;
+      cached += 1;
+      continue;
+    }
+
     const memo = rowsCarryOracleText ? FACET_MEMO.get(id) : undefined;
     if (memo) {
       byOracleId.set(id, memo);

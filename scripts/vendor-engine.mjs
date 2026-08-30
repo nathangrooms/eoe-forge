@@ -84,6 +84,11 @@ export const CONSUMERS = [
   'supabase/functions/deck-optimizer',
   'supabase/functions/ai-deck-builder-v2',
   'supabase/functions/mtg-brain',
+  /* The facet memo filler. It needs `_engine` as well as `_lib`, because the
+     generated facet shim imports the engine's own `behaviour.ts`. Listing it in
+     FACET_SUBDIRS alone produced a shim pointing at a directory that was never
+     mirrored, which `deno check` caught and the app build would not have. */
+  'supabase/functions/facet-memo-fill',
 ];
 
 /** Where the copy lands inside each consumer. */
@@ -205,6 +210,12 @@ export const FACET_SUBDIRS = [
   'supabase/functions/ai-deck-builder-v2/_lib',
   'supabase/functions/deck-optimizer/_lib',
   'supabase/functions/mtg-brain/_lib',
+  /* The filler computes the SAME facets the generator would have computed at
+     request time, so it must run the SAME compiler. A fourth copy that drifted
+     would fill the cache with answers the reader disagrees with, which is worse
+     than an empty cache: the generator would rank on facets no longer produced
+     and there would be nothing on screen to say so. */
+  'supabase/functions/facet-memo-fill/_lib',
 ];
 
 /**

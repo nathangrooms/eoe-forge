@@ -58,8 +58,18 @@ Keep it concise and actionable. End with: Referenced Cards: [list cards mentione
 
       if (fnError) throw fnError;
 
-      if (data?.text) {
-        setSuggestions(data.text);
+      /* `message`, not `text`. The function has NEVER returned a `text`
+         field: it answers { message, cards, visualData, conversationId, ... },
+         verified against the deployment on 2026-08-30. So this branch always
+         fell through to the throw below and the panel printed its failure
+         line after a perfectly good HTTP 200 in half a second. Two call sites
+         had the same typo and both features were dead.
+
+         `text` is kept as a fallback rather than deleted, because it costs
+         nothing and the shape of this response has moved once already. */
+      const answer = data?.message ?? data?.text;
+      if (answer) {
+        setSuggestions(answer);
       } else {
         throw new Error('No suggestions generated');
       }

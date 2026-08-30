@@ -23,6 +23,9 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 const DECK = process.env.DECK || 'e0909132-5a48-4416-924c-dd2374d3d34d';
+/* Sol Ring's representative printing in `cards_unique`. A real id, so the
+   card page draws a real card rather than a not-found state. */
+const CARD = process.env.CARD || 'a7fc546e-7e3c-436d-a0b9-9ac3548ec344';
 
 /** Tab ids, straight out of the component that declares them. */
 function deckTabs() {
@@ -77,6 +80,34 @@ export const SETS = {
       : ['collection'];
     return tabs.map(tab => [`collection-${tab}`, `/collection?tab=${tab}`]);
   },
+
+  /**
+   * The routes that are NOT in the left menu and were therefore never walked.
+   *
+   * `App.tsx` declares about sixty. The menu is fourteen of them, and the audit
+   * had only ever seen the menu plus whatever sub-routes were added by hand. So
+   * `/cards/:id` — the card page the owner asked about by name, where the
+   * "recommended cards" complaint lives — had never been screenshotted, nor had
+   * Scan, Templates, Shopping or the storage pages.
+   *
+   * Auth, legal and `:param` routes needing a fixture that does not exist are
+   * left out on purpose: a walk that 404s tells you nothing. Anything here has
+   * to be reachable signed out with the harness.
+   */
+  rest: () => [
+    ['card-detail', `/cards/${CARD}`],
+    ['scan', '/scan'],
+    ['templates', '/templates'],
+    ['smart-builder', '/smart-builder'],
+    ['shopping', '/shopping'],
+    ['decks-new', '/decks/new'],
+    ['collection-import', '/collection/import'],
+    ['collection-insurance', '/collection/insurance'],
+    ['collection-storage-page', '/collection/storage'],
+    ['play-mats', '/play/mats'],
+    ['tournament-new', '/tournament/new'],
+    ['landing', '/landing'],
+  ],
 
   /* Play is a flow rather than a page: mode, then deck, then the table. */
   play: () => [

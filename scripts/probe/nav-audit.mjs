@@ -238,11 +238,22 @@ for (const [name, route] of (ROUTES ?? NAV)) {
        * width on that same page, which is the page itself saying it does not
        * overflow. A checker that contradicts that is the thing at fault.
        */
-      const inXScroller = el => {
+      /* ANY ancestor that CLIPS, not only one that scrolls.
+         The first version tested for `auto` and `scroll`, and the homepage's
+         marquee is `w-max` at 4,208px inside `overflow-hidden`, so `widest`
+         came back 3,865 on a 390px screen and every card grid under it read as
+         narrow. `hidden` and `clip` clip just as firmly as a scroller does,
+         and a child nobody can see the right-hand end of says nothing about how
+         much room the page has.
+
+         This does not hide a real overflow bug. Content genuinely wider than
+         the page is caught by `ovfX`, which compares the document's own
+         scrollWidth against its clientWidth, and that is a separate column in
+         the table. Here it read 382 against 390. */
+      const inClippedBox = el => {
         let p = el.parentElement;
         for (let d = 0; p && d < 12; d++, p = p.parentElement) {
-          const ox = getComputedStyle(p).overflowX;
-          if (ox === 'auto' || ox === 'scroll') return true;
+          if (getComputedStyle(p).overflowX !== 'visible') return true;
         }
         return false;
       };
@@ -256,7 +267,7 @@ for (const [name, route] of (ROUTES ?? NAV)) {
         /* Height still counts: a tall thing inside a sideways rail is still on
            the page and still pushes the fold down. Only its WIDTH is
            meaningless, and only when it exceeds the window. */
-        if (r.right > view.w && inXScroller(el)) continue;
+        if (r.right > view.w && inClippedBox(el)) continue;
         widest = Math.max(widest, r.right);
       }
 

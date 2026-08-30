@@ -28,6 +28,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ManaCost } from '@/components/ui/mana-cost';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { supabase } from '@/integrations/supabase/client';
+import { askEdgeFunctionRaw } from '@/lib/tutor/edgeInvoke';
 import { DeckAPI, DeckSummary } from '@/lib/api/deckAPI';
 import { useOpenCard } from '@/components/cards';
 import { CardImage } from '@/components/cards';
@@ -497,7 +498,7 @@ export default function Tutor() {
           }
         : null;
 
-      const response = await supabase.functions.invoke('mtg-brain', {
+      const response = await askEdgeFunctionRaw('mtg-brain', {
         body: {
           message: selectedCard ? `${message}
 

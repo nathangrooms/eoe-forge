@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Lightbulb, Sparkles, Search, Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { askEdgeFunctionRaw } from '@/lib/tutor/edgeInvoke';
 import ReactMarkdown from 'react-markdown';
 
 interface ScanInsightsHelperProps {
@@ -47,7 +48,7 @@ Provide:
 
 Keep it concise and actionable. End with: Referenced Cards: [list cards mentioned]`;
 
-      const { data, error: fnError } = await supabase.functions.invoke('mtg-brain', {
+      const { data, error: fnError } = await askEdgeFunctionRaw('mtg-brain', {
         body: {
           message: prompt,
           conversationHistory: [],

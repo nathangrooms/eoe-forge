@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Sparkles, Layers, Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { askEdgeFunctionRaw } from '@/lib/tutor/edgeInvoke';
 import ReactMarkdown from 'react-markdown';
 
 interface AITemplateRecommendationsProps {
@@ -44,7 +45,7 @@ Provide:
 
 Focus on variety and strategic diversity. End with: Referenced Cards: [list commanders and key cards mentioned]`;
 
-      const { data, error: fnError } = await supabase.functions.invoke('mtg-brain', {
+      const { data, error: fnError } = await askEdgeFunctionRaw('mtg-brain', {
         body: {
           message: prompt,
           conversationHistory: [],

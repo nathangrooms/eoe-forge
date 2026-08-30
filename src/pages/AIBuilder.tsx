@@ -21,6 +21,7 @@ import {
 } from '@/components/ai-builder/commander-query';
 
 import { supabase } from '@/integrations/supabase/client';
+import { askEdgeFunctionRaw } from '@/lib/tutor/edgeInvoke';
 import { uniqueCards } from '@/lib/cards/cardQuery';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { useAuth } from '@/components/AuthProvider';
@@ -283,7 +284,7 @@ export default function AIBuilder() {
 
     setAnalyzingCommander(true);
     try {
-      const { data, error } = await supabase.functions.invoke('mtg-brain', {
+      const { data, error } = await askEdgeFunctionRaw('mtg-brain', {
         body: {
           message: `Analyze commander "${selectedCommander.name}" for deck building.
           Color Identity: ${selectedCommander.color_identity?.join('') || 'Colorless'}

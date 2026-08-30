@@ -44,6 +44,7 @@ import { Card as DeckCard } from '@/stores/deckStore';
 import { AIVisualDisplay, type VisualData } from '@/components/shared/AIVisualDisplay';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from '@/integrations/supabase/client';
+import { askEdgeFunctionRaw } from '@/lib/tutor/edgeInvoke';
 import { CardRecommendationDisplay, type CardData } from '@/components/shared/CardRecommendationDisplay';
 import { toast } from 'sonner';
 import { buildManaProfile } from '@/engine/playability/castability';
@@ -253,7 +254,7 @@ const optimizations = useMemo(() => {
       C: analysis.landBase?.statistics?.totalSources?.C || 0,
     };
     
-    supabase.functions.invoke('mtg-brain', {
+    askEdgeFunctionRaw('mtg-brain', {
       body: {
         message,
         deckContext: { 

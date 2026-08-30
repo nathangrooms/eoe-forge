@@ -25,6 +25,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { askEdgeFunctionRaw } from '@/lib/tutor/edgeInvoke';
 import { Card as DeckCard } from '@/stores/deckStore';
 import { useOpenCard } from '@/components/cards';
 import { CardRecommendationDisplay, type CardData } from '@/components/shared/CardRecommendationDisplay';
@@ -401,7 +402,7 @@ Reading ${commander?.name || 'this deck'}. Pick a question below, or ask your ow
 
 **User Question**: ${userPrompt}`;
 
-      const response = await supabase.functions.invoke('mtg-brain', {
+      const response = await askEdgeFunctionRaw('mtg-brain', {
         body: {
           message: contextMessage,
           deckContext: { id: deckId, ...deckData },

@@ -57,8 +57,21 @@ const TAG_ALIASES: Record<string, string> = {
 /** How many cards represent one archetype. Three fit a tile at a readable size. */
 export const FACES_PER_TEMPLATE = 3;
 
-/** How deep into the popularity ranking the shared query reaches. */
-export const FACE_POOL_SIZE = 400;
+/**
+ * How deep into the popularity ranking the shared query reaches.
+ *
+ * 250, not 400, and the difference is measured rather than guessed. The query
+ * walks the rank index and filters on tags, so the limit decides how many rows
+ * it reads: 400 costs 1,134 heap blocks and 250 costs 797. Cold, at this
+ * project's roughly 8.8ms per block read, the first is about ten seconds
+ * against a three second statement timeout, and `sweep.mjs` duly caught it
+ * failing with 57014 twice in twenty presses.
+ *
+ * 250 is the floor that still fills every tile. Replayed offline against the
+ * real pool: at 250 all eleven archetypes get three cards; at 180 both
+ * Aggressive Burn and Draw-Go Control come up short.
+ */
+export const FACE_POOL_SIZE = 250;
 
 export interface FaceCard {
   id: string;

@@ -87,6 +87,22 @@ const SKIP = [
 ];
 const skipped = label => SKIP.some(bad => label.toLowerCase().includes(bad));
 
+/**
+ * What counts as a control, and what does NOT.
+ *
+ * `:not(nav *)` and `:not(header *)` are the whole point. The left menu and the
+ * top bar are on every page, so a sweep of `/templates` spent FIFTEEN of its
+ * eighteen presses on Home, Card Search, Tutor, My Collection, My Decks and the
+ * rest — the same fifteen links it had already pressed on `/collection`,
+ * `/decks` and `/wishlist` — and the limit then cut the run off before it ever
+ * reached "Use template" or "Details", which are the controls that only exist
+ * on this page and have therefore never been pressed by anything.
+ *
+ * The chrome is worth sweeping once. It is not worth sweeping on every route.
+ */
+const CONTROLS =
+  'button:not(nav *):not(header *), a[role="button"]:not(nav *):not(header *), a[href]:not(nav *):not(header *)';
+
 const MIME = {
   '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
   '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png',
@@ -164,13 +180,22 @@ const snapshot = () =>
  */
 async function pressControl(page, label) {
   const want = label.trim().toLowerCase();
-  const handles = await page.$$('button, a[role="button"], a[href]');
+  const handles = await page.$$(CONTROLS);
   let exact = null;
   let loose = null;
   for (const h of handles) {
     const info = await page.evaluate(
+      /* Same label rule as the discovery pass above, or a control found by its
+         title is one this can never locate again. */
       el => ({
-        text: (el.textContent || '').trim().replace(/\s+/g, ' ').toLowerCase(),
+        text: (
+          (el.textContent || '').trim() ||
+          el.getAttribute('title') ||
+          el.getAttribute('aria-label') ||
+          ''
+        )
+          .replace(/\s+/g, ' ')
+          .toLowerCase(),
         off: el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true',
       }),
       h
@@ -205,10 +230,27 @@ try {
   const first = await open();
   await first.goto(`http://127.0.0.1:${PORT}${ROUTE}`, { waitUntil: 'networkidle2' });
   await new Promise(r => setTimeout(r, SETTLE));
-  const labels = await first.evaluate(() =>
-    [...document.querySelectorAll('button, a[role="button"], a[href]')]
-      .map(b => (b.textContent || '').trim().replace(/\s+/g, ' '))
-      .filter(t => t.length > 0 && t.length < 60)
+  /* TEXT, THEN title, THEN aria-label.
+
+     A card tile is an <a> wrapping an <img> and nothing else, so its
+     textContent is empty and the old filter dropped it. That is not a rare
+     shape here: every deck tile, every card in every rail and all eleven
+     archetype strips are image-only links, which means the sweep could not see
+     the most common clickable thing in the product. Both attributes are already
+     set for screen readers, so there is nothing to add to the app. */
+  const labels = await first.evaluate(
+    sel =>
+      [...document.querySelectorAll(sel)]
+        .map(b =>
+          (
+            (b.textContent || '').trim() ||
+            b.getAttribute('title') ||
+            b.getAttribute('aria-label') ||
+            ''
+          ).replace(/\s+/g, ' ')
+        )
+        .filter(t => t.length > 0 && t.length < 60),
+    CONTROLS
   );
   await first.close();
 

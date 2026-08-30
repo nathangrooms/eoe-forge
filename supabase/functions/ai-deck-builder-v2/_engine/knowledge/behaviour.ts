@@ -2202,12 +2202,48 @@ export function planForCommander(commander: {
       .join(FACE_JOIN) ||
     '';
 
-  if (!wants.size && oracleText) {
+  /*
+   * ON SILENCE **OR** ON A THIN READING, and the second half was added
+   * 2026-08-30 because of Meren of Clan Nel Toth.
+   *
+   * Meren is an aristocrats commander. Her text is "whenever another creature
+   * you control dies" and "return it to the battlefield", and the intent rule
+   * for exactly that sentence has existed all along. It never ran, because her
+   * facets are not silent: `ctr:experience` produced two wants, so `wants.size`
+   * was non-zero and the second reader was skipped. Her whole plan was
+   *
+   *   ctr:experience@0.9, eff:proliferate@0.8
+   *
+   * which is a true but incidental reading of a card whose deck is built out of
+   * sacrifice outlets and creatures worth sacrificing. Measured through the
+   * audit, 16 of 60 nonland cards keyed off her against 81-90% for four other
+   * commanders in the same run.
+   *
+   * The gate's own comment is the argument for changing it: it says an intent
+   * rule is "a more specific claim" than the combat fallback below, which is an
+   * inference from SILENCE. A positive reading of the card's own sentence
+   * should not be suppressed by an unrelated facet happening to fire. Only the
+   * fallbacks below stay gated on nothing having fired at all.
+   *
+   * THIN, not always, because a commander whose record already produced a real
+   * plan does not need a second opinion and blending one in would dilute it.
+   * Four is the count at which the facet reading is carrying the deck on its
+   * own; below that it is one or two incidental facets like Meren's counter.
+   *
+   * And the corroborating weights are SCALED. When the facets said nothing the
+   * intent rule is the whole reading and keeps its weight; when they said
+   * something thin it is a second voice, and it must not outrank the thing the
+   * record actually stated. That is the same principle the fallback weights
+   * below are written to.
+   */
+  const THIN_PLAN = 4;
+  if (wants.size < THIN_PLAN && oracleText) {
     const text = oracleText;
+    const scale = wants.size === 0 ? 1 : 0.8;
     for (const rule of INTENT_RULES) {
       if (!rule.when.test(text)) continue;
       const because = `${commander.name} ${rule.reads}`;
-      for (const [facet, weight] of rule.wants) add(facet, weight, because);
+      for (const [facet, weight] of rule.wants) add(facet, weight * scale, because);
     }
   }
 

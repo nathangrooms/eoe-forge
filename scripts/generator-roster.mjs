@@ -108,7 +108,7 @@ export const ROSTER = [
   {
     key: 'kozilek',
     name: 'Kozilek, the Great Distortion',
-    id: 'c41554e7-2a07-4cc7-b01b-44deed08e588',
+    id: 'f06fc6e0-b22c-40d3-bb53-d5ec400d921c',
     type_line: 'Legendary Creature — Eldrazi',
     color_identity: [],
     colors: [],

@@ -125,13 +125,31 @@ for (const key of KEYS) {
      The roster carries no oracle text, and a plan built from an empty string
      has no wants, so every card scores zero fit and the audit reports 0%
      while the generator is fine. Fetch the real text. */
+  /* BY NAME, which is how `pipeline.ts` resolves a commander (`cardsByName`),
+     and not by the roster's id.
+
+     `cards_unique` holds ONE printing per oracle_id, the cheapest, so a
+     printing id taken from `cards` is usually not in it. The roster's Kozilek
+     id was c41554e7 and the representative printing is f06fc6e0, so this fetch
+     returned nothing, the plan had no wants, every card scored zero fit, and
+     the audit printed "keyed 23%" beside a line saying it could not judge fit
+     at all. Two runs were read past that line before anybody noticed it was
+     the MEASUREMENT that was broken and not the generator.
+
+     Any lookup of `cards_unique` by printing id has this hazard. Use the name
+     or the oracle_id. */
   const cmdRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/cards_unique?id=eq.${entry.id}&select=name,type_line,oracle_text,colors,color_identity,keywords,faces,tags`,
+    `${SUPABASE_URL}/rest/v1/cards_unique?name=eq.${encodeURIComponent(entry.name)}` +
+      `&select=id,name,type_line,oracle_text,colors,color_identity,keywords,faces,tags&limit=1`,
     { headers: { apikey: ANON, Authorization: `Bearer ${ANON}` } }
   );
   const cmdRow = (await cmdRes.json())[0];
   if (!cmdRow?.oracle_text && !cmdRow?.faces) {
-    console.log(`${entry.name}: no oracle text in the catalogue, cannot judge fit`);
+    /* Loud, because a silent version of this is what cost the two runs above.
+       The number printed below would be meaningless. */
+    console.log(`!! ${entry.name}: NO RECORD IN cards_unique. The keyed figure below is not a measurement.`);
+  } else if (cmdRow.id !== entry.id) {
+    console.log(`   roster id for ${entry.name} is stale: ${entry.id} -> ${cmdRow.id}`);
   }
   /* planForCommander reads COMPILED FACETS, not oracle text: `facetsOf` takes
      `commander.facets` or falls back to tags, and never touches the rules text
@@ -169,6 +187,18 @@ for (const key of KEYS) {
       facets: compiled.facets, tags: c.tags,
     });
     if ((fit?.fit ?? 0) > 0) keyed++;
+  }
+
+  /* SHOW=1 prints the nonland list. A keyed percentage rises whenever the plan
+     gains wants, so it can go up while the deck gets no better; the only check
+     for that is reading the cards as a player. */
+  if (process.env.SHOW) {
+    console.log(`\n  --- ${entry.name}: ${nonLand.length} nonland cards`);
+    for (const d of nonLand) {
+      const c = cardOf(d);
+      console.log(`    ${String(c.edhrec_rank ?? c.edhrecRank ?? '').padStart(6)}  ${c.name}`);
+    }
+    console.log('');
   }
 
   const names = new Set(deck.map(d => (cardOf(d).name ?? '').toLowerCase()));

@@ -1045,11 +1045,27 @@ describe('reading a commander the ability compiler cannot parse', () => {
     }
   });
 
-  it('stays silent when a compiled record already spoke', () => {
+  it('lets a compiled record outrank the second reader', () => {
     /* Adeline reads cleanly, and her text contains "number of creatures you
        control", which an intent rule matches. The compiled plan must win: the
        patterns read English and a parsed record does not, so anything the card
-       actually told us has to be the last word. */
+       actually told us has to be the last word.
+
+       This used to assert the intent rule produced NOTHING, which is a stronger
+       claim than the principle needs and it was wrong on the merits. Adeline
+       says "whenever you attack, for each opponent, create a token". She wants
+       attack triggers. Excluding the want did not protect the compiled record,
+       it just lost a true thing about the card.
+
+       What the principle actually requires is PRECEDENCE, and that is what is
+       asserted now: every compiled want outranks every inferred one. The
+       inferred weights are scaled by 0.8 when the record already spoke, which
+       is what keeps that true rather than a coincidence of these numbers.
+
+       The gate changed on 2026-08-30 because of Meren of Clan Nel Toth, whose
+       facets were not silent but said only `ctr:experience`, so the aristocrats
+       rule written for her exact sentence never ran and her whole plan was
+       "wants proliferate". */
     const withRecord = planForCommander({
       name: 'Adeline, Resplendent Cathar',
       typeLine: 'Legendary Creature \u2014 Human Knight',
@@ -1060,11 +1076,20 @@ describe('reading a commander the ability compiler cannot parse', () => {
     });
     const facets = withRecord.wants.map(w => w.facet);
     assert.ok(facets.includes('cares:sub:human'), 'the compiled want is missing');
-    assert.equal(
-      facets.includes('trig:attacks'),
-      false,
-      'an intent rule fired over a commander the compiler read'
+
+    /* Every want read from the RECORD outranks every want inferred from the
+       TEXT. That is the whole claim, and it is what stops a pattern talking
+       over a card that told us something itself. */
+    const compiled = withRecord.wants.filter(w => !w.because.includes('pays you for attacking'));
+    const inferred = withRecord.wants.filter(w => w.because.includes('pays you for attacking'));
+    assert.ok(inferred.length > 0, 'the second reader did not run at all');
+    const weakestCompiled = Math.min(...compiled.map(w => w.weight));
+    const strongestInferred = Math.max(...inferred.map(w => w.weight));
+    assert.ok(
+      strongestInferred < Math.max(...compiled.map(w => w.weight)),
+      `an inferred want at ${strongestInferred} outranked the compiled record`
     );
+    assert.ok(weakestCompiled >= 0, 'sanity');
   });
 
   it('reads nothing from the text it was not given, and falls to the floor instead', () => {

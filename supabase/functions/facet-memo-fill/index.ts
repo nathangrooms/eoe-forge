@@ -74,7 +74,14 @@ const json = (body: unknown, status = 200) =>
  * compiler and the generator ranks on stale facets, which looks exactly like
  * the generator being bad at its job.
  */
-const COMPILER_VERSION = 1;
+/*
+ * Bumped 1 -> 2 on 30 Aug 2026. Four rules changed the OUTPUT for cards the
+ * compiler already read: conditional mana (Command Tower, Arcane Signet),
+ * scry and surveil, the subject carried across "A does X and does Y", and
+ * "search for up to N". Every one of those alters facets on cards that already
+ * had a memo row, which is exactly the case this constant exists for.
+ */
+const COMPILER_VERSION = 2;
 
 /**
  * Cards read per call.

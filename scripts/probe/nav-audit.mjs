@@ -223,12 +223,40 @@ for (const [name, route] of (ROUTES ?? NAV)) {
            of "unused width" on a screen an art strip covers edge to edge. */
         widest = Math.max(widest, r.width);
       }
+      /*
+       * CONTENT INSIDE A HORIZONTAL SCROLLER SAYS NOTHING ABOUT THE PAGE'S WIDTH.
+       *
+       * The deck page's ten-tab strip is 762px wide inside an
+       * `overflow-x: auto` rail, which is exactly right on a phone: the tabs
+       * scroll sideways. But it made `widest` 774 on a 390px screen, and the
+       * one-column rule below compares a card grid against `widest`, so every
+       * grid on that page was reported as "310px inside 774px, room for two"
+       * on a screen with room for one. Three false positives in one run,
+       * against a deliberate and correct piece of layout.
+       *
+       * `document.documentElement.scrollWidth` was 382 against a 390 client
+       * width on that same page, which is the page itself saying it does not
+       * overflow. A checker that contradicts that is the thing at fault.
+       */
+      const inXScroller = el => {
+        let p = el.parentElement;
+        for (let d = 0; p && d < 12; d++, p = p.parentElement) {
+          const ox = getComputedStyle(p).overflowX;
+          if (ox === 'auto' || ox === 'scroll') return true;
+        }
+        return false;
+      };
+
       for (const el of main.querySelectorAll('*')) {
         const r = el.getBoundingClientRect();
         if (r.width < 4 || r.height < 4) continue;
         const cs = getComputedStyle(el);
         if (cs.visibility === 'hidden' || cs.display === 'none') continue;
         lowest = Math.max(lowest, r.bottom + window.scrollY);
+        /* Height still counts: a tall thing inside a sideways rail is still on
+           the page and still pushes the fold down. Only its WIDTH is
+           meaningless, and only when it exceeds the window. */
+        if (r.right > view.w && inXScroller(el)) continue;
         widest = Math.max(widest, r.right);
       }
 
@@ -381,10 +409,30 @@ for (const [name, route] of (ROUTES ?? NAV)) {
        * by its own width that grid genuinely could not fit two — the fault was
        * 48px of desktop padding upstream of it, not the grid.
        *
-       * So the comparison is against the PAGE. A card grid narrower than the
-       * widest block on the same screen is losing room something else is
-       * keeping, and one column is what that costs. 40px of slack, because a
-       * card inside a panel with its own frame is not the same thing.
+       * SECOND DRAFT, AND THE FIRST ONE CRIED WOLF. Comparing the grid's width
+       * against the page's flagged three grids on the deck page at 390px that
+       * were all correct. The archetype panel's grid is 278px because it sits
+       * inside a panel with 16px of padding inside a card with 20px more, and
+       * it fills that 278px exactly. Two cards do not go in 278px. The rule was
+       * reporting the panel's own frame as waste.
+       *
+       * The question is not "is this grid narrower than the page". It is
+       * "COULD ANOTHER COLUMN FIT". So: take the rendered track, and ask
+       * whether two of them plus a gap go inside the page.
+       *
+       *   archetype, 390px   278 * 2 + 12 = 568 > 382   no room, not a fault
+       *   the cut lists       already two tracks, skipped
+       *   the grid this rule was written for, at 1600
+       *                       310 * 2 + 12 = 632 < 774   room, flagged
+       *
+       * WHAT IT STILL CANNOT SEE: the track is what the grid RESOLVED to, not
+       * what the tile asked for. `minmax(180px, 1fr)` in a 278px box gives one
+       * 278px track, and the rule reads 278 rather than 180, so a single
+       * stretched column that could have been two smaller ones goes
+       * unreported. That is deliberate. The owner's standing instruction is
+       * that a bigger card beats a smaller one, so a checker guessing wrong in
+       * this direction argues for the layout the brief already asks for, and a
+       * checker guessing wrong in the other direction is one nobody reads.
        */
       const oneColumn = [];
       for (const el of document.querySelectorAll('*')) {
@@ -393,10 +441,14 @@ for (const [name, route] of (ROUTES ?? NAV)) {
         if (el.querySelectorAll('img').length < 5) continue;
         const tracks = cs.gridTemplateColumns.split(' ').filter(Boolean);
         if (tracks.length !== 1) continue;
+        const track = parseFloat(tracks[0]);
+        if (!Number.isFinite(track) || track < 40) continue;
+        const gap = parseFloat(cs.columnGap) || 0;
+        if (track * 2 + gap > widest) continue; // a second column does not fit
         const w = Math.round(el.getBoundingClientRect().width);
-        if (w >= widest - 40) continue; // it has the room the page has
         oneColumn.push(
-          `${w}px inside ${Math.round(widest)}px, ${el.querySelectorAll('img').length} cards`
+          `${w}px of ${Math.round(widest)}px, one ${Math.round(track)}px column where two fit, ` +
+            `${el.querySelectorAll('img').length} cards`
         );
       }
 

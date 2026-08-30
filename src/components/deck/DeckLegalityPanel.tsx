@@ -149,6 +149,27 @@ export function DeckLegalityPanel({
 
   const input = useMemo(() => ({ rows, commander: commanderRow ?? null }), [rows, commanderRow]);
 
+  /**
+   * A deck row by lower-cased name, so a warning that names a card can draw it.
+   *
+   * Matching by name is the join, the same one `ManaSourcesPanel` uses for the
+   * same reason: the validator works on `analyticsCards`, a separate shape with
+   * no image, and the row that carries the art lives here. The commander is
+   * included, because "unclear win conditions" can name it.
+   */
+  const rowByName = useMemo(() => {
+    const map = new Map<string, DeckCardRow>();
+    for (const row of [...rows, ...(commanderRow ? [commanderRow] : [])]) {
+      map.set((row.card?.name || row.card_name).trim().toLowerCase(), row);
+    }
+    return map;
+  }, [rows, commanderRow]);
+
+  const rowFor = useCallback(
+    (name: string) => rowByName.get(name.trim().toLowerCase()),
+    [rowByName]
+  );
+
   const verdicts = useMemo(() => deckFormatVerdicts(input), [input]);
 
   const ownFormat = format.toLowerCase();
@@ -557,10 +578,26 @@ export function DeckLegalityPanel({
                           {warning.suggestion}
                         </p>
                       )}
+                      {/* THE CARDS IT NAMES, AS CARDS.
+                          This was `affectedCards.join(' · ')`, so "Unclear win
+                          conditions" ended in the bare words "Xolotoyac, the
+                          Smiling Flood · Ygra, Eater of All" on a tab where
+                          every other card is drawn. A name is the one thing a
+                          Magic player cannot picture from; a card is the whole
+                          answer. Whole and uncropped through `DeckCardTile`,
+                          the same component the illegal-cards grid above uses.
+
+                          A name that does not match a row still prints, as a
+                          name. The warnings come from the validator, which
+                          works on the analytics copy of the list, so a row it
+                          names may not be in `rows` — dropping it silently
+                          would hide part of the reason. */}
                       {warning.affectedCards && warning.affectedCards.length > 0 && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {warning.affectedCards.join(' · ')}
-                        </p>
+                        <WarningCards
+                          names={warning.affectedCards}
+                          rowFor={rowFor}
+                          onCardClick={onCardClick}
+                        />
                       )}
                     </div>
                   ))}
@@ -574,3 +611,57 @@ export function DeckLegalityPanel({
 }
 
 export default DeckLegalityPanel;
+
+/** How wide a card is inside a warning. Small: it is a footnote, not the list. */
+const WARNING_CARD_WIDTH = 132;
+
+/**
+ * The cards a warning names, drawn.
+ *
+ * Kept out of the panel body because the lookup and the fallback are the whole
+ * of it. `rowFor` resolves a name to a deck row; a name with no row is still
+ * printed, because the validator works on the analytics copy of the list and a
+ * card it names may not be in `rows`. Silently dropping it would remove part of
+ * the reason the warning exists.
+ */
+function WarningCards({
+  names,
+  rowFor,
+  onCardClick,
+}: {
+  names: string[];
+  rowFor: (name: string) => DeckCardRow | undefined;
+  onCardClick?: (row: DeckCardRow) => void;
+}) {
+  const found = names.map(name => ({ name, row: rowFor(name) }));
+  const missing = found.filter(entry => !entry.row).map(entry => entry.name);
+  const drawn = found.filter(entry => entry.row);
+
+  return (
+    <div className="mt-2 space-y-2">
+      {drawn.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {drawn.map(({ name, row }) => (
+            <div key={row!.id} style={{ width: WARNING_CARD_WIDTH }}>
+              <DeckCardTile
+                card={{
+                  ...(row!.card ?? {}),
+                  id: row!.card_id,
+                  name: row!.card?.name || row!.card_name,
+                  image_uris: row!.card?.image_uris ?? null,
+                  mana_cost: row!.card?.mana_cost ?? null,
+                }}
+                width={WARNING_CARD_WIDTH}
+                onClick={onCardClick ? () => onCardClick(row!) : undefined}
+                caption={<span className="truncate">{name}</span>}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+      {missing.length > 0 && (
+        <p className="text-xs text-muted-foreground">{missing.join(' · ')}</p>
+      )}
+    </div>
+  );
+}

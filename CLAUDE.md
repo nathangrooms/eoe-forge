@@ -1299,6 +1299,36 @@ propagates only because writing `tags` bumps `updated_at`. Until it runs, the
 tags in the app are the old ones: the deck page, the generator and the optimiser
 all read the views, never `cards`.
 
+## What still calls a model, measured 30 Aug 2026
+
+Owner: *"we are replacing all AI with the backend engine"*. Here is the actual
+list, so the next session does not re-derive it. Six edge functions contain a
+model call; three of them are reached from `src/`.
+
+| what | where | what happens without a model |
+|---|---|---|
+| **Deck Generator** | `ai-deck-builder-v2` | The model is a RE-RANKER over a shortlist the engine produced. It returns ids; an id not on the shortlist is dropped and counted in `rejected`. It cannot name a card, cannot score one, cannot reach a card the ranking excluded. A missing key, an unreachable gateway, a refusal or unparseable output all leave the engine's baseline deck standing. **The gateway is out of credits, so production already ships the pure engine deck.** |
+| **Tutor** | `mtg-brain` via `Tutor.tsx` | Nothing. Conversation IS the feature. |
+| **Scan insights** | `mtg-brain` via `ScanInsightsHelper` | Commentary on a scan. |
+| **Card scanner fallback** | `scan-card-ai` via `visionFallback.ts` | Reading a photograph. The rules engine cannot do this. |
+| **Commander archetypes** | `mtg-brain` via `AIBuilder.tsx:287` | Picks 4 archetypes from a FIXED list of ids and already falls back to `generateLocalArchetypes`. The engine's `planForCommander` has 113 intent rules doing the same reading, so this is the one genuine remaining candidate for replacement. |
+| ArtStudio | `generate-art` | Admin only. |
+| not called at all | `gemini-deck-coach`, `dsl-compile-batch` | — |
+
+**`deck-optimizer` contains no model call.** `edhImpact` is the deck's score
+with that one change applied minus its score without, a measurement. Client
+comments calling it "the model's estimate" are stale.
+
+### What was removed on 30 Aug 2026
+
+- **`BrainAnalysis.tsx`**, the deck page's chat, nine presets answered by a
+  model. Owner: *"just remove deck analysis chat we have tutor for that"*.
+- **Five "Deck analysis" buttons** on `EnhancedDeckAnalysis`. They had never
+  worked: the effect guarded on `deckId` and the only caller passes none, so
+  every press rendered an empty `bg-muted/30` box.
+- The preset a player would actually miss, "what to cut", is answered by the
+  engine now. See "The engine answered what to cut all along".
+
 ## The engine answered "what to cut" all along, and no screen read it (30 Aug 2026)
 
 `src/engine/advise/cuts.ts` ranks a deck's own cards worst first. Castability

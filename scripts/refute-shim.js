@@ -42,7 +42,19 @@
   /* ------------------------------------------------------------ session */
   const now = Math.floor(Date.now() / 1000);
   const session = {
-    access_token: 'harness-not-a-real-token',
+    /* THE ANON KEY, not a made-up string, and that is a real difference.
+       ------------------------------------------------------------------
+       This was `'harness-not-a-real-token'`. Every request this shim answers
+       itself does not care, but an edge function reached through
+       `__DM_LIVE_FUNCTIONS` FORWARDS the caller's Authorization header to
+       PostgREST, which replied `PGRST301 Expected 3 parts in JWT; got 1` and
+       the optimiser returned a 500 that looked exactly like a product bug.
+
+       The anon key is a real JWT and it is already public, so a forwarded call
+       runs as an anonymous reader: world-readable tables like `cards_unique`
+       answer, and anything user-scoped correctly does not. That is the honest
+       description of this harness, which has no password. */
+    access_token: ANON,
     token_type: 'bearer',
     expires_in: 3600,
     expires_at: now + 3600,
@@ -427,6 +439,28 @@
       const PASSTHROUGH_FUNCTIONS = new Set(['fetch-precons']);
       if (PASSTHROUGH_FUNCTIONS.has(name) && (method === 'GET' || !method)) {
         window.__dmReq.push({ method, table: `fn:${name}`, passthrough: true });
+        return realFetch(input, init);
+      }
+
+      /* OPT IN TO THE REAL FUNCTIONS, for the screens whose whole content is
+         what a function returns.
+         ------------------------------------------------------------------
+         `/deck/:id/optimise` is the case. Stubbed, pressing "Optimise deck"
+         puts "Failed to generate analysis. Please try again." on the screen, so
+         the RESULT — the thing the page exists to show — has never been looked
+         at by anybody. The deployed function answers fine: HTTP 200 in 8,689 ms
+         with a measured analysis, verified directly on 2026-08-30.
+
+         Off by default, because these are slow and are billed. A probe that
+         needs the real answer sets `window.__DM_LIVE_FUNCTIONS = true` before
+         the page loads, and takes the seconds and the cost knowingly.
+
+         The rule above still holds and is not relaxed: a function that reads or
+         writes a USER's data must never be reached from this harness, which has
+         no password and must not touch anybody's real rows. This is for
+         functions that compute an answer from the body they are handed. */
+      if (window.__DM_LIVE_FUNCTIONS) {
+        window.__dmReq.push({ method, table: `fn:${name}`, passthrough: true, live: true });
         return realFetch(input, init);
       }
 

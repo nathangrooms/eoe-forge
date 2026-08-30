@@ -134,6 +134,16 @@ export function DeckAddPanel({
      another chunk". */
   const [pool, setPool] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  /**
+   * Why the ranking produced nothing, when the reason was not "nothing fit".
+   *
+   * The catch used to setSuggestions([]), which renders the panel's
+   * "nothing scored well enough against this deck" line. That is a VERDICT,
+   * and the truth was that the catalogue query died: the toast faded after a
+   * few seconds and the confident wrong sentence stayed on screen. A failure
+   * presented as a result is the thing this project keeps writing down.
+   */
+  const [failed, setFailed] = useState<string | null>(null);
   const [roleFilter, setRoleFilter] = useState<Role[]>([]);
   const [added, setAdded] = useState<Set<string>>(new Set());
 
@@ -176,6 +186,7 @@ export function DeckAddPanel({
 
   const fetchSuggestions = useCallback(async () => {
     setLoading(true);
+    setFailed(null);
     try {
       /* The scorer, its weights and its tag knowledge arrive here rather than
          in the deck page's first load. Nobody opens this tab to wait for a
@@ -192,11 +203,12 @@ export function DeckAddPanel({
       setPool(cap);
     } catch (error) {
       console.error('Could not rank candidates for this deck:', error);
-      showError(
-        'Could not work out what to suggest',
-        error instanceof Error ? error.message : 'The card catalogue did not answer.'
-      );
-      setSuggestions([]);
+      const why =
+        error instanceof Error ? error.message : 'The card catalogue did not answer.';
+      showError('Could not work out what to suggest', why);
+      setFailed(why);
+      /* NOT [], which the panel reads as "we looked and nothing fit". */
+      setSuggestions(null);
     } finally {
       setLoading(false);
     }
@@ -422,7 +434,19 @@ export function DeckAddPanel({
           </>
         )}
 
-        {suggestions && suggestions.length === 0 && !loading && (
+        {/* WE COULD NOT LOOK, which is a different sentence from "nothing fit"
+            and has to read like one. Above it the toast has already gone. */}
+        {failed && !loading && (
+          <div className="rounded-lg bg-muted/40 p-4 text-sm">
+            <p className="font-medium text-foreground">The card catalogue did not answer</p>
+            <p className="mt-1 text-muted-foreground">
+              Nothing was ranked, so this is not a verdict on the deck. Try again.
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground/70">{failed}</p>
+          </div>
+        )}
+
+        {suggestions && suggestions.length === 0 && !loading && !failed && (
           <p className="rounded-lg bg-muted/40 p-4 text-sm text-muted-foreground">
             Nothing in the pool scored well enough against this deck to suggest. That is a real
             answer for a finished list, and for a nearly empty one it means there is not enough

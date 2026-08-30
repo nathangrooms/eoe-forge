@@ -271,6 +271,16 @@
   const PASSTHROUGH = new Set([
     'cards',
     'cards_unique',
+    /* `cards_pool` joined on 2026-08-30 for the reason directly above, one
+       relation later. It is the narrow ranking view the deck page's Suggest
+       cards button reads its candidate pool from, world-readable with an
+       `anon` SELECT grant, and stubbed to `[]` it made the ranker report
+       'Nothing in the pool scored well enough against this deck' over a pool
+       of nothing. That cost most of an hour: the panel's sentence is a
+       verdict, so an empty stub reads as a real answer rather than as a
+       missing fixture. A relation the app READS must be in this list or the
+       feature that reads it cannot be measured at all. */
+    'cards_pool',
     'sync_status',
     'precons',
     'forum_topics',

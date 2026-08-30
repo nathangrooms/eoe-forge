@@ -61,6 +61,29 @@ const NAV = [
 ];
 const ONLY = process.env.ONLY ? new Set(process.env.ONLY.split(',')) : null;
 
+/**
+ * A different list of screens, for the same three checks.
+ *
+ * The menu is fourteen routes and the app is not. One deck page carries eight
+ * tabs and three card views, which is ten screens behind a single entry in
+ * `NAV`, and this walk saw exactly one of them: whatever the URL shows with no
+ * query string. The owner's brief is "view every possible screen", so the walk
+ * has to be able to take a list rather than only the menu.
+ *
+ *   ROUTES='cards-table=/deck/<id>?view=table,mana=/deck/<id>?tab=mana' \
+ *     node scripts/probe/nav-audit.mjs
+ *
+ * `scripts/probe/screens.mjs` builds the long ones so they are not typed by
+ * hand. Anything measured here is measured the same way as the menu, which is
+ * the point of putting it here instead of in a second copy of the file.
+ */
+const ROUTES = process.env.ROUTES
+  ? process.env.ROUTES.split(',').map(pair => {
+      const at = pair.indexOf('=');
+      return [pair.slice(0, at).trim(), pair.slice(at + 1).trim()];
+    })
+  : null;
+
 const MIME = {
   '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
   '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png',
@@ -86,7 +109,7 @@ const browser = await puppeteer.launch({
 });
 
 const rows = [];
-for (const [name, route] of NAV) {
+for (const [name, route] of (ROUTES ?? NAV)) {
   if (ONLY && !ONLY.has(name)) continue;
   for (const [w, h] of WIDTHS) {
     const page = await browser.newPage();

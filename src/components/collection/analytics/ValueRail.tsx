@@ -70,14 +70,17 @@ function ValueTile({ entry, rank }: { entry: ValuedRow; rank: number }) {
 
   const body = (
     <>
-      <CardImage card={entry.card} width={TILE_WIDTH} hideFlip interactive>
-        {/* Rank sits on the art rather than above it, so the tiles stay one
-            card tall and the rail has one rhythm. */}
-        <span className="absolute left-2 top-2 rounded-full bg-background/85 px-2 py-0.5 text-xs font-semibold tabular-nums text-foreground shadow-lg shadow-black/40 backdrop-blur">
-          {rank}
-        </span>
-      </CardImage>
+      {/* NOTHING IS DRAWN ON THE CARD.
+          The rank used to sit at `left-2 top-2`, which at this width lands on
+          the card's own title bar: it covered the first letter of every name in
+          the rail, so Tezzeret read "ezzeret" and Delney read "elney". A badge
+          that hides the card's name is worse than no badge, and the caption
+          below already has a line to put it on at no cost in height — which is
+          also where the itemised list on the insurance page puts it, so the two
+          now read the same way. */}
+      <CardImage card={entry.card} width={TILE_WIDTH} hideFlip interactive />
       <p className="mt-2 truncate text-sm font-medium text-foreground" title={entry.name}>
+        <span className="mr-1 tabular-nums text-muted-foreground">{rank}.</span>
         {entry.name}
       </p>
       <div className="flex items-baseline justify-between gap-2">

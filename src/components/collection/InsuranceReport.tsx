@@ -169,13 +169,28 @@ export function InsuranceReport({
         {items.length > 0 ? (
           <div>
             <p className="mb-2 text-sm font-medium">Most valuable entries</p>
-            <div className="max-h-[320px] space-y-1 overflow-y-auto">
+            {/*
+             * NO INNER SCROLL BOX, AND TWO COLUMNS.
+             *
+             * This was `max-h-[320px] overflow-y-auto`: 25 entries in a 320px
+             * window on a 1,240px page, so nine were visible, sixteen were
+             * hidden behind a scrollbar nobody sees on a trackpad, and each row
+             * used a third of the width it had. Measured by `clip-audit`: 576px
+             * of content hidden on the insurance page, 396px on the analytics
+             * tab.
+             *
+             * Columns rather than a wider single list, because a ranked list is
+             * read down and CSS columns flow 1-13 then 14-25, which keeps the
+             * order a reader expects. `break-inside-avoid` stops a row being
+             * split across the fold between them.
+             */}
+            <div className="sm:columns-2 sm:gap-x-8">
               {items.map((card, i) => {
                 const copies = card.quantity + card.foil;
                 return (
                   <div
                     key={`${card.name}-${i}`}
-                    className="flex items-center justify-between gap-3 rounded px-2 py-1.5 text-sm hover:bg-accent"
+                    className="flex break-inside-avoid items-center justify-between gap-3 rounded px-2 py-1.5 text-sm hover:bg-accent"
                   >
                     <span className="min-w-0 flex-1 truncate">
                       {i + 1}. {card.name}

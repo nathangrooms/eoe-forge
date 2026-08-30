@@ -2,6 +2,8 @@ import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, FileText } from 'lucide-react';
 import { InsuranceReport } from '@/components/collection/InsuranceReport';
+import { ValueRail } from '@/components/collection/analytics/ValueRail';
+import { mostValuable, type OwnedRow } from '@/components/collection/analytics/spread';
 import { useCollectionStore } from '@/features/collection/store';
 import { priceUSD } from '@/features/collection/value';
 import type { CollectionCard } from '@/types/collection';
@@ -110,6 +112,11 @@ export default function CollectionInsurance() {
     return { totalCards: cards, totalValue: value, topCards: top, unpricedCards: unpriced };
   }, [items]);
 
+  /* The SAME ranking the analytics tab draws, from the shared module, so the
+     rail and the itemised list under it can never disagree about which card is
+     first. */
+  const valuable = useMemo(() => mostValuable(items as unknown as OwnedRow[], 25), [items]);
+
   return (
     <div className="w-full max-w-full overflow-x-hidden px-3 pb-24 pt-2 md:px-6 md:pt-4">
       {/* Full width, not a centred ribbon.
@@ -144,6 +151,34 @@ export default function CollectionInsurance() {
             </p>
           </div>
         </header>
+
+        {/*
+         * THE CARDS THE DOCUMENT IS ABOUT, AS CARDS.
+         *
+         * This page had ZERO card images on it, measured. It is a valuation of
+         * particular printings — the line items carry a set code and a collector
+         * number precisely because a printing is what is being insured — and it
+         * showed twenty-five of them as a column of names in a 320px box.
+         *
+         * `ValueRail` is the rail the analytics tab already uses for the same
+         * ranking, so this is the same cards in the same order at the same size,
+         * not a second implementation that could disagree with it. `mostValuable`
+         * is likewise the shared ranking rather than the private sort below,
+         * which is why both show the same twenty-five.
+         */}
+        {valuable.length > 0 && (
+          <section aria-labelledby="dm-insurance-valuable" className="mb-6 min-w-0">
+            <div className="mb-3 flex items-baseline gap-2.5">
+              <h2 id="dm-insurance-valuable" className="text-base font-semibold text-foreground">
+                What is worth the most
+              </h2>
+              <span className="text-xs text-muted-foreground">
+                The printings you own, in the order they are valued below
+              </span>
+            </div>
+            <ValueRail cards={valuable} hasUnpriced={unpricedCards > 0} />
+          </section>
+        )}
 
         <InsuranceReport
           collectionValue={totalValue}

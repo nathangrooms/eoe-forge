@@ -501,6 +501,106 @@
         return json(ids.map(deckSummaryFor).filter(Boolean));
       }
 
+      /* PASTING A LIST IS THE MAIN WAY PEOPLE PUT CARDS IN, AND IT COULD NOT BE
+         MEASURED AT ALL.
+         ------------------------------------------------------------------
+         Three flows go through `resolve_card_names`: /collection/import, the
+         deck importer and the proxy paste. Owner, on the last one: "no way to
+         paste a list in either (main way people will)". Every one of them came
+         back "6 lines could not be matched" in this harness over a list of
+         Lightning Bolt, Sol Ring, Counterspell, Arcane Signet and Command
+         Tower, because an unhandled RPC answers null and every line then reads
+         as a miss. An audit of those screens was measuring the shim.
+
+         It CANNOT be passed through. `resolve_card_names` is
+         `security invoker` with execute revoked from `anon` and granted to
+         `authenticated`, and this harness holds a fake session rather than a
+         real JWT, so forwarding it with the anon key returns a permission
+         error rather than an answer.
+
+         So it is answered from `public.cards`, which anon may read and which
+         this shim already passes through. One request for the whole list, the
+         same discipline the real function is built around.
+
+         WHAT IT DELIBERATELY DOES NOT DO, because a fixture that lies is worse
+         than one that is silent:
+           - only `exact` and `none`. The real function also returns
+             `printing` (a set code and collector number matched), `face`
+             (one side of a two-faced card) and `near` (trigram). Anything it
+             cannot prove exactly comes back `none`.
+           - `suggestions` is always empty, because near-matching is the
+             trigram search and this cannot do it. A screen that draws "did you
+             mean" is therefore NOT measurable here, and reporting one would be
+             worse than reporting none.
+           - `printings` is COUNTED off the rows that came back, not typed in.
+             It drives the swap-the-art control, so a hardcoded 1 would hide a
+             control that exists. */
+      if (table === 'resolve_card_names') {
+        window.__dmReq.push({ method, table: `rpc:${table}`, computed: true });
+        let lines = [];
+        try {
+          lines = JSON.parse(init?.body || '{}').p_lines || [];
+        } catch { lines = []; }
+        if (lines.length === 0) return json([]);
+
+        const wanted = [...new Set(lines.map(l => String(l?.name ?? '').trim()).filter(Boolean))];
+        const quoted = wanted.map(n => '"' + n.replace(/"/g, '\\"') + '"').join(',');
+        const cols =
+          'id,name,set_code,collector_number,image_uris,prices,type_line,mana_cost,cmc,' +
+          'colors,color_identity,rarity,oracle_text,oracle_id,legalities';
+        let rows = [];
+        try {
+          const res = await realFetch(
+            `${URL_BASE}/rest/v1/cards?select=${cols}&name=in.(${encodeURIComponent(quoted)})&limit=2000`,
+            { headers: { apikey: ANON, Authorization: `Bearer ${ANON}` } }
+          );
+          if (res.ok) rows = await res.json();
+        } catch { rows = []; }
+
+        /* Group by name, and pick the representative the way the product does:
+           cheapest USD, a priced printing beats an unpriced one. That rule is
+           written down in three places already (CLAUDE.md 6.3) and this is a
+           fourth reader of it rather than a fourth definition. */
+        const byName = new Map();
+        for (const row of rows) {
+          const key = String(row.name || '').toLowerCase();
+          const bucket = byName.get(key) || [];
+          bucket.push(row);
+          byName.set(key, bucket);
+        }
+        const usd = r => {
+          const v = parseFloat(r?.prices?.usd);
+          return Number.isFinite(v) ? v : null;
+        };
+        for (const bucket of byName.values()) {
+          bucket.sort((a, b) => {
+            const x = usd(a), y = usd(b);
+            if (x === null && y !== null) return 1;
+            if (y === null && x !== null) return -1;
+            if (x !== null && y !== null && x !== y) return x - y;
+            return String(a.id).localeCompare(String(b.id));
+          });
+        }
+
+        return json(
+          lines.map((line, idx) => {
+            const name = String(line?.name ?? '').trim();
+            const bucket = byName.get(name.toLowerCase());
+            if (!bucket || bucket.length === 0) {
+              return { idx, query: name, status: 'none', card: null, printings: 0, suggestions: [] };
+            }
+            return {
+              idx,
+              query: name,
+              status: 'exact',
+              card: bucket[0],
+              printings: bucket.length,
+              suggestions: [],
+            };
+          })
+        );
+      }
+
       /* RPCs THAT RETURN A SET ANSWER `[]`, NOT `null`.
          ------------------------------------------------------------------
          The comment above says null is indistinguishable from "the harness

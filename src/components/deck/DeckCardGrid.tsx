@@ -155,8 +155,20 @@ export function DeckCardGrid({
               </button>
             </CardHeader>
 
+            {/* TWENTY-FOUR PIXELS EACH SIDE IS A DESKTOP FIGURE.
+                `CardContent` carries shadcn's `p-6`, and on a 390px phone that
+                turns a 358px box into a 310px one. The two-column expression
+                below needs 312 — two tracks of `max(150px, calc(50% - 6px))`
+                plus the 12px gap — so it missed by TWO PIXELS and the tab fell
+                back to one 310px card per row and 36,111px of scroll. Every
+                other card surface in the product gets its grid at 358px and
+                lays out two columns; even this deck's own Value tab does.
+
+                So the padding follows the screen. 12px each side on a phone
+                gives the grid 334px, which is exactly two 161px tracks, and
+                `sm:` restores the desktop figure untouched. */}
             {isOpen && (
-              <CardContent className="pt-0">
+              <CardContent className="px-3 pb-3 pt-0 sm:px-6 sm:pb-6">
                 <ul
                   className={cn(
                     'grid gap-3',

@@ -85,7 +85,29 @@ const SKIP = [
   'sync now', 'start sync', 'run sync', 'resume sync', 'backfill', 'retag',
   'skip to main content', 'open navigation menu', 'collapse',
 ];
-const skipped = label => SKIP.some(bad => label.toLowerCase().includes(bad));
+/**
+ * Matched on WORD BOUNDARIES, not as a substring.
+ *
+ * `share` is on the list so "Share deck" is never pressed. As a substring it
+ * also matches **Plowshares**, so every control belonging to Swords to
+ * Plowshares — open it, add it, wishlist it, put it on the shopping list, put
+ * it on the proxy list — was silently skipped on `/cards`. Five controls on the
+ * product's most-used screen, unpressable by anything, because of a card name.
+ *
+ * A skip that is invisible is worse than a press that fails: the run still says
+ * "no control misbehaved". Erring toward skipping is right for DESTRUCTION and
+ * wrong for spelling.
+ */
+const skipped = label => {
+  const text = label.toLowerCase();
+  return SKIP.some(bad => {
+    /* Escape nothing: every entry is letters and spaces. Boundaries on both
+       ends, so "cancel" still catches "Cancel" and "cancelled" but "share"
+       no longer catches "plowshares". */
+    const re = new RegExp(`(^|[^a-z])${bad}([^a-z]|$)`, 'i');
+    return re.test(text);
+  });
+};
 
 /**
  * What counts as a control, and what does NOT.

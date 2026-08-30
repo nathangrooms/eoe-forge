@@ -1227,6 +1227,58 @@ The general rule this is the third instance of: **read the deployed object, not
 the repo file, before believing you know what runs.** Sections 10b and 10c
 record the same trap on `mtg-brain` and `ai-deck-builder-v2`.
 
+## The instruments lie in four specific ways (30 Aug 2026)
+
+Four separate "defects" this session turned out to be the measuring tool,
+not the product, and each cost real time. They are written down because
+every one of them will recur.
+
+**A full-page screenshot never scrolls, so it photographs unloaded
+images.** `fullPage: true` stitches a tall capture without moving the
+viewport, and `CardImage` is `loading="lazy"`, so everything below the
+first screenful had never been requested. The picture shows real art at
+the top and grey boxes underneath, which looks exactly like broken
+images. Misread three screens in one day. `nav-audit` now scrolls, waits
+for `naturalWidth > 0` rather than `complete` (which is ALSO true for an
+image that finished failing), and waits two frames for paint. It is still
+not perfect — two Templates tiles capture grey reproducibly while a probe
+finds all 33 images loaded. **A grey box in a screenshot is evidence, not
+proof. Read `naturalWidth` before believing it.**
+
+**A synthetic `el.click()` does not activate Radix.** Every shadcn tab,
+dropdown, switch and select opens on POINTER events, so `page.evaluate(el
+=> el.click())` silently under-reports most of this interface.
+`sweep.mjs` reported all nine admin tabs as "no request and no change"
+while a real click moved the URL and drew the console. Use Puppeteer's
+own `.click()`.
+
+**A page can score clean on every layout rule and hide a third of
+itself.** `nav-audit` measures the document: height, dead space below the
+fold, cropped art. Tutor scored `pageH 1000, dead 32, crop 0` while
+hiding 156px of its welcome screen inside a 564px scroll pane.
+`scripts/probe/clip-audit.mjs` asks each ELEMENT whether its
+`scrollHeight` is past its `clientHeight`, and separates a scroller
+(reachable) from an `overflow: hidden` clipper (not). It ignores
+`truncate`/`line-clamp` (an ellipsis is a visible promise) and anything
+`aria-hidden` or `pointer-events: none` (the identity ground is
+oversized ON PURPOSE and was reported as 77px of hidden content).
+
+**EXPLAIN with a hand-typed WHERE clause measures a query the app never
+sends.** The archetype strip was measured at 606 blocks and shipped; the
+app's real tag list is smaller and it costs 1,134. **A smaller `&&` array
+is MORE expensive** when the plan walks an ordered index and filters,
+because it reads further down to fill the same LIMIT. Build the predicate
+by calling the app's own function, never by retyping it.
+
+### The corollary about the shape of these
+
+Three of the four made the product look worse than it is, and the fourth
+made it look better. That asymmetry is the danger: an instrument that
+invents defects wastes a morning, and an instrument that hides one ships
+a timeout. Both are fixed by the same discipline, which is to confirm a
+finding with a second, differently-shaped measurement before acting on
+it.
+
 ## Green tests do not mean a player can reach it
 
 The game engine is a rules library with 1,367 passing tests, and for months the

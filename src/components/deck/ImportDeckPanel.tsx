@@ -5,6 +5,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, CheckCircle, Loader2, Upload } from 'lucide-react';
 import { showError } from '@/components/ui/toast-helpers';
+import { CardGrid } from '@/components/cards';
+import { DeckCardTile, TileBadge } from './DeckCardTile';
 import {
   MAX_LINES,
   isSettled,
@@ -213,7 +215,55 @@ export function ImportDeckPanel({
             </div>
           )}
 
-          <div className="flex flex-wrap justify-end gap-2">
+          {/* WHAT YOU ARE ABOUT TO GET, AS CARDS.
+              The panel said "5 cards · 11 copies" and drew nothing, in a
+              640px sheet with roughly 440px of empty space under it. One of
+              the two buttons below CLEARS THE MAINDECK, and it was asking for
+              that on the strength of a number.
+
+              The proxy paste, which is the same resolver and the same shaped
+              decision, has always drawn every card it found. This is that,
+              inside the panel that already had the room.
+
+              Twelve, because the buttons have to stay reachable: a 99 card
+              paste at three to a row is thirty-three rows, and a confirmation
+              you have to scroll past to confirm is not one. The count above is
+              the whole truth and this is the sample. */}
+          {matched.length > 0 && !reading && (
+            <div className="space-y-2">
+              <CardGrid width={150}>
+                {matched.slice(0, 12).map(entry => (
+                  <DeckCardTile
+                    key={entry.key}
+                    card={entry.card}
+                    width={150}
+                    badge={entry.quantity > 1 ? <TileBadge>{entry.quantity}</TileBadge> : undefined}
+                  />
+                ))}
+              </CardGrid>
+              {matched.length > 12 && (
+                <p className="text-xs text-muted-foreground">
+                  and {matched.length - 12} more, all of them counted above.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* The sentence sits ABOVE the buttons now, because it explains what
+              one of them does and a caption under a control is read after the
+              control has been pressed. */}
+          <p className="text-xs text-muted-foreground">
+            Replacing clears the maindeck and keeps the commander and the sideboard. Lines that
+            matched nothing are left out; nothing is guessed.
+          </p>
+
+          {/* STUCK TO THE BOTTOM OF THE PANEL.
+              Drawing the matched cards pushed both buttons off a 1000px screen
+              on a FIVE card paste, which is the smallest real one. The sheet
+              scrolls, so they were reachable and invisible, and the primary
+              action of a panel should never be either. No hairline under it:
+              the shadow does the separating, per the standing rule. */}
+          <div className="sticky -bottom-6 -mx-6 -mb-6 flex flex-wrap justify-end gap-2 bg-background px-6 pb-6 pt-3 shadow-[0_-10px_24px_-14px_rgba(0,0,0,0.75)]">
             <Button
               variant="secondary"
               onClick={() => run('append')}
@@ -230,10 +280,6 @@ export function ImportDeckPanel({
               Replace the decklist
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Replacing clears the maindeck and keeps the commander and the sideboard. Lines that
-            matched nothing are left out; nothing is guessed.
-          </p>
         </div>
       </SheetContent>
     </Sheet>

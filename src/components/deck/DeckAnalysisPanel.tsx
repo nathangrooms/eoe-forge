@@ -238,8 +238,15 @@ export function DeckAnalysisPanel({
                       <p className="text-sm font-medium capitalize">
                         {pair.synergyType} synergy
                       </p>
+                      {/* `.toFixed(1)`, the same as the tile above.
+                          `strength` is a raw float off the synergy engine, and
+                          this printed "0.6080350521739131 out of 10" on a real
+                          deck. The metric tile was fixed and carries a comment
+                          about precisely this; the list under it was missed, so
+                          the page showed the number correct in one place and to
+                          sixteen decimals in another. */}
                       <p className="text-sm tabular-nums text-muted-foreground">
-                        {pair.strength} out of 10
+                        {pair.strength.toFixed(1)} out of 10
                       </p>
                     </div>
                     <p className="text-sm text-muted-foreground">{pair.description}</p>

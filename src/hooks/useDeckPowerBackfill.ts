@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { DeckSummary } from '@/lib/api/deckAPI';
 import { scoreDecksInBatch } from '@/lib/api/deckPowerBatch';
 import { scoreDeckById, type DeckPower } from '@/lib/deck/power';
 import { usesPowerLevel } from '@/lib/deck/formats';
@@ -37,6 +36,26 @@ import { usesPowerLevel } from '@/lib/deck/formats';
 
 const MAX_PER_PASS = 12;
 
+/**
+ * The three fields this hook reads, and nothing else.
+ *
+ * It asked for a whole `deckAPI.DeckSummary`, which the dashboard cannot
+ * supply: `features/dashboard/hooks.ts` carries its own slimmer `DeckSummary`
+ * with none of `counts`, `curve` or `mana` on it. Demanding fields it never
+ * touches is what kept the dashboard off this hook, and keeping the dashboard
+ * off this hook is why the same deck read 5.3 on one screen and "Not scored
+ * yet" on another.
+ *
+ * Structural, so both shapes satisfy it without either being changed. That the
+ * two `DeckSummary` types exist at all is a separate piece of duplication and
+ * not one to resolve from here.
+ */
+export interface ScorableDeck {
+  id: string;
+  format: string;
+  power: DeckPower | null;
+}
+
 export interface DeckPowerBackfill {
   /** Deck ids currently being scored, for spinner state on the tile. */
   scoring: Set<string>;
@@ -45,7 +64,7 @@ export interface DeckPowerBackfill {
 }
 
 export function useDeckPowerBackfill(
-  decks: DeckSummary[],
+  decks: readonly ScorableDeck[],
   onScored: (deckId: string, power: DeckPower) => void
 ): DeckPowerBackfill {
   const [scoring, setScoring] = useState<Set<string>>(new Set());

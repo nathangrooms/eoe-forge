@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { deckListHash, deckPowerFromStored, type DeckPower } from '@/lib/deck/power';
+import { useDeckPowerBackfill } from '@/hooks/useDeckPowerBackfill';
 import { canPriceOwnedCopies, ownedValueUSD } from '@/features/collection/value';
 import { pickPrintingsByName, wishlistUnitPrice } from '@/lib/wishlist/printing';
 import { deckWork, type DeckWork } from './deckWork';
@@ -600,6 +601,49 @@ export function useRecentDecks(limit = 24) {
     setLoading(true);
     fetchDecks();
   }, [fetchDecks]);
+
+  /*
+   * THE SAME DECK SAID 5.3 ON /decks AND "Not scored yet" HERE.
+   *
+   * A summary carries whatever score was last persisted, and `/decks` runs
+   * `useDeckPowerBackfill` to score the ones that have none. The dashboard read
+   * the same stored field and did not, so a deck nobody had opened My Decks for
+   * showed no score on the first screen a player sees and a real one on the
+   * second. That is the split CLAUDE.md's design law calls out by name: one
+   * canonical implementation, one accessor.
+   *
+   * It is the same hook, so it is the same number and the same write. The
+   * dashboard asks for a handful of decks rather than the whole library, and
+   * the hook caps a pass at twelve either way, so this is the cheapest place
+   * in the product for that work to happen rather than the most expensive.
+   */
+  const applyScore = useCallback((deckId: string, power: DeckPower) => {
+    setDecks(prev =>
+      prev.map(deck =>
+        deck.id === deckId
+          ? {
+              ...deck,
+              power,
+              /* `scored` and `work` are derived from the score, and both were
+                 computed once when the row was fetched. Setting `power` alone
+                 left the tile drawing the score AND the line "Not scored yet"
+                 underneath it, which is worse than the bug it replaced: one
+                 wrong figure became two figures contradicting each other on the
+                 same tile. */
+              scored: true,
+              work: deckWork({
+                format: deck.format,
+                cardCount: deck.cardCount,
+                hasCommander: Boolean(deck.commanderName),
+                scored: true,
+              }),
+            }
+          : deck
+      )
+    );
+  }, []);
+
+  useDeckPowerBackfill(decks, applyScore);
 
   return { decks, loading, error, toggleFavorite, refetch: fetchDecks };
 }

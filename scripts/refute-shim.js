@@ -486,6 +486,29 @@
         return json([]);
       }
 
+      /* THE HARNESS DECLARES ITS OWN ACCOUNT'S ENTITLEMENT, the same way
+         `IS_ADMIN` above declares its admin flag.
+         ------------------------------------------------------------------
+         `/deck/:id/optimise` answered null, which the page reads as no access,
+         so every audit of it screenshotted "The optimiser is not switched on
+         for this account" and the real optimiser had never been seen by
+         anybody. 440 of 1,000 pixels dead, hidden from the offenders list
+         because the screen was marked NOT JUDGED.
+
+         This grants the FIXTURE account, not the product. The gate itself is
+         server-side and unaffected: this shim never reaches production, and a
+         real user's tier is still decided by the real RPC. What it buys is
+         being able to look at the screen a paying customer sees, which is the
+         only way to audit it at all.
+
+         `allowed: true` with no limit, because a limit typed in here would be
+         a number nobody counted, and a fixture that lies is worse than one
+         that is silent. */
+      if (table === 'check_feature_access') {
+        window.__dmReq.push({ method, table: `rpc:${table}`, computed: true });
+        return json({ allowed: true, is_admin: IS_ADMIN, tier: 'harness' });
+      }
+
       window.__dmRpc.push(`rpc:${table}`);
       window.__dmReq.push({ method, table: `rpc:${table}` });
       return json(null);

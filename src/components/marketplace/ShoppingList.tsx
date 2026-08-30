@@ -140,9 +140,23 @@ export function ShoppingList({ items: externalItems, onUpdate }: ShoppingListPro
   const unpurchasedItems = items.filter(i => !i.purchased);
   const purchasedItems = items.filter(i => i.purchased);
   const totalEstimate = unpurchasedItems.reduce(
-    (sum, item) => sum + (item.estimatedPrice * item.quantity), 
+    (sum, item) => sum + (item.estimatedPrice * item.quantity),
     0
   );
+  /*
+   * HOW MANY CARDS THE TOTAL LEAVES OUT.
+   *
+   * `estimatedPrice` is 0 for a card the catalogue holds no USD price for, and
+   * around a thousand printings are in that state. Summing them as zero makes
+   * the total quietly short: a list of ten cards where three are unpriced shows
+   * the price of seven and calls it the price of the list.
+   *
+   * This is the rule the insurance report already follows and the reason it
+   * gives is the same. A partial total presented as the whole answer is the one
+   * thing a money figure must never do, and the fix is one sentence, not a
+   * different number.
+   */
+  const unpricedCount = unpurchasedItems.filter(item => !(item.estimatedPrice > 0)).length;
 
   return (
     <Card>
@@ -155,12 +169,21 @@ export function ShoppingList({ items: externalItems, onUpdate }: ShoppingListPro
               <Badge variant="secondary">{unpurchasedItems.length}</Badge>
             )}
           </CardTitle>
-          {totalEstimate > 0 && (
-            <Badge variant="secondary" className="tabular-nums">
-              <DollarSign className="h-3 w-3 mr-0.5" />
-              ~${totalEstimate.toFixed(2)}
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {totalEstimate > 0 && (
+              <Badge variant="secondary" className="tabular-nums">
+                <DollarSign className="h-3 w-3 mr-0.5" />
+                ~${totalEstimate.toFixed(2)}
+              </Badge>
+            )}
+            {unpricedCount > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {unpricedCount === 1
+                  ? 'One card has no price yet, so it is not in this total.'
+                  : `${unpricedCount} cards have no price yet, so they are not in this total.`}
+              </span>
+            )}
+          </div>
         </div>
       </CardHeader>
       

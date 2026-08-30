@@ -49,10 +49,19 @@ const LIMIT_PERIOD: Record<string, string> = {
  *
  * It used to render inside `mx-auto max-w-3xl`, which on a 1440px screen left
  * roughly 570px of empty background either side of a 768px column — the page
- * was 47% dead space. The left column carries the read-mostly cards (identity,
- * theme, plan); the right carries the two that expand into forms, so it gets
- * the extra width. `items-start` keeps each column packing to its own height
- * instead of stretching to match the taller one.
+ * was 47% dead space.
+ *
+ * THE TWO COLUMNS ARE BALANCED BY HEIGHT, which they were not. Profile,
+ * Appearance and Plan all sat on the left while Security sat alone on the
+ * right: measured at 1600x1000, the left ran 630px and the right 290px, so a
+ * third of the page was empty charcoal below Security. The note here used to
+ * say the right column "carries the two that expand into forms", and only one
+ * of those two is still on the page, so the reason had outlived the layout.
+ *
+ * Plan moved across. Identity and sign-in on one side, how it looks and what
+ * it allows on the other, and the columns now end within a card of each other.
+ * `items-start` keeps each packing to its own height rather than stretching to
+ * match the taller one.
  */
 const COLUMNS =
   'grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] xl:items-start';
@@ -509,57 +518,6 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        {/* Subscription */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <CreditCard className="h-4 w-4" />
-              Plan
-            </CardTitle>
-            <CardDescription>Your current plan and what it allows</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between gap-4 rounded-lg bg-muted/40 p-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium capitalize text-foreground">{tier}</span>
-                  <Badge variant="secondary">Active</Badge>
-                </div>
-                {subscription?.expires_at && (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Renews {new Date(subscription.expires_at).toLocaleDateString()}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {limitsLoading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-2/3" />
-              </div>
-            ) : tierLimits.length > 0 ? (
-              <dl className="[&>*:nth-child(even)]:bg-muted/30 [&>*]:rounded [&>*]:px-2">
-                {tierLimits.map(limit => (
-                  <div key={limit.id} className="flex items-center justify-between gap-4 py-2">
-                    <dt className="text-sm text-foreground">
-                      {limit.description || limit.feature_key.replace(/_/g, ' ')}
-                    </dt>
-                    <dd className="shrink-0 text-sm tabular-nums text-muted-foreground">
-                      {limit.limit_value < 0 ? 'Unlimited' : limit.limit_value}
-                      {LIMIT_PERIOD[limit.limit_type] ?? ''}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No limits are configured for this plan.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
         </div>
 
         <div className="space-y-4">
@@ -735,6 +693,57 @@ export default function Settings() {
           </CardContent>
         </Card>
 
+
+        {/* Subscription */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <CreditCard className="h-4 w-4" />
+              Plan
+            </CardTitle>
+            <CardDescription>Your current plan and what it allows</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between gap-4 rounded-lg bg-muted/40 p-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium capitalize text-foreground">{tier}</span>
+                  <Badge variant="secondary">Active</Badge>
+                </div>
+                {subscription?.expires_at && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Renews {new Date(subscription.expires_at).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {limitsLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-2/3" />
+              </div>
+            ) : tierLimits.length > 0 ? (
+              <dl className="[&>*:nth-child(even)]:bg-muted/30 [&>*]:rounded [&>*]:px-2">
+                {tierLimits.map(limit => (
+                  <div key={limit.id} className="flex items-center justify-between gap-4 py-2">
+                    <dt className="text-sm text-foreground">
+                      {limit.description || limit.feature_key.replace(/_/g, ' ')}
+                    </dt>
+                    <dd className="shrink-0 text-sm tabular-nums text-muted-foreground">
+                      {limit.limit_value < 0 ? 'Unlimited' : limit.limit_value}
+                      {LIMIT_PERIOD[limit.limit_type] ?? ''}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No limits are configured for this plan.
+              </p>
+            )}
+          </CardContent>
+        </Card>
         </div>
 
         {/* Data & account runs the full width under both columns.

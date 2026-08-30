@@ -35,7 +35,18 @@ import puppeteer from 'puppeteer';
    audit then dies on a missing `index.html` halfway through the menu. Snapshot
    the build, point DIST at the snapshot, and the walk is immune. */
 const DIST = process.env.DIST || 'dist';
-const PORT = Number(process.env.PORT || 4587);
+/**
+ * Whatever port is free, unless one is named.
+ *
+ * The fixed default meant a second probe started while the first was still
+ * running died on EADDRINUSE, and working around that by hand produced
+ * PORT=475RANDOM, which is not a port. Both failures cost a run. listen(0)
+ * asks the operating system for a free one and the real number is read back
+ * after it binds, so two probes can never collide and there is nothing to
+ * pick. Setting PORT still pins it, for the case where something outside has
+ * to reach the server.
+ */
+const PORT_REQUEST = Number(process.env.PORT || 0);
 const OUT = process.env.OUT || '.shots/nav-audit';
 const WIDTHS = (process.env.WIDTHS || '1600x1000,390x844').split(',').map(s => s.split('x').map(Number));
 const SETTLE = Number(process.env.SETTLE || 9000);
@@ -158,7 +169,9 @@ const server = http.createServer((req, res) => {
   res.writeHead(200, { 'content-type': MIME[ext] || 'application/octet-stream' });
   res.end(fs.readFileSync(file));
 });
-await new Promise(r => server.listen(PORT, r));
+await new Promise(r => server.listen(PORT_REQUEST, r));
+/** The port it actually got. */
+const PORT = server.address().port;
 fs.mkdirSync(path.resolve(OUT), { recursive: true });
 
 const browser = await puppeteer.launch({

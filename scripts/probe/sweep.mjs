@@ -57,7 +57,18 @@ const unmangle = route => {
 };
 
 const DIST = process.env.DIST || 'dist';
-const PORT = Number(process.env.PORT || 4641);
+/**
+ * Whatever port is free, unless one is named.
+ *
+ * The fixed default meant a second probe started while the first was still
+ * running died on EADDRINUSE, and working around that by hand produced
+ * PORT=475RANDOM, which is not a port. Both failures cost a run. listen(0)
+ * asks the operating system for a free one and the real number is read back
+ * after it binds, so two probes can never collide and there is nothing to
+ * pick. Setting PORT still pins it, for the case where something outside has
+ * to reach the server.
+ */
+const PORT_REQUEST = Number(process.env.PORT || 0);
 const ROUTE = unmangle(arg('route'));
 const SETTLE = Number(arg('settle', '7000'));
 const WAIT = Number(arg('wait', '6000'));
@@ -123,7 +134,9 @@ const server = http.createServer((q, r) => {
   r.writeHead(200, { 'content-type': MIME[e] || 'application/octet-stream' });
   r.end(fs.readFileSync(f));
 });
-await new Promise(r => server.listen(PORT, r));
+await new Promise(r => server.listen(PORT_REQUEST, r));
+/** The port it actually got. */
+const PORT = server.address().port;
 
 const SHIM = fs.readFileSync(path.resolve('scripts/refute-shim.js'), 'utf8');
 const browser = await puppeteer.launch({

@@ -30,7 +30,10 @@ export default function DeckExport() {
          deliberately not here: this page never loads the decklist, and a figure
          worth an extra request is not worth a tile. */
       metrics={[
-        { id: 'format', label: 'Format', value: deck ? formatLabel(deck.format) : null },
+        /* "Deck format", not "Format". The panel below this row also said
+           Format, about the FILE, so one screen carried two different things
+           under one word. */
+        { id: 'format', label: 'Deck format', value: deck ? formatLabel(deck.format) : null },
         {
           id: 'visibility',
           label: 'Visibility',

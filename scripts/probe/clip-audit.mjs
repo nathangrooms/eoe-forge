@@ -162,9 +162,17 @@ const findHidden = () => {
       }
       return false;
     };
-    const realPastEdge = [...el.querySelectorAll('*')].some(
-      d => d.getBoundingClientRect().bottom > edge + 4 && !decorative(d)
-    );
+    /* A FORM CONTROL HAS NO ELEMENT CHILDREN, so the descendant test below
+       cannot see inside one and every textarea was skipped. The deck export
+       page holds a hundred-card list in a fixed-height `<textarea>`, and the
+       audit called that page clean. Its own overflow IS the content. */
+    const isField = /^(textarea|input|select)$/i.test(el.tagName);
+
+    const realPastEdge =
+      isField ||
+      [...el.querySelectorAll('*')].some(
+        d => d.getBoundingClientRect().bottom > edge + 4 && !decorative(d)
+      );
     if (!realPastEdge) continue;
 
     /* The text that is past the edge, which is the part worth reading. Taken

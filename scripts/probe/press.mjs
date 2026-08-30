@@ -250,6 +250,22 @@ try {
   }
 
   const shot = path.join(OUT, `${ROUTE.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '')}-${BUTTON.replace(/[^a-z0-9]+/gi, '-')}.png`);
+  /*
+   * BACK TO THE TOP BEFORE CAPTURING.
+   *
+   * `fullPage` stitches a tall image without moving the viewport, so a
+   * `position: fixed` element is drawn ONCE, at whatever offset the page
+   * happens to be scrolled to. Press a control near the bottom — `pressControl`
+   * scrolls it into view — and the app's top bar lands in the middle of the
+   * picture with page content above it, which reads as a broken layout.
+   *
+   * It cost a real investigation on the deck export page: the title appeared
+   * above the top bar and the format row behind it, and neither was true. The
+   * page was correct and the camera was not. The other four screenshot
+   * artefacts of the day are recorded in CLAUDE.md.
+   */
+  await page.evaluate(() => window.scrollTo(0, 0)).catch(() => {});
+  await new Promise(r => setTimeout(r, 250));
   await page.screenshot({ path: shot, fullPage: true });
   console.log(`\n  shot: ${shot}`);
 } finally {

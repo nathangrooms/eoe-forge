@@ -149,7 +149,11 @@ export function DeckExportPanel({
   return (
     <div className="space-y-4 rounded-xl bg-card p-4 shadow-sm md:p-5">
       <div className="space-y-2 sm:max-w-xs">
-        <Label htmlFor="deck-export-format">Format</Label>
+        {/* "Export as", not "Format". The row above this panel reports the
+            DECK'S format under that same word, so one screen said Format twice
+            about two different things: Commander, and Plain text (Archidekt,
+            TappedOut). */}
+        <Label htmlFor="deck-export-format">Export as</Label>
         <Select value={format} onValueChange={value => setFormat(value as DeckExportFormat)}>
           <SelectTrigger id="deck-export-format" aria-label="Export format">
             <SelectValue />

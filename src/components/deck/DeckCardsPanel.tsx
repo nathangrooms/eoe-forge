@@ -420,10 +420,22 @@ export function DeckCardsPanel({
                 Copy decklist
               </Button>
             </div>
+            {/* AS TALL AS THE LIST, so the page scrolls rather than the box.
+                `min-h-[420px]` put a hundred cards in a 418px window: measured
+                by `clip-audit`, 1,150px of decklist hidden inside a page that
+                simply ended at 1,627px with "1x Birds of Paradise" cut in half.
+                A window you scroll inside a page you also scroll is the "weird
+                small window" the brief names, and this one is the whole point
+                of the view — Text is where you go to READ the list.
+
+                `rows` from the line count rather than a taller fixed minimum,
+                because the right height is a property of the deck: a
+                sixty-card list should not sit in a hundred-card box either. */}
             <Textarea
               readOnly
+              rows={decklistText.split('\n').length + 1}
               value={decklistText}
-              className="min-h-[420px] font-mono text-xs"
+              className="resize-none overflow-hidden font-mono text-xs"
               aria-label="Plain-text decklist"
             />
           </div>

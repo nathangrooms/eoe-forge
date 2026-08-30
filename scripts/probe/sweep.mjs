@@ -269,6 +269,28 @@ try {
       console.log(`  FAIL  ${label}`);
       for (const f of failed) console.log(`          ${f.status} ${f.url.slice(40, 130)}\n          ${f.body ?? ''}`);
       for (const sl of slow) console.log(`          ${sl.ms}ms ${sl.url.slice(40, 120)}`);
+      /*
+       * A SLOW QUERY AND A BUSY MACHINE LOOK THE SAME IN THIS LIST, and they
+       * are not the same finding. Pressing "Start 2-player game" once reported
+       * twelve unrelated reads — wishlist, profiles, playmat prefs — every one
+       * of them at 32.6 SECONDS, which read as the game engine blocking the
+       * page. It was not: a heartbeat in the page measured the main thread busy
+       * for 147ms, and the same sweep run on its own came back clean. Three
+       * builds and two other probes were running at the time.
+       *
+       * The tell is that they all take the SAME time. One slow query is slow
+       * for its own reasons; a queue behind a saturated connection releases
+       * together.
+       */
+      if (slow.length >= 3) {
+        const times = slow.map(s => s.ms);
+        const spread = (Math.max(...times) - Math.min(...times)) / Math.max(...times);
+        if (spread < 0.1) {
+          console.log(
+            `          ^ all ${slow.length} within ${Math.round(spread * 100)}% of each other, which is contention rather than a slow query. Re-run this route on its own before believing it.`
+          );
+        }
+      }
       for (const e of errors) console.log(`          threw: ${e}`);
     } else if (!changed) {
       /* HOW MANY REQUESTS IT MADE, because "nothing changed" alone cannot

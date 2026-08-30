@@ -43,6 +43,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { scryfallAPI } from '@/lib/api/scryfall';
+import { CardGrid, CardImage } from '@/components/cards';
 import { EdhAnalysisData } from './EdhAnalysisPanel';
 import type { DeckPower } from '@/lib/deck/power';
 import { cn } from '@/lib/utils';
@@ -448,6 +449,16 @@ export function AIOptimizerPanel({
       })
       .filter((c): c is HardToCastCard => c !== null);
   }, [deckPlayabilityResult, deckCards]);
+
+  /* The decklist by name, so the preview below can draw the card rather than
+     print its name. `CardPlayability` carries a name, a percentage and a turn
+     and no artwork; `deckCards` carries `image_uris` for every card in front
+     of us, so nothing has to be fetched to show them. */
+  const deckCardByName = useMemo(() => {
+    const map = new Map<string, OptimizerDeckCard>();
+    for (const card of deckCards) map.set(card.name.trim().toLowerCase(), card);
+    return map;
+  }, [deckCards]);
 
   /** Cards the panel previews as hard to cast before an analysis has been run. */
   const lowPlayabilityPreview = useMemo(() => {
@@ -1521,9 +1532,20 @@ export function AIOptimizerPanel({
         </CardContent>
       </Card>
 
-      {/* Hard-to-cast preview, with art, before any analysis has been run.
-          Measured locally, so it is available even when the EDH panel has not
-          been opened. */}
+      {/* Hard-to-cast preview, before any analysis has been run. Measured
+          locally, so it is available even when the EDH panel has not been
+          opened.
+
+          THE COMMENT HERE USED TO SAY "with art" AND THERE WAS NO ART. Three
+          names in grey pills with a coloured percentage, on a page whose only
+          other content before you press the button is the button. It is the
+          same three cards the deck's Analysis tab draws as whole cards, and a
+          panel that spends its whole existence proposing card swaps should not
+          be the place that describes cards in text.
+
+          The percentage keeps the shared castability colour scale, which is the one
+          scale this product uses for it and is shared with the analysis
+          surfaces. */}
       {lowPlayabilityPreview.length > 0 && !hasResults && !loading && (
         <Card className="shadow-lg">
           <CardContent className="p-5 sm:p-6">
@@ -1532,26 +1554,33 @@ export function AIOptimizerPanel({
               {lowPlayabilityPreview.length === 1 ? '' : 's'} you often cannot cast on curve
             </h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Castability measured against this deck&rsquo;s mana base.
+              Castability measured against this deck&rsquo;s mana base. Run a pass to see what
+              could go in instead.
             </p>
-            <div className="mt-4 flex flex-wrap gap-2.5">
-              {lowPlayabilityPreview.map(card => (
-                <span
-                  key={card.name}
-                  className="rounded-lg bg-muted px-3 py-2 text-sm font-medium"
-                >
-                  {card.name}{' '}
-                  <span
-                    className={cn(
-                      'tabular-nums',
-                      card.pct !== null ? playabilityBand(card.pct).textClass : ''
-                    )}
-                  >
-                    {card.pct !== null ? `${card.pct.toFixed(0)}%` : ''}
-                  </span>
-                </span>
-              ))}
-            </div>
+            <CardGrid width={190} className="mt-4">
+              {lowPlayabilityPreview.map(entry => {
+                const card = deckCardByName.get(entry.name.trim().toLowerCase());
+                return (
+                  <div key={entry.name} className="min-w-0">
+                    <CardImage card={card ?? { name: entry.name }} fill quality="normal" />
+                    <p className="mt-2 truncate text-sm font-medium">{entry.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      <span
+                        className={cn(
+                          'tabular-nums',
+                          entry.pct !== null ? playabilityBand(entry.pct).textClass : ''
+                        )}
+                      >
+                        {entry.pct !== null ? `${entry.pct.toFixed(0)}%` : '—'}
+                      </span>
+                      {entry.turn !== null && entry.turn !== undefined
+                        ? ` by turn ${entry.turn}`
+                        : ''}
+                    </p>
+                  </div>
+                );
+              })}
+            </CardGrid>
           </CardContent>
         </Card>
       )}

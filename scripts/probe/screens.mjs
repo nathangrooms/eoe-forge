@@ -59,12 +59,23 @@ const SETS = {
     ]),
 
   /* The collection's four sections. Same shape as the deck tabs: one menu
-     entry, four screens. */
-  collection: () =>
-    ['cards', 'analytics', 'add', 'storage'].map(tab => [
-      `collection-${tab}`,
-      `/collection?tab=${tab}`,
-    ]),
+     entry, four screens.
+
+     READ FROM THE SOURCE, like the deck tabs above, and the first draft of this
+     one was hardcoded and wrong. It guessed `cards` and `add`; the page calls
+     them `collection` and `add-cards`, so three of the four walks landed on an
+     unrecognised tab and measured an empty 1,080px page. Then the run reported
+     three collection screens with "no card art at all", which is a probe
+     inventing a defect. Anything hand-copied here drifts the day it is
+     written. */
+  collection() {
+    const src = fs.readFileSync(path.resolve('src/pages/Collection.tsx'), 'utf8');
+    const m = src.match(/const TABS = \[([^\]]+)\]/);
+    const tabs = m
+      ? [...m[1].matchAll(/'([a-z-]+)'/g)].map(x => x[1])
+      : ['collection'];
+    return tabs.map(tab => [`collection-${tab}`, `/collection?tab=${tab}`]);
+  },
 
   /* Play is a flow rather than a page: mode, then deck, then the table. */
   play: () => [

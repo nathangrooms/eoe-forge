@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, ArrowLeft, Crown, Loader2, Sword, Wand2 } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Crown, Loader2, ScrollText, Sword, Wand2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
@@ -226,19 +226,42 @@ export function NewDeck() {
               : 'Pick a format, name it, and the builder opens on the empty list.'}
           </p>
         </div>
-        <Button onClick={handleCreate} disabled={creating} size="lg" className="shrink-0">
-          {creating ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
-              Creating
-            </>
-          ) : (
-            <>
-              Create deck
-              <ArrowRight className="h-4 w-4" />
-            </>
-          )}
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          {/*
+           * THE ONLY DOOR TO /templates, WHICH HAD NONE.
+           *
+           * The page was reachable by typing the URL and by nothing else: no
+           * left-menu entry, no link anywhere in the app. It lost its last one
+           * when the Archetypes button came off My Decks — "remove archetypes
+           * and add the Deck Generator" — and nothing replaced it, so a whole
+           * screen quietly stopped existing.
+           *
+           * Here rather than back on My Decks, because that is the list of
+           * decks you already HAVE and a blueprint is a way to start one you
+           * do not. This page is already the answer to "I want a new deck", and
+           * a ready-made shape is a third answer beside a commander and an
+           * empty list.
+           */}
+          <Button variant="secondary" size="lg" asChild className="shrink-0">
+            <Link to="/templates">
+              <ScrollText className="h-4 w-4" />
+              <span className="hidden sm:inline">Use a blueprint</span>
+            </Link>
+          </Button>
+          <Button onClick={handleCreate} disabled={creating} size="lg" className="shrink-0">
+            {creating ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+                Creating
+              </>
+            ) : (
+              <>
+                Create deck
+                <ArrowRight className="h-4 w-4" />
+              </>
+            )}
+          </Button>
+        </div>
       </header>
 
       {/* Setup bar: format and name side by side across the full width, with

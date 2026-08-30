@@ -139,7 +139,10 @@ export const NAV_GROUPS: NavGroup[] = [
         href: '/decks',
         icon: Layers,
         // `/deck-builder` is a child of Decks in every way except its path.
-        matches: ['/deck', '/deck-builder', '/decks/new', '/smart-builder', '/precons'],
+        /* `/templates` is here because its only door is on `/decks/new`, so a
+           reader who walks through it is still inside the deck flow and the
+           rail should say so. */
+        matches: ['/deck', '/deck-builder', '/decks/new', '/smart-builder', '/precons', '/templates'],
         description: 'Every deck you have built',
       },
       {

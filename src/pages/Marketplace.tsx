@@ -17,11 +17,11 @@ import { listingCopies } from '@/components/marketplace/listingCounts';
 import { PriceSearchPanel } from '@/components/marketplace/PriceSearchPanel';
 import { PriceTrendCard } from '@/components/marketplace/PriceTrendCard';
 import { PriceWatchlist } from '@/components/marketplace/PriceWatchlist';
-import { ShoppingList } from '@/components/marketplace/ShoppingList';
 import { CardGrid, CardImage, cardDetailPath } from '@/components/cards';
 import { EmptyState, PageTabs } from '@/components/listing';
 import { CardPrices } from '@/components/pricing';
 import { readAmount } from '@/lib/pricing';
+import { addToList, loadListItems, type CardListItem } from '@/lib/shopping';
 import {
   Package,
   Edit,
@@ -61,20 +61,6 @@ interface Listing {
   };
 }
 
-interface ShoppingListItem {
-  id: string;
-  /** The card this row is about. Absent on rows saved before card links existed. */
-  cardId?: string;
-  name: string;
-  set_code?: string;
-  image_uri?: string;
-  estimatedPrice: number;
-  quantity: number;
-  purchased: boolean;
-  purchaseUrl?: string;
-  notes?: string;
-}
-
 interface WatchlistItem {
   id: string;
   /** The card this row is about. Absent on rows saved before card links existed. */
@@ -98,7 +84,8 @@ export default function Marketplace() {
   /** Which listing card has its inline "record this sale" form expanded. */
   const [sellingListingId, setSellingListingId] = useState<string | null>(null);
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
-  const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>([]);
+  /* The real list, from `card_list_items`. Only its length is used here. */
+  const [shoppingList, setShoppingList] = useState<CardListItem[]>([]);
   const [activeTab, setActiveTab] = useState('search');
   /* Controlled, because the uncontrolled `defaultValue` version reset to "For
      sale" whenever anything above it re-rendered, which includes marking a card
@@ -149,41 +136,48 @@ export default function Marketplace() {
     localStorage.setItem('price_watchlist', JSON.stringify(updated));
   };
 
-  const loadShoppingList = () => {
-    const saved = localStorage.getItem('shopping_list');
-    if (saved) {
-      try {
-        setShoppingList(JSON.parse(saved));
-      } catch (e) {
-        console.error('Failed to parse shopping list:', e);
-      }
+  /** The real list, the one `/shopping` shows. Only the count is used here. */
+  const loadShoppingList = async () => {
+    try {
+      setShoppingList(await loadListItems('shopping'));
+    } catch (error) {
+      /* Logged, not swallowed into an empty array: zero items and a failed
+         read look identical on a counter, and this page has already shipped
+         one figure that said 0 about a list of ninety. */
+      console.error('Could not read the shopping list:', error);
     }
   };
 
-  // Single source of truth for the shopping list. ShoppingList used to be
-  // mounted twice with no props, so each copy read and wrote localStorage
-  // independently and clobbered the other.
-  const persistShoppingList = (updated: ShoppingListItem[]) => {
-    setShoppingList(updated);
-    localStorage.setItem('shopping_list', JSON.stringify(updated));
-  };
-
-  const handleAddToShoppingList = (card: any) => {
-    const newItem: ShoppingListItem = {
-      id: crypto.randomUUID(),
-      cardId: card.id,
-      name: card.name,
-      set_code: card.set_code,
-      image_uri: card.image_uri,
-      estimatedPrice: card.tcgplayerPrice || card.averagePrice || 0,
-      quantity: 1,
-      purchased: false,
-      purchaseUrl: card.tcgplayerUrl || card.prices?.[0]?.url,
-      notes: ''
-    };
-
-    persistShoppingList([...shoppingList, newItem]);
-    showSuccess('Added to Shopping List', `${card.name} added to your shopping list`);
+  /*
+   * THERE IS ONE SHOPPING LIST AND IT IS IN THE DATABASE.
+   *
+   * This page kept its own in `localStorage['shopping_list']`, entirely
+   * separate from `/shopping`, which is backed by `card_list_items` and
+   * assembles what your decks and wishlist are short of. Two lists, two
+   * stores, and the marketplace's header duly read "Shopping list 0 · Still to
+   * buy" while `/shopping` read "90 cards · 98 copies" about the same account.
+   *
+   * Worse than untidy: pressing "Add to shopping list" here wrote a row that
+   * `/shopping` would never show and that vanished with the browser's site
+   * data, having said "added to your shopping list".
+   *
+   * `addToList` is the same call the `AddToListButton` everywhere else makes.
+   */
+  const handleAddToShoppingList = async (card: any) => {
+    try {
+      await addToList({
+        kind: 'shopping',
+        cardId: card.id,
+        cardName: card.name,
+        oracleId: card.scryfallData?.oracle_id ?? null,
+        source: 'manual',
+      });
+      await loadShoppingList();
+      showSuccess('Added to your shopping list', `${card.name} is on the list`);
+    } catch (error) {
+      console.error('Could not add to the shopping list:', error);
+      showError('Could not add that card', 'Nothing was written. Try again.');
+    }
   };
 
   const handleRemoveFromWatchlist = (id: string) => {
@@ -538,7 +532,7 @@ export default function Marketplace() {
           myListingsCount={myListings.length}
           myListingCopies={myListingCopies}
           totalListingValue={totalListingValue}
-          shoppingListCount={shoppingList.filter(i => !i.purchased).length}
+          shoppingListCount={shoppingList.filter(i => i.status !== 'bought').length}
         />
 
         {/* Main Tabs */}
@@ -590,14 +584,31 @@ export default function Marketplace() {
           </TabsContent>
 
           {/* Watchlist Tab */}
-          <TabsContent value="watchlist" className="mt-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <PriceWatchlist
-                items={watchlist}
-                onRemove={handleRemoveFromWatchlist}
-              />
-              <ShoppingList items={shoppingList} onUpdate={persistShoppingList} />
-            </div>
+          <TabsContent value="watchlist" className="mt-6 space-y-4">
+            {/* THE SHOPPING LIST IS NOT DRAWN TWICE.
+                A second, localStorage-backed copy used to sit beside the
+                watchlist here, showing different cards from the real one at
+                `/shopping`. It is a whole page with prices from three markets,
+                proxy printing and an export; a half-width panel next to a
+                watchlist was never going to be the better of the two. The
+                watchlist takes the row and the list gets a door. */}
+            <PriceWatchlist items={watchlist} onRemove={handleRemoveFromWatchlist} />
+
+            <Card>
+              <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground">Your shopping list</p>
+                  <p className="text-sm text-muted-foreground">
+                    {shoppingList.length === 0
+                      ? 'Nothing on it yet. Adding a card from the price search puts it here.'
+                      : `${shoppingList.length.toLocaleString()} ${shoppingList.length === 1 ? 'card' : 'cards'}, with what each costs at three shops.`}
+                  </p>
+                </div>
+                <Button variant="secondary" asChild className="shrink-0">
+                  <Link to="/shopping">Open the shopping list</Link>
+                </Button>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* My Listings Tab */}

@@ -125,6 +125,25 @@ export const SETS = {
     ['terms', '/terms'],
   ],
 
+  /**
+   * The admin surfaces. Walk with `ADMIN=1`.
+   *
+   * `/admin` carries the Dev Console this project is instructed to keep
+   * updated as work progresses, and the audit had never loaded it, because
+   * the shim's admin flag existed and nothing set it.
+   */
+  admin() {
+    const src = fs.readFileSync(path.resolve('src/pages/Admin.tsx'), 'utf8');
+    const block = src.match(/const TABS = \[([\s\S]*?)\n\] as const;/);
+    const tabs = block
+      ? [...block[1].matchAll(/value:\s*'([a-z-]+)'/g)].map(m => m[1])
+      : ['overview'];
+    return tabs.map(tab => [
+      `admin-${tab}`,
+      tab === 'overview' ? '/admin' : `/admin?tab=${tab}`,
+    ]);
+  },
+
   /* Play is a flow rather than a page: mode, then deck, then the table. */
   play: () => [
     ['play-modes', '/play'],

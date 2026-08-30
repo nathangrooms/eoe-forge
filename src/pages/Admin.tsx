@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   LayoutDashboard, Flag, Users, Brain, ClipboardList,
@@ -31,7 +32,31 @@ const TABS = [
 ] as const;
 
 export default function Admin() {
-  const [activeTab, setActiveTab] = useState<string>('overview');
+  /* THE OPEN TAB LIVES IN THE URL, the same way the deck page carries its
+     own. This was `useState`, which meant Back did not step out of a tab, a
+     reload landed you on Overview whichever of the nine you were reading, and
+     nothing could link to the Dev Console. Design law 4 says back and forward
+     work universally, and `DeckInterface` records the identical fix with the
+     identical reason: "The builder's tabs were React state, so a reload landed
+     you back on Cards and there was no link to the optimiser."
+
+     `overview` is the default, so it stays out of the query string and a bare
+     /admin is still a clean address. */
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const activeTab = TABS.some(t => t.value === tabParam) ? (tabParam as string) : 'overview';
+
+  const setActiveTab = useCallback(
+    (next: string) => {
+      setSearchParams(prev => {
+        const params = new URLSearchParams(prev);
+        if (next === 'overview') params.delete('tab');
+        else params.set('tab', next);
+        return params;
+      });
+    },
+    [setSearchParams]
+  );
   const { user, loading, isAdmin } = useAuth();
 
   if (loading) {

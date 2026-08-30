@@ -63,6 +63,16 @@ const SETTLE = Number(process.env.SETTLE || 9000);
  * the real anon API, which is world-readable.
  */
 const USE_SHIM = process.env.SHIM !== 'off';
+/*
+ * ADMIN=1 walks as an admin.
+ *
+ * The shim has read `window.__DM_ADMIN` since it was written and nothing has
+ * ever set it, so `/admin` — the Dev Console this project is told to keep
+ * updated — has never been loaded by the audit at all. Setting it declares
+ * the FIXTURE account admin, exactly as the entitlement stub does; the real
+ * gate is `profiles.is_admin` read server-side and is untouched.
+ */
+const AS_ADMIN = process.env.ADMIN === '1';
 const SHIM = fs.readFileSync(path.resolve('scripts/refute-shim.js'), 'utf8');
 const DECK = 'e0909132-5a48-4416-924c-dd2374d3d34d';
 
@@ -164,6 +174,7 @@ for (const [name, route] of (ROUTES ?? NAV)) {
   for (const [w, h] of WIDTHS) {
     const page = await browser.newPage();
     await page.setViewport({ width: w, height: h });
+    if (AS_ADMIN) await page.evaluateOnNewDocument(() => { window.__DM_ADMIN = true; });
     if (USE_SHIM) await page.evaluateOnNewDocument(SHIM);
     const errors = [];
     page.on('pageerror', e => errors.push(String(e).slice(0, 90)));

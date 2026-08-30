@@ -109,6 +109,22 @@ export const SETS = {
     ['landing', '/landing'],
   ],
 
+  /**
+   * The pages a VISITOR sees. Walk these with `SHIM=off`.
+   *
+   * The harness fakes a session, so `/` redirects to the dashboard and the
+   * marketing homepage had never been walked. The owner’s standing brief
+   * opens by calling it "complete AI slop", which makes it the one page in
+   * the app with a recorded complaint against it and no measurement.
+   */
+  public: () => [
+    ['home-marketing', '/'],
+    ['login', '/login'],
+    ['register', '/register'],
+    ['privacy', '/privacy'],
+    ['terms', '/terms'],
+  ],
+
   /* Play is a flow rather than a page: mode, then deck, then the table. */
   play: () => [
     ['play-modes', '/play'],

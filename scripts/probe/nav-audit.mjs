@@ -39,6 +39,16 @@ const PORT = Number(process.env.PORT || 4587);
 const OUT = process.env.OUT || '.shots/nav-audit';
 const WIDTHS = (process.env.WIDTHS || '1600x1000,390x844').split(',').map(s => s.split('x').map(Number));
 const SETTLE = Number(process.env.SETTLE || 9000);
+/**
+ * SHIM=off walks the app SIGNED OUT.
+ *
+ * The harness fakes a session, so `/` has always redirected to the dashboard
+ and the marketing homepage — the thing the owner's brief opens by calling
+ * "complete AI slop" — had never been screenshotted by this audit at all.
+ * Without the shim the app boots as a visitor and card data still comes from
+ * the real anon API, which is world-readable.
+ */
+const USE_SHIM = process.env.SHIM !== 'off';
 const SHIM = fs.readFileSync(path.resolve('scripts/refute-shim.js'), 'utf8');
 const DECK = 'e0909132-5a48-4416-924c-dd2374d3d34d';
 
@@ -140,7 +150,7 @@ for (const [name, route] of (ROUTES ?? NAV)) {
   for (const [w, h] of WIDTHS) {
     const page = await browser.newPage();
     await page.setViewport({ width: w, height: h });
-    await page.evaluateOnNewDocument(SHIM);
+    if (USE_SHIM) await page.evaluateOnNewDocument(SHIM);
     const errors = [];
     page.on('pageerror', e => errors.push(String(e).slice(0, 90)));
     await page.goto(`http://localhost:${PORT}${route}`, { waitUntil: 'networkidle0' });
@@ -199,7 +209,23 @@ for (const [name, route] of (ROUTES ?? NAV)) {
         cardArt += 1;
         const cs = getComputedStyle(img);
         const fit = cs.objectFit;
-        const aspect = r.width / r.height;
+        /* THE LAYOUT BOX, NOT THE BOUNDING RECT.
+           ----------------------------------------------------------------
+           `getBoundingClientRect()` is transform-aware, so it returns the
+           AXIS-ALIGNED box of a rotated element. The homepage hero fans seven
+           cards at 5 degrees apiece; each one measured 276x334 instead of
+           208x291 and read as ratio 0.83 against a card’s 0.71, so the fan
+           was reported as two cropped cards on a page that crops none.
+
+           `offsetWidth`/`offsetHeight` are the untransformed layout box,
+           which is what "is this box the wrong shape for a card" actually
+           means. A rotated card is still a card.
+
+           Kept `r` for the size floor above, because a card rotated off the
+           edge of the screen should still be skipped on its rendered size. */
+        const boxW = img.offsetWidth || r.width;
+        const boxH = img.offsetHeight || r.height;
+        const aspect = boxW / boxH;
         const off = Math.abs(aspect - CARD_ASPECT) / CARD_ASPECT;
 
         /* A BLURRED GROUND IS NOT A CROPPED CARD, and CLAUDE.md approves it by
@@ -222,10 +248,26 @@ for (const [name, route] of (ROUTES ?? NAV)) {
         const faded = Number(cs.opacity || '1') < 0.75;
         if (blurred || faded) continue;
 
+        /* `art_crop` IS A CROP AND THAT IS THE POINT.
+           ------------------------------------------------------------------
+           Scryfall publishes `art_crop` as its own asset: the illustration
+           without the frame, for exactly the use the homepage makes of it in
+           `HomeNewSets`, where a 3:2 tile stands for a SET rather than for a
+           card. Flagging it reported eight crops on a page that cuts up no
+           cards, and the component's own comment says so a line above the
+           markup: "set tiles: art_crop is correct here, a tile stands for a
+           SET".
+
+           The owner's rule is about a CARD being shown cut off. An asset whose
+           whole purpose is to be the art alone cannot break it, so it is
+           counted as art and never crop-checked — the same exemption the
+           blurred grounds above already have, for the same reason. */
+        if (/\/art_crop\//i.test(src)) continue;
+
         if (fit === 'cover' && off > 0.12) {
           cropped += 1;
           if (croppedExamples.length < 3) {
-            croppedExamples.push(`${Math.round(r.width)}x${Math.round(r.height)} ratio ${aspect.toFixed(2)}`);
+            croppedExamples.push(`${Math.round(boxW)}x${Math.round(boxH)} ratio ${aspect.toFixed(2)}`);
           }
         }
       }

@@ -1559,3 +1559,167 @@ Use `askEdgeFunctionRaw` for any edge function a person is waiting on. It cannot
 live in `src/lib/tutor/invokeWithRetry.ts` itself because `node:test` does not
 resolve the `@/` alias, and a module that imported the client would be a module
 with no tests.
+
+## The engine reads the cards people play, measured by play rate (30 Aug 2026)
+
+Coverage over the whole catalogue is the wrong denominator for every consumer
+that matters. The deck generator draws from the most played few thousand cards,
+and nothing had ever measured that slice. **`scripts/compiler-gap-probe.ts`**
+does, against the WORKING TREE's compiler rather than the stored memo, so a rule
+written five minutes ago is measured before anything is refilled or deployed.
+
+    top 100     26.3% produced NO ability record at all
+    101-500     12.0%
+    501-2000    20.4%
+
+A card with no record cannot be keyed to a commander, cannot be ranked on what
+it does, and in play mode resolves to nothing. The probe also clusters the blind
+cards by SHAPE, so the work list is ranked by how many played cards each rule
+unlocks rather than by opinion. **Use it before writing any compiler rule.**
+
+Four rules shipped that day, in ranked order, taking the top 100 to **23.2%**:
+
+| shape | cards it unlocked |
+|---|---|
+| conditional mana (`among`) | Command Tower (2), Arcane Signet (3), Exotic Orchard (9), Fellwar Stone (17), Reflecting Pool (173), Mox Amber (205) |
+| scry and surveil | a DSL member and a renderer case with **no rule producing either** |
+| subject ellipsis | Night's Whisper (182), Sign in Blood (232) |
+| search for "up to N" | Cultivate-shaped clauses said with a flag rather than refused |
+
+Three things worth keeping from how they went:
+
+1. **`among` is a FIELD on `add-mana`, not a verb.** A new verb needs a line in
+   `EFFECT_VERBS`, a facet, and an entry in `ROLE_FACETS.ramp` before any of
+   those six cards counts as ramp anywhere. A field keeps the facet
+   `eff:add-mana` and every consumer that understands Sol Ring understands them.
+2. **`normalize.ts` STRIPS APOSTROPHES.** The first draft matched
+   `commander's color identity`, so the four cards without an apostrophe worked
+   while the two ranked 2 and 3 stayed blind.
+3. **A rule that refuses is not automatically the safe one.** "Up to N" used to
+   `return null`, which was right that the count must not be fixed and wrong
+   that the answer was silence: every consumer reads no record as "does
+   nothing" rather than "unread".
+
+### The remaining clusters, ranked, with what each needs
+
+    36  search library, destinations not covered   Cultivate (20), Kodama's Reach (37)
+    22  modal "choose one"                         NOT one rule: choose-mode already
+                                                   works, each mode BODY is a
+                                                   different hard problem
+    13  cast without paying its mana cost          Deflecting Swat (75)
+    11  conditional mana, granted to others        Cryptolith Rite (693), Kinnan (1361)
+    10  shockland                                  needs a replacement-time PROMPT
+     8  cost taxing "unless that player pays"      Esper Sentinel (77)
+
+**The ten shocklands were deliberately not done.** "As this land enters, you may
+pay 2 life. If you don't, it enters tapped" is a player CHOICE, and the runtime
+has no way to offer one at replacement time. Compiling it to an unconditional
+`enters-tapped` would make ten of the most played lands in the format play
+WORSE than printed in every game. Half of that fix is worse than none of it.
+
+### The facet vocabulary is a flat SET, so it loses which clause a facet came from
+
+Found while trying to add a `protection` role. `eff:attach` plus a protective
+keyword is precise (Swiftfoot Boots, Lightning Greaves, Whispersilk Cloak,
+Mithril Coat, Darksteel Plate, Hammer of Nazahn, Kaldra Compleat: 9 of 9
+correct). Widening it to `scope:all` is not, and the reason is structural rather
+than tunable:
+
+    Darksteel Citadel  kw:indestructible                                 bare, HAS it
+    Swiftfoot Boots    kw:hexproof + eff:attach + cares:type:creature     GRANTS it
+    Purphoros          kw:indestructible (his own) + scope:all (a pump)   LOOKS granted
+
+Purphoros, Iroas, Animar and Emrakul all carry a protective keyword themselves
+while an unrelated clause supplies `scope:all`, and a flat set cannot tell that
+apart from Eldrazi Monument. About 15% false positives. **A conjunction over
+facets is only sound when the facets provably come from the same clause.**
+`scripts/protection-rule-try.mjs` names the cards.
+
+## Two measurement bugs that both read as the engine being bad (30 Aug 2026)
+
+Both had been read past in earlier runs, and each moved the headline number by
+about ten points.
+
+**`cards_unique` holds ONE printing per card**, the cheapest, so a printing id
+taken from `cards` is usually NOT in it. `generator-synergy-audit.mjs` looked
+commanders up by a hardcoded printing id; Kozilek's roster id was `c41554e7` and
+the representative printing is `f06fc6e0`, so the fetch returned nothing, the
+plan had no wants, every card scored zero fit, and the audit printed **"keyed
+23%" one line under its own warning that it could not judge fit at all.**
+Kozilek is 79%. Resolve a commander BY NAME, which is what `pipeline.ts` does.
+
+**`planForCommander` reads `oracleText`, camelCase**, and PostgREST returns
+`oracle_text`. Pass the raw row and the 113 intent rules never fire. The
+generator does this correctly; a probe written in a hurry does not.
+
+### The second reader now runs on a THIN plan, not only on silence
+
+Meren of Clan Nel Toth is an aristocrats commander, and the intent rule for
+"whenever another creature you control dies" had existed all along without ever
+firing, because her facets are not SILENT: an incidental `ctr:experience`
+produced two wants, so `wants.size` was non-zero and the gate skipped the
+reader. Her entire plan was `ctr:experience@0.9, eff:proliferate@0.8`.
+
+The gate's own comment is the argument for changing it: it calls an intent rule
+"a more specific claim" than the combat fallback, which is an inference from
+silence. It now runs under four wants, with corroborating weights scaled to
+**0.8** so anything the record actually stated still outranks anything inferred
+from English. Only the fallbacks stay gated on total silence.
+
+> **A keyed percentage rises whenever the plan gains wants**, so it can go up
+> while the deck gets no better. `SHOW=1 node scripts/generator-synergy-audit.mjs`
+> prints the list. Read it as a player. Meren's is now Eternal Witness,
+> Bloodghast, Timeless Witness, Graveshifter, Doomed Necromancer, Cauldron
+> Familiar and Bloodsoaked Champion; it was a generic pile.
+
+### `EMPTY_DECK_POPULARITY`: the comment said 2.4 and the constant said 1.8
+
+It drifted down when `EMPTY_DECK_COMMANDER_FIT` went to 3.6, and it was the half
+of the friend's verdict never addressed, *"there are cards he would absolutely
+never include"*. Six decks, same pool, only this number moved:
+
+|  | median edhrec_rank | past 15,000 | staples | orphans | keyed |
+|---|---|---|---|---|---|
+| 1.8 | 6696 / 4484 / 4400 / 1551 / 2219 / 5090 | 26 | 30/54 | 3 | 85% |
+| **2.4** | 5941 / 2446 / 4077 / 1528 / 1923 / 3412 | **16** | **31/54** | **2** | 84% |
+| 3.0 | 5483 / 1711 / 4077 / 1528 / 1878 / 3412 | 16 | 31/54 | 2 | 84% |
+
+3.0 measures no better and passes `playability` (2.5), which the standing rule
+forbids. `rank.ts` clamps it there anyway, and **a value that relies on being
+clamped is a value that lies about itself.**
+
+Verified against the DEPLOYED function rather than a local build, because
+section 10c records this same generator sitting on `6-grounded` for days:
+
+    Meren    92 cards  median rank 2840  past 15k 0   2.1s
+    Krenko   88 cards  median rank 5643  past 15k 13  1.2s
+    Atraxa   97 cards  median rank 2602  past 15k 0   3.7s
+
+Krenko's list opens Sol Ring, Arcane Signet, Fellwar Stone, Mind Stone and then
+goblins. Section 10c recorded that same commander producing 4 creatures, 54
+artifacts and 0 of 64 cards keyed off him.
+
+### Still wrong, and measured
+
+- **No sacrifice outlet in a Meren deck.** The plan wants `eff:sacrifice` and
+  Viscera Seer, Ashnod's Altar and Carrion Feeder are all absent.
+- Krenko still reaches deep: median rank 5643, 13 cards past 15,000. Mono-red
+  has a smaller pool, so some of that is inherent and some is not.
+- Boots, Greaves, Skullclamp and Demonic Tutor are missing from most decks.
+
+## The facet memo is on COMPILER_VERSION 2, and the order of the bump matters
+
+Three places pin it and they move together: `facet-memo-fill`,
+`public.facets(cards_unique)`, and the `cards_pool` view's own join. A reader on
+one version and a writer on another is **silent**: every card reads as having no
+facets, which the ranker cannot tell from a card that genuinely does nothing.
+
+**Bump the WRITER first, refill, and only then move the readers.** 33,032 rows
+took 67 seconds. Done in that order there is no window where facets are absent;
+done the other way round the generator is blind for the length of the refill.
+
+`cards_pool` is a materialized view, so moving its join means DROP and CREATE,
+and all four indexes have to come back with it. `cards_pool_identity_rank_id_idx`
+is the one that lets a colour-filtered pool be WALKED in popularity order rather
+than sorted; without it the pool query went from 25 ms to 13.7 s against a 3 s
+`statement_timeout`.

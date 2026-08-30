@@ -43,6 +43,7 @@ import {
 } from '@/components/tutor/ContextPicker';
 import { DeckContextPanel, type TutorDeckCard } from '@/components/tutor/DeckContextPanel';
 import { ConversationList } from '@/components/tutor/ConversationList';
+import { TutorCardShelf } from '@/components/tutor/TutorCardShelf';
 import {
   appendMessage,
   createConversation,
@@ -823,6 +824,24 @@ ${cardBrief(selectedCard)}` : message,
                   />
                 )}
 
+                {/* Cards to ask about, ABOVE the quick actions and the prompts.
+                    Last in the block it was always the thing clipped: the empty
+                    state sits in a fixed-height scroll pane, so whatever is at
+                    the bottom gets whatever height is left, and at a 1000px
+                    viewport that was not a whole card. Cutting the shelf from
+                    sixteen to eight did not fix it, because the shelf was never
+                    the thing that was too big.
+
+                    Ahead of them it fits whole, and the order is better anyway.
+                    This is a page about cards, so the cards should be the first
+                    thing on it; six icon tiles and four text chips are the part
+                    that can sit below the fold.
+
+                    Only with nothing attached: once a deck or a card IS the
+                    subject, a shelf of unrelated cards invites throwing that
+                    subject away, and the context panel is the thing to read. */}
+                {!selectedCard && !selectedDeck && <TutorCardShelf onPick={selectCard} />}
+
                 {/* Quick actions */}
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
                   {quickActions.map(action => (
@@ -855,6 +874,7 @@ ${cardBrief(selectedCard)}` : message,
                     )}
                   </div>
                 </div>
+
               </div>
             ) : (
               /* Message thread */

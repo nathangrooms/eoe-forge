@@ -325,6 +325,40 @@ export default function Play() {
   const [watchSpeedMs, setWatchSpeedMs] = useState(450);
 
   const [table, setTable] = useState<BuiltTable | null>(null);
+
+  /*
+   * A GAME IN PROGRESS IS THE ONE THING ON THIS PAGE THAT CANNOT BE REBUILT.
+   *
+   * Everything else here is addressable: the mode and the step are in the URL
+   * on purpose, and the note above `goToStep` records why. A `GameState` is
+   * not. It is turns of decisions held in this tab, so a refresh, a stray
+   * Back, or a closed tab ends the game with nothing to restore it from, and
+   * until now it did that silently.
+   *
+   * Deliberately NOT solved by putting the game in the address. An address that
+   * claims a game exists when nothing can rebuild it is worse than one that
+   * does not: the reader follows it and arrives at an empty board.
+   *
+   * `beforeunload` covers the reload and the closed tab, which are the two
+   * accidents. The browser shows its own wording and ignores ours, so there is
+   * no message to write. It covers neither in-app navigation nor browser Back:
+   * this router is not a data router, so `useBlocker` is unavailable, and the
+   * Leave control on the board is the deliberate way out either way.
+   *
+   * Bound only while a table exists, so pressing reload anywhere else in the
+   * product is untouched.
+   */
+  useEffect(() => {
+    if (!table) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      /* Assigning a string is the older half of the contract and some browsers
+         still want it. The text is never shown. */
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [table]);
   const [variant, setVariant] = useState<SeatingVariant>('table');
   const [view, setView] = useState<PlayViewId>('table');
   const [freeCast, setFreeCast] = useState(false);

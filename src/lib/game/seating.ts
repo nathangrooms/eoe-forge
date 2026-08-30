@@ -113,7 +113,7 @@ const LAYOUTS: Record<number, Partial<Record<SeatingVariant, SeatLayout>>> = {
     table: {
       playerCount: 1,
       variant: 'table',
-      description: 'Solo — the whole board faces you.',
+      description: 'Solo. The whole board faces you.',
       seats: [seat(0, 'bottom', { x: 0, y: 0, w: 1, h: 1 })],
     },
   },
@@ -123,7 +123,7 @@ const LAYOUTS: Record<number, Partial<Record<SeatingVariant, SeatLayout>>> = {
     table: {
       playerCount: 2,
       variant: 'table',
-      description: 'Head to head — one player on each long edge.',
+      description: 'Head to head. One player on each long edge.',
       seats: [
         seat(0, 'bottom', { x: 0, y: 0.5, w: 1, h: 0.5 }),
         seat(1, 'top', { x: 0, y: 0, w: 1, h: 0.5 }),
@@ -133,7 +133,7 @@ const LAYOUTS: Record<number, Partial<Record<SeatingVariant, SeatLayout>>> = {
     shared: {
       playerCount: 2,
       variant: 'shared',
-      description: 'Side by side — the device sits between both players.',
+      description: 'Side by side. The device sits between both players.',
       seats: [
         seat(0, 'left', { x: 0, y: 0, w: 0.5, h: 1 }),
         seat(1, 'right', { x: 0.5, y: 0, w: 0.5, h: 1 }),
@@ -146,7 +146,7 @@ const LAYOUTS: Record<number, Partial<Record<SeatingVariant, SeatLayout>>> = {
     table: {
       playerCount: 3,
       variant: 'table',
-      description: 'Three edges — bottom, left and right.',
+      description: 'Three edges. Bottom, left and right.',
       seats: [
         seat(0, 'bottom', { x: 0, y: 0.5, w: 1, h: 0.5 }),
         seat(1, 'left', { x: 0, y: 0, w: 0.5, h: 0.5 }),
@@ -157,7 +157,7 @@ const LAYOUTS: Record<number, Partial<Record<SeatingVariant, SeatLayout>>> = {
     stacked: {
       playerCount: 3,
       variant: 'stacked',
-      description: 'One near, two across — for a couch or a narrow table.',
+      description: 'One near and two across. Good for a couch or a narrow table.',
       seats: [
         seat(0, 'bottom', { x: 0, y: 0.5, w: 1, h: 0.5 }),
         seat(1, 'top', { x: 0, y: 0, w: 0.5, h: 0.5 }),
@@ -171,7 +171,7 @@ const LAYOUTS: Record<number, Partial<Record<SeatingVariant, SeatLayout>>> = {
     table: {
       playerCount: 4,
       variant: 'table',
-      description: 'Four edges — one player per side of the device.',
+      description: 'Four edges. One player per side of the device.',
       seats: [
         seat(0, 'bottom', { x: 0, y: 0.75, w: 1, h: 0.25 }),
         seat(1, 'left', { x: 0, y: 0.25, w: 0.5, h: 0.5 }),
@@ -183,7 +183,7 @@ const LAYOUTS: Record<number, Partial<Record<SeatingVariant, SeatLayout>>> = {
     quads: {
       playerCount: 4,
       variant: 'quads',
-      description: 'Two by two — two players along each long edge.',
+      description: 'Two by two. Two players along each long edge.',
       seats: [
         seat(0, 'bottom', { x: 0, y: 0.5, w: 0.5, h: 0.5 }),
         seat(1, 'top', { x: 0, y: 0, w: 0.5, h: 0.5 }),

@@ -857,7 +857,8 @@ export default function AIBuilder() {
 
       showSuccess(
         'Deck saved',
-        `${buildResult.deckName} — 100 cards including ${commander.name}.`
+        /* Two sentences, which is what the em-dash wanted to be. */
+        `${buildResult.deckName}. 100 cards, including ${commander.name}.`
       );
       navigate('/decks');
     } catch (error: any) {

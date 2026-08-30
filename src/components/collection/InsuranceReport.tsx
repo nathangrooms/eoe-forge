@@ -99,8 +99,11 @@ export function InsuranceReport({
         /* "x18  $19.62" reads as eighteen cards at $19.62 each. The figure is
            the total for all eighteen, so say which it is. On a valuation
            document that ambiguity is the whole ball game. */
+        /* No em-dashes, and this is the one document that leaves the product:
+           a plain-text valuation a person sends an insurer. Brackets around
+           what identifies the printing, a colon before the money. */
         lines.push(
-          `${i + 1}. ${card.name} — ${detail} — ${formatPrice(card.value)} total for ${copies}`
+          `${i + 1}. ${card.name} (${detail}): ${formatPrice(card.value)} total for ${copies}`
         );
       });
       lines.push('');

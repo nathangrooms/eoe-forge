@@ -110,7 +110,7 @@ ${(data.drivers || []).map((d: string) => `- ${d}`).join('\n')}
 **Weaknesses:**
 ${(data.drags || []).map((d: string) => `- ${d}`).join('\n')}
 
-Explain what each subscore means in practical gameplay, how to improve weak areas, and provide 2-3 specific card recommendations.`
+Explain what each part of the score means at a table, how to improve the weak ones, and name 2-3 specific cards.`
   },
   {
     id: 'mana-curve',

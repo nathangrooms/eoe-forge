@@ -295,13 +295,36 @@ describe('reading the commander', () => {
     assert.ok(plan.wants.some(w => w.facet === 'type:sorcery'));
   });
 
-  it('a commander with no record says so rather than pretending', () => {
+  it('a commander with no record gets the floor, and is marked as having only that', () => {
+    /* THIS ASSERTION CHANGED ON 2026-08-30 and the old one is worth recording.
+       It used to require `plan.wants` to be EMPTY, on the argument that an
+       empty plan is the honest outcome for a card we cannot read.
+
+       That was right until the owner asked for every commander to be covered.
+       21 of the 3,411 commanders the deck generator offers print no rules text
+       on any face, and an empty plan for Isamaru, Hound of Konda does not
+       describe him honestly, it just declines to describe him at all. A 2/2 for
+       one white mana with no abilities is played for its body and its commander
+       damage, and the deck is equipment and auras. That is the only reading the
+       card supports, so saying it is not pretending.
+
+       What must stay true is that the floor is the WEAKEST thing the engine
+       says and announces itself, which is what the rest of this test checks. */
     const plan = planForCommander(CARDS.muldrotha);
     assert.equal(plan.fromTagsOnly, true);
-    // Muldrotha's only tag is `creature`, which maps to nothing, so the plan is
-    // genuinely empty and the deck it builds is not about anything. That is the
-    // honest outcome and the measurement in ENGINE-PICKS.md reports it.
-    assert.deepEqual([...plan.wants], []);
+    assert.equal(plan.floorOnly, true, 'the floor fired but did not say so');
+    assert.ok(plan.wants.length > 0, 'the floor produced nothing');
+    for (const want of plan.wants) {
+      assert.ok(want.weight <= 0.5, `${want.facet} at ${want.weight} is above the floor`);
+      assert.ok(want.because.startsWith(CARDS.muldrotha.name), `free text: ${want.because}`);
+    }
+  });
+
+  it('a commander we can read is never marked as floor-only', () => {
+    for (const key of ['krenko', 'atraxa', 'talrand'] as const) {
+      const plan = planForCommander(CARDS[key]);
+      assert.notEqual(plan.floorOnly, true, `${key} was given the floor`);
+    }
   });
 
   it('two different commanders produce two different plans', () => {
@@ -1044,13 +1067,24 @@ describe('reading a commander the ability compiler cannot parse', () => {
     );
   });
 
-  it('does nothing at all without the text, rather than guessing', () => {
+  it('reads nothing from the text it was not given, and falls to the floor instead', () => {
+    /* Without her oracle text Teysa is, as far as this function can tell, a
+       card with no abilities, so the floor is what should answer. What must
+       not happen is any of her REAL wants appearing: `trig:dies` and
+       `eff:sacrifice` are read out of her words and cannot be inferred from a
+       type line, so their presence would mean something was guessed. */
     const blind = planForCommander({
       name: 'Teysa Karlov',
       typeLine: 'Legendary Creature \u2014 Human Advisor',
       facets: ['sub:advisor', 'sub:human', 'type:creature', 'type:legendary'],
     });
-    assert.equal(blind.wants.length, 0, 'wants appeared from nowhere');
+    assert.equal(blind.floorOnly, true, 'something other than the floor spoke');
+    const facets = blind.wants.map(w => w.facet);
+    assert.equal(facets.includes('trig:dies'), false, 'invented a death trigger');
+    assert.equal(facets.includes('eff:sacrifice'), false, 'invented a sacrifice theme');
+    for (const want of blind.wants) {
+      assert.ok(want.weight <= 0.5, `${want.facet} at ${want.weight} is above the floor`);
+    }
   });
 
   it('reads the families it claims to, off real card text', () => {

@@ -400,6 +400,17 @@ export interface CommanderPlan {
    */
   archetype?: ArchetypeInfluence | null;
   /**
+   * True when the ONLY wants in this plan came from the floor: the last-resort
+   * reading for a commander whose card says nothing at all.
+   *
+   * It exists so  can stand the floor down. A player who chose
+   * an archetype has given a real instruction, and the floor is a guess about
+   * a blank card; the guess must not dilute the instruction. Without this the
+   * archetype could no longer speak alone for Isamaru, which is the one case
+   * where it should speak loudest.
+   */
+  floorOnly?: boolean;
+  /**
    * A creature subtype the commander is built around, or null.
    *
    * The rule is deliberately strict: the subtype has to appear BOTH on the
@@ -1503,6 +1514,390 @@ const INTENT_RULES: readonly IntentRule[] = [
       ['sub:wall', 0.45],
     ],
   },
+  {
+    // Edric, Grazilaxx and Popular Entertainer. The shipped combat damage
+    // rule reads ` deals combat damage to a player`, so it finds one
+    // attacker and misses every commander written in the plural, `one or
+    // more creatures you control deal`. All three want the same deck: lots
+    // of cheap bodies that opponents cannot profitably block.
+    when: /whenever (one or more |a )?creatures?( you control)? deals? combat damage to (a player|one of your opponents)/i,
+    reads: "pays you every time your creatures connect",
+    wants: [
+      ['trig:deals-damage', 0.8],
+      ['kw:flying', 0.6],
+      ['eff:create-token', 0.55],
+      ['type:creature', 0.5],
+      ['kw:menace', 0.45],
+    ],
+  },
+  {
+    // Fang, Fearless l'Cie and Kirol, History Buff. This is the reverse of
+    // every graveyard rule we already have: the payment is not for filling
+    // the yard, it is for emptying it. So the deck needs both halves,
+    // something to put cards there and something to take them back.
+    when: /cards? leave your graveyard/i,
+    reads: "is paid when cards come back out of your graveyard",
+    wants: [
+      ['cares:zone:graveyard', 0.85],
+      ['eff:return-from', 0.8],
+      ['eff:mill', 0.6],
+      ['eff:discard', 0.5],
+    ],
+  },
+  {
+    // Bruvac. A mill doubler is only a commander if the deck is full of
+    // mill, and popularity alone gives him blue goodstuff instead.
+    when: /(mill twice that many|would mill one or more cards)/i,
+    reads: "doubles how much your opponents mill",
+    wants: [
+      ['eff:mill', 0.85],
+      ['cares:zone:library', 0.5],
+      ['cares:zone:graveyard', 0.35],
+    ],
+  },
+  {
+    // Candlekeep Sage and Far Traveler, read INSIDE the quotation marks. A
+    // Background's own words are `Commander creatures you own have`, and
+    // the deck is the ability it grants, not the granting. Both grant a
+    // blink payoff, so both decks are creatures worth re-entering plus the
+    // effects that re-enter them.
+    when: /(enters or leaves the battlefield|exile up to one target tapped creature you control, then return it)/i,
+    reads: "pays you for sending your creatures away and bringing them back",
+    wants: [
+      ['trig:enters', 0.8],
+      ['eff:move-zone', 0.65],
+      ['trig:leaves', 0.5],
+      ['eff:draw', 0.4],
+    ],
+  },
+  {
+    // Folk Hero, read inside the quotation. Which type is decided by the
+    // partner it is paired with, so the only honest wants are creatures
+    // generally and the changelings that are every type at once and
+    // therefore always turn it on.
+    when: /shares a creature type with/i,
+    reads: "pays you for casting things that share a creature type",
+    wants: [
+      ['type:creature', 0.75],
+      ['kw:changeling', 0.6],
+      ['cares:type:creature', 0.45],
+    ],
+  },
+  {
+    // Passionate Archaeologist, read inside the quotation. The deck is
+    // built on cards that exile something and let you play it later, so
+    // exile is the resource and not a removal effect.
+    when: /cast a spell from exile/i,
+    reads: "is paid when you cast a card from exile",
+    wants: [
+      ['eff:exile', 0.8],
+      ['cares:zone:library', 0.5],
+      ['eff:damage', 0.45],
+      ['type:instant', 0.35],
+    ],
+  },
+  {
+    // Tomorrow, Azami's Familiar and Scion of Halaster. A replacement on
+    // the draw is worth far more the more times you draw, so the deck
+    // wants draw and it wants to know what is on top.
+    when: /you would draw a card[^.\n]{0,30}look at/i,
+    reads: "turns every card you draw into a choice",
+    wants: [
+      ['eff:draw', 0.75],
+      ['cares:zone:library', 0.55],
+      ['eff:scry', 0.45],
+    ],
+  },
+  {
+    // Scion of Halaster, the second half of what it grants. A free card
+    // into the yard each turn is only a cost if nothing in the deck wants
+    // it there, so the deck should want it there.
+    when: /put one of them into your graveyard/i,
+    reads: "puts a card in your graveyard every turn whether you like it or not",
+    wants: [
+      ['cares:zone:graveyard', 0.7],
+      ['eff:return-from', 0.55],
+      ['eff:mill', 0.45],
+    ],
+  },
+  {
+    // Tuvasa. The shipped enchantment rule wants the words `enchantment
+    // card`, `enchantment permanent` or `enchantment spell you cast`, and
+    // Tuvasa says neither, so the most obvious enchantress commander in
+    // the game got a generic deck.
+    when: /(for each enchantment you control|first enchantment spell each turn)/i,
+    reads: "grows and draws off the enchantments you control",
+    wants: [
+      ['type:enchantment', 0.85],
+      ['sub:aura', 0.6],
+      ['cares:type:enchantment', 0.55],
+      ['eff:draw', 0.4],
+    ],
+  },
+  {
+    // Zimone, Infinite Analyst. An X spell is only good with a lot of mana
+    // behind it, and Zimone also pays in +1/+1 counters, so the deck is
+    // ramp plus counters rather than cheap interaction.
+    when: /spells? with \{X\} in (its|their) mana cost/i,
+    reads: "rewards you for casting spells with X in the cost",
+    wants: [
+      ['eff:add-mana', 0.8],
+      ['ctr:+1/+1', 0.7],
+      ['eff:add-counters', 0.65],
+      ['type:sorcery', 0.4],
+      ['type:instant', 0.4],
+    ],
+  },
+  {
+    // Tyvar, the Pummeler. The shipped team pump rule reads `get +`
+    // followed by a digit, so every commander whose pump is written as
+    // +X/+X falls straight through it. A finisher that scales with the
+    // board wants a board.
+    when: /creatures you control get \+X\/\+X/i,
+    reads: "makes your whole team bigger at once",
+    wants: [
+      ['type:creature', 0.7],
+      ['eff:create-token', 0.6],
+      ['kw:trample', 0.55],
+      ['eff:pump', 0.5],
+      ['eff:untap', 0.4],
+    ],
+  },
+  {
+    // Ulrich of the Krallenhorde. That sentence is printed on werewolves
+    // and on nothing else, so it is the cleanest tribal signal in the
+    // game. The tribe branch missed him because it needs the type named in
+    // a filter and his only mention is `non-Werewolf creature you don't
+    // control`.
+    when: /if no spells were cast last turn/i,
+    reads: "flips back and forth depending on how many spells were cast",
+    wants: [
+      ['sub:werewolf', 0.8],
+      ['cares:sub:werewolf', 0.5],
+      ['type:creature', 0.45],
+      ['eff:pump', 0.35],
+    ],
+  },
+  {
+    // Zenos yae Galvus. The flip is the whole card and you have to kill
+    // the chosen creature to get it, so the deck is removal first.
+    when: /when the chosen creature leaves the battlefield/i,
+    reads: "needs the creature it picked to die before it turns over",
+    wants: [
+      ['eff:destroy', 0.75],
+      ['eff:exile', 0.6],
+      ['eff:damage', 0.55],
+    ],
+  },
+  {
+    // Sasaya, Orochi Ascendant, on both faces. The front asks for seven
+    // lands in hand and the back pays per land with the same name, so the
+    // deck is basics, lands searched into hand rather than onto the
+    // battlefield, and something enormous to spend it on. The shipped mana
+    // rule reads `whenever you tap a land for mana` and Sasaya says `a
+    // land you control is tapped for mana`.
+    when: /(land cards? in your hand|a land you control is tapped for mana)/i,
+    reads: "wants lands piled up in your hand and pays you for tapping them",
+    wants: [
+      ['cares:zone:library-land', 0.8],
+      ['type:land', 0.7],
+      ['eff:add-mana', 0.65],
+      ['eff:search-library', 0.6],
+      ['cares:zone:hand', 0.4],
+    ],
+  },
+  {
+    // Archelos. Tapping him locks the table down and untapping him frees
+    // you, so the deck wants ways to tap and untap him at will, and it can
+    // play the lands that would enter tapped anyway for free.
+    when: /(other permanents|permanents your opponents control|creatures your opponents control|lands your opponents control) enters? tapped/i,
+    reads: "decides whether everything else arrives tapped or untapped",
+    wants: [
+      ['eff:untap', 0.8],
+      ['eff:tap', 0.6],
+      ['type:land', 0.45],
+      ['cares:zone:library-land', 0.4],
+    ],
+  },
+  {
+    // Blind Seer. Repainting a spell or permanent is only worth a
+    // commander slot next to cards that care what colour something is:
+    // protection, colour hosers and colour-specific removal.
+    when: /becomes? the colou?r of your choice/i,
+    reads: "changes what colour things are, so cards that punish one colour always have a target",
+    wants: [
+      ['kw:protection', 0.6],
+      ['eff:destroy', 0.5],
+      ['eff:counter', 0.45],
+    ],
+  },
+  {
+    // Yukora, the Prisoner. The drawback names the tribe, so the deck
+    // answers it by being that tribe, and the trigger itself is a free
+    // board sacrifice worth building around.
+    when: /non-Ogre creatures/i,
+    reads: "kills every creature you control that is not an Ogre",
+    wants: [
+      ['sub:ogre', 0.8],
+      ['eff:sacrifice', 0.5],
+      ['trig:dies', 0.45],
+      ['cares:sub:ogre', 0.4],
+    ],
+  },
+  {
+    // Pipsqueak. Two demands in one sentence: other attackers, and a +1/+1
+    // counter on it. The shipped counters rule looks for `counters on it`
+    // and Pipsqueak says `on him`.
+    when: /can't attack alone/i,
+    reads: "will not attack on its own, so it needs friends and a counter",
+    wants: [
+      ['eff:create-token', 0.75],
+      ['type:creature', 0.6],
+      ['ctr:+1/+1', 0.55],
+      ['eff:add-counters', 0.55],
+      ['trig:attacks', 0.45],
+    ],
+  },
+  {
+    // Zurgo Bellstriker and Zhou Yu. Their entire text is a restriction. A
+    // restriction says nothing about what to build, so the only honest
+    // reading is the one every player makes at the table: a cheap legend
+    // with no abilities is a body you arm and swing with.
+    when: /can't (attack|block) (unless|creatures)/i,
+    reads: "has a drawback in combat and nothing else we can read, so the deck pushes it through",
+    wants: [
+      ['sub:equipment', 0.65],
+      ['eff:pump', 0.55],
+      ['sub:aura', 0.5],
+      ['kw:haste', 0.45],
+      ['cares:sub:equipment', 0.4],
+    ],
+  },
+  {
+    // Halfdane and Ambassador Blorpityblorpboop. Both rewrite their own
+    // power every turn from something outside the card, which means the
+    // card tells you nothing about a deck except that the commander is the
+    // thing attacking.
+    when: /(base power (and toughness )?becomes?|change [A-Z][^.\n]{0,30}'s base power)/i,
+    reads: "rewrites its own power every turn, so the deck just makes sure it connects",
+    wants: [
+      ['sub:equipment', 0.65],
+      ['kw:trample', 0.55],
+      ['eff:pump', 0.5],
+      ['sub:aura', 0.45],
+      ['kw:haste', 0.4],
+    ],
+  },
+  {
+    // Elrond, Moon-Reader. The shipped activated-ability rule reads
+    // `abilities you activate` and `activated abilities of`, and Elrond
+    // says `whenever you activate an ability of a creature`. The deck
+    // wants creatures whose abilities are cheap enough to fire every turn,
+    // and untappers to fire them twice.
+    when: /whenever you activate an ability/i,
+    reads: "pays you for using the abilities on your creatures",
+    wants: [
+      ['acost:1', 0.75],
+      ['acost:0', 0.7],
+      ['acost:2', 0.65],
+      ['eff:untap', 0.55],
+      ['type:creature', 0.5],
+    ],
+  },
+  {
+    // Professor Hojo and Loki. Both want a deck full of abilities that
+    // pick a target, which is what equipping, pumping and tapping all are.
+    when: /becomes? the target of an (activated )?ability/i,
+    reads: "pays you when your abilities pick a target",
+    wants: [
+      ['acost:1', 0.7],
+      ['acost:2', 0.65],
+      ['acost:0', 0.6],
+      ['eff:pump', 0.55],
+      ['sub:equipment', 0.45],
+      ['eff:tap', 0.4],
+    ],
+  },
+  {
+    // Stenn and Umori. Neither says which type, and Stenn cannot choose
+    // creature or land, so the reading is that the deck is stacked with
+    // noncreature permanents and spells rather than spread evenly.
+    when: /of the chosen type cost/i,
+    reads: "makes one card type cheaper, so the deck leans on that type",
+    wants: [
+      ['type:artifact', 0.6],
+      ['type:enchantment', 0.6],
+      ['type:instant', 0.5],
+      ['type:sorcery', 0.5],
+    ],
+  },
+  {
+    // Zedruu. The deck is the opposite of every other control-changing
+    // commander: it wants things that are bad to own and effects that hand
+    // them over, and it counts how many it has given away.
+    when: /(gains? control of target permanent you control|permanents you own that your opponents control)/i,
+    reads: "gives your own permanents away and gets paid for it",
+    wants: [
+      ['eff:gain-control', 0.8],
+      ['eff:draw', 0.5],
+      ['eff:gain-life', 0.45],
+      ['type:enchantment', 0.4],
+    ],
+  },
+  {
+    // Sisters of Stone Death. A lure is only good on a creature that wins
+    // the fight and survives it, so the deck wants deathtouch, first
+    // strike and ways to keep it alive rather than more attackers.
+    when: /blocks [A-Z][^.\n]{0,30} this turn if able/i,
+    reads: "forces a creature to block it",
+    wants: [
+      ['kw:deathtouch', 0.7],
+      ['kw:first strike', 0.6],
+      ['kw:vigilance', 0.5],
+      ['sub:equipment', 0.5],
+      ['eff:pump', 0.45],
+    ],
+  },
+  {
+    // Tymaret, Chosen from Death. Counting mana symbols only pays if the
+    // deck is heavily one colour and full of permanents that stay on the
+    // battlefield, which is creatures and enchantments rather than
+    // instants.
+    when: /devotion to (white|blue|black|red|green)/i,
+    reads: "counts the coloured mana symbols on the permanents you control",
+    wants: [
+      ['type:creature', 0.6],
+      ['type:enchantment', 0.55],
+      ['eff:exile', 0.4],
+      ['eff:gain-life', 0.35],
+    ],
+  },
+  {
+    // Yasharn. The reason anybody plays this card is the second sentence,
+    // and it is a lock piece, so the deck should be the rest of the lock
+    // and the lands to hold it up rather than a green ramp pile.
+    when: /players can't (pay life|sacrifice|search)/i,
+    reads: "stops everyone paying life or sacrificing things to get ahead",
+    wants: [
+      ['type:creature', 0.6],
+      ['eff:search-library', 0.55],
+      ['cares:zone:library-land', 0.5],
+      ['type:land', 0.4],
+      ['type:enchantment', 0.4],
+    ],
+  },
+  {
+    // Niambi. The whole card is one fetch, so the deck is the card being
+    // fetched plus the enter-the-battlefield shell that gets to do it
+    // again.
+    when: /search your library (and\/or graveyard )?for a card named/i,
+    reads: "goes and finds one particular card when it arrives",
+    wants: [
+      ['eff:search-library', 0.65],
+      ['trig:enters', 0.6],
+      ['eff:move-zone', 0.4],
+    ],
+  },
   /* END GENERATED INTENT RULES */
 ];
 
@@ -1897,6 +2292,56 @@ export function planForCommander(commander: {
     }
   }
 
+  /* THE FLOOR: a commander whose card tells us nothing at all.
+     ---------------------------------------------------------
+     Twenty-one of the 3,411 commanders the deck generator offers print NO
+     RULES TEXT ON ANY FACE. Isamaru, Hound of Konda is a 2/2 Dog for {W}.
+     Yargle, Glutton of Urborg is a 9/3 Frog Spirit. Torsten Von Ursus is an
+     8/8. No pattern over text can ever reach them, because there is no text,
+     and every fallback above needs either a facet or a keyword to fire.
+
+     A legendary creature with no abilities is played for exactly two things:
+     its body, and commander damage. The deck a player actually builds is
+     equipment, auras, evasion and ways to keep it swinging. That is not a
+     guess about what the card might mean. It is the only reading the card
+     supports.
+
+     THE GUARD IS `!wants.size` AND NOTHING ELSE, deliberately not "the text
+     was empty". The Prismatic Piper has text, all of it about choosing a
+     colour before the game begins, and it says nothing whatever about a deck.
+     The condition that matters is that the whole function found nothing.
+
+     WEIGHTS ARE THE LOWEST IN THIS FILE so that literally any other reading
+     outranks this one. It is the least confident thing the engine says.
+
+     AND IT MUST NOT BE UNIFORM, or the generator builds twenty-one identical
+     decks and we have replaced silence with a lie. The type line is the only
+     information a blank card carries, so the creature's own subtypes go in
+     too: Jedit Ojanen is a Cat Warrior and Cat tribal is a deck people
+     actually build. This deliberately does NOT use `tribeOf`, whose rule is
+     that the subtype must appear on the type line AND inside an ability. A
+     card with no abilities can never satisfy that, which is precisely why
+     these commanders reached here. */
+  let floorOnly = false;
+  if (!wants.size) {
+    floorOnly = true;
+    const because = `${commander.name} tells us nothing but its stats, so the deck arms it and swings`;
+    add('sub:equipment', 0.5, because);
+    add('sub:aura', 0.45, because);
+    add('eff:pump', 0.4, because);
+    add('cares:sub:equipment', 0.35, because);
+    add('kw:trample', 0.35, because);
+    add('kw:haste', 0.3, because);
+
+    for (const subtype of subtypesOf(commander.typeLine)) {
+      add(
+        `sub:${subtype}`,
+        0.3,
+        `${commander.name} is a ${subtype} and that is the only thing its card says`
+      );
+    }
+  }
+
   const fromTagsOnly = !hasRecord(commander);
   if (fromTagsOnly) {
     // No record. The commander's tags are all that is left, and a tag is a word,
@@ -1913,6 +2358,7 @@ export function planForCommander(commander: {
     wants: [...wants.values()].sort((a, b) => b.weight - a.weight || a.facet.localeCompare(b.facet)),
     tribe,
     fromTagsOnly,
+    floorOnly,
   };
 }
 
@@ -1922,6 +2368,34 @@ export function planForCommander(commander: {
  * Both places or nothing. See `CommanderPlan.tribe` for why Talrand must come
  * back null.
  */
+/**
+ * The creature subtypes printed on a type line's FRONT face.
+ *
+ * Split out of `tribeOf` so the floor can reuse the parse without inheriting
+ * the rule. `tribeOf` requires the subtype to appear on the type line AND
+ * inside an ability, which is right for deciding a TRIBE and is exactly what
+ * a card with no abilities can never satisfy. The floor needs the words on
+ * their own, because for a blank card the type line is the only information
+ * the card carries.
+ *
+ * Empty for anything that is not a creature. A planeswalker's subtype is its
+ * identity and an enchantment's is Aura or Saga; neither is a tribe, and
+ * reading Windgrace off Lord Windgrace once gave a lands commander a tribal
+ * plan for a tribe of one card that was himself.
+ */
+function subtypesOf(typeLine: string | null | undefined): string[] {
+  const line = (typeLine ?? '').split('//')[0];
+  if (!line.toLowerCase().includes('creature')) return [];
+  const dash = line.indexOf('—');
+  if (dash < 0) return [];
+  return line
+    .slice(dash + 1)
+    .trim()
+    .split(/\s+/)
+    .map(w => w.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 function tribeOf(typeLine: string | null | undefined, facets: readonly Facet[]): string | null {
   const own = new Set<string>();
   const line = (typeLine ?? '').split('//')[0];
@@ -2395,7 +2869,14 @@ export function withArchetype(
 ): CommanderPlan {
   if (!archetype || archetype.wants.length === 0) return plan;
 
-  const commanderTop = plan.wants.reduce((best, w) => Math.max(best, w.weight), 0);
+  /* THE FLOOR STANDS DOWN when a real archetype was asked for. A plan whose
+     only wants came from the floor is the engine saying it could not read the
+     card; an archetype is the player saying what they want. Letting the guess
+     compete would stop the shell speaking alone for exactly the commanders
+     where it has the most to say. */
+  const base: CommanderPlan = plan.floorOnly ? { ...plan, wants: [], floorOnly: false } : plan;
+
+  const commanderTop = base.wants.reduce((best, w) => Math.max(best, w.weight), 0);
   const shellTop = archetype.wants[0].weight;
   const anchor = commanderTop > 0 ? commanderTop : 1;
   const scale = shellTop > 0 ? (anchor * ARCHETYPE_SHARE) / shellTop : 0;
@@ -2407,7 +2888,7 @@ export function withArchetype(
   }));
 
   const merged = new Map<Facet, Want>();
-  for (const want of plan.wants) merged.set(want.facet, want);
+  for (const want of base.wants) merged.set(want.facet, want);
 
   let added = 0;
   for (const want of scaled) {

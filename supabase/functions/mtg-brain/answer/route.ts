@@ -665,6 +665,19 @@ export const ASKS: Ask[] = [
          question to name a job we can actually list, so a bare "more" routes
          nowhere. */
       'more', 'need more', 'not enough', 'short on', 'light on', 'thin on',
+      /* Two of the plainest ways to ask for cards were not here, and the
+         measurement found them rather than a reading of the table: "Name ten
+         green ramp cards" and "List seven blue card draw spells" both routed
+         nowhere and got the generic refusal, while "Give me five board wipes"
+         and "Recommend four tutors" were answered from the catalogue in the
+         same run. The job words were never the problem. A player asking for a
+         shortlist says NAME, LIST or FIND at least as often as they say best.
+
+         Safe for the same reason the loose cues above are safe: `needs` below
+         still requires the question to name a job we can list, so a bare
+         "name that card" routes nowhere. */
+      'name', 'list', 'find', 'find me', 'name some', 'name a few',
+      'which cards', 'options for', 'ideas for', 'help me find',
     ],
     needs: {
       said: 'the question has to name a job we can list, like counterspells or ramp',

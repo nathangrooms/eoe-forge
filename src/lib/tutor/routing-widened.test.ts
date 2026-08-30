@@ -322,3 +322,67 @@ describe('what a swap line may claim about a land', () => {
     assert.equal(conditionNote(COMMAND_TOWER), null);
   });
 });
+
+/* ------------------------------------------------------------------ *
+ * Asking for a list in the plainest words there are
+ *
+ * Found by measurement, not by reading the table. Five list questions were put
+ * through the deployed function on 2026-08-30 with the price cap and the count
+ * stated in each. Three were answered from the catalogue with prices beside
+ * every card. Two got the generic "I cannot answer that one":
+ *
+ *   Name ten green ramp cards for Commander, each under five dollars.
+ *   List seven blue card draw spells.
+ *
+ * The job words were never the problem. `roleFrom` reads ramp and card draw
+ * perfectly well and always did. `best-of` simply had no cue for NAME or LIST,
+ * so `chooseAsk` returned nothing and the answer was a refusal about a subject
+ * we hold thousands of rows on.
+ * ------------------------------------------------------------------ */
+
+describe('a list asked for in the plainest words', () => {
+  it('routes the two questions the deployed function refused', () => {
+    assert.equal(askFor('Name ten green ramp cards for Commander, each under five dollars.'), 'best-of');
+    assert.equal(askFor('List seven blue card draw spells.'), 'best-of');
+  });
+
+  it('routes the other plain ways a player asks for a shortlist', () => {
+    for (const q of [
+      'find me some black removal',
+      'which cards ramp in green',
+      'options for board wipes in white',
+      'ideas for card draw in blue',
+      'help me find counterspells under a dollar',
+      'name a few artifact tutors',
+    ]) {
+      assert.equal(askFor(q), 'best-of', q);
+    }
+  });
+
+  /**
+   * The other half, and the reason the loose cues are safe at all. `needs`
+   * requires the question to name a job we can list, so a cue on its own
+   * routes nowhere rather than to the nearest thing we recognised.
+   */
+  it('a cue with no job named still routes nowhere', () => {
+    for (const q of [
+      'name that card',
+      'list my decks',
+      'find my collection',
+      'what is the name of this',
+    ]) {
+      assert.notEqual(askFor(q), 'best-of', q);
+    }
+  });
+
+  /**
+   * `explain` owns a card asked about by name, and "name" is now a cue. The
+   * two must not collide, so the questions beside the new ones are asserted
+   * the way every other pair in this file is.
+   */
+  it('does not steal a question about one card', () => {
+    assert.notEqual(askFor('tell me about Sol Ring'), 'best-of');
+    assert.notEqual(askFor('what does this card do'), 'best-of');
+    assert.notEqual(askFor('is it any good'), 'best-of');
+  });
+});

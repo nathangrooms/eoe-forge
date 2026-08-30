@@ -1347,6 +1347,17 @@ printing-independent already. Checked, not assumed.
 `collectionBatch.ts` does, because an `.in()` list is a URL segment and a URL
 has a length. One extra read whatever the deck count.
 
+### How this one was applied
+
+`execute_sql` with the exact file contents, so like
+`20260828120000_pool_query_id_ordered_indexes.sql` it has **no recorded version
+in `supabase_migrations.schema_migrations`** — the opposite failure to the
+double-recording described further down. That is safe here only because it is
+idempotent, and idempotent deliberately: a second run finds the new block
+already present, says so with a `notice`, and returns. Verified by running the
+check twice. A migration that raises on its second run is one that breaks
+`supabase db push`.
+
 > ⚠️ **The audit fixture had to be fixed twice for this.** It first reported
 > `missing: 0` outright, a number nobody counted, which had My Decks drawing a
 > green tick and "Collection progress 100% 100/100" over a fixture owning 52

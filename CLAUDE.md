@@ -1227,6 +1227,70 @@ The general rule this is the third instance of: **read the deployed object, not
 the repo file, before believing you know what runs.** Sections 10b and 10c
 record the same trap on `mtg-brain` and `ai-deck-builder-v2`.
 
+## Changing a tag rule: the four steps, and why one of them cannot be a migration
+
+Done for real on 30 Aug 2026 (`an_anthem_is_not_a_finisher`), so this is the
+procedure rather than a plan.
+
+1. **Change `TAG_RULES` in `src/engine/knowledge/tagger.ts` and test it.**
+   Then `npm run vendor`, or `npm test` fails on engine parity: four edge
+   functions carry a copy.
+
+2. **Patch the deployed `derive_card_tags` BY SUBSTRING.** Read
+   `pg_get_functiondef`, `replace()` the one regex, `execute` the result, and
+   `raise` if the old regex is not there. Never regenerate: the deployed
+   `cards_apply_role_tags` carries a revert guard and the
+   `derive_card_tags_memo` indirection that `generate-tagger-sql.ts` has never
+   emitted.
+
+3. **Clear `card_tag_memo` for the affected tag.** It is keyed on the
+   classifier's INPUTS, and a rule change does not alter an input, so every
+   affected card keeps returning its cached answer forever.
+
+4. **Retag in BATCHES, outside the migration.**
+
+   `derive_card_tags` is 109 regexes of plpgsql. Calling it on 2,224 rows to
+   decide and again to write is 4,448 calls, which blew `statement_timeout` and
+   rolled the function patch back with it. So the DECISION uses the regex
+   directly against `oracle_text` — cheap — and the function is called once, on
+   `limit 400` at a time, repeated until nothing is left:
+
+   ```sql
+   select set_config('deckmatrix.retag','on',true);
+   with victim as (
+     select id from public.cards
+     where '<tag>' = any(tags) and not (lower(coalesce(oracle_text,'')) ~ '<new regex>')
+     limit 400
+   )
+   update public.cards c
+   set tags = public.derive_card_tags(c.name, c.type_line, c.oracle_text,
+                                      c.keywords, c.mana_cost, c.cmc, c.faces)
+   from victim v where c.id = v.id;
+   ```
+
+   `set_config(..., true)` is TRANSACTION-LOCAL, so it belongs in every batch.
+   Without it the trigger silently reverts each write.
+
+**A residue is expected and is not failure.** 43 rows still matched the
+"should not have it" predicate afterwards and were correct: all multi-face, the
+clause is on a face, which `derive_card_tags` reads and a `lower(oracle_text)`
+test cannot. Confirm with `tags is distinct from derive_card_tags(...)`, which
+was zero for all 43. The predicate is a cheap approximation of the function;
+the function is the authority.
+
+### The views carry it on their own schedule
+
+`public.refresh_cards_unique(boolean)` refreshes **both** `cards_unique` AND
+`cards_pool`, `concurrently`, so reads are never blocked. There is no separate
+`cards_pool` refresh job and none is needed — the two `vacuum` jobs are the only
+other thing on the schedule that names it, and a vacuum is not a refresh.
+
+`cards-unique-refresh` runs at **06:00 and 12:00**. It skips when
+`max(cards.updated_at)` has not moved past `last_source_change`, so a retag
+propagates only because writing `tags` bumps `updated_at`. Until it runs, the
+tags in the app are the old ones: the deck page, the generator and the optimiser
+all read the views, never `cards`.
+
 ## The instruments lie in four specific ways (30 Aug 2026)
 
 Four separate "defects" this session turned out to be the measuring tool,

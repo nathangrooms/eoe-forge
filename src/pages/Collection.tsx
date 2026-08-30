@@ -42,6 +42,8 @@ import { CollectionQuickStats } from '@/components/collection/CollectionQuickSta
 import { CollectionEmptyState } from '@/components/collection/CollectionEmptyState';
 import { CollectionLoadingSkeleton } from '@/components/collection/CollectionLoadingSkeleton';
 import { AddCardsHeader } from '@/components/collection/AddCardsHeader';
+import { RecentRail } from '@/components/collection/analytics/ValueRail';
+import { recentlyAdded, type OwnedRow } from '@/components/collection/analytics/spread';
 import { useAuth } from '@/components/AuthProvider';
 import { PageTabs } from '@/components/listing';
 
@@ -153,6 +155,14 @@ export default function Collection() {
   };
 
   const cards = useMemo(() => snapshot?.items ?? [], [snapshot]);
+
+  /* The Add tab's rail. Twelve rather than the analytics tab's twenty: this is
+     a glance to confirm the last lot landed, not a section about your
+     collection. Same function, so "recently" means the same thing on both. */
+  const recentlyAddedRows = useMemo(
+    () => recentlyAdded(cards as unknown as OwnedRow[], 12),
+    [cards]
+  );
 
   /**
    * The page header's figures, from the same one pass the Analytics tab uses.
@@ -487,6 +497,35 @@ export default function Collection() {
                 addToBox={deckAdditionConfig.addToBox}
                 onSelectionChange={setDeckAdditionConfig}
               />
+
+              {/*
+                WHAT YOU LAST ADDED, BEFORE THE SEARCH BOX.
+                This tab measured `art 0`: a magnifier icon and four preset
+                chips over 280px of empty charcoal, on a page whose subject is
+                cards. The same shape the deck's Add tab had until this morning.
+                A search cannot guess what you are about to type, but the last
+                thing you added is a real fact this page already holds, and it
+                is the one worth seeing here — it is how you tell whether the
+                scan landed, whether the import took, whether you already added
+                the card in your hand.
+
+                `RecentRail` and `recentlyAdded` are the analytics tab's, not a
+                second implementation, so the two tabs agree about what
+                "recently" means.
+              */}
+              {recentlyAddedRows.length > 0 && (
+                <section aria-labelledby="dm-add-recent" className="min-w-0">
+                  <div className="mb-3 flex items-baseline gap-2.5">
+                    <h2 id="dm-add-recent" className="text-base font-semibold text-foreground">
+                      What you added last
+                    </h2>
+                    <span className="text-xs text-muted-foreground">
+                      Newest first, so you can see whether the last lot landed
+                    </span>
+                  </div>
+                  <RecentRail rows={recentlyAddedRows} loading={loading} />
+                </section>
+              )}
 
               {/*
                 PICKING, not browsing. This tab exists to put cards into a

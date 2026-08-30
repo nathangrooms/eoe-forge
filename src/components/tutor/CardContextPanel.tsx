@@ -98,8 +98,15 @@ export function CardContextPanel({ card, onCardClick }: CardContextPanelProps) {
 
           {card.set_code && (
             <Fact label="Printing">
+              {/* The set alone when the collector number is not known.
+                  It used to print "MSC #?", which reads as a card whose number
+                  is a question mark rather than as a field we were not given,
+                  and a question mark on screen is worse than a shorter true
+                  line. The caller that caused it is fixed too; this is so the
+                  next caller that forgets cannot show it either. */}
               <span className="text-sm">
-                {String(card.set_code).toUpperCase()} #{card.collector_number ?? '?'}
+                {String(card.set_code).toUpperCase()}
+                {card.collector_number ? ` #${card.collector_number}` : ''}
                 {card.rarity && (
                   <span className="text-muted-foreground"> · {card.rarity}</span>
                 )}

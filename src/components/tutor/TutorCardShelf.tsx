@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { uniqueCards } from '@/lib/cards/cardQuery';
 import { CardImage, CardImageSkeleton } from '@/components/cards/CardImage';
-import type { TutorCard } from './ContextPicker';
+import { TUTOR_CARD_COLUMNS, type TutorCard } from './ContextPicker';
 
 /**
  * Cards to ask about, on the page whose entire subject is cards.
@@ -57,9 +57,11 @@ import type { TutorCard } from './ContextPicker';
  */
 const SHELF_SIZE = 6;
 
-/* `uniqueCards()` and not `cards`: one row per card, so the shelf is sixteen
-   different cards rather than eight cards and eight reprints of them. */
-const COLUMNS = 'id,oracle_id,name,type_line,mana_cost,oracle_text,image_uris,edhrec_rank,prices,set_code,rarity';
+/* THE SAME COLUMNS THE PICKER FETCHES, imported rather than restated.
+   A hand-rolled list here left `collector_number` out, and the context panel
+   prints "${set} #${collector_number ?? '?'}", so attaching a card off the
+   shelf showed "MSC #?" while attaching the identical card through the picker
+   showed the real number. One list, one behaviour, whichever door was used. */
 
 export interface TutorCardShelfProps {
   onPick: (card: TutorCard) => void;
@@ -74,7 +76,7 @@ export function TutorCardShelf({ onPick, className }: TutorCardShelfProps) {
     let live = true;
     (async () => {
       const { data, error } = await uniqueCards()
-        .select(COLUMNS)
+        .select(TUTOR_CARD_COLUMNS)
         .eq('legalities->>commander', 'legal')
         .not('edhrec_rank', 'is', null)
         .not('image_uris', 'is', null)

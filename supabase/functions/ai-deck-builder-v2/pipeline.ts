@@ -333,6 +333,36 @@ export type BuildOutcome =
  * These are limits of the runtime rather than of the idea. If the function gets
  * more memory, raise them; nothing else has to change.
  */
+/* RAISING THESE WAS TRIED ON 2026-08-30 AND FAILED. Do not try it again
+   without reading this.
+   ---------------------------------------------------------------------
+   They exist for MEMORY: the function ran out of it holding the pool, and a
+   five-colour commander's pool is the whole commander-legal catalogue.
+
+   The reasoning for raising them was good and the conclusion was wrong. The
+   pool now comes from `cards_pool`, whose rows carry no `oracle_text`,
+   `faces`, `image_uris`, `legalities` or `prices`: 13 MB against 105 MB for
+   the same 33,032 rows. The facets are read rather than compiled, so the CPU
+   cost that shared this budget is gone as well. Eight times less data per row
+   ought to mean room for more rows.
+
+   It does not. Measured on the deployed function, five-colour commanders:
+
+     ceiling 12000   Najeela, Golos and Kenrith all 546
+     ceiling  8000   Najeela, Golos and Kenrith all 546
+     ceiling  5000   all three build, 98 cards, about 4.4 s
+
+   THE ROW WIDTH WAS NEVER THE MEMORY COST. What the function holds is not the
+   JSON it received, it is the objects the engine builds from it: a
+   `BuildCard` per row, a facet array per row, and the ranker's own working
+   set. Those are the same size whether the row arrived with oracle text or
+   without it. Narrowing the view made the pool query eighteen times faster
+   and moved this limit not at all, and the two are simply different
+   resources.
+
+   So a five-colour deck chooses from the five thousand most played cards in
+   Commander. Raising that needs a smaller per-card footprint in the engine or
+   a function with more memory, not a smaller row. */
 function rankCeilingFor(colours: number): number | undefined {
   if (colours >= 5) return 5000;
   if (colours === 4) return 9000;

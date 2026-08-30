@@ -200,6 +200,29 @@ for (const [name, route] of (ROUTES ?? NAV)) {
 
       let lowest = 0;
       let widest = 0;
+
+      /*
+       * A FULL-BLEED HERO IMAGE IS CONTENT, wherever it sits in the tree.
+       *
+       * `lowest` walks the children of `main`, and the sign-in page's art strip
+       * is a sibling of `main` rather than a descendant of it, so the page
+       * reported 155px "empty below the fold" while a 1592x1000 image covered
+       * every pixel of it. Measured: main's own bottom is 1000, the art's is
+       * 1000, and the lowest CHILD of main is the form card at 845.
+       *
+       * Counting `main` itself instead would be wrong — it is `min-h-screen` on
+       * most pages, so every page would report zero and the rule would stop
+       * working. The narrow thing that is actually missing is an image as wide
+       * as the window.
+       */
+      for (const img of document.querySelectorAll('img')) {
+        const r = img.getBoundingClientRect();
+        if (r.width < view.w * 0.9 || r.height < 200) continue;
+        lowest = Math.max(lowest, r.bottom + window.scrollY);
+        /* And the width, for the same reason. The sign-in page reported 572px
+           of "unused width" on a screen an art strip covers edge to edge. */
+        widest = Math.max(widest, r.width);
+      }
       for (const el of main.querySelectorAll('*')) {
         const r = el.getBoundingClientRect();
         if (r.width < 4 || r.height < 4) continue;

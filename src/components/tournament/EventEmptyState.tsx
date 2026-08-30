@@ -15,6 +15,7 @@ import { Link } from 'react-router-dom';
 import { ListOrdered, MousePointerClick, Swords, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CardImage } from '@/components/cards';
+import { deckRailCount } from './deckRailCount';
 import type { DeckOption } from './useEventDecks';
 
 const CAPABILITIES = [
@@ -88,7 +89,7 @@ export function EventEmptyState({ decks, loading }: EventEmptyStateProps) {
       {!loading && withArt.length > 0 && (
         <div className="bg-muted/30 px-6 py-5 sm:px-10">
           <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-            {decks.length} deck{decks.length === 1 ? '' : 's'} in your library, ready to register
+            {deckRailCount(decks.length, withArt.length)}
           </p>
           {/* A grid across the whole width, not a 84px strip ending a third of
               the way across it. The cards are the reason anybody believes this

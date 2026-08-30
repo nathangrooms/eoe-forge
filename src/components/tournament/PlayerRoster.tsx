@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatLabel } from '@/lib/deck/formats';
 import { CardImage } from '@/components/cards';
+import { deckRailCount } from './deckRailCount';
 import { CommanderPortrait, RecordLine } from './PlayerIdentity';
 import { viewFor, type PlayerView } from './playerViews';
 import { DeckPicker } from './DeckPicker';
@@ -65,7 +66,7 @@ function EmptyRoster({ decks, loading }: { decks: DeckOption[]; loading: boolean
       {!loading && withArt.length > 0 && (
         <div className="mt-7">
           <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-            {decks.length} deck{decks.length === 1 ? '' : 's'} in your library, ready to register
+            {deckRailCount(decks.length, withArt.length)}
           </p>
           <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),15rem))] gap-3">
             {withArt.map(deck => (

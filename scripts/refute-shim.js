@@ -279,6 +279,33 @@
 
     if (url.includes('/functions/v1/')) {
       const name = url.split('/functions/v1/')[1].split('?')[0];
+
+      /* SOME EDGE FUNCTIONS GO STRAIGHT THROUGH, for the same reason
+         `PASSTHROUGH` exists for tables: they serve a PUBLIC CATALOGUE, hold
+         no user data, and answer on the anon key, so stubbing them replaces
+         real content with an empty state and every audit run then reports a
+         working page as broken.
+
+         `fetch-precons` is the case that proved it. A left-menu audit read
+         "0 precons" on a page whose subtitle is "Every official Commander
+         preconstructed deck" and nearly filed it as a bug; the live function
+         returns 184 rows in 627 ms. Two other pages were misread the same way
+         in the same run.
+
+         The list is short and stays short. A function that reads or writes
+         anything belonging to a user must NOT be here: the whole point of the
+         harness is that no password is involved, and passing a user call
+         through would either fail or, worse, reach somebody's real data. */
+      const PASSTHROUGH_FUNCTIONS = new Set(['fetch-precons']);
+      if (PASSTHROUGH_FUNCTIONS.has(name) && (method === 'GET' || !method)) {
+        window.__dmReq.push({ method, table: `fn:${name}`, passthrough: true });
+        return realFetch(input, init);
+      }
+
+      /* Recorded as UNANSWERED only when it really was. `__dmRpc` is what an
+         audit reads to decide whether a bare-looking page is a design problem
+         or a starved fixture, so a call that was served must not appear here
+         or the audit distrusts a page it just rendered correctly. */
       window.__dmRpc.push(`fn:${name}`);
       window.__dmReq.push({ method, table: `fn:${name}` });
       return json({ success: false, error: 'harness' }, 200);

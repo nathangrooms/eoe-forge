@@ -163,19 +163,36 @@ try {
   await page.evaluate(() => { window.__net = []; });
 
   const pressed = await page.evaluate(label => {
+    /* Exact first, then a prefix, then anywhere.
+
+       `/scan`’s primary control reads "Start scanningScan": the visible
+       words plus a screen-reader label the DOM concatenates. Exact matching
+       reported the page’s main action missing. A real control’s text is not
+       the string a person would name it by, so the matcher has to be looser
+       than the label. Exact still wins when it exists, so a page with both
+       "Save" and "Save as" presses the right one. */
     const wanted = label.trim().toLowerCase();
-    const b = [...document.querySelectorAll('button, a[role="button"]')].find(
+    /* Links count. `/scan`’s "Start scanning" is an `<a>` styled as a
+       button, so a selector of `button` alone reported it missing and the
+       page’s primary action looked unpressable. "Click every button" means
+       every control, not every `<button>` tag. */
+    const b = [...document.querySelectorAll('button, a[role="button"], a[href]')].find(
       x => (x.textContent || '').trim().toLowerCase() === wanted
     );
-    if (!b) return false;
-    b.click();
+    const controls = [...document.querySelectorAll('button, a[role="button"], a[href]')];
+    const chosen =
+      b ??
+      controls.find(x => (x.textContent || '').trim().toLowerCase().startsWith(wanted)) ??
+      controls.find(x => (x.textContent || '').trim().toLowerCase().includes(wanted));
+    if (!chosen) return false;
+    chosen.click();
     return true;
   }, BUTTON);
 
   check(pressed, `"${BUTTON}" is on the page`);
   if (!pressed) {
     const labels = await page.evaluate(() =>
-      [...document.querySelectorAll('button')]
+      [...document.querySelectorAll('button, a[role="button"], a[href]')]
         .map(b => (b.textContent || '').trim())
         .filter(t => t.length > 0 && t.length < 40)
         .slice(0, 30)

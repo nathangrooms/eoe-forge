@@ -268,6 +268,17 @@
      grant and a `using (true)` policy, and stubbing them to `[]` made the card
      page's new combo group look permanently empty. A probe measured Sol Ring as
      having no combo partners when it has 106 recorded combos. */
+  /* Set-returning RPCs whose real answer on this project is "none". See the
+     note where they are served. Keep this to relations that genuinely have no
+     rows: an RPC stubbed empty when the product has data would hide a defect
+     rather than expose one. */
+  const EMPTY_SET_RPCS = new Set([
+    'open_game_tables',
+    'my_friends',
+    'my_sharing',
+    'list_chat_rooms',
+  ]);
+
   const PASSTHROUGH = new Set([
     'cards',
     'cards_unique',
@@ -454,6 +465,25 @@
           ids = JSON.parse(init?.body || '{}').p_deck_ids || [];
         } catch { ids = []; }
         return json(ids.map(deckSummaryFor).filter(Boolean));
+      }
+
+      /* RPCs THAT RETURN A SET ANSWER `[]`, NOT `null`.
+         ------------------------------------------------------------------
+         The comment above says null is indistinguishable from "the harness
+         starved it", and that is exactly what happened to the play flow: the
+         lobby and the mode wall came back NOT JUDGED across every audit,
+         because `open_game_tables` and `my_friends` answered null and the
+         components could not decide whether to draw an empty state or a
+         loading one. Two screens of a headline feature had never been looked
+         at.
+
+         `[]` is not an invention here, it is the truth. There are no open
+         tables and no friend rows on this project; CLAUDE.md lists the empty
+         lobby among the things that are real and unfixed. An empty state drawn
+         over a genuinely empty set is exactly what a player sees. */
+      if (EMPTY_SET_RPCS.has(table)) {
+        window.__dmReq.push({ method, table: `rpc:${table}`, computed: true });
+        return json([]);
       }
 
       window.__dmRpc.push(`rpc:${table}`);

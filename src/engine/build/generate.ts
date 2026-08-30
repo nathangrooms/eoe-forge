@@ -427,7 +427,32 @@ const MIN_SOURCES_PER_COLOUR = 10;
  * empty deck is measuring against nothing, while staying under `playability`
  * (2.5), which the standing rule above requires.
  */
-const EMPTY_DECK_POPULARITY = 1.8;
+/*
+ * MEASURED BACK TO 2.4 on 2026-08-30, and the paragraph above is why it should
+ * never have been anything else: its own argument ends "2.4 rather than the old
+ * 2.0", and the constant underneath it said 1.8. The value drifted down when
+ * EMPTY_DECK_COMMANDER_FIT went to 3.6 and nobody re-read the sentence that
+ * says popularity has to beat tagSynergy (2.0).
+ *
+ * The cost showed up as exactly the complaint the owner relayed, "there are
+ * cards he would absolutely never include". Six decks, same commanders, same
+ * pool, only this number moved:
+ *
+ *              median edhrec_rank                        past 15,000  staples  orphans
+ *   1.8   6696 / 4484 / 4400 / 1551 / 2219 / 5090             26       30/54      3
+ *   2.4   5941 / 2446 / 4077 / 1528 / 1923 / 3412             16       31/54      2
+ *   3.0   5483 / 1711 / 4077 / 1528 / 1878 / 3412             16       31/54      2
+ *
+ * Commander fit paid one point of keyed synergy for it, 85% to 84%, which is
+ * the trade being made deliberately: a card ranked 14,050th carrying one
+ * matching facet is not a better answer than a card ranked 400th carrying the
+ * same one.
+ *
+ * 3.0 measures no better and breaks the standing rule above by passing
+ * playability (2.5), so it is not taken. rank.ts clamps it there anyway; a
+ * value that relies on being clamped is a value that lies about itself.
+ */
+const EMPTY_DECK_POPULARITY = 2.4;
 
 /**
  * How hard a build from nothing leans on the commander's own plan.

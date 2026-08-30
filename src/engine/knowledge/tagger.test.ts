@@ -388,3 +388,63 @@ test('a spell that fetches a land is still ramp, and a land that makes two mana 
   assert.ok(deriveCardTags(land('Ancient Tomb', '{T}: Add {C}{C}. Ancient Tomb deals 2 damage to you.')).includes('ramp'));
   assert.ok(!deriveCardTags({ name: 'Forest', type_line: 'Basic Land — Forest' }).includes('ramp'));
 });
+
+/**
+ * An anthem is not a finisher.
+ *
+ * The rule used to accept any `creatures you control ... get +N/+N`, which is
+ * Craterhoof Behemoth and is also Heraldic Banner. Measured against the
+ * catalogue on 30 Aug 2026, 328 of the 715 ranked cards carrying `finisher`
+ * were static anthems, and the deck page duly offered three mana rocks as win
+ * conditions to a deck short of win conditions.
+ *
+ * The test is MAGNITUDE: variable, or two or more.
+ */
+test('a scaling pump is a finisher and a +1/+1 anthem is not', () => {
+  const craterhoof = deriveCardTags({
+    name: 'Craterhoof Behemoth',
+    type_line: 'Creature — Beast',
+    oracle_text:
+      'Trample, haste\nWhen Craterhoof Behemoth enters, creatures you control gain trample and get +X/+X until end of turn, where X is the number of creatures you control.',
+  });
+  assert.ok(craterhoof.includes('finisher'), 'Craterhoof is a finisher');
+  assert.ok(craterhoof.includes('wincon'));
+
+  const banner = deriveCardTags({
+    name: 'Heraldic Banner',
+    type_line: 'Artifact',
+    oracle_text:
+      'As Heraldic Banner enters, choose a color.\nCreatures you control of the chosen color get +1/+0.\n{T}: Add one mana of the chosen color.',
+  });
+  assert.ok(!banner.includes('finisher'), 'a +1/+0 anthem is not a finisher');
+  assert.ok(!banner.includes('wincon'));
+  assert.ok(banner.includes('mass-pump'), 'it is still mass pump');
+});
+
+test('a fixed pump of two or more is still a finisher', () => {
+  const overrun = deriveCardTags({
+    name: 'Overrun',
+    type_line: 'Sorcery',
+    oracle_text: 'Creatures you control get +3/+3 and gain trample until end of turn.',
+  });
+  assert.ok(overrun.includes('finisher'), '+3/+3 is a finisher');
+
+  const glorious = deriveCardTags({
+    name: 'Glorious Anthem',
+    type_line: 'Enchantment',
+    oracle_text: 'Creatures you control get +1/+1.',
+  });
+  assert.ok(!glorious.includes('finisher'), '+1/+1 is an anthem');
+  assert.ok(glorious.includes('mass-pump'));
+});
+
+test('an alternate win is a finisher whatever its pump says', () => {
+  const labman = deriveCardTags({
+    name: 'Laboratory Maniac',
+    type_line: 'Creature — Human Wizard',
+    oracle_text:
+      'If you would draw a card while your library has no cards in it, you win the game instead.',
+  });
+  assert.ok(labman.includes('finisher'));
+  assert.ok(labman.includes('wincon'));
+});

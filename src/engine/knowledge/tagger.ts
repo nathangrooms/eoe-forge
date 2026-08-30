@@ -616,13 +616,40 @@ export const TAG_RULES: TagRule[] = [
   },
   {
     tag: 'finisher',
-    note: 'Mass pump and alternate wins. Craterhoof reaches this through "creatures you control ... get +X/+X".',
+    /*
+     * AN ANTHEM IS NOT A FINISHER, and this rule could not tell them apart.
+     *
+     * It accepted any `creatures you control ... get +N/+N`, which is Craterhoof
+     * Behemoth and is also Heraldic Banner. Measured against the catalogue on
+     * 30 Aug 2026: of the 715 ranked cards carrying `finisher`, 328 were static
+     * anthems — Patchwork Banner, Vanquisher's Banner, Banner of Kinship,
+     * Mirari's Wake, Heraldic Banner, Elvish Archdruid, Caged Sun. Forty-six per
+     * cent of the pool.
+     *
+     * It was visible in the product, which is how it was found. The deck page's
+     * Add tab ranks candidates into the role a deck is shortest of, that deck
+     * was short three win conditions, and it duly offered three mana rocks and
+     * a counterspell as win conditions.
+     *
+     * THE TEST IS MAGNITUDE, not duration. A pump wins a game when it is
+     * variable — +X/+X, which scales with the board — or when it is big, two or
+     * more. A static +1/+1 or +1/+0 across your creatures is an anthem however
+     * long it lasts, and "until end of turn" is no help either: a temporary
+     * +1/+1 is not a finisher and a permanent +3/+3 is.
+     *
+     * Craterhoof, Overwhelming Stampede, Beastmaster Ascension, Return of the
+     * Wildspeaker, Elesh Norn and Elspeth all keep it. Every Banner loses it.
+     */
+    note: 'Alternate wins, and a pump that is variable or two or more. A static +1/+1 anthem is not a finisher; see mass-pump.',
     when: any(
       t('you win the game'),
       t('(target player|each opponent) loses the game'),
-      t('creatures you control [^\\n]{0,60}get \\+(x|\\d+)/\\+(x|\\d+)'),
-      t('creatures you control get \\+(x|\\d+)/\\+(x|\\d+)'),
       t('each opponent loses \\d+ life for each'),
+      /* +X/+X, which scales with the board that produced it. */
+      t('creatures you control[^.\\n]{0,60}get \\+x/\\+x'),
+      /* A fixed bonus of two or more, in either half. */
+      t('creatures you control[^.\\n]{0,60}get \\+([2-9]|\\d\\d)/'),
+      t('creatures you control[^.\\n]{0,60}get \\+\\d+/\\+([2-9]|\\d\\d)'),
     ),
     also: ['wincon'],
   },

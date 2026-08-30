@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Grid3X3, Loader2, Plus, Sparkles } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,8 +20,10 @@ import {
 import { useListingView } from '@/components/listing/useListingView';
 import { showError } from '@/components/ui/toast-helpers';
 /* The light half, statically: counting what the deck holds against the declared
-   targets is drawn on open and needs no scorer. The ranking half arrives with
-   the button press. See `@/lib/deck/recommend/profile`. */
+   targets needs no scorer at all. The ranking half stays a lazy import even
+   though it now runs on open, because the scorer and its tag knowledge are a
+   chunk nobody opening the Cards tab should pay for. See
+   `@/lib/deck/recommend/profile`. */
 import {
   deriveDeckProfile,
   roleTargetsFor,
@@ -63,9 +65,12 @@ import { DeckCardTile, TileBadge } from './DeckCardTile';
  * **Ranked suggestions from the in-house engine.** `src/engine/advise` is a
  * complete, tested recommender whose only importers were its own tests; the
  * census gave it an ultimatum, which was to be wired up or admitted to be dead
- * code. It is wired up here, behind an explicit control, because the pool it
- * ranks is a real download. See `adviseSource` for exactly what is asked for
- * and the one place it deviates from the engine's own contract.
+ * code. It is wired up here, and it RUNS ON OPEN: this tab is called Add, and a
+ * heading that asks "what this deck is asking for" over a button that has to be
+ * pressed to answer it is a page holding back the thing you came for. It waited
+ * for a click while the query behind it took 16 s and failed; on `cards_pool`
+ * it answers in 916 ms. See `adviseSource` for exactly what is asked for and
+ * the one place it deviates from the engine's own contract.
  *
  * Every card it returns is a row that exists, legal in this format, inside the
  * commander's colour identity, and not already in the deck. Every clause of
@@ -214,6 +219,27 @@ export function DeckAddPanel({
     }
   }, [profile]);
 
+  /*
+   * Once per mount, as soon as there is something to rank against.
+   *
+   * A REF, not state, and not keyed on `profile`. `profile` is a fresh object
+   * on every render of the row list, so an effect that depended on it would
+   * re-rank on every card added — the exact fan-out this project has taken
+   * itself down with twice. The panel unmounts when the deck route changes, so
+   * a per-mount flag is the same thing as per-deck without threading an id
+   * through the tree.
+   *
+   * Held back on an empty deck: there is nothing to rank against, and the
+   * answer would be the most played cards in the format dressed up as advice
+   * about this one.
+   */
+  const asked = useRef(false);
+  useEffect(() => {
+    if (asked.current || rows.length === 0) return;
+    asked.current = true;
+    void fetchSuggestions();
+  }, [rows.length, fetchSuggestions]);
+
   const shown = useMemo(() => {
     if (!suggestions) return [];
     if (roleFilter.length === 0) return suggestions;
@@ -337,9 +363,22 @@ export function DeckAddPanel({
       </Card>
 
       {/* RANKED SUGGESTIONS, FROM THE LOCAL ENGINE.
-          Behind a control rather than on tab open, because the candidate pool
-          is a real download and most visits to this tab are somebody who
-          already knows what they came to add. */}
+
+          THIS USED TO WAIT FOR A BUTTON, and the reason it gave was that "the
+          candidate pool is a real download". It was: the query behind it read
+          `cards` and took 16,119 ms against an 8 s timeout, so it had never
+          once succeeded for anybody and the panel reported the failure as
+          "nothing scored well enough". Moved to `cards_pool` on 30 Aug it
+          answers in 916 ms, which is a different tradeoff, and the note had
+          outlived the measurement it rested on.
+
+          So it runs on its own now. The heading asks "What this deck is asking
+          for" and a page that poses a question and then requires a click to
+          answer it is a page holding back the thing you came for — this tab is
+          called Add and opening it IS the request. It runs once per deck, only
+          when there is a deck to rank against, and "Rank again" is still there.
+          The imports stay lazy: the scorer and its tag knowledge are a chunk
+          nobody loading the Cards tab should pay for. */}
       <div className="space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">

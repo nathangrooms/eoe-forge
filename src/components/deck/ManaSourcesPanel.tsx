@@ -253,7 +253,21 @@ export function ManaSourcesPanel({
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Hardest to cast</CardTitle>
+          {/* ON CURVE, IN THE TITLE.
+              Owner: "it said a 2 mana [card] was hard to cast with 40 mana
+              [sources], makes no sense". The number was right and the words
+              were not. Every figure in this panel is the chance of casting a
+              card ON THE TURN IT COSTS, so Counterspell is measured on turn
+              two, where a 99-card four-colour deck holds 13 blue sources that
+              are untapped by then and it needs two of them. That is 28%, and
+              it is true, and "hard to cast" is not what it means.
+
+              The bands already said "on curve" in their blurbs and nowhere a
+              player actually reads. It is in the title and on every tile now.
+              This is the same correction `PowerScore` already made once, when
+              a tile read "Hard to cast 94" and the Mana tab read "Under 50%"
+              about the identical count. */}
+          <CardTitle className="text-lg">Hardest to cast on curve</CardTitle>
           {/* The header used to promise "every spell under 85%" while the list
               silently stopped at eight, so a deck with twenty problem cards was
               told it had eight. Say which of the two it is. */}
@@ -262,6 +276,11 @@ export function ManaSourcesPanel({
               ? `The ${worst.length} worst of ${worstTotal} spells under ${HARD_TO_CAST_CEILING}% on curve, and why.`
               : `Every spell that comes in under ${HARD_TO_CAST_CEILING}% on curve, worst first, and why.`}{' '}
             Fixing the reason usually fixes several rows at once.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            On curve means on the turn the card costs, so a two-mana spell is
+            measured on turn two. A cheap card you are happy to hold until later
+            is not a problem; a card you can never cast when you want it is.
           </p>
         </CardHeader>
         <CardContent>
@@ -300,7 +319,7 @@ export function ManaSourcesPanel({
                     caption={
                       <span className="flex items-center gap-2">
                         <PlayabilityMeter card={card} profile={profile} />
-                        {band && <span>{band.label}</span>}
+                        {band && <span>{band.label} on curve</span>}
                       </span>
                     }
                     detail={

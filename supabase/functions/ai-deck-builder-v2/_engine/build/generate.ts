@@ -132,6 +132,15 @@ function hasColour(card: { colorIdentity?: readonly string[] | null }): boolean 
  */
 export interface BuildCard extends CandidateCard {
   oracleText?: string | null;
+  /**
+   * The card's faces, for the multi-face layouts.
+   *
+   * `oracle_text` is NULL on every transform, modal DFC, split, adventure and
+   * prepare card, so a double-faced commander arrives with no text at all and
+   * the plan concludes it says nothing. Fetched for the deck's own cards only,
+   * never for the pool, for the same width reason as `oracleText` above.
+   */
+  faces?: readonly { oracle_text?: string | null }[] | null;
   keywords?: readonly string[] | null;
 }
 
@@ -470,6 +479,10 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
        most-built commanders were in that state, Teysa and Muldrotha among
        them, and got a deck with no commander in it. */
     oracleText: input.commander.oracleText ?? null,
+    /* And the faces, because `oracleText` is NULL for every double-faced
+       legend and without this they all read as cards that say nothing.
+       Measured: 31.7% of all commander silence was this one field. */
+    faces: input.commander.faces ?? null,
   });
 
   /*

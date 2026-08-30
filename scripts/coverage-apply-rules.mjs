@@ -63,10 +63,39 @@ if (problems.length) {
    the whole reason the pattern is emitted as a LITERAL rather than as a string
    handed to `new RegExp`: a string would need its backslashes doubled, and that
    doubling is precisely the step that keeps going wrong. */
+/* Built from character codes so there is nothing for a later edit to mangle.
+   BACKSLASH is 92; a newline is 10. */
+const BACKSLASH = String.fromCharCode(92);
+const NEWLINE = String.fromCharCode(10);
+const CARRIAGE_RETURN = String.fromCharCode(13);
+
 const asLiteral = (source, flags = 'i') => {
-  if (/\n|\r/.test(source)) throw new Error(`pattern contains a newline: ${source}`);
-  const escaped = source.replace(/(^|[^\\])\//g, '$1\\/');
-  return `/${escaped}/${flags}`;
+  /* A LITERAL NEWLINE IN THE PATTERN IS NOT AN ERROR, it is JSON being JSON.
+     A rule proposed as {"when": "creates? [^\\n]{0,45}creature tokens?"} holds
+     a real newline character by the time it is parsed, and inside a character
+     class that means exactly what the escape means: "not a newline". It simply
+     cannot be written on one line as a regex literal.
+
+     So convert it back rather than refusing. The meaning is identical and the
+     emitted source is one line, which is what a regex literal has to be. */
+  const oneLine = source
+    .split(CARRIAGE_RETURN + NEWLINE).join(BACKSLASH + 'n')
+    .split(NEWLINE).join(BACKSLASH + 'n')
+    .split(CARRIAGE_RETURN).join(BACKSLASH + 'r');
+
+  /* An unescaped forward slash would end the literal early. */
+  const escaped = oneLine.replace(/(^|[^\\])\//g, '$1\\/');
+  const emitted = `/${escaped}/${flags}`;
+
+  /* Prove the emitted literal still means what the JSON meant, rather than
+     assuming the transformation above was right. */
+  const back = new RegExp(escaped, flags);
+  if (back.source !== new RegExp(source, flags).source) {
+    throw new Error(
+      `emitting changed the pattern.\n  from: ${source}\n  to:   ${back.source}`
+    );
+  }
+  return emitted;
 };
 
 const wrap = (text, width, indent) => {

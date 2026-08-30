@@ -22,6 +22,7 @@ import path from 'node:path';
 
 import { planForCommander } from '../src/engine/knowledge/behaviour.ts';
 import { facetsForCard } from '../src/lib/deck/recommend/behaviour.ts';
+import { isCommander, rulesTextOf, isVanilla } from './lib/commanders.mjs';
 
 const URL = 'https://udnaflcohfyljrsgqggy.supabase.co';
 const ANON =
@@ -33,6 +34,28 @@ const OUT = process.env.OUT ?? '.shots/commander-coverage.json';
 /* Commander-legal, so a legend that cannot lead a deck is not counted against
    us. Planeswalkers that say "can be your commander" are included; a legendary
    creature that is banned is not. */
+
+/* Retry with backoff. A catalogue walk shares the database with whatever else is
+   running, and a 57014 statement timeout on page 2 of 67 is a busy database
+   rather than a broken query. Failing the whole walk over it means the
+   measurement can only be taken when nothing else is happening, which is when
+   nobody needs it. CLAUDE.md's rule still stands: do not START a heavy walk
+   beside a heavy agent. This is for the load that arrives mid-walk. */
+const getPage = async (url) => {
+  let wait = 800;
+  for (let attempt = 1; ; attempt++) {
+    const res = await fetch(url, { headers: { apikey: ANON, Authorization: `Bearer ${ANON}` } });
+    if (res.ok) return res.json();
+    const body = await res.text();
+    const busy = res.status >= 500 || /57014|statement timeout/.test(body);
+    if (!busy || attempt >= 6) throw new Error(`${res.status} ${body.slice(0, 200)}`);
+    process.stderr.write(`
+  database busy, waiting ${wait}ms (attempt ${attempt})`);
+    await new Promise(r => setTimeout(r, wait));
+    wait = Math.min(wait * 2, 20000);
+  }
+};
+
 const rows = [];
 let cursor = '';
 for (;;) {
@@ -50,9 +73,7 @@ for (;;) {
        filtered slice of it. 33k rows, filtered in JS below. */
     `&order=id.asc&limit=${PAGE}`;
   if (cursor) url += `&id=gt.${cursor}`;
-  const res = await fetch(url, { headers: { apikey: ANON, Authorization: `Bearer ${ANON}` } });
-  if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
-  const page = await res.json();
+  const page = await getPage(url);
   if (!page.length) break;
   cursor = page[page.length - 1].id;
   rows.push(...page);
@@ -61,17 +82,11 @@ for (;;) {
 }
 process.stderr.write('\n');
 
-/* A commander is a legendary CREATURE, or anything whose text says it can be
-   one (Backgrounds' partners, the commander planeswalkers, a few vehicles). */
-const canLead = (r) =>
-  (/legendary/i.test(r.type_line ?? '') && /creature/i.test(r.type_line ?? '')) ||
-  /can be your commander/i.test(r.oracle_text ?? '') ||
-  (Array.isArray(r.faces) &&
-    r.faces.some(f => /creature/i.test(f?.type_line ?? '')));
-
-const legal = rows
-  .filter(canLead)
-  .filter(r => (r.legalities?.commander ?? 'legal') === 'legal');
+/* Both answers live in scripts/lib/commanders.mjs now, because this script had
+   its own copy and it was wrong twice: it accepted non-legendary cards (132 of
+   the 207 reported "vanilla commanders" cannot lead any deck) and it read
+   `oracle_text` straight, which is NULL on every multi-face layout. */
+const legal = rows.filter(isCommander);
 
 const silent = [];
 const spoke = [];
@@ -92,7 +107,7 @@ for (const row of legal) {
     typeLine: row.type_line,
     facets: compiled.facets,
     tags: row.tags,
-    oracleText: row.oracle_text ?? null,
+    oracleText: rulesTextOf(row),
   });
   const entry = {
     id: row.id,
@@ -101,7 +116,7 @@ for (const row of legal) {
     source: compiled.source,
     facets: compiled.facets,
     wants: plan.wants.map(w => w.facet),
-    text: row.oracle_text ?? '',
+    text: rulesTextOf(row),
     typeLine: row.type_line,
     identity: row.color_identity ?? [],
   };

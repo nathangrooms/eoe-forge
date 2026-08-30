@@ -30,6 +30,7 @@ import path from 'node:path';
 
 import { planForCommander } from '../src/engine/knowledge/behaviour.ts';
 import { facetsForCard } from '../src/lib/deck/recommend/behaviour.ts';
+import { isCommander, rulesTextOf } from './lib/commanders.mjs';
 
 const URL = 'https://udnaflcohfyljrsgqggy.supabase.co';
 const ANON =
@@ -78,14 +79,10 @@ for (;;) {
 }
 process.stderr.write('\n');
 
-const canLead = (r) =>
-  (/legendary/i.test(r.type_line ?? '') && /creature/i.test(r.type_line ?? '')) ||
-  /can be your commander/i.test(r.oracle_text ?? '') ||
-  (Array.isArray(r.faces) && r.faces.some(f => /creature/i.test(f?.type_line ?? '')));
-
-const legal = rows
-  .filter(canLead)
-  .filter(r => (r.legalities?.commander ?? 'legal') === 'legal');
+/* Shared rule. Both answers were wrong here in the same two ways as the
+   census: non-legendary cards counted as commanders, and oracle_text read
+   straight when it is NULL on every multi-face layout. */
+const legal = rows.filter(isCommander);
 
 const plans = [];
 for (const row of legal) {
@@ -95,7 +92,7 @@ for (const row of legal) {
     typeLine: row.type_line,
     facets: compiled.facets,
     tags: row.tags,
-    oracleText: row.oracle_text ?? null,
+    oracleText: rulesTextOf(row),
   });
   const weights = plan.wants.map(w => w.weight);
   plans.push({

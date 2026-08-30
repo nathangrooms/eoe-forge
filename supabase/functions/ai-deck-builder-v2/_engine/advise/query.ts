@@ -90,8 +90,8 @@ export class UnindexedFormatError extends Error {
   constructor(format: string) {
     super(
       `No index supports format "${format}". The query falls back to a bitmap ` +
-        `heap scan driven by cards_color_identity_idx — measured at roughly 5x ` +
-        `the cost of an indexed format, and it degrades as the table grows. ` +
+        `heap scan driven by cards_color_identity_idx. That was measured at ` +
+        `roughly 5x the cost of an indexed format, and it degrades as the table grows. ` +
         `Indexed formats: ${[...INDEXED_FORMATS].sort().join(', ')}.`
     );
     this.name = 'UnindexedFormatError';

@@ -471,6 +471,14 @@ export interface CommanderPlan {
  * fixed sentence per rule, in the same voice as `describeFacet`, never
  * assembled free text.
  */
+/* The separator between two card faces' rules text.
+   A named constant rather than a literal, because writing the escape inline is
+   how it keeps getting destroyed: this session has turned a backslash escape
+   into a control character six separate times while editing through shell and
+   Python string transformations, and `'\n'` written that way arrives as a real
+   newline and breaks the file. There is nothing to mangle here. */
+const FACE_JOIN = String.fromCharCode(10);
+
 interface IntentRule {
   /** What the card says, matched against its oracle text. */
   when: RegExp;
@@ -650,6 +658,852 @@ const INTENT_RULES: readonly IntentRule[] = [
       ['type:creature', 0.55],
     ],
   },
+
+  /* ---------------------------------------------------------------- *
+   * Everything below is GENERATED. Do not hand-edit inside the markers.
+   * ---------------------------------------------------------------- *
+   *
+   * Written by `scripts/coverage-apply-rules.mjs` from a measured JSON rule
+   * set. Every one of these was proposed against the real oracle text of a
+   * commander the engine said nothing about, measured for reach and OVERREACH
+   * by `scripts/coverage-try-rules.mjs` over all of them, and then attacked by
+   * a second reader whose job was to kill it.
+   *
+   * They are generated rather than typed in because a regex retyped by hand is
+   * a regex with a different meaning, and this session destroyed a backslash
+   * escape six separate ways: `\b` in a template literal is the BACKSPACE
+   * character, so `/\bCreature\b/i` matched nothing across the whole corpus and
+   * looked like a clean result. What ships is the same bytes that were
+   * measured.
+   *
+   * To change one: edit the JSON, re-measure, regenerate. To add one by hand:
+   * put it ABOVE this block, outside the markers.
+   */
+  /* BEGIN GENERATED INTENT RULES */
+  {
+    when: /\{T\}[,:](?![^()]*\))/i,
+    reads: "does its work through a tap ability",
+    wants: [
+      ['eff:untap', 0.8],
+      ['kw:haste', 0.6],
+      ['sub:equipment', 0.45],
+    ],
+  },
+  {
+    when: /(^|\n)\{[0-9X]+\}:/i,
+    reads: "has an ability you can pay for over and over, so the deck wants a lot of mana",
+    wants: [
+      ['eff:add-mana', 0.8],
+      ['cares:zone:library-land', 0.45],
+      ['type:land', 0.35],
+      ['eff:untap', 0.35],
+    ],
+  },
+  {
+    when: /(unspent (green |red |black |white |blue )?mana|whenever you tap a land for mana|creature you control with a mana ability|adds \{[WUBRGC]\}|add \{[WUBRGC]\} for each)/i,
+    reads: "makes more mana than most decks, so give it big things to spend it on",
+    wants: [
+      ['eff:add-mana', 0.85],
+      ['cares:zone:library-land', 0.5],
+      ['type:land', 0.4],
+    ],
+  },
+  {
+    when: /\bcascade\b|mana value \d+ or greater(?![^.]{0,60}can't be cast)/i,
+    reads: "pays you for casting expensive spells",
+    wants: [
+      ['eff:add-mana', 0.85],
+      ['eff:search-library', 0.55],
+      ['cares:zone:library-land', 0.5],
+    ],
+  },
+  {
+    when: /((?<!loyalty |equip )abilities you activate|activated abilities of|copy target activated)/i,
+    reads: "cares about the activated abilities on your permanents",
+    wants: [
+      ['acost:3', 0.7],
+      ['acost:2', 0.65],
+      ['acost:1', 0.6],
+      ['eff:untap', 0.5],
+    ],
+  },
+  {
+    when: /doesn't untap during your( next)? untap step\./i,
+    reads: "stays tapped unless you untap it",
+    wants: [
+      ['eff:untap', 0.85],
+      ['eff:tap', 0.45],
+    ],
+  },
+  {
+    when: /whenever [^.\n]{0,40} deals combat damage to (a|an) (player|opponent)/i,
+    reads: "is paid when it hits a player in combat",
+    wants: [
+      ['sub:equipment', 0.8],
+      ['eff:pump', 0.6],
+      ['sub:aura', 0.55],
+      ['kw:haste', 0.5],
+      ['cares:sub:equipment', 0.4],
+    ],
+  },
+  {
+    when: /can't be blocked(?! except)|unblockable|landwalk|horsemanship/i,
+    reads: "gets past blockers",
+    wants: [
+      ['sub:equipment', 0.8],
+      ['eff:pump', 0.65],
+      ['sub:aura', 0.55],
+      ['cares:sub:equipment', 0.5],
+      ['kw:haste', 0.45],
+    ],
+  },
+  {
+    when: /(ninjutsu|sneak \{)/i,
+    reads: "sneaks a ninja in on an unblocked attacker",
+    wants: [
+      ['sub:ninja', 0.75],
+      ['kw:ninjutsu', 0.7],
+      ['kw:menace', 0.45],
+      ['sub:rogue', 0.4],
+    ],
+  },
+  {
+    when: /(rampage \d|bushido \d|afflict \d|must be blocked|becomes blocked, (it|that creature|they))/i,
+    reads: "is paid for being blocked",
+    wants: [
+      ['eff:pump', 0.75],
+      ['sub:equipment', 0.6],
+      ['kw:trample', 0.55],
+      ['sub:aura', 0.45],
+    ],
+  },
+  {
+    when: /(whenever you attack|creature attacking|attacking alone|creatures you control attack)/i,
+    reads: "pays you for attacking",
+    wants: [
+      ['trig:attacks', 0.8],
+      ['kw:haste', 0.6],
+      ['sub:equipment', 0.5],
+      ['eff:pump', 0.5],
+    ],
+  },
+  {
+    when: /at the beginning of combat on your turn(?!, if you've cast a noncreature spell)/i,
+    reads: "starts working at the beginning of every combat",
+    wants: [
+      ['trig:attacks', 0.7],
+      ['kw:haste', 0.6],
+      ['eff:pump', 0.55],
+      ['sub:equipment', 0.45],
+    ],
+  },
+  {
+    when: /attacks[^.]{0,25}if able(?![^()]*\))/i,
+    reads: "has to attack whether you want it to or not",
+    wants: [
+      ['sub:equipment', 0.75],
+      ['sub:aura', 0.6],
+      ['eff:pump', 0.6],
+      ['kw:trample', 0.5],
+    ],
+  },
+  {
+    when: /creatures you control (gain|get \+\d)/i,
+    reads: "makes all of your creatures better at once",
+    wants: [
+      ['eff:create-token', 0.8],
+      ['trig:enters', 0.45],
+      ['eff:pump', 0.4],
+    ],
+  },
+  {
+    when: /power (and toughness are each|is) equal to/i,
+    reads: "has no set power and grows as the game goes on",
+    wants: [
+      ['sub:equipment', 0.75],
+      ['kw:trample', 0.6],
+      ['sub:aura', 0.5],
+      ['eff:pump', 0.5],
+    ],
+  },
+  {
+    when: /where X is [A-Z][^.]{0,30}'s power/,
+    reads: "counts its own power",
+    wants: [
+      ['eff:add-counters', 0.8],
+      ['ctr:+1/+1', 0.75],
+      ['eff:pump', 0.7],
+      ['sub:equipment', 0.6],
+      ['sub:aura', 0.5],
+    ],
+  },
+  {
+    when: /(switch [^.\n]{0,40}power and toughness|damage equal to (its|their) toughness|toughness rather than (its|their) power|total toughness of creatures you control)/i,
+    reads: "fights with toughness instead of power",
+    wants: [
+      ['kw:defender', 0.8],
+      ['sub:wall', 0.5],
+      ['eff:pump', 0.5],
+      ['cares:sub:wall', 0.4],
+    ],
+  },
+  {
+    when: /(enchanted or equipped|is equipped|equipped creature|equip abilit)/i,
+    reads: "rewards the creature carrying your equipment and auras",
+    wants: [
+      ['sub:equipment', 0.85],
+      ['sub:aura', 0.7],
+      ['eff:attach', 0.65],
+      ['cares:sub:equipment', 0.5],
+    ],
+  },
+  {
+    when: /commanders? you control/i,
+    reads: "looks after your commander",
+    wants: [
+      ['sub:equipment', 0.8],
+      ['sub:aura', 0.6],
+      ['eff:pump', 0.6],
+      ['kw:haste', 0.45],
+    ],
+  },
+  {
+    when: /^(?:(?:reach|flying|trample|menace|deathtouch|first strike|double strike|vigilance|indestructible|haste|horsemanship|banding|shadow|fear|intimidate)\b|\([^)]*\)|[;,.\s])+$/i,
+    reads: "has combat keywords and nothing else we can read",
+    wants: [
+      ['sub:equipment', 0.75],
+      ['sub:aura', 0.65],
+      ['eff:pump', 0.6],
+      ['cares:sub:equipment', 0.5],
+      ['cares:sub:aura', 0.45],
+    ],
+  },
+  {
+    when: /protection from everything/i,
+    reads: "cannot be blocked or killed, so the deck pushes it through",
+    wants: [
+      ['sub:equipment', 0.8],
+      ['eff:pump', 0.7],
+      ['sub:aura', 0.6],
+      ['cares:sub:equipment', 0.5],
+    ],
+  },
+  {
+    when: /the Ring tempts you/i,
+    reads: "is paid when the Ring tempts you",
+    wants: [
+      ['trig:attacks', 0.7],
+      ['type:creature', 0.5],
+      ['sub:equipment', 0.45],
+    ],
+  },
+  {
+    when: /(whenever [^.\n]{0,60}is dealt damage|enrage|if damage would be dealt to)/i,
+    reads: "turns damage dealt to it into something useful",
+    wants: [
+      ['eff:damage', 0.7],
+      ['eff:pump', 0.5],
+      ['ctr:+1/+1', 0.45],
+      ['kw:trample', 0.4],
+    ],
+  },
+  {
+    when: /((return|put|exile|cast|play|reveal|mill)[^.\n]{0,60}from your graveyard|in your graveyard (has|have|gains) (unearth|encore|flashback|escape)|(?<!or a creature )cards? in your graveyard|descend \d|\bdelve\b|target [a-z ]{0,30}card in your graveyard|(is|are) put into your graveyard)/i,
+    reads: "plays with the cards in your graveyard",
+    wants: [
+      ['cares:zone:graveyard', 0.85],
+      ['eff:return-from', 0.8],
+      ['eff:mill', 0.7],
+      ['eff:discard', 0.55],
+    ],
+  },
+  {
+    when: /(from (a|your) graveyard onto the battlefield|from your graveyard to the battlefield|return that card to the battlefield|has unearth|gains encore)/i,
+    reads: "brings creatures back from your graveyard",
+    wants: [
+      ['eff:return-from', 0.85],
+      ['cares:zone:graveyard', 0.8],
+      ['eff:mill', 0.6],
+      ['eff:discard', 0.5],
+    ],
+  },
+  {
+    when: /instant (and|or) sorcery cards? in (your|a) graveyard|instant or sorcery card from (your|a) graveyard|cast target instant or sorcery card from a graveyard/i,
+    reads: "casts your instants and sorceries back out of the graveyard",
+    wants: [
+      ['cares:zone:graveyard', 0.85],
+      ['type:instant', 0.75],
+      ['type:sorcery', 0.75],
+      ['eff:mill', 0.5],
+      ['cares:type:instant', 0.5],
+    ],
+  },
+  {
+    when: /(cast|play|put) [^.]{0,70}from (a|that player's|target player's|an opponent's|each) graveyard/i,
+    reads: "casts spells out of other players' graveyards",
+    wants: [
+      ['eff:mill', 0.8],
+      ['cares:zone:graveyard', 0.75],
+      ['eff:return-from', 0.6],
+      ['eff:discard', 0.45],
+    ],
+  },
+  {
+    when: /(, discard (a|two|another|three|X)[^:\n]{0,25}:|discard a card:|unless you discard a card|discard your hand|discard a card or pay|discard a creature card)/i,
+    reads: "turns the cards in your hand into fuel",
+    wants: [
+      ['eff:discard', 0.75],
+      ['cares:zone:graveyard', 0.7],
+      ['eff:return-from', 0.65],
+      ['kw:madness', 0.4],
+    ],
+  },
+  {
+    when: /connives?/i,
+    reads: "throws cards into your graveyard as you draw",
+    wants: [
+      ['cares:zone:graveyard', 0.8],
+      ['eff:return-from', 0.7],
+      ['eff:discard', 0.6],
+      ['eff:mill', 0.45],
+    ],
+  },
+  {
+    when: /((?<!unless )that (player|opponent) discards|each (player|opponent) discards|discarded a card this turn)/i,
+    reads: "makes your opponents discard",
+    wants: [
+      ['eff:discard', 0.85],
+      ['cares:zone:hand', 0.6],
+      ['eff:lose-life', 0.4],
+    ],
+  },
+  {
+    when: /(you may (play|cast) (that card|those cards|it|the exiled cards|one of those cards)|may cast [^.\n]{0,40}from among|until end of turn, you may (play|cast)|for as long as (it remains|they remain) exiled|spend mana as though it were mana of any|cast a card exiled with)/i,
+    reads: "plays cards off the top of a library instead of drawing them",
+    wants: [
+      ['cares:zone:library', 0.75],
+      ['eff:add-mana', 0.6],
+      ['eff:scry', 0.5],
+    ],
+  },
+  {
+    when: /((cast|play) [^.]{0,60}from the top of your library|look at the top card of your library|exiles? cards? from the top of your library)/i,
+    reads: "plays cards straight off the top of your library",
+    wants: [
+      ['cares:zone:library', 0.8],
+      ['eff:scry', 0.65],
+      ['eff:search-library', 0.45],
+    ],
+  },
+  {
+    when: /whenever you scry|(\{T\}|\{\d\}|combat on your turn|your upkeep|end step)[^.]{0,50}scry \d/i,
+    reads: "looks at the top of your library every turn",
+    wants: [
+      ['eff:scry', 0.85],
+      ['eff:draw', 0.6],
+    ],
+  },
+  {
+    when: /(no maximum hand size|whenever you draw your (first|second|third) card|draw two cards instead|draws? an additional card)/i,
+    reads: "rewards you for drawing extra cards",
+    wants: [
+      ['eff:draw', 0.85],
+      ['eff:scry', 0.5],
+      ['cares:zone:hand', 0.5],
+    ],
+  },
+  {
+    when: /((each|that|an) (player|opponent)[^.]{0,40}draws? (a card|an additional|two|\w+ cards)|whenever an opponent draws)/i,
+    reads: "hands cards to the table, which is only good if the table pays for them",
+    wants: [
+      ['eff:draw', 0.75],
+      ['eff:lose-life', 0.65],
+      ['eff:damage', 0.55],
+      ['eff:discard', 0.5],
+    ],
+  },
+  {
+    when: /\bmiracle\b/i,
+    reads: "cares which card you draw first each turn",
+    wants: [
+      ['eff:scry', 0.75],
+      ['eff:draw', 0.7],
+      ['cares:zone:library', 0.5],
+    ],
+  },
+  {
+    when: /search your library for (a|up to \w+) creature cards?/i,
+    reads: "goes and finds a creature",
+    wants: [
+      ['eff:search-library', 0.7],
+      ['type:creature', 0.55],
+      ['cares:type:creature', 0.5],
+    ],
+  },
+  {
+    when: /number of (Island|Swamp|Mountain|Forest|Plains)s you control|land cards? are put into your graveyard|number of lands you control|land card from your graveyard/i,
+    reads: "counts the lands you control",
+    wants: [
+      ['type:land', 0.75],
+      ['cares:type:land', 0.7],
+      ['cares:zone:library-land', 0.6],
+      ['eff:search-library', 0.55],
+    ],
+  },
+  {
+    when: /domain|basic land types among/i,
+    reads: "counts the basic land types you control",
+    wants: [
+      ['cares:zone:library-land', 0.85],
+      ['eff:search-library', 0.8],
+      ['cares:type:land', 0.6],
+    ],
+  },
+  {
+    when: /(prowess|whenever you cast (your (first|second) spell each turn|a noncreature spell)|if you've cast a noncreature spell this turn|instants?,? (and|or) sorcer|noncreature spells? you cast|cast your second spell|artifact, instant, (and|or) sorcery)/i,
+    reads: "leans on your instants and sorceries",
+    wants: [
+      ['cares:type:instant', 0.85],
+      ['cares:type:sorcery', 0.85],
+      ['type:instant', 0.6],
+      ['type:sorcery', 0.6],
+    ],
+  },
+  {
+    when: /copy target instant or sorcery spell|instant, (and |or )?sorcery spell, copy that spell|copy target spell you control/i,
+    reads: "copies your instants and sorceries",
+    wants: [
+      ['type:instant', 0.85],
+      ['type:sorcery', 0.8],
+      ['cares:type:instant', 0.6],
+      ['cares:type:sorcery', 0.55],
+    ],
+  },
+  {
+    when: /counter target spell|counters? that spell|counter it unless(?![^()]*\))/i,
+    reads: "counters spells",
+    wants: [
+      ['eff:counter', 0.85],
+      ['cares:zone:stack', 0.75],
+      ['type:instant', 0.6],
+      ['eff:draw', 0.4],
+    ],
+  },
+  {
+    when: /(as though (it|they) had flash|have flash\b)/i,
+    reads: "lets you cast things at the end of someone else's turn",
+    wants: [
+      ['kw:flash', 0.6],
+      ['type:instant', 0.6],
+      ['trig:enters', 0.5],
+      ['eff:counter', 0.45],
+    ],
+  },
+  {
+    when: /(whenever an opponent casts|spells your opponents cast(?! that target)|opponents? can't cast|(?<!that target [^.]{0,40})cost \{?\w+\}? more to cast|can't be cast|can't cast spells|players can cast spells only|lands don't untap)/i,
+    reads: "taxes and slows down what your opponents can do",
+    wants: [
+      ['eff:counter', 0.75],
+      ['cares:zone:stack', 0.65],
+      ['type:instant', 0.55],
+      ['eff:add-mana', 0.5],
+    ],
+  },
+  {
+    when: /(whenever you cast a creature spell|(?<!non)creature spells? you cast|cast (green )?creature spells)/i,
+    reads: "cares about the creature spells you cast",
+    wants: [
+      ['type:creature', 0.8],
+      ['cares:type:creature', 0.55],
+      ['trig:cast', 0.35],
+    ],
+  },
+  {
+    when: /(you can't cast noncreature spells|noncreature spells with mana value \d+ or greater can't be cast)/i,
+    reads: "shuts off your own noncreature spells",
+    wants: [
+      ['type:creature', 0.85],
+      ['cares:type:creature', 0.5],
+      ['eff:add-mana', 0.35],
+    ],
+  },
+  {
+    when: /commit a crime/i,
+    reads: "is paid for pointing spells at your opponents",
+    wants: [
+      ['eff:destroy', 0.7],
+      ['eff:damage', 0.6],
+      ['type:instant', 0.55],
+      ['eff:exile', 0.5],
+    ],
+  },
+  {
+    when: /(artifact (card|spell|creature)s?|artifacts you control|control an artifact|another artifact|an artifact you control|artifact, instant, (and|or) sorcery|ability of an artifact|from an artifact source|all artifacts|an artifact entered)/i,
+    reads: "builds around the artifacts you control",
+    wants: [
+      ['type:artifact', 0.85],
+      ['cares:type:artifact', 0.7],
+      ['cares:sub:treasure', 0.45],
+      ['tok:treasure', 0.4],
+    ],
+  },
+  {
+    when: /(legendary (permanent|creature|card|spell)|legendaries)/i,
+    reads: "rewards you for filling the deck with legends",
+    wants: [
+      ['type:legendary', 0.85],
+      ['eff:search-library', 0.45],
+    ],
+  },
+  {
+    when: /(historic|artifacts, legendaries)/i,
+    reads: "is paid for your artifacts, legends and Sagas",
+    wants: [
+      ['type:artifact', 0.75],
+      ['type:legendary', 0.7],
+      ['sub:saga', 0.5],
+      ['cares:sub:saga', 0.4],
+    ],
+  },
+  {
+    when: /(enchanted creature|enchantment cards? in your hand|each enchantment (card|permanent|spell)|enchantment (spell|card|permanent)s? you (control|cast))/i,
+    reads: "builds around enchantments",
+    wants: [
+      ['type:enchantment', 0.85],
+      ['cares:type:enchantment', 0.6],
+      ['sub:aura', 0.55],
+      ['kw:enchant', 0.5],
+    ],
+  },
+  {
+    when: /(planeswalkers? you control (dies|enters|deals)|planeswalker (card|spell)|loyalty abilit)/i,
+    reads: "builds around planeswalkers",
+    wants: [
+      ['type:planeswalker', 0.85],
+      ['cares:type:planeswalker', 0.6],
+      ['ctr:loyalty', 0.5],
+    ],
+  },
+  {
+    when: /(face-down creature|turn (target )?[^.\n]{0,25}face up|\bmorph\b)/i,
+    reads: "plays creatures face down and flips them up",
+    wants: [
+      ['kw:morph', 0.85],
+      ['kw:megamorph', 0.6],
+      ['type:creature', 0.4],
+    ],
+  },
+  {
+    when: /(changeling|every creature type|creatures you control of the chosen type)/i,
+    reads: "counts as every creature type at once",
+    wants: [
+      ['kw:changeling', 0.7],
+      ['type:creature', 0.7],
+      ['cares:type:creature', 0.45],
+    ],
+  },
+  {
+    when: /\boutlaws?\b/i,
+    reads: "counts your outlaws",
+    wants: [
+      ['sub:rogue', 0.7],
+      ['sub:assassin', 0.7],
+      ['sub:mercenary', 0.7],
+      ['sub:pirate', 0.7],
+      ['sub:warlock', 0.7],
+      ['trig:enters', 0.35],
+    ],
+  },
+  {
+    when: /becomes? the monarch/i,
+    reads: "brings the monarch into the game",
+    wants: [
+      ['eff:set-monarch', 0.85],
+      ['kw:deathtouch', 0.5],
+      ['kw:vigilance', 0.45],
+    ],
+  },
+  {
+    when: /(open an attraction|whenever you roll)/i,
+    reads: "opens Attractions and rolls dice",
+    wants: [
+      ['sub:attraction', 0.8],
+      ['trig:enters', 0.4],
+    ],
+  },
+  {
+    when: /(as a copy of|becomes? a copy of|tokens? that are copies of|copy of (another )?target creature)/i,
+    reads: "copies your creatures",
+    wants: [
+      ['trig:enters', 0.8],
+      ['type:creature', 0.6],
+      ['eff:create-token', 0.5],
+    ],
+  },
+  {
+    when: /((create|creates) [^.]{0,40}tokens? that('s| are) (a )?cop(y|ies)|tokens? would be created)/i,
+    reads: "makes copies of your own permanents",
+    wants: [
+      ['eff:create-token', 0.85],
+      ['trig:enters', 0.7],
+      ['type:creature', 0.4],
+    ],
+  },
+  {
+    when: /created a token this turn|created one or more tokens|create a token|creates a token|creates? [^.\n]{0,45}creature tokens?/i,
+    reads: "makes tokens of its own",
+    wants: [
+      ['eff:create-token', 0.85],
+      ['trig:enters', 0.45],
+      ['eff:sacrifice', 0.4],
+      ['eff:pump', 0.4],
+    ],
+  },
+  {
+    when: /investigate/i,
+    reads: "makes Clues you cash in later",
+    wants: [
+      ['tok:clue', 0.75],
+      ['cares:sub:clue', 0.7],
+      ['type:artifact', 0.5],
+      ['eff:draw', 0.45],
+    ],
+  },
+  {
+    when: /return [^.]{0,40}(creature|permanent|spell|card)s?[^.]{0,40} to (its|their) owner'?s hands?/i,
+    reads: "keeps sending permanents back to hand",
+    wants: [
+      ['trig:enters', 0.8],
+      ['eff:move-zone', 0.6],
+      ['type:creature', 0.4],
+    ],
+  },
+  {
+    when: /(when|whenever)[^.\n]{0,70}exile [A-Z][^.\n]{0,25}\. Return it to the battlefield/i,
+    reads: "leaves and comes straight back",
+    wants: [
+      ['trig:enters', 0.8],
+      ['eff:move-zone', 0.55],
+      ['type:creature', 0.5],
+    ],
+  },
+  {
+    when: /creatures? entered the battlefield under your control|creatures? you control entered the battlefield/i,
+    reads: "rewards a turn where lots of creatures arrived",
+    wants: [
+      ['eff:create-token', 0.8],
+      ['trig:enters', 0.65],
+      ['type:creature', 0.5],
+    ],
+  },
+  {
+    when: /put (a|an) (permanent|artifact, creature, or land) card from (your|their) hand onto the battlefield/i,
+    reads: "puts permanents from your hand straight onto the battlefield",
+    wants: [
+      ['type:creature', 0.6],
+      ['eff:draw', 0.5],
+      ['type:artifact', 0.4],
+      ['type:enchantment', 0.4],
+    ],
+  },
+  {
+    when: /for each card type among/i,
+    reads: "pays you for casting a spread of card types",
+    wants: [
+      ['type:instant', 0.7],
+      ['type:sorcery', 0.7],
+      ['type:artifact', 0.7],
+      ['type:enchantment', 0.7],
+      ['type:creature', 0.45],
+    ],
+  },
+  {
+    when: /(, sacrifice (a|an|another|three other|any number of)\b|you may sacrifice any number of)/i,
+    reads: "sacrifices your own permanents as a cost",
+    wants: [
+      ['eff:sacrifice', 0.8],
+      ['trig:dies', 0.7],
+      ['eff:create-token', 0.6],
+      ['eff:return-from', 0.4],
+    ],
+  },
+  {
+    when: /(sacrifices? a permanent|sacrifices? an artifact, creature, or land|each player sacrifices|each opponent sacrifices)/i,
+    reads: "makes everyone sacrifice permanents",
+    wants: [
+      ['eff:create-token', 0.8],
+      ['eff:sacrifice', 0.6],
+      ['trig:dies', 0.55],
+      ['eff:return-from', 0.4],
+    ],
+  },
+  {
+    when: /(each opponent loses \w+ life|lost \d+ or more life|lost life this turn|that player loses \w+ life)/i,
+    reads: "is paid when your opponents lose life",
+    wants: [
+      ['eff:lose-life', 0.8],
+      ['eff:gain-life', 0.6],
+      ['eff:damage', 0.5],
+    ],
+  },
+  {
+    when: /(whenever you gain life|if you gained \d+ or more life this turn|if you gained life this turn|causes you to gain life)/i,
+    reads: "is paid whenever you gain life",
+    wants: [
+      ['eff:gain-life', 0.85],
+      ['kw:lifelink', 0.65],
+      ['trig:gains-life', 0.6],
+      ['eff:lose-life', 0.4],
+    ],
+  },
+  {
+    when: /(double all damage|damage to each player|damage to each opponent|half that player's life total)/i,
+    reads: "hits every opponent at once",
+    wants: [
+      ['eff:damage', 0.85],
+      ['type:instant', 0.55],
+      ['type:sorcery', 0.55],
+      ['eff:lose-life', 0.45],
+    ],
+  },
+  {
+    when: /(double (all )?[^.\n]{0,30}damage|deals double that damage)/i,
+    reads: "doubles the damage your cards deal",
+    wants: [
+      ['eff:damage', 0.85],
+      ['eff:pump', 0.5],
+      ['type:instant', 0.35],
+      ['type:sorcery', 0.35],
+    ],
+  },
+  {
+    when: /(proliferate|put one or more counters on|counters? would be put on|plus one of each of those kinds of counters|move a counter from|put your choice of a counter|creatures? you control with counters on them|counters? on (a|another) (creature|permanent))/i,
+    reads: "piles extra counters onto your permanents",
+    wants: [
+      ['eff:add-counters', 0.85],
+      ['ctr:+1/+1', 0.8],
+      ['eff:proliferate', 0.7],
+      ['eff:player-counter', 0.45],
+    ],
+  },
+  {
+    when: /put [^.]{0,20}stun counters? on (each|target|those|up to)/i,
+    reads: "taps your opponents' creatures down and keeps them there",
+    wants: [
+      ['eff:tap', 0.8],
+      ['eff:proliferate', 0.6],
+      ['eff:untap', 0.35],
+    ],
+  },
+  {
+    when: /gain control of target/i,
+    reads: "takes your opponents' permanents",
+    wants: [
+      ['eff:gain-control', 0.8],
+      ['eff:untap', 0.55],
+      ['kw:haste', 0.5],
+      ['eff:sacrifice', 0.45],
+    ],
+  },
+  {
+    when: /(prevent the next [0-9]|prevent all combat damage|damage that would be dealt to [^.]{0,40} is dealt to)/i,
+    reads: "keeps your creatures alive through combat",
+    wants: [
+      ['kw:indestructible', 0.65],
+      ['kw:protection', 0.6],
+      ['kw:hexproof', 0.5],
+      ['eff:gain-life', 0.5],
+      ['kw:vigilance', 0.4],
+    ],
+  },
+  {
+    when: /creature an opponent controls would die, exile it instead/i,
+    reads: "keeps the creatures your removal kills",
+    wants: [
+      ['eff:destroy', 0.85],
+      ['eff:damage', 0.6],
+      ['cares:type:creature', 0.4],
+    ],
+  },
+  {
+    when: /(casts? a spell that targets|spell you control that targets|creature you control becomes the target of a spell or ability)/i,
+    reads: "rewards you for aiming spells at your own creatures",
+    wants: [
+      ['sub:aura', 0.7],
+      ['eff:pump', 0.7],
+      ['sub:equipment', 0.5],
+      ['type:instant', 0.45],
+    ],
+  },
+  {
+    when: /triggers an additional time|copy target triggered ability/i,
+    reads: "makes your other triggered abilities happen twice",
+    wants: [
+      ['trig:enters', 0.75],
+      ['trig:attacks', 0.75],
+      ['trig:dies', 0.55],
+      ['eff:create-token', 0.45],
+    ],
+  },
+  {
+    when: /if (a|another) creature (you control )?died this turn|if (three|two|four|\d+) or more creatures died this turn/i,
+    reads: "only pays out on a turn one of your creatures died",
+    wants: [
+      ['trig:dies', 0.8],
+      ['eff:sacrifice', 0.75],
+      ['eff:create-token', 0.6],
+    ],
+  },
+  {
+    when: /(^|\n)Flash( |\n|$)/i,
+    reads: "can be cast on someone else's turn, so the deck holds mana up",
+    wants: [
+      ['type:instant', 0.7],
+      ['eff:counter', 0.55],
+      ['kw:flash', 0.5],
+      ['trig:enters', 0.45],
+    ],
+  },
+  {
+    when: /deals? [^.\n]{0,30}damage (divided as you choose |equal to [^.\n]{0,25})?(to (any target|target creature|that player|each of up to)|divided as you choose among)/i,
+    reads: "points damage at whatever needs shooting",
+    wants: [
+      ['eff:damage', 0.8],
+      ['type:instant', 0.5],
+      ['type:sorcery', 0.5],
+      ['eff:destroy', 0.4],
+    ],
+  },
+  {
+    when: /prevent all damage that would be dealt to (?!target|any target|each|all)/i,
+    reads: "cannot be killed by damage, so the deck arms it and swings",
+    wants: [
+      ['sub:equipment', 0.8],
+      ['eff:pump', 0.7],
+      ['sub:aura', 0.6],
+      ['cares:sub:equipment', 0.5],
+    ],
+  },
+  {
+    when: /whenever [^.\n]{0,45}another (nontoken )?creature you control enters/i,
+    reads: "triggers whenever your other creatures arrive",
+    wants: [
+      ['type:creature', 0.75],
+      ['trig:enters', 0.7],
+      ['eff:create-token', 0.5],
+    ],
+  },
+  {
+    when: /whenever [^.\n]{0,25} blocks (one or more|a |another)/i,
+    reads: "is paid for blocking",
+    wants: [
+      ['kw:defender', 0.7],
+      ['kw:vigilance', 0.55],
+      ['eff:pump', 0.5],
+      ['sub:wall', 0.45],
+    ],
+  },
+  /* END GENERATED INTENT RULES */
 ];
 
 const COMBAT_KEYWORDS: readonly string[] = [
@@ -833,6 +1687,22 @@ export function planForCommander(commander: {
    * nothing, and never to decide what a card does in a game.
    */
   oracleText?: string | null;
+  /**
+   * The card's faces, when it has them.
+   *
+   * `oracle_text` is NULL for every transform, modal DFC, split, adventure and
+   * prepare layout, because Scryfall puts the words in `card_faces[]`.
+   * CLAUDE.md records this and it still caught us: passing `oracle_text`
+   * straight through meant every double-faced commander reached the intent
+   * rules with an empty string and was recorded as having said nothing.
+   * Measured 2026-08-30: 186 of 586 silent commanders, 31.7% of all silence,
+   * were cards whose text was never handed to the reader.
+   *
+   * Reading it here rather than at each call site is deliberate. Three
+   * callers pass a commander in and all three had the same hole; a fourth
+   * would have had it too.
+   */
+  faces?: readonly { oracle_text?: string | null }[] | null;
 }): CommanderPlan {
   const facets = facetsOf(commander);
   const wants = new Map<Facet, Want>();
@@ -929,8 +1799,16 @@ export function planForCommander(commander: {
      of the combat fallback because "this card says it is paid when creatures
      die" is a more specific claim than "this card has flying and nothing we
      could read", and the more specific reading should win. */
-  if (!wants.size && commander.oracleText) {
-    const text = commander.oracleText;
+  const oracleText =
+    commander.oracleText?.trim() ||
+    (commander.faces ?? [])
+      .map(f => f?.oracle_text ?? '')
+      .filter(Boolean)
+      .join(FACE_JOIN) ||
+    '';
+
+  if (!wants.size && oracleText) {
+    const text = oracleText;
     for (const rule of INTENT_RULES) {
       if (!rule.when.test(text)) continue;
       const because = `${commander.name} ${rule.reads}`;
@@ -1063,7 +1941,7 @@ function tribeOf(typeLine: string | null | undefined, facets: readonly Facet[]):
      is a different question from what the commander IS. */
   /* A plain substring test, not a regex. A word-boundary escape written
      through a shell heredoc into this file arrived as the BACKSPACE character,
-     so the pattern was /[]Creature[]/ and matched nothing: every tribal
+     so the pattern was /\bCreature\b/ and matched nothing: every tribal
      commander silently lost its tribe. Type lines are a closed vocabulary and
      "creature" appears in them only as the card type, so a lowercased
      includes says exactly what is meant and has nothing to get wrong. */

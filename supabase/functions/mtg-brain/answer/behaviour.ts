@@ -344,6 +344,10 @@ export async function planForDeck(
     facets: record.facets,
     tags,
     oracleText: commander.oracleText ?? null,
+    /* NULL on every transform, modal DFC, split and adventure card, where the
+       words live in the faces. Without it a double-faced legend reads as a
+       card that says nothing, which was 31.7% of all commander silence. */
+    faces: (commander as { faces?: { oracle_text?: string | null }[] | null }).faces ?? null,
   });
 
   return { plan, commanderName: commander.name, standing: record.standing };

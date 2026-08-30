@@ -1014,6 +1014,10 @@ function toBuildCard(
   return {
     ...normalizeRow(row, format),
     oracleText: row.oracle_text ?? null,
+    /* Selected only by `cardsByName`, so the pool carries `undefined` here and
+       pays nothing. It is the deck's own cards, and above all the COMMANDER,
+       that need it: `oracle_text` is NULL on every multi-face layout. */
+    faces: row.faces ?? null,
     keywords: row.keywords ?? null,
     /*
      * THE FIELD THIS PASS EXISTS TO FILL.

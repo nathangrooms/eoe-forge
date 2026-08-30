@@ -39,6 +39,20 @@ const PORT = Number(process.env.PORT || 4587);
 const OUT = process.env.OUT || '.shots/nav-audit';
 const WIDTHS = (process.env.WIDTHS || '1600x1000,390x844').split(',').map(s => s.split('x').map(Number));
 const SETTLE = Number(process.env.SETTLE || 9000);
+/*
+ * A ROW THAT DEPENDS ON A LIVE FUNCTION CAN FLAKE, and `precons` is the one.
+ *
+ * `fetch-precons` is in the shim’s passthrough list, so that page makes a real
+ * network call for 184 rows. It answers in about 627 ms on its own and can
+ * exceed the settle window part-way through a fourteen-page sequential walk,
+ * and the page then measures as its own empty state: 265px dead, no card art.
+ * Seen on 2026-08-30, and `ONLY=precons` immediately gave 5,475px and 48 card
+ * images on the same build.
+ *
+ * So a single bad row on a page backed by a live function is not a finding
+ * yet. Re-run that page alone before believing it. Raising SETTLE helps and
+ * costs every other page the same seconds, which is why it is not the default.
+ */
 /**
  * SHIM=off walks the app SIGNED OUT.
  *

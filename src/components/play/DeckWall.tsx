@@ -61,7 +61,33 @@ export function DeckWall({ decks, mode, value, onChoose, seeded, className }: De
   return (
     <div
       className={cn(
-        'grid w-full grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6',
+        /*
+         * THE COLUMN COUNT ASKS THE CONTAINER, NOT THE WINDOW.
+         *
+         * Five fixed counts have to guess how much room the wall got, and the
+         * wall sits beside an aside whose width changes at its own breakpoints,
+         * so the guesses disagreed with reality. Measured on the deck step:
+         *
+         *   viewport   wall px   columns   tile
+         *   1280        528        5        96px
+         *   1440        688        5       128px
+         *   1600        848        6       131px
+         *
+         * A 96px tile is a thumbnail of a Magic card, and every label under it
+         * truncated: "Atraxa, Praet...", "Ulamog, the ...". The standing
+         * instruction is the opposite, that a card should be shown whole and
+         * larger.
+         *
+         * `auto-fill` over a 200px minimum holds the tile between 200px and
+         * 290px at every width measured, whatever is beside it. `auto-fill`
+         * and not `auto-fit`: with two decks on a wide screen `auto-fit`
+         * collapses the empty tracks and stretches those two to 420px each,
+         * which is a different deck wall at every deck count.
+         *
+         * Two columns stay pinned below `sm`. One deck per row on a phone is
+         * right by size and wrong by how far you scroll past your own decks.
+         */
+        'grid w-full grid-cols-2 gap-3 sm:[grid-template-columns:repeat(auto-fill,minmax(200px,1fr))]',
         className
       )}
     >

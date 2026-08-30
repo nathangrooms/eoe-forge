@@ -103,8 +103,29 @@ export function DeckStep({ decks, loading, mode, value, onChoose, allowSeeded }:
     );
   }
 
+  /*
+   * THE ASIDE DOUBLES AT 1800px, NOT AT 1536px.
+   *
+   * It used to widen at Tailwind's `2xl`, and the effect was that making the
+   * window BIGGER made the deck cards SMALLER. Measured on this screen:
+   *
+   *   viewport   wall    aside   deck card   truncated labels
+   *   1280        568     384      160px      9
+   *   1440        728     384      216px      5
+   *   1600        536     736      104px     11
+   *   1920        856     736      188px      7
+   *
+   * 1600 is the commonest desktop width and it was the worst of the four, by a
+   * long way, because 46rem of aside came in while the content box was still
+   * only ~1290px and took 57% of it to describe ONE deck while the wall showing
+   * every deck kept 42%. Names read "Atraxa, Praet..." and "Ulamog, the ...".
+   *
+   * The two-column aside is right on a genuinely wide screen; it just needs a
+   * screen that is genuinely wide. 1800px is where the wall still has ~740px
+   * left over, which is four whole cards.
+   */
   return (
-    <div className="grid w-full gap-4 xl:grid-cols-[minmax(0,1fr)_24rem] 2xl:grid-cols-[minmax(0,1fr)_46rem]">
+    <div className="grid w-full gap-4 xl:grid-cols-[minmax(0,1fr)_24rem] min-[1800px]:grid-cols-[minmax(0,1fr)_46rem]">
       {/* The wall. */}
       <div className="min-w-0 rounded-xl bg-card p-4 shadow-sm md:p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
@@ -116,8 +137,12 @@ export function DeckStep({ decks, loading, mode, value, onChoose, allowSeeded }:
           </p>
         </div>
 
+        {/* No column classes: `DeckWall` sizes itself from its container now,
+            and a count passed in here would be this file guessing again at how
+            much room the aside left it. That guess is what made a 1600px screen
+            draw smaller cards than a 1280px one. */}
         <DeckWall
-          className="mt-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-3 2xl:grid-cols-4"
+          className="mt-4"
           decks={decks}
           mode={mode}
           value={value}
@@ -136,7 +161,7 @@ export function DeckStep({ decks, loading, mode, value, onChoose, allowSeeded }:
       </div>
 
       {/* The selection, large, and what it is. */}
-      <aside className="grid min-w-0 content-start gap-4 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+      <aside className="grid min-w-0 content-start gap-4 sm:grid-cols-2 xl:grid-cols-1 min-[1800px]:grid-cols-2">
         <div className="min-w-0 rounded-xl bg-card p-4 shadow-sm">
           {selected?.faceCard ? (
             <CardImage card={selected.faceCard} size="xl" fill eager title={selected.name} />

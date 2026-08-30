@@ -1291,6 +1291,25 @@ propagates only because writing `tags` bumps `updated_at`. Until it runs, the
 tags in the app are the old ones: the deck page, the generator and the optimiser
 all read the views, never `cards`.
 
+## The probes have an index now, and that is why (30 Aug 2026)
+
+`scripts/probe/README.md`. Read it before writing a new probe.
+
+There are forty-seven scripts in that folder and there was no index, so on 30 Aug
+I wrote a third em-dash checker while `em-dash-sweep.mjs` and `emdash-scan.mjs`
+were both already there, rediscovering from scratch every false-positive class
+the first one documents in its own header. Three tools for one rule.
+
+The accident paid for itself. Comparing the two answers showed the existing
+sweep reporting "0 across 0 files" over a real breach: its range exemption
+blanks every hole to a digit, so a name, an em-dash and a detail looked exactly
+like a wins-losses range, and the insurance report, the one document that
+leaves this product, carried em-dashes for as long as the rule has existed. An
+em-dash between two holes is prose now; an en-dash is still a range.
+
+**The general point is the index, not the dashes.** A tool nobody can find is a
+tool somebody rewrites.
+
 ## The instruments lie in four specific ways (30 Aug 2026)
 
 Four separate "defects" this session turned out to be the measuring tool,

@@ -1727,8 +1727,20 @@ one version and a writer on another is **silent**: every card reads as having no
 facets, which the ranker cannot tell from a card that genuinely does nothing.
 
 **Bump the WRITER first, refill, and only then move the readers.** 33,032 rows
-took 67 seconds. Done in that order there is no window where facets are absent;
-done the other way round the generator is blind for the length of the refill.
+take about 68 seconds.
+
+> ⚠️ **That order only works because the PRIMARY KEY is `(oracle_id,
+> compiler_version)`, and it was `oracle_id` ALONE until 30 Aug 2026.** With the
+> old key, `facet-memo-fill` upserting a card at the new version DESTROYED its
+> row at the old one, so a reader still filtering the previous version found
+> nothing for it from that instant. The window was not zero, it was the whole
+> refill and it grew: a rising fraction of the catalogue reading as having NO
+> FACETS to the live generator, which is exactly the silent failure the version
+> number exists to prevent, arriving through the mechanism meant to prevent it.
+>
+> This paragraph asserted the order was safe before anybody checked the key.
+> Migration `the_memo_can_hold_two_compiler_versions` makes the claim true.
+> **Delete the old version only after the readers have moved.**
 
 `cards_pool` is a materialized view, so moving its join means DROP and CREATE,
 and all four indexes have to come back with it. `cards_pool_identity_rank_id_idx`

@@ -239,7 +239,18 @@ Deno.serve(async (req) => {
     const chunk = pending.slice(i, i + WRITE_CHUNK);
     const { error: writeErr } = await db
       .from('card_facet_memo')
-      .upsert(chunk, { onConflict: 'oracle_id' });
+      /*
+       * (card, VERSION), not card alone.
+       *
+       * With `oracle_id` on its own this upsert destroyed the row the readers
+       * were still on, one card at a time, so the documented order — bump the
+       * writer, refill, then move the readers — did the opposite of what it
+       * claimed: the generator saw a growing hole for the whole 68 second
+       * refill, and a card with no facets is indistinguishable from a card that
+       * does nothing. The primary key is (oracle_id, compiler_version) now so
+       * two versions coexist and the old one is deleted deliberately.
+       */
+      .upsert(chunk, { onConflict: 'oracle_id,compiler_version' });
     if (writeErr) {
       /* Advance the cursor only as far as what was actually written, so a
          partial failure is retried rather than skipped. */

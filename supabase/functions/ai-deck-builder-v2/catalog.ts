@@ -68,6 +68,34 @@ import type { CandidateQuery, RawCardRow } from './_engine/advise/index.ts';
  */
 export const POOL_TABLE = 'cards_unique';
 
+/**
+ * Where the CANDIDATE POOL comes from: a narrow view of the same rows.
+ *
+ * `cards_unique` rows average 3.2 KB, because alongside the nine columns
+ * ranking reads they carry `oracle_text`, `faces`, `image_uris`, `legalities`
+ * and `prices`. One fat row is one heap block, so scanning the 7,495 mono-red
+ * candidates touched 6,441 blocks and the pool query was the slowest thing in
+ * the product. Measured 2026-08-30:
+ *
+ *   cards_unique heap                105 MB
+ *   the columns the pool reads         6.7 MB
+ *   cards_pool heap, facets included  13 MB
+ *
+ *   mono-red pool page, ORDER BY id, from cards_unique   2,923 ms
+ *   the same page from cards_pool, ORDER BY rank             6 ms
+ *
+ * It also carries the precompiled `facets` and the two projections the query
+ * used to make PostgREST compute per request, `prices->>'usd'` and
+ * `legalities->>'commander'`, as ordinary columns.
+ *
+ * ONLY FOR RANKING. Anything that needs oracle text, images or the whole
+ * legalities object is asking about a CARD rather than about a candidate and
+ * must read `POOL_TABLE`. `landPoolFor` is the standing example: it needs the
+ * rules text that says what a land taps for. The moment a wide column is added
+ * to `cards_pool` the saving disappears and nothing on screen will say so.
+ */
+export const RANK_POOL_TABLE = 'cards_pool';
+
 /** PostgREST's configured `db-max-rows` for this project, measured. */
 export const PAGE_SIZE = 1000;
 
@@ -398,6 +426,23 @@ export class Catalog {
     const fmt = query.legalityFilter.key;
     const identity = `{${query.colorIdentityFilter.containedBy.join(',')}}`;
 
+    /* `cards_pool` CARRIES COMMANDER LEGALITY AND NOTHING ELSE, deliberately:
+       the whole point of the view is that it is narrow, and `legalities` is one
+       of the five fat columns it exists to leave behind. Twenty-three formats
+       would put most of that weight straight back.
+
+       So any other format reads `cards_unique`, which holds the whole object.
+       Commander is what this generator is for and what every measurement here
+       was taken on, and a Standard pool is small enough that the slower path
+       costs nothing worth optimising. Branching on the format rather than
+       assuming it matters because reading `commander_legal` for a Standard deck
+       would not error: it would quietly build the wrong pool. */
+    const useNarrowPool = fmt === 'commander';
+    const table = useNarrowPool ? RANK_POOL_TABLE : POOL_TABLE;
+    const legalityFilter = useNarrowPool
+      ? `&commander_legal=eq.${query.legalityFilter.equals}`
+      : `&legalities->>${encodeURIComponent(fmt)}=eq.${query.legalityFilter.equals}`;
+
     // The engine's `selectColumns` is SQL; PostgREST needs its own spelling of
     // the same two JSON projections.
     const select = [
@@ -414,20 +459,24 @@ export class Catalog {
       'edhrec_rank',
       /* THE COMPILED FACETS, READ RATHER THAN COMPUTED.
          ----------------------------------------------
-         `facets` is a computed column on `cards_unique`: a PostgREST function
-         over `card_facet_memo`, filled once by the `facet-memo-fill` edge
-         function. Before it existed, `pipeline.ts` compiled facets from
-         `oracle_text` on EVERY REQUEST, capped at 6,000 cards, into a Map on
-         the module that dies with the instance. Every measured run reported
-         `cached: 0`; a five-colour pool is roughly 100,000 facets computed
-         from scratch inside one CPU budget, and the budget lost.
+         An ordinary column on `cards_pool`, joined from `card_facet_memo` when
+         the view is built and filled by the `facet-memo-fill` edge function.
+         Before it existed, `pipeline.ts` compiled facets from `oracle_text` on
+         EVERY REQUEST, capped at 6,000 cards, into a Map on the module that
+         dies with the instance. Every measured run reported `cached: 0`; a
+         five-colour pool is roughly 100,000 facets computed from scratch
+         inside one CPU budget, and the budget lost.
 
          Asking for facets instead of oracle text also takes 4.93 MB off the
          five-colour pool response, which is most of why that query timed out
          whenever the nightly sync was writing. */
       ...(opts?.withOracleText ? ['facets'] : []),
-      'usd:prices->>usd',
-      `legal_in_format:legalities->>${fmt}`,
+      /* On `cards_pool` these are ordinary columns, so PostgREST no longer
+         computes `prices->>'usd'` and `legalities->>'<format>'` per row per
+         request. Both aliases keep the shape `RawCardRow` expects. */
+      ...(useNarrowPool
+        ? ['usd', 'legal_in_format:commander_legal']
+        : ['usd:prices->>usd', `legal_in_format:legalities->>${fmt}`]),
     ].join(',');
 
     /* THE RANK CEILING, and why it is a filter rather than an order.
@@ -502,24 +551,49 @@ export class Catalog {
        silently would be a pool that is quietly incomplete, which is the one
        failure nothing downstream can detect. */
     const base =
-      `${POOL_TABLE}?select=${encodeURIComponent(select)}` +
-      `&legalities->>${encodeURIComponent(fmt)}=eq.${query.legalityFilter.equals}` +
+      `${table}?select=${encodeURIComponent(select)}` +
+      legalityFilter +
       `&color_identity=cd.${encodeURIComponent(identity)}`;
 
-    /* Rank-ordered only when there is a selective ceiling to order against,
-       for the reason set out above. Without one the id walk is still the best
-       plan available. */
-    if (!rankCeiling) return this.fetchAll<CatalogRow>(base, 'id');
+    /* RANK-ORDERED AT EVERY COLOUR COUNT NOW, which the narrow view is what
+       makes possible.
 
-    const ranked = await this.fetchAll<CatalogRow>(base + rankCeiling, 'rank');
+       The ordered walk needs a rank on every row, because a null cannot be a
+       cursor. It used to get that from the ceiling, which only three-colour
+       and larger pools set, so one and two colour pools fell back to the id
+       walk and were the SLOWEST decks in the product: measured on the
+       deployed function, mono-white Isamaru took 37.2 s and mono-red Krenko
+       8.9 s, while four-colour Atraxa took 2.9 s.
 
-    /* No unranked tail here on purpose. `edhrec_rank=lt.<n>` excludes the 67
-       commander-legal cards that carry no rank at all, and at three colours
-       and up the ceiling exists precisely to keep the pool inside the
-       runtime's memory. A card nobody has ever been recorded playing is what
-       that ceiling is for, and fetching it back would undo the thing that
-       makes those builds possible. */
-    return ranked;
+       `edhrec_rank=not.is.null` asks for the same guarantee without narrowing
+       anything, and on `cards_pool` the planner takes the ordered index and
+       stops early:
+
+         from cards_unique, ORDER BY id       2,923 ms a page
+         from cards_pool,   ORDER BY id       1,167 ms
+         from cards_pool,   ORDER BY rank         6 ms
+
+       The ceiling still applies where the caller set one, because at three
+       colours and up it exists for MEMORY rather than for speed. */
+    const ranked = await this.fetchAll<CatalogRow>(
+      `${base}&edhrec_rank=not.is.null${rankCeiling}`,
+      'rank'
+    );
+
+    /* THE UNRANKED TAIL, one page, and only when the caller set no ceiling.
+       67 of the 31,829 commander-legal cards carry no `edhrec_rank`, and the
+       ordered walk cannot include them because a null cannot be a cursor.
+       Dropping them silently would make the pool quietly incomplete, which is
+       the one failure nothing downstream can detect: a legal card that never
+       reaches the pool cannot be suggested and nothing reports its absence.
+
+       Where the caller DID set a ceiling, that ceiling exists to keep a large
+       pool inside the runtime's memory, and a card nobody has ever been
+       recorded playing is exactly what it is for. */
+    if (opts?.maxRank !== undefined) return ranked;
+
+    const unranked = await this.fetchAll<CatalogRow>(`${base}&edhrec_rank=is.null`);
+    return unranked.length ? ranked.concat(unranked) : ranked;
   }
 
   /**

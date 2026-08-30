@@ -10,7 +10,6 @@ import { useDashboardSummary, useRecentDecks } from '@/features/dashboard/hooks'
 import { BadgesSection } from '@/components/dashboard/BadgeDisplay';
 import { CollectionValue } from '@/components/dashboard/CollectionValue';
 import { DashboardErrorBoundary } from '@/components/dashboard/DashboardErrorBoundary';
-import { DecksToFinish } from '@/components/dashboard/DecksToFinish';
 import { GetStarted } from '@/components/dashboard/GetStarted';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
 import { RecentDecks } from '@/components/dashboard/RecentDecks';
@@ -23,18 +22,14 @@ import { WantedNext } from '@/components/dashboard/WantedNext';
  * It answers four questions, in the order a player asks them when they open the
  * app, and every section is there because it answers one of them:
  *
- *   what changed        -> recent decks and recent activity, the first row
+ *   what changed        -> recent decks, and recent activity under it
+ *   what is unfinished  -> said on the deck tile itself, and filterable
  *   what is it worth    -> the collection panel, with the cards behind the total
- *   what is unfinished  -> decks to finish
  *   what do I do next   -> wanted next, and the quick actions
  *
- * The first row is the layout the owner specified: "recent decks should be first
- * 3 with scroll bar like on card page, also recent activity should show 2 only
- * (same size as recent decks) so 5 total in first row". Five equal tiles across
- * one five-column grid, three columns of decks and two of activity, each rail
- * paging independently through the rest. The tiles are the same size because
- * they are the same component sized off the same grid, not because two numbers
- * happen to agree.
+ * The first row is one rail of five equal tiles across the full width, paging
+ * through the rest. It was three tiles beside a second rail showing the SAME
+ * decks, which is the note in `RecentDecks`.
  *
  * Every number on this page is read from a row in the database. The dashboard
  * has shipped fabricated data before: `SearchHistory.tsx` seeded "Sol Ring, 50
@@ -49,10 +44,6 @@ const QUICK_ACTIONS = [
   { label: 'Import to collection', to: '/collection/import', icon: Package },
   { label: 'Tutor', to: '/tutor', icon: BookOpenCheck },
 ];
-
-/** Tiles per screenful in the first row, and the grid columns each rail spans. */
-const DECKS_SPAN = 'lg:col-span-3';
-const ACTIVITY_SPAN = 'lg:col-span-2';
 
 const Dashboard = () => {
   useSessionTimeout();
@@ -129,21 +120,22 @@ const Dashboard = () => {
                 finishing, are the same question asked twice, and a reader
                 arriving at this page is usually here to answer it. Activity is
                 a record of what already happened, which is worth seeing and
-                worth seeing second. */}
-            <Reveal index={0} className="grid gap-4 lg:grid-cols-5">
+                worth seeing second.
+
+                ONE RAIL, NOT TWO. "Decks to finish" was fed from this same
+                `decks` array and filtered to the ones with something wrong, so
+                it could only ever show a subset of what sat beside it. On the
+                dashboard it showed the identical two decks, smaller, and took
+                two of the row's five columns to do it. What is unfinished is
+                now printed on the deck's own tile and offered as a filter.
+                `RecentDecks` explains the whole reasoning. */}
+            <Reveal index={0}>
               <RecentDecks
-                className={DECKS_SPAN}
                 decks={decks}
                 deckCount={deckStats?.count ?? decks.length}
                 loading={decksLoading}
                 error={decksError}
                 onToggleFavorite={toggleFavorite}
-              />
-              <DecksToFinish
-                className={ACTIVITY_SPAN}
-                decks={decks}
-                loading={decksLoading}
-                error={decksError}
               />
             </Reveal>
 
@@ -151,8 +143,6 @@ const Dashboard = () => {
               <CollectionValue summary={summary} loading={summaryLoading} />
             </Reveal>
 
-            {/* Same five-column split as the first row, so the page has one
-                rhythm rather than a new layout per section. */}
             {/* Two rows, not two columns. Owner: "Recent activity and wishlist -
                 should be 2 separate rows." They answer different questions and
                 neither is a sidebar to the other: one is what you did, the other

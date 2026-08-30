@@ -34,7 +34,9 @@ import { Sparkline } from './Sparkline';
  *   - nothing here renders 0 in place of "we do not know".
  */
 
-const PER_VIEW = 3;
+/* Five, matching the deck rail above it. The panel is the full page width now
+   rather than three fifths of it. */
+const PER_VIEW = 5;
 
 /** As many as the rail can page through without becoming the collection page. */
 const SHOWN = 12;
@@ -87,21 +89,37 @@ export function CollectionValue({ summary, loading }: CollectionValueProps) {
         </div>
       )}
 
-      <div className="grid gap-6 p-5 md:p-6 lg:grid-cols-5">
-        {/* Centred against the rail beside it. The numbers are a short block and
-            the cards are a tall one, so pinning both to the top left a third of
-            this panel as empty charcoal. */}
-        <div className="flex min-w-0 flex-col lg:col-span-2 lg:justify-center">
+      {/*
+       * THE NUMBERS SIT ABOVE THE CARDS, NOT BESIDE THEM.
+       *
+       * This was a five-column grid: two columns of text, three of card rail.
+       * The text is a heading, a number and two short lines, and the rail is as
+       * tall as a Magic card, so the left column was a hundred and fifty pixels
+       * of type vertically centred in three hundred and eighty pixels of
+       * blurred charcoal — measured at 1600 x 1000, 390px wide by 380px tall
+       * with nothing in it. Centring it hid the emptiness; it did not remove it.
+       *
+       * Stacked, the number gets the full width to be large in, the facts sit
+       * beside it on the same baseline instead of wrapping under it, and the
+       * rail below runs the whole width like the deck rail above it. Two
+       * full-width rails of card art is one rhythm rather than two layouts.
+       */}
+      <div className="flex flex-col gap-5 p-5 md:p-6">
+        <div className="flex min-w-0 flex-col">
           <h2 className="text-base font-semibold text-foreground">
             What your collection is worth
           </h2>
 
           {loading ? (
-            <>
-              <Skeleton className="mt-3 h-12 w-48" />
-              <Skeleton className="mt-3 h-4 w-56" />
-              <Skeleton className="mt-6 h-7 w-full" />
-            </>
+            /* Shaped like what replaces it: a wide number with the facts beside
+               it, not stacked, so the panel does not jump when it loads. */
+            <div className="mt-2 flex flex-col gap-x-8 gap-y-3 md:flex-row md:items-end">
+              <Skeleton className="h-12 w-48 shrink-0" />
+              <div className="min-w-0 flex-1 md:pb-1">
+                <Skeleton className="h-4 w-full max-w-md" />
+                <Skeleton className="mt-2 h-4 w-full max-w-sm" />
+              </div>
+            </div>
           ) : isEmpty ? (
             <div className="mt-3 max-w-sm">
               <p className="text-2xl font-semibold text-foreground">No cards yet</p>
@@ -125,35 +143,41 @@ export function CollectionValue({ summary, loading }: CollectionValueProps) {
               </div>
             </div>
           ) : (
-            <>
+            /* The total, what it is made of, and the change, on ONE line across
+               the panel. Stacked they were three short paragraphs down the left
+               edge of a wide box; side by side the row is full and the number
+               still leads because it is three times the size of everything
+               beside it. */
+            <div className="mt-2 flex flex-col gap-x-8 gap-y-3 md:flex-row md:items-end">
               <Link
                 to="/collection"
-                className="mt-2 block rounded-lg text-4xl font-semibold tabular-nums tracking-tight text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:text-5xl"
+                className="block shrink-0 rounded-lg text-4xl font-semibold tabular-nums tracking-tight text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:text-5xl"
               >
                 {asUSD(totalValue)}
               </Link>
 
-              <p className="mt-2 text-sm text-muted-foreground">
-                {(collection?.totalCards ?? 0).toLocaleString()} cards,{' '}
-                {(collection?.uniqueCards ?? 0).toLocaleString()} different printings
-              </p>
-
-              {unpriced > 0 && (
-                /* The one thing this panel must never do is present a partial
-                   total as the whole answer. */
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {unpriced === 1
-                    ? 'One card has no price yet, so it is not in this total.'
-                    : `${unpriced.toLocaleString()} cards have no price yet, so they are not in this total.`}
+              <div className="min-w-0 flex-1 md:pb-1">
+                <p className="text-sm text-muted-foreground">
+                  {(collection?.totalCards ?? 0).toLocaleString()} cards,{' '}
+                  {(collection?.uniqueCards ?? 0).toLocaleString()} different printings
+                  {unpriced > 0 && (
+                    /* The one thing this panel must never do is present a
+                       partial total as the whole answer. */
+                    <>
+                      {'. '}
+                      {unpriced === 1
+                        ? 'One card has no price yet, so it is not in this total.'
+                        : `${unpriced.toLocaleString()} cards have no price yet, so they are not in this total.`}
+                    </>
+                  )}
                 </p>
-              )}
-
-              <ValueTrend trend={trend} />
-            </>
+                <ValueTrend trend={trend} />
+              </div>
+            </div>
           )}
         </div>
 
-        <div className="min-w-0 lg:col-span-3">
+        <div className="min-w-0">
           <RailSection
             title="Your best cards"
             count={
@@ -218,14 +242,19 @@ export function CollectionValue({ summary, loading }: CollectionValueProps) {
  * something it does not know.
  */
 function ValueTrend({ trend }: { trend: ReturnType<typeof useCollectionTrend> }) {
-  if (trend.loading) return <Skeleton className="mt-6 h-7 w-full" />;
+  if (trend.loading) return <Skeleton className="mt-2 h-7 w-full" />;
 
   if (trend.points.length < 2) {
     return (
-      <p className="mt-6 text-sm text-muted-foreground">
+      <p className="mt-1 text-sm text-muted-foreground">
         {trend.points.length === 1
-          ? `Prices for your cards were first recorded on ${formatDay(trend.points[0].date)}. Once there is a second day, the change shows here.`
-          : 'We have not recorded prices for your cards yet. Once we have, the change shows here.'}
+          ? `Your cards were first priced on ${formatDay(trend.points[0].date)}. Once there is a second day, the change shows here.`
+          : /* NOT "we have no prices for your cards". This sentence sits four
+               lines under a total in dollars, and it said the opposite of the
+               number above it: the total is today's price, this is about the
+               day-by-day record behind it. Two true facts, one of which read as
+               a flat contradiction of the other. */
+            'Nothing to compare against yet. Once your cards have been priced on two different days, the change shows here.'}
       </p>
     );
   }
@@ -237,7 +266,7 @@ function ValueTrend({ trend }: { trend: ReturnType<typeof useCollectionTrend> })
   const direction = change > 0 ? 'up' : change < 0 ? 'down' : 'level';
 
   return (
-    <div className="mt-6">
+    <div className="mt-2">
       <Sparkline
         values={trend.points.map(point => point.valueUSD)}
         label={`Value of your cards from ${formatDay(first.date)} to ${formatDay(last.date)}`}

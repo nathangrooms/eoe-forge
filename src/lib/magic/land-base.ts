@@ -8,6 +8,7 @@
 import type { Card as BaseCard } from '../../types/collection.ts';
 import { BASIC_COLORS } from './colors.ts';
 import { ALL_FORMATS } from './formats.ts';
+import { buildManaProfile, type ManaColour } from '../../engine/playability/castability.ts';
 import type { Format } from './formats.ts';
 
 // Extend the base Card type to include quantity for deck analysis
@@ -69,7 +70,21 @@ export class LandBaseCalculator {
     primary: { min: 9, max: 999 }    // 9+ symbols
   };
 
-  static calculate(deck: Card[], format: string, budget: 'budget' | 'optimal' | 'premium' = 'optimal'): ManaBaseAnalysis {
+  /**
+   * @param sourcesByColour How many sources of each colour the deck ACTUALLY
+   *   has, when the caller already knows. Pass it. A page that shows both a
+   *   "Sources by colour" readout and this advice must feed them the same
+   *   number or it contradicts itself on one screen, which is exactly what
+   *   `/deck/:id?tab=mana` did: "White 16" above "Add 15 more W sources".
+   *   Omitted, the count is derived here from the deck's own lands, which is
+   *   correct but only as good as the rows handed in.
+   */
+  static calculate(
+    deck: Card[],
+    format: string,
+    budget: 'budget' | 'optimal' | 'premium' = 'optimal',
+    sourcesByColour?: Partial<Record<string, number>>
+  ): ManaBaseAnalysis {
     const nonLands = deck.filter(card => !this.isLand(card));
     const existingLands = deck.filter(card => this.isLand(card));
     
@@ -95,7 +110,8 @@ export class LandBaseCalculator {
       existingLands, 
       recommendations, 
       colorRequirements, 
-      format
+      format,
+      sourcesByColour
     );
     
     // Generate budget alternatives
@@ -485,7 +501,8 @@ export class LandBaseCalculator {
     existingLands: Card[], 
     recommendations: LandRecommendation[], 
     colorRequirements: ColorRequirement[], 
-    format: string
+    format: string,
+    sourcesByColour?: Partial<Record<string, number>>
   ): { issues: string[]; improvements: string[] } {
     const issues: string[] = [];
     const improvements: string[] = [];
@@ -503,11 +520,40 @@ export class LandBaseCalculator {
     }
 
     // Check color requirements vs existing lands
+    /* HOW MANY SOURCES THE DECK REALLY HAS, from the engine rather than from
+       this file's own guess.
+       ---------------------------------------------------------------------
+       This counted a land as a source for a colour when `land.colors` or
+       `land.color_identity` contained it. `colors` is EMPTY ON EVERY LAND EVER
+       PRINTED, which is the same mistake that made Tutor report
+       `B:5 C:34 G:8 R:0 U:5 W:3` for a four-colour deck, and `color_identity`
+       does not mean "taps for": Reliquary Tower has none and a fetch land's
+       identity is empty while it finds anything.
+
+       Measured on a real 92-card Atraxa deck: this said "Add 15 more W
+       sources" on the same screen where the Sources by colour panel, reading
+       `buildManaProfile`, said the deck has 16. Two counters, one page, and
+       the wrong one was giving the advice.
+
+       `buildManaProfile` is the engine's counter and the one the castability
+       subscore of the EDH power score is computed from, so this advice can no
+       longer contradict either the panel above it or the score. */
+    const counted =
+      sourcesByColour ??
+      buildManaProfile(
+        existingLands.map(land => ({
+          name: land.name,
+          type_line: land.type_line ?? '',
+          mana_cost: land.mana_cost ?? null,
+          cmc: land.cmc ?? null,
+          oracle_text: land.oracle_text ?? null,
+          color_identity: land.color_identity ?? null,
+          quantity: land.quantity ?? 1,
+        }))
+      ).sourcesByColour;
+
     colorRequirements.forEach(req => {
-      const existingSources = existingLands.filter(land => 
-        (land.colors || []).includes(req.color) || 
-        (land.color_identity || []).includes(req.color)
-      ).reduce((sum, land) => sum + (land.quantity || 1), 0);
+      const existingSources = counted[req.color as ManaColour] ?? 0;
 
       if (existingSources < req.sources - 1) {
         issues.push(`Insufficient ${req.color} sources: ${existingSources} vs needed ${req.sources}`);

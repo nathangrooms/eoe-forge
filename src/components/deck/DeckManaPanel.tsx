@@ -178,7 +178,12 @@ export function DeckManaPanel({
     const cards = curveCards as unknown as Parameters<typeof ManaCurveAnalyzer.analyze>[0];
     try {
       const curve = ManaCurveAnalyzer.analyze(cards, format);
-      const lands = LandBaseCalculator.calculate(cards, format, 'optimal');
+      /* The page's ONE mana profile decides how many sources this deck has.
+         Without it `LandBaseCalculator` counts from the rows handed in and
+         found zero, so the advice read "Add 15 more W sources" directly below
+         a Sources by colour panel, fed by this same `profile`, that read
+         "White 16". Same screen, same question, two answers. */
+      const lands = LandBaseCalculator.calculate(cards, format, 'optimal', profile.sourcesByColour);
       const swaps = ManaCurveAnalyzer.generateOptimizationSuggestions(curve);
       return {
         curve: [
@@ -211,7 +216,7 @@ export function DeckManaPanel({
       console.warn('Could not derive mana fixes for this deck:', error);
       return { curve: [] as string[], lands: [] as string[] };
     }
-  }, [curveCards, format]);
+  }, [curveCards, format, profile.sourcesByColour]);
 
   return (
     <div className="space-y-6">

@@ -46,6 +46,7 @@ import ReactMarkdown from 'react-markdown';
 import { supabase } from '@/integrations/supabase/client';
 import { CardRecommendationDisplay, type CardData } from '@/components/shared/CardRecommendationDisplay';
 import { toast } from 'sonner';
+import { buildManaProfile } from '@/engine/playability/castability';
 
 /**
  * The five things this panel can answer. Named so a caller can ask for the ones
@@ -174,7 +175,31 @@ export function EnhancedDeckAnalysisPanel({
       console.warn(`Unknown format: ${format}`);
     }
 
+    /* WHAT THE DECK ACTUALLY PRODUCES, read from the same place the EDH score
+       reads it. `landBase.statistics.totalSources` is computed from the
+       RECOMMENDED lands, not the deck's own, so it cannot answer "do I have
+       enough" and the Color Requirements list below used to print a target with
+       nothing to compare it against. That is how the EDH tab could score a mana
+       base 94/100 while this tab appeared to ask for 33 more sources: one was a
+       verdict on the deck, the other was a requirement with no subject.
+
+       `buildManaProfile` is the engine's own counter and its `sourcesByColour`
+       is what the castability subscore is computed from, so the two surfaces
+       can no longer disagree about the same deck. */
+    const manaProfile = buildManaProfile(
+      deck.map(card => ({
+        name: card.name,
+        type_line: card.type_line ?? '',
+        mana_cost: card.mana_cost ?? null,
+        cmc: card.cmc ?? null,
+        oracle_text: card.oracle_text ?? null,
+        color_identity: card.color_identity ?? null,
+        quantity: card.quantity ?? 1,
+      }))
+    );
+
     return {
+      manaProfile,
       manaCurve: ManaCurveAnalyzer.analyze(analysisCards, format),
       landBase: LandBaseCalculator.calculate(analysisCards, format, 'optimal'),
       synergy: SynergyEngine.analyze(analysisCards, format),
@@ -549,9 +574,39 @@ const optimizations = useMemo(() => {
                              req.intensity === 2 ? 'Secondary' : 'Primary'}
                           </Badge>
                         </div>
-                        <div className="text-sm text-muted-foreground">
-                          {req.sources} sources needed
-                        </div>
+                        {(() => {
+                          /* Have against needed, never a bare target. A number
+                             on its own reads as a shortfall, which is what made
+                             this tab look like it was contradicting the score. */
+                          const have =
+                            analysis.manaProfile.sourcesByColour[
+                              req.color as keyof typeof analysis.manaProfile.sourcesByColour
+                            ] ?? 0;
+                          const short = req.sources - have;
+                          return (
+                            <div className="text-right text-sm">
+                              <div className="text-foreground">
+                                {have} of {req.sources} sources
+                              </div>
+                              {/* Monochrome on purpose. The palette reserves hue
+                                  for mana, card type and power band, and a mana
+                                  shortfall is none of those; `text-power-1` is
+                                  GREEN, the low-power band, which would read as
+                                  approval. Weight carries it instead. */}
+                              <div
+                                className={
+                                  short > 0
+                                    ? 'text-xs font-medium text-foreground'
+                                    : 'text-xs text-muted-foreground'
+                                }
+                              >
+                                {short > 0
+                                  ? `${short} short`
+                                  : 'enough for this colour'}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     ))}
                   </div>

@@ -388,7 +388,7 @@ Reading ${commander?.name || 'this deck'}. Pick a question below, or ask your ow
     userPrompt: string
   ): Promise<{ message: string; cards: CardData[]; visualData?: VisualData }> => {
     try {
-      const contextMessage = `You are DeckMatrix AI, an expert Magic: The Gathering deck analyst specializing in Commander format.
+      const contextMessage = `You are Tutor, a Magic: The Gathering deck analyst who knows Commander inside out.
 
 **Your Tone**: Professional yet conversational - like a seasoned player coaching a friend. Be enthusiastic about strong plays, honest about weaknesses, and always solution-oriented.
 
@@ -432,7 +432,7 @@ Reading ${commander?.name || 'this deck'}. Pick a question below, or ask your ow
       if (lower.includes('rate') || lower.includes('429')) {
         toast.error('Rate limits exceeded. Please wait before asking another question.');
       } else if (lower.includes('payment') || lower.includes('credit') || lower.includes('402')) {
-        toast.error('Credits required. Please add AI credits to continue.');
+        toast.error('Deck analysis is switched off right now. The figures on this page are unaffected.');
       } else {
         toast.error('Deck analysis is unavailable. Showing this deck’s own figures instead.');
       }

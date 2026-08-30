@@ -222,7 +222,7 @@ export function InsuranceReport({
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
-            No cards in the collection yet - add cards to generate a report.
+            There is nothing to value yet. Add cards to your collection and this report fills in.
           </p>
         )}
 

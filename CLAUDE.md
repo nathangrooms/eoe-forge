@@ -1701,8 +1701,20 @@ artifacts and 0 of 64 cards keyed off him.
 
 ### Still wrong, and measured
 
-- **No sacrifice outlet in a Meren deck.** The plan wants `eff:sacrifice` and
-  Viscera Seer, Ashnod's Altar and Carrion Feeder are all absent.
+- **No sacrifice outlet in a Meren deck, and the reason is the SLOT and not
+  the facet.** `cost:sacrifice` now exists, the aristocrats plan asks for it at
+  0.72, and Ashnod's Altar and Viscera Seer both score a real fit of 0.720
+  against Eternal Witness at 0.752. They still do not get in, because pass one
+  of `generateDeck` takes each card into its NEEDIEST role and Ashnod's Altar
+  classifies as `ramp`: once Sol Ring, Arcane Signet, Fellwar Stone, Mind Stone
+  and Commander's Sphere have filled that quota, `neediestRole` returns null
+  and the card is skipped however well it fits.
+
+  In a Meren deck the Altar is not ramp, it is the engine. Role quotas and
+  commander fit are different axes, and a card whose role is full cannot get in
+  on fit alone. The fix is slots reserved for the highest-fit cards regardless
+  of role, which is a real design change and wants measuring across many
+  commanders rather than tuning until one card appears.
 - Krenko still reaches deep: median rank 5643, 13 cards past 15,000. Mono-red
   has a smaller pool, so some of that is inherent and some is not.
 - Boots, Greaves, Skullclamp and Demonic Tutor are missing from most decks.

@@ -81,7 +81,13 @@ const json = (body: unknown, status = 200) =>
  * "search for up to N". Every one of those alters facets on cards that already
  * had a memo row, which is exactly the case this constant exists for.
  */
-const COMPILER_VERSION = 2;
+/*
+ * 2 -> 3, same day. The facet producer now reads what an ability COSTS and not
+ * only what it costs in mana, so every sacrifice outlet in the format gained
+ * `cost:sacrifice` and every tap ability gained `cost:tap`. That is an output
+ * change on cards already read, which is what this constant is for.
+ */
+const COMPILER_VERSION = 3;
 
 /**
  * Cards read per call.

@@ -92,6 +92,7 @@ export const FACET_PREFIXES: readonly string[] = [
   'eff:',
   'mana:',
   'acost:',
+  'cost:',
   'tok:',
   'ctr:',
   'cares:type:',
@@ -518,6 +519,13 @@ const INTENT_RULES: readonly IntentRule[] = [
     when: /(if a creature dying causes|whenever (a|another) creature (you control )?dies|creature you control dies)/i,
     reads: 'is paid when your creatures die',
     wants: [
+      /* THE OUTLET FIRST, because it is the card the deck cannot function
+         without and the one the engine could not see until `cost:` existed.
+         `eff:sacrifice` is Diabolic Edict making an OPPONENT sacrifice; the
+         card a Meren deck actually needs is Viscera Seer, whose sacrifice is
+         the COST of its own ability. They are different cards and this rule
+         used to ask for the wrong one. */
+      ['cost:sacrifice', 0.9],
       ['trig:dies', 0.85],
       ['eff:sacrifice', 0.8],
       ['eff:create-token', 0.7],

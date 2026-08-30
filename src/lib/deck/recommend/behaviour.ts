@@ -634,7 +634,35 @@ function readActivationCost(costs: readonly Cost[] | undefined, out: Set<Facet>)
   let mana = 0;
   let sawMana = false;
   for (const cost of costs ?? []) {
-    if (cost.pay !== 'mana') continue;
+    /* WHAT THE COST IS, not only what it costs in mana.
+       ------------------------------------------------------------------
+       A sacrifice outlet is a card whose ABILITY COSTS a sacrifice, and this
+       function used to walk straight past every non-mana cost. Measured on
+       2026-08-30, all five of the outlets a Meren deck is built on are
+       `rec:full` — the compiler read every word — and not one carried a facet
+       saying you could sacrifice to it:
+
+         Ashnod's Altar     134   read as "adds 2 mana", a mana rock
+         Viscera Seer       255   read as "scries"
+         Phyrexian Altar    310   read as "adds 1 mana"
+         Goblin Bombardment 457   read as "deals damage"
+         Carrion Feeder     614   read as "adds counters"
+
+       Aristocrats is one of the largest archetypes in the format and the engine
+       could not see its central enabler. Worse than not seeing it: `rec:full`
+       makes the absence of a facet a positive NO, so the tag fallback could not
+       rescue them either.
+
+       This is the mistake the paragraph above names by its own name. The cost
+       is an argument, and throwing an argument away is what the XMage
+       re-extraction exists to stop doing. What gets sacrificed is already read
+       by `readSelector` below into `cares:type:creature`. */
+    if (cost.pay !== 'mana') {
+      out.add(`cost:${cost.pay}` as Facet);
+      const what = (cost as { what?: Selector }).what;
+      if (what) readSelector(what, out);
+      continue;
+    }
     const parsed = parseCost(cost.cost);
     if (parsed.hasX) return;
     mana += parsed.manaValue ?? 0;

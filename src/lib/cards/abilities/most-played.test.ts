@@ -165,3 +165,76 @@ describe('searching for "up to" a number', () => {
     assert.equal(search.upTo, undefined);
   });
 });
+
+/* ------------------------------------------------------------------ *
+ * What an ability COSTS, which is a different question from what it does
+ * ------------------------------------------------------------------ */
+
+describe('a sacrifice outlet is a card whose ability costs a sacrifice', () => {
+  /*
+   * Every one of these is `rec:full` — the compiler read every word — and none
+   * of them carried a facet saying you could sacrifice to it, because the facet
+   * producer walked past every cost that was not mana. Measured 30 Aug 2026:
+   *
+   *   Ashnod's Altar     rank 134   read as "adds 2 mana", a mana rock
+   *   Viscera Seer       rank 255   read as "scries"
+   *   Goblin Bombardment rank 457   read as "deals damage"
+   *   Carrion Feeder     rank 614   read as "adds counters"
+   *
+   * Aristocrats is one of the largest archetypes in Commander and the engine
+   * could not see its central enabler. `rec:full` makes that worse rather than
+   * better: it turns the absent facet into a positive NO, so the tag fallback
+   * could not rescue them either.
+   */
+  const OUTLETS = [
+    ['Viscera Seer', 255, 'Creature — Vampire Wizard', 'Sacrifice a creature: Scry 1.'],
+    ["Ashnod's Altar", 134, 'Artifact', 'Sacrifice a creature: Add {C}{C}.'],
+    ['Goblin Bombardment', 457, 'Enchantment', 'Sacrifice a creature: This enchantment deals 1 damage to any target.'],
+  ] as const;
+
+  for (const [name, rank, typeLine, text] of OUTLETS) {
+    it(`${name} (rank ${rank}) says its ability costs a sacrifice`, async () => {
+      const { facetsForCard } = await import('../../deck/recommend/behaviour.ts');
+      const { facets } = facetsForCard({ name, type_line: typeLine, oracle_text: text } as never);
+      assert.ok(facets.includes('cost:sacrifice'), `${name}: ${facets.join(', ')}`);
+      /* And what is sacrificed, which is what separates an aristocrats outlet
+         from Claws of Gix eating a land. */
+      assert.ok(facets.includes('cares:type:creature'), `${name} did not say what it eats`);
+    });
+  }
+
+  it('a tap ability says so, and is not mistaken for a sacrifice', async () => {
+    const { facetsForCard } = await import('../../deck/recommend/behaviour.ts');
+    const { facets } = facetsForCard({
+      name: 'Sol Ring', type_line: 'Artifact', oracle_text: '{T}: Add {C}{C}.',
+    } as never);
+    assert.ok(facets.includes('cost:tap'));
+    assert.equal(facets.includes('cost:sacrifice'), false);
+  });
+
+  it('a card with no activated ability carries no cost facet at all', async () => {
+    const { facetsForCard } = await import('../../deck/recommend/behaviour.ts');
+    const { facets } = facetsForCard({
+      name: 'Faithless Looting', type_line: 'Sorcery',
+      oracle_text: 'Draw two cards, then discard two cards.',
+    } as never);
+    assert.equal(facets.some(f => f.startsWith('cost:')), false, facets.join(', '));
+  });
+
+  it('the aristocrats plan asks for the outlet, not only for the effect', async () => {
+    const { planForCommander } = await import('../../../engine/knowledge/behaviour.ts');
+    const plan = planForCommander({
+      name: 'Meren of Clan Nel Toth',
+      typeLine: 'Legendary Creature — Human Shaman',
+      facets: ['ctr:experience', 'trig:dies', 'type:creature', 'type:legendary'],
+      oracleText: 'Whenever another creature you control dies, you get an experience counter.',
+    } as never);
+    const wanted = plan.wants.map(w => w.facet);
+    assert.ok(wanted.includes('cost:sacrifice'), `wants: ${wanted.join(', ')}`);
+    /* `eff:sacrifice` is Diabolic Edict making an OPPONENT sacrifice. The card
+       the deck needs is Viscera Seer. Both are wanted; the outlet ranks higher. */
+    const outlet = plan.wants.find(w => w.facet === 'cost:sacrifice')!;
+    const effect = plan.wants.find(w => w.facet === 'eff:sacrifice');
+    if (effect) assert.ok(outlet.weight > effect.weight, 'the outlet did not outrank the effect');
+  });
+});

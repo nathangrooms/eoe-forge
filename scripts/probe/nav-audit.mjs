@@ -119,6 +119,29 @@ for (const [name, route] of NAV) {
       let cardArt = 0;
       let cropped = 0;
       const croppedExamples = [];
+
+      /* ART DRAWN AS A BACKGROUND, which this used to miss entirely.
+         ------------------------------------------------------------------
+         The Life counter reported "no card art at all" through several runs
+         and the page is covered in it: every seat is a colour-identity ground
+         built from a real card, and the caption underneath names the card it
+         came from. They are CSS `background-image` on a div rather than an
+         `<img>`, so a scan of `img` elements saw nothing and the page sat in
+         the offenders list being wrong.
+
+         Counted, never crop-checked. These are `art_crop` by design, so the
+         5:7 test would flag every one of them, and CLAUDE.md approves the
+         treatment by name. A false alarm that cannot be silenced is worse than
+         no check, because the next person learns to skip the list. */
+      for (const el of document.querySelectorAll('*')) {
+        const bg = getComputedStyle(el).backgroundImage;
+        if (!bg || bg === 'none') continue;
+        if (!/scryfall/i.test(bg)) continue;
+        const r = el.getBoundingClientRect();
+        if (r.width < 20 || r.height < 20) continue;
+        cardArt += 1;
+      }
+
       for (const img of document.querySelectorAll('img')) {
         const src = img.currentSrc || img.src || '';
         if (!/scryfall|cards\.scryfall/i.test(src)) continue;

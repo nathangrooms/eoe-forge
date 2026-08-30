@@ -150,12 +150,27 @@ const GENERAL_QUICK_ACTIONS = [
     icon: Lightbulb,
     prompt: 'How can I build a competitive Commander deck on a $50-100 budget?',
   },
+  /*
+   * "CURRENT" IS A PROMISE NOTHING HERE CAN KEEP.
+   *
+   * The tile read "Meta analysis · Current format trends" and asked "What are
+   * the CURRENT top strategies and commanders in Commander?". Tutor answers
+   * from a model, which has a training cutoff, and this product's own meta
+   * tables hold 79 commander precons and no per-commander inclusion at all
+   * (CLAUDE.md, meta_* tables). So the word promised live data twice over, in
+   * the label a player reads and again in the question it sends, and design law
+   * 7 is that nothing ships a figure we cannot stand behind.
+   *
+   * The honest version is the same question about the SHAPE of the format,
+   * which is a thing a model can answer well and does not decay in a week.
+   */
   {
     id: 'meta',
-    label: 'Meta analysis',
-    description: 'Current format trends',
+    label: 'What wins games',
+    description: 'The strategies that define the format',
     icon: TrendingUp,
-    prompt: 'What are the current top strategies and commanders in Commander?',
+    prompt:
+      'Which strategies and commanders define Commander, and what makes each of them strong?',
   },
 ];
 

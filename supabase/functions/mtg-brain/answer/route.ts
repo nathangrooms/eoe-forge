@@ -616,7 +616,15 @@ export const ASKS: Ask[] = [
        and otherwise says where a price comes from and asks for a card. Card
        first, so nothing that names one changes. */
     subjects: ['card', 'catalogue'],
-    cues: ['worth', 'how much is', 'how much does it cost to buy', 'price', 'expensive', 'cost to buy'],
+    cues: [
+      'worth', 'how much is', 'how much does it cost to buy', 'price', 'expensive', 'cost to buy',
+      /* "How much does Mana Crypt cost?" is the plainest way to ask a price and
+         it matched none of the above, so it fell through to the card page and
+         the price arrived seventh. The deck forms of these sit on `deck-value`
+         above, so "how much does this deck cost" is unaffected. */
+      'how much does', 'how much would', 'how much for', 'what does it cost',
+      'what do they cost', 'going rate',
+    ],
   },
   {
     id: 'lands',

@@ -68,6 +68,7 @@ import {
   formatFrom,
   looksLikeAPlayerAsking,
   manaValueFrom,
+  normalise,
   pointsAtSomething,
   readQuestion,
   roleFrom,
@@ -1167,6 +1168,38 @@ function winConditionIsAJudgement(routing: Routing): Answered {
  * lives, rather than serving a list that was sorted wrongly.
  */
 function priceNeedsACard(routing: Routing): Answered {
+  const text = normalise(routing.question);
+
+  /* THE SAME PARAGRAPH WAS BEING PRINTED AT THREE DIFFERENT QUESTIONS, and for
+     two of them it answered something else. "What is the most expensive card in
+     Magic?" is not a question that needs a card named; it is a question we
+     cannot sort for. "How much is my collection worth?" already has its answer
+     on another page and the paragraph buried that in its second sentence. Each
+     one gets the sentence that is actually true about it. */
+  const aboutTheirOwn = / my collection | my cards | i own | my stuff /.test(text);
+  const wantsTheTop =
+    /(most|least) expensive|priciest|dearest|cheapest card|top ten by price|highest price/.test(text);
+
+  if (aboutTheirOwn) {
+    return finish(
+      [
+        say('Your collection page prices the whole thing, card by card, from the same numbers I would use. That is the place to look rather than here, because it can see everything you own and I am answering one card at a time.'),
+        say('Name a card and I will give you what we hold for it in dollars and in euros.'),
+      ],
+      [], routing, [], 'refused'
+    );
+  }
+
+  if (wantsTheTop) {
+    return finish(
+      [
+        say('I cannot put the whole catalogue in price order. Prices are stored here as text rather than as numbers, so a straight sort puts $9.99 above $10,000, and a list built that way would be confidently wrong from the first line.'),
+        say('Name a card and I will give you exactly what we hold for it, in dollars and in euros, and say how many printings there are when they do not all cost the same.'),
+      ],
+      [], routing, [], 'refused'
+    );
+  }
+
   return finish(
     [
       say('A price is a fact about one card, and often about one printing of it, so I need to know which. Pick a card at the top of the page or name it in the question and I will give you what we hold in dollars and in euros.'),
@@ -1673,6 +1706,20 @@ async function answerAboutCard(
     basis.push(...priced.basis);
     blocks.push(...priced.blocks);
     if (priced.partial) standing = 'partial';
+
+    /* A PRICE ON A CARD YOU CANNOT PLAY IS HALF AN ANSWER. "How much does Mana
+       Crypt cost?" came back with $40.03 and nothing else, at a player about to
+       spend forty dollars on a card banned in the format this whole product is
+       built around. One line, and only when the legality is not already being
+       printed underneath, so no answer says it twice. */
+    if (!parts.includes('legality')) {
+      const state = (card.legalities ?? {})['commander'];
+      if (state === 'banned') {
+        blocks.push(say(`Worth knowing before you buy: ${card.name} is banned in Commander.`));
+      } else if (state === 'restricted') {
+        blocks.push(say(`Worth knowing before you buy: ${card.name} is restricted in Commander, so one copy only.`));
+      }
+    }
   }
 
   /* -- combos ------------------------------------------------------------ */

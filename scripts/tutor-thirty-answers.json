@@ -1,7 +1,7 @@
 {
   "title": "Thirty more questions, chosen for the shapes the first fifty missed",
   "asked_from": "scripts/tutor-thirty.json",
-  "ran": "2026-08-30T05:40:58.655Z",
+  "ran": "2026-08-30T05:52:49.350Z",
   "endpoint": "https://udnaflcohfyljrsgqggy.supabase.co/functions/v1/mtg-brain",
   "transport_failures": 0,
   "harness": {
@@ -22,7 +22,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 1720,
+      "wall_clock_ms": 816,
       "answered_from": "catalogue",
       "standing": "partial",
       "routing": {
@@ -55,7 +55,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 443,
+      "wall_clock_ms": 667,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -87,7 +87,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 761,
+      "wall_clock_ms": 1458,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -119,7 +119,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 522,
+      "wall_clock_ms": 742,
       "answered_from": "catalogue",
       "standing": "partial",
       "routing": {
@@ -151,7 +151,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 2291,
+      "wall_clock_ms": 764,
       "answered_from": "catalogue",
       "standing": "partial",
       "routing": {
@@ -184,36 +184,28 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 1342,
+      "wall_clock_ms": 351,
       "answered_from": "catalogue",
-      "standing": "partial",
+      "standing": "full",
       "routing": {
         "question": "How much does Mana Crypt cost?",
-        "ask": "explain",
-        "wants": "What a card is, what it does, what it costs and how much it is played.",
-        "cue": null,
+        "ask": "price",
+        "wants": "What a card costs to buy.",
+        "cue": "how much does",
         "subject": "card",
         "missing": null,
         "gap": null
       },
       "basis": [
-        "cards_unique",
-        "meta_combos",
-        "meta_combo_cards"
+        "cards_unique"
       ],
       "cached": false,
-      "cards_attached": 7,
+      "cards_attached": 1,
       "card_names": [
-        "Mana Crypt",
-        "Hullbreaker Horror",
-        "Grinding Station",
-        "Underworld Breach",
-        "Displacer Kitten",
-        "Teferi, Time Raveler",
-        "Tidespout Tyrant"
+        "Mana Crypt"
       ],
       "charts": [],
-      "answer": "**Mana Crypt** {0}\n\nArtifact.\n\nWhat it says, straight off the card:\n\n> At the beginning of your upkeep, flip a coin. If you lose the flip, this artifact deals 3 damage to you.\n> {T}: Add {C}{C}.\n\nIn short: adds mana, 2 mana at a time, costs nothing to use.\n\nI have only worked out part of what this card does, so read what I say about it as that part and not the whole card. The text above is the whole card.\n\nWe file it under: fast mana, a mana rock.\n\nCommander plays it at rank 6,960. That is a place in a list of every card sorted by how many decks run it, so rank 1 is the most played card there is.\n\nRestricted in Vintage, which means you may play it there but only one copy. Banned in Commander, Legacy and Oathbreaker. Not legal in Standard, Pioneer, Modern, Pauper, Brawl and Historic.\n\nAbout $40.03, or €34.61 in euros. There are 14 printings and they do not all cost the same.\n\nIt turns up in 52 combos we hold. The 4 most played:\n\n- with Hullbreaker Horror: infinite colorless mana and infinite storm count. Plus 1 more piece the combo list describes rather than names, so check it before you count on it.\n- with Grinding Station and Underworld Breach: infinite self-mill and near-infinite colorless mana, plus 1 more.\n- with Displacer Kitten and Teferi, Time Raveler: infinite card draw and infinite draw triggers, plus 2 more.\n- with Tidespout Tyrant: infinite colorless mana and infinite storm count."
+      "answer": "**Mana Crypt** {0}\n\nArtifact.\n\nAbout $40.03, or €34.61 in euros. There are 14 printings and they do not all cost the same.\n\nWorth knowing before you buy: Mana Crypt is banned in Commander."
     },
     {
       "id": "t07",
@@ -224,7 +216,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 402,
+      "wall_clock_ms": 260,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -241,7 +233,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "A price is a fact about one card, and often about one printing of it, so I need to know which. Pick a card at the top of the page or name it in the question and I will give you what we hold in dollars and in euros.\n\nIf you are asking what your own cards are worth rather than one card, your collection page prices the whole thing from the same numbers I would use."
+      "answer": "I cannot put the whole catalogue in price order. Prices are stored here as text rather than as numbers, so a straight sort puts $9.99 above $10,000, and a list built that way would be confidently wrong from the first line.\n\nName a card and I will give you exactly what we hold for it, in dollars and in euros, and say how many printings there are when they do not all cost the same."
     },
     {
       "id": "t08",
@@ -252,7 +244,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 982,
+      "wall_clock_ms": 299,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -284,7 +276,7 @@
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 237,
+      "wall_clock_ms": 185,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -314,7 +306,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 2876,
+      "wall_clock_ms": 392,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -346,7 +338,7 @@
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 219,
+      "wall_clock_ms": 209,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -374,7 +366,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 183,
+      "wall_clock_ms": 295,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -391,7 +383,7 @@
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "A price is a fact about one card, and often about one printing of it, so I need to know which. Pick a card at the top of the page or name it in the question and I will give you what we hold in dollars and in euros.\n\nIf you are asking what your own cards are worth rather than one card, your collection page prices the whole thing from the same numbers I would use."
+      "answer": "Your collection page prices the whole thing, card by card, from the same numbers I would use. That is the place to look rather than here, because it can see everything you own and I am answering one card at a time.\n\nName a card and I will give you what we hold for it in dollars and in euros."
     },
     {
       "id": "t13",
@@ -402,7 +394,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 3248,
+      "wall_clock_ms": 520,
       "answered_from": "catalogue",
       "standing": "partial",
       "routing": {
@@ -434,7 +426,7 @@
       "deck_cards_sent": 0,
       "prediction": "not_answerable",
       "http_status": 200,
-      "wall_clock_ms": 187,
+      "wall_clock_ms": 225,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -462,7 +454,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 793,
+      "wall_clock_ms": 399,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -494,7 +486,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 742,
+      "wall_clock_ms": 532,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -526,7 +518,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 1119,
+      "wall_clock_ms": 836,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -567,7 +559,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 452,
+      "wall_clock_ms": 424,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -599,7 +591,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 415,
+      "wall_clock_ms": 287,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -631,7 +623,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 721,
+      "wall_clock_ms": 427,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -669,7 +661,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 1432,
+      "wall_clock_ms": 885,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -707,7 +699,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 1356,
+      "wall_clock_ms": 1287,
       "answered_from": "catalogue",
       "standing": "partial",
       "routing": {
@@ -745,7 +737,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 561,
+      "wall_clock_ms": 441,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -785,9 +777,9 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 3299,
+      "wall_clock_ms": 463,
       "answered_from": "catalogue",
-      "standing": "refused",
+      "standing": "full",
       "routing": {
         "question": "How many creatures should a commander deck run?",
         "ask": "deck-shape",
@@ -798,13 +790,15 @@
         "gap": null
       },
       "basis": [
-        "meta_decks"
+        "meta_decks",
+        "meta_deck_cards",
+        "cards_unique"
       ],
       "cached": false,
       "cards_attached": 0,
       "card_names": [],
       "charts": [],
-      "answer": "I could not read the deck lists just now, so I am not going to give you a number from memory. Try again in a moment."
+      "answer": "29 creatures. That is the middle of 192 Commander complete 100 card lists we hold, which are preconstructed decks and published lists rather than tournament results.\n\nMost of them sit between 21 and 36, and the whole spread is 11 to 44. So anywhere in the middle band is normal and the ends are somebody doing something on purpose."
     },
     {
       "id": "t25",
@@ -815,7 +809,7 @@
       "deck_cards_sent": 0,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 959,
+      "wall_clock_ms": 1563,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -854,7 +848,7 @@
       "deck_cards_sent": 92,
       "prediction": "already_ours",
       "http_status": 200,
-      "wall_clock_ms": 781,
+      "wall_clock_ms": 2021,
       "answered_from": "catalogue",
       "standing": "full",
       "routing": {
@@ -893,7 +887,7 @@
       "deck_cards_sent": 0,
       "prediction": "hostile",
       "http_status": 200,
-      "wall_clock_ms": 1295,
+      "wall_clock_ms": 967,
       "answered_from": "catalogue",
       "standing": "refused",
       "routing": {
@@ -923,7 +917,7 @@
       "deck_cards_sent": 0,
       "prediction": "hostile",
       "http_status": 200,
-      "wall_clock_ms": 291,
+      "wall_clock_ms": 289,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -943,7 +937,7 @@
       "deck_cards_sent": 0,
       "prediction": "hostile",
       "http_status": 200,
-      "wall_clock_ms": 313,
+      "wall_clock_ms": 231,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,
@@ -963,7 +957,7 @@
       "deck_cards_sent": 0,
       "prediction": "hostile",
       "http_status": 200,
-      "wall_clock_ms": 269,
+      "wall_clock_ms": 215,
       "answered_from": "nothing",
       "standing": "refused",
       "routing": null,

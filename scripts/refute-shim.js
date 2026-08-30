@@ -195,15 +195,27 @@
        * for two.
        */
       economy: (() => {
+        /* Keyed on ORACLE_ID, because that is what the product does as of
+           30 Aug 2026. Matching printing ids made the harness disagree with the
+           app by exactly the cards an owner holds under a different printing,
+           which is the fault the app just stopped having; a fixture that
+           reproduces the old bug is a fixture that hides the fix. */
+        const oracleOf = id => cardCache.get(id)?.oracle_id || id;
         const owned = new Map();
         for (const row of user_collections) {
-          owned.set(row.card_id, (owned.get(row.card_id) || 0) + Number(row.quantity || 0));
+          const key = oracleOf(row.card_id);
+          owned.set(key, (owned.get(key) || 0) + Number(row.quantity || 0) + Number(row.foil || 0));
         }
+        /* Spent down the list, so two printings of one card cannot both claim
+           the same copy. */
         let missing = 0;
         for (const x of cards) {
           const want = qty(x);
-          const have = owned.get(x.row.card_id) || 0;
-          if (have < want) missing += want - have;
+          const key = oracleOf(x.row.card_id);
+          const have = owned.get(key) || 0;
+          const used = Math.min(want, have);
+          owned.set(key, have - used);
+          missing += want - used;
         }
         return {
           priceUSD: priced.reduce((a, b) => a + b, 0),

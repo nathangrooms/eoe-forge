@@ -36,6 +36,8 @@ import { ColorIdentity } from '@/components/ui/mana-cost';
 import { DeckAPI, type DeckSummary } from '@/lib/api/deckAPI';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { supabase } from '@/integrations/supabase/client';
+import { oracleIndexFor } from '@/lib/cards/cardQuery';
+import { ownedByCardId, spendOwned } from '@/lib/cards/ownership';
 import { formatLabel, usesPowerLevel } from '@/lib/deck/formats';
 import { CommanderHero } from './CommanderHero';
 import { PowerScore } from './PowerScore';
@@ -265,15 +267,38 @@ export function DeckTile({
         return;
       }
 
+      /*
+       * THREE FAULTS, AND THIS BUTTON PUTS CARDS ON A SHOPPING LIST.
+       *
+       * It asked for collection rows `.in('card_id', cardIds)`, which is the
+       * printings THIS DECK lists. Owning the Revised Sol Ring while the deck
+       * lists the Commander Legends one found nothing, so the card went on the
+       * wishlist and the owner was told to buy a second copy. Measured on the
+       * real database: 4 of the 16 deck rows whose card the owner holds.
+       *
+       * It then ignored quantity on both sides: owning one Forest made all ten
+       * a deck asks for "not missing", and any card it did call missing went on
+       * the list at the deck's full required quantity rather than the shortfall.
+       *
+       * The whole collection is fetched rather than a filtered slice, because
+       * the filter was the bug: you cannot ask for the printings you own by
+       * naming the printings the deck wants. Three narrow columns, one request.
+       */
       const cardIds = allDeckCards.map(c => c.card_id);
       const { data: ownedCards } = await supabase
         .from('user_collections')
-        .select('card_id')
-        .eq('user_id', user.user.id)
-        .in('card_id', cardIds);
+        .select('card_id, quantity, foil')
+        .eq('user_id', user.user.id);
 
-      const ownedCardIds = new Set(ownedCards?.map(c => c.card_id) || []);
-      const actualMissingCards = allDeckCards.filter(card => !ownedCardIds.has(card.card_id));
+      const oracleOf = await oracleIndexFor([
+        ...cardIds,
+        ...(ownedCards ?? []).map(r => r.card_id),
+      ]);
+      const ownedCopies = ownedByCardId(ownedCards ?? [], oracleOf, cardIds);
+      const shortfall = spendOwned(allDeckCards, ownedCopies, oracleOf);
+      const actualMissingCards = allDeckCards
+        .map((card, i) => ({ ...card, missing: shortfall[i].missing }))
+        .filter(card => card.missing > 0);
 
       if (actualMissingCards.length === 0) {
         showSuccess('Complete Collection', 'You already own all cards in this deck');
@@ -285,7 +310,9 @@ export function DeckTile({
           user_id: user.user!.id,
           card_id: card.card_id,
           card_name: card.card_name,
-          quantity: card.quantity,
+          /* What you are SHORT, not what the deck asks for. Owning two of the
+             four a deck wants is a wishlist entry for two. */
+          quantity: card.missing,
           priority: 'medium' as const,
         })),
         { onConflict: 'user_id,card_id', ignoreDuplicates: false }

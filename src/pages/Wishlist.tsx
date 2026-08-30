@@ -4,6 +4,8 @@ import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
+import { oracleIndexFor } from '@/lib/cards/cardQuery';
+import { ownedByCardId, spendOwned } from '@/lib/cards/ownership';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import {
   Heart,
@@ -304,22 +306,49 @@ export default function Wishlist() {
         supabase.from('wishlist').select('id, card_id').eq('user_id', user.id),
       ]);
 
-      const ownedByCard = new Map<string, number>();
-      for (const row of owned ?? []) {
-        ownedByCard.set(
-          row.card_id,
-          (ownedByCard.get(row.card_id) ?? 0) + (row.quantity ?? 0) + (row.foil ?? 0)
-        );
-      }
+      /*
+       * OWNERSHIP IS A QUESTION ABOUT A CARD, NOT ABOUT ONE PRINTING OF IT.
+       *
+       * This keyed the map on `card_id`, which is a PRINTING id on both sides,
+       * so a deck listing the Commander Legends Sol Ring and a collection
+       * holding the Revised one read as two different cards and the wishlist
+       * told you to buy one you own. Measured on the real database: 4 of the 16
+       * deck rows whose card the owner genuinely holds. `compute_deck_summary`
+       * carried the identical fault and was fixed in
+       * `20260830210000_owning_a_card_is_not_owning_one_printing_of_it.sql`.
+       *
+       * One extra read, chunked, whatever the deck count. The map still comes
+       * back keyed by printing id so nothing downstream changes, and an id the
+       * index could not resolve falls back to itself, which degrades to the old
+       * behaviour for that row rather than to "you own none of it".
+       */
+      const idsToResolve = [
+        ...(owned ?? []).map(r => r.card_id),
+        ...(deckCards ?? []).map(dc => dc.card_id),
+        ...(wishlistRows ?? []).map(r => r.card_id),
+      ].filter(Boolean) as string[];
+      const oracleOf = await oracleIndexFor(idsToResolve);
+      const ownedByCard = ownedByCardId(owned ?? [], oracleOf, idsToResolve);
 
       setOwnedByCard(ownedByCard);
 
       const wishlistByCard = new Map((wishlistRows ?? []).map(r => [r.card_id, r.id]));
 
+      /* Copies are SPENT down the list, not counted against every line that
+         wants them: a deck listing two printings of Sol Ring against one owned
+         copy is short one, not short none. */
+      const shortfallByRow = new Map<string, number>();
+      for (const deck of decks) {
+        const lines = (deckCards ?? []).filter(dc => dc.deck_id === deck.id);
+        spendOwned(lines, ownedByCard, oracleOf).forEach((line, i) => {
+          shortfallByRow.set(`${deck.id}:${lines[i].card_id}`, line.missing);
+        });
+      }
+
       const neededIds = [
         ...new Set(
           (deckCards ?? [])
-            .filter(dc => (dc.quantity ?? 0) > (ownedByCard.get(dc.card_id) ?? 0))
+            .filter(dc => (shortfallByRow.get(`${dc.deck_id}:${dc.card_id}`) ?? 0) > 0)
             .map(dc => dc.card_id)
         ),
       ];
@@ -346,15 +375,15 @@ export default function Wishlist() {
           const cards: DeckGapCard[] = (deckCards ?? [])
             .filter(dc => dc.deck_id === deck.id)
             .map(dc => {
-              const ownedQty = ownedByCard.get(dc.card_id) ?? 0;
               const required = dc.quantity ?? 0;
+              const missing = shortfallByRow.get(`${dc.deck_id}:${dc.card_id}`) ?? required;
               const meta = priceById.get(dc.card_id);
               return {
                 cardId: dc.card_id,
                 name: dc.card_name,
                 required,
-                owned: ownedQty,
-                missing: required - ownedQty,
+                owned: required - missing,
+                missing,
                 price: meta?.price ?? 0,
                 images: meta?.images,
                 onWishlist: wishlistByCard.has(dc.card_id),

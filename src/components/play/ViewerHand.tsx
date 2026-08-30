@@ -27,6 +27,12 @@
  * for the widest card that fits. Without it, ten cards at the preferred size
  * need about 970px and simply ran off the side of a narrow screen.
  *
+ * The solving lives in `fanFit` in `tableMetrics.ts`, where `node --test` can
+ * reach it, and it gives the OVERLAP away before the card size. It used to stop
+ * at a floor of 96px and hand back a fan too wide for the screen: measured at
+ * 390 x 844 with eight cards, the fan painted from x = -148 to x = 530 and two
+ * of the eight were 100% off screen with nothing saying so.
+ *
  * ---------------------------------------------------------------------------
  * IT IS HELD AT THE EDGE OF THE TABLE, NOT OVER IT
  * ---------------------------------------------------------------------------
@@ -58,7 +64,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { GameCardView } from './GameCardView';
 import { useMeasuredWidth } from './useMeasure';
-import { handSinkFor } from './tableMetrics';
+import { fanFit, fanGeometry, handSinkFor } from './tableMetrics';
 import { handPlayVerdict } from './cardActions';
 import { isLand, type CardInstance, type GameState, type PlayerId } from '@/lib/game';
 
@@ -135,34 +141,6 @@ export interface ViewerHandProps {
 }
 
 /**
- * Fan geometry: total sweep in degrees, and the height of the arc.
- *
- * The arc is applied as a *lift* on the middle cards rather than a drop on the
- * outer ones, so the whole fan stays on or above its baseline. Pushing the ends
- * downward instead would hang them off the bottom of the screen.
- */
-function fanGeometry(count: number) {
-  if (count <= 1) return { step: 0, arc: 0 };
-  const sweep = Math.min(30, count * 4.5);
-  return { step: sweep / (count - 1), arc: Math.min(22, count * 2.4) };
-}
-
-/**
- * How much each card hides the one before it.
- *
- * Capped at 42%: beyond that the art and the type line disappear behind the
- * next card and the hand becomes a stack of edges. Shrink-to-fit handles a hand
- * too wide for the screen, so overlap does not have to absorb it.
- */
-function overlapFraction(count: number): number {
-  if (count <= 1) return 0;
-  return Math.min(0.42, Math.max(0.18, 1 - 7 / count));
-}
-
-/** Smallest a hand card may shrink to before it stops being readable at all. */
-const MIN_HAND_CARD = 96;
-
-/**
  * How far an uncastable card sits back from a castable one, in px.
  *
  * The grey-out is the loud signal; this is the quiet one underneath it. A hand
@@ -170,28 +148,6 @@ const MIN_HAND_CARD = 96;
  * pushed forward, so the ones you cannot pay for drop back into the fan.
  */
 const UNPLAYABLE_STEP_BACK = 12;
-
-/** A real card is 63 × 88 mm: height = width ÷ this. */
-const CARD_RATIO = 0.7176;
-
-/**
- * Widest card that still lets `count` cards fit inside `available` pixels.
- *
- * The fan is rotated, and a rotated card is wider than an upright one. The
- * outermost card leans by half the sweep about its bottom edge, which throws
- * its top corner sideways by `(height / 2) * sin(θ)` at each end — about 35px
- * on a big hand, which is exactly how far the end cards used to hang off the
- * screen. Solving `w * (spans + sin(θ) / ratio) = available` puts the whole
- * rotated fan inside the measured box instead of just the upright boxes.
- */
-export function fitCardWidth(available: number, count: number, preferred: number): number {
-  if (count <= 0 || available <= 0) return preferred;
-  const overlap = overlapFraction(count);
-  const spans = 1 + (count - 1) * (1 - overlap);
-  const lean = Math.sin((fanGeometry(count).step * (count - 1) * Math.PI) / 360) / CARD_RATIO;
-  const fits = Math.floor(available / (spans + lean));
-  return Math.max(MIN_HAND_CARD, Math.min(preferred, fits));
-}
 
 export function ViewerHand({
   state,
@@ -229,13 +185,18 @@ export function ViewerHand({
       : [];
   const cards = [...hand, ...command];
 
-  /* Shrink to fit rather than running off the edge. `cardWidth` is the ceiling
-     (the size the player asked for), not a fixed value. */
-  const renderedWidth = fitCardWidth(fanWidth ? fanWidth - 16 : 0, cards.length, cardWidth);
+  /* Shrink AND tighten to fit, rather than running off the edge. `cardWidth` is
+     the ceiling (the size the player asked for), not a fixed value, and the
+     overlap gives way before the card size does. Two of eight cards used to be
+     100% off screen at 390px wide; see `fanFit`. */
+  const { cardWidth: renderedWidth, overlap } = fanFit(
+    fanWidth ? fanWidth - 16 : 0,
+    cards.length,
+    cardWidth
+  );
 
   const { step, arc } = fanGeometry(cards.length);
   const middle = (cards.length - 1) / 2;
-  const overlap = overlapFraction(cards.length);
   /* The outer cards pivot about their bottom edge, so their bottom corner
      swings below the baseline. Without this the fan is clipped by the bottom of
      the viewport. */

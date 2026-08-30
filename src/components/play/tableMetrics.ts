@@ -158,6 +158,152 @@ export function handSinkFor(cardWidth: number): number {
  * @param ceiling         The player's chosen card width. Only ever come down from.
  * @param focused         True in the single-seat view, which gets far more room.
  */
+/* -------------------------------------------------------------------------- */
+/* THE FAN'S OWN FIT, AND THE TWO CARDS THAT WERE ENTIRELY OFF SCREEN         */
+/* -------------------------------------------------------------------------- */
+/*
+ * `fitCardWidth` lived in `ViewerHand.tsx` and could not be tested, for the
+ * reason the top of this file gives. It also had a floor it would not go below
+ * and NOTHING TO DO when the floor was still too wide, so it returned the floor
+ * and let the fan run off both edges.
+ *
+ * Measured at 390 x 844 with eight cards, 2026-08-30, through
+ * `scripts/probe/card-panel-fit.mjs`:
+ *
+ *   fan painted from x = -148 to x = 530, in a 390px window
+ *   Yuna, Grand Summoner      104 wide at left -136   100% off screen
+ *   Atraxa, Praetors' Voice   127 wide at left  403   100% off screen
+ *   Sequence Engine / Yahenni                          ~48% off screen
+ *
+ * Two of the eight cards a player is holding could not be seen at all, and
+ * nothing on screen said so. A card that is 100% invisible is strictly worse
+ * than a card that is small.
+ *
+ * A real hand answers this without being told: you fan it TIGHTER as it grows,
+ * and read the left edge of each card. So the overlap gives way before the card
+ * size does, and only once the overlap has run out does the card shrink below
+ * the readable floor. The order matters — shrinking first makes a hand of eight
+ * unreadable on a phone in order to solve a problem the overlap can absorb.
+ */
+
+/**
+ * Fan sweep and arc for `count` cards.
+ *
+ * The arc is applied as a LIFT on the middle cards rather than a drop on the
+ * outer ones, so the whole fan stays on or above its baseline. Pushing the ends
+ * downward instead would hang them off the bottom of the screen.
+ */
+export function fanGeometry(count: number): { step: number; arc: number } {
+  if (count <= 1) return { step: 0, arc: 0 };
+  const sweep = Math.min(30, count * 4.5);
+  return { step: sweep / (count - 1), arc: Math.min(22, count * 2.4) };
+}
+
+/**
+ * How much each card hides the one before it, before any fitting.
+ *
+ * Capped at 42%: beyond that the art and the type line disappear behind the
+ * next card and the hand becomes a stack of edges. That cap is the RESTING
+ * shape; `fanFit` may tighten past it when the alternative is a card that is
+ * not on the screen at all.
+ */
+export function overlapFraction(count: number): number {
+  if (count <= 1) return 0;
+  return Math.min(0.42, Math.max(0.18, 1 - 7 / count));
+}
+
+/** Below this a card in the fan stops being readable, so the overlap gives first. */
+export const MIN_FAN_CARD = MIN_HAND_CARD;
+
+/**
+ * Tightest the fan will ever be packed.
+ *
+ * 0.68 leaves 32% of every card showing. In a fan the visible strip is the
+ * card's LEFT edge, where the name and the mana cost begin, so a third of a card
+ * is enough to tell it from the one beside it and to reach for it. Past this the
+ * hand really is a stack of edges and shrinking the cards is the better trade.
+ */
+export const MAX_FAN_OVERLAP = 0.68;
+
+/**
+ * Tighter still, once the card has already come down to `ABS_MIN_FAN_CARD`.
+ *
+ * A dozen cards on a 320px phone cannot be fanned at 96px however hard the
+ * arithmetic is pushed, and at that point there are only two answers: shingle
+ * them, or paint some of them off the screen. Shingling is the one a player can
+ * still work with, so the cap lifts rather than the fan giving up.
+ */
+export const HARD_MAX_FAN_OVERLAP = 0.85;
+
+/** Absolute floor. Under this a card is a coloured rectangle, so it never happens. */
+export const ABS_MIN_FAN_CARD = 72;
+
+export interface FanFit {
+  /** Rendered width of one card. */
+  cardWidth: number;
+  /** Fraction of a card hidden by the next one. */
+  overlap: number;
+  /** Whether the fan had to pack tighter than its resting shape to fit. */
+  tightened: boolean;
+}
+
+/**
+ * The widest card, and the loosest fan, that fit `count` cards in `available` px.
+ *
+ * A rotated card is wider than an upright one: the outermost card leans by half
+ * the sweep about its bottom edge, which throws its top corner sideways by
+ * `(height / 2) * sin(θ)` at each end. Solving
+ * `w * (spans + sin(θ) / ratio) = available` puts the whole ROTATED fan inside
+ * the measured box rather than just the upright boxes.
+ *
+ * @param available  Room the fan has, in px.
+ * @param count      Cards in the hand.
+ * @param preferred  The player's chosen width. Only ever come down from.
+ */
+export function fanFit(available: number, count: number, preferred: number): FanFit {
+  const resting = overlapFraction(count);
+  if (count <= 0 || available <= 0) {
+    return { cardWidth: preferred, overlap: resting, tightened: false };
+  }
+
+  const { step } = fanGeometry(count);
+  /* Constant for a given count: the sweep only depends on how many cards. */
+  const lean = Math.sin((step * (count - 1) * Math.PI) / 360) / CARD_RATIO;
+  const spans = (overlap: number) => 1 + (count - 1) * (1 - overlap);
+  /* The epsilon is not cosmetic. Solving for the overlap that makes a 96px card
+     fit exactly and then measuring it back lands on 95.999999, which floors to
+     95, which reads as "it did not fit" and sends the whole fan down a branch it
+     did not need. */
+  const widthAt = (overlap: number) => Math.floor(available / (spans(overlap) + lean) + 1e-9);
+  /* The inverse: the overlap at which a card of `width` exactly fills the room. */
+  const overlapFor = (width: number) =>
+    count > 1 ? 1 - (available / width - lean - 1) / (count - 1) : 0;
+
+  /*
+   * THE OVERLAP IS CHOSEN FIRST AND THE WIDTH FOLLOWS FROM IT, always. That
+   * order is what makes the fan fit by construction instead of by a chain of
+   * early returns, one of which used to hand back a floor it had just proved
+   * was too wide.
+   */
+  let overlap = resting;
+  const held = Math.min(preferred, MIN_FAN_CARD);
+  if (widthAt(resting) < held) {
+    /* Tighten, holding the card at the readable floor. */
+    overlap = Math.min(MAX_FAN_OVERLAP, Math.max(resting, overlapFor(held)));
+    if (widthAt(overlap) < ABS_MIN_FAN_CARD) {
+      /* Still not enough room, and the card is now under the absolute floor. It
+         is a very small screen holding a very large hand: shingle them. */
+      overlap = Math.min(HARD_MAX_FAN_OVERLAP, Math.max(overlap, overlapFor(ABS_MIN_FAN_CARD)));
+    }
+  }
+
+  return {
+    cardWidth: Math.max(1, Math.min(preferred, widthAt(overlap))),
+    overlap,
+    tightened: overlap > resting,
+  };
+}
+
 export function handMetrics(
   viewportHeight: number,
   ceiling: number,

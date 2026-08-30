@@ -55,6 +55,20 @@ export interface ManualPanelProps {
   card: CardInstance;
   /** Every control ends here. The page holds the reducer. */
   onDispatch: (actions: GameAction[]) => void;
+  /**
+   * Print the clauses the engine will not resolve, above the controls.
+   *
+   * True by default, because a set of controls with no statement of what they
+   * are FOR is the silence this panel exists to end.
+   *
+   * `CenterPreview` turns it off, and only because it writes the same clauses
+   * out itself a few hundred pixels away, in full rather than the first two, and
+   * filtered by `enforcedByEngine` so a clause the engine has since learned to
+   * run is not still listed as the player's job. Two copies of one paragraph on
+   * one panel is the exact complaint that emptied these chips out in the first
+   * place; see the note above `yourKeywords` there.
+   */
+  showNotes?: boolean;
   className?: string;
 }
 
@@ -519,7 +533,13 @@ const MANA_ON: Record<ManaColor, string> = {
   C: 'bg-mana-colorless',
 };
 
-export function ManualPanel({ state, card, onDispatch, className }: ManualPanelProps) {
+export function ManualPanel({
+  state,
+  card,
+  onDispatch,
+  showNotes = true,
+  className,
+}: ManualPanelProps) {
   const [showAllCounters, setShowAllCounters] = useState(false);
   const [showKeywords, setShowKeywords] = useState(false);
 
@@ -557,7 +577,12 @@ export function ManualPanel({ state, card, onDispatch, className }: ManualPanelP
     : keywords.filter(c => c.active);
 
   return (
-    <div className={cn('w-full shrink-0 space-y-2', className)}>
+    /* `space-y-1.5` rather than `space-y-2`. Owner, twice: "I think the UI needs
+       to be perfected and compacted for the card panel as much as possible."
+       Nine blocks at 8px apart is 72px of gap, and 18px of that was the last
+       control on the panel at 1280 x 800 sitting one flick below the fold. Two
+       pixels a section costs nothing to read and bought the whole difference. */
+    <div className={cn('w-full shrink-0 space-y-1.5', className)}>
       <div className="flex items-baseline gap-2">
         <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           By hand
@@ -573,11 +598,12 @@ export function ManualPanel({ state, card, onDispatch, className }: ManualPanelP
         with nine unimplemented clauses does not need nine lines to make the
         point, and the rules box above already holds the full text.
       */}
-      {automation.manualNotes.slice(0, 2).map(note => (
-        <p key={note} className="text-[11px] leading-snug text-muted-foreground">
-          {note}
-        </p>
-      ))}
+      {showNotes &&
+        automation.manualNotes.slice(0, 2).map(note => (
+          <p key={note} className="text-[11px] leading-snug text-muted-foreground">
+            {note}
+          </p>
+        ))}
 
       <div className="flex flex-wrap gap-1">
         {removes.map(control => (

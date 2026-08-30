@@ -784,7 +784,7 @@ test('a card can be put on either end of a library, and each control says which'
   for (const move of library) {
     assert.match(
       move.label,
-      /top of library|bottom of library/,
+      /top of library|bottom of library/i,
       `"${move.label}" does not say which end it means`
     );
   }
@@ -801,4 +801,78 @@ test('no other zone claims a position, because no other zone has ends', () => {
   for (const move of moves.filter(m => m.zone !== 'library')) {
     assert.equal(move.position, undefined, `${move.label} carries a position`);
   }
+});
+
+/* -------------------------------------------------------------------------- */
+/* THE MOVE IS NAMED FOR THE ACT, NOT THE DESTINATION                         */
+/* -------------------------------------------------------------------------- */
+
+test('a permanent you send to the graveyard is called Sacrifice', () => {
+  /* Owner, on a screenshot of this panel: "this has a sacrifice ability which I
+     cannot cast?" The control was there and was called "To graveyard", which is
+     the engine's word for a zone and nobody's word for the act. A player
+     scanning for "sacrifice" does not find it in a list of destinations. */
+  const state = put(
+    table(),
+    'bear',
+    { name: 'Grizzly Bears', typeLine: 'Creature — Bear', power: '2', toughness: '2' },
+    'battlefield'
+  );
+  const { moves } = actionsForCard(state, 'p1', state.cards.bear);
+  const graveyard = moves.find(move => move.zone === 'graveyard');
+  assert.equal(graveyard?.label, 'Sacrifice');
+  assert.match(graveyard?.hint ?? '', /Sacrifice Grizzly Bears/);
+});
+
+test('the same move out of your hand is called Discard', () => {
+  const state = put(table(), 'bolt', { name: 'Lightning Bolt', typeLine: 'Instant' }, 'hand');
+  const { moves } = actionsForCard(state, 'p1', state.cards.bolt);
+  assert.equal(moves.find(move => move.zone === 'graveyard')?.label, 'Discard');
+});
+
+test('and out of a graveyard it is still just the zone', () => {
+  /* From exile there is no act with a name, so the destination is the honest
+     label. Naming it would be inventing a word for something Magic does not
+     have one for. */
+  const state = put(table(), 'bolt', { name: 'Lightning Bolt', typeLine: 'Instant' }, 'exile');
+  const { moves } = actionsForCard(state, 'p1', state.cards.bolt);
+  assert.equal(moves.find(move => move.zone === 'graveyard')?.label, 'To graveyard');
+});
+
+test('a permanent coming back to your hand is Return to hand', () => {
+  const state = put(
+    table(),
+    'bear',
+    { name: 'Grizzly Bears', typeLine: 'Creature — Bear', power: '2', toughness: '2' },
+    'battlefield'
+  );
+  const { moves } = actionsForCard(state, 'p1', state.cards.bear);
+  assert.equal(moves.find(move => move.zone === 'hand')?.label, 'Return to hand');
+});
+
+test('every common move a player asks for is on the list, once each', () => {
+  /* Owner: "ensuring all common MTG actions are there", and specifically
+     "Including sending to graveyard, exile, etc". This is the reachability
+     check for the zone half of that list: the labels a player would look for,
+     present, from a permanent on the battlefield. */
+  const state = put(
+    table(),
+    'bear',
+    { name: 'Grizzly Bears', typeLine: 'Creature — Bear', power: '2', toughness: '2' },
+    'battlefield'
+  );
+  const { moves } = actionsForCard(state, 'p1', state.cards.bear);
+  const labels = moves.map(move => move.label);
+  for (const wanted of [
+    'Sacrifice',
+    'Exile',
+    'Return to hand',
+    'Top of library',
+    'Bottom of library',
+  ]) {
+    assert.ok(labels.includes(wanted), `"${wanted}" is missing from ${labels.join(', ')}`);
+  }
+  assert.equal(new Set(labels).size, labels.length, 'and no label is offered twice');
+  /* The zone the card is already in is never a destination. */
+  assert.equal(moves.some(move => move.zone === 'battlefield'), false);
 });

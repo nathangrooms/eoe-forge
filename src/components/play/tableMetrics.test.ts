@@ -12,18 +12,38 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  ABS_MIN_FAN_CARD,
   BOARD_CARD_DEFAULT,
   CARD_RATIO,
   HAND_CARD_DEFAULT,
   HAND_LIFT,
   HAND_REVEAL,
+  HARD_MAX_FAN_OVERLAP,
   HUD_INSET,
+  MAX_FAN_OVERLAP,
+  MIN_FAN_CARD,
   MIN_HAND_CARD,
   MIN_VIEWPORT_HEIGHT,
+  fanFit,
+  fanGeometry,
   handBandFor,
   handMetrics,
   handSinkFor,
+  overlapFraction,
 } from './tableMetrics.ts';
+
+/**
+ * How wide the fan really paints, including the lean of the outermost cards.
+ *
+ * The same sum `fanFit` solves, written the other way round, so the test is
+ * checking the arithmetic rather than restating it.
+ */
+function fanWidth(cardWidth: number, overlap: number, count: number): number {
+  if (count <= 0) return 0;
+  const { step } = fanGeometry(count);
+  const lean = Math.sin((step * (count - 1) * Math.PI) / 360) / CARD_RATIO;
+  return cardWidth * (1 + (count - 1) * (1 - overlap)) + cardWidth * lean;
+}
 
 test('the ceiling wins on a tall screen, so a slider setting is honoured', () => {
   const tall = handMetrics(2400, HAND_CARD_DEFAULT, false);
@@ -150,4 +170,82 @@ test('both play surfaces get identical numbers from identical input', () => {
       assert.deepEqual(first, second);
     }
   }
+});
+
+/* -------------------------------------------------------------------------- */
+/* THE FAN FITS INSIDE THE SCREEN, WHICH IT DID NOT                           */
+/* -------------------------------------------------------------------------- */
+
+test('no hand runs off the edge of the screen it is drawn on', () => {
+  /* THE BUG, measured at 390 x 844 on 2026-08-30: eight cards painted from
+     x = -148 to x = 530 in a 390px window, so two of the eight were 100% off
+     screen. `fitCardWidth` stopped at a 96px floor and returned it even when the
+     fan that floor implies is 678px wide.
+
+     Every width a phone, a tablet and a desktop actually are, against every hand
+     size Commander produces from an opening seven to a hoarded fifteen. */
+  for (const available of [320, 374, 480, 700, 1000, 1264, 1584]) {
+    for (const count of [1, 3, 7, 8, 10, 12, 15]) {
+      const fit = fanFit(available, count, HAND_CARD_DEFAULT);
+      const painted = fanWidth(fit.cardWidth, fit.overlap, count);
+      assert.ok(
+        painted <= available + 1,
+        `${count} cards in ${available}px paint ${Math.round(painted)}px ` +
+          `at ${fit.cardWidth}px and ${Math.round(fit.overlap * 100)}% overlap`
+      );
+    }
+  }
+});
+
+test('the overlap gives way before the card size does', () => {
+  /* A hand that will not fit is fanned TIGHTER, the way a real one is, and only
+     once it cannot be tightened any further does the card shrink. Shrinking
+     first would make a hand of eight unreadable on a phone to solve a problem
+     the overlap can absorb on its own. */
+  const tight = fanFit(374, 8, HAND_CARD_DEFAULT);
+  assert.equal(tight.cardWidth, MIN_FAN_CARD, 'the card is held at the readable floor');
+  assert.ok(tight.tightened, 'and the fan says it had to pack in to do it');
+  assert.ok(
+    tight.overlap > overlapFraction(8),
+    `overlap ${tight.overlap} is tighter than the resting ${overlapFraction(8)}`
+  );
+  assert.ok(tight.overlap <= MAX_FAN_OVERLAP, 'but never past the limit');
+});
+
+test('a hand that fits is left alone entirely', () => {
+  /* The change must not touch the case that already worked. At the two desktop
+     sizes measured, the fan sits at its resting overlap and takes the ceiling
+     the player asked for. */
+  for (const [available, ceiling] of [[1584, 192], [1264, 148]] as const) {
+    const fit = fanFit(available, 8, ceiling);
+    assert.equal(fit.cardWidth, ceiling, `${available}px keeps the ${ceiling}px ceiling`);
+    assert.equal(fit.overlap, overlapFraction(8), 'at the resting overlap');
+    assert.equal(fit.tightened, false, 'and says it did not have to pack in');
+  }
+});
+
+test('past the tightest fan the card shrinks, and never below the floor', () => {
+  /* Fifteen cards on a 320px phone cannot be done at 96px however tightly they
+     are packed, so the card gives way last. It still never becomes a coloured
+     rectangle. */
+  const crowded = fanFit(320, 15, HAND_CARD_DEFAULT);
+  assert.ok(crowded.cardWidth < MIN_FAN_CARD, 'the card had to come down');
+  assert.ok(
+    crowded.cardWidth >= ABS_MIN_FAN_CARD,
+    `${crowded.cardWidth}px is at or above the absolute floor`
+  );
+  assert.ok(
+    crowded.overlap >= MAX_FAN_OVERLAP && crowded.overlap <= HARD_MAX_FAN_OVERLAP,
+    `overlap ${crowded.overlap} is past the everyday limit and inside the hard one`
+  );
+});
+
+test('one card is one card, and no cards is not a division by zero', () => {
+  const single = fanFit(400, 1, HAND_CARD_DEFAULT);
+  assert.equal(single.overlap, 0, 'nothing to overlap with');
+  assert.ok(single.cardWidth > 0);
+  const none = fanFit(400, 0, HAND_CARD_DEFAULT);
+  assert.equal(none.cardWidth, HAND_CARD_DEFAULT);
+  const unmeasured = fanFit(0, 7, HAND_CARD_DEFAULT);
+  assert.equal(unmeasured.cardWidth, HAND_CARD_DEFAULT, 'before the box has been measured');
 });

@@ -161,14 +161,57 @@ export interface CardActionOptions {
  * would be a control that builds an illegal board. It is offered separately,
  * below, on the one card the rules allow it for.
  */
-const MOVE_TARGETS: ReadonlyArray<{ zone: Zone; label: string }> = [
-  { zone: 'hand', label: 'To hand' },
-  { zone: 'battlefield', label: 'To battlefield' },
-  { zone: 'graveyard', label: 'To graveyard' },
-  { zone: 'exile', label: 'To exile' },
-  /* Drawn as two controls, top and bottom. The label here is unused. */
-  { zone: 'library', label: 'To library' },
+const MOVE_TARGETS: ReadonlyArray<{ zone: Zone }> = [
+  { zone: 'hand' },
+  { zone: 'battlefield' },
+  { zone: 'graveyard' },
+  { zone: 'exile' },
+  /* Drawn as two controls, top and bottom. */
+  { zone: 'library' },
 ];
+
+/**
+ * THE WORDS A PLAYER USES FOR THE MOVE THEY ARE MAKING.
+ *
+ * Owner, on a screenshot of this panel: *"this has a sacrifice ability which I
+ * cannot cast?"* The control they were looking for was there. It was called
+ * **To graveyard**, which is the engine's word for the zone and nobody's word
+ * for the act, and it was below the fold underneath twenty by-hand chips.
+ *
+ * The move is the same move. Only its name changes, with the zone the card is
+ * LEAVING, because that is what decides which act it is:
+ *
+ *   battlefield -> graveyard   you SACRIFICE a permanent
+ *   hand        -> graveyard   you DISCARD a card
+ *   battlefield -> hand        you RETURN it to your hand
+ *
+ * Project law, design rule 3: MTG-native, not generic-web-app. A destination is
+ * not an action, and a player scanning for the word "sacrifice" will not find it
+ * in a list of destinations however carefully that list is laid out.
+ */
+export function moveLabel(from: Zone, to: Zone): string {
+  if (to === 'graveyard') {
+    if (from === 'battlefield') return 'Sacrifice';
+    if (from === 'hand') return 'Discard';
+    return 'To graveyard';
+  }
+  if (to === 'hand') return from === 'battlefield' ? 'Return to hand' : 'To hand';
+  if (to === 'exile') return 'Exile';
+  if (to === 'battlefield') return 'To battlefield';
+  return 'To library';
+}
+
+/** The whole sentence behind the label, for the tooltip and the screen reader. */
+export function moveHint(name: string, from: Zone, to: Zone): string {
+  if (to === 'graveyard' && from === 'battlefield') return `Sacrifice ${name}. It goes to your graveyard.`;
+  if (to === 'graveyard' && from === 'hand') return `Discard ${name}. It goes to your graveyard.`;
+  if (to === 'graveyard') return `Put ${name} into your graveyard`;
+  if (to === 'hand' && from === 'battlefield') return `Return ${name} to your hand`;
+  if (to === 'hand') return `Put ${name} into your hand`;
+  if (to === 'exile') return `Exile ${name}`;
+  if (to === 'battlefield') return `Put ${name} onto the battlefield`;
+  return `Put ${name} into your library`;
+}
 
 /* -------------------------------------------------------------------------- */
 /* ONE ANSWER TO "CAN I PLAY THIS FROM MY HAND"                               */
@@ -524,7 +567,7 @@ export function actionsForCard(
           {
             id: 'move:library:top',
             kind: 'move',
-            label: 'To top of library',
+            label: 'Top of library',
             hint: `Put ${card.name} on top of your library`,
             tone: 'quiet',
             zone: 'library',
@@ -533,7 +576,7 @@ export function actionsForCard(
           {
             id: 'move:library:bottom',
             kind: 'move',
-            label: 'To bottom of library',
+            label: 'Bottom of library',
             hint: `Put ${card.name} on the bottom of your library`,
             tone: 'quiet',
             zone: 'library',
@@ -545,8 +588,8 @@ export function actionsForCard(
       moves.push({
         id: `move:${target.zone}`,
         kind: 'move',
-        label: target.label,
-        hint: `Move ${card.name} to your ${target.zone}`,
+        label: moveLabel(card.zone, target.zone),
+        hint: moveHint(card.name, card.zone, target.zone),
         tone: 'quiet',
         zone: target.zone,
       });

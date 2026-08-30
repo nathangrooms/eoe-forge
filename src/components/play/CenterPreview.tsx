@@ -54,7 +54,7 @@
  * honest when the rail is open and the board has narrowed.
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -178,17 +178,65 @@ export interface CenterPreviewProps {
  * are the heights those three blocks actually take at this type scale. The card
  * gets everything else.
  */
-/* The details column: wide enough for a rules-text paragraph and two columns of
-   action buttons, which is what stops anything needing to scroll. */
-const DETAILS_IDEAL = 340;
-const DETAILS_MIN = 220;
-const PANEL_PADDING = 44;
-const MAX_PANEL_WIDTH = 980;
-/** The panel never takes more of the board than this, so the table stays a table. */
-const MAX_HEIGHT_SHARE = 0.86;
-const MAX_WIDTH_SHARE = 0.5; // retained for reference; the panel is width-led now
+/* -------------------------------------------------------------------------- */
+/* HOW WIDE THE PANEL IS, AND WHY IT IS NO LONGER A FIXED 980                  */
+/* -------------------------------------------------------------------------- */
+/*
+ * MEASURED, 2026-08-30, `scripts/probe/card-panel-fit.mjs`, a real goldfish
+ * game with a land on the battlefield:
+ *
+ *              panel        controls   cut off   details column
+ *   1600x1000  980 x 722       28         5      781px of content in 722px
+ *   1280x 800  980 x 560       28         8      747px of content in 560px
+ *    390x 844  350 x 596       28        20     1253px of content in 596px
+ *
+ * Two separate faults, and the second is the one the owner reported twice.
+ *
+ * 1. THE PANEL IS `overflow-hidden` AND NOTHING INSIDE IT COULD SCROLL. The
+ *    details column carried `overflow-y-auto`, but the flex ROW holding the
+ *    card and the column had no `min-h-0`, so the row grew to its content and
+ *    the column grew with it. A column that is as tall as its content never
+ *    scrolls; the panel simply clipped it. Sacrifice, Exile and Return to hand
+ *    were painted BELOW the panel's own bottom edge at every width, invisible,
+ *    with nothing to say they existed. Owner: *"this has a sacrifice ability
+ *    which I cannot cast?"* and *"All options dont fit into the card
+ *    winjdow...?"*
+ *
+ * 2. AND ON THE OTHER HALF OF THE SAME PANEL, 480 x 450 OF NOTHING. On the
+ *    mulligan the details column drew a zone chip, a name, a stat line and a
+ *    chip reading *"2 abilities, below"* pointing at content that was gated off
+ *    that screen and never rendered. Owner's standing instruction: *"no weird
+ *    small windows or unutilised space"*.
+ *
+ * Both are answered by sizing the panel to what is really in it. The width is
+ * BUILT from the card and the details rather than capped at a number: the card
+ * takes the height the mat allows, the details take one column or two depending
+ * on whether there are by-hand controls to put in the second, and the panel is
+ * exactly their sum. So the mulligan gets a narrower panel with no hole in it,
+ * and a permanent on the battlefield gets a wider one whose second column is
+ * the by-hand controls that used to hang off the bottom.
+ */
 
-/** One action. Surface tint and weight, never an outline, never a raw hue. */
+/** Widest the panel may ever be, so the table is still a table behind it. */
+const MAX_PANEL_WIDTH = 1240;
+/** Under this the card goes ON TOP of the details rather than beside them. */
+const STACK_BELOW = 560;
+/** Over this, with by-hand controls to show, the details run in two columns. */
+const TWO_COLUMN_AT = 900;
+/** Card padding plus the gap between the card and the details. */
+const PANEL_PADDING = 44;
+/** The panel never takes more of the board's height than this. */
+const MAX_HEIGHT_SHARE = 0.86;
+/** Stacked, the card takes this share of the height and the details take the rest. */
+const STACKED_CARD_SHARE = 0.4;
+
+/**
+ * One action. Surface tint and weight, never an outline, never a raw hue.
+ *
+ * Compacted from `h-11 min-w-[7rem]` to `h-10 min-w-0`: the minimum width forced
+ * a two-up grid to one-up whenever the column was under 240px, which is every
+ * column on a phone, and turned four quiet actions into four full-width rows.
+ */
 function ActionButton({
   action,
   onClick,
@@ -205,7 +253,7 @@ function ActionButton({
       title={action.hint}
       aria-label={action.hint}
       className={cn(
-        'flex h-11 min-w-[7rem] flex-1 items-center justify-center rounded-lg px-4 text-xs font-semibold uppercase tracking-wide transition-colors',
+        'flex h-10 min-w-0 flex-1 items-center justify-center rounded-lg px-3 text-xs font-semibold uppercase tracking-wide transition-colors',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         action.tone === 'primary'
           ? 'bg-foreground text-background shadow-lg shadow-black/50 hover:bg-foreground/90'
@@ -213,8 +261,25 @@ function ActionButton({
         className
       )}
     >
-      {action.label}
+      <span className="truncate">{action.label}</span>
     </button>
+  );
+}
+
+/**
+ * A heading over a block of controls. One shape, so the panel reads as sections
+ * rather than as a wall of chips.
+ */
+function Legend({ children, note }: { children: ReactNode; note?: string }) {
+  return (
+    <div className="flex items-baseline gap-2">
+      <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+        {children}
+      </span>
+      {note && (
+        <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground/70">{note}</span>
+      )}
+    </div>
   );
 }
 
@@ -408,7 +473,39 @@ export function CenterPreview({
      count is still stated here, because "there are two things the engine will
      not do" is worth knowing before you scroll to them. */
   const yourKeywords = automation.advisoryKeywords.filter(note => !enforcedByEngine(note));
-  const yourClauses = automation.manualNotes.filter(note => !enforcedByEngine(note));
+  /*
+   * AND A CLAUSE THAT IS ONLY THE CHIP BESIDE IT, SPELT OUT, IS NOT A CLAUSE.
+   *
+   * `automationFor` adds one manual note per advisory keyword, worded exactly
+   * `"<keyword>. This keyword is not applied for you."` (`effects.ts`). While
+   * the clauses were only counted, that cost nothing. Now that they are written
+   * out in full, every advisory keyword would appear twice on one panel: once as
+   * the chip, and again as a sentence saying what the chip already means.
+   * Measured on Yuna, Grand Summoner at the mulligan: the chip "grand summon"
+   * with "grand summon. This keyword is not applied for you." directly beneath.
+   *
+   * Matched on the exact sentence rather than on a prefix, so a card whose real
+   * rules text happens to begin with a keyword still has its own clause shown.
+   */
+  const restatesAChip = (note: string) =>
+    yourKeywords.some(word => note.trim() === `${word}. This keyword is not applied for you.`);
+  const yourClauses = automation.manualNotes.filter(
+    note => !enforcedByEngine(note) && !restatesAChip(note)
+  );
+
+  /*
+   * ARE THE BY-HAND CONTROLS GOING TO BE ON THIS PANEL AT ALL?
+   *
+   * Asked once, here, because THREE separate things were reading the same four
+   * conditions and one of them disagreed with the others. The chip reading
+   * *"2 abilities, below"* was drawn whenever the card had unautomated clauses;
+   * the block it pointed at was drawn only when all four of these held. On the
+   * mulligan they do not, so the panel promised content that the same render
+   * had already decided not to draw. Owner saw exactly that, and so did the
+   * screenshot at the top of this session.
+   */
+  const byHandOpen =
+    !readOnly && !holdReason && !!onDispatch && card.controllerId === viewerPlayerId;
 
   /* CARD LEFT, EVERYTHING ELSE RIGHT, and the sizing follows from that.
      Stacked, the card ate the height and the text below it overflowed, so the
@@ -418,21 +515,46 @@ export function CenterPreview({
 
      Beside the card there is no chrome under it to subtract, so the card is
      free to use the full height, and the details column takes width the panel
-     was not using before. The result fits without scrolling, which is the
-     actual requirement: "Should never be a scroll bar." */
+     was not using before.
+
+     THE WIDTH IS NOW BUILT, NOT CAPPED. `panelWidth` used to be
+     `min(boardWidth - 32, 980)` whatever was in it, so the mulligan drew a
+     980px panel around a name and a stat line and left half of it empty, while
+     a permanent with twenty by-hand controls drew the same 980px and clipped
+     them. The card and the details each ask for what they need and the panel is
+     their sum, which is the only arrangement where neither failure can happen. */
   const matHeight = Math.max(240, boardHeight - topInset - bottomInset);
-  const panelWidth = Math.min(boardWidth - 32, MAX_PANEL_WIDTH);
-  /* What is left for the card once the details column and the padding are
-     taken. On a narrow board the details column shrinks first, then the card. */
-  const detailsWidth = Math.max(DETAILS_MIN, Math.min(DETAILS_IDEAL, panelWidth * 0.42));
-  const cardHeight = Math.max(
-    170,
-    Math.min(
-      matHeight * MAX_HEIGHT_SHARE,
-      (panelWidth - detailsWidth - PANEL_PADDING) / CARD_RATIO
-    )
-  );
+  const roomy = Math.max(280, Math.min(boardWidth - 32, MAX_PANEL_WIDTH));
+  /* Under `STACK_BELOW` there is no room for a card beside a readable column,
+     so the card goes on top and the details take the full width underneath. */
+  const stacked = roomy < STACK_BELOW;
+  /* The second column exists to hold the by-hand controls. With no by-hand
+     controls to put in it, a second column is the empty half of the panel the
+     owner is complaining about, so it is not drawn. */
+  const twoColumn = !stacked && byHandOpen && roomy >= TWO_COLUMN_AT;
+  const detailsWidth = stacked
+    ? 0
+    : twoColumn
+      ? Math.min(700, Math.max(620, Math.round(roomy * 0.52)))
+      : Math.min(380, Math.max(300, Math.round(roomy * 0.4)));
+  const cardHeight = stacked
+    ? Math.max(150, Math.min(matHeight * STACKED_CARD_SHARE, (roomy - 28) / CARD_RATIO))
+    : Math.max(
+        170,
+        Math.min(matHeight * MAX_HEIGHT_SHARE, (roomy - detailsWidth - PANEL_PADDING) / CARD_RATIO)
+      );
   const cardWidth = Math.round(cardHeight * CARD_RATIO);
+  const panelWidth = stacked
+    ? roomy
+    : Math.min(roomy, cardWidth + detailsWidth + PANEL_PADDING);
+
+  /* One chip shape for every by-hand control on this panel, matching
+     `ManualPanel`'s so the whole surface reads as one set of controls rather
+     than three sets that happen to sit together. */
+  const CHIP =
+    'flex h-7 items-center rounded-md bg-foreground/[0.08] px-2.5 text-[11px] font-medium ' +
+    'text-foreground transition-colors hover:bg-foreground/[0.16] ' +
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
   const run = (action: CardAction) => {
     switch (action.kind) {
@@ -508,6 +630,14 @@ export function CenterPreview({
           role="group"
           aria-hidden={aiming ? true : undefined}
           aria-label={`${card.name}, ${ZONE_LABEL[card.zone]}`}
+          /* A handle for `scripts/probe/card-panel-fit.mjs`, and the reason it
+             exists: that probe used to find "the container with the most
+             buttons", which on this page is the page, and every number it
+             printed was therefore measured against the whole viewport where
+             nothing can be off screen. A probe that cannot fail is not a
+             measurement. Not a class, so a restyle cannot silently blind it. */
+          data-card-panel="1"
+          data-card-panel-layout={stacked ? 'stacked' : twoColumn ? 'two-column' : 'one-column'}
         >
           {/* Glass over the table rather than another slab of it. The mat
               behind stays visible through the blur, which is what keeps this
@@ -528,10 +658,35 @@ export function CenterPreview({
             className="pointer-events-none absolute inset-0 rounded-2xl shadow-[0_28px_70px_rgba(0,0,0,0.75),inset_0_1px_0_hsl(0_0%_100%/0.10)]"
           />
 
-          {/* NO `overflow-y-auto` ANYWHERE IN HERE. The card is the flexible
-              element: it shrinks to whatever height is left, so the content
-              always fits and nothing ever scrolls. */}
-          <div className="relative flex w-full items-stretch gap-4 p-4">
+          {/* THE BODY, AND THE `min-h-0` THAT WAS MISSING FROM IT.
+              -----------------------------------------------------------------
+              Owner: "All options dont fit into the card winjdow...?" and "this
+              has a sacrifice ability which I cannot cast?"
+
+              This row is the reason. The details column beside the card already
+              carried `overflow-y-auto`, and it never once scrolled, because a
+              flex item's default `min-height: auto` stops it shrinking below its
+              content. So the ROW grew to the height of the column, the column
+              was as tall as everything in it, and the panel above (which is
+              `max-h-full overflow-hidden`) quietly cut the bottom off. Measured
+              at 1600x1000: 781px of controls in a 722px box, with Sacrifice,
+              Exile and Return to hand painted below the panel's own edge.
+
+              `min-h-0` here is the whole fix. The row may now shrink to the
+              panel, the column shrinks with it, and the scrollport inside really
+              scrolls. It is a fallback rather than the plan: at desktop widths
+              the two columns below mean there is nothing left to scroll to. */}
+          <div
+            className={cn(
+              'relative flex min-h-0 w-full p-3.5',
+              /* Under `STACK_BELOW` a card beside a column leaves neither of
+                 them readable: measured at 390px, the card came out 122px wide
+                 and the row still overflowed the panel by 36px. On a phone the
+                 card goes on top, whole and unmodified, and the details take
+                 the full width underneath. */
+              stacked ? 'flex-col items-center gap-3' : 'items-stretch gap-3.5'
+            )}
+          >
             {/* The card, as large as the panel can hold. */}
             <GameCardView
               card={card}
@@ -542,42 +697,92 @@ export function CenterPreview({
                  screen — and the panel clips at its own rounded corner, which
                  cut the marks in half. See `showMarks` on `GameCardView`. */
               showMarks={false}
-              className="shrink-0 self-center drop-shadow-[0_18px_40px_rgba(0,0,0,0.8)]"
+              className={cn(
+                'shrink-0 drop-shadow-[0_18px_40px_rgba(0,0,0,0.8)]',
+                !stacked && 'self-center'
+              )}
               title={card.name}
             />
 
-            {/* Everything else, beside it. */}
-            {/* THE OPTIONS SCROLL. THE CARD DOES NOT.
-                Owner: "All options dont fit into the card window".
+            {/* Everything else, beside it (or under it on a phone). */}
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
+              {/* THE ONE ROW THAT NEVER SCROLLS: where this card is, whether
+                  the rules engine runs it, and the way out. Lifted out of the
+                  scrolling area because a close control that can scroll off the
+                  top is a panel a player cannot shut. */}
+              <div className="flex w-full shrink-0 items-center gap-1.5">
+                <span className="rounded-full bg-foreground/[0.08] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  {ZONE_LABEL[card.zone]}
+                  {controller ? ` · ${controller.name}` : ''}
+                </span>
+                {/* THE MANUAL MARKER, ALWAYS VISIBLE.
+                    Project law, from the product decisions of 19 Aug 2026: "The
+                    manual marker must always be visible. The engine already
+                    computes `automationFor(card).needsManual` correctly and
+                    nothing renders it, so the engine is honest and the interface
+                    is not." It was rendered only inside the by-hand block, which
+                    is drawn on none of the screens where a player most needs to
+                    know: the mulligan, a watched table, an opponent's permanent.
+                    Here it is on every one of them. */}
+                {automation.needsManual && (
+                  <span
+                    title="The rules engine does not run this card's abilities. You resolve them yourself."
+                    className="rounded-full bg-foreground/[0.08] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
+                  >
+                    Needs you
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={onClose}
+                  title="Close the preview"
+                  aria-label="Close the preview"
+                  className="ml-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
 
-                The panel is `max-h-full overflow-hidden`, so until now anything
-                past the bottom was not merely off screen, it was INVISIBLE with
-                nothing to say so. The controls that had grown out of the bottom
-                were the zone moves, which is why the same screenshot also asked
-                "this has a sacrifice ability which I cannot cast?" — sacrificing
-                is To graveyard, it was already built, and it had been pushed
-                below the fold by the token and marker rows added above it.
+              {/* TWO COLUMNS, AND WHAT PUT THEM THERE.
+                  -----------------------------------------------------------
+                  The right half of this panel was 480 x 450 of nothing on the
+                  mulligan, and 657px of clipped controls on the battlefield.
+                  One arrangement answers both: what you can DO on the left,
+                  what you have to do BY HAND on the right. The by-hand controls
+                  are the long tail (twenty-odd chips on a permanent), so moving
+                  them into a column of their own roughly halves the height and
+                  fills the space that was empty with the thing that did not fit.
 
-                Only this column scrolls. The card keeps its full height beside
-                it, because reading the card is the reason the panel opened, and
-                `min-h-0` is what lets a flex child shrink enough to scroll at
-                all rather than growing its parent. */}
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2.5 overflow-y-auto pr-1">
-            <div className="flex w-full shrink-0 items-center gap-2">
-              <span className="rounded-full bg-foreground/[0.08] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                {ZONE_LABEL[card.zone]}
-                {controller ? ` · ${controller.name}` : ''}
-              </span>
-              <button
-                type="button"
-                onClick={onClose}
-                title="Close the preview"
-                aria-label="Close the preview"
-                className="ml-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+                  No conditional wrappers: the two columns are always two
+                  children, and only the container changes between a grid and a
+                  stack. A layout that grew and shrank its own tag structure is
+                  how the same content ends up written twice. */}
+              <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pr-1">
+                {/* CENTRED AGAINST THE CARD WHEN THERE IS LESS TO SAY THAN THE
+                    CARD IS TALL.
+                    -----------------------------------------------------------
+                    A whole Magic card is 648px on a 1000px screen and the panel
+                    is as tall as the card, so on the mulligan a name, a stat
+                    line and two clauses sat at the top of a 650px column with
+                    390 x 450 of nothing under them. Nothing is missing there;
+                    the content is simply shorter than a card. Centring says
+                    that, and a hole at the bottom says the panel is broken.
+
+                    `my-auto` rather than `justify-center` on the scrolling box.
+                    Centred justification in an overflow container puts the
+                    overflow above the start edge, where no scrollbar can reach
+                    it, which would reintroduce the unreachable-control bug this
+                    whole change is about. Auto margins resolve to zero the
+                    moment there is no free space, so a long panel scrolls
+                    normally and a short one is composed. */}
+                <div
+                  data-card-panel-columns="1"
+                  className={cn(
+                    'my-auto',
+                    twoColumn ? 'grid grid-cols-2 items-start gap-x-5' : 'flex flex-col gap-2'
+                  )}
+                >
+                <div className="flex min-w-0 flex-col gap-2 empty:hidden">
 
             {/*
               THE HEADING, and why the sizes changed.
@@ -602,13 +807,20 @@ export function CenterPreview({
             */}
             <div className="w-full shrink-0">
               <div className="flex items-start gap-3">
-                <h3 className="min-w-0 flex-1 text-2xl font-semibold leading-tight tracking-tight text-foreground">
+                <h3
+                  className={cn(
+                    'min-w-0 flex-1 font-semibold leading-tight tracking-tight text-foreground',
+                    /* Stacked, the card is above the name rather than beside it,
+                       so the name has a column a third as wide to sit in. */
+                    stacked ? 'text-lg' : 'text-2xl'
+                  )}
+                >
                   {card.name}
                 </h3>
-                <ManaCost cost={card.manaCost} size="sm" className="shrink-0 pt-1.5" />
+                <ManaCost cost={card.manaCost} size="sm" className="shrink-0 pt-1" />
               </div>
               {card.typeLine && (
-                <p className="mt-1 text-sm leading-snug text-muted-foreground">{card.typeLine}</p>
+                <p className="mt-0.5 text-sm leading-snug text-muted-foreground">{card.typeLine}</p>
               )}
               {/*
                 WHAT THIS CREATURE IS RIGHT NOW, at the size the question is
@@ -628,10 +840,15 @@ export function CenterPreview({
                 not "it is a 6/6" but "it is a 6/6 and the card says 2/2".
               */}
               {(stats || damage > 0 || rulesCounters.length > 0 || handMarks.length > 0) && (
-                <div className="mt-2 flex flex-wrap items-end gap-x-3 gap-y-1.5">
+                <div className="mt-1.5 flex flex-wrap items-end gap-x-3 gap-y-1.5">
                   {stats && (
                     <div className="shrink-0">
-                      <p className="text-5xl font-bold leading-none tabular-nums text-foreground">
+                      <p
+                        className={cn(
+                          'font-bold leading-none tabular-nums text-foreground',
+                          stacked ? 'text-4xl' : 'text-5xl'
+                        )}
+                      >
                         {stats}
                       </p>
                       {statsModified && printedStats && (
@@ -697,7 +914,7 @@ export function CenterPreview({
                 available. The room this gained is what the owner asked it to
                 buy: "This could give room to overwrite actions on the card too." */}
             {actions.length > 0 && (
-              <div className="w-full shrink-0 space-y-2">
+              <div className="w-full shrink-0 space-y-1.5">
                 {/* THE PLAY, on its own and unmistakable. `tone: 'primary'` is
                     the engine's own answer to "what are you most likely here to
                     do", and burying it in a grid with four zone moves was the
@@ -709,11 +926,11 @@ export function CenterPreview({
                       key={action.id}
                       action={action}
                       onClick={() => run(action)}
-                      className="h-12 w-full text-sm"
+                      className="h-11 w-full text-sm"
                     />
                   ))}
                 {actions.some(action => action.tone !== 'primary') && (
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-1.5">
                     {actions
                       .filter(action => action.tone !== 'primary')
                       .map(action => (
@@ -721,6 +938,55 @@ export function CenterPreview({
                       ))}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Not a button you cannot press: a sentence saying why there is no
+                button. The engine never silently does nothing. Directly under
+                the actions, because it is the answer to "where is the button I
+                expected", and it used to sit eight blocks below them. */}
+            {blocked.map(entry => (
+              <p key={entry.id} className="w-full shrink-0 text-xs leading-snug text-muted-foreground">
+                {entry.reason}
+              </p>
+            ))}
+
+            {/* A watched table has no plays for the same reason all the way
+                down, so it is said once here rather than card by card. */}
+            {readOnly && (
+              <p className="w-full shrink-0 text-xs leading-snug text-muted-foreground">
+                You are watching. The bot is playing every seat at this table.
+              </p>
+            )}
+
+            {/* SACRIFICE, EXILE, DISCARD, BOUNCE. Beside the plays, because
+                they ARE plays.
+                -----------------------------------------------------------
+                Owner: "this has a sacrifice ability which I cannot cast?" and
+                "Including sending to graveyard, exile, etc". The control was
+                built, and it was the LAST block on a column that overflowed the
+                panel, so it was painted below the panel's own bottom edge and
+                clipped away at all three widths measured. It was also called
+                "To graveyard", which is a destination rather than an act;
+                `moveLabel` in `cardActions.ts` now names each one the way a
+                player would, from the zone the card is leaving. */}
+            {moves.length > 0 && (
+              <div className="w-full shrink-0 space-y-1.5">
+                <Legend note="the rules engine will not do this for you">Move this card</Legend>
+                <div className="flex flex-wrap gap-1">
+                  {moves.map(move => (
+                    <button
+                      key={move.id}
+                      type="button"
+                      onClick={() => run(move)}
+                      title={move.hint}
+                      aria-label={move.hint}
+                      className={CHIP}
+                    >
+                      {move.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -813,99 +1079,94 @@ export function CenterPreview({
                   </div>
                 )}
                 {(yourKeywords.length > 0 || yourClauses.length > 0) && (
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                      You resolve
-                    </span>
-                    {yourKeywords.map(word => (
-                      <span
-                        key={word}
-                        title="The engine does not apply this. Use the controls below."
-                        className="rounded-full bg-amber-400/[0.14] px-2.5 text-xs leading-6 text-amber-200/90"
-                      >
-                        {word}
+                  <div className="w-full space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                        You resolve
                       </span>
+                      {yourKeywords.map(word => (
+                        <span
+                          key={word}
+                          title="The engine does not apply this. You do it yourself."
+                          className="rounded-full bg-amber-400/[0.14] px-2.5 text-xs leading-6 text-amber-200/90"
+                        >
+                          {word}
+                        </span>
+                      ))}
+                    </div>
+                    {/*
+                      "2 ABILITIES, BELOW" WITH NOTHING BELOW.
+                      ---------------------------------------------------------
+                      What stood here was a chip counting the clauses and
+                      pointing at `ManualPanel`, which prints the first two of
+                      them beside its controls. On the mulligan `ManualPanel` is
+                      not drawn at all, so the chip pointed at the bottom of an
+                      empty column. Screenshotted on 2026-08-30 at 1600x1000:
+                      *"2 abilities, below"*, and then 480 x 450 of nothing.
+
+                      A count is not worth a chip anyway. The clauses themselves
+                      are the content, they are the reason the manual controls
+                      exist, and reading them is the whole of what a player does
+                      with an opening hand. So they are written out here, always,
+                      in the card's own words, and `ManualPanel` no longer
+                      repeats them (`showNotes={false}`) so there is exactly one
+                      copy on the panel.
+
+                      Neutral surface rather than the amber the chips use:
+                      project law reserves hue for MTG semantics, and a
+                      paragraph-sized amber block is decoration rather than a
+                      mana colour or a card type.
+                    */}
+                    {yourClauses.map(clause => (
+                      <p
+                        key={clause}
+                        className="rounded-md bg-foreground/[0.05] px-2.5 py-1.5 text-[11px] leading-snug text-muted-foreground"
+                      >
+                        {clause}
+                      </p>
                     ))}
-                    {yourClauses.length > 0 && (
-                      <span
-                        title="Written out in full beside the controls that resolve them"
-                        className="rounded-full bg-amber-400/[0.14] px-2.5 text-xs leading-6 text-amber-200/90"
-                      >
-                        {yourClauses.length === 1
-                          ? '1 ability, below'
-                          : `${yourClauses.length} abilities, below`}
-                      </span>
-                    )}
                   </div>
                 )}
               </div>
             )}
+                </div>
 
-            {/* A watched table has no plays for the same reason all the way
-                down, so it is said once here rather than card by card. */}
-            {readOnly && (
-              <p className="w-full shrink-0 text-xs leading-snug text-muted-foreground">
-                You are watching. The bot is playing every seat at this table.
-              </p>
-            )}
-
-            {/* Not a button you cannot press: a sentence saying why there is no
-                button. The engine never silently does nothing. */}
-            {blocked.map(entry => (
-              <p key={entry.id} className="w-full shrink-0 text-xs leading-snug text-muted-foreground">
-                {entry.reason}
-              </p>
-            ))}
-
+                {/* ------------------------------------------------------- */}
+                {/* COLUMN TWO: THE BY-HAND CONTROLS                        */}
+                {/* ------------------------------------------------------- */}
+                {/* WHY THE SPLIT FALLS HERE, and it was measured rather than
+                    guessed. With the automatic / you-resolve readout on this
+                    side, the two columns came out 400px and 585px against a
+                    496px box at 1280 x 800, so the taller one scrolled while
+                    the shorter one had 96px spare. The readout is about what
+                    the CARD does, which is the left column's subject, so it
+                    moved there and the two now balance. Everything left here is
+                    one thing: the controls for doing it yourself. */}
+                <div className="flex min-w-0 flex-col gap-2 empty:hidden">
             {/* Everything the engine will not resolve for this card, and the
                 controls to resolve it yourself. Only for a card you control:
                 reaching into an opponent's permanent is a different, larger
                 question and offering it here would be a lie about whose turn
-                it is to act. */}
-            {!readOnly && !holdReason && onDispatch && card.controllerId === viewerPlayerId && (
-              <div className="w-full shrink-0 rounded-lg bg-foreground/[0.04] p-2.5">
-                <div className="mb-1.5 flex items-baseline gap-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    Play it yourself
-                  </span>
-                  <span className="text-[11px] text-muted-foreground/70">
-                    {automation.needsManual
-                      ? 'This card needs you'
-                      : 'Override anything the engine did'}
-                  </span>
-                </div>
-                <ManualPanel state={state} card={card} onDispatch={onDispatch} />
-              </div>
-            )}
+                it is to act.
 
-            {/* MOVING THE CARD SOMEWHERE ELSE, said out loud.
-                Owner: *"Including sending to graveyard, exile, etc"*. These
-                already existed. They were 10px grey text in an unlabelled row
-                at the very bottom, the same shape and weight as every other
-                control on the panel, so finding "To graveyard" meant reading
-                fifteen chips that all looked alike. They are one KIND of
-                action, they are the last resort when the engine will not do
-                something, and they now say so and are big enough to hit. */}
-            {moves.length > 0 && (
-              <div className="w-full shrink-0 space-y-1.5 pt-0.5">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                  Move this card
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {moves.map(move => (
-                    <button
-                      key={move.id}
-                      type="button"
-                      onClick={() => run(move)}
-                      title={move.hint}
-                      className="rounded-md bg-foreground/[0.08] px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-foreground/[0.16] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      {move.label}
-                    </button>
-                  ))}
-                </div>
+                The "Play it yourself" heading that used to sit over this is
+                gone: `ManualPanel` opens with its own "By hand" heading and the
+                same summary, so the panel carried two headings and a repeated
+                sentence over one block of controls. */}
+            {byHandOpen && onDispatch && (
+              <div className="w-full shrink-0 rounded-lg bg-foreground/[0.04] p-2.5">
+                <ManualPanel
+                  state={state}
+                  card={card}
+                  onDispatch={onDispatch}
+                  /* The clauses are written out above, once. */
+                  showNotes={false}
+                />
               </div>
             )}
+                </div>
+                </div>
+              </div>
             </div>
           </div>
         </motion.div>

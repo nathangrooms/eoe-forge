@@ -137,6 +137,20 @@ const MEASURE = `(() => {
   const scroller = scrollers[0] || null;
   const sr = scroller ? scroller.getBoundingClientRect() : pr;
 
+  /*
+   * UNREACHABLE AND BELOW-THE-FOLD ARE NOT THE SAME THING, and the first
+   * version of this measurement called them both "off screen".
+   *
+   * A control painted outside a box that CANNOT scroll is gone: there is no
+   * gesture that brings it back, and that is the defect the owner reported. A
+   * control below the fold of a box that CAN scroll is one flick away. Reporting
+   * them as one number makes a real fix look like no change at all.
+   *
+   * The scrollport test also only applies to controls INSIDE the scroller. The
+   * close button is deliberately outside it, in the header that never scrolls,
+   * and comparing it against the scroller's box reported the one control that is
+   * always reachable as the one that was cut off.
+   */
   const controls = [...panel.querySelectorAll('button, [role="button"], input, select, textarea')]
     .map(b => {
       const r = b.getBoundingClientRect();
@@ -145,37 +159,61 @@ const MEASURE = `(() => {
       /* Painted at all? A control inside a collapsed section has no box. */
       const drawn = r.width > 0 && r.height > 0;
       const inViewport = r.top >= -1 && r.bottom <= vh + 1 && r.left >= -1 && r.right <= vw + 1;
-      /* Inside the box that clips it: this is what "off screen" really means
-         for a control in a scrolling column. */
-      const inScrollport = r.top >= sr.top - 1 && r.bottom <= sr.bottom + 1;
-      return { text, drawn, inViewport, inScrollport, rect: box(r) };
+      const inScroller = !!scroller && scroller.contains(b);
+      /* The box that actually clips this control. */
+      const clip = inScroller ? sr : pr;
+      const inClip = r.top >= clip.top - 1 && r.bottom <= clip.bottom + 1 &&
+                     r.left >= clip.left - 1 && r.right <= clip.right + 1;
+      return { text, drawn, inViewport, inScroller, inClip, rect: box(r) };
     })
     .filter(c => c.drawn);
 
-  /* Dead space: the tallest thing in the panel against the panel's own height.
-     A column that stops 450px short of the bottom is the complaint. */
+  /* Gone: outside a box that cannot scroll it back, or off the window entirely.
+     A control INSIDE the scroller is never gone, and asking whether it is inside
+     the WINDOW is meaningless for one: a clipped element keeps its layout box, so
+     a chip scrolled 500px down reports a rect 500px below the scrollport and
+     often below the window with it. That is the scroll position, not a defect,
+     and counting it as one reported 15 reachable controls as lost. The scroller's
+     own box is checked instead, once, below. */
+  const unreachable = controls.filter(c => !c.inScroller && (!c.inViewport || !c.inClip));
+  /* One flick away: inside the scroller, currently past its edge. */
+  const belowFold = controls.filter(c => c.inScroller && !c.inClip);
+  /* And the assumption that rests on: the scrolling box is itself on screen. */
+  const scrollerOnScreen = !scroller ||
+    (sr.top >= -1 && sr.bottom <= vh + 1 && sr.left >= -1 && sr.right <= vw + 1);
+
+  /* Dead space: the tallest thing in the panel against the panel's own height. */
   let contentBottom = pr.top;
   for (const el of panel.querySelectorAll('*')) {
     const r = el.getBoundingClientRect();
     if (r.width > 0 && r.height > 0 && r.bottom > contentBottom) contentBottom = r.bottom;
   }
-  /* And the same question asked of the details column alone, which is the half
-     the owner is looking at when they say the right side is empty. */
-  let columnDead = null;
-  if (scroller || panel.children.length) {
-    const col = scroller || panel;
-    const cr = col.getBoundingClientRect();
-    let last = cr.top;
-    for (const el of col.querySelectorAll('*')) {
-      const r = el.getBoundingClientRect();
-      if (r.width > 0 && r.height > 0 && r.bottom > last) last = r.bottom;
-    }
-    columnDead = { height: round(cr.height), used: round(last - cr.top), empty: round(cr.bottom - last) };
-  }
+
+  /* THE EMPTY RIGHT HALF, measured per column rather than per panel.
+     "480 x 450 of nothing" is a statement about ONE column, and a measurement
+     that averages it with the full column beside it cannot see it. */
+  const columnHost = panel.querySelector('[data-card-panel-columns]');
+  const columns = columnHost
+    ? [...columnHost.children].map(col => {
+        const cr = col.getBoundingClientRect();
+        let last = cr.top;
+        for (const el of col.querySelectorAll('*')) {
+          const r = el.getBoundingClientRect();
+          if (r.width > 0 && r.height > 0 && r.bottom > last) last = r.bottom;
+        }
+        return {
+          width: round(cr.width),
+          height: round(cr.height),
+          used: round(last - cr.top),
+          empty: round(cr.bottom - last),
+        };
+      })
+    : [];
 
   return {
     found: true,
     how: found.how,
+    layout: panel.getAttribute('data-card-panel-layout') || '(not reported)',
     viewport: { w: vw, h: vh },
     panel: box(pr),
     overflowBottom: Math.max(0, round(pr.bottom - vh)),
@@ -183,13 +221,16 @@ const MEASURE = `(() => {
     overflowTop: Math.max(0, round(-pr.top)),
     overflowLeft: Math.max(0, round(-pr.left)),
     scrolls: !!scroller,
+    scrollerOnScreen,
     scrollHidden: scroller ? round(scroller.scrollHeight - scroller.clientHeight) : 0,
     actions: controls.length,
-    offScreen: controls.filter(c => !c.inViewport || !c.inScrollport).length,
-    offScreenNames: controls.filter(c => !c.inViewport || !c.inScrollport).map(c => c.text).slice(0, 10),
+    unreachable: unreachable.length,
+    unreachableNames: unreachable.map(c => c.text).slice(0, 10),
+    belowFold: belowFold.length,
+    belowFoldNames: belowFold.map(c => c.text).slice(0, 10),
     names: controls.map(c => c.text),
     dead: round(pr.bottom - contentBottom),
-    columnDead,
+    columns,
     hand,
   };
 })()`;
@@ -255,15 +296,22 @@ function report(tag, m) {
   }
   const p = m.panel;
   console.log(
-    `  ${tag}: panel ${p.width}x${p.height} at (${p.left},${p.top}) via ${m.how}\n` +
-    `      actions ${m.actions}  off screen ${m.offScreen}  ` +
-    `scrolls ${m.scrolls ? `yes, ${m.scrollHidden}px hidden` : 'no'}\n` +
+    `  ${tag}: panel ${p.width}x${p.height} at (${p.left},${p.top}) ` +
+    `via ${m.how}, layout ${m.layout}\n` +
+    `      actions ${m.actions}  UNREACHABLE ${m.unreachable}  below the fold ${m.belowFold}  ` +
+    `scrolls ${m.scrolls ? `yes, ${m.scrollHidden}px hidden` : 'no'}` +
+    `${m.scrollerOnScreen ? '' : '  SCROLLING BOX IS ITSELF OFF SCREEN'}\n` +
     `      overflow  bottom ${m.overflowBottom} right ${m.overflowRight} ` +
-    `top ${m.overflowTop} left ${m.overflowLeft}\n` +
-    `      empty space below the content: ${m.dead}px` +
-    (m.columnDead ? `  (details column ${m.columnDead.used}/${m.columnDead.height}px used, ${m.columnDead.empty}px empty)` : '')
+    `top ${m.overflowTop} left ${m.overflowLeft}`
   );
-  if (m.offScreen) console.log(`      cut off: ${m.offScreenNames.join(', ')}`);
+  m.columns.forEach((col, i) =>
+    console.log(
+      `      column ${i + 1}: ${col.width}x${col.height}, ` +
+      `${col.used}px used, ${col.empty}px empty`
+    )
+  );
+  if (m.unreachable) console.log(`      GONE: ${m.unreachableNames.join(', ')}`);
+  if (m.belowFold) console.log(`      one flick away: ${m.belowFoldNames.join(', ')}`);
   console.log(`      controls: ${m.names.join(' | ')}`);
   console.log(
     `      hand: ${m.hand.cards} cards, ${m.hand.clipped} clipped, ` +
@@ -280,6 +328,29 @@ function report(tag, m) {
       );
     }
   }
+}
+
+/**
+ * The card the player has REACHED FOR, and whether it came all the way back.
+ *
+ * The fan hangs off the bottom edge during a turn on purpose: `HAND_REVEAL` puts
+ * the top 62% of every card above the table line and the rest below the screen,
+ * so the hand stops lying across the player's own permanents. That is a
+ * deliberate 38%, not a defect, AND IT IS ONLY DEFENSIBLE IF REACHING FOR A CARD
+ * BRINGS THE WHOLE OF IT BACK. `ViewerHand` raises by `sink + 54` to do that.
+ * This checks the claim rather than repeating it.
+ */
+function reportRaised(m, opened) {
+  const raised = m.hand.each.find(c => c.name === opened) ?? null;
+  if (!raised) {
+    console.log(`      raised card: could not find "${opened}" in the fan`);
+    return;
+  }
+  console.log(
+    `      raised card ${raised.name}: ${raised.rect.width}x${raised.rect.height} ` +
+    `at (${raised.rect.left},${raised.rect.top}), ` +
+    `${raised.lost === 0 && raised.lostH === 0 ? 'WHOLE on screen' : `still loses ${Math.max(raised.lost, raised.lostH)}%`}`
+  );
 }
 
 const browser = await puppeteer.launch({
@@ -353,6 +424,20 @@ for (const [w, h] of WIDTHS) {
     const m = await page.evaluate(MEASURE);
     report(`battlefield / ${permanent}`, m);
     await page.screenshot({ path: path.join(path.resolve(OUT), `battlefield-${w}.png`) });
+  }
+
+  /* ---- STATE THREE: a card in hand, mid game, with the fan sunk. */
+  await page.keyboard.press('Escape');
+  await wait(500);
+  const inHand = await openHandCard(page);
+  await wait(2400);
+  if (!inHand) {
+    console.log('  no card left in the fan to open mid game');
+  } else {
+    const m = await page.evaluate(MEASURE);
+    report(`hand, mid game / ${inHand}`, m);
+    if (m.found) reportRaised(m, inHand);
+    await page.screenshot({ path: path.join(path.resolve(OUT), `hand-${w}.png`) });
   }
 
   await page.close();

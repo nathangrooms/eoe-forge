@@ -88,7 +88,7 @@ export {
 export { CardPriceHistory, type CardPriceHistoryProps } from './CardPriceHistory';
 export {
   CardWorksWellWith,
-  CardSimilar,
+  CardDoesTheSameThing,
   cardHref,
   type CardRelatedProps,
   type RelatedGroup,

@@ -106,6 +106,56 @@ const DECLARATION_OF_NAUGHT = {
   tags: ['counterspell', 'enchantment'],
 };
 
+/**
+ * Real text, and the card that showed the shape guard was needed.
+ *
+ * The reader refuses "creatures you control get +X/+X", which is the whole
+ * card, so Craterhoof's record carries a trigger, a keyword and a subtype and
+ * no effect verb at all. Before 2026-08-30 that was enough to fill fourteen
+ * tiles under a heading reading "does the same thing".
+ */
+const CRATERHOOF = {
+  oracle_id: 'craterhoof',
+  name: 'Craterhoof Behemoth',
+  type_line: 'Creature — Beast',
+  mana_cost: '{5}{G}{G}{G}',
+  cmc: 8,
+  oracle_text:
+    'Haste\nWhen this creature enters, creatures you control gain trample and get +X/+X until end of turn, where X is the number of creatures you control.',
+  tags: ['creature', 'mass-pump', 'finisher'],
+};
+
+/**
+ * A Beast, and nothing else in common with Craterhoof.
+ *
+ * It carried both of Craterhoof's role tags on the live page, so it is given
+ * them here: the point of the fixture is that the RECORD tier must refuse it
+ * even though the tag tier will not.
+ */
+const THUNDERFOOT_BALOTH = {
+  oracle_id: 'thunderfoot-baloth',
+  name: 'Thunderfoot Baloth',
+  type_line: 'Creature — Beast',
+  mana_cost: '{4}{G}{G}',
+  cmc: 6,
+  oracle_text: 'Trample\nSoulbond',
+  tags: ['creature', 'mass-pump', 'finisher'],
+};
+
+/** The same Beast with no role tags at all, so nothing can speak for it. */
+const PLAIN_BALOTH = { ...THUNDERFOOT_BALOTH, oracle_id: 'plain-baloth', name: 'Plain Baloth', tags: ['creature'] };
+
+/** Shares both of Craterhoof's role tags, and is a card a player would name. */
+const VITALIZING_WIND = {
+  oracle_id: 'vitalizing-wind',
+  name: 'Vitalizing Wind',
+  type_line: 'Sorcery',
+  mana_cost: '{8}{G}',
+  cmc: 9,
+  oracle_text: 'Creatures you control get +4/+4 until end of turn.',
+  tags: ['sorcery', 'mass-pump', 'finisher'],
+};
+
 describe('canReadBehaviour', () => {
   it('is true when the compiler produced a record, false when it produced nothing', () => {
     assert.equal(canReadBehaviour(SOL_RING), true);
@@ -118,35 +168,83 @@ describe('canReadBehaviour', () => {
     // report full coverage on a page picked entirely from tags.
     assert.equal(canReadBehaviour({ name: 'x', type_line: 'Artifact', oracle_text: null }), false);
   });
+
+  it('refuses a record that names a shape and nothing that happens', () => {
+    /*
+     * A record saying "flying Pirate that enters" cannot produce a sentence
+     * about what a card does, and 31.4% of the catalogue is in that position.
+     * Every one of them used to get a list, and every list said "also a
+     * Pirate".
+     */
+    assert.equal(canReadBehaviour(THUNDERFOOT_BALOTH), false);
+    // Craterhoof's record is just as thin on verbs but does carry a trigger, so
+    // it may still speak. What it is allowed to SAY is the next test.
+    assert.equal(canReadBehaviour(CRATERHOOF), true);
+  });
+});
+
+describe('rankBySameBehaviour: sharing a shape is not doing the same thing', () => {
+  it('will not call a Beast a match for a Beast', () => {
+    /*
+     * Both are Beasts, both are creatures, and on the live page that was enough
+     * for Thunderfoot Baloth to be the second card on Craterhoof Behemoth's
+     * list with the note "Also shares the beast type". It may still appear on
+     * its tags, and the note has to say that is what happened, because the
+     * difference between "we read these two cards" and "they carry the same
+     * word" is the whole complaint this answers.
+     */
+    const { entries, census } = rankBySameBehaviour(CRATERHOOF, [THUNDERFOOT_BALOTH]);
+    assert.equal(entries.length, 1);
+    assert.equal(entries[0].basis, 'tags');
+    assert.equal(entries[0].shared.length, 0);
+    assert.ok(entries[0].note.startsWith('Record is incomplete'), entries[0].note);
+    assert.equal(census.byRecord, 0);
+  });
+
+  it('says nothing at all when the shape is the only thing there is', () => {
+    const { entries } = rankBySameBehaviour(CRATERHOOF, [PLAIN_BALOTH]);
+    assert.deepEqual(entries, []);
+  });
+
+  it('ranks the card that shares both role tags above the one that shares a shape', () => {
+    // With the record silent the tag tier is all that is left, and two tags
+    // together name a card where one names a job 732 cards do.
+    const { entries } = rankBySameBehaviour(CRATERHOOF, [PLAIN_BALOTH, VITALIZING_WIND]);
+    assert.deepEqual(
+      entries.map(e => e.card.name),
+      ['Vitalizing Wind']
+    );
+    assert.ok(entries[0].note.includes('mass-pump'), entries[0].note);
+  });
 });
 
 describe('rankBySameBehaviour: Counterspell', () => {
   const pool = [FROST_TITAN, DECLARATION_OF_NAUGHT, MANA_DRAIN];
 
-  it('demotes the two cards whose only claim was the word counterspell', () => {
+  it('drops the two cards whose only claim was the word counterspell', () => {
     /*
      * Under `sharedTagScore` all three tied at 6.32 and the order was market
      * price, which put Frost Titan and Declaration of Naught on the page ahead
-     * of every real counterspell. A record match now outranks a tag match
-     * whatever the tag is worth. The two are kept, not deleted: neither record
-     * is complete enough to call it a positive no, and a labelled entry is more
-     * use than a silently missing one.
+     * of every real counterspell.
+     *
+     * They were then KEPT and demoted, on the reasoning that "a labelled entry
+     * is more use than a silently missing one". On 2026-08-30 that was
+     * reversed, and the card that proved it is Thassa's Oracle: its only signal
+     * tag is `finisher`, one of 732 cards carrying it, and its whole list came
+     * back as Merfolk lords. Both of these share exactly one tag with
+     * Counterspell, so both are now gone. See `MIN_SHARED_TAGS`.
      */
     const { entries } = rankBySameBehaviour(COUNTERSPELL, pool);
-    assert.equal(entries[0].card.name, 'Mana Drain');
+    assert.deepEqual(
+      entries.map(e => e.card.name),
+      ['Mana Drain']
+    );
     assert.equal(entries[0].basis, 'partial');
-    for (const e of entries.slice(1)) assert.equal(e.basis, 'tags');
   });
 
   it("says why, in the card's own terms", () => {
     const { entries } = rankBySameBehaviour(COUNTERSPELL, pool);
     assert.equal(entries[0].note, 'Also counters a spell');
-    // Two different silences, told apart. Declaration of Naught produced no
-    // abilities at all; Frost Titan produced some and the compiler refused the
-    // rest, so "no match" means different things and the tile says which.
-    const notes = new Map(entries.map(e => [e.card.name, e.note]));
-    assert.equal(notes.get('Declaration of Naught'), 'No ability record. Tagged counterspell');
-    assert.equal(notes.get('Frost Titan'), 'Record is incomplete. Tagged counterspell');
   });
 
   it('a complete record that shares nothing is dropped, not demoted', () => {

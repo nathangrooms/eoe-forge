@@ -262,7 +262,22 @@
     tasks: [],
   };
 
-  const PASSTHROUGH = new Set(['cards', 'cards_unique', 'sync_status', 'precons', 'forum_topics', 'forum_posts']);
+  /* `meta_combos` and `meta_combo_cards` joined this list on 2026-08-30, and the
+     reason is the one the PASSTHROUGH comment below already gives. They are
+     Commander Spellbook's published combos, world-readable with an `anon` SELECT
+     grant and a `using (true)` policy, and stubbing them to `[]` made the card
+     page's new combo group look permanently empty. A probe measured Sol Ring as
+     having no combo partners when it has 106 recorded combos. */
+  const PASSTHROUGH = new Set([
+    'cards',
+    'cards_unique',
+    'sync_status',
+    'precons',
+    'forum_topics',
+    'forum_posts',
+    'meta_combos',
+    'meta_combo_cards',
+  ]);
 
   function splitTop(s) {
     const out = [];

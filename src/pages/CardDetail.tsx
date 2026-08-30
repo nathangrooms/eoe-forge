@@ -17,7 +17,7 @@ import { OracleText } from '@/components/cards/OracleText';
 import { CardLegalityGrid } from '@/components/cards/CardLegalityGrid';
 import { CardPrintingsRow } from '@/components/cards/CardPrintingsRow';
 import { CardPriceHistory } from '@/components/cards/CardPriceHistory';
-import { CardWorksWellWith, CardSimilar } from '@/components/cards/CardRelated';
+import { CardWorksWellWith, CardDoesTheSameThing } from '@/components/cards/CardRelated';
 import { CardAddToDeckPanel } from '@/components/cards/CardAddToDeckPanel';
 import { AddToListActions } from '@/components/shopping';
 import {
@@ -911,8 +911,11 @@ export default function CardDetailPage() {
           </section>
 
           {/* ------------------------- Related ------------------------ */}
+          {/* What else does this, then what goes with it. The first answers
+              for 46% of the catalogue and the second for the 6,670 cards in a
+              published combo, so the reliable one leads. */}
+          <CardDoesTheSameThing className="mt-4" card={card} dbCard={dbCard} />
           <CardWorksWellWith className="mt-4" card={card} dbCard={dbCard} />
-          <CardSimilar className="mt-4" card={card} dbCard={dbCard} />
           <Rulings className="mt-4" card={card} />
 
           <CardAddToDeckPanel

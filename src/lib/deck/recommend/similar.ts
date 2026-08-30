@@ -145,6 +145,81 @@ const TAG_TIER = 0;
 const MIN_RECORD_SCORE = 0.15;
 
 /**
+ * SHARING A SHAPE IS NOT DOING THE SAME THING.
+ *
+ * `type:`, `sub:` and `kw:` say what a card IS. Every other prefix says what
+ * HAPPENS. Measured on 2026-08-30 by `scratch/related-bench.ts` against the
+ * live catalogue, this is the whole of what was left wrong inside the one group
+ * on the card page the owner called good. Craterhoof Behemoth's record is
+ * partial — the compiler refuses "creatures you control get +X/+X", which is
+ * the entire card — so it carries no effect verb at all, and its fourteen came
+ * back led by:
+ *
+ *   Thunderfoot Baloth      Also shares the beast type
+ *   Centaur Chieftain       Also has haste
+ *   Blossoming Bogbeast     Also shares the beast type
+ *   Decimator of the Provinces  Also has haste
+ *
+ * The notes gave it away. A list headed "does the same thing" whose own reason
+ * is "also a Beast" is the friend's complaint, sitting inside the group that
+ * was supposed to have fixed it.
+ */
+const SHAPE_PREFIXES: readonly string[] = ['type:', 'sub:', 'kw:', 'rec:'];
+
+function saysWhatHappens(facet: Facet): boolean {
+  return !SHAPE_PREFIXES.some(prefix => facet.startsWith(prefix));
+}
+
+/**
+ * One shared verb, or two shared facts about what happens.
+ *
+ * A verb is the claim itself: two cards that both `eff:counter` do the same
+ * thing whatever else differs. Without one, a single shared fact is a
+ * coincidence — `trig:enters` is on roughly a third of creatures — and two is
+ * the point at which the overlap describes a behaviour rather than an accident.
+ * Rhystic Study and Aether Barrier share three (`trig:cast`, `scope:all`,
+ * `cares:zone:stack`) and no verb, and a player agrees with that pairing, which
+ * is why the rule is not "a verb or nothing".
+ */
+function overlapIsBehaviour(shared: readonly Facet[]): boolean {
+  if (shared.some(f => f.startsWith('eff:'))) return true;
+  return shared.filter(saysWhatHappens).length >= 2;
+}
+
+/**
+ * ONE ROLE TAG IS ONE WORD, and one word is what this module exists to stop
+ * putting on a card page.
+ *
+ * The tag tier is the fallback for a card no record can speak for, and it is
+ * worth having: Arcane Signet and Fellwar Stone are the two cards a Sol Ring
+ * list most needs and nothing reads either of them. But a tag names a JOB, and
+ * hundreds of cards do each job. Counted on 2026-08-30 over `cards_unique`:
+ * `targeted-removal` 3,308 cards, `card-draw` 3,301, `ramp` 1,969, `finisher`
+ * 732, `mass-pump` 684, `counterspell` 417.
+ *
+ * Measured on the real page the same day, this is the difference between the
+ * two cards whose records are both partial and whose lists came entirely from
+ * tags:
+ *
+ *   Craterhoof Behemoth  `mass-pump` AND `finisher`. Kamahl Heart of Krosa,
+ *                        End-Raze Forerunners, Vitalizing Wind, Overwhelm,
+ *                        Pathbreaker Ibex. A player agrees with every one.
+ *   Thassa's Oracle      `finisher` alone. Chrome Dome, Master of the Pearl
+ *                        Trident, Lord of the Unreal, Coralhelm Commander,
+ *                        Favorable Winds. Merfolk lords, because one of 732
+ *                        cards tagged `finisher` was the whole claim.
+ *
+ * So two shared tags, and the second one is what turns a job into a card. A
+ * subject carrying only one signal tag now gets NO tag tier at all, which is
+ * the honest answer rather than a thinner one.
+ *
+ * This reverses a decision recorded here in August, that "a labelled entry is
+ * more use than a silently missing one". It was wrong. A labelled entry is
+ * still an entry, and the label is not what the player reads first.
+ */
+const MIN_SHARED_TAGS = 2;
+
+/**
  * DOING THE SAME THING FOR MORE MANA IS NOT DOING THE SAME THING.
  *
  * This is not an invention of this file. `src/lib/cards/xmage/compare.ts`, the
@@ -196,7 +271,10 @@ export function rankBySameBehaviour<T extends SimilarCard>(
     const hasRecord = read.facets.some(f => f.startsWith('rec:'));
     if (hasRecord) withRecord += 1;
 
-    const usableRecord = match.basis !== 'none' && match.score >= MIN_RECORD_SCORE;
+    const usableRecord =
+      match.basis !== 'none' &&
+      match.score >= MIN_RECORD_SCORE &&
+      overlapIsBehaviour(match.shared);
     const gap = Math.abs(numberOf(card.cmc) - subjectCmc);
 
     if (usableRecord) {
@@ -222,6 +300,7 @@ export function rankBySameBehaviour<T extends SimilarCard>(
      */
     if (match.basis === 'record') continue;
 
+    if (sharedTags(subjectTags, card.tags).length < MIN_SHARED_TAGS) continue;
     const tagScore = sharedTagScore(subjectTags, card.tags);
     if (tagScore <= 0) continue;
     scored.push({
@@ -273,14 +352,25 @@ export function rankBySameBehaviour<T extends SimilarCard>(
 /**
  * Can this card's record speak at all?
  *
- * The caller needs this BEFORE it queries, because a subject with no record has
- * nothing to rank on and the honest answer is to leave the old tag group in
- * place rather than dress a tag list up as a behaviour list. Rite of Flame is
- * the case: the compiler returns `coverage: 'manual'` and no abilities, so its
- * only facet is `type:sorcery`.
+ * The caller needs this BEFORE it queries, because a subject with nothing to
+ * rank on cannot be given a list, and dressing a tag list up as a behaviour
+ * list is the dishonesty this module exists to undo.
+ *
+ * TWO CONDITIONS, and the second was added on 2026-08-30. A record is required,
+ * which rules out Cultivate (`coverage: 'manual'`, one facet, `type:sorcery`)
+ * and Grizzly Bears (no record at all). And the record has to say something
+ * that HAPPENS, which rules out the 31.4% of the catalogue that carries a
+ * record naming only a type, a subtype and a keyword — Siren Lookout reads
+ * `kw:flying sub:pirate sub:siren trig:enters type:creature`, and the only
+ * sentence a comparison can build from that is "also a Pirate".
+ *
+ * Measured over an 8,000 card sample by `scratch/eff-census.ts`: 77.6% carry a
+ * record and 46.2% carry a verb. So this is not a small filter, and the cards
+ * it silences are exactly the ones that were producing "also has flying".
  */
 export function canReadBehaviour(card: SimilarCard): boolean {
-  return facetsForCard(card).facets.some(f => f.startsWith('rec:'));
+  const { facets } = facetsForCard(card);
+  return facets.some(f => f.startsWith('rec:')) && facets.some(saysWhatHappens);
 }
 
 /* ------------------------------------------------------------------ *

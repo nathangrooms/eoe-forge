@@ -715,9 +715,15 @@ export function popTrigger(
 /* Resolution                                                                 */
 /* -------------------------------------------------------------------------- */
 
-/** "Ajani's Pridemate — enters the battlefield", for the `cause` on every action. */
+/** "Ajani's Pridemate (enters the battlefield)", for the `cause` on every action.
+ *
+ * BRACKETS, NOT AN EM-DASH. The copy rule bans the dash, and a colon cannot be
+ * used either: the log composes as `${cause}: ${what happened}`, so a colon
+ * inside the cause reads "Angel of Vitality: enters the battlefield: gained 3
+ * life". The brackets scope the timing to the card and leave the colon to do
+ * its one job. */
 export function describeTrigger(trigger: PendingTrigger): string {
-  return `${trigger.sourceName} — ${TRIGGER_LABELS[trigger.ability.timing].toLowerCase()}`;
+  return `${trigger.sourceName} (${TRIGGER_LABELS[trigger.ability.timing].toLowerCase()})`;
 }
 
 /**

@@ -690,7 +690,9 @@ test('every triggered action names its cause in the log', () => {
     { id: 'c', name: 'Angel of Vitality', oracleText: 'When this creature enters, you gain 3 life.', zone: 'hand' },
   ]);
   state = applyAction(state, { type: 'PLAY', instanceId: 'c', to: 'battlefield' });
-  assert.match(logText(state), /Angel of Vitality — enters the battlefield: .*gained 3 life/);
+  /* Brackets, not an em-dash: the copy rule bans the dash and the log already
+     uses a colon between the cause and what happened. */
+  assert.match(logText(state), /Angel of Vitality \(enters the battlefield\): .*gained 3 life/);
 });
 
 /* ------------------------------------------------------------------ *

@@ -1,33 +1,31 @@
 /**
- * The copy rules from CLAUDE.md, checked against text that renders.
+ * PRODUCT-INVENTED VOCABULARY in text a player reads.
  *
  *   node scripts/probe/copy-rules.mjs
  *
- * Two of the three rules are checkable and this checks those two:
+ * CLAUDE.md copy rule 1: "Product-invented vocabulary and engineering words do
+ * not belong in the interface — portability, round trip, subscore weights,
+ * taxonomy, canonical, engine, pipeline, surface, primitive. Say what the thing
+ * does in the words a player would use at a table."
  *
- *   NO EM-DASHES. "Rewrite the sentence rather than swapping the dash for a
- *   semicolon or brackets. A sentence that needed an em-dash usually wanted to
- *   be two sentences." Also the en-dash, which is the same character reached
- *   for by a different route. A HYPHEN is fine and so is a MINUS between
- *   numbers, so only the two dashes are looked for.
+ * ## One rule, because the other one already had a tool
  *
- *   NO PRODUCT-INVENTED VOCABULARY. "portability", "round trip", "subscore
- *   weights", "taxonomy", "canonical", "engine", "pipeline", "surface",
- *   "primitive" — engineering words in an interface a Commander player reads.
- *   The list is the one CLAUDE.md gives, plus the handful this codebase reaches
- *   for by habit.
+ * This file started out checking em-dashes as well, which was a mistake: it
+ * duplicated `em-dash-sweep.mjs`, a better implementation that was already
+ * there and that I had not looked for. Writing a third checker for a rule two
+ * scripts already covered is the duplication this project keeps warning about.
  *
- * The third rule, "short beats long", is a judgement and is not automated.
+ * Dashes are `em-dash-sweep.mjs` (source) and `emdash-scan.mjs` (the rendered
+ * DOM on public routes). This is the jargon half and nothing else.
  *
- * ## Why it reads JSX text and not the file
+ * The third copy rule, "short beats long", is a judgement and is not automated.
  *
- * Comments are exempt and this file's own comments are full of em-dashes. The
- * scan takes only what sits between tags, the same extraction
- * `refute-aiwords.mjs` uses for the naming ban list, so a dash explaining WHY
- * in a comment never fires and a dash a player reads always does.
+ * ## What it reads
  *
- * It cannot see text built by string concatenation or held in a constant, so a
- * clean run is not a proof. It is the cheap half.
+ * Every string and template literal, with comments stripped first. Comments are
+ * exempt by the rule's own wording and this file's own are full of the words it
+ * bans. It cannot see text built by concatenation across lines, so a clean run
+ * is the cheap half of the answer rather than a proof.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -45,7 +43,6 @@ import path from 'node:path';
 const SKIP = ['src/dev/', 'scratch/', 'src/pages/__', 'src/components/admin/PromptEditor'];
 
 const RULES = [
-  { id: 'em-dash', test: /[—–]/, why: 'CLAUDE.md copy rule 2: rewrite it as two sentences' },
   {
     id: 'jargon',
     test: /\b(portability|round[- ]trip|subscore|taxonom(y|ies)|canonical|pipeline|primitive|idempotent|memoi[sz]ed|denominator|heuristic)\b/i,
@@ -75,36 +72,6 @@ const stripComments = src =>
   src
     .replace(/\/\*[\s\S]*?\*\//g, m => m.replace(/[^\n]/g, ' '))
     .replace(/(^|[^:])\/\/[^\n]*/g, (m, p) => p + ' '.repeat(m.length - p.length));
-
-/**
- * Two uses of a dash this product makes on purpose.
- *
- * A LONE em-dash is the "we do not know" placeholder. `DecksSummaryStats`
- * established it and every metric row follows: it reads as nothing to report
- * rather than as a zero somebody computed, and printing 0 there is the thing
- * the pricing rule forbids.
- *
- * A dash BETWEEN DIGITS is a score or a range — "a 2–0 win", "85-100%". That
- * is the typographically correct character for the job and not the clause-
- * joining dash the rule is about.
- */
-const ALLOWED_DASH = [
-  /^[—–]$/,
-  /\d\s*[—–]\s*\d/,
-  /*
-   * A range or a score built from interpolations, where the digits only exist
-   * at runtime: `${wins}–${losses}`, `${fmt(min)}–${fmt(max)}`. Same character
-   * for the same reason as the digit case above, and the literal cannot show
-   * it.
-   */
-  /\}\s*[—–]\s*\$?\{/,
-  /*
-   * A MAGIC TYPE LINE. "Legendary Creature — Angel Horror" is Wizards'
-   * typography on the card itself, not our prose, and `ManualPanel` builds one
-   * when it makes a token. Changing it would misprint the game.
-   */
-  /\b(Creature|Artifact|Enchantment|Land|Planeswalker|Instant|Sorcery|Battle)\s*[—–]/,
-];
 
 /**
  * Not copy at all.
@@ -149,7 +116,6 @@ for (const file of files) {
     if (NOT_COPY.some(n => n.test(text))) continue;
     for (const rule of RULES) {
       if (!rule.test.test(text)) continue;
-      if (rule.id === 'em-dash' && ALLOWED_DASH.some(a => a.test(text))) continue;
       const line = source.slice(0, m.index).split('\n').length;
       hits.push({ file, line, rule, text });
     }
@@ -164,7 +130,6 @@ for (const file of files) {
     if (/[;={}]|=>|\(\)|&&|\|\||\.\w+\(/.test(text)) continue;
     for (const rule of RULES) {
       if (!rule.test.test(text)) continue;
-      if (rule.id === 'em-dash' && ALLOWED_DASH.some(a => a.test(text))) continue;
       const line = source.slice(0, m.index).split('\n').length;
       hits.push({ file, line, rule, text });
     }

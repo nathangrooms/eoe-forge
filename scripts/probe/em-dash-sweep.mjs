@@ -207,12 +207,41 @@ const isTypeLine = (text) => {
      the holes; what is left still has to be nothing but card types, and the
      empty-word guard below keeps `${name} — one copy.` out of here. */
   const words = before.replace(/\$\{[^{}]*\}/g, ' ').trim().split(/\s+/).filter(Boolean);
-  if (!words.length || words.length > 4) return false;
+  /*
+   * A type line whose left side is ENTIRELY a hole.
+   *
+   * `effects.ts` builds a token's line as `${typeParts.join(' ')} — ${name}`,
+   * so dropping the holes leaves no words at all and the guard below rejected
+   * it. The empty-word guard is right — it is what keeps `${name} — one copy.`
+   * out — so the narrow signal is what the hole is NAMED: an expression about
+   * types is a type line, `card.name` is not.
+   */
+  if (!words.length) return /\btypes?\b|typeParts|typeLine|type_line/i.test(before);
+  if (words.length > 4) return false;
   return words.every((w) => CARD_TYPES.has(w));
 };
 
 /** A range or a score: numbers, currency or a hole on both sides. */
 const isNumericRange = (text) => {
+  /*
+   * AN EM-DASH BETWEEN TWO HOLES IS PROSE, not a range.
+   *
+   * This exemption blanked every `${…}` to `0` and then accepted anything with
+   * a digit on both sides of a dash, which made `${card.name} — ${detail}` look
+   * exactly like `${wins}–${losses}`. It swallowed a real breach for as long as
+   * it has existed: the insurance report, the one document that leaves this
+   * product, read "1. Sol Ring — EOE #2 · 3 copies · NM — $64.77 total for 3"
+   * and this sweep reported "0 across 0 files".
+   *
+   * The character is the tell, and it holds across the whole codebase. Every
+   * genuine range here uses an EN-dash — `{wins}–{losses}`, `{fmt(min)}–{fmt(max)}`,
+   * `2–0` — because that is the correct character for a span. Every prose use
+   * is an EM-dash. An em-dash between two scores would be the wrong character
+   * anyway, so flagging it is not a false positive either.
+   */
+  const emBetweenHoles = new RegExp('\\$?\\{[^{}]*\\}\\s*[' + EM + ']\\s*\\$?\\{');
+  if (emBetweenHoles.test(text)) return false;
+
   /* `${x}` in a template and `{x}` in JSX both stand for a number here:
      `{row.wins}–{row.losses}` is a score, written the way JSX writes one. */
   const filled = text.replace(/\$?\{[^{}]*\}/g, '0');

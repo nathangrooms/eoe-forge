@@ -912,7 +912,7 @@ export function actionsForTrigger(
 ): GameAction[] {
   if (!trigger.automated) return [];
   const controller = card.controllerId;
-  const cause = `${card.name} — ${TRIGGER_LABELS[trigger.timing].toLowerCase()}`;
+  const cause = `${card.name} (${TRIGGER_LABELS[trigger.timing].toLowerCase()})`;
   const actions: GameAction[] = [];
 
   for (const effect of trigger.effects) {

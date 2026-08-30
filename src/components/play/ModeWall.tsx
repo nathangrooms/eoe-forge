@@ -169,8 +169,16 @@ export function ModeWall({ value, onChoose, live }: ModeWallProps) {
             {/* WHO IS AT THE TABLE. A fixed band rather than an aspect ratio:
                 a ratio makes the picture grow with the column, which is how
                 four doors became 209px of illustration each on a desktop and
-                two screens of scrolling on a phone. */}
-            <span className="relative block h-[136px] w-full shrink-0 bg-muted/40 sm:h-[168px] xl:h-[196px]">
+                two screens of scrolling on a phone.
+
+                On a wide screen it grows with the VIEWPORT HEIGHT instead,
+                which is a different thing and safe. Measured at 1600x1000 the
+                wall ended at 814px and left 186px of empty charcoal below it,
+                and on a taller monitor that band only grows. Height slack is
+                exactly what these four cards should be spending, and the
+                clamp's ceiling keeps a very tall screen from turning them back
+                into illustrations. Phone and tablet are untouched. */}
+            <span className="relative block h-[136px] w-full shrink-0 bg-muted/40 sm:h-[168px] xl:h-[clamp(196px,26vh,320px)]">
               <ModeTableArt table={mode.table} surface={mode.surface} />
 
               {/* Hover and selection are light on the surface, never an

@@ -175,11 +175,42 @@
          project's rule is that an unscored deck shows no score rather than a
          placeholder one. */
       power: null,
-      economy: {
-        priceUSD: priced.reduce((a, b) => a + b, 0),
-        ownedPct: 0,
-        missing: 0,
-      },
+      /*
+       * COUNTED, NOT TYPED IN. `missing: 0` MEANS "YOU OWN THIS WHOLE DECK".
+       *
+       * It used to be a hardcoded zero, and `DeckTile` reads
+       * `economy?.missing ?? 0` and calls a deck with none missing COMPLETE.
+       * So My Decks drew a green tick, "You own every card in this deck", and
+       * "Collection progress 100% 100/100" over a fixture that owns 52 cards
+       * in total and a deck of 100.
+       *
+       * The Wishlist, which computes its own gaps from the same two tables,
+       * said "1 deck short of 90 cards" on the same data. Two screens
+       * disagreeing about whether you own a deck, and the wrong one was the
+       * confident one.
+       *
+       * This shim's own header says a fixture that lies is worse than one that
+       * is silent, and both collection rows and deck rows are right here to
+       * count. Copies matter: owning one Sol Ring does not cover a deck asking
+       * for two.
+       */
+      economy: (() => {
+        const owned = new Map();
+        for (const row of user_collections) {
+          owned.set(row.card_id, (owned.get(row.card_id) || 0) + Number(row.quantity || 0));
+        }
+        let missing = 0;
+        for (const x of cards) {
+          const want = qty(x);
+          const have = owned.get(x.row.card_id) || 0;
+          if (have < want) missing += want - have;
+        }
+        return {
+          priceUSD: priced.reduce((a, b) => a + b, 0),
+          ownedPct: total > 0 ? Math.round(((total - missing) / total) * 100) : 0,
+          missing,
+        };
+      })(),
       tags: [],
       updatedAt: deck.updated_at,
       favorite: false,

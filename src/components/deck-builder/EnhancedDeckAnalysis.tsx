@@ -33,20 +33,13 @@ import {
   AlertTriangle,
   CheckCircle,
   Info,
-  Lightbulb,
-  Sparkles
+  Lightbulb
 } from 'lucide-react';
 import { ManaCurveAnalyzer } from '@/lib/magic/mana-curve';
 import { LandBaseCalculator } from '@/lib/magic/land-base';
 import { SynergyEngine } from '@/lib/magic/synergy';
 import { FormatValidator, ALL_FORMATS } from '@/lib/magic/formats';
 import { Card as DeckCard } from '@/stores/deckStore';
-import { AIVisualDisplay, type VisualData } from '@/components/shared/AIVisualDisplay';
-import ReactMarkdown from 'react-markdown';
-import { supabase } from '@/integrations/supabase/client';
-import { askEdgeFunctionRaw } from '@/lib/tutor/edgeInvoke';
-import { CardRecommendationDisplay, type CardData } from '@/components/shared/CardRecommendationDisplay';
-import { toast } from 'sonner';
 import { buildManaProfile } from '@/engine/playability/castability';
 
 /**
@@ -127,9 +120,6 @@ export function EnhancedDeckAnalysisPanel({
   /* The first section asked for, so the strip never opens on a tab that is not
      drawn. It used to be hard-coded to `curve`. */
   const firstSection = sections[0] ?? 'synergy';
-  const [aiAnalysisFocus, setAiAnalysisFocus] = useState<string | null>(null);
-  const [inlineAI, setInlineAI] = useState<{ text: string; cards: CardData[]; visualData?: VisualData }>({ text: '', cards: [] });
-  const [inlineLoading, setInlineLoading] = useState(false);
 
   /**
    * Copies, not rows.
@@ -216,71 +206,29 @@ const optimizations = useMemo(() => {
     return ManaCurveAnalyzer.generateOptimizationSuggestions(analysis.manaCurve);
   }, [analysis.manaCurve]);
 
-  useEffect(() => {
-    if (!aiAnalysisFocus || !deckId || !deckName) return;
-    setInlineLoading(true);
-    setInlineAI({ text: '', cards: [] });
-    const promptMap: Record<string, string> = {
-      curve: "Analyze my deck's mana curve. Show a bar chart of CMC distribution if relevant. Call out curve issues and concrete card swaps. Finish with: Referenced Cards: ...",
-      lands: "Analyze my deck's mana base and color sources. Use a pie chart for color distribution if helpful. Recommend specific lands and counts. Finish with: Referenced Cards: ...",
-      synergy: "Analyze synergies and combos in my deck. Use a table to compare synergy pieces if relevant. Identify missing pieces. Finish with: Referenced Cards: ...",
-      validation: "Check format legality issues. Use a table to organize illegal cards and their replacements. Finish with: Referenced Cards: ...",
-      suggestions: "Provide top 5 targeted improvements. Use a table comparing current vs upgrade cards (Card, Current, Upgrade, Cost, Benefit). Finish with: Referenced Cards: ...",
-    };
-    const message = promptMap[aiAnalysisFocus] || 'Provide analysis.';
-    
-    // Include actual deck cards for AI analysis
-    const deckCards = deck.map(card => ({
-      name: card.name,
-      mana_cost: card.mana_cost,
-      cmc: card.cmc,
-      type_line: card.type_line,
-      colors: card.colors,
-      quantity: card.quantity || 1
-    }));
-    
-    // Provide curve bins and mana sources to enable auto-generated visuals server-side
-    const curveBins = analysis.manaCurve.curve.reduce((acc: Record<string, number>, p) => {
-      const key = p.cmc === 99 ? '10+' : String(p.cmc);
-      acc[key] = (acc[key] || 0) + (p.count || 0);
-      return acc;
-    }, {} as Record<string, number>);
-    const manaSources = {
-      W: analysis.landBase?.statistics?.totalSources?.W || 0,
-      U: analysis.landBase?.statistics?.totalSources?.U || 0,
-      B: analysis.landBase?.statistics?.totalSources?.B || 0,
-      R: analysis.landBase?.statistics?.totalSources?.R || 0,
-      G: analysis.landBase?.statistics?.totalSources?.G || 0,
-      C: analysis.landBase?.statistics?.totalSources?.C || 0,
-    };
-    
-    askEdgeFunctionRaw('mtg-brain', {
-      body: {
-        message,
-        deckContext: { 
-          id: deckId, 
-          name: deckName, 
-          format, 
-          commander: commander ? { name: commander.name, type_line: commander.type_line, colors: commander.colors } : undefined,
-          cards: deckCards,
-          counts: { total: totalCopies + (commander ? 1 : 0) },
-          curve: curveBins,
-          mana: { sources: manaSources }
-        },
-        responseStyle: 'concise'
-      }
-    }).then(({ data, error }) => {
-      if (error || data?.error) {
-        toast.error(error?.message || data?.error || 'AI analysis failed');
-        return;
-      }
-      setInlineAI({ 
-        text: data.message || '', 
-        cards: data.cards || [],
-        visualData: data.visualData || undefined
-      });
-    }).finally(() => setInlineLoading(false));
-  }, [aiAnalysisFocus, deckId, deckName, format, totalCopies, commander]);
+  /*
+   * THE FIVE "Deck analysis" BUTTONS ARE GONE, AND THEY HAD NEVER WORKED.
+   *
+   * Each one set a focus and an effect asked `mtg-brain` to write a paragraph
+   * about the section you were looking at. The effect opened
+   * `if (!aiAnalysisFocus || !deckId || !deckName) return;` and the ONLY
+   * caller of this panel, `AIGeneratedDeckList`, passes no `deckId`. So every
+   * press set state, the effect returned, and the render fell to `: null`
+   * inside a `bg-muted/30` box: five controls whose entire effect was an empty
+   * grey rectangle.
+   *
+   * They would not have been kept even working. Owner, on the deck chat this
+   * week: "just remove deck analysis chat we have tutor for that", and on the
+   * engine: we are replacing the model with it. Every number these prompts were
+   * handed - the curve bins, the colour sources, the counts - is computed by
+   * `ManaCurveAnalyzer`, `LandBaseCalculator`, `SynergyEngine` and
+   * `FormatValidator` and drawn by the sections below. A model was being paid
+   * to write prose about arithmetic that was already on the screen.
+   *
+   * Their prompts also ended "Finish with: Referenced Cards: ...", a convention
+   * `mtg-brain` stopped using in August when it began reading names out of the
+   * prose instead. Dead in a third way.
+   */
 
   return (
     <div className="space-y-6">
@@ -397,45 +345,9 @@ const optimizations = useMemo(() => {
                   <TrendingUp className="h-5 w-5 mr-2" />
                   Mana Curve Analysis
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                  onClick={() => setAiAnalysisFocus('curve')}
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Deck analysis
-                </Button>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {aiAnalysisFocus === 'curve' && (
-                <div className="mb-4 rounded-lg bg-muted/30 p-3">
-                  {inlineLoading ? (
-                    <div className="text-sm text-muted-foreground">Analysing...</div>
-                  ) : inlineAI.text ? (
-                    <div className="space-y-3">
-                      <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-6 h-6 rounded bg-muted flex items-center justify-center">
-                            <span className="text-xs font-bold text-primary-foreground">DM</span>
-                          </div>
-                          <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
-                        </div>
-                        <div className="prose prose-sm max-w-none dark:prose-invert">
-                          <ReactMarkdown>{inlineAI.text}</ReactMarkdown>
-                        </div>
-                      </div>
-                       {inlineAI.cards?.length > 0 && (
-                        <CardRecommendationDisplay cards={inlineAI.cards} compact />
-                      )}
-                      {inlineAI.visualData && (
-                        <AIVisualDisplay data={inlineAI.visualData} compact />
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              )}
                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Mana Curve Chart */}
                 <div>
@@ -513,45 +425,9 @@ const optimizations = useMemo(() => {
                   <MapPin className="h-5 w-5 mr-2" />
                   Mana Base Analysis
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                  onClick={() => setAiAnalysisFocus('lands')}
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Deck analysis
-                </Button>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {aiAnalysisFocus === 'lands' && (
-                <div className="mb-4 rounded-lg bg-muted/30 p-3">
-                  {inlineLoading ? (
-                    <div className="text-sm text-muted-foreground">Analysing...</div>
-                  ) : inlineAI.text ? (
-                    <div className="space-y-3">
-                      <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-6 h-6 rounded bg-muted flex items-center justify-center">
-                            <span className="text-xs font-bold text-primary-foreground">DM</span>
-                          </div>
-                          <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
-                        </div>
-                        <div className="prose prose-sm max-w-none dark:prose-invert">
-                          <ReactMarkdown>{inlineAI.text}</ReactMarkdown>
-                        </div>
-                      </div>
-                      {inlineAI.cards?.length > 0 && (
-                        <CardRecommendationDisplay cards={inlineAI.cards} compact />
-                      )}
-                      {inlineAI.visualData && (
-                        <AIVisualDisplay data={inlineAI.visualData} compact />
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              )}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Color Requirements */}
                 <div>
@@ -661,45 +537,9 @@ const optimizations = useMemo(() => {
                   <Brain className="h-5 w-5 mr-2" />
                   Synergy Analysis
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                  onClick={() => setAiAnalysisFocus('synergy')}
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Deck analysis
-                </Button>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {aiAnalysisFocus === 'synergy' && (
-                <div className="mb-4 rounded-lg bg-muted/30 p-3">
-                  {inlineLoading ? (
-                    <div className="text-sm text-muted-foreground">Analysing...</div>
-                  ) : inlineAI.text ? (
-                    <div className="space-y-3">
-                      <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-6 h-6 rounded bg-muted flex items-center justify-center">
-                            <span className="text-xs font-bold text-primary-foreground">DM</span>
-                          </div>
-                          <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
-                        </div>
-                        <div className="prose prose-sm max-w-none dark:prose-invert">
-                          <ReactMarkdown>{inlineAI.text}</ReactMarkdown>
-                        </div>
-                      </div>
-                      {inlineAI.cards?.length > 0 && (
-                        <CardRecommendationDisplay cards={inlineAI.cards} compact />
-                      )}
-                      {inlineAI.visualData && (
-                        <AIVisualDisplay data={inlineAI.visualData} compact />
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              )}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Archetype Matches */}
                 <div>
@@ -786,45 +626,9 @@ const optimizations = useMemo(() => {
                   <Target className="h-5 w-5 mr-2" />
                   Format Validation
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                  onClick={() => setAiAnalysisFocus('validation')}
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Deck analysis
-                </Button>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {aiAnalysisFocus === 'validation' && (
-                <div className="mb-4 rounded-lg bg-muted/30 p-3">
-                  {inlineLoading ? (
-                    <div className="text-sm text-muted-foreground">Analysing...</div>
-                  ) : inlineAI.text ? (
-                    <div className="space-y-3">
-                      <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-6 h-6 rounded bg-muted flex items-center justify-center">
-                            <span className="text-xs font-bold text-primary-foreground">DM</span>
-                          </div>
-                          <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
-                        </div>
-                        <div className="prose prose-sm max-w-none dark:prose-invert">
-                          <ReactMarkdown>{inlineAI.text}</ReactMarkdown>
-                        </div>
-                      </div>
-                      {inlineAI.cards?.length > 0 && (
-                        <CardRecommendationDisplay cards={inlineAI.cards} compact />
-                      )}
-                      {inlineAI.visualData && (
-                        <AIVisualDisplay data={inlineAI.visualData} compact />
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              )}
               <div className="space-y-4">
                 {/* Overall Status */}
                 <div className="flex items-center space-x-2 rounded-lg bg-muted/30 p-4">
@@ -900,45 +704,9 @@ const optimizations = useMemo(() => {
                   <Lightbulb className="h-5 w-5 mr-2" />
                   Improvement Suggestions
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                  onClick={() => setAiAnalysisFocus('suggestions')}
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Deck analysis
-                </Button>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {aiAnalysisFocus === 'suggestions' && (
-                <div className="mb-4 rounded-lg bg-muted/30 p-3">
-                  {inlineLoading ? (
-                    <div className="text-sm text-muted-foreground">Analysing...</div>
-                  ) : inlineAI.text ? (
-                    <div className="space-y-3">
-                      <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-6 h-6 rounded bg-muted flex items-center justify-center">
-                            <span className="text-xs font-bold text-primary-foreground">DM</span>
-                          </div>
-                          <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
-                        </div>
-                        <div className="prose prose-sm max-w-none dark:prose-invert">
-                          <ReactMarkdown>{inlineAI.text}</ReactMarkdown>
-                        </div>
-                      </div>
-                      {inlineAI.cards?.length > 0 && (
-                        <CardRecommendationDisplay cards={inlineAI.cards} compact />
-                      )}
-                      {inlineAI.visualData && (
-                        <AIVisualDisplay data={inlineAI.visualData} compact />
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              )}
               <div className="space-y-6">
                 {/* Mana Curve Optimization */}
                 {optimizations.swapSuggestions.length > 0 && (

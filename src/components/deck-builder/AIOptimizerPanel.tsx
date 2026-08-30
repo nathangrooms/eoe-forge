@@ -1703,7 +1703,7 @@ export function AIOptimizerPanel({
                   message={
                     missingCards > 0
                       ? 'Run the optimiser to get card recommendations.'
-                      : 'This deck is complete — check Swaps for upgrade ideas.'
+                      : 'This deck is complete. Check Swaps for upgrade ideas.'
                   }
                 />
               ) : (
@@ -1752,7 +1752,7 @@ export function AIOptimizerPanel({
                     isDeckComplete
                       ? 'Run the optimiser to get swap suggestions.'
                       : deckStatus === 'incomplete'
-                      ? 'Finish the deck first — swaps are suggested for complete lists.'
+                      ? 'Finish the deck first. Swaps are suggested for complete lists.'
                       : 'Cut down to the deck limit first, then swaps will be suggested.'
                   }
                 />

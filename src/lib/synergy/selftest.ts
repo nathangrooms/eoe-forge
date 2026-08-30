@@ -636,7 +636,7 @@ export async function runSynergySelfTest(): Promise<CheckResult[]> {
     results.push({
       name: 'real corpus integration',
       pass: false,
-      detail: 'precon-corpus.ts could not be imported — run scripts/generate-synergy-corpus.mjs',
+      detail: 'precon-corpus.ts could not be imported. Run scripts/generate-synergy-corpus.mjs',
     });
   }
 

@@ -55,7 +55,7 @@ export function counterTargetSpell(
     return defer(
       announced
         ? 'the countered spell had already left the stack'
-        : 'counter target spell — no stack target was announced'
+        : 'counter target spell, but no stack target was announced'
     );
   }
 

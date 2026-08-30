@@ -799,9 +799,9 @@ function computeAutomation(card: CardInstance | null | undefined): CardAutomatio
       triggers: [],
       engineKeywords,
       advisoryKeywords,
-      manualNotes: ['Rules text was not loaded for this card — resolve it by hand.'],
+      manualNotes: ['Rules text was not loaded for this card. Resolve it by hand.'],
       needsManual: !card.manualResolved,
-      summary: 'Rules text not loaded — resolve by hand.',
+      summary: 'Rules text not loaded. Resolve by hand.',
     };
   }
 
@@ -839,7 +839,7 @@ function computeAutomation(card: CardInstance | null | undefined): CardAutomatio
   // Advisory keywords are abilities too. A "Ward {2}" creature must not read as
   // fully automated just because its only other text is flying.
   for (const keyword of advisoryKeywords) {
-    addNote(`${keyword} — the engine does not enforce this keyword.`);
+    addNote(`${keyword}. This keyword is not applied for you.`);
   }
 
   const automatedCount = triggers.filter(t => t.automated).length;
@@ -874,7 +874,7 @@ function summaryFor(
     case 'vanilla':
       return 'No rules text.';
     case 'keywords':
-      return `Keywords only — ${engineKeywords.join(', ')} enforced.`;
+      return `Keywords only. ${engineKeywords.join(', ')} enforced.`;
     case 'automated':
       return `${automatedCount} trigger${automatedCount === 1 ? '' : 's'} resolved automatically.`;
     case 'partial':
@@ -882,7 +882,7 @@ function summaryFor(
     case 'manual':
       return `${manualCount} abilit${manualCount === 1 ? 'y' : 'ies'} to resolve by hand.`;
     case 'unknown':
-      return 'Rules text not loaded — resolve by hand.';
+      return 'Rules text not loaded. Resolve by hand.';
     default:
       return 'Resolve by hand.';
   }
@@ -990,7 +990,7 @@ export function manualNoteAction(
   return {
     type: 'NOTE',
     instanceId: card.instanceId,
-    message: `${card.name} ${context} — resolve by hand: ${first}${extra}`,
+    message: `${card.name} ${context}. Resolve by hand: ${first}${extra}`,
     at,
   };
 }
@@ -1018,7 +1018,7 @@ export function noteForDeclinedTrigger(
     return {
       type: 'NOTE',
       instanceId: card.instanceId,
-      message: `${card.name} triggered (${label}) — the engine does not resolve "${trigger.clause}". Do it by hand.`,
+      message: `${card.name} triggered (${label}). "${trigger.clause}" is not resolved for you. Do it by hand.`,
       at,
     };
   }
@@ -1026,7 +1026,7 @@ export function noteForDeclinedTrigger(
     return {
       type: 'NOTE',
       instanceId: card.instanceId,
-      message: `${card.name} (${label}) partly resolved — still to do by hand: ${trigger.residual}.`,
+      message: `${card.name} (${label}) partly resolved. Still to do by hand: ${trigger.residual}.`,
       at,
     };
   }
@@ -1114,7 +1114,7 @@ export function triggeredActionsFor(
             out.push({
               type: 'NOTE',
               instanceId: card.instanceId,
-              message: `${card.name} resolves — the engine applies no spell effects; resolve it by hand.`,
+              message: `${card.name} resolves. No spell effects were applied. Resolve it by hand.`,
               at,
             });
         }

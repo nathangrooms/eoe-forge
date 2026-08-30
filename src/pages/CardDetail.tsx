@@ -383,7 +383,7 @@ export default function CardDetailPage() {
         if (error) throw error;
         setOwned({ quantity: 1, foil: 0 });
       }
-      showSuccess('Added to collection', `${card.name} — one copy.`);
+      showSuccess('Added to collection', `${card.name}, one copy.`);
     } catch (err: any) {
       showError('Collection error', err?.message ?? 'Could not add this card.');
     }
@@ -805,7 +805,7 @@ export default function CardDetailPage() {
                     <>
                       {flippable && faces.length > 1 && (
                         <p className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">
-                          {faceName} — {face === 0 ? 'front face' : 'back face'}
+                          {faceName}, {face === 0 ? 'front face' : 'back face'}
                         </p>
                       )}
                       <OracleText text={oracle} />

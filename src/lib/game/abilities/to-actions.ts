@@ -239,7 +239,7 @@ export function runEffects(
   if (!ctx.watch) {
     for (const query of watchQueriesIn(effects)) {
       scope.deferred.push(
-        `needs turn history the engine does not fold yet: ${query.measure} of ${query.event.saw} (${query.window}) — any amount computed from it is 0 and is not the real number`
+        `needs turn history this game does not keep yet: ${query.measure} of ${query.event.saw} (${query.window}). Any amount computed from it is 0, and 0 is not the real number`
       );
     }
   }
@@ -971,7 +971,7 @@ function runEffect(effect: Effect, ctx: AbilityContext, scope: RunScope): void {
         ? askedIds.map(playerId => nameOf(state, playerId)).join(', ')
         : // `{who:'trigger-player'}` with nothing bound. Naming the gap beats
           // naming a player who was never asked.
-          'the player this triggered on (not identified — the trigger bound no player)';
+          'the player this triggered on, who was never identified because the trigger bound no player';
       scope.deferred.push(`${asked} may pay ${owed}; if not, the ability resolves`);
       for (const inner of effect.effects) {
         // Reported, never run: the note has to describe what the opponent is
@@ -1008,7 +1008,7 @@ function runEffect(effect: Effect, ctx: AbilityContext, scope: RunScope): void {
         .join(', ');
       const payer = payerIds.length
         ? payerIds.map(playerId => nameOf(state, playerId)).join(', ')
-        : 'the controller (not identified — no player was bound)';
+        : 'the controller, who was never identified because no player was bound';
       scope.deferred.push(
         effect.optional
           ? `${payer} may pay ${owed}; if they do, the rest of the ability happens`

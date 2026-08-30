@@ -203,7 +203,7 @@ export function ImportDeckPanel({
                     <li key={entry.key}>
                       No card called &ldquo;{entry.query}&rdquo;
                       {entry.suggestions.length > 0
-                        ? ` — did you mean ${entry.suggestions[0].name}?`
+                        ? `. Did you mean ${entry.suggestions[0].name}?`
                         : ''}
                     </li>
                   ))}

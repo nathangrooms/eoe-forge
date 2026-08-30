@@ -65,7 +65,7 @@ export function CollectionCardTile({
         width={width}
         fill
         onClick={handleActivate}
-        title={`${card.name}${copies ? ` — ${copies} owned` : ''}`}
+        title={`${card.name}${copies ? `. ${copies} owned` : ''}`}
         imageClassName={cn(
           selected && 'ring-2 ring-primary ring-offset-2 ring-offset-background'
         )}

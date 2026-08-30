@@ -374,7 +374,7 @@ export function announceTriggerTargetsAction(
     targets,
     actorId: trigger.controllerId,
     at,
-    cause: `${trigger.sourceName} — choosing targets`,
+    cause: `${trigger.sourceName} choosing targets`,
   };
 }
 

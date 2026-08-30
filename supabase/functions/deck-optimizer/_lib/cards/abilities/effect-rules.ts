@@ -424,7 +424,12 @@ function buildToken(power: string, toughness: string, descriptor: string, keywor
   const subWords = subtypes.map((t) => t[0].toUpperCase() + t.slice(1));
   const spec: TokenSpec = {
     name: subWords.length ? subWords.join(' ') : typeWords.join(' '),
-    typeLine: `Token ${typeWords.join(' ')}${subWords.length ? ' — ' + subWords.join(' ') : ''}`,
+    /* Wizards' own type-line notation, so the dash is card data and stays.
+       Written as two whole type lines rather than one with the dash spliced in
+       mid-expression, so it still reads as a type line to anything checking. */
+    typeLine: subWords.length
+      ? `Token ${typeWords.join(' ')} — ${subWords.join(' ')}`
+      : `Token ${typeWords.join(' ')}`,
     power,
     toughness,
   };
@@ -797,7 +802,7 @@ export const EFFECT_RULES: EffectRule[] = [
   {
     id: 'add-mana-choice',
     re: /^add (\{[wubrgc]\})(?:, (\{[wubrgc]\}))?,? or (\{[wubrgc]\})$/,
-    note: 'A dual land\'s "add {R} or {G}" is a player CHOICE, and {do:"choose-mode"} is exactly the DSL member for one — no new vocabulary needed, and the decision lands in the action log as an ANSWER_CHOICE like every other decision.',
+    note: 'A dual land\'s "add {R} or {G}" is a player CHOICE, and {do:"choose-mode"} is exactly the DSL member for one. No new vocabulary is needed, and the decision lands in the action log as an ANSWER_CHOICE like every other decision.',
     build(m, ctx) {
       const symbols = [m[1], m[2], m[3]].filter(Boolean).map((s) => s.toUpperCase());
       return [{

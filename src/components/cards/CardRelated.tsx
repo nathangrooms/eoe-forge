@@ -832,24 +832,24 @@ export function CardWorksWellWith({ card, dbCard, className }: CardRelatedProps)
               thing, or we hold no ability record for this card and nothing to compare it on.
             </li>
             <li>
-              Keywords —{' '}
+              Keywords.{' '}
               {keywords.length > 0
-                ? `has ${keywords.join(', ')}, but nothing in its colour identity shares them`
-                : 'this card has none'}
+                ? `This card has ${keywords.join(', ')}, but nothing in its colour identity shares them`
+                : 'This card has none'}
               .
             </li>
             <li>
-              Creature or permanent type —{' '}
+              Creature or permanent type.{' '}
               {subtypesOf(typeLine).length > 0
                 ? `${subtypesOf(typeLine).join(' ')}, with no matches inside its identity`
-                : 'this card has no subtype'}
+                : 'This card has no subtype'}
               .
             </li>
             <li>
-              Role tags —{' '}
+              Role tags.{' '}
               {tags.length > 0
                 ? `${tags.join(', ')}, with no matches inside its colour identity`
-                : 'our card table records only its card type and the traits half the catalogue shares, neither of which says anything about how it plays'}
+                : 'Our card table records only its card type and the traits half the catalogue shares, neither of which says anything about how it plays'}
               .
             </li>
           </ul>

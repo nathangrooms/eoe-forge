@@ -676,7 +676,7 @@ test('E4: an unbound "that player" is reported as unidentified, never as everybo
     state
   );
   assert.ok(
-    deferred.some(line => line.includes('not identified')),
+    deferred.some(line => line.includes('never identified')),
     `an unbound trigger player must say so; got ${JSON.stringify(deferred)}`
   );
 });

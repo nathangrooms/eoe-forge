@@ -792,8 +792,8 @@ export function ManualPanel({ state, card, onDispatch, className }: ManualPanelP
                a trigger that never fires, so the tooltip says which it is. */
             title={
               control.support === 'engine'
-                ? `${control.label} — the rules engine applies this.`
-                : `${control.label} — a reminder on the card. The engine does not apply it.`
+                ? `${control.label}. This one is applied for you.`
+                : `${control.label}. This one is a reminder only. Apply it by hand.`
             }
             onClick={() => onDispatch(control.actions)}
           />

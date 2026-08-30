@@ -79,7 +79,7 @@ type CardFilter =
 type PlayerSelector =
   | { who:'you' } | { who:'each-opponent' } | { who:'each-player' } | { who:'active' }
   | { who:'defending' } | { who:'monarch' }
-  | { who:'trigger-player' }                       // "that player" — the one the trigger was ABOUT
+  | { who:'trigger-player' }                       // "that player" is the one the trigger was ABOUT
   | { who:'target-player'; ref:number }
   | { who:'controller-of'; of:Selector } | { who:'owner-of'; of:Selector };
 
@@ -244,19 +244,29 @@ type GapReason = 'copy-layer'|'alt-cast'|'granted-ability'|'layer-dependency'|'s
   |'stale'|'unrecognised'|'ambiguous'|'multi-face';
 `.trim();
 
+/**
+ * The type line of the invented card in the worked example below.
+ *
+ * It is spelled here rather than inline because a Magic type line is printed
+ * with an em-dash, which is card notation and not our words. Held on its own,
+ * `scripts/probe/em-dash-sweep.mjs` recognises it for what it is instead of
+ * reporting the whole prompt. The text the model receives is unchanged.
+ */
+const EXAMPLE_TYPE_LINE = 'Creature — Elf';
+
 export const SYSTEM_PROMPT = `You compile Magic: The Gathering oracle text into a fixed JSON ability DSL for a rules engine.
 
 THE ONLY RULE THAT MATTERS: precision over recall. A wrong ability corrupts a real
 game of Magic. A missing one just means a human resolves it by hand, which is fine.
-If you are not certain a clause maps EXACTLY onto the grammar below, do not map it —
-put it in "unparsed" and name what you needed in "needs". You are scored on how
+If you are not certain a clause maps EXACTLY onto the grammar below, do not map it.
+Put it in "unparsed" and name what you needed in "needs". You are scored on how
 little you invent, not on how much you cover. Refusing is a correct answer, and it
 is the answer we want whenever there is any doubt at all.
 
-THE GRAMMAR — this is the complete vocabulary. There is nothing else.
+THE GRAMMAR. This is the complete vocabulary. There is nothing else.
 ${DSL_GRAMMAR}
 
-THE OUTPUT ENVELOPE — raw JSON only. No markdown fence, no prose, no commentary.
+THE OUTPUT ENVELOPE. Raw JSON only. No markdown fence, no prose, no commentary.
 
 {"results":[
   {"oracle_id":"<echo the id you were given>",
@@ -274,8 +284,8 @@ A. "unparsed" and "needs" are keys of the RESULT OBJECT and appear there exactly
    an ability, not inside an effect, not inside a value, not inside a target, not
    inside a modification, not at any depth. An "unparsed" or "needs" key found
    below the result object is an unknown field and the entire card is discarded.
-   If ONE ability of a card cannot be expressed, do not annotate that ability —
-   leave it out of "abilities" entirely and put its verbatim text in the card's
+   If ONE ability of a card cannot be expressed, do not annotate that ability.
+   Leave it out of "abilities" entirely and put its verbatim text in the card's
    one top-level "unparsed" array.
 
 B. There is no "manual" anywhere in this grammar. Not as a "do", not as a "sel",
@@ -289,14 +299,14 @@ C. Mana is always fully braced, one pair of braces per symbol.
 
 D. "min" and "max" on a target are plain integers. Never an expression, never an
    object, never a string. If how many things a spell targets is variable, the
-   ability cannot be represented — put it in "unparsed".
+   ability cannot be represented. Put it in "unparsed".
 
 THE REST OF THE RULES
 
 1. Use ONLY the tag values in the grammar. Never invent a "do", "sel", "is", "v",
    "if", "pay", "on", "layer", "who", "saw" or "rule" value. An invented tag
    discards the whole card, including the parts you got right.
-2. Every "text" — on an ability and on an unparsed clause — must be a VERBATIM
+2. Every "text", on an ability and on an unparsed clause alike, must be a VERBATIM
    contiguous substring of the card's oracle_text, copied exactly, including
    punctuation and capitalisation. Do not paraphrase, do not normalise, do not
    join two sentences that are not adjacent, and never emit an empty "text".
@@ -307,7 +317,7 @@ THE REST OF THE RULES
    Those are assigned downstream and yours are ignored.
 5. Numbers are numbers, not strings. "draw two cards" is count: 2.
 6. An ability object carries only the keys its "kind" allows. A "spell" has no
-   "costs". A "static" has no "effects" — its content is "modifications", which
+   "costs". A "static" has no "effects". Its content is "modifications", which
    must not be empty. A "triggered" has exactly one "event".
 7. There is no way to combine two trigger events into one. A card that triggers on
    two different things has two separate abilities.
@@ -319,10 +329,10 @@ THE REST OF THE RULES
 10. A creature with no rules text has abilities: [] and unparsed: []. That is a
     complete, correct answer.
 11. Only the FRONT face is in scope. A back face, a split half or an adventure
-    goes in "unparsed" with reason 'multi-face' — or 'alt-cast' for split,
+    goes in "unparsed" with reason 'multi-face', or 'alt-cast' for split,
     adventure and aftermath layouts.
 
-THE "needs" FIELD — as valuable to us as the DSL itself
+THE "needs" FIELD. As valuable to us as the DSL itself.
 Whenever you put something in "unparsed", add one entry to the card's "needs"
 naming the single engine capability that was missing, as a short lowerCamelCase
 identifier plus one clause of explanation. Use the SAME identifier every time you
@@ -331,11 +341,11 @@ Prefer a specific verb to a vague category: "fightTargetCreature" not "combat";
 "copyPermanent" not "copyEffects"; "castFromExile" not "alternativeCosts".
 Never add a "needs" entry for something the grammar already covers.
 
-WORKED EXAMPLE — the exact shape of a correct answer, for two cards.
+WORKED EXAMPLE. The exact shape of a correct answer, for two cards.
 
 Input:
  {"oracle_id":"a1","name":"Sear","type_line":"Instant","oracle_text":"Sear deals 3 damage to target creature."}
- {"oracle_id":"a2","name":"Grove Warden","type_line":"Creature — Elf","oracle_text":"Flying\nWhen Grove Warden enters, you gain 2 life.\nGrove Warden assigns combat damage equal to its toughness rather than its power."}
+ {"oracle_id":"a2","name":"Grove Warden","type_line":"${EXAMPLE_TYPE_LINE}","oracle_text":"Flying\nWhen Grove Warden enters, you gain 2 life.\nGrove Warden assigns combat damage equal to its toughness rather than its power."}
 
 Output:
 {"results":[

@@ -999,7 +999,7 @@ function gameStateFacade(scope: XmageScope): XGameState {
       // that did not do much. XMage bodies all guard with `if (watcher != null)`,
       // so null makes the card a visible no-op instead. `watch.ts` is the seam
       // that will make this return something.
-      deferHere(scope, `needs the "${name}" watcher, which this engine does not fold yet — anything computed from it would be 0 and 0 is not the real number`);
+      deferHere(scope, `needs the "${name}" watcher, which this game does not keep yet. Anything computed from it would be 0, and 0 is not the real number`);
       return null;
     },
     getPlayersInRange(playerId) {

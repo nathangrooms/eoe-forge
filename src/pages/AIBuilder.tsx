@@ -518,7 +518,7 @@ export default function AIBuilder() {
       const generatedTotal = generatedCopies + 1; // + the commander
       if (generatedTotal !== 100) {
         throw new Error(
-          `The builder returned ${generatedTotal} cards, not 100. Nothing was saved — try again.`
+          `The builder returned ${generatedTotal} cards, not 100. Nothing was saved. Try again.`
         );
       }
 
@@ -745,7 +745,7 @@ export default function AIBuilder() {
         fail(
           `${unusable.length} generated card${unusable.length === 1 ? '' : 's'} ` +
             `(${unusable.slice(0, 3).join(', ')}${unusable.length > 3 ? '…' : ''}) ` +
-            `cannot be stored. Nothing was saved — rebuild the deck.`
+            `cannot be stored. Nothing was saved. Rebuild the deck.`
         );
         return;
       }
@@ -756,7 +756,7 @@ export default function AIBuilder() {
       if (totalWithCommander !== 100) {
         fail(
           `The generated deck is ${totalWithCommander} cards, not 100. ` +
-            `Nothing was saved — rebuild the deck.`
+            `Nothing was saved. Rebuild the deck.`
         );
         return;
       }

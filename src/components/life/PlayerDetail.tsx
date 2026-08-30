@@ -239,7 +239,7 @@ export function PlayerDetail({
                     <h2 className="text-sm font-semibold">Commander damage</h2>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Lethal at {rules.commanderDamageLethal} from a single commander — partners each
+                    Lethal at {rules.commanderDamageLethal} from a single commander. Partners each
                     need their own. Adding damage here also removes that much life.
                   </p>
                 </header>

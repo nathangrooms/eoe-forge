@@ -141,7 +141,7 @@ function object<T>(fields: Record<string, FieldSpec>, tagKey?: string): Check<T>
 
     for (const key of Object.keys(source)) {
       if (!known.has(key)) {
-        bad(e, `${p}.${key}`, `unknown field — the DSL has no such property here`);
+        bad(e, `${p}.${key}`, `unknown field. The DSL has no such property here`);
         ok = false;
       }
     }
@@ -174,7 +174,7 @@ function union<T>(tagKey: string, variants: Record<string, Check<unknown>>, labe
     if (typeof tag !== 'string') return bad(e, p, `${label} is missing its "${tagKey}" tag`);
     const variant = variants[tag];
     if (!variant) {
-      return bad(e, `${p}.${tagKey}`, `unknown ${label} "${tag}" — not a member of the DSL`);
+      return bad(e, `${p}.${tagKey}`, `unknown ${label} "${tag}". It is not a member of the DSL`);
     }
     return variant(v, p, e) as T | undefined;
   };
@@ -189,7 +189,7 @@ const either = <A, B>(a: Check<A>, b: Check<B>, aTag: string, bTag: string, labe
     const source = v as Record<string, unknown>;
     if (typeof source[aTag] === 'string') return a(v, p, e);
     if (typeof source[bTag] === 'string') return b(v, p, e);
-    return bad(e, p, `expected a ${label} — needs a "${aTag}" or "${bTag}" tag`);
+    return bad(e, p, `expected a ${label}. It needs a "${aTag}" or "${bTag}" tag`);
   };
 
 /* ------------------------------------------------------------------ *
@@ -344,7 +344,7 @@ function valueExprImpl(v: unknown, p: string, e: ValidationError[]): ValueExpr |
     // The single most common model mistake, and the most dangerous: "2" reads as
     // a number to a human and as NaN to `evalValue`. Named explicitly so the
     // failure histogram distinguishes it from a structural error.
-    return bad(e, p, `numbers must be numbers, not strings — got ${JSON.stringify(v)}`);
+    return bad(e, p, `numbers must be numbers, not strings. Got ${JSON.stringify(v)}`);
   }
   return valueExprObject(v, p, e);
 }

@@ -358,7 +358,7 @@ export async function recognizeCard(
       offerVisionFallback: true,
       explanation: cardContested
         ? `Two different cards match about equally well (${best.pDistance} and ${runnerUp!.pDistance} bits apart). Pick one, or use the vision model.`
-        : `Best match is ${best.pDistance} bits away — plausible but not certain.`,
+        : `Best match is ${best.pDistance} bits away. Plausible, but not certain.`,
       timings,
     };
   }

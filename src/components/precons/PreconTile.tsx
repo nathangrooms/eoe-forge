@@ -118,7 +118,7 @@ function PreconTileBase({
         'motion-reduce:transition-none motion-reduce:hover:translate-y-0',
         className
       )}
-      aria-label={`${precon.name}${leads[0] ? ` — ${leads[0].name}` : ''}, ${precon.set}`}
+      aria-label={`${precon.name}${leads[0] ? `, led by ${leads[0].name}` : ''}, ${precon.set}`}
     >
       {/* THE WHOLE CARD, and that is the entire point of this block.
 

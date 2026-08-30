@@ -267,7 +267,7 @@ export function CollectionImportPanel({ onImported, onCancel }: CollectionImport
         const card = resolved[index]?.card ?? null;
 
         if (!card) {
-          errors.push(`${line.raw} — no match found`);
+          errors.push(`${line.raw}. No match found.`);
           setProgress(p => ({ ...p, done: p.done + 1 }));
           continue;
         }
@@ -309,7 +309,7 @@ export function CollectionImportPanel({ onImported, onCancel }: CollectionImport
       const writeFailed = (cardIds: Iterable<string>, reason: string) => {
         for (const cardId of cardIds) {
           for (const raw of linesFor.get(cardId) ?? []) {
-            errors.push(`${raw} — ${reason}`);
+            errors.push(`Could not add ${raw}. ${reason}`);
             added--;
           }
           for (let i = landed.length - 1; i >= 0; i -= 1) {

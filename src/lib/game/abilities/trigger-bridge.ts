@@ -468,12 +468,12 @@ export function unrunnableReasons(ability: TriggeredAbility): string[] {
   if (ability.optional) {
     // "You may" is the player's word. Taking it automatically is the same class
     // of bug as not resolving it at all — the board changed and nobody agreed.
-    reasons.push('optional ("you may") — the choice is the player\'s');
+    reasons.push('optional ("you may"), so the choice is the player\'s');
   }
   if (ability.limit) {
     // "Only once each turn" needs a per-turn usage count that GameState does
     // not carry. Ignoring it would let the ability fire every time.
-    reasons.push(`limited to ${ability.limit.count} per ${ability.limit.per} — state carries no usage count`);
+    reasons.push(`limited to ${ability.limit.count} per ${ability.limit.per}, and nothing here counts how often it has been used`);
   }
   /*
    * TARGETS. This used to refuse every one of them, and the sentence was

@@ -152,7 +152,7 @@ export function CardPrintingComparison({ cardName, oracleId }: CardPrintingCompa
 
       {cheapest && (
         <p className="bg-muted/20 px-4 py-2 text-xs text-muted-foreground">
-          Cheapest {allLoaded ? '' : 'so far '}: {cheapest.set_name} —{' '}
+          Cheapest {allLoaded ? '' : 'so far '}is {cheapest.set_name} at{' '}
           <span className="text-foreground">{formatUsd(priceOf(cheapest))}</span>
         </p>
       )}

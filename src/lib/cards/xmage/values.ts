@@ -223,7 +223,7 @@ export const REFUSED_VALUES: Record<string, string> = {
   'xmage:EffectKeyValue':
     '9 cards. Reads a value another effect stashed under a string key. That is a channel between effects the DSL deliberately does not have.',
   'xmage:EquipmentAttachedCount':
-    "10 cards. It had an entry and the entry was wrong TWICE, found by hand-checking Goblin Gaveleer: \"This creature gets +2/+0 for each Equipment attached to it\" was counting every Equipment on the battlefield rather than the ones attached to this creature, and was dropping the class's `multiplier` argument, so a Gaveleer wearing one Equipment while an opponent wore three read +4/+0 instead of +2/+0. No `Selector` means \"objects attached to the source\" — `{sel:'attached'}` points the other way, at what this card is attached TO — so the set cannot be spelled and a quantity wrong in two directions at once is exactly what this file refuses for.",
+    "10 cards. It had an entry and the entry was wrong TWICE, found by hand-checking Goblin Gaveleer: \"This creature gets +2/+0 for each Equipment attached to it\" was counting every Equipment on the battlefield rather than the ones attached to this creature, and was dropping the class's `multiplier` argument, so a Gaveleer wearing one Equipment while an opponent wore three read +4/+0 instead of +2/+0. No `Selector` means \"objects attached to the source\". `{sel:'attached'}` points the other way, at what this card is attached TO. So the set cannot be spelled, and a quantity wrong in two directions at once is exactly what this file refuses for.",
 };
 
 /**

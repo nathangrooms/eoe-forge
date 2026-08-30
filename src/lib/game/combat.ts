@@ -209,7 +209,7 @@ export function validateBlockGroup(
 
   const required = blockersRequiredFor(state, attacker);
   if (live.length < required) {
-    return { ok: false, reason: `${attacker.name} has menace — it takes ${required} blockers.` };
+    return { ok: false, reason: `${attacker.name} has menace. It takes ${required} blockers.` };
   }
 
   return { ok: true, reason: '' };

@@ -488,6 +488,18 @@ export function lossReasonLabel(reason: LossReason): string {
   }
 }
 
+/**
+ * A lowercase fragment, promoted to its own sentence.
+ *
+ * The reasons above and `SbaFinding.detail` are written as fragments so they
+ * can be read on their own, and the log lines that carry them used to join with
+ * an em-dash, which the copy rules forbid. Two sentences need the second one to
+ * start with a capital.
+ */
+function asSentence(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 /* -------------------------------------------------------------------------- */
 /* Internal immutable helpers                                                 */
 /* -------------------------------------------------------------------------- */
@@ -1000,7 +1012,7 @@ function applySbaFinding(state: GameState, finding: SbaFinding, at: number): Gam
         step: next.step,
         type: 'PLAYER_LOST',
         actorId: player.id,
-        message: `${player.name} lost the game — ${lossReasonLabel(reasons[0] ?? 'effect')}.`,
+        message: `${player.name} lost the game. ${asSentence(lossReasonLabel(reasons[0] ?? 'effect'))}.`,
       });
       if (next.mode === 'full') next = removePlayerCards(next, player.id);
       return next;
@@ -1022,7 +1034,7 @@ function applySbaFinding(state: GameState, finding: SbaFinding, at: number): Gam
         round: next.round,
         step: next.step,
         type: 'STATE_BASED_ACTION',
-        message: `${card.name} ceased to exist — ${finding.detail} (CR ${finding.rule}).`,
+        message: `${card.name} ceased to exist. ${asSentence(finding.detail)} (CR ${finding.rule}).`,
       });
     }
 
@@ -1033,7 +1045,7 @@ function applySbaFinding(state: GameState, finding: SbaFinding, at: number): Gam
       const id = finding.instanceId;
       const card = id ? state.cards[id] : undefined;
       if (!id || !card) return state;
-      const next = say(`${card.name} was put into its owner's graveyard — ${finding.detail}`);
+      const next = say(`${card.name} was put into its owner's graveyard. ${asSentence(finding.detail)}`);
       return moveCard(next, id, 'graveyard');
     }
 
@@ -1052,7 +1064,7 @@ function applySbaFinding(state: GameState, finding: SbaFinding, at: number): Gam
       const id = finding.instanceId;
       const card = id ? state.cards[id] : undefined;
       if (!id || !card) return state;
-      const next = say(`${card.name} became unattached — ${finding.detail}`);
+      const next = say(`${card.name} became unattached. ${asSentence(finding.detail)}`);
       return patchCard(next, id, c => ({ ...c, attachedTo: undefined }));
     }
 
@@ -1196,7 +1208,7 @@ export function validateAction(state: GameState, action: GameAction): Validation
   }
 
   if (state.mode === 'life-counter' && CARD_ACTIONS.has(action.type)) {
-    return { ok: false, reason: `${action.type} needs a full game — this is a life counter.` };
+    return { ok: false, reason: `${action.type} needs a full game. This is a life counter.` };
   }
 
   // Field presence is checked generically so every variant is covered by one pass.

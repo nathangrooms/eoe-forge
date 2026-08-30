@@ -198,7 +198,7 @@ export function LocalScanView({ onAccept }: LocalScanViewProps) {
         <div className="space-y-2 rounded-xl bg-muted/30 p-3">
           <p className="text-xs text-muted-foreground">
             {loading.phase === 'download'
-              ? `Downloading the card index — ${loading.loaded.toLocaleString()} of ${loading.total.toLocaleString()}. This happens once.`
+              ? `Downloading the card index, ${loading.loaded.toLocaleString()} of ${loading.total.toLocaleString()}. This happens once.`
               : loading.phase === 'pack'
                 ? 'Preparing the index…'
                 : 'Loading the card index…'}
@@ -314,7 +314,7 @@ function ScanResult({
           heading={modelName ? `The vision model read this as “${modelName}”` : undefined}
           subheading={
             modelName
-              ? 'It reads the name only, never the printing — so the printing is still your call.'
+              ? 'It reads the name only, never the printing. The printing is still your call.'
               : undefined
           }
         />

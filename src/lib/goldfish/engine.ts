@@ -673,7 +673,7 @@ export function nextTurn(state: GoldfishState): GoldfishState {
     hand: drawn ? [...state.hand, drawn] : state.hand,
     log: [
       ...state.log,
-      { turn, text: turn === 1 ? 'Turn 1 — on the play, no draw.' : `Turn ${turn} — drew ${drawn?.name ?? 'nothing (library empty)'}.` },
+      { turn, text: turn === 1 ? 'Turn 1. On the play, no draw.' : `Turn ${turn}. Drew ${drawn?.name ?? 'nothing (library empty)'}.` },
     ],
   };
 }

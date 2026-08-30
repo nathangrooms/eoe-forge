@@ -307,7 +307,7 @@ function actionsForEffect(
         if (target.kind !== 'player' || !target.playerId) {
           out.push({
             type: 'NOTE',
-            message: `${object.name} deals ${effect.amount} damage to a permanent — mark it by hand.`,
+            message: `${object.name} deals ${effect.amount} damage to a permanent. Mark it by hand.`,
             instanceId: target.instanceId,
             at,
             cause,
@@ -614,7 +614,7 @@ export function resolutionActionsFor(
     const out: GameAction[] = [
       {
         type: 'NOTE',
-        message: `${object.name} was countered on resolution — every target it was cast at is now illegal.`,
+        message: `${object.name} was countered on resolution. Every target it was cast at is now illegal.`,
         instanceId: object.cardInstanceId,
         at,
       },
@@ -712,7 +712,7 @@ export function resolutionActionsFor(
       out.push(
         manualNoteAction(card, at, 'resolves') ?? {
           type: 'NOTE',
-          message: `${object.name} resolves — the engine applies no effects for it; resolve it by hand.`,
+          message: `${object.name} resolves. No effects were applied. Resolve it by hand.`,
           instanceId: object.cardInstanceId,
           at,
         }
@@ -726,7 +726,7 @@ export function resolutionActionsFor(
   if (out.length === 0) {
     out.push({
       type: 'NOTE',
-      message: `${object.name} resolves — the engine applies no effects for it; resolve it by hand.`,
+      message: `${object.name} resolves. No effects were applied. Resolve it by hand.`,
       instanceId: object.cardInstanceId,
       at,
     });

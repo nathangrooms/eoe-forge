@@ -751,7 +751,7 @@ export function resolveTriggerActions(
         {
           type: 'NOTE',
           instanceId: trigger.sourceInstanceId,
-          message: `${trigger.sourceName}'s triggered ability did nothing — "${describeIntervening(condition)}" was no longer true when it resolved.`,
+          message: `${trigger.sourceName}'s triggered ability did nothing. "${describeIntervening(condition)}" was no longer true when it resolved.`,
           at,
         },
       ];
@@ -797,7 +797,7 @@ export function resolveTriggerActions(
         {
           type: 'NOTE',
           instanceId: trigger.sourceInstanceId,
-          message: `${trigger.sourceName}'s triggered ability did nothing — its condition was no longer true when it resolved: ${trigger.dsl.text}`,
+          message: `${trigger.sourceName}'s triggered ability did nothing. Its condition was no longer true when it resolved: ${trigger.dsl.text}`,
           at,
         },
       ];
@@ -839,7 +839,7 @@ export function resolveTriggerActions(
         {
           type: 'NOTE',
           instanceId: trigger.sourceInstanceId,
-          message: `${trigger.sourceName}'s triggered ability was removed from the stack — there was nothing legal for it to target: ${trigger.dsl.text}`,
+          message: `${trigger.sourceName}'s triggered ability was removed from the stack. There was nothing legal for it to target: ${trigger.dsl.text}`,
           at,
         },
       ];
@@ -861,7 +861,7 @@ export function resolveTriggerActions(
         {
           type: 'NOTE',
           instanceId: trigger.sourceInstanceId,
-          message: `${trigger.sourceName}'s triggered ability did nothing — every target it was pointed at is now illegal.`,
+          message: `${trigger.sourceName}'s triggered ability did nothing. Every target it was pointed at is now illegal.`,
           at,
         },
       ];
@@ -926,7 +926,7 @@ export function spellResolutionNotes(
     {
       type: 'NOTE',
       instanceId: card.instanceId,
-      message: `${card.name} resolves — the engine applies no spell effects; resolve it by hand.`,
+      message: `${card.name} resolves. No spell effects were applied. Resolve it by hand.`,
       at,
     },
   ];
@@ -1058,7 +1058,7 @@ export function drainTriggers(
   // `pendingTriggers`, and say so out loud.
   next = apply(next, {
     type: 'NOTE',
-    message: `Stopped after ${maxResolutions} triggered abilities — ${pendingTriggersOf(next).length} still waiting. In a real game this loop would be a draw; resolve the rest by hand.`,
+    message: `Stopped after ${maxResolutions} triggered abilities. ${pendingTriggersOf(next).length} still waiting. In a real game this loop would be a draw. Resolve the rest by hand.`,
     at,
   });
   return { state: next, resolved, drained: false, awaitingTargets: false };
@@ -1168,7 +1168,7 @@ export function stackEffectsFor(
   if (outstanding) {
     out.push({
       op: 'note',
-      message: `${trigger.sourceName} (${TRIGGER_LABELS[ability.timing].toLowerCase()}) — resolve by hand: ${outstanding}`,
+      message: `${trigger.sourceName} (${TRIGGER_LABELS[ability.timing].toLowerCase()}). Resolve by hand: ${outstanding}`,
     });
   }
 

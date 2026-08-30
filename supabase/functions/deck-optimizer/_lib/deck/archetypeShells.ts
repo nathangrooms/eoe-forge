@@ -171,7 +171,7 @@ export const DECK_ARCHETYPES: DeckArchetype[] = [
   {
     id: 'aggro',
     name: 'Aggro',
-    description: 'Cheap threats and reach — end the game before the table stabilises.',
+    description: 'Cheap threats and reach. End the game before the table stabilises.',
     formats: ['standard', 'pioneer', 'modern'],
     colors: ['R'],
     targetPower: { min: 4, max: 6 },

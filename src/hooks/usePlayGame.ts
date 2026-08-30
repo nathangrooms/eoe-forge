@@ -347,7 +347,7 @@ export function usePlayGame(options: UsePlayGameOptions): UsePlayGameResult {
     }
     if (stalledRef.current > MAX_STALLED_TICKS) {
       setBotThinking(false);
-      pushFeed('The bot stopped making progress — advance the step manually.');
+      pushFeed('The bot stopped making progress. Advance the step yourself.');
       return;
     }
 

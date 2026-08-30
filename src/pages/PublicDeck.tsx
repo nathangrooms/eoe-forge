@@ -281,10 +281,10 @@ export default function PublicDeck() {
   const { deck, viewCount } = data;
   const commanderRow = rows.find(row => row.is_commander) ?? null;
   const ogImage = deck.commander?.image;
-  const pageTitle = `${deck.name} — DeckMatrix`;
+  const pageTitle = `${deck.name} · DeckMatrix`;
   const pageDescription = `${formatLabel(deck.format)} deck${
     deck.commander ? ` featuring ${deck.commander.name}` : ''
-  } — ${deck.counts.total} cards. View and export this decklist.`;
+  }. ${deck.counts.total} cards. View and export this decklist.`;
   const pageUrl = `${window.location.origin}/p/${slug}`;
   const identity = commanderRow?.card?.color_identity?.length
     ? commanderRow.card.color_identity

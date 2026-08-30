@@ -386,7 +386,7 @@ function scaleCounters(
 function preventedNote(effect: ReplacementEffect, what: string, at: number): GameAction {
   return {
     type: 'NOTE',
-    message: `${effect.name} replaced ${what} — it does not happen.`,
+    message: `${effect.name} replaced ${what}. It does not happen.`,
     instanceId: effect.sourceInstanceId,
     at,
   };
@@ -555,7 +555,7 @@ export function replaceAction(state: GameState, action: GameAction): GameAction[
     [
       {
         type: 'NOTE',
-        message: `${chosen.name} would replace ${describeEvent(event)} here, but the engine cannot apply it — resolve it by hand.`,
+        message: `${chosen.name} would replace ${describeEvent(event)} here, but that cannot be applied for you. Resolve it by hand.`,
         instanceId: chosen.sourceInstanceId,
         at,
       } as GameAction,

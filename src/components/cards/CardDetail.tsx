@@ -367,7 +367,7 @@ export function CardDetail({
                 <p className="text-sm text-muted-foreground">Loading rulings from Scryfall…</p>
               )}
               {rulingsError && (
-                <p className="text-sm text-destructive">Could not load rulings — {rulingsError}</p>
+                <p className="text-sm text-destructive">Could not load rulings. {rulingsError}</p>
               )}
               {!loadingRulings && !rulingsError && rulings?.length === 0 && (
                 <p className="text-sm text-muted-foreground">

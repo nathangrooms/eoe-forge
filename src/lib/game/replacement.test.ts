@@ -492,7 +492,7 @@ test('an effect the engine cannot apply here says so instead of doing nothing', 
   });
 
   assert.equal(state.cards.sol?.zone, 'battlefield', 'the token still arrived');
-  assert.ok(said(state, 'cannot apply it'), messages(state).join(' | '));
+  assert.ok(said(state, 'cannot be applied'), messages(state).join(' | '));
 });
 
 /* ------------------------------------------------------------------ *

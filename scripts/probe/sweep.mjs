@@ -177,6 +177,15 @@ const snapshot = () =>
     art: [...document.querySelectorAll('img')].filter(i => /scryfall/i.test(i.currentSrc || i.src || '')).length,
     height: document.documentElement.scrollHeight,
     href: location.pathname + location.search,
+    /* COLOUR, because text, height and href are all blind to a theme switch.
+       Settings' Light and Dark buttons reported "no request and no change"
+       while working perfectly: they repaint the page and move nothing. A
+       control the sweep cannot see the effect of is a control it silently
+       under-reports, which is the same class of hole as the synthetic click. */
+    theme:
+      getComputedStyle(document.body).backgroundColor +
+      '|' +
+      (document.documentElement.getAttribute('class') ?? ''),
   });
 
 
@@ -248,7 +257,7 @@ try {
     const net = await page.evaluate(() => window.__net || []);
     const late = await page.evaluate(snapshot).catch(() => before);
     const differs = a => a.text !== before.text || a.art !== before.art ||
-      a.height !== before.height || a.href !== before.href;
+      a.height !== before.height || a.href !== before.href || a.theme !== before.theme;
     const after = differs(early) ? early : late;
 
     const failed = net.filter(n => n.status >= 400);

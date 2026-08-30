@@ -174,6 +174,18 @@ export function DeckRecordPanel({
           created and there was no timeline at all. Twelve months, every one of
           them including the empty ones, because the gap is the information: a
           deck you stopped playing in March looks like one. */}
+      {/* NOT DRAWN AT ALL UNTIL THERE IS A GAME IN IT.
+          A chart of twelve empty months is not information, and the panel said
+          so twice: "No games recorded in the last twelve months. Record one
+          below" sat 300px above Match history's "No matches yet. Once you have
+          played some games with this deck, its record and win rate build up
+          here", which is the same sentence with the same button under it.
+
+          Every deck starts here, so this is the common state rather than an
+          edge case. One empty state, in the section that carries the control
+          that fills it. The timeline returns the moment a match is recorded,
+          which is when it has something to show. */}
+      {anyPlayed && (
       <Card>
         <CardContent className="space-y-4 p-5 md:p-6">
           <div>
@@ -185,7 +197,7 @@ export function DeckRecordPanel({
             </p>
           </div>
 
-          {anyPlayed ? (
+          {(
             <div>
               <div className="flex h-24 items-end gap-1.5">
                 {stats.months.map(month => (
@@ -226,14 +238,10 @@ export function DeckRecordPanel({
                 ))}
               </div>
             </div>
-          ) : (
-            <p className="rounded-lg bg-muted/40 p-4 text-sm text-muted-foreground">
-              No games recorded in the last twelve months. Record one below and the shape of how
-              often you play this deck builds up here.
-            </p>
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* The primer is a control and a form and has no panel of its own, so on
           a tab of full-width cards it read as a button somebody had left

@@ -154,6 +154,47 @@ const SELF_PHRASES: string[] = [...SELF_NOUNS]
  * rules text; "Landfall —" is flavour. Getting this backwards would delete the
  * modal marker from every modal spell.
  */
+/**
+ * The ability word at the head of a paragraph, if there is one.
+ *
+ * `normalizeParagraph` STRIPS these, and that is right: an ability word has no
+ * rules meaning at all, so leaving "landfall — " in front of "whenever a land
+ * you control enters" would make every landfall card a shape no rule matches.
+ *
+ * But stripping it and throwing it away cost every one of them. Measured 31 Aug
+ * 2026 against Scryfall's own catalog of 69 ability words: the engine emitted a
+ * facet for exactly ONE. Landfall is on 193 cards and is one of DeckMatrix's own
+ * eighteen archetype shells, and the engine could not see it.
+ *
+ * An ability word is the single most concentrated archetype signal a card
+ * carries. Wizards puts it there precisely to say "this card belongs to that
+ * deck": landfall, metalcraft, delirium, threshold, domain, constellation,
+ * magecraft. Every one names a deck somebody builds.
+ *
+ * PATTERN PLUS BLOCKLIST, not a fixed list, so a word from a set released next
+ * month is read without anybody updating a file. `NOT_ABILITY_WORDS` is the
+ * guard and it is the same one the strip uses, so the two can never disagree
+ * about what an ability word is.
+ */
+export function abilityWordsOf(card: AbilityCard): string[] {
+  const found = new Set<string>();
+  const texts = [card.oracle_text, ...faceList(card).map((f) => f?.oracle_text)];
+  for (const text of texts) {
+    if (!text) continue;
+    for (const para of String(text).split('\n')) {
+      /* The em dash is what makes it an ability word rather than a sentence.
+         Normalisation flattens dashes LATER, which is why this reads the raw
+         text and why the order in `normalizeParagraph` is load-bearing. */
+      const m = para.match(/^([A-Za-z][A-Za-z'’ ]{2,30}) — /);
+      if (!m) continue;
+      const word = m[1].trim().toLowerCase();
+      if (NOT_ABILITY_WORDS.has(word)) continue;
+      found.add(word);
+    }
+  }
+  return [...found];
+}
+
 const NOT_ABILITY_WORDS = new Set([
   'choose one',
   'choose two',

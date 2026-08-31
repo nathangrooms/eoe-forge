@@ -62,7 +62,7 @@ import { compileCardAbilities } from '../../cards/abilities/compiler.ts';
 // The compiler's own subtype vocabulary, so a word is a subtype in exactly one
 // place in this repository. See `readNamedSubtypesInRules`.
 import { isSubtypeWord } from '../../cards/abilities/grammar.ts';
-import { normalizeCard, type AbilityCard } from '../../cards/abilities/normalize.ts';
+import { abilityWordsOf, normalizeCard, type AbilityCard } from '../../cards/abilities/normalize.ts';
 import { xmageSwapFor } from '../../cards/xmage/lowered.ts';
 import { parseCost } from '../../cards/xmage/compare.ts';
 import type { Facet } from '../../../engine/knowledge/behaviour.ts';
@@ -170,6 +170,23 @@ export function facetsForCard(row: FacetInput): FacetResult {
 
   readOwnTypeInRules(row, out);
   readNamedSubtypesInRules(row, out);
+
+  /*
+   * THE ABILITY WORD, which the parser correctly throws away and deck building
+   * cannot do without.
+   *
+   * It carries no rules meaning, so `normalizeParagraph` strips it before any
+   * rule sees the clause. That is right for parsing and it was catastrophic for
+   * everything else: measured against Scryfall's catalog of 69 ability words,
+   * the engine emitted a facet for ONE. Landfall is on 193 cards and is one of
+   * our own eighteen shells.
+   *
+   * `kw:` rather than a new prefix, because an ability word behaves exactly like
+   * a keyword for every consumer that matters: it names a thing a deck is built
+   * around, it is matched by ROLE_FACETS and PLAN_RULES the same way, and giving
+   * it a prefix of its own would mean touching every one of them for no gain.
+   */
+  for (const word of abilityWordsOf(row as AbilityCard)) out.add(`kw:${word}`);
 
   return { facets: [...out].sort(), source, coverage };
 }
@@ -443,7 +460,29 @@ function escapeRe(s: string): string {
  * The type line
  * ------------------------------------------------------------------ */
 
-/** Card types the engine has a use for. Anything else is skipped, not guessed. */
+/**
+ * Card types and supertypes the engine has a use for.
+ *
+ * Anything else is skipped, not guessed. Checked against Scryfall's own catalog
+ * on 31 Aug 2026, which is the authoritative list Wizards maintains: Magic has
+ * seven supertypes and this held ONE of them.
+ *
+ * The four added are all real deck signals and all free, because they are
+ * already sitting in the type line the parser reads:
+ *
+ *   snow    157 cards, and snow-matters is a deck somebody builds. Dead Of
+ *           Winter and Marit Lage's Slumber count them.
+ *   basic   641 cards. The difference between a land a fetch can find and one
+ *           it cannot, which is most of what a mana base is.
+ *   token   4,130 mentions. A token is not a card and a deck that makes them
+ *           is not a deck that draws them.
+ *   world   37 cards. Rare, but the legend rule for worlds is its own thing.
+ *
+ * `ongoing` and `elite` are deliberately absent: `ongoing` is Archenemy scheme
+ * vocabulary and `elite` appears on one card, so neither would ever separate a
+ * deck. A facet nothing acts on is noise, which is the same reason a colour
+ * choice carries no `cares:` facet.
+ */
 const CARD_TYPES: readonly string[] = [
   'creature',
   'instant',
@@ -454,6 +493,10 @@ const CARD_TYPES: readonly string[] = [
   'planeswalker',
   'battle',
   'legendary',
+  'snow',
+  'basic',
+  'token',
+  'world',
 ];
 
 function readTypeLine(typeLine: string | null, out: Set<Facet>): void {

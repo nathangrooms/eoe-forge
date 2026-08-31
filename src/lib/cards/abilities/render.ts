@@ -426,6 +426,17 @@ export function renderEffect(effect: Effect): string {
         '-', effect.modes.map((m) => renderEffects(m.effects)).join(' ; '),
       ]);
     case 'may': return `${renderPlayer(effect.who)} may ${renderEffects(effect.effects)}`;
+    case 'choose': {
+      /* The printed wording, so `roundtrip.ts` can compare it with the card.
+         "colour" is never printed on a Magic card whatever the locale. */
+      const subject =
+        effect.what === 'creature-type' ? 'a creature type'
+        : effect.what === 'basic-land-type' ? 'a basic land type'
+        : effect.what === 'color' ? 'a color'
+        : effect.what === 'opponent' ? 'an opponent'
+        : 'a player';
+      return `${renderPlayer(effect.who)} choose ${subject}`;
+    }
     case 'manual': return effect.text;
     /* There is nothing to render. The body is imperative Java translated by
      * machine and it carries no words of its own, so what comes back names the

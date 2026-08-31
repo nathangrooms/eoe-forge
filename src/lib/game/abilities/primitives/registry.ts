@@ -102,6 +102,19 @@ export type AlreadyGoodDo =
 export type PlayerChoiceDo =
   | 'may'
   | 'choose-mode'
+  /*
+   * "As this land enters, choose a creature type." The choice is OPEN — it is
+   * written on the permanent and the whole table can see it — so unlike naming
+   * a card there is nowhere for hidden information to go and nothing stopping a
+   * prompt being written. It is here rather than in `HandledDo` because taking
+   * the choice on the player's behalf is not automation, which is the same
+   * reason `may` is here.
+   *
+   * The choice is worth reading even while it waits: fifty of these cards
+   * choose a creature type, and every one is a tribal card the deck builder
+   * could not previously see at all.
+   */
+  | 'choose'
   | 'manual'
   | 'discard'
   | 'sacrifice'

@@ -40,9 +40,11 @@ import type {
 } from './dsl.ts';
 import { manual } from './dsl.ts';
 import {
+  CHOICE_SUBJECT_WORDS,
   NUM,
   PLAYER,
   objectSelector,
+  parseChoiceSubject,
   parseCount,
   parseForEachValue,
   parseKeywordList,
@@ -511,6 +513,24 @@ export const EFFECT_RULES: EffectRule[] = [
    *
    * Scry is on Preordain, Serum Visions, Opt and several hundred more.
    */
+  {
+    id: 'choose-open-subject',
+    re: new RegExp(
+      `^(?:(${P}) )?choose (?:a |an )?(${CHOICE_SUBJECT_WORDS})(?: other than [a-z]+)?$`
+    ),
+    note:
+      '"As this land enters, choose a creature type." Fifty cards choose a type ' +
+      'and forty-one choose a colour, and all of them produced no record at all ' +
+      'while `as ~ enters, choose` was classified as hidden-choice. An open ' +
+      'choice written on the permanent is not hidden information.',
+    build(m, ctx) {
+      const who = playerOr(m[1], ctx);
+      if (!who) return null;
+      const what = parseChoiceSubject(m[2]);
+      if (!what) return null;
+      return [{ do: 'choose', who, what }];
+    },
+  },
   {
     id: 'scry',
     re: new RegExp(`^(?:(${P}) )?(?:scry|scries) (${N})$`),

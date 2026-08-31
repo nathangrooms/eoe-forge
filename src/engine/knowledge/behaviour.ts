@@ -164,6 +164,11 @@ export const EFFECT_VERBS: readonly string[] = [
   'lose-game',
   'set-monarch',
   'unless-pays',
+  /* An open choice made as a permanent enters, with the SUBJECT on the effect
+     rather than in the verb, the way `among` sits on `add-mana`. So every
+     consumer that reads `eff:choose` reads all of them, and a new subject needs
+     no entry here and no role rule before the card counts for anything. */
+  'choose',
   // Named `manual` hints, read by hint id.
   'proliferate',
   'extra-turn',

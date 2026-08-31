@@ -33,6 +33,7 @@ import type {
   ValueExpr,
   WatchedEvent,
   Zone,
+  ChoiceSubject,
 } from './dsl.ts';
 import { andF, isWatchableFilter, notF, orF } from './dsl.ts';
 
@@ -255,6 +256,34 @@ const SUBTYPES = new Set(SUBTYPES_RAW.filter((s) => !SUBTYPE_BLOCKLIST.has(s)));
  * shortens a legendary card's name: "Rhino, Wrecker of Walls" must not turn the
  * subtype "Rhino" into a self-reference in its own rules text.
  */
+/**
+ * The subject of an open choice, from the words a card prints.
+ *
+ * Shared by `effect-rules.ts` (which reads "choose a colour" as a standalone
+ * effect) and `clause-rules.ts` (which reads the "as this enters" wrapper
+ * around it). It lives here because clause-rules imports effect-rules and not
+ * the other way round, so a helper both need has to sit under both — and two
+ * near-identical lists of subjects is somewhere for them to disagree, which is
+ * the argument `selfNames` makes for being exported at all.
+ *
+ * Returns null for anything not on the list, INCLUDING "a card name". Naming a
+ * card is hidden information the runtime has nowhere to put, and recording it
+ * as an ordinary choice would turn a declared modelling gap into a claim.
+ */
+export function parseChoiceSubject(raw: string): ChoiceSubject | null {
+  switch (raw.trim().toLowerCase().replace('colour', 'color')) {
+    case 'creature type': return 'creature-type';
+    case 'basic land type': return 'basic-land-type';
+    case 'color': return 'color';
+    case 'player': return 'player';
+    case 'opponent': return 'opponent';
+    default: return null;
+  }
+}
+
+/** The words a card prints for each subject, for {@link parseChoiceSubject}. */
+export const CHOICE_SUBJECT_WORDS = 'creature type|colou?r|player|opponent|basic land type';
+
 export function isSubtypeWord(word: string): boolean {
   return SUBTYPES.has(word.trim().toLowerCase());
 }

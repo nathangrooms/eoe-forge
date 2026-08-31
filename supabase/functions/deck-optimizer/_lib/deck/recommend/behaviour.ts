@@ -898,6 +898,32 @@ function readEffect(effect: Effect, out: Set<Facet>): void {
       if ('sel' in effect.to) readSelector(effect.to as Selector, out);
       return;
 
+    /*
+     * AN OPEN CHOICE, AND WHAT IT IS ABOUT.
+     *
+     * `eff:choose` alone would say a decision happens and nothing about what
+     * the card is for. The subject is the whole point: fifty cards choose a
+     * CREATURE TYPE as they enter, and every one is a tribal card — Shared
+     * Triumph, Circle of Solace, Roaming Throne, Secluded Courtyard, Rally the
+     * Ranks. Before this they produced no record at all and the deck builder
+     * could not see them.
+     *
+     * `cares:sub:chosen` rather than a real subtype, because the type is picked
+     * by the player at the table. Naming a subtype here would be an invention:
+     * Secluded Courtyard is not a Goblin card, it is a card that becomes one.
+     * The pseudo-value keeps it inside the prefix the whole engine already
+     * reads for tribal, so `planForCommander` and the tagger both find it
+     * without a new rule.
+     *
+     * A colour or a player is not a deck-building signal, so those carry the
+     * verb and nothing more. A facet nothing acts on is noise.
+     */
+    case 'choose':
+      out.add('eff:choose');
+      if (effect.what === 'creature-type') out.add('cares:sub:chosen');
+      if (effect.what === 'basic-land-type') out.add('cares:type:land');
+      return;
+
     case 'draw':
     case 'mill':
     case 'discard':

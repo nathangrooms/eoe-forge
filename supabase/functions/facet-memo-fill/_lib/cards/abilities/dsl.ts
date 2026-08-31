@@ -323,6 +323,22 @@ export type Condition =
  * Effects — a closed vocabulary, exhaustively switched by the runtime.
  * ------------------------------------------------------------------ */
 
+/**
+ * What an open choice is made from. Only subjects a card actually names.
+ *
+ * `card-name` is deliberately ABSENT: Meddling Mage and Sorcerous Spyglass name
+ * a card, which is hidden-choice for a real reason — the choice is information
+ * the rest of the game has to be told about, and the runtime has nowhere to put
+ * it. Refusing those keeps the gap honest instead of recording a choice nothing
+ * can act on.
+ */
+export type ChoiceSubject =
+  | 'creature-type'
+  | 'color'
+  | 'player'
+  | 'opponent'
+  | 'basic-land-type';
+
 export type Effect =
   /* life & damage */
   | { do: 'gain-life' | 'lose-life' | 'set-life'; who: PlayerSelector; amount: ValueExpr }
@@ -404,6 +420,29 @@ export type Effect =
    * attached.
    */
   | { do: 'scry'; who: PlayerSelector; count: ValueExpr }
+  /**
+   * A choice made openly, that the rest of the card then reads.
+   *
+   * "As this land enters, choose a creature type" is Secluded Courtyard, and
+   * until now it produced no record at all: the compiler classified every
+   * `as ~ enters, choose` as `hidden-choice`, alongside "name a card" and
+   * "separate into piles". That is too broad. Naming a card is hidden
+   * information and a genuine modelling gap; choosing a creature type is
+   * written on the permanent for the whole table to see, and the only thing
+   * stopping the runtime offering it is that nobody wrote the prompt.
+   *
+   * WHAT is a FIELD, not fifty verbs, for the reason `among` is a field on
+   * `add-mana`: every consumer that understands `eff:choose` understands all of
+   * them, and a new subject needs no entry in EFFECT_VERBS, no facet and no
+   * role rule before the card counts for anything.
+   *
+   * It matters well beyond play. Fifty cards choose a creature type, and every
+   * one of them is a TRIBAL card the deck builder could not see: Shared
+   * Triumph, Circle of Solace, Roaming Throne, Rally the Ranks, Secluded
+   * Courtyard. They read as `cares:sub:chosen` now, which says the true thing:
+   * this is about a creature type and the type is up to you.
+   */
+  | { do: 'choose'; who: PlayerSelector; what: ChoiceSubject }
   /*
    * CR 701.44. Look at the top N, then put any number into your graveyard and
    * the rest back on top in any order.

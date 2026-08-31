@@ -29,8 +29,10 @@ import { notF } from './dsl.ts';
 import type { BuildCtx } from './effect-rules.ts';
 import { phraseSelector } from './effect-rules.ts';
 import {
+  CHOICE_SUBJECT_WORDS,
   NUM,
   objectSelector,
+  parseChoiceSubject,
   parseCondition,
   parseCount,
   parseForEachValue,
@@ -959,6 +961,39 @@ export function parseReplacement(paragraph: string): ReplacementShape | null {
       result: { do: 'multiply', factor: tokenDoubler[1] === 'twice' ? 2 : 3 },
       selfReplacement: false,
     };
+  }
+
+  /* "AS THIS LAND ENTERS, CHOOSE A CREATURE TYPE."
+     ------------------------------------------------------------------
+     Ninety-one cards, and until now every one of them produced NO RECORD AT
+     ALL, because the compiler's gap table classified `^as ~ enters, choose` as
+     `hidden-choice` alongside "name a card" and "separate into piles".
+
+     That was too broad. Naming a card is hidden information with nowhere to
+     live; choosing a creature type is written on the permanent for the table to
+     read, and the only thing stopping the runtime offering it is that nobody
+     has written the prompt. `parseChoiceSubject` refuses "a card name" so the
+     genuine gap stays a gap.
+
+     `additional` had a renderer and no producer before this. It is the right
+     result: "as it enters" is not a trigger — it never uses the stack — and the
+     choice is an extra thing that happens as the permanent arrives.
+
+     It is worth reading long before the prompt exists. Fifty of these choose a
+     CREATURE TYPE, which makes Shared Triumph, Circle of Solace, Roaming Throne
+     and Secluded Courtyard tribal cards the deck builder can finally see. */
+  const entersChoosing = p.match(
+    new RegExp(`^as ~ enters,? (?:you )?choose (?:a |an )?(${CHOICE_SUBJECT_WORDS})(?: other than [a-z]+)?$`),
+  );
+  if (entersChoosing) {
+    const what = parseChoiceSubject(entersChoosing[1]);
+    if (what) {
+      return {
+        event: { on: 'enters', who: { sel: 'self' } },
+        result: { do: 'additional', effects: [{ do: 'choose', who: { who: 'you' }, what }] },
+        selfReplacement: true,
+      };
+    }
   }
 
   const counterDoubler = p.match(

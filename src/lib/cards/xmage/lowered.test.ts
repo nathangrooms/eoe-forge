@@ -124,15 +124,24 @@ test('a swapped card still accounts for every character of its oracle text', () 
  * The refusals. A port with no refusal tests has not shown it can say no.
  * ------------------------------------------------------------------ */
 
-test('a card whose additional cast cost the record cannot carry is refused', () => {
+test('a card with an additional cast cost carries the cost, and never runs without it', () => {
   /*
    * Scryfall, Raze: "As an additional cost to cast this spell, sacrifice a
    * land. / Destroy target land."
    *
-   * The record holds `xmage:SacrificeTargetCost` on the spell ability.
-   * `SpellAbility` in `dsl.ts` has no cost list, so lowering this produced a
-   * spell that destroyed a land for free. It RAN and it was wrong, which is the
-   * failure this whole port refuses by construction.
+   * THIS TEST USED TO ASSERT A REFUSAL, and its own reason for the refusal was
+   * "`SpellAbility` in `dsl.ts` has no cost list, so lowering this produced a
+   * spell that destroyed a land for free". That reason stopped being true on
+   * 31 Aug 2026: `SpellAbility.additionalCosts` exists, and the compiler
+   * attaches the cost paragraph to the spell printed under it.
+   *
+   * The SAFETY PROPERTY is unchanged and is what is asserted here. A spell must
+   * never run without its additional cost. It was held by refusing the card;
+   * it is held by carrying the cost, which is strictly better, because refusing
+   * also meant Village Rites and Deadly Dispute read as doing nothing.
+   *
+   * So the assertion is not "coverage is full" — that would be a test of
+   * ambition. It is that if the card DOES run, the sacrifice is on the record.
    */
   const raze = card({
     name: 'Raze',
@@ -144,7 +153,18 @@ test('a card whose additional cast cost the record cannot carry is refused', () 
   assert.equal(hasXmageRecord(raze.oracle_id!), false, 'must not be in the shipped table at all');
   const { result } = compileWithTrace(raze);
   assert.equal(result.source, 'compiler');
-  assert.notEqual(result.coverage, 'full', 'the card stays honestly incomplete rather than running wrong');
+
+  const spell = result.abilities.find(a => a.kind === 'spell') as
+    | { additionalCosts?: Array<{ pay: string }> }
+    | undefined;
+  if (result.coverage === 'full') {
+    assert.ok(spell, 'a fully read Raze has to have a spell ability');
+    assert.deepEqual(
+      (spell!.additionalCosts ?? []).map(c => c.pay),
+      ['sacrifice'],
+      'destroying a land for free is the exact failure this card is here to catch'
+    );
+  }
 });
 
 test('a card whose modes read a target nothing announces is refused', () => {

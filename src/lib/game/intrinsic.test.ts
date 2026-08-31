@@ -252,17 +252,63 @@ test('an unconditional enters-tapped land is unaffected by any of this', () => {
 });
 
 test('a condition the compiler cannot read builds no ability rather than guessing', () => {
-  // "three or more other Swamps" is not in the condition vocabulary yet. The
-  // card keeps no replacement at all, which is the behaviour before this change
-  // and is deliberately NOT replaced by an unconditional tap.
+  // "the initiative" is a designation, not a value the condition vocabulary
+  // holds, and it is deliberately NOT downgraded to an unconditional tap: being
+  // wrong in that direction taps a land the card would have brought in ready.
+  //
+  // This test used to use Witch's Cottage, whose "three or more OTHER Swamps"
+  // was unreadable for a different reason and is readable now. See the test
+  // below, which is where that card went.
   const state = withCard(
     table(),
-    'cottage',
-    "Witch's Cottage",
+    'weird',
+    'Not A Real Land',
     'Land',
-    'This land enters tapped unless you control three or more other Swamps.'
+    'This land enters tapped unless you have the initiative.'
   );
-  assert.deepEqual(intrinsicReplacements(card(state, 'cottage')), []);
+  assert.deepEqual(intrinsicReplacements(card(state, 'weird')), []);
+});
+
+test('"other" in an enters-tapped condition costs nothing, because the land is not there yet', () => {
+  /*
+   * Witch's Cottage, and the twenty check lands whose condition is "unless you
+   * control two or more other lands" — Dreamroot Cascade at rank 177 the most
+   * played of them. Every one of them entered UNTAPPED every time, because
+   * `parseCondition` refuses any "controls" phrase carrying `{is:'other'}` and
+   * `parseReplacement` refuses a condition it cannot read.
+   *
+   * The refusal is right in general and free here. CR 614.12 applies a
+   * replacement that changes how a permanent enters BEFORE it is on the
+   * battlefield, so the entering land is not among the lands you control when
+   * the question is asked, and "other" is doing no work.
+   *
+   * The second half of this test is the part that matters: with exactly two
+   * Swamps out, a third is NOT conjured by counting the Cottage itself.
+   */
+  const COTTAGE = 'This land enters tapped unless you control three or more other Swamps.';
+  const swamp = (id: string) => ({
+    instanceId: id,
+    cardId: id,
+    name: 'Swamp',
+    ownerId: 'p1',
+    typeLine: 'Basic Land — Swamp',
+    oracleText: '',
+  });
+
+  let short = withCard(table(), 'cottage', "Witch's Cottage", 'Land', COTTAGE);
+  short = addCard(short, swamp('s1'), 'battlefield');
+  short = addCard(short, swamp('s2'), 'battlefield');
+  short = applyAction(short, play('cottage'));
+  assert.equal(
+    card(short, 'cottage').tapped,
+    true,
+    'two Swamps is not three, and the Cottage must not count as the third'
+  );
+
+  let enough = withCard(table(), 'cottage', "Witch's Cottage", 'Land', COTTAGE);
+  for (const id of ['s1', 's2', 's3']) enough = addCard(enough, swamp(id), 'battlefield');
+  enough = applyAction(enough, play('cottage'));
+  assert.equal(enough && card(enough, 'cottage').tapped, false, 'three Swamps turns the drawback off');
 });
 
 test('a check land reads its two-type condition', () => {

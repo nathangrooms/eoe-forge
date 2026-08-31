@@ -499,7 +499,26 @@ export function parseObject(input: string): ObjectRef | null {
   // parse: "destroy target creature and draw a card" splits to a second head of
   // "draw a card", whose first word is not a type, and the whole phrase is
   // refused exactly as it was before.
-  const heads = s.split(/ or | and /).map((h) => h.trim()).filter(Boolean);
+  //
+  // AND ON COMMAS, for the same reason and with the same safety. A list of
+  // three or more is written with them: "a Plains, Island, Swamp, or Mountain
+  // card". By the time the phrase reaches here the articles, adjectives, zone
+  // and controller suffixes and any "with ..." clause have all been stripped,
+  // so a comma left in a head noun phrase is a list separator or the phrase was
+  // never going to parse. Splitting cannot loosen anything, because every head
+  // still has to be a type, supertype or subtype word and one that is not
+  // refuses the whole phrase.
+  //
+  // Farseek is the card, ranked 23 in Commander, and it had NO ability record
+  // at all: `singular('plains,')` is not a subtype, so the first head refused
+  // and the compiler reported the whole card unread. Nature's Lore, Wood Elves
+  // and every "basic land type" fetch are the same sentence.
+  // The comma before the final "or" belongs to that "or" and not to the list,
+  // so it has to be consumed with it. Splitting on ", " and " or " as separate
+  // alternatives leaves a head of "or mountain", whose first word is not a type
+  // and which therefore refuses the whole phrase — which is exactly what
+  // Farseek did, with the split already in place.
+  const heads = s.split(/,?\s+(?:or|and)\s+|,\s+/).map((h) => h.trim()).filter(Boolean);
   if (!heads.length) return null;
 
   const headFilters: CardFilter[] = [];
@@ -928,6 +947,32 @@ export function parseCondition(input: string): Condition | null {
         }
       }
     }
+    /* "you have two or more opponents".
+       ------------------------------------------------------------------
+       The Battlebond and Commander Legends duals — Morphic Pool (rank 142),
+       Rejuvenating Springs (143), Training Center (151), Spectator Seating,
+       Undergrowth Stadium and their siblings, ten of them inside the 200 most
+       played cards in the format. Every one entered UNTAPPED every time,
+       because the "unless" reading in `parseReplacement` refuses a condition it
+       cannot parse rather than downgrading it, and this was one it could not
+       parse. In Commander the condition is true at almost every table, so the
+       lands were also playing close to correctly by accident, which is why it
+       went unnoticed: the record said nothing at all about a card that behaves
+       right nine games in ten.
+
+       `count-players` was already in the value vocabulary. */
+    if (bound) {
+      const opponents = bound.rest.match(/^opponents?$/);
+      if (opponents) {
+        return {
+          if: 'value',
+          a: { v: 'count-players', of: { who: 'each-opponent' } },
+          cmp: bound.cmp,
+          b: bound.value,
+        };
+      }
+    }
+
     // Anything else after "you have" is a keyword-counter or a designation
     // ("an enduring story", "the initiative"), none of which is in the value
     // vocabulary. Refused rather than guessed.

@@ -587,6 +587,12 @@ function readAbility(ability: Ability, out: Set<Facet>): void {
 
   if (ability.kind === 'spell') {
     readEffects(ability.effects, out);
+    /* What you must ALSO do to cast it, which is half of what the card is.
+       Village Rites and Faithless Looting both draw; one eats a creature and
+       the other discards, and the aristocrats plan asks for `cost:sacrifice`
+       by name. Read through the same function the activation cost uses, so a
+       cost means the same thing wherever it is printed. */
+    readActivationCost(ability.additionalCosts ?? [], out);
     for (const t of ability.targets ?? []) if (t.filter) readFilter(t.filter, out, 'cares');
     return;
   }

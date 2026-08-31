@@ -31,6 +31,7 @@
 import type {
   Ability,
   CardAbilities,
+  Cost,
   Effect,
   GapReason,
   TargetSpec,
@@ -639,6 +640,9 @@ export function compileWithTrace(card: AbilityCard): CompileTrace {
     printedToughness: normalized.printedToughness,
   };
 
+  /** An additional cost read but not yet attached to the spell it belongs to. */
+  let pendingCost: { costs: Cost[]; span: [number, number]; text: string; norm: string } | null = null;
+
   const paragraphs = normalized.paragraphs;
   for (let i = 0; i < paragraphs.length; i++) {
     const para = paragraphs[i];
@@ -663,8 +667,73 @@ export function compileWithTrace(card: AbilityCard): CompileTrace {
       }
     }
 
+    /*
+     * "As an additional cost to cast this spell, sacrifice a creature."
+     *
+     * Its own paragraph, printed ABOVE the effect it belongs to, and no rule
+     * matched it — so 26 of the 2,000 most played cards read as doing nothing,
+     * Village Rites and Deadly Dispute and Crop Rotation among them.
+     *
+     * Held and attached to the next spell ability rather than made into an
+     * ability of its own, because it is not one: it is part of the cost of
+     * casting the spell below it, and a record that made it a separate ability
+     * would let a consumer count it as a second thing the card does.
+     *
+     * IT IS ONLY CONSUMED IF IT IS ATTACHED. If no spell ability follows, the
+     * paragraph falls through to `unparsed` at the end of the loop, because the
+     * whole design rests on consumed spans plus unparsed spans covering every
+     * character, and a clause silently held and never used would break that
+     * proof in the direction that hides a gap.
+     */
+    const addCost = para.norm.match(/^as an additional cost to cast (?:this spell|~), (.+?)\.?$/);
+    if (addCost && !pendingCost) {
+      const parsed = parseCosts(addCost[1]);
+      if (parsed && parsed.length) {
+        pendingCost = { costs: parsed, span: para.span, text: para.raw, norm: para.norm };
+        continue;
+      }
+    }
+
     const classified = classify(para, shape, abilities.length);
     if (classified) {
+      if (pendingCost) {
+        const spell = classified.abilities.find(a => a.kind === 'spell');
+        if (spell) {
+          (spell as { additionalCosts?: Cost[] }).additionalCosts = pendingCost.costs;
+          /*
+           * AND A MARKER, because NOTHING PAYS IT.
+           *
+           * Costs are paid on announcement and `announce.ts` has no cost step;
+           * `planActivation` in `activate.ts` is the only cost machinery in the
+           * engine and it serves activated abilities. So a spell ability that
+           * resolved from this record would draw the two cards and never eat
+           * the creature, and Village Rites went from `manual` — a player doing
+           * all of it by hand, correctly — to a card the engine casts for free.
+           *
+           * That is the exact failure the whole compiler is built to refuse: a
+           * card that appears to resolve and does the wrong thing. Reading the
+           * cost is worth doing anyway, because the deck builder needs
+           * `cost:sacrifice` and the deck builder never pays anything; the
+           * marker is what keeps the RUNTIME honest about the half it cannot do.
+           *
+           * `deriveCoverage` turns this into `partial`, which is the true
+           * description: every word was read, and a human is needed for one of
+           * them. Delete this line the day the cast path can pay a cost, and
+           * not before.
+           */
+          (spell as { effects: Effect[] }).effects.unshift(
+            manual(
+              `Pay the additional cost to cast ${String(card.name ?? 'this spell')}: ${pendingCost.norm
+                .replace(/^as an additional cost to cast (?:this spell|~), /, '')
+                .replace(/\.$/, '')}.`,
+              'The engine reads this cost but cannot pay it yet, so do it by hand before the spell resolves.'
+            )
+          );
+          consumedSpans.push(pendingCost.span);
+          ruleHits.push('additional-cost');
+          pendingCost = null;
+        }
+      }
       abilities.push(...classified.abilities);
       ruleHits.push(classified.rule);
       consumedSpans.push(para.span);
@@ -675,6 +744,17 @@ export function compileWithTrace(card: AbilityCard): CompileTrace {
       text: para.raw,
       reason: gapReasonFor(para.norm, looksStructured(para.norm)),
       span: para.span,
+    });
+  }
+
+  /* An additional cost with nothing to attach to. Reported unread, which is
+     what it is: the cost was understood and the spell it modifies was not, so
+     claiming the card is read would be the lie the span proof exists to stop. */
+  if (pendingCost) {
+    unparsed.push({
+      text: pendingCost.text,
+      reason: gapReasonFor(pendingCost.norm, looksStructured(pendingCost.norm)),
+      span: pendingCost.span,
     });
   }
 

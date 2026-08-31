@@ -851,7 +851,34 @@ export function parseReplacement(paragraph: string): ReplacementShape | null {
      ready, which is a penalty the card does not carry. */
   const unlessTapped = p.match(/^~ enters tapped unless (.+)$/);
   if (unlessTapped) {
-    const condition = parseCondition(unlessTapped[1]) ?? parseControlsEither(unlessTapped[1]);
+    /*
+     * "UNLESS YOU CONTROL TWO OR MORE OTHER LANDS" — the check lands, twenty of
+     * them, Dreamroot Cascade at rank 177 the most played.
+     *
+     * `parseCondition` refuses any "controls" phrase carrying `{is:'other'}`,
+     * and it is right to in general: `{if:'controls'}` counts a set with no
+     * source to exclude, so "another creature" would count the source itself
+     * and the condition would be true one card too early.
+     *
+     * HERE the exclusion is free, and only here. CR 614.12 applies a
+     * replacement that changes how a permanent enters BEFORE it is on the
+     * battlefield, so at the moment this condition is asked the land is not
+     * among the lands you control. "Two or more other lands" and "two or more
+     * lands" are the same question, and the word the general rule cannot handle
+     * is one this reading does not need.
+     *
+     * Scoped to this branch on purpose. It is sound because the event is the
+     * source entering, and it would be unsound on a static ability or an
+     * activation, where the source IS on the battlefield and "other" is doing
+     * real work.
+     */
+    const said = unlessTapped[1];
+    const condition =
+      parseCondition(said) ??
+      parseControlsEither(said) ??
+      (/^you control .*\bother\b/.test(said)
+        ? parseCondition(said.replace(/\bother\s+/, ''))
+        : null);
     if (!condition) return null;
     return {
       event: { on: 'enters', who: { sel: 'self' } },

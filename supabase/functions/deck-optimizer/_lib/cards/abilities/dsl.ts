@@ -349,7 +349,25 @@ export type Effect =
    *
    * Same shape `look-and-pick` already uses for the same reason.
    */
-  | { do: 'search-library'; who: PlayerSelector; what: Selector; count: ValueExpr; to: Zone; thenShuffle: boolean; tapped?: boolean; upTo?: boolean }
+  /*
+   * `toPosition` is where in the library the card is put, and it exists for the
+   * tutors that end "then shuffle and put that card on top": Vampiric,
+   * Enlightened, Mystical, Worldly and Sylvan Tutor, all inside the 200 most
+   * played cards in Commander and all of which produced NO ability record at
+   * all until it did.
+   *
+   * It is not a decoration. A card shuffled into the library and a card placed
+   * on top of it are different cards, and the difference is the whole point of
+   * paying one mana for a tutor at instant speed. `MOVE_ZONE` has carried
+   * `position` all along, so this is a reading the runtime could already
+   * execute exactly, not an approximation.
+   *
+   * Its presence also fixes the ORDER. Everywhere else the search moves the
+   * card and then shuffles; here the card says shuffle and THEN put it on top,
+   * and doing it the usual way round would bury the card the player just paid
+   * to find.
+   */
+  | { do: 'search-library'; who: PlayerSelector; what: Selector; count: ValueExpr; to: Zone; thenShuffle: boolean; tapped?: boolean; upTo?: boolean; toPosition?: 'top' | 'bottom' }
   | { do: 'shuffle'; who: PlayerSelector }
   /*
    * CR 701.18. Look at the top N cards of your library, then put any number of
@@ -786,6 +804,27 @@ export interface SpellAbility extends AbilityBase {
   kind: 'spell';
   targets?: TargetSpec[];
   effects: Effect[];
+  /**
+   * What you must ALSO do to cast it. CR 601.2f.
+   *
+   * "As an additional cost to cast this spell, sacrifice a creature" is 26 of
+   * the 2,000 most played cards and every one of them read as nothing, because
+   * the sentence is its own paragraph and no rule matched it. Village Rites,
+   * ranked 200, is the aristocrats card in the format, and the aristocrats plan
+   * asks for `cost:sacrifice` by name: the engine wanted the facet, the card
+   * stated it, and the two never met.
+   *
+   * The same argument the activation cost is written under applies here and is
+   * stronger. Deadly Dispute and Big Score both draw and make a Treasure; one
+   * eats a creature and the other discards. Without the cost they are the same
+   * card, and a deck builder that cannot tell them apart cannot build either
+   * archetype.
+   *
+   * On the ability rather than the card because the compiler has no card-level
+   * record to hang it on, and because a spell with two halves can only have the
+   * cost attached to the half it is printed above.
+   */
+  additionalCosts?: Cost[];
 }
 
 export interface ManaAbility extends AbilityBase {

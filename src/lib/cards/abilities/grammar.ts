@@ -947,6 +947,32 @@ export function parseCondition(input: string): Condition | null {
         }
       }
     }
+    /* "you have two or more opponents".
+       ------------------------------------------------------------------
+       The Battlebond and Commander Legends duals — Morphic Pool (rank 142),
+       Rejuvenating Springs (143), Training Center (151), Spectator Seating,
+       Undergrowth Stadium and their siblings, ten of them inside the 200 most
+       played cards in the format. Every one entered UNTAPPED every time,
+       because the "unless" reading in `parseReplacement` refuses a condition it
+       cannot parse rather than downgrading it, and this was one it could not
+       parse. In Commander the condition is true at almost every table, so the
+       lands were also playing close to correctly by accident, which is why it
+       went unnoticed: the record said nothing at all about a card that behaves
+       right nine games in ten.
+
+       `count-players` was already in the value vocabulary. */
+    if (bound) {
+      const opponents = bound.rest.match(/^opponents?$/);
+      if (opponents) {
+        return {
+          if: 'value',
+          a: { v: 'count-players', of: { who: 'each-opponent' } },
+          cmp: bound.cmp,
+          b: bound.value,
+        };
+      }
+    }
+
     // Anything else after "you have" is a keyword-counter or a designation
     // ("an enduring story", "the initiative"), none of which is in the value
     // vocabulary. Refused rather than guessed.

@@ -804,6 +804,27 @@ export interface SpellAbility extends AbilityBase {
   kind: 'spell';
   targets?: TargetSpec[];
   effects: Effect[];
+  /**
+   * What you must ALSO do to cast it. CR 601.2f.
+   *
+   * "As an additional cost to cast this spell, sacrifice a creature" is 26 of
+   * the 2,000 most played cards and every one of them read as nothing, because
+   * the sentence is its own paragraph and no rule matched it. Village Rites,
+   * ranked 200, is the aristocrats card in the format, and the aristocrats plan
+   * asks for `cost:sacrifice` by name: the engine wanted the facet, the card
+   * stated it, and the two never met.
+   *
+   * The same argument the activation cost is written under applies here and is
+   * stronger. Deadly Dispute and Big Score both draw and make a Treasure; one
+   * eats a creature and the other discards. Without the cost they are the same
+   * card, and a deck builder that cannot tell them apart cannot build either
+   * archetype.
+   *
+   * On the ability rather than the card because the compiler has no card-level
+   * record to hang it on, and because a spell with two halves can only have the
+   * cost attached to the half it is printed above.
+   */
+  additionalCosts?: Cost[];
 }
 
 export interface ManaAbility extends AbilityBase {

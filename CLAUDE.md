@@ -2381,6 +2381,54 @@ exists ONLY in Tales of Middle-earth; so do Feed the Swarm's Avatar printing's
 siblings. The rule would have to be "prefer a non-crossover printing WHEN ONE
 EXISTS", which is a third comparison in the same three places.
 
+### The engine can say a card is BAD for a deck, and the pool stopped being fetched twice
+
+Four things had to be true before anti-synergy could exist, and none of them did
+on the morning of 31 Aug. The generator had put Soul-Guide Lantern - graveyard
+hate - in a Meren deck and a Sheoldred deck.
+
+1. **The compiler had to read the card.** "Exile all graveyards" had no rule,
+   because a graveyard is a ZONE and the exile rule reads a phrase describing an
+   OBJECT. WHO the exile hits is kept: "each opponent's graveyard" is asymmetric
+   hate and belongs in a graveyard deck, and flattening the two would file
+   Bojuka Bog as a mistake.
+2. **The verb had to be split.** `ROLE_FACETS.removal` reads `eff:exile`, so
+   reading these cards turned every piece of graveyard hate into an ANSWER,
+   which is worse than not reading them. `eff:exile-graveyard` is its own verb.
+3. **The effect had to carry its source zone.** A targeted exile hides the zone
+   on the `TargetSpec`, so "exile target card from a graveyard" still read as
+   removal. `Effect.exile.from` closes it.
+4. **And the reserve had to refuse it.** The ranker's penalty was not enough:
+   the reserved commander-fit pass ignores `score` BY DESIGN and took the card
+   anyway, carrying a reason that said in so many words that it empties
+   graveyards and the deck is built on using one.
+
+`ATTACKS` in `behaviour.ts` holds ONE entry and that shape is deliberate.
+Anti-synergy is not a theory the facet vocabulary can derive; it is a list of
+measured facts of the form "this facet attacks that want". A second entry needs
+a second measurement, not a second guess. `worksAgainstPlan` is the single
+definition, because the ranker and the generator both ask and must not drift.
+
+**AND THE POOL WAS FETCHED SIX TIMES LARGER THAN IT WAS USED.** Najeela failed
+`WORKER_RESOURCE_LIMIT` three times in one evening, once after each engine
+addition, and micro-optimising the additions was chasing the wrong thing:
+
+    pool: 31,829 rows fetched in 3,047 ms of a 4,951 ms build
+          ...then sliced to 5,000 and 26,829 discarded
+
+The walk has been rank-ordered since 30 Aug, so its first N rows ARE the top N
+by rank — exactly what the slice produces. Pushing `poolBudgetFor` down into
+`fetchAll` is the same rows without the round trips.
+
+    pool fetch    3,047 ms -> 768 ms,  31,829 rows -> 5,067
+    whole build   4,951 ms -> 2,535 ms on the deployed function
+
+Two memoisations are worth keeping for the same reason: one `planFit` and one
+ROLE SET per card per build. `cardRole` is asked eight times per card by
+`neediestRole` alone and again by three other passes.
+
+**The facet memo is on COMPILER_VERSION 8.**
+
 ### Still wrong, measured, and worth doing next
 
 - **Six equipment in a Meren deck.** The `enhance` quota is too generous for a

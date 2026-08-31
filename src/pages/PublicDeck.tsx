@@ -515,7 +515,6 @@ export default function PublicDeck() {
                      nobody else does as a blank. */
                   <DeckCardGrid
                     rows={rows}
-                    collapsedByDefault={['lands']}
                     onCardClick={openCard}
                     playabilityFor={playabilityFor}
                     manaProfile={playabilityEngine.profile}

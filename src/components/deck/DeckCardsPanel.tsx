@@ -389,12 +389,28 @@ export function DeckCardsPanel({
           onClearFilters: narrowed ? clearEverything : undefined,
         }}
       >
+        {/*
+          * LANDS ARE NOT COLLAPSED, AND THEY WERE, ON THIS VIEW ONLY.
+          *
+          * `collapsedByDefault={['lands']}` was passed here and nowhere else:
+          * the table and text views list every land, and the VISUAL view — the
+          * one whose whole job is showing you your cards — hid a third of the
+          * deck behind a chevron. Measured on the fixture: 99 cards in the
+          * list, 68 drawn, and 99 minus 32 lands plus the commander is exactly
+          * 68.
+          *
+          * It arrived incidentally, in a commit about castability maths and the
+          * tab rebuild, and carried no reasoning. In Commander a mana base is
+          * not filler: duals, fetches and utility lands are the most scrutinised
+          * choices in a list after the commander itself.
+          *
+          * The prop stays on `DeckCardGrid` for a caller that has a reason.
+          */}
         {view === 'visual' ? (
           <DeckCardGrid
             rows={sorted}
             groups={groups}
             onCardClick={onCardClick}
-            collapsedByDefault={['lands']}
             playabilityFor={playabilityFor}
             manaProfile={engine.profile}
             width={listView.size}

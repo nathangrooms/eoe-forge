@@ -228,6 +228,10 @@ const WHEN_IT_MATTERS: Readonly<Partial<Record<Role, number>>> = {
    * spell; later leaves the deck with none, which is where this started.
    */
   enhance: 5,
+  /* Turn four, a little before `enhance`. You want the Boots down BEFORE the
+     commander is worth killing, and a protection piece held for later is a
+     protection piece that arrives after the removal spell. */
+  protection: 4,
   wincon: 10,
 };
 

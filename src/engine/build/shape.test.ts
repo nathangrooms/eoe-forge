@@ -210,8 +210,19 @@ describe('the commander decides the composition', () => {
 
     // Same pool shape, same slot count, same floors. The only difference is
     // which cards each commander's own record says do its job.
+    //
+    // A GAP IN SLOTS, not a ratio, and the reason is that this assertion used
+    // to read `> spells.creatureTarget * 2` and broke the day the `protection`
+    // role was added — 32 against 18, which is still overwhelming and is not
+    // quite double. Every role added to the vocabulary takes a couple of slots
+    // out of the spell budget that the creature share is computed against, so a
+    // ratio between two shapes moves whenever the vocabulary grows, and it
+    // moves for a reason that has nothing to do with what this test is about.
+    //
+    // Twelve slots of a 64-card spell budget is "a deck of creatures against a
+    // deck of spells" stated in the unit the shape actually works in.
     assert.ok(
-      goblins.creatureTarget > spells.creatureTarget * 2,
+      goblins.creatureTarget - spells.creatureTarget >= 12,
       `${goblins.creatureTarget} creatures for the Goblin lord should far exceed ` +
         `${spells.creatureTarget} for the spellslinger`
     );

@@ -1024,40 +1024,74 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
         const card = rec.card as BuildCard;
         return !takenOracleIds.has(card.oracleId) && !overColourlessCap(card);
       })
-      .map(rec => ({ rec, fit: planFit(commanderPlan, rec.card as BuildCard).fit }))
+      .map(rec => {
+        const hit = planFit(commanderPlan, rec.card as BuildCard);
+        return { rec, fit: hit.fit, want: hit.matched?.[0]?.facet ?? null };
+      })
       .filter(entry => entry.fit >= COMMANDER_RESCUE_FIT)
       .sort((a, b) => b.fit - a.fit || b.rec.score - a.rec.score);
 
+    /*
+     * ONE CARD PER THING THE COMMANDER ASKS FOR, before a second card for
+     * anything.
+     *
+     * Taking the six highest-fit cards outright sounds right and is not, and
+     * Meren of Clan Nel Toth is the case that shows it. Her plan asks for
+     * `ctr:experience` at 0.90 and `eff:proliferate` at 0.80 before
+     * `cost:sacrifice` at 0.72, so a straight fit ordering spent all six slots
+     * on proliferate and the deck STILL had no sacrifice outlet — which is the
+     * exact defect these slots were added to fix, reproduced one layer up.
+     *
+     * A commander asks for several things and a deck has to do all of them.
+     * The loudest want monopolising the reserve is the same failure as a role
+     * quota monopolising the deck, so the fix is the same shape: serve each
+     * want once, then come back round.
+     *
+     * `matched[0]` is the card's own best reason, so the pass is grouped by why
+     * each card was wanted rather than by anything imposed from outside.
+     */
+    const servedWants = new Set<string>();
     let reserved = 0;
-    for (const { rec, fit } of byFit) {
-      if (reserved >= fitReserve) break;
-      if (picked.length - chosenLands.length >= spellSlots) break;
-      const card = rec.card as BuildCard;
-      if (takenOracleIds.has(card.oracleId)) continue;
-      /* Re-checked inside the loop, not only in the filter above: this pass
-         picks cards, so the colourless tally moves as it runs. */
-      if (overColourlessCap(card)) continue;
-      if (!hasColour(card)) colourlessPicked += 1;
-      takenOracleIds.add(card.oracleId);
-      reserved += 1;
-      picked.push({
-        card,
-        quantity: 1,
-        reason: rec.reason,
-        score: rec.score,
-        bucket: 'commander',
-        preferred: preferred.has(card.oracleId),
-      });
-      /* The role tally still moves, so the shortfall lines below stay honest:
-         a card taken here that happens to serve a short role really did fill
-         it, and reporting it as missing would be a lie about the deck. */
-      const filled = ROLES.find(role => role !== 'land' && quota[role] > 0 && cardRole(card, role));
-      if (filled) {
-        quota[filled] -= 1;
-        roleFill[filled].picked += 1;
+    const spend = (allowRepeat: boolean) => {
+      for (const { rec, fit, want } of byFit) {
+        if (reserved >= fitReserve) break;
+        if (picked.length - chosenLands.length >= spellSlots) break;
+        const card = rec.card as BuildCard;
+        if (takenOracleIds.has(card.oracleId)) continue;
+        if (!allowRepeat && want && servedWants.has(want)) continue;
+        /* Re-checked inside the loop, not only in the filter above: this pass
+           picks cards, so the colourless tally moves as it runs. */
+        if (overColourlessCap(card)) continue;
+        if (!hasColour(card)) colourlessPicked += 1;
+        if (want) servedWants.add(want);
+        takenOracleIds.add(card.oracleId);
+        reserved += 1;
+        picked.push({
+          card,
+          quantity: 1,
+          reason: rec.reason,
+          score: rec.score,
+          bucket: 'commander',
+          preferred: preferred.has(card.oracleId),
+        });
+        /* The role tally still moves, so the shortfall lines below stay honest:
+           a card taken here that happens to serve a short role really did fill
+           it, and reporting it as missing would be a lie about the deck. */
+        const filled = ROLES.find(role => role !== 'land' && quota[role] > 0 && cardRole(card, role));
+        if (filled) {
+          quota[filled] -= 1;
+          roleFill[filled].picked += 1;
+        }
+        void fit;
       }
-      void fit;
-    }
+    };
+
+    /* One round serving each want once, then a second round with the
+       restriction lifted, so the slots are always all spent even when the
+       commander asks for fewer things than there are slots. */
+    spend(false);
+    spend(true);
+
     if (reserved > 0) {
       notes.push(
         `${reserved} card${reserved === 1 ? '' : 's'} chosen purely on how well ` +

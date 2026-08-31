@@ -103,6 +103,36 @@ export type Role =
    * job from winning the game, and it is the job this role names.
    */
   | 'enhance'
+  /*
+   * KEEPING YOUR OWN THINGS ALIVE, which every Commander deck spends slots on
+   * and the vocabulary could not name.
+   *
+   * Swiftfoot Boots is ranked TWELFTH in the format and was missing from every
+   * one of the six decks in `generator-synergy-audit.mjs`, run after run, for
+   * weeks. Lightning Greaves the same. They were not outranked; they were
+   * competing for `enhance` slots against auras and equipment that make a
+   * creature bigger, which is a different job, and a deck that wants two
+   * protection pieces and six auras cannot say so with one word for both.
+   *
+   *   Heroic Intervention  rank   30   role NONE
+   *   Snakeskin Veil       rank  441   role NONE
+   *   Tamiyo's Safekeeping rank  479   role NONE
+   *
+   * THE RULE IS NARROW ON PURPOSE and the narrowing is the whole of it. A
+   * protective keyword ALONE is what a creature that HAS hexproof carries, not
+   * what a card that GRANTS it carries, and a flat facet set cannot tell those
+   * apart — that is written up in CLAUDE.md against an earlier attempt that ran
+   * about 15% false, making Purphoros and Emrakul protection cards.
+   *
+   * So the keyword has to sit on an INSTANT, a SORCERY, an AURA or a piece of
+   * EQUIPMENT: things whose whole purpose is to be applied to something else.
+   * Measured over the 2,000 most played cards with
+   * `scripts/role-rule-try.mjs protection`: nine cards rescued, all of them
+   * protection instants, and thirteen that already had a role, all of them
+   * Boots, Greaves, Mithril Coat, Darksteel Plate, Flawless Maneuver and their
+   * kind. No creature qualifies, which is the point.
+   */
+  | 'protection'
   | 'wincon'
   | 'land'
   | 'creature';
@@ -114,6 +144,7 @@ export const ROLES: readonly Role[] = [
   'interaction',
   'tutor',
   'enhance',
+  'protection',
   'wincon',
   'land',
   'creature',

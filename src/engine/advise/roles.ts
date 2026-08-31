@@ -41,6 +41,10 @@ export const ROLE_TAGS: Readonly<Record<Role, readonly string[]>> = {
      here the claim is only "this card suits a creature up", which is exactly
      what a Bone Saw does. */
   enhance: ['aura', 'equipment', 'voltron', 'protection'],
+  /* The tag fallback for a card with no record. `protection` is the tagger's
+     own word and it means the same thing, so a card the compiler could not
+     read still reaches this role by the door every other role uses. */
+  protection: ['protection'],
   /*
    * `voltron` was removed on 2026-08-23 and it is the largest single fix in
    * this file.
@@ -162,6 +166,11 @@ export const YARDSTICK_WHEN_NO_SHAPE_WAS_DERIVED: Readonly<Record<Role, number>>
      every commander wants. A voltron commander asks for many more through its
      own plan, and the shape derivation is what answers that. */
   enhance: 2,
+  /* Two, and it is the least arguable number in this table. A Commander deck
+     that runs no way at all to answer a removal spell aimed at its commander
+     is a deck that loses to one card, and Swiftfoot Boots is the twelfth most
+     played card in the format for that reason. */
+  protection: 2,
   wincon: 3,
   land: 36,
   creature: 0,

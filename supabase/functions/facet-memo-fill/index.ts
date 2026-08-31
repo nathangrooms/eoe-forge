@@ -87,7 +87,27 @@ const json = (body: unknown, status = 200) =>
  * `cost:sacrifice` and every tap ability gained `cost:tap`. That is an output
  * change on cards already read, which is what this constant is for.
  */
-const COMPILER_VERSION = 3;
+/*
+ * 3 -> 4 on 31 Aug 2026. Seven rules, every one of which changes the facets of
+ * cards that already have a memo row:
+ *
+ *   the Oxford comma in an object phrase   Farseek (23) and every basic-type fetch
+ *   Cultivate's split destination          Cultivate (20), Kodama's Reach (37)
+ *   tutors that leave the card on top      Vampiric (12), Enlightened, Mystical,
+ *                                          Worldly, Sylvan
+ *   additional cast costs                  Village Rites (200), Deadly Dispute,
+ *                                          Crop Rotation, Big Score - 26 cards
+ *                                          gaining cost:sacrifice / cost:discard
+ *   "unless you control N other lands"     20 check lands
+ *   "unless you have N opponents"          10 Commander duals
+ *   the exile intent rules                 read by the commander plan, not here,
+ *                                          but the same refill carries them
+ *
+ * Nothing here is optional: a reader on 3 and a writer on 4 is SILENT, and a
+ * card reads as having no facets, which the ranker cannot tell apart from a
+ * card that genuinely does nothing.
+ */
+const COMPILER_VERSION = 4;
 
 /**
  * Cards read per call.

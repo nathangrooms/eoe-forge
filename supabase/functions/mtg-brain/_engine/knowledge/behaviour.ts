@@ -243,9 +243,31 @@ export function facetCoverage(cards: readonly FacetCarrier[]): {
  */
 const ROLE_FACETS: Readonly<Record<Role, readonly Facet[]>> = {
   ramp: ['eff:add-mana', 'cares:zone:library-land'],
-  draw: ['eff:draw'],
+  /*
+   * Drawing a card, AND buying one back out of the graveyard, which is the same
+   * thing from the deck's point of view: a card you did not have and now do.
+   *
+   * Regrowth, Life from the Loam, Dread Return, Phyrexian Reclamation and Whip
+   * of Erebos all served no role at all, so the builder could not take any of
+   * them however well they fitted. `scripts/role-rule-try.mjs recursion` lists
+   * what the rule claims: eight rescued, every one of them genuine card
+   * advantage, and eleven that already had a role, all creatures like Eternal
+   * Witness which keep `creature` and gain this too, correctly.
+   */
+  draw: ['eff:draw', 'eff:return-from'],
   removal: ['eff:destroy', 'eff:exile', 'eff:damage', 'eff:gain-control'],
-  interaction: ['eff:counter', 'eff:tap', 'eff:unless-pays', 'eff:discard'],
+  /*
+   * `eff:move-zone` is bounce, and bounce at INSTANT speed is interaction.
+   *
+   * Cyclonic Rift is ranked 54 and had no role at all. The type gate is what
+   * makes the rule sound rather than a synonym for "moves a card": a sorcery
+   * that returns something to a hand is a tempo play or a recursion engine, and
+   * `role-rule-try.mjs bounce` showed exactly that — Tortured Existence and
+   * Oversold Cemetery are graveyard engines and would have been filed as
+   * answers. An instant that returns a permanent to its owner's hand is an
+   * answer to what somebody just did, which is what this role means.
+   */
+  interaction: ['eff:counter', 'eff:tap', 'eff:unless-pays', 'eff:discard', 'eff:move-zone'],
   /*
    * Searching a library, EXCEPT for the land case, which is ramp and is
    * already claimed by `cares:zone:library-land` above. Rampant Growth and
@@ -258,6 +280,10 @@ const ROLE_FACETS: Readonly<Record<Role, readonly Facet[]>> = {
      facet and is not: Ethereal Armor and Rancor do not carry it, so a rule
      built on it misses the two best cards in the archetype. */
   enhance: ['sub:aura', 'sub:equipment'],
+  /* The keyword is only half the rule; `facetRoleQualifies` carries the other
+     half, and without it this claims every creature that HAS hexproof rather
+     than the cards that GRANT it. See the long note on the role in types.ts. */
+  protection: ['kw:hexproof', 'kw:shroud', 'kw:indestructible', 'kw:protection', 'kw:ward'],
   /*
    * Deliberately narrow, and it stays narrow.
    *
@@ -316,6 +342,54 @@ function facetRoleQualifies(role: Role, facets: readonly Facet[]): boolean {
   if (role === 'ramp') return !facets.includes('type:land');
   // Fetching a basic is ramp, not tutoring. Cultivate is not Demonic Tutor.
   if (role === 'tutor') return !facets.includes('cares:zone:library-land');
+
+  /*
+   * A card that GRANTS a protective keyword, never one that merely HAS it.
+   *
+   * The facet set is flat, so `kw:hexproof` says the keyword is somewhere on
+   * the card and not which clause put it there. An instant, a sorcery, an aura
+   * or a piece of equipment exists to be applied to something else, so a
+   * protective keyword on one of those is a grant; on a creature it is usually
+   * that creature describing itself. Purphoros and Emrakul carry
+   * `kw:indestructible` about themselves and are not protection cards.
+   */
+  if (role === 'protection') {
+    return (
+      facets.includes('type:instant') ||
+      facets.includes('type:sorcery') ||
+      facets.includes('sub:aura') ||
+      facets.includes('sub:equipment')
+    );
+  }
+
+  /*
+   * Recursion counts as draw only when it comes OUT OF A GRAVEYARD.
+   *
+   * `eff:return-from` alone is any zone change back to somewhere, including a
+   * blink returning a creature it exiled. Regrowth is card advantage; Ephemerate
+   * is not, and the difference is the zone.
+   */
+  if (role === 'draw') {
+    return facets.includes('eff:draw') || facets.includes('cares:zone:graveyard');
+  }
+
+  /*
+   * Bounce is interaction at instant speed and a tempo play at sorcery speed.
+   * The other four interaction facets stand on their own; only `eff:move-zone`
+   * needs the gate, so a card carrying any of them passes regardless.
+   */
+  if (role === 'interaction') {
+    if (
+      facets.includes('eff:counter') ||
+      facets.includes('eff:tap') ||
+      facets.includes('eff:unless-pays') ||
+      facets.includes('eff:discard')
+    ) {
+      return true;
+    }
+    return facets.includes('cares:zone:hand') && facets.includes('type:instant');
+  }
+
   return true;
 }
 

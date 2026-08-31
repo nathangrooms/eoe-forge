@@ -169,6 +169,7 @@ for (const key of KEYS) {
     console.log(`${entry.name}: the compiler produced no wants, so fit cannot be judged`);
   }
   let keyed = 0;
+  const explain = [];
   for (const d of nonLand) {
     const c = cardOf(d);
     /* Deck rows come back without facets, so compile them here. planFit is
@@ -187,6 +188,7 @@ for (const key of KEYS) {
       facets: compiled.facets, tags: c.tags,
     });
     if ((fit?.fit ?? 0) > 0) keyed++;
+    explain.push({ name: c.name, rank: c.edhrec_rank ?? c.edhrecRank ?? null, fit: fit?.fit ?? 0, want: fit?.matched?.[0]?.facet ?? '', matches: fit?.matched?.length ?? 0 });
   }
 
   /* SHOW=1 prints the nonland list. A keyed percentage rises whenever the plan
@@ -194,9 +196,11 @@ for (const key of KEYS) {
      for that is reading the cards as a player. */
   if (process.env.SHOW) {
     console.log(`\n  --- ${entry.name}: ${nonLand.length} nonland cards`);
-    for (const d of nonLand) {
-      const c = cardOf(d);
-      console.log(`    ${String(c.edhrec_rank ?? c.edhrecRank ?? '').padStart(6)}  ${c.name}`);
+    /* Sorted WORST FIT FIRST, because the question a person asks of a
+       generated deck is never 'why is Sol Ring here'. It is 'what is THAT
+       doing in my deck', and the answer is at the bottom of a fit ordering. */
+    for (const e of explain.slice().sort((a,b)=>a.fit-b.fit || (b.rank??1e9)-(a.rank??1e9))) {
+      console.log(`    ${String(e.rank ?? '-').padStart(6)}  fit ${e.fit.toFixed(3)}  ${String(e.matches).padStart(2)} want${e.matches===1?' ':'s'}  ${e.want.padEnd(24)} ${e.name}`);
     }
     console.log('');
   }

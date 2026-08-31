@@ -446,6 +446,31 @@ export function parseObject(input: string): ObjectRef | null {
     if (/^(all|each|every) /.test(s)) { s = s.replace(/^(all|each|every) /, ''); each = true; continue; }
     if (/^any number of /.test(s)) { s = s.replace(/^any number of /, ''); each = true; continue; }
     if (/^target /.test(s)) { s = s.replace(/^target /, ''); targeted = true; continue; }
+    /*
+     * "ANOTHER" COMES BEFORE "TARGET", AND WAS ONLY BEING STRIPPED AFTER IT.
+     *
+     * It is also in the adjective loop below, which runs after this one, so
+     * "another target creature" got as far as stripping "another" and was then
+     * left holding "target creature" with no loop willing to take the "target"
+     * off it. The head-noun parse saw "target creature", which is not a type,
+     * and refused the whole phrase.
+     *
+     * 416 cards say "another target". It is why Eldrazi Displacer, Emiel the
+     * Blessed and Distinguished Conjurer were the three blink cards that stayed
+     * unread after the blink rule landed, and the failure had nothing to do
+     * with blink: any effect whose object is "another target anything" was
+     * refused outright.
+     *
+     * Kept in BOTH loops rather than moved, because the adjective loop peels
+     * "another tapped artifact creature" and the article loop cannot reach a
+     * second adjective. Whichever sees it first wins and the result is the same
+     * filter.
+     */
+    if (/^(another|other) /.test(s)) {
+      s = s.replace(/^(another|other) /, '');
+      extra.push({ is: 'other' });
+      continue;
+    }
     break;
   }
 

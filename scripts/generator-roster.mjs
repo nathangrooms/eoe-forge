@@ -45,6 +45,28 @@ export const ROSTER = [
       'question this entry exists to keep asking.',
   },
   {
+    key: 'vondam',
+    name: 'Syr Vondam, Sunstar Exemplar',
+    id: '49554198-549b-4066-86ce-77a03fda0a2f',
+    type_line: 'Legendary Creature — Human Knight',
+    color_identity: ['B', 'W'],
+    colors: ['B', 'W'],
+    archetype: 'blink',
+    style: 'balanced',
+    why:
+      'THE COMMANDER THAT EXPOSED THE DIRECTION FAULT, kept as a standing ' +
+      'regression. The owner built a blink deck with him and said "nothing in ' +
+      'here is really blink", and he was right for a chain of three reasons ' +
+      'worth keeping in one place. His plan correctly asks for blink, in the ' +
+      'engine own words: "is also paid when your own creatures are exiled, ' +
+      'which is what blinking them does". It then asks for eff:move-zone, ' +
+      'which NO blink card carries, and eff:exile, which every removal spell ' +
+      'in the format carries, so the deck filled with Swords to Plowshares. ' +
+      'And he is only paid by exile FROM THE BATTLEFIELD, which the facet ' +
+      'could not say at all. If a build for him ever goes back to being a pile ' +
+      'of exile removal, something has regressed.',
+  },
+  {
     key: 'adeline',
     name: 'Adeline, Resplendent Cathar',
     id: '21a0e852-7855-4a6b-8eca-191a8e83023a',

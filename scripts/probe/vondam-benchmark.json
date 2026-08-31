@@ -1,0 +1,49 @@
+{
+  "note": "A HUMAN-BUILT Syr Vondam blink deck, kept as a COMPARISON TARGET for the generator and nothing else. The owner linked it on 31 Aug 2026 with the words 'this is just to test our system against, not to copy'. Only card NAMES are recorded, which are facts about what is in a deck rather than anything authored, and nothing here is ingested into the product, shown to a user, or used to build a deck. CLAUDE.md rules Moxfield out as a DATA SOURCE and that stands: this is one page a person pointed at, read once, to score ourselves against. Do not write a scraper.",
+  "source": "moxfield.com/decks/znb6bcM9b0udk8dCIseoIQ, 'Syr Vondam, Blink King v1.6.1'",
+  "commander": "Syr Vondam, Sunstar Exemplar",
+  "whatToScore": "The blink half. The generator already finds the aristocrats half of Vondam on its own, because 'dies' is read and 'is put into exile' was not. These three groups are the thing that was missing.",
+  "blinkSpells": [
+    "Cloudshift",
+    "Ephemerate",
+    "Eerie Interlude",
+    "Ghostway",
+    "Another Round",
+    "Parting Gust",
+    "Scrollshift",
+    "Semester's End",
+    "Malakir Rebirth",
+    "Beyond the Quiet",
+    "Morningtide's Light"
+  ],
+  "blinkEngines": [
+    "Conjurer's Closet",
+    "Teleportation Circle",
+    "Panharmonicon",
+    "Felidar Guardian",
+    "Restoration Angel",
+    "Charming Prince",
+    "Phelia, Exuberant Shepherd",
+    "Far Traveler",
+    "Icewind Stalwart",
+    "Elegy Acolyte",
+    "Abdel Adrian, Gorion's Ward"
+  ],
+  "worthBlinking": [
+    "Skyclave Apparition",
+    "Solemn Simulacrum",
+    "Wall of Omens",
+    "Spirited Companion",
+    "Knight of the White Orchid",
+    "Gray Merchant of Asphodel",
+    "Rune-Scarred Demon",
+    "Sunblast Angel",
+    "Loran of the Third Path",
+    "Callous Bloodmage",
+    "Massacre Wurm",
+    "Grave Titan",
+    "Claim Jumper",
+    "Helpful Hunter",
+    "Loyal Warhound"
+  ]
+}

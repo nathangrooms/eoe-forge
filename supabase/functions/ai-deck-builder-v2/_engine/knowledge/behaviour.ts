@@ -1752,11 +1752,28 @@ const INTENT_RULES: readonly IntentRule[] = [
     // replacing the first.
     when: /(dies or is put into exile|creature you control is put into exile|permanents? you control (is|are) exiled)/i,
     reads: 'is also paid when your own creatures are exiled, which is what blinking them does',
+    /*
+     * THESE WANTS WERE BOTH WRONG, in opposite directions, and the owner found
+     * it by building the deck: "nothing in here is really blink".
+     *
+     * `eff:move-zone` was the loudest want at 0.80 and NO BLINK CARD CARRIES
+     * IT. Ephemerate, Cloudshift and Ghostly Flicker produced no effect facet
+     * at all, because "exile target creature you control, THEN return it" had
+     * no rule. The want was dead: weight spent on nothing.
+     *
+     * `eff:exile` at 0.45 was worse than dead. Every removal spell in the
+     * format carries it, so the deck filled with Swords to Plowshares and Path
+     * to Exile, which do nothing for him whatsoever. He is paid by exile FROM
+     * THE BATTLEFIELD and by his own creatures, and a flat `eff:exile` could
+     * say neither.
+     *
+     * `eff:exile-own` says both, and it exists now.
+     */
     wants: [
-      ['eff:move-zone', 0.8],
+      ['eff:exile-own', 0.85],
       ['trig:enters', 0.7],
-      ['trig:leaves', 0.6],
-      ['eff:exile', 0.45],
+      ['eff:return-from', 0.6],
+      ['trig:leaves', 0.5],
     ],
   },
   {

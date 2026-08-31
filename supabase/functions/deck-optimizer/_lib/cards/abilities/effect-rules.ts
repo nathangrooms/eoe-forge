@@ -699,6 +699,73 @@ export const EFFECT_RULES: EffectRule[] = [
     },
   },
   {
+    /*
+     * BLINK. "Exile target creature you control, then return it to the
+     * battlefield under its owner's control."
+     *
+     * IT MUST SIT ABOVE `exile`, because that rule anchors on `^exile (.+)$`
+     * and would swallow the whole sentence, recording a blink spell as an exile
+     * with a trailing clause it never read. Order in this list IS the
+     * precedence, first match wins.
+     *
+     * 47 cards carried this clause completely unread, and they are the purest
+     * blink cards in the format: Ephemerate, Cloudshift, Ghostly Flicker,
+     * Eldrazi Displacer, Momentary Blink, Emiel the Blessed, Another Round.
+     * The owner built a Syr Vondam blink deck and said "nothing in here is
+     * really blink", and this clause is why: he is paid when his own creatures
+     * are exiled, his plan correctly asked for it, and not one blink spell
+     * carried a single facet to match against.
+     *
+     * THE DELAYED WORDING ALREADY WORKED, which is what made this hard to see.
+     * "Exile target permanent you control. Return that card to the battlefield
+     * at the beginning of the next end step" is two sentences and compiles
+     * fine, so Flickerwisp, Eerie Interlude and Teferi's Time Twist were read
+     * while Cloudshift was not. One mechanic, two wordings, one of them silent.
+     *
+     * TWO EFFECTS, NOT A NEW VERB. Exile with `from: 'battlefield'` and then
+     * return from exile is exactly what the card does, and it means the facet
+     * layer needs nothing new: the direction reader already turns a self-aimed
+     * exile into `eff:exile-own`, which is in the `protection` role, and
+     * blinking your own creature in response to removal IS protection. The
+     * return contributes `eff:return-from` and `cares:zone:exile`.
+     *
+     * The return targets the SAME ref, which is right and not a shortcut: the
+     * thing that comes back is the thing you chose.
+     */
+    id: 'blink',
+    re: new RegExp(
+      `^exile (.+?),? then return (?:it|that card|those cards|them)` +
+        `(?: to the battlefield)?` +
+        `(?<mods>(?: tapped| attacking| under (?:its owners|their owners|your|an opponents) control)*)$`
+    ),
+    note:
+      'The immediate wording. The delayed one ("... at the beginning of the ' +
+      'next end step") is two sentences and is read by the spell rules already.',
+    build(m, ctx) {
+      const what = phraseSelector(m[1], ctx, 'Choose what to blink');
+      if (!what) return null;
+      const mods = String(m.groups?.mods ?? '');
+      /*
+       * "Under an opponent's control" is NOT a blink, it is a gift. Sol'Kanar
+       * returns itself to an opponent, and recording that as protection would
+       * be exactly backwards. Refused rather than guessed.
+       */
+      if (/an opponents control/.test(mods)) return null;
+      return [
+        { do: 'exile', what, from: 'battlefield' },
+        {
+          do: 'return-from',
+          zone: 'exile',
+          who: { who: 'you' },
+          what,
+          count: 1,
+          to: 'battlefield',
+          ...(/ tapped/.test(mods) ? { tapped: true } : {}),
+        },
+      ];
+    },
+  },
+  {
     id: 'exile',
     re: /^exile (.+)$/,
     note: '"exile ... until ..." is temporary exile, a duration the DSL refuses; it fails the anchor and lands in manual.',

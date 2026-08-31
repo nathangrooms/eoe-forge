@@ -136,7 +136,14 @@ const SHELL_SIGNALS: Record<string, ShellSignal> = {
     fallback: 'This commander draws you cards',
   },
   blink: {
-    facets: ['eff:move-zone', 'trig:leaves', 'trig:enters'],
+    /*
+     * `trig:enters` is NOT here, and it was. It is one of the commonest facets
+     * in the catalogue — every token maker and every value creature carries an
+     * enters trigger — so including it offered Blink to Krenko and to Talrand,
+     * neither of whom flickers anything. What makes a deck a blink deck is the
+     * card LEAVING and coming back, which is `eff:move-zone` and `trig:leaves`.
+     */
+    facets: ['eff:move-zone', 'trig:leaves'],
     tags: ['blink'],
     fallback: 'This commander is paid when creatures leave and come back',
   },

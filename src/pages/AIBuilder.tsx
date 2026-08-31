@@ -21,11 +21,10 @@ import {
 } from '@/components/ai-builder/commander-query';
 
 import { supabase } from '@/integrations/supabase/client';
-import { askEdgeFunctionRaw } from '@/lib/tutor/edgeInvoke';
 import { uniqueCards } from '@/lib/cards/cardQuery';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { useAuth } from '@/components/AuthProvider';
-import { CommanderIntelligence } from '@/lib/deckbuilder/commander-intelligence';
+import { strategiesFor } from '@/lib/deck/commanderStrategies';
 import { scoreDeckById, computeDeckPower, entriesFromStoreCards } from '@/lib/deck/power';
 import { comparePower, logDivergence } from '@/lib/deck/powerCalibration';
 import { DECK_ARCHETYPES, type DeckArchetype } from '@/lib/deck/archetypeShells';
@@ -200,57 +199,6 @@ export default function AIBuilder() {
    * from the shell it means. Both were choices a player could make that did
    * nothing, which is the failure this whole change is about.
    */
-  const optionFor = (shell: DeckArchetype, synergy: string): ArchetypeOption => ({
-    value: shell.id,
-    label: shell.name,
-    description: shell.description,
-    synergy,
-    // The shell's own target, halfway through the range a well-built one scores.
-    powerLevel: Math.round((shell.targetPower.min + shell.targetPower.max) / 2),
-  });
-
-  const shellById = (id: string) => DECK_ARCHETYPES.find(s => s.id === id);
-
-  /** Words in the commander's own text, and the shell each one points at. */
-  const TEXT_HINTS: Array<{ words: string[]; id: string; synergy: string }> = [
-    { words: ['token', 'create'], id: 'tokens', synergy: 'This commander makes or rewards tokens' },
-    { words: ['sacrifice', 'dies'], id: 'aristocrats', synergy: 'This commander rewards things dying' },
-    { words: ['+1/+1'], id: 'counters', synergy: 'This commander works with counters' },
-    { words: ['draw'], id: 'value', synergy: 'This commander draws you cards' },
-    { words: ['graveyard'], id: 'value', synergy: 'This commander plays out of the graveyard' },
-    { words: ['search your library'], id: 'big-mana', synergy: 'This commander finds its own lands' },
-    { words: ['counter target'], id: 'control', synergy: 'This commander is already interacting' },
-  ];
-
-  /** Shells offered to every commander, so there are always four to choose from. */
-  const ALWAYS_OFFERED: Array<{ id: string; synergy: string }> = [
-    { id: 'value', synergy: 'Works with any commander: spend every card twice' },
-    { id: 'control', synergy: 'Works with any commander: answer the table first' },
-    { id: 'big-mana', synergy: 'Works with any commander: more mana, bigger threats' },
-    { id: 'aristocrats', synergy: 'Works with any commander: drain the table a point at a time' },
-    { id: 'tokens', synergy: 'Works with any commander: go wide' },
-    { id: 'compact-combo', synergy: 'Works with any commander: assemble two cards and win' },
-  ];
-
-  const generateLocalArchetypes = (cmdr: any): ArchetypeOption[] => {
-    const text = (cmdr.oracle_text || '').toLowerCase();
-    const out: ArchetypeOption[] = [];
-    const take = (id: string, synergy: string) => {
-      if (out.some(o => o.value === id)) return;
-      const shell = shellById(id);
-      if (shell) out.push(optionFor(shell, synergy));
-    };
-
-    for (const hint of TEXT_HINTS) {
-      if (hint.words.some(w => text.includes(w))) take(hint.id, hint.synergy);
-    }
-    for (const filler of ALWAYS_OFFERED) {
-      if (out.length >= 4) break;
-      take(filler.id, filler.synergy);
-    }
-    return out.slice(0, 4);
-  };
-
   /** Preselect the archetype `/decks` asked for, when the commander offers one like it. */
   const applyRequestedArchetype = useCallback(
     (archetypes: any[]) => {
@@ -266,107 +214,77 @@ export default function AIBuilder() {
     [requestedArchetype]
   );
 
-  const localArchetypesFor = (selected: any) => {
-    // Kept for its side effect on the local intelligence path: the detector is
-    // what the fallback list is derived from when the AI response is unusable.
-    CommanderIntelligence.detectArchetype({
-      name: selected.name,
-      oracle_text: selected.oracle_text || '',
-      type_line: selected.type_line || '',
-      color_identity: selected.color_identity || [],
-      colors: selected.colors || [],
-    } as any);
-    return generateLocalArchetypes(selected);
-  };
+  /**
+   * The ways this commander can be built, read off the engine.
+   *
+   * WHAT THIS REPLACED, and why it is a deletion rather than a rewrite. The
+   * strategy list used to be a MODEL CALL: `mtg-brain` was asked to pick four
+   * ids out of `DECK_ARCHETYPES` and write a sentence for each, with a local
+   * fallback of seven hardcoded substrings of the commander's rules text
+   * (`graveyard` meant Value, because no reanimator shell existed, and nothing
+   * anywhere mentioned exile).
+   *
+   * The owner, on both halves. On the model: *"we are replacing all AI with the
+   * backend engine"*. On the result: *"syr vondom benefits from cards being
+   * exhiled, but strategy doesnt show a blink option ... Feels like very
+   * limited stratgies for each commander they can be played in so many ways"*.
+   *
+   * `strategiesFor` reads `planForCommander` and the tagger, which are the two
+   * things that already decide what a commander wants everywhere else in the
+   * product, so the strategies offered here and the cards the builder then
+   * picks come from ONE reading instead of two that could disagree. It also
+   * removes a network round trip, a spinner, and a 502 retry path from the step
+   * between choosing a commander and configuring the deck.
+   */
+  const localArchetypesFor = (selected: any): ArchetypeOption[] =>
+    strategiesFor({
+      name: selected?.name,
+      type_line: selected?.type_line,
+      oracle_text: selected?.oracle_text,
+      keywords: selected?.keywords,
+      mana_cost: selected?.mana_cost,
+      cmc: selected?.cmc,
+      card_faces: selected?.card_faces,
+    }).map(offer => ({
+      value: offer.value,
+      label: offer.label,
+      description: offer.description,
+      synergy: offer.synergy,
+      powerLevel: offer.powerLevel,
+    }));
 
-  const analyzeCommander = async (selectedCommander: any) => {
+  /*
+   * No await, no model, no spinner. The strategies are a pure function of the
+   * commander's own record, so the step that used to wait on `mtg-brain` and
+   * then usually fall back to a word list now answers before the next paint.
+   *
+   * It keeps its name and its shape because two call sites hand it a commander
+   * they have just resolved and neither of them cares that it stopped being a
+   * network call.
+   */
+  const analyzeCommander = (selectedCommander: any) => {
     if (!selectedCommander) return;
-
-    setAnalyzingCommander(true);
-    try {
-      const { data, error } = await askEdgeFunctionRaw('mtg-brain', {
-        body: {
-          message: `Analyze commander "${selectedCommander.name}" for deck building.
-          Color Identity: ${selectedCommander.color_identity?.join('') || 'Colorless'}
-          Abilities: ${selectedCommander.oracle_text || 'None'}
-
-          Pick the 4 strategies from this list that best suit this commander, best first.
-          You may only use these ids, and you may not invent others:
-          ${DECK_ARCHETYPES.map(s => `${s.id} (${s.name}): ${s.description}`).join('\n          ')}
-
-          For each one, say in one sentence why it suits THIS commander specifically,
-          naming the ability of its that makes it work.
-
-          Format as JSON array: [{"id": "", "synergy": ""}]`,
-          cards: [],
-        },
-      });
-
-      if (!error && data?.message) {
-        try {
-          const jsonMatch = data.message.match(/\[[\s\S]*\]/);
-          if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[0]);
-            /*
-             * GROUNDED IN THE CATALOGUE, THE SAME WAY THE PLANNER IS GROUNDED
-             * IN THE SHORTLIST.
-             *
-             * The model is asked for ids and anything that is not an id in
-             * `DECK_ARCHETYPES` is dropped, because an archetype the builder
-             * cannot look up is an option that does nothing to the deck. Only
-             * the SYNERGY sentence is the model's own, which is the part it is
-             * actually good at and the part nothing else can write.
-             *
-             * The label, the description and the power target come from the
-             * shell, so the name on the button is the name the builder resolves.
-             */
-            const archetypes: ArchetypeOption[] = [];
-            for (const a of Array.isArray(parsed) ? parsed : []) {
-              const shell = shellById(String(a?.id ?? '').trim().toLowerCase());
-              if (!shell || archetypes.some(o => o.value === shell.id)) continue;
-              archetypes.push(
-                optionFor(shell, typeof a?.synergy === 'string' ? a.synergy : shell.description)
-              );
-            }
-            // Short answers are topped up rather than shown short, from the same
-            // catalogue, so the player always has four real choices.
-            for (const option of localArchetypesFor(selectedCommander)) {
-              if (archetypes.length >= 4) break;
-              if (!archetypes.some(o => o.value === option.value)) archetypes.push(option);
-            }
-            if (archetypes.length > 0) {
-              setSuggestedArchetypes(archetypes.slice(0, 4));
-              applyRequestedArchetype(archetypes);
-              setStage('configure');
-              return;
-            }
-          }
-        } catch {
-          console.log('Failed to parse AI archetypes, using local analysis');
-        }
-      }
-
-      const fallback = localArchetypesFor(selectedCommander);
-      setSuggestedArchetypes(fallback);
-      applyRequestedArchetype(fallback);
-      setStage('configure');
-    } catch (error) {
-      console.error('Commander analysis failed:', error);
-      const fallback = localArchetypesFor(selectedCommander);
-      setSuggestedArchetypes(fallback);
-      applyRequestedArchetype(fallback);
-      setStage('configure');
-    } finally {
-      setAnalyzingCommander(false);
-      setPendingCommander(null);
-    }
+    const offers = localArchetypesFor(selectedCommander);
+    setSuggestedArchetypes(offers);
+    applyRequestedArchetype(offers);
+    setStage('configure');
+    setPendingCommander(null);
   };
 
   const selectCommander = async (cmdr: any) => {
     setPendingCommander(cmdr);
 
-    // Entries without an id (legacy shapes) get resolved against Scryfall first.
+    /*
+     * The wait that is left, and the only one. Reading the commander is a pure
+     * function now, so the "Reading your commander" screen covers the CARD
+     * LOOKUP rather than a model call: a tile without an id has to be resolved
+     * against Scryfall before there is any rules text to read.
+     *
+     * A tile that already carries an id shows nothing, because there is nothing
+     * to wait for.
+     */
     if (!cmdr.id) {
+      setAnalyzingCommander(true);
       try {
         const response = await fetch(
           `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cmdr.name)}`
@@ -380,6 +298,8 @@ export default function AIBuilder() {
         }
       } catch (e) {
         console.error('Failed to fetch commander:', e);
+      } finally {
+        setAnalyzingCommander(false);
       }
     }
     setCommander(cmdr);

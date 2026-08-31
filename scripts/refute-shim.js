@@ -479,6 +479,29 @@
          anything belonging to a user must NOT be here: the whole point of the
          harness is that no password is involved, and passing a user call
          through would either fail or, worse, reach somebody's real data. */
+      /* THE DECK GENERATOR GOES THROUGH TOO, AND IT IS A POST.
+         ------------------------------------------------------------------
+         It is the only way to look at the screen a generated deck lands on.
+         Stubbed, /smart-builder can only ever be photographed on its setup
+         form, so the result page — the power score, the ten subscores, the
+         decklist, the save controls — had never been audited at any width.
+
+         Safe on the same terms as the GET list above: `ai-deck-builder-v2`
+         reads the public catalogue, answers on the anon key, and WRITES
+         NOTHING. The deck it returns is saved by a separate call the harness
+         still stubs, so a probe run cannot create a deck on the account.
+
+         It costs a real two to three seconds per run, so it is deliberately
+         not in the GET set: only a probe that means to generate pays it. */
+      const PASSTHROUGH_POST_FUNCTIONS = new Set(['ai-deck-builder-v2']);
+      if (PASSTHROUGH_POST_FUNCTIONS.has(name) && method === 'POST') {
+        window.__dmReq.push({ method, table: `fn:${name}`, passthrough: true, live: true });
+        const headers = new Headers(opts.headers || {});
+        headers.set('apikey', ANON);
+        headers.set('Authorization', `Bearer ${ANON}`);
+        return realFetch(url, { ...opts, headers });
+      }
+
       const PASSTHROUGH_FUNCTIONS = new Set(['fetch-precons']);
       if (PASSTHROUGH_FUNCTIONS.has(name) && (method === 'GET' || !method)) {
         window.__dmReq.push({ method, table: `fn:${name}`, passthrough: true });

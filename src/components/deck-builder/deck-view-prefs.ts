@@ -36,8 +36,24 @@ export type DeckSortKey = 'name' | 'cmc' | 'quantity' | 'price' | 'type';
 /** Where the mode, sort axis and direction are remembered. Do not rename. */
 export const DECK_BUILD_VIEW_SURFACE = 'deckmatrix.deckView';
 
-/** Card width on a first visit. The figure this surface has always defaulted to. */
-export const DEFAULT_DECK_CARD_SIZE = 150;
+/**
+ * Card width on a first visit. The SAME number the deck page uses.
+ *
+ * It was 150, and the only reason recorded for it was "the figure this surface
+ * has always defaulted to", which is inertia rather than a decision. Measured
+ * on a freshly generated deck at 1600: eight columns of 174px, against the deck
+ * page's five of 250px and card search's 257px. The same hundred cards, drawn
+ * two sizes, and the smaller one on the screen where every card is new to the
+ * reader and the whole job is judging them.
+ *
+ * `DeckCardsPanel`'s own note is the argument: "the owner's most repeated note
+ * across this project is that everything renders too small." One number for one
+ * job, so the generated deck and the saved deck look like the same deck.
+ *
+ * A reader who has moved the slider keeps their width; this is only the
+ * fallback.
+ */
+export const DEFAULT_DECK_CARD_SIZE = 230;
 
 export const DECK_BUILD_MODES: ListingMode[] = [
   { id: 'grid', label: 'Grid', icon: Grid3X3, layout: 'rows', sized: true },

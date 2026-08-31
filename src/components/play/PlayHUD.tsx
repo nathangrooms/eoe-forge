@@ -280,7 +280,27 @@ export function PlayHUD({
   return (
     <div
       className={cn(
-        'pointer-events-auto flex h-14 w-full items-center gap-3 bg-background/70 px-2 shadow-lg shadow-black/40 backdrop-blur-xl md:px-3',
+        /*
+         * IT WRAPS ON A PHONE, BECAUSE OTHERWISE THE GAME CANNOT BE PLAYED ON ONE.
+         *
+         * Every group in here is `shrink-0`, so on a narrow screen the row
+         * simply overflowed its box and was clipped. Measured on the opening
+         * hand of a goldfish game:
+         *
+         *   390px   "Keep this hand" starts at x=393. 133px off-screen.
+         *   430px   93px off-screen.
+         *   768px   visible.
+         *
+         * The bar does not scroll, so there was no way to reach it. A player on
+         * a phone could press Mulligan forever and never keep a hand, while the
+         * banner underneath said "Both buttons are in the bar at the top".
+         *
+         * Wrapping rather than hiding anything: the alternative was dropping
+         * the utilities group below `sm`, and the game menu lives in there, so
+         * that trades one unreachable control for three. Two rows costs about
+         * 50px of board on a phone and nothing at all from `md` up.
+         */
+        'pointer-events-auto flex min-h-14 w-full flex-wrap items-center gap-x-3 gap-y-1 bg-background/70 px-2 py-1 shadow-lg shadow-black/40 backdrop-blur-xl md:h-14 md:flex-nowrap md:gap-3 md:px-3 md:py-0',
         className
       )}
     >
@@ -361,7 +381,9 @@ export function PlayHUD({
       </div>
 
       {/* When am I. Turn count, then the real turn structure as an indicator. */}
-      <div className="flex min-w-0 shrink items-center gap-2">
+      {/* On a phone this is the second row and holds every decision. On `md`
+          and up it is the right-hand end of one row, exactly as before. */}
+      <div className="flex w-full min-w-0 shrink items-center justify-end gap-2 md:w-auto">
         <div className="hidden shrink-0 flex-col leading-none sm:flex">
           <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
             Turn

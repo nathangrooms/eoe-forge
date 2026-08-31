@@ -193,7 +193,8 @@ import {
  * seat yet. That is the one screen where this space is genuinely free.
  */
 const OPENING_FEED_LEFT = 276;
-const OPENING_FEED_TOP = HUD_INSET + 8 + 62;
+/** How far the opening feed sits below the bar, whatever height the bar is. */
+const OPENING_FEED_DROP = 8 + 62;
 
 const HUMAN_SEAT: PlayerId = 'p1';
 
@@ -325,6 +326,49 @@ export default function Play() {
   const [watchSpeedMs, setWatchSpeedMs] = useState(450);
 
   const [table, setTable] = useState<BuiltTable | null>(null);
+
+  /*
+   * THE HUD'S HEIGHT IS MEASURED, NOT ASSUMED.
+   *
+   * `HUD_INSET` is 56, and everything held off the top of the board is placed
+   * from it: the battlefield, the mulligan bar, the game result, the opening
+   * feed. That was exactly right while the bar was one row at every width.
+   *
+   * It wraps to two rows below `md` now, because otherwise the primary action
+   * is 133px off the right edge of a phone and the game cannot be played on
+   * one. A constant cannot know that, so the first version of this fix hid the
+   * banner it was trying to make reachable behind the taller bar.
+   *
+   * So the bar reports its own height and everything else follows it. The
+   * constant stays as the starting value and the floor, which is what a board
+   * drawn before the first measurement should use.
+   */
+  const [hudHeight, setHudHeight] = useState(HUD_INSET);
+  const hudObserver = useRef<ResizeObserver | null>(null);
+  /*
+   * A CALLBACK REF, NOT A REF PLUS AN EFFECT.
+   *
+   * The effect version measured nothing: it read `hudRef.current` when
+   * `table` changed, and the bar attaches later than that, so the node was
+   * still null and the observer was never created. The banner stayed at
+   * `top: 64px` on a 390px screen against a 92px bar, which is the overlap
+   * this was meant to remove — verified by reading the inline style rather
+   * than by looking at it.
+   *
+   * A callback ref runs when the node attaches, whenever that happens to be,
+   * and again with null when it goes.
+   */
+  const measureHud = useCallback((node: HTMLDivElement | null) => {
+    hudObserver.current?.disconnect();
+    hudObserver.current = null;
+    if (!node || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(entries => {
+      const next = Math.round(entries[0]?.contentRect.height ?? 0);
+      if (next > 0) setHudHeight(Math.max(HUD_INSET, next));
+    });
+    observer.observe(node);
+    hudObserver.current = observer;
+  }, []);
 
   /*
    * A GAME IN PROGRESS IS THE ONE THING ON THIS PAGE THAT CANNOT BE REBUILT.
@@ -1791,7 +1835,7 @@ export default function Play() {
                   focusPlayerId={focusedSeat}
                   cardWidth={boardCardWidth}
                   bottomInset={showHand ? hand.inset : FEED_INSET}
-                  topInset={HUD_INSET}
+                  topInset={hudHeight}
                   onInspect={card => setInspectId(card.instanceId)}
                   /* Tap, straight from the permanent. Owner: *"tapping should
                      be easy on card."* It opens nothing, so tapping five lands
@@ -1919,7 +1963,7 @@ export default function Play() {
            */
           style={
             opening !== null
-              ? { top: OPENING_FEED_TOP, left: OPENING_FEED_LEFT }
+              ? { top: hudHeight + OPENING_FEED_DROP, left: OPENING_FEED_LEFT }
               : { left: 8, bottom: (showHand ? hand.inset : FEED_INSET) + 8 }
           }
         >
@@ -1951,7 +1995,7 @@ export default function Play() {
         {(opening !== null || aiming || aimingTrigger || dutiesShowing || commanderChoiceShowing || stack.length > 0) && (
           <div
             className="pointer-events-none absolute inset-x-0 z-[45] flex justify-center px-2"
-            style={{ top: HUD_INSET + 8 }}
+            style={{ top: hudHeight + 8 }}
           >
             {opening !== null ? (
               <MulliganBar
@@ -2028,7 +2072,7 @@ export default function Play() {
                game that has ended is the one thing on this screen that outranks
                whatever card you were in the middle of reading. */
             className="pointer-events-none absolute inset-x-0 z-[46] flex justify-center px-2"
-            style={{ top: HUD_INSET + 8 }}
+            style={{ top: hudHeight + 8 }}
           >
             <GameResult state={state} viewerPlayerId={HUMAN_SEAT} onLeave={handleLeave} />
           </div>
@@ -2161,7 +2205,7 @@ export default function Play() {
       <ZoneTravelLayer state={state} viewerPlayerId={HUMAN_SEAT} />
 
       {/* The HUD floats over the table; the board is inset to make room. */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-50">
+      <div ref={measureHud} className="pointer-events-none absolute inset-x-0 top-0 z-50">
         <PlayHUD
           state={state}
           view={view}

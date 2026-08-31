@@ -68,7 +68,12 @@ export interface DeckRailProps {
  * thumbnails.
  */
 function widthCap(count: number): string {
-  if (count <= 2) return '22rem';
+  /* 26rem for one or two, up from 22. Two cards at the old cap filled 704px of
+     the 1,250 a 1600px screen gives this rail, and the owner's note is
+     explicit: "always show the full card image instead (means box size
+     larger)". Two at 26rem is 848px, which is as far as this can go before a
+     commander stops looking like a card and starts looking like a poster. */
+  if (count <= 2) return '26rem';
   if (count <= 4) return '18rem';
   return '15rem';
 }

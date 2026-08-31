@@ -283,7 +283,11 @@ const ROLE_FACETS: Readonly<Record<Role, readonly Facet[]>> = {
   /* The two subtypes, and nothing cleverer. `eff:attach` looks like the right
      facet and is not: Ethereal Armor and Rancor do not carry it, so a rule
      built on it misses the two best cards in the archetype. */
-  enhance: ['sub:aura', 'sub:equipment'],
+  /* Auras and equipment, AND an anthem, which is the same job done to a board
+     instead of to one creature. `eff:pump` needs the qualifier below or it
+     claims every "equipped creature gets +N/+N", which is the mistake the
+     wincon note records at length. */
+  enhance: ['sub:aura', 'sub:equipment', 'eff:pump'],
   /* The keyword is only half the rule; `facetRoleQualifies` carries the other
      half, and without it this claims every creature that HAS hexproof rather
      than the cards that GRANT it. See the long note on the role in types.ts. */
@@ -357,6 +361,19 @@ function facetRoleQualifies(role: Role, facets: readonly Facet[]): boolean {
    * that creature describing itself. Purphoros and Emrakul carry
    * `kw:indestructible` about themselves and are not protection cards.
    */
+  /*
+   * An anthem is `eff:pump` over everything, and the gate is what stops it
+   * being the wincon mistake in a different word. Measured with
+   * `scripts/role-rule-try.mjs anthem-creatures`: eight rescues, every one of
+   * them a real anthem or finisher — Overrun, Triumph of the Hordes, Eldrazi
+   * Monument, Intangible Virtue. Without `cares:type:creature` it also claimed
+   * Past in Flames, whose pump is over instants and sorceries.
+   */
+  if (role === 'enhance') {
+    if (facets.includes('sub:aura') || facets.includes('sub:equipment')) return true;
+    return facets.includes('scope:all') && facets.includes('cares:type:creature');
+  }
+
   if (role === 'protection') {
     return (
       facets.includes('type:instant') ||

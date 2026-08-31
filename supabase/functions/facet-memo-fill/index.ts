@@ -119,7 +119,14 @@ const json = (body: unknown, status = 200) =>
  *   the additional-cost marker            every card carrying one is `partial`
  *                                         now rather than `manual`
  */
-const COMPILER_VERSION = 5;
+/*
+ * 5 -> 6, same day, third batch. One rule, and it changes output on cards the
+ * compiler already read fully: `eff:extra-land-drop`, derived from the
+ * max-lands-per-turn restriction, which is what makes Exploration and Azusa
+ * count as ramp. Before it they compiled to `rec:full type:enchantment` and had
+ * no role at all.
+ */
+const COMPILER_VERSION = 6;
 
 /**
  * Cards read per call.

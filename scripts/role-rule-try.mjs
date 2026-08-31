@@ -51,6 +51,10 @@ const CANDIDATES = {
     what: 'Returning something to a hand, which is interaction: Cyclonic Rift, Aetherize.',
     test: f => has(f, 'eff:move-zone') && has(f, 'cares:zone:hand') && !has(f, 'cares:zone:graveyard'),
   },
+  tokens: {
+    what: 'Making creatures without being one, which is a board and a deck job.',
+    test: f => has(f, 'eff:create-token') && !has(f, 'type:creature'),
+  },
   edict: {
     what: 'Making somebody sacrifice, which is removal that ignores hexproof.',
     test: f => has(f, 'eff:sacrifice') && !has(f, 'cost:sacrifice'),
@@ -66,6 +70,14 @@ const CANDIDATES = {
   anthem: {
     what: 'Making a board of creatures lethal.',
     test: f => has(f, 'eff:pump') && has(f, 'scope:all') && !any(f, 'sub:equipment', 'sub:aura'),
+  },
+  'anthem-creatures': {
+    what: 'The same, but the clause has to NAME creatures, which is what Past in Flames does not.',
+    test: f =>
+      has(f, 'eff:pump') &&
+      has(f, 'scope:all') &&
+      has(f, 'cares:type:creature') &&
+      !any(f, 'sub:equipment', 'sub:aura'),
   },
 };
 

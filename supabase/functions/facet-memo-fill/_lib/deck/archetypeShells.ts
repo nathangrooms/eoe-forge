@@ -263,6 +263,289 @@ export const DECK_ARCHETYPES: DeckArchetype[] = [
       },
     ],
   },
+  /*
+   * TEN SHELLS ADDED 31 AUG 2026, AND THE REASON IS THE OWNER'S.
+   *
+   * *"Syr Vondam benefits from cards being exiled, but strategy doesnt show a
+   * blink option ... Feels like very limited strategies for each commander they
+   * can be played in so many ways."*
+   *
+   * The catalogue held eight shells. The TAGGER already names sixty-six
+   * strategy concepts, and among them are `blink`, `reanimator`, `voltron`,
+   * `spellslinger`, `landfall`, `enchantments-matter`, `artifacts-matter`,
+   * `lifegain`, `planeswalker` and `tribal-payoff` — every one of these. So the
+   * knowledge was there and only the shell was missing, which is why a
+   * commander that plainly wants blink was offered Value and Control.
+   *
+   * Every card name below was checked against the live catalogue BEFORE it was
+   * written here, for the reason the header gives: `pipeline.ts` resolves these
+   * by exact name, and a miss contributes nothing and says nothing.
+   */
+  {
+    id: 'blink',
+    name: 'Blink',
+    description: 'Flicker your own creatures to use what they do when they arrive, again and again.',
+    formats: ['commander', 'brawl'],
+    colors: ['W', 'U'],
+    targetPower: { min: 6, max: 8 },
+    packages: [
+      {
+        name: 'The blinks',
+        blurb: 'Cheap and repeatable beats one big flicker: this is an engine, not a trick.',
+        cards: ['Ephemerate', 'Ghostly Flicker', 'Eldrazi Displacer', 'Restoration Angel'],
+      },
+      {
+        name: 'Things worth blinking',
+        blurb: 'A blink is only as good as the arrival it repeats, so the deck is made of arrivals.',
+        cards: ['Mulldrifter', 'Solemn Simulacrum', 'Cloudblazer', 'Sun Titan'],
+      },
+      {
+        name: 'Doubling the arrival',
+        blurb: 'The payoffs that turn one flicker into two triggers.',
+        cards: ['Panharmonicon', 'Brago, King Eternal', 'Charming Prince', 'Felidar Guardian'],
+      },
+    ],
+  },
+  {
+    id: 'reanimator',
+    name: 'Reanimator',
+    description: 'Put something enormous in the graveyard on purpose, then cheat it back.',
+    formats: ['commander', 'brawl'],
+    colors: ['B'],
+    targetPower: { min: 7, max: 9 },
+    packages: [
+      {
+        name: 'The reanimation',
+        blurb: 'The whole plan is paying two mana for a card that costs eight.',
+        cards: ['Reanimate', 'Animate Dead', 'Victimize', 'Stitch Together'],
+      },
+      {
+        name: 'Getting it there',
+        blurb: 'A reanimation spell with nothing in the yard is a blank, so the deck puts it there.',
+        cards: ['Entomb', 'Buried Alive', 'Life from the Loam', 'Eternal Witness'],
+      },
+      {
+        name: 'Worth cheating in',
+        blurb: 'Bodies that end the game or take a turn away the moment they land.',
+        cards: [
+          'Sheoldred, Whispering One',
+          'Archon of Cruelty',
+          'Razaketh, the Foulblooded',
+          'Jin-Gitaxias, Core Augur',
+        ],
+      },
+    ],
+  },
+  {
+    id: 'voltron',
+    name: 'Voltron',
+    description: 'Suit one creature up and win with it, usually the commander.',
+    formats: ['commander', 'brawl'],
+    colors: ['W', 'G'],
+    targetPower: { min: 6, max: 8 },
+    packages: [
+      {
+        name: 'The suit',
+        blurb: 'Cheap auras that add more than they cost, because the creature is the deck.',
+        cards: ['Ethereal Armor', 'Rancor', 'All That Glitters', 'Daybreak Coronet'],
+      },
+      {
+        name: 'Keeping it alive',
+        blurb: 'One removal spell undoes the whole plan, so the plan comes with answers.',
+        cards: ['Swiftfoot Boots', 'Lightning Greaves', 'Whispersilk Cloak', 'Mithril Coat'],
+      },
+      {
+        name: 'Getting through, and rebuilding',
+        blurb: 'A big creature that is chump-blocked has done nothing, and auras die with it.',
+        cards: ["Rogue's Passage", 'Sram, Senior Edificer', 'Kor Spiritdancer', 'Open the Armory'],
+      },
+    ],
+  },
+  {
+    id: 'spellslinger',
+    name: 'Spellslinger',
+    description: 'Cast instants and sorceries, and be paid every time you do.',
+    formats: ['commander', 'brawl'],
+    colors: ['U', 'R'],
+    targetPower: { min: 6, max: 8 },
+    packages: [
+      {
+        name: 'Paid on cast',
+        blurb: 'The payoffs. Without these the deck is a pile of cantrips.',
+        cards: ['Young Pyromancer', 'Guttersnipe', 'Archmage Emeritus', 'Talrand, Sky Summoner'],
+      },
+      {
+        name: 'The spells',
+        blurb: 'Cheap, so several happen in a turn, and they replace themselves.',
+        cards: ['Brainstorm', 'Ponder', 'Preordain', 'Opt'],
+      },
+      {
+        name: 'Doing it twice',
+        blurb: 'Copying is how a spellslinger turn stops being incremental.',
+        cards: ['Thousand-Year Storm', 'Twinning Staff', 'Storm-Kiln Artist', 'Expansion // Explosion'],
+      },
+    ],
+  },
+  {
+    id: 'landfall',
+    name: 'Lands matter',
+    description: 'Play extra lands, get paid for each one, and use the graveyard as a second hand.',
+    formats: ['commander', 'brawl'],
+    colors: ['G'],
+    targetPower: { min: 6, max: 8 },
+    packages: [
+      {
+        name: 'Paid on arrival',
+        blurb: 'Landfall is only a keyword until something is reading it.',
+        cards: ['Lotus Cobra', 'Tireless Tracker', 'Scute Swarm', 'Avenger of Zendikar'],
+      },
+      {
+        name: 'More land drops',
+        blurb: 'One land a turn is the rule this deck is built to break.',
+        cards: ['Azusa, Lost but Seeking', 'Oracle of Mul Daya', 'Harrow', 'Fabled Passage'],
+      },
+      {
+        name: 'The same land again',
+        blurb: 'A fetchland that keeps coming back is a landfall trigger every turn.',
+        cards: ['Crucible of Worlds', 'Ramunap Excavator', 'Evolving Wilds', 'Terramorphic Expanse'],
+      },
+    ],
+  },
+  {
+    id: 'enchantress',
+    name: 'Enchantress',
+    description: 'Every enchantment draws a card, so the deck never runs out.',
+    formats: ['commander', 'brawl'],
+    colors: ['G', 'W'],
+    targetPower: { min: 6, max: 8 },
+    packages: [
+      {
+        name: 'The enchantresses',
+        blurb: 'The draw engines. Two on the board is the turn the deck takes over.',
+        cards: [
+          'Argothian Enchantress',
+          "Sythis, Harvest's Hand",
+          "Enchantress's Presence",
+          'Setessan Champion',
+        ],
+      },
+      {
+        name: 'Enchantments worth drawing off',
+        blurb: 'Each one has to do a job as well as trigger the draw.',
+        cards: ['Ghostly Prison', 'Smothering Tithe', 'Rhystic Study', 'Sterling Grove'],
+      },
+      {
+        name: 'The payoff',
+        blurb: 'What all those enchantments add up to.',
+        cards: ['Sigil of the Empty Throne', 'Starfield of Nyx', 'Eidolon of Blossoms', "Mirri's Guile"],
+      },
+    ],
+  },
+  {
+    id: 'artifacts',
+    name: 'Artifacts',
+    description: 'Cheap artifacts, made cheaper, turned into mana and cards and a board.',
+    formats: ['commander', 'brawl'],
+    colors: ['U', 'R'],
+    targetPower: { min: 7, max: 9 },
+    packages: [
+      {
+        name: 'The rocks',
+        blurb: 'An artifact deck is a mana deck first: the payoffs need something to count.',
+        cards: ['Sol Ring', 'Arcane Signet', 'Mind Stone', 'Thran Dynamo'],
+      },
+      {
+        name: 'Turning them into something',
+        blurb: 'An artifact that has done its job should be spendable.',
+        cards: ['Krark-Clan Ironworks', 'Thopter Foundry', 'Goblin Welder', 'Sculpting Steel'],
+      },
+      {
+        name: 'Paid per artifact',
+        blurb: 'The cards that make a board of trinkets into a threat.',
+        cards: ['Urza, Lord High Artificer', 'Myr Battlesphere', 'Daretti, Scrap Savant', 'Etherium Sculptor'],
+      },
+    ],
+  },
+  {
+    id: 'lifegain',
+    name: 'Lifegain',
+    description: 'Gain life on a loop and turn the total into cards, creatures and a win.',
+    formats: ['commander', 'brawl'],
+    colors: ['W', 'B'],
+    targetPower: { min: 6, max: 8 },
+    packages: [
+      {
+        name: 'The trickle',
+        blurb: 'Small repeatable gains, because the payoffs count events rather than size.',
+        cards: ['Soul Warden', "Soul's Attendant", 'Heliod, Sun-Crowned', 'Trelasarra, Moon Dancer'],
+      },
+      {
+        name: 'Paid for gaining',
+        blurb: 'Life on its own wins nothing; these are what make it a deck.',
+        cards: [
+          'Karlov of the Ghost Council',
+          "Ajani's Pridemate",
+          'Archangel of Thune',
+          'Well of Lost Dreams',
+        ],
+      },
+      {
+        name: 'Turning it into a win',
+        blurb: 'Two cards that end the game, and the life total is the fuel.',
+        cards: ['Aetherflux Reservoir', 'Sanguine Bond', 'Exquisite Blood', 'Felidar Sovereign'],
+      },
+    ],
+  },
+  {
+    id: 'superfriends',
+    name: 'Superfriends',
+    description: 'Land planeswalkers, protect them, and use their abilities more than once a turn.',
+    formats: ['commander'],
+    colors: ['W', 'U', 'B'],
+    targetPower: { min: 6, max: 8 },
+    packages: [
+      {
+        name: 'The walkers',
+        blurb: 'Ones that defend themselves, or leave something behind if they die.',
+        cards: ['Teferi, Hero of Dominaria', 'Ugin, the Spirit Dragon', 'Karn Liberated', 'Narset Transcendent'],
+      },
+      {
+        name: 'More loyalty, more often',
+        blurb: 'What separates a superfriends deck from a pile of expensive cards.',
+        cards: ['Doubling Season', 'The Chain Veil', 'Oath of Teferi', 'Vorinclex, Monstrous Raider'],
+      },
+      {
+        name: 'Keeping them on the board',
+        blurb: 'A planeswalker with no defence is a very slow sorcery.',
+        cards: ['Oath of Gideon', 'Deploy the Gatewatch', 'Interplanar Beacon', "Atraxa, Praetors' Voice"],
+      },
+    ],
+  },
+  {
+    id: 'tribal',
+    name: 'Tribal',
+    description: 'One creature type, and every card in the deck cares which.',
+    formats: ['commander', 'brawl'],
+    colors: [],
+    targetPower: { min: 6, max: 8 },
+    packages: [
+      {
+        name: 'The lords',
+        blurb: 'Anything reading "other creatures you control of the chosen type" is the deck.',
+        cards: ['Metallic Mimic', 'Adaptive Automaton', 'Icon of Ancestry', 'Door of Destinies'],
+      },
+      {
+        name: 'Paid for the type',
+        blurb: 'Card advantage and reach that only a one-type deck can have.',
+        cards: ["Vanquisher's Banner", 'Kindred Discovery', "Herald's Horn", "Urza's Incubator"],
+      },
+      {
+        name: 'Ending it',
+        blurb: 'Going wide is only a board until something makes it lethal.',
+        cards: ['Coat of Arms', 'Shared Animosity', 'Cavern of Souls', 'Path of Ancestry'],
+      },
+    ],
+  },
 ];
 
 /** Every card name this catalogue names, deduplicated. */

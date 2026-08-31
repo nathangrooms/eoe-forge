@@ -899,6 +899,41 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
    * fit floor is what stops it spending those four on the least bad of a bad
    * pool: below it, the plan is not really asking for the card.
    */
+  /*
+   * AND THE SAME THING HAPPENS TO A CARD WHOSE ROLE IS FULL, which the first
+   * version of this pass did not reach because it only considered cards that
+   * serve NO role.
+   *
+   * The owner, 31 Aug 2026: *"Some cards are cheap and low rank, but super
+   * synergised to some commanders"*, and *"everything must be universal and
+   * work across every commander and card and type"*.
+   *
+   * Meren of Clan Nel Toth is the worked case and it was already written down
+   * as unfixed. `cost:sacrifice` exists, the aristocrats plan asks for it at
+   * 0.72, and Ashnod's Altar and Viscera Seer both score a real fit of 0.720
+   * against Eternal Witness at 0.752. Neither gets in, because pass one takes
+   * each card into its NEEDIEST role and Ashnod's Altar classifies as `ramp`:
+   * once Sol Ring, Arcane Signet, Fellwar Stone, Mind Stone and Commander's
+   * Sphere have filled that quota, `neediestRole` returns null and the card is
+   * skipped however well it fits. In a Meren deck the Altar is not ramp, it is
+   * the engine.
+   *
+   * So the rescue is now SLOTS RESERVED FROM THE QUOTA LOOP rather than a pass
+   * that runs before it, and it considers every card rather than only the
+   * roleless ones. Role quotas and commander fit are different axes; this is
+   * the only place the second one is allowed to win.
+   *
+   * TWO THINGS ABOUT IT ARE DELIBERATE AND SHOULD NOT BE TIDIED.
+   *
+   * It runs AFTER the quota loop, because which roles filled up is not known
+   * until they have. Reserving the slots up front is what leaves it room.
+   *
+   * It is ordered by FIT, not by score. Everywhere else in this file the order
+   * is `rankedSpells`, which carries a popularity prior, and that prior is
+   * exactly what buries a card that is cheap, unplayed and perfect for this
+   * one commander. These few slots are the one place popularity gets no vote.
+   */
+  const COMMANDER_FIT_RESERVE = 6;
   const COMMANDER_RESCUE_SLOTS = 4;
   const COMMANDER_RESCUE_FIT = 0.45;
   let rescued = 0;
@@ -936,9 +971,21 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
     }
   }
 
+  /*
+   * SLOTS HELD BACK FROM THE QUOTA LOOP for the pass below it.
+   *
+   * Zero when the commander's plan says nothing, because then there is no
+   * second axis to reserve for and holding slots back would only make the deck
+   * worse. Six is small against a 64-slot spell count and it is spent on the
+   * cards the plan asks for loudest, so the worst case is six cards that fit
+   * the commander instead of six that filled a quota.
+   */
+  const fitReserve = commanderPlan.wants.length > 0 ? COMMANDER_FIT_RESERVE : 0;
+  const quotaSlots = Math.max(0, spellSlots - fitReserve);
+
   const quota = { ...targets, land: 0, creature: 0 } as Record<Role, number>;
   for (const rec of orderPreferredFirst(rankedSpells, preferred)) {
-    if (picked.length - chosenLands.length >= spellSlots) break;
+    if (picked.length - chosenLands.length >= quotaSlots) break;
     const card = rec.card as BuildCard;
     if (takenOracleIds.has(card.oracleId)) continue;
     if (overColourlessCap(card)) continue;
@@ -956,6 +1003,67 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
       bucket: role,
       preferred: preferred.has(card.oracleId),
     });
+  }
+
+  /* ---------------------------------------------------------------- *
+   * 2a+. The reserved slots, spent on fit and nothing else.
+   * ---------------------------------------------------------------- *
+   *
+   * See the long note at 2a-. This is the half that reaches a card whose role
+   * exists and whose quota is already full, which is the Ashnod's Altar case
+   * and the one the earlier pass could not touch.
+   *
+   * Ordered by fit descending, and score is only the tie-break. That is the
+   * whole point of the pass: `rankedSpells` carries a popularity prior, and a
+   * card that is cheap, unplayed and exactly what this commander wants loses
+   * on that prior every time. It cannot lose on it here.
+   */
+  if (fitReserve > 0) {
+    const byFit = rankedSpells
+      .filter(rec => {
+        const card = rec.card as BuildCard;
+        return !takenOracleIds.has(card.oracleId) && !overColourlessCap(card);
+      })
+      .map(rec => ({ rec, fit: planFit(commanderPlan, rec.card as BuildCard).fit }))
+      .filter(entry => entry.fit >= COMMANDER_RESCUE_FIT)
+      .sort((a, b) => b.fit - a.fit || b.rec.score - a.rec.score);
+
+    let reserved = 0;
+    for (const { rec, fit } of byFit) {
+      if (reserved >= fitReserve) break;
+      if (picked.length - chosenLands.length >= spellSlots) break;
+      const card = rec.card as BuildCard;
+      if (takenOracleIds.has(card.oracleId)) continue;
+      /* Re-checked inside the loop, not only in the filter above: this pass
+         picks cards, so the colourless tally moves as it runs. */
+      if (overColourlessCap(card)) continue;
+      if (!hasColour(card)) colourlessPicked += 1;
+      takenOracleIds.add(card.oracleId);
+      reserved += 1;
+      picked.push({
+        card,
+        quantity: 1,
+        reason: rec.reason,
+        score: rec.score,
+        bucket: 'commander',
+        preferred: preferred.has(card.oracleId),
+      });
+      /* The role tally still moves, so the shortfall lines below stay honest:
+         a card taken here that happens to serve a short role really did fill
+         it, and reporting it as missing would be a lie about the deck. */
+      const filled = ROLES.find(role => role !== 'land' && quota[role] > 0 && cardRole(card, role));
+      if (filled) {
+        quota[filled] -= 1;
+        roleFill[filled].picked += 1;
+      }
+      void fit;
+    }
+    if (reserved > 0) {
+      notes.push(
+        `${reserved} card${reserved === 1 ? '' : 's'} chosen purely on how well ` +
+          `${commanderPlan.commanderName} wants them, whatever role they fill`
+      );
+    }
   }
 
   for (const role of ROLES) {

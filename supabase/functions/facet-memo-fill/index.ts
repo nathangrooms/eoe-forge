@@ -163,12 +163,40 @@ Deno.serve(async (req) => {
   /* Keyset by oracle_id. An OFFSET walk re-reads everything it has already
      passed, and CLAUDE.md section 10d records what an unindexable ORDER BY did
      to the pool query: a sort of 31,829 rows against a statement timeout. */
-  const { data: cards, error: readErr } = await db
-    .from('cards_unique')
-    .select('oracle_id, name, type_line, oracle_text, mana_cost, cmc, keywords, colors, color_identity, faces, power, toughness, layout')
-    .gt('oracle_id', run.cursor)
-    .order('oracle_id', { ascending: true })
-    .limit(batch);
+  /*
+   * TWO MODES, and the second one is what makes this schedulable.
+   *
+   * The walk above reads the catalogue in oracle_id order and skips what is
+   * already computed. That is right for a first fill or a version bump, and it
+   * is 34 calls whatever the size of the gap — so a nightly top-up for the 300
+   * cards of a new set would read 33,032 rows to find them.
+   *
+   * `only_missing` asks Postgres for the gap directly, through
+   * `public.cards_missing_facets`, which is an anti-join against the memo. One
+   * call, and it converges because a card the compiler THROWS on is recorded
+   * with empty facets rather than skipped (see the catch below); if it were
+   * skipped it would be selected again every fifteen minutes forever.
+   *
+   * The cursor stays at '' in this mode on purpose. Rows leave the result as
+   * they are written, so "the first N still missing" is a cursor that advances
+   * itself, and one that could get ahead of an unwritable card would loop past
+   * it and never converge.
+   */
+  const onlyMissing = body.only_missing === true;
+  const { data: cards, error: readErr } = onlyMissing
+    ? await db.rpc('cards_missing_facets', {
+        p_version: COMPILER_VERSION,
+        p_after: '',
+        p_limit: batch,
+      })
+    : await db
+        .from('cards_unique')
+        .select(
+          'oracle_id, name, type_line, oracle_text, mana_cost, cmc, keywords, colors, color_identity, faces, power, toughness, layout'
+        )
+        .gt('oracle_id', run.cursor)
+        .order('oracle_id', { ascending: true })
+        .limit(batch);
 
   if (readErr) return json({ error: `reading cards failed: ${readErr.message}` }, 500);
   if (!cards || cards.length === 0) {
@@ -269,7 +297,11 @@ Deno.serve(async (req) => {
     written += chunk.length;
   }
 
-  const cursor = cards[cards.length - 1].oracle_id as string;
+  /* In `only_missing` mode the cursor must not move: the query is "the first N
+     cards still missing", which already advances as rows are written. Moving it
+     would step past a card this call failed to write and leave a permanent
+     hole that the next call could not see. */
+  const cursor = onlyMissing ? run.cursor : (cards[cards.length - 1].oracle_id as string);
   /* Short page means the end of the catalogue, and `batch` can never exceed
      what PostgREST will return, so a short page cannot be a truncation. */
   const finished = cards.length < batch;

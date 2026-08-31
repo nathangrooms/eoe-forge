@@ -1593,6 +1593,44 @@ const INTENT_RULES: readonly IntentRule[] = [
     ],
   },
   {
+    // Syr Vondam, God-Eternal Bontu, God-Eternal Oketra. The owner named this
+    // one: "syr vondom benefits from cards being exhiled, but strategy doesnt
+    // show a blink option".
+    //
+    // The rule above it reads "dies", matches Syr Vondam, and stops, so the
+    // plan came out as a pure aristocrats deck and the second half of his own
+    // trigger was never read. A creature of yours going to exile is what a
+    // BLINK deck does on purpose every turn, so the two halves want different
+    // decks and both are correct.
+    //
+    // The weights sit just under the dies rule's on purpose. Sacrifice is the
+    // cheaper and more repeatable way to turn the trigger on, so it should
+    // stay the stronger reading; this adds the second deck rather than
+    // replacing the first.
+    when: /(dies or is put into exile|creature you control is put into exile|permanents? you control (is|are) exiled)/i,
+    reads: 'is also paid when your own creatures are exiled, which is what blinking them does',
+    wants: [
+      ['eff:move-zone', 0.8],
+      ['trig:enters', 0.7],
+      ['trig:leaves', 0.6],
+      ['eff:exile', 0.45],
+    ],
+  },
+  {
+    // Laelia, Ranar, Bell Borca, The War Doctor, Ketramose. A different deck
+    // from the one above and it must not be folded into it: these count cards
+    // reaching exile FROM ANYWHERE, so the deck is impulse draw, foretell and
+    // self-exile rather than flickering your own board.
+    when: /(one or more (other )?cards are put into exile|card as it's put into exile|cards? (is|are) put into exile from)/i,
+    reads: 'counts cards going to exile, so the deck puts them there itself',
+    wants: [
+      ['eff:exile', 0.8],
+      ['cares:zone:library', 0.55],
+      ['eff:draw', 0.45],
+      ['cares:zone:graveyard', 0.35],
+    ],
+  },
+  {
     // Folk Hero, read inside the quotation. Which type is decided by the
     // partner it is paired with, so the only honest wants are creatures
     // generally and the changelings that are every type at once and
@@ -2258,10 +2296,44 @@ export function planForCommander(commander: {
    * record actually stated. That is the same principle the fallback weights
    * below are written to.
    */
+  /*
+   * AND THE GATE IS THE COMPILER'S OWN VERDICT, not the size of the plan.
+   *
+   * Measured 31 Aug 2026 over the 400 most-played commanders: the compiler
+   * reported `rec:full` for **42 of them, 10.5%**. For **322, 80.5%**, it said
+   * it had NOT read the whole card and the plan nonetheless had four or more
+   * wants, so the English reader never ran. Four in five of the commanders
+   * people actually build had a reader that could have spoken about the
+   * unread half of the card and was silent.
+   *
+   * That is the shape of the owner's complaint, generalised. Syr Vondam's
+   * "or is put into exile" needed a new rule; the 322 need no new rules at
+   * all, only permission for the existing 113 to speak.
+   *
+   * `rec:full` is the right gate and the want count never was. The original
+   * reasoning — English must not talk over a parsed record — is exactly
+   * right, and `rec:full` is the facet that means "there IS a parsed record
+   * for every clause". A thick plan is not that: it is four wants derived
+   * from one clause of a card with three more the compiler refused. The want
+   * count measured how much was said, and the question was whether anything
+   * was left unsaid.
+   *
+   * THREE SCALES, because the reader's standing differs in three ways:
+   *   nothing was read      1.00  the intent rule IS the reading
+   *   thin plan             0.80  a second voice beside a weak one
+   *   thick, partial cover  0.65  it may only ADD facets the record has not
+   *                               stated; every want the compiler produced
+   *                               keeps its own higher weight, because `add`
+   *                               takes the maximum.
+   * The lowest scale puts the strongest intent want at 0.585, below a 0.6
+   * facet want, so ordering among read clauses is untouched.
+   */
   const THIN_PLAN = 4;
-  if (wants.size < THIN_PLAN && oracleText) {
+  const readEverything = facets.includes('rec:full');
+  const thin = wants.size < THIN_PLAN;
+  if (oracleText && (thin || !readEverything)) {
     const text = oracleText;
-    const scale = wants.size === 0 ? 1 : 0.8;
+    const scale = wants.size === 0 ? 1 : thin ? 0.8 : 0.65;
     for (const rule of INTENT_RULES) {
       if (!rule.when.test(text)) continue;
       const because = `${commander.name} ${rule.reads}`;

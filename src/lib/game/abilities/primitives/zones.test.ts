@@ -188,3 +188,56 @@ test('P06/A4 — thenShuffle false emits no SHUFFLE', () => {
   const result = searchLibraryForced(rampantGrowth(false), ctxFor(state, 'rg'), env());
   assert.equal(result.actions.some(a => a.type === 'SHUFFLE'), false);
 });
+
+/* ------------------------------------------------------------------ *
+ * A tutor that leaves the card on top
+ * ------------------------------------------------------------------ */
+
+/*
+ * Vampiric Tutor, Enlightened Tutor, Mystical Tutor, Worldly Tutor and Sylvan
+ * Tutor all say "shuffle and put that card on top", in that order, and until
+ * 31 Aug 2026 none of them compiled to anything at all.
+ *
+ * The order is the card. A shuffle after the placement buries the card the
+ * player just paid for, so these two tests are about sequence rather than about
+ * which actions appear.
+ */
+const vampiricTutor = (): Extract<Effect, { do: 'search-library' }> => ({
+  do: 'search-library',
+  who: { who: 'you' },
+  what: basicLandFilter as never,
+  count: 1,
+  to: 'library',
+  thenShuffle: true,
+  toPosition: 'top',
+});
+
+test('a tutor to top places the card on top of the library', () => {
+  const state = board([{ id: 'f1', card: 'Forest', zone: 'library' }]);
+  const result = searchLibraryForced(vampiricTutor(), ctxFor(state, 'rg'), env());
+  const move = result.actions.find(a => a.type === 'MOVE_ZONE');
+  assert.ok(move, 'the card has to move');
+  assert.equal((move as { to?: string }).to, 'library');
+  assert.equal(
+    (move as { position?: string }).position,
+    'top',
+    'without the position the card is shuffled in, which is a different and much worse card'
+  );
+});
+
+test('a tutor to top shuffles BEFORE it places, not after', () => {
+  const state = board([{ id: 'f1', card: 'Forest', zone: 'library' }]);
+  const result = searchLibraryForced(vampiricTutor(), ctxFor(state, 'rg'), env());
+  const shuffleAt = result.actions.findIndex(a => a.type === 'SHUFFLE');
+  const moveAt = result.actions.findIndex(a => a.type === 'MOVE_ZONE');
+  assert.ok(shuffleAt >= 0 && moveAt >= 0);
+  assert.ok(shuffleAt < moveAt, 'shuffling afterwards would bury the card the tutor just found');
+});
+
+test('a search that leaves the library still shuffles last', () => {
+  const state = board([{ id: 'f1', card: 'Forest', zone: 'library' }]);
+  const result = searchLibraryForced(rampantGrowth(), ctxFor(state, 'rg'), env());
+  const shuffleAt = result.actions.findIndex(a => a.type === 'SHUFFLE');
+  const moveAt = result.actions.findIndex(a => a.type === 'MOVE_ZONE');
+  assert.ok(moveAt < shuffleAt, 'the ordering change must be confined to searches that name a position');
+});

@@ -777,6 +777,87 @@ export const EFFECT_RULES: EffectRule[] = [
     },
   },
 
+  {
+    /*
+     * The tutors that put the card on top instead of in your hand: Vampiric
+     * (rank 12), Enlightened (123), Mystical (160), Worldly (166) and Sylvan.
+     * All of them produced NO ability record, because `search-library` above
+     * accepts three destinations and none of them is the library.
+     *
+     * This is EXACT, not an approximation. `MOVE_ZONE` already carries
+     * `position`, so the runtime can put the card on top; and the shuffle is
+     * ordered before the placement by `searchLibraryForced`, because the card
+     * says "shuffle and put that card on top" and doing it the other way round
+     * buries the card that was just found.
+     *
+     * The reveal is information-only and is marked approximate, the same way
+     * the plain search rule marks it.
+     */
+    id: 'search-library-to-top',
+    re: new RegExp(
+      '^search your library for (.+?),' +
+      '(?: reveal (?:it|them|that card|those cards),)?' +
+      '(?: then| and)? shuffle,? (?:then |and )?put (?:it|that card|the card) on top(?: of your library)?$',
+    ),
+    note: 'A tutor that leaves the card on top of the library. Exact: MOVE_ZONE carries the position.',
+    build(m, ctx) {
+      const ref = parseObject(m[1]);
+      if (!ref || ref.targeted || ref.upTo) return null;
+      if (/ reveal /.test(m[0])) ctx.approximate = true;
+      return [{
+        do: 'search-library', who: { who: 'you' },
+        what: objectSelector({ ...ref, zone: 'library' }),
+        count: ref.count, to: 'library', thenShuffle: true, toPosition: 'top',
+      }];
+    },
+  },
+  {
+    /*
+     * Cultivate and Kodama's Reach, ranked 20 and 37 in Commander, and until
+     * now both had NO ability record at all.
+     *
+     * "put one onto the battlefield tapped and the other into your hand" is
+     * one search with TWO destinations, and `search-library` above carries a
+     * single `to`. That is the whole reason the rule refused, and refusing
+     * meant every consumer read the two commonest green ramp spells in the
+     * format as doing nothing: not ramp for the deck builder, not a land
+     * fetcher for a commander plan, nothing on resolution.
+     *
+     * TWO SEARCHES RATHER THAN ONE, which is the honest approximation. The
+     * card searches once and splits the result; this searches twice for one
+     * card each. Every destination gets the right number of the right cards
+     * and the deck-building reading is exact. What it is not is the shuffle
+     * count and the number of prompts, so the ability is marked approximate,
+     * which is the flag that already exists for precisely this distance.
+     *
+     * Modelling it as one search of two to the battlefield would be worse
+     * than refusing: it would put a land into play that the card puts in
+     * hand, and a wrong resolution is a worse failure than a missing one.
+     */
+    id: 'search-library-split-destination',
+    re: new RegExp(
+      '^search your library for up to two (.+?) cards,' +
+      '(?: reveal those cards,)?' +
+      ' put one onto the battlefield( tapped)? and the other into your hand,' +
+      '(?: then| and) shuffle$',
+    ),
+    note: 'One search with two destinations, modelled as two searches of one card. Approximate by construction.',
+    build(m, ctx) {
+      const ref = parseObject(`a ${m[1]} card`);
+      if (!ref || ref.targeted) return null;
+      ctx.approximate = true;
+      const what = objectSelector({ ...ref, zone: 'library' });
+      const onto: Effect = {
+        do: 'search-library', who: { who: 'you' }, what, count: 1, to: 'battlefield', thenShuffle: true,
+      };
+      if (m[2]) (onto as { tapped?: boolean }).tapped = true;
+      return [
+        onto,
+        { do: 'search-library', who: { who: 'you' }, what, count: 1, to: 'hand', thenShuffle: true },
+      ];
+    },
+  },
+
   /* ---------------- permanents ---------------- */
   {
     id: 'create-token-predefined',

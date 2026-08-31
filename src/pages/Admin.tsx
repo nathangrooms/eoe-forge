@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   LayoutDashboard, Flag, Users, Brain, ClipboardList,
-  Download, Loader2, AlertCircle, CreditCard, Rocket
+  Download, Loader2, AlertCircle, CreditCard, Rocket, Cpu
 , Sparkles } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
@@ -18,6 +18,7 @@ import { HomepageModeToggle } from '@/components/admin/HomepageModeToggle';
 import SyncDashboard from '@/components/SyncDashboard';
 import { DevConsole } from '@/components/admin/DevConsole';
 import { ArtStudio } from '@/components/admin/ArtStudio';
+import { EngineHealth } from '@/components/admin/EngineHealth';
 
 const TABS = [
   { value: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -25,6 +26,7 @@ const TABS = [
   { value: 'subscriptions', label: 'Subs', icon: CreditCard },
   { value: 'users', label: 'Users', icon: Users },
   { value: 'tasks', label: 'Tasks', icon: ClipboardList },
+  { value: 'engine', label: 'Engine', icon: Cpu },
   { value: 'ai', label: 'AI', icon: Brain },
   { value: 'sync', label: 'Sync', icon: Download },
   { value: 'dev', label: 'Dev', icon: Rocket },
@@ -131,6 +133,10 @@ export default function Admin() {
 
         <TabsContent value="tasks" className="mt-4">
           <TaskManagement />
+        </TabsContent>
+
+        <TabsContent value="engine" className="mt-4">
+          <EngineHealth />
         </TabsContent>
 
         <TabsContent value="ai" className="mt-4">

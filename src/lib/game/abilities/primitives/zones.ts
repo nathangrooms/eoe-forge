@@ -169,6 +169,7 @@ export function searchLibraryForced(
   for (const playerId of resolvePlayers(effect.who, ctx)) {
     const pool = zonePool('library', playerId, effect.what, ctx);
     const name = playerOf(ctx.state, playerId)?.name ?? 'A player';
+    const playerActionsFrom = actions.length;
 
     /*
      * "Up to two" is ALWAYS the player's number, even when the library holds
@@ -190,6 +191,7 @@ export function searchLibraryForced(
           type: 'MOVE_ZONE',
           instanceId,
           to: effect.to,
+          ...(effect.toPosition ? { position: effect.toPosition } : {}),
           ...(effect.tapped ? { tapped: true } : {}),
           at: env.at,
           ...(env.cause ? { cause: env.cause } : {}),
@@ -197,13 +199,31 @@ export function searchLibraryForced(
       }
     }
 
+    /*
+     * THE SHUFFLE COMES FIRST FOR A TUTOR TO TOP, and last for everything else.
+     *
+     * Vampiric Tutor says "shuffle and put that card on top", in that order,
+     * and the order is the card: shuffling afterwards would bury the card the
+     * player just paid two life to find. Nowhere else does the order matter,
+     * because everywhere else the card has already left the library.
+     *
+     * `toPosition` is the signal rather than a second flag, because a search
+     * that names a position in the library is exactly the case where the card
+     * stays in the library and the sequence is stated on the card.
+     */
+    const shuffleFirst = effect.thenShuffle && effect.toPosition !== undefined;
     if (effect.thenShuffle) {
-      actions.push({
+      const shuffle: GameAction = {
         type: 'SHUFFLE',
         playerId,
         at: env.at,
         ...(env.cause ? { cause: env.cause } : {}),
-      });
+      };
+      /* Inserted before THIS player's moves, not at the front of everything:
+         the loop runs once per player and `unshift` would put one player's
+         shuffle ahead of another player's search. */
+      if (shuffleFirst) actions.splice(playerActionsFrom, 0, shuffle);
+      else actions.push(shuffle);
     }
   }
 

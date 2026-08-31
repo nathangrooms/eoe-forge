@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   LayoutDashboard, Flag, Users, Brain, ClipboardList,
   Download, Loader2, AlertCircle, CreditCard, Rocket, Cpu
-, Sparkles } from 'lucide-react';
+, Sparkles, Library } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 
@@ -19,6 +19,7 @@ import SyncDashboard from '@/components/SyncDashboard';
 import { DevConsole } from '@/components/admin/DevConsole';
 import { ArtStudio } from '@/components/admin/ArtStudio';
 import { EngineHealth } from '@/components/admin/EngineHealth';
+import { EngineDictionary } from '@/components/admin/EngineDictionary';
 
 const TABS = [
   { value: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -27,6 +28,7 @@ const TABS = [
   { value: 'users', label: 'Users', icon: Users },
   { value: 'tasks', label: 'Tasks', icon: ClipboardList },
   { value: 'engine', label: 'Engine', icon: Cpu },
+  { value: 'dictionary', label: 'Words', icon: Library },
   { value: 'ai', label: 'AI', icon: Brain },
   { value: 'sync', label: 'Sync', icon: Download },
   { value: 'dev', label: 'Dev', icon: Rocket },
@@ -137,6 +139,10 @@ export default function Admin() {
 
         <TabsContent value="engine" className="mt-4">
           <EngineHealth />
+        </TabsContent>
+
+        <TabsContent value="dictionary" className="mt-4">
+          <EngineDictionary />
         </TabsContent>
 
         <TabsContent value="ai" className="mt-4">

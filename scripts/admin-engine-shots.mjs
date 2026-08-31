@@ -1,0 +1,117 @@
+/**
+ * Photograph the Engine and Words screens in `/admin`.
+ *
+ *   node scripts/admin-engine-shots.mjs
+ *
+ * The gate is faked by `scripts/admin-shim.js` and NOTHING ELSE IS: every
+ * number in these shots is the live database answering a real anonymous
+ * request, because `engine_coverage()`, `engine_vocabulary()` and
+ * `cards_unique` are all granted to `anon`. Read that shim's header.
+ *
+ * It scrolls before capturing and waits on `naturalWidth`, for the reason
+ * CLAUDE.md gives at length: `fullPage: true` never moves the viewport, so a
+ * lazy image below the first screenful has never been requested and photographs
+ * as a grey box. That misread three screens in one day.
+ */
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import puppeteer from 'puppeteer';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const OUT = path.join(here, '..', '.shots');
+fs.mkdirSync(OUT, { recursive: true });
+
+const BASE = process.env.BASE ?? 'http://localhost:8080';
+const SHIM = fs.readFileSync(path.join(here, 'admin-shim.js'), 'utf8');
+
+const log = (...a) => console.log(...a);
+
+const browser = await puppeteer.launch({
+  headless: 'new',
+  protocolTimeout: 240000,
+  args: ['--disable-lcd-text', '--font-render-hinting=none', '--no-sandbox'],
+});
+
+/** Scroll the whole page so lazy images are actually asked for, then settle. */
+async function scrollThrough(tab) {
+  await tab.evaluate(async () => {
+    const step = Math.round(window.innerHeight * 0.8);
+    for (let y = 0; y < document.body.scrollHeight; y += step) {
+      window.scrollTo(0, y);
+      await new Promise(r => setTimeout(r, 120));
+    }
+    window.scrollTo(0, 0);
+    await new Promise(r => setTimeout(r, 300));
+  });
+  /* `complete` is ALSO true for an image that finished failing. */
+  await tab
+    .waitForFunction(
+      () => [...document.images].every(i => i.naturalWidth > 0 || i.dataset.dmOptional === '1'),
+      { timeout: 12000 }
+    )
+    .catch(() => log('  (some images did not load)'));
+  await tab.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+}
+
+async function shoot(label, { tab: adminTab, width, height, clicks = [], fullPage = true }) {
+  const tab = await browser.newPage();
+  await tab.setViewport({ width, height, deviceScaleFactor: 1 });
+  await tab.evaluateOnNewDocument(SHIM);
+  tab.on('pageerror', e => log('  [pageerror]', e.message.slice(0, 200)));
+  tab.on('console', m => {
+    if (m.type() === 'error') log('  [console]', m.text().slice(0, 200));
+  });
+
+  await tab.goto(`${BASE}/admin`, { waitUntil: 'networkidle2', timeout: 60000 });
+  await tab.waitForSelector('[role="tab"]', { timeout: 20000 });
+
+  /* Radix opens on POINTER events; a synthetic el.click() silently does
+     nothing. CLAUDE.md records a sweep reporting all nine admin tabs as
+     "no change" for exactly this reason. Use Puppeteer's own click. */
+  const tabs = await tab.$$('[role="tab"]');
+  for (const t of tabs) {
+    const text = await tab.evaluate(el => el.textContent?.trim() ?? '', t);
+    if (text.toLowerCase().includes(adminTab)) {
+      await t.click();
+      break;
+    }
+  }
+  await new Promise(r => setTimeout(r, 2500));
+
+  for (const sel of clicks) {
+    const el = await tab.$(sel);
+    if (el) {
+      await el.click();
+      await new Promise(r => setTimeout(r, 1800));
+    } else {
+      log(`  (no element for ${sel})`);
+    }
+  }
+
+  await scrollThrough(tab);
+
+  const h = await tab.evaluate(() => document.body.scrollHeight);
+  const file = path.join(OUT, `${label}.png`);
+  await tab.screenshot({ path: file, fullPage });
+  log(`  ${label}  ${width}x${height}  page ${h}px  -> .shots/${label}.png`);
+  await tab.close();
+}
+
+await shoot('admin-engine-1600', { tab: 'engine', width: 1600, height: 1000 });
+await shoot('admin-words-1600', { tab: 'words', width: 1600, height: 1000 });
+await shoot('admin-words-390', { tab: 'words', width: 390, height: 844 });
+
+/* A shell opened. The panel is the part that draws real cards, so it is the
+   part most likely to be wrong: a name that no longer resolves photographs as a
+   grey rectangle and nothing else would say so. */
+await shoot('admin-words-shell', {
+  tab: 'words',
+  width: 1600,
+  height: 1000,
+  clicks: ['button:has(h3)'],
+  fullPage: false,
+});
+
+await browser.close();
+log('done');

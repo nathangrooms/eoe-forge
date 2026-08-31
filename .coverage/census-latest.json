@@ -1,0 +1,326 @@
+{
+  "cards": 33032,
+  "withText": 32685,
+  "anyRecord": 25788,
+  "full": 10463,
+  "coverage": {
+    "partial": 15325,
+    "full": 10463,
+    "manual": 6890,
+    "none": 7
+  },
+  "charsRead": 1760798,
+  "charsTotal": 3336768,
+  "charBuckets": {
+    "100%": 16579,
+    "75-99%": 585,
+    "50-74%": 1708,
+    "25-49%": 2558,
+    "1-24%": 4342,
+    "0%": 6890
+  },
+  "unreadClauses": 21900,
+  "distinctShapes": 10654,
+  "topShapes": [
+    {
+      "shape": "as an additional cost to cast this spell",
+      "cards": 213,
+      "example": "Wild Unraveling"
+    },
+    {
+      "shape": "ACTIVATED: regenerate this creature",
+      "cards": 142,
+      "example": "Sentry of the Underworld"
+    },
+    {
+      "shape": "until end of turn",
+      "cards": 139,
+      "example": "Humble"
+    },
+    {
+      "shape": "ACTIVATED: draw a card",
+      "cards": 125,
+      "example": "Conqueror's Galleon // Conqueror's Foothold"
+    },
+    {
+      "shape": "ACTIVATED: until end of turn",
+      "cards": 115,
+      "example": "Detection Tower"
+    },
+    {
+      "shape": "ACTIVATED: add {mana}",
+      "cards": 111,
+      "example": "Skyclave Cleric // Skyclave Basilica"
+    },
+    {
+      "shape": "flying",
+      "cards": 109,
+      "example": "Balamb Garden, SeeD Academy // Balamb Garden, Airborne"
+    },
+    {
+      "shape": "choose one",
+      "cards": 97,
+      "example": "Academic Probation"
+    },
+    {
+      "shape": "as this creature enters",
+      "cards": 93,
+      "example": "Tyrannical Pitlord"
+    },
+    {
+      "shape": "whenever you attack",
+      "cards": 92,
+      "example": "Mr. Orfeo, the Boulder"
+    },
+    {
+      "shape": "this spell costs {mana} less to cast if",
+      "cards": 91,
+      "example": "Orysa, Tide Choreographer"
+    },
+    {
+      "shape": "when this creature is turned face up",
+      "cards": 89,
+      "example": "Coveted Falcon"
+    },
+    {
+      "shape": "ACTIVATED: add one mana of any color",
+      "cards": 88,
+      "example": "Noggle Robber"
+    },
+    {
+      "shape": "this spell can't be countered",
+      "cards": 88,
+      "example": "Fry"
+    },
+    {
+      "shape": "when you cast this spell",
+      "cards": 78,
+      "example": "Kozilek, the Broken Reality"
+    },
+    {
+      "shape": "as this enchantment enters",
+      "cards": 76,
+      "example": "Rally the Ranks"
+    },
+    {
+      "shape": "ACTIVATED: level",
+      "cards": 74,
+      "example": "Rogue Class"
+    },
+    {
+      "shape": "ACTIVATED: prevent the next damage that would be dealt",
+      "cards": 70,
+      "example": "Elvish Healer"
+    },
+    {
+      "shape": "i",
+      "cards": 65,
+      "example": "Summon: Choco/Mog"
+    },
+    {
+      "shape": "counter target spell unless its controller pays {mana}",
+      "cards": 62,
+      "example": "Force Spike"
+    },
+    {
+      "shape": "as this land enters",
+      "cards": 60,
+      "example": "Secluded Courtyard"
+    },
+    {
+      "shape": "prevent all combat damage that would be dealt",
+      "cards": 56,
+      "example": "Jaheira's Respite"
+    },
+    {
+      "shape": "whenever you draw your second card each turn",
+      "cards": 54,
+      "example": "Improbable Alliance"
+    },
+    {
+      "shape": "cumulative upkeep {mana}",
+      "cards": 51,
+      "example": "Ancestral Knowledge"
+    },
+    {
+      "shape": "/",
+      "cards": 50,
+      "example": "Halimar Wavewatch"
+    },
+    {
+      "shape": "ACTIVATED: you gain life",
+      "cards": 49,
+      "example": "Hurska Sweet-Tooth"
+    },
+    {
+      "shape": "when you cycle this card",
+      "cards": 49,
+      "example": "Krosan Tusker"
+    },
+    {
+      "shape": "this spell costs {mana} less to cast for",
+      "cards": 48,
+      "example": "Deadly Alliance"
+    },
+    {
+      "shape": "this land enters tapped",
+      "cards": 48,
+      "example": "Skyclave Cleric // Skyclave Basilica"
+    },
+    {
+      "shape": "prevent all damage that would be dealt to",
+      "cards": 48,
+      "example": "Indestructible Aura"
+    },
+    {
+      "shape": "target opponent reveals their hand",
+      "cards": 48,
+      "example": "Appetite for Brains"
+    },
+    {
+      "shape": "you may look at the top card of",
+      "cards": 47,
+      "example": "Fblthp, Lost on the Range"
+    },
+    {
+      "shape": "as this artifact enters",
+      "cards": 45,
+      "example": "Cursed Mirror"
+    },
+    {
+      "shape": "{mana}{mana} /",
+      "cards": 44,
+      "example": "Carnival Elephant Meteor"
+    },
+    {
+      "shape": "heroic whenever you cast a spell that targets",
+      "cards": 44,
+      "example": "Phalanx Leader"
+    },
+    {
+      "shape": "ACTIVATED: search your library for a basic land card",
+      "cards": 43,
+      "example": "Topiary Panther"
+    },
+    {
+      "shape": "whenever you crank this contraption",
+      "cards": 42,
+      "example": "Insufferable Syphon"
+    },
+    {
+      "shape": "draw a card at the beginning of the",
+      "cards": 40,
+      "example": "Telim'Tor's Edict"
+    },
+    {
+      "shape": "during your turn",
+      "cards": 39,
+      "example": "Inspiring Paladin"
+    },
+    {
+      "shape": "you may have this creature enter as a",
+      "cards": 38,
+      "example": "Mirror Image"
+    },
+    {
+      "shape": "this creature enters with a / counter on",
+      "cards": 37,
+      "example": "Diregraf Colossus"
+    },
+    {
+      "shape": "this creature can't be blocked by creatures with",
+      "cards": 37,
+      "example": "Taoist Mystic"
+    },
+    {
+      "shape": "ACTIVATED: return this card from your graveyard to the",
+      "cards": 36,
+      "example": "Reassembling Skeleton"
+    },
+    {
+      "shape": "create a token that's a copy of target",
+      "cards": 36,
+      "example": "Rite of Replication"
+    },
+    {
+      "shape": "if this creature was kicked",
+      "cards": 36,
+      "example": "Pixie Illusionist"
+    },
+    {
+      "shape": "nightbound",
+      "cards": 35,
+      "example": "Infestation Expert // Infested Werewolf"
+    },
+    {
+      "shape": "whenever this creature blocks or becomes blocked by",
+      "cards": 34,
+      "example": "Dread Specter"
+    },
+    {
+      "shape": "ACTIVATED: this creature gets / until end of turn",
+      "cards": 34,
+      "example": "Brood Keeper"
+    },
+    {
+      "shape": "at the beginning of each upkeep",
+      "cards": 33,
+      "example": "Reckless Waif // Merciless Predator"
+    },
+    {
+      "shape": "enchanted creature can't attack or block",
+      "cards": 33,
+      "example": "Sigarda's Imprisonment"
+    },
+    {
+      "shape": "choose a background",
+      "cards": 32,
+      "example": "Lulu, Loyal Hollyphant"
+    },
+    {
+      "shape": "this creature can't attack unless defending player controls",
+      "cards": 32,
+      "example": "Gorilla Pack"
+    },
+    {
+      "shape": "whenever you cast an instant or sorcery spell",
+      "cards": 32,
+      "example": "A-Leyline of Resonance"
+    },
+    {
+      "shape": "ACTIVATED: transform this creature",
+      "cards": 32,
+      "example": "Ulvenwald Captive // Ulvenwald Abomination"
+    },
+    {
+      "shape": "whenever you cast a spirit or arcane spell",
+      "cards": 31,
+      "example": "Celestial Kirin"
+    },
+    {
+      "shape": "suspend {mana}{mana}",
+      "cards": 31,
+      "example": "Resurgent Belief"
+    },
+    {
+      "shape": "whenever this creature attacks and isn't blocked",
+      "cards": 31,
+      "example": "Eternal of Harsh Truths"
+    },
+    {
+      "shape": "this creature can block only creatures with flying",
+      "cards": 31,
+      "example": "Stormbound Geist"
+    },
+    {
+      "shape": "whenever this creature mutates",
+      "cards": 30,
+      "example": "Snapdax, Apex of the Hunt"
+    },
+    {
+      "shape": "ACTIVATED: monstrosity",
+      "cards": 30,
+      "example": "Fleetfeather Cockatrice"
+    }
+  ]
+}

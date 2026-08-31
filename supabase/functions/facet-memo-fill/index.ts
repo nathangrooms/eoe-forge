@@ -293,6 +293,12 @@ Deno.serve(async (req) => {
       .from('card_facet_memo')
       .select('oracle_id')
       .eq('compiler_version', COMPILER_VERSION)
+      /* A row with no coverage recorded has not been through the CURRENT fill,
+         so it is as much a gap as no row at all. This is what lets the coverage
+         column backfill itself without a version bump: the facets did not
+         change, so bumping would be a lie about the compiler and would rewrite
+         33,032 rows to add a word. */
+      .not('coverage', 'is', null)
       .in('oracle_id', slice);
     for (const row of have ?? []) already.add(row.oracle_id as string);
   }
@@ -309,10 +315,26 @@ Deno.serve(async (req) => {
 
     let facets: readonly string[] = [];
     let source = 'none';
+    /*
+     * The compiler's own verdict, kept rather than thrown away.
+     *
+     * `facetsForCard` has always returned it and this function has always
+     * discarded it, so "how much of the catalogue do we read" could only be
+     * answered by running a script over a SLICE. The compile has already
+     * happened; storing the word costs nothing and turns the question into a
+     * SELECT that is current for every card, including the ones printed next
+     * week, maintained by the top-up that already runs.
+     *
+     * 'unknown' when the compiler threw, because that is not the same as
+     * 'none': none means it read the card and found nothing, unknown means it
+     * could not read it at all.
+     */
+    let coverage = 'unknown';
     try {
       const result = facetsForCard(card as never);
       facets = result.facets;
       source = result.source;
+      coverage = result.coverage;
     } catch (_e) {
       /* A card the compiler throws on is RECORDED as having no facets rather
          than skipped. Skipping means every future run recompiles it and the
@@ -327,6 +349,7 @@ Deno.serve(async (req) => {
       oracle_id: oracleId,
       facets,
       source,
+      coverage,
       compiler_version: COMPILER_VERSION,
       computed_at: new Date().toISOString(),
     });

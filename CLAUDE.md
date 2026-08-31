@@ -710,6 +710,61 @@ is not installed on this project or the sweep would live there instead.
 
 ---
 
+## Coverage is a live number now, and the Engine screen must move with it
+
+Owner, 31 Aug 2026: *"i dont care about top 400, or top 15k cards, everything
+should be covered, always, automatically"*, and *"remember to update engine
+admin when other changes are made to things we are missing on card coverage
+perhaps so it's always synced with your work"*.
+
+**`card_facet_memo.coverage` holds the compiler's own verdict for every card.**
+`facetsForCard` always returned it and `facet-memo-fill` always threw it away,
+so "how much of the catalogue do we read" could only be answered by running a
+script over a SLICE. It is a SELECT now:
+
+    select * from public.engine_coverage();
+
+Current for every card including the ones printed next week, maintained by the
+fifteen-minute top-up that already existed. `card_facet_gap()` counts a row with
+no coverage as a gap, which is how the column backfilled itself with **no
+compiler version bump** — the facets did not change, so bumping would have been
+a lie about the compiler and would have rewritten 33,032 rows to add a word.
+
+### THE STANDING RULE
+
+**Any change to what the engine reads must be visible on `/admin` → Engine in
+the same commit.** Not a script, not a number in a commit message, not this
+file. The screen.
+
+The reason is the one this project keeps relearning. `cards_unique` described 28
+August for two days while every search and suggestion was served from it, and
+nothing said so because nothing was watching. A coverage figure that lives in a
+terminal is a figure nobody is watching.
+
+So when a compiler rule, a facet, a role or a tag rule changes:
+
+1. Run `node --experimental-strip-types scripts/coverage-census.mjs`. It writes
+   `.coverage/census-latest.json` and prints which way every number moved since
+   the last run. **Commit that file.** A coverage figure with nothing to compare
+   against is a number nobody can act on, and every previous figure in this
+   project was a one-off over a different slice.
+2. Check `/admin` → Engine still shows the thing you changed. A new facet
+   prefix, a new role, a new gap reason: if the screen cannot show it, the
+   screen is now lying by omission.
+3. Quote the WHOLE CATALOGUE number, never a top-N. The slices are still there
+   (`compiler-gap-probe`, `commander-read-audit`) and they are useful for
+   ranking work, but they are not the headline.
+
+### Two numbers that are not the same, ever
+
+    read the whole card   the compiler consumed every paragraph
+    read it correctly     nobody has measured this
+
+`coverage = 'full'` is the first. It is NOT a claim that the reading was right,
+and the two must never be quoted as one figure. `scripts/verify-ability-coverage.mjs`
+is the instrument for the second and is far stricter: it fails a card whose
+paragraph cannot be traced to a RUNNING ability.
+
 ## 11. Working agreements
 
 - **Verify, don't assume.** Every claim in this file was checked against the real database, the live
@@ -2444,3 +2499,122 @@ ROLE SET per card per build. `cardRole` is asked eight times per card by
 - **Anti-synergy is not modelled at all.** Soul-Guide Lantern is graveyard hate
   and the generator put it in a graveyard deck. Nothing scores a card as working
   AGAINST the plan.
+
+---
+
+## The coverage number is on a screen now, and it is worse than we said (31 Aug 2026)
+
+Owner: *"Would be cool if admin section always showed live card coverage so I
+can check and we can track easily"*, and *"in admin we need a list of all
+archetypes, strategies and every single type of card definition across both
+commanders, lands and other cards"*.
+
+**`/admin` → Engine** leads with the whole catalogue, live, from
+`public.engine_coverage()`. **`/admin` → Words** is every word the engine can
+say about a card, from `public.engine_vocabulary()`, with counts split by lands
+and legendary creatures, plus the ten roles and the eighteen shells drawn as
+real cards.
+
+**STANDING RULE: any change to what the engine reads must be visible on those
+two screens in the same commit.** Every coverage figure this project has quoted
+was a one-off over a different slice, which is how three sessions in a row
+re-derived the same numbers and how two of them were misled by the same 12,000-
+row cut.
+
+The facet list on the Words screen is READ FROM THE DATABASE, never typed into
+the component, so a facet a rule emits next week appears without anyone editing
+a file. A word the engine says that the glossary has never heard of gets its own
+heading rather than an "other" bucket: that row is new work nobody wrote down.
+
+### The facet memo is on COMPILER_VERSION 8
+
+Three pins, moved together, writer first: `facet-memo-fill`'s constant,
+`public.facets(cards_unique)`, and `cards_pool`'s own join. Version 8 is the
+`cost:` outlet split, `eff:exile-graveyard`, `eff:extra-land-drop`, and the
+recursion and split-destination search rules.
+
+**The 7 to 8 move was applied with `execute_sql` and left no file at all.**
+Reconstructed from `pg_get_functiondef` and `pg_get_viewdef` as
+`20260831200000_facet_compiler_version_eight.sql`, and four migrations that had
+files but no recorded version are now recorded.
+
+### The verification moved the number the wrong way, and it was right to
+
+Eight agents attacked the "how much of a commander do we read" figure. What
+survived:
+
+- **`coverage = 'full'` never overstates.** Zero cards labelled full while
+  carrying an unread clause, zero span-accounting failures across 8,155
+  paragraphs, and a hand-read of 38 full commanders found zero misreads.
+- **The reported 39.1% of commander ability lines producing nothing was too
+  kind. It is 50%** (three instruments: 49.7%, 50.5%, 51.0%). The audit credits
+  a line as read if it adds any facet, and `cares:sub:*` / `cares:type:*` come
+  from a WORD SCAN over raw text, not from the compiler. Sram, Senior Edificer
+  is refused as ambiguous, compiles to zero abilities, and was scored read
+  because the words Aura, Equipment and Vehicle appear in his one line.
+- **The middle bucket is nearly useless as a measure.** Every `manual` card
+  reads 0% of its characters and every `full` card reads 100%, but `partial`
+  spans **1.5% to 100%**. Adeline consumes nine characters of 176, the word
+  "vigilance", and sits in the same bucket as a card whose only outstanding item
+  is a human resolving a choice. The Engine screen says so on its face.
+- **A card can report nothing unread and still be a black box.** A fragment
+  inside a parsed ability compiles to a bare `manual()` marker and no work list
+  prints those. Etali, Primal Storm has nothing unread and his entire effect is
+  one. Ragavan's unread list names only "Dash {1}{R}" while both real effects
+  are markers. **2,332 markers hold 158,505 characters**, and 841 of the 847
+  cards blocked only by markers carry no hint at all.
+
+Three character-level numbers, which is the measure to use from now on:
+
+    14.6%   of printed commander text reaches something the engine can run
+    33.1%   read structurally, then handed to a human
+    51.7%   not read at all
+
+### 100% is not the ceiling. 57.4% is, and the reason is structural
+
+If every unread clause on every commander were read, **2,032 of 3,542 reach
+full and 1,489 do not**, because they are blocked by a marker rather than by
+unread text. 847 of those have nothing unread at all: **26.3% of the not-full
+population is invisible to every work list we have**, `unparsed-shapes.mjs`
+included.
+
+| slice | full now | one clause away | blocked by a marker | ceiling |
+|---|---|---|---|---|
+| top 100 | 19 (19.0%) | 27 | 35 | 65 (65.0%) |
+| top 400 | 44 (11.0%) | 100 | 159 | 241 (60.3%) |
+| top 1,000 | 84 (8.4%) | 271 | 425 | 574 (57.4%) |
+| all 3,542 | 318 (9.0%) | 1,004 | 1,489 | 2,032 (57.4%) |
+
+**"1,004 commanders are one clause from full" is not a cheap win.** They are one
+clause away EACH, and 692 of them are blocked by a shape no other card has.
+About 88% of unread commander text is a sentence appearing exactly once: 2,629
+unread clauses carry 2,415 distinct texts, and only 91 texts repeat at all.
+Implementing all 91 reaches 11.2%.
+
+Two structural refusals inside that 1,489, both correct: **148 commanders have a
+real back face** and folding it into the front's ability list would grant
+abilities the card does not have while front side up, and **21 vanilla legends**
+can never be full because zero abilities returns `none`.
+
+### And full coverage does not mean the card is usable
+
+51 of the 318 full commanders carry no effect, counter, token, cost or mana
+facet at all. Grand Arbiter Augustin IV compiles to three exact cost-modifying
+statics and contributes nothing to deck building, because **cost reduction has
+no facet**. Avacyn is read perfectly and plans as voltron, because the facet set
+flattens her anthem into indestructible plus a global scope, which is the
+Purphoros false positive again. **Reading the card and representing what it
+wants are two different jobs and only the first has ever been counted.**
+
+### Two measurement traps found the same night
+
+**`count=exact` is a full scan and this project cannot afford one.** The admin
+screen asked for it on `cards` and drew a dash instead of a number from the day
+it shipped. `select count(*) from cards` measured **37,284 ms** with 47,348 heap
+fetches, against a 3 s `statement_timeout`. `engine_sources()` reads the three
+that can be exact from `cards_pool` in 73 ms and takes printings from the
+planner, labelled "about".
+
+**`ilike` cost 12x on a matview scan.** The same vocabulary query measured
+**2,007 ms with two ILIKE per row and 172 ms with LIKE**. Type lines are cased
+by Scryfall, so `like '%Land%'` is the correct match, not a shortcut.

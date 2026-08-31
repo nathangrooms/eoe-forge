@@ -241,7 +241,7 @@ export function facetCoverage(cards: readonly FacetCarrier[]): {
  * Sol Ring's record contains `add-mana`, so Sol Ring is ramp. Neither judgement
  * is about the card; both fall out of the same three lines of table.
  */
-const ROLE_FACETS: Readonly<Record<Role, readonly Facet[]>> = {
+export const ROLE_FACETS: Readonly<Record<Role, readonly Facet[]>> = {
   /* `eff:extra-land-drop` is Exploration and Azusa: not mana, but more lands
      in play every turn, which is what a player means by ramp. Derived from the
      `max-lands-per-turn` restriction, so only a card that actually grants one

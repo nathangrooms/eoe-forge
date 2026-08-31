@@ -95,6 +95,21 @@ function Meter({ pct }: { pct: number }) {
 }
 
 export function EngineHealth() {
+  /*
+   * LIVE, FROM THE DATABASE, over the WHOLE CATALOGUE.
+   *
+   * The owner: *"i dont care about top 400, or top 15k cards, everything should
+   * be covered, always, automatically"*, and *"Would be cool if admin section
+   * always showed live card coverage so I can check and we can track easily"*.
+   *
+   * Everything else on this screen is computed in the browser over a SAMPLE of
+   * the most played cards, because those walks need the compiler and the
+   * compiler runs here. This block does not: `card_facet_memo.coverage` stores
+   * the compiler's own verdict for every card, written by the fill that already
+   * runs every fifteen minutes, so the whole-catalogue answer is one SELECT and
+   * it is current for cards printed next week.
+   */
+  const [census, setCensus] = useState<{ measure: string; cards: number; share: number | null }[] | null>(null);
   const [sources, setSources] = useState<Sources | null>(null);
   const [coverage, setCoverage] = useState<Coverage | null>(null);
   const [running, setRunning] = useState(false);
@@ -104,24 +119,43 @@ export function EngineHealth() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const head = async (table: string, apply?: (q: any) => any) => {
-        let q = supabase.from(table as never).select('*', { count: 'exact', head: true });
-        if (apply) q = apply(q);
-        const { count } = await q;
-        return count ?? null;
-      };
       try {
-        const [printings, cards, ranked, tagged, sync] = await Promise.all([
-          head('cards'),
-          head('cards_unique'),
-          head('cards_unique', q => q.not('edhrec_rank', 'is', null)),
-          head('cards_unique', q => q.not('tags', 'eq', '{}')),
-          supabase.from('sync_status' as never).select('last_sync').limit(5),
-        ]);
+        void supabase
+          .rpc('engine_coverage' as never)
+          .then(({ data }) => {
+            if (!cancelled && Array.isArray(data)) setCensus(data as never);
+          });
+
+        /*
+         * ONE RPC, NOT FOUR HEAD REQUESTS.
+         *
+         * These four were `select('*', { count: 'exact', head: true })` and
+         * three of them returned 500, so this screen drew a dash where a
+         * number belongs from the day it shipped. `count=exact` is a full
+         * scan, and measured:
+         *
+         *   select count(*) from public.cards   37,284 ms, 47,348 heap fetches
+         *
+         * against a 3 s statement_timeout. `engine_sources()` reads the three
+         * that can be exact from `cards_pool` (the same 33,032 cards in 13 MB,
+         * 73 ms) and takes the fourth from the planner, which is why the
+         * printings figure says "about".
+         */
+        const { data, error: srcError } = await supabase.rpc('engine_sources' as never);
         if (cancelled) return;
-        const rows = (sync.data ?? []) as Array<{ last_sync: string | null }>;
-        const latest = rows.map(r => r.last_sync).filter(Boolean).sort().pop() ?? null;
-        setSources({ printings, cards, ranked, tagged, lastSync: latest });
+        if (srcError) throw srcError;
+        type SourceRow = {
+          printings_estimate: number; cards: number; ranked: number; tagged: number; last_sync: string | null;
+        };
+        const payload = data as unknown;
+        const row = (Array.isArray(payload) ? payload[0] : payload) as SourceRow | undefined;
+        setSources({
+          printings: row?.printings_estimate ?? null,
+          cards: row?.cards ?? null,
+          ranked: row?.ranked ?? null,
+          tagged: row?.tagged ?? null,
+          lastSync: row?.last_sync ?? null,
+        });
       } catch (e) {
         if (!cancelled) setError(String(e).slice(0, 160));
       }
@@ -202,8 +236,86 @@ export function EngineHealth() {
   const legends = coverage ? coverage.read + coverage.inferred + coverage.silent : 0;
   const pct = (k: number, of: number) => (of > 0 ? (k / of) * 100 : 0);
 
+  const measure = (name: string) => census?.find(row => row.measure === name);
+  const measured = measure('measured')?.cards ?? 0;
+  const stillToMeasure = measure('still to be measured')?.cards ?? 0;
+
   return (
     <div className="space-y-6">
+      {/*
+        HOW MUCH OF EVERY CARD THE ENGINE READS. No sample, no top-N.
+
+        First on the screen because it is the number the whole engine is judged
+        by, and because every figure this project quoted before today came from
+        someone running a probe over a slice. A slice flatters, a one-off has
+        nothing to compare against, and a number nobody is watching can regress
+        for weeks. `cards_unique` described 28 August for two days while every
+        search was served from it, and nothing said so.
+      */}
+      <Card>
+        <CardContent className="space-y-4 p-5 md:p-6">
+          <div>
+            <h2 className="text-lg font-semibold">How much of every card we read</h2>
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+              The whole catalogue, live, not a sample. Read the whole card means the compiler got to
+              the end of every line and needs nobody to finish it. None of these say the reading was
+              right, only that it happened.
+            </p>
+          </div>
+
+          {census === null ? (
+            <p className="text-sm text-muted-foreground">Reading the catalogue.</p>
+          ) : (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {[
+                  ['read the whole card', 'Read the whole card', 'runs with no help'],
+                  ['read some of it', 'Read part of it', 'anywhere from one word to all but one'],
+                  ['needs a human for all of it', 'Not read at all', 'a person does all of it'],
+                  ['no record at all', 'No record', 'nothing to rank or resolve'],
+                ].map(([key, label, note]) => {
+                  const row = measure(key);
+                  return (
+                    <Stat
+                      key={key}
+                      label={label}
+                      value={row ? `${row.share ?? 0}%` : '—'}
+                      note={row ? `${row.cards.toLocaleString()} cards${note ? `, ${note}` : ''}` : undefined}
+                    />
+                  );
+                })}
+              </div>
+
+              {/*
+                THE MIDDLE BUCKET IS THE COARSE ONE AND IT HAS TO SAY SO.
+                Measured over commanders on 31 Aug 2026: every card marked
+                "not read at all" reads 0% of its characters and every card
+                marked "read the whole card" reads 100%, but "read part of it"
+                spans 1.5% to 100%. Adeline consumes nine characters of 176 —
+                the word "vigilance" — and sits in the same bucket as a card
+                whose only outstanding item is a human resolving a choice. A
+                screen that let those two look alike would be the instrument
+                flattering itself, which is the failure this file exists to
+                stop.
+              */}
+              <p className="max-w-3xl text-xs text-muted-foreground">
+                The middle group is wide. A card in it might have had one word read or all but one
+                line. Splitting it needs the share of each card's text that was read to be stored
+                alongside the verdict, which is not done yet.
+              </p>
+
+              {/* A share of a number nobody can see is not a measurement. */}
+              <p className="text-xs text-muted-foreground">
+                Measured over {measured.toLocaleString()} cards.
+                {stillToMeasure > 0
+                  ? ` ${stillToMeasure.toLocaleString()} still to be read; the fill runs every fifteen minutes and closes this on its own.`
+                  : ' Every card in the catalogue has been read.'}
+              </p>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardContent className="space-y-4 p-5 md:p-6">
           <div>
@@ -218,8 +330,8 @@ export function EngineHealth() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Stat
               label="Scryfall printings"
-              value={sources?.printings?.toLocaleString() ?? '—'}
-              note={sources?.cards ? `${sources.cards.toLocaleString()} distinct cards` : undefined}
+              value={sources?.printings ? `about ${sources.printings.toLocaleString()}` : '—'}
+              note={sources?.cards ? `${sources.cards.toLocaleString()} distinct cards, counted exactly` : undefined}
             />
             <Stat
               label="Carry an EDHREC rank"
@@ -229,7 +341,11 @@ export function EngineHealth() {
             <Stat
               label="Carry at least one tag"
               value={sources?.tagged?.toLocaleString() ?? '—'}
-              note="the tagger, 109 rules"
+              note={
+                sources?.tagged != null && sources?.cards != null
+                  ? `${(sources.cards - sources.tagged).toLocaleString()} carry none`
+                  : 'the tagger'
+              }
             />
             <Stat
               label="Last catalogue sync"

@@ -64,6 +64,7 @@ import { compileCardAbilities } from '../../cards/abilities/compiler.ts';
 // The compiler's own subtype vocabulary, so a word is a subtype in exactly one
 // place in this repository. See `readNamedSubtypesInRules`.
 import { isSubtypeWord } from '../../cards/abilities/grammar.ts';
+import { parseCosts } from '../../cards/abilities/clause-rules.ts';
 import { abilityWordsOf, normalizeCard, type AbilityCard } from '../../cards/abilities/normalize.ts';
 import { xmageSwapFor } from '../../cards/xmage/lowered.ts';
 import { parseCost } from '../../cards/xmage/compare.ts';
@@ -111,11 +112,14 @@ export function facetsForCard(row: FacetInput): FacetResult {
   let abilities: readonly Ability[] = [];
   let source: FacetResult['source'] = 'none';
   let coverage = 'unknown';
+  /* Kept outside the try so the cost salvage below can see it. */
+  let refused: ReadonlyArray<{ text?: string }> = [];
 
   try {
     const compiled = compileCardAbilities(row);
     coverage = compiled.coverage;
     abilities = compiled.abilities;
+    refused = compiled.unparsed ?? [];
     /*
      * READ THE COMPILER'S OWN VERDICT, not the length of its output.
      *
@@ -200,6 +204,39 @@ export function facetsForCard(row: FacetInput): FacetResult {
   for (const kw of (row as { keywords?: string[] | null }).keywords ?? []) {
     const word = String(kw).toLowerCase().replace(/’/g, "'").trim();
     if (word) out.add(`kw:${word}`);
+  }
+
+  /*
+   * THE COST OF AN ABILITY WHOSE BODY WE COULD NOT READ.
+   *
+   * `compiler.ts` builds an activated ability only when `anyAutomated(effects)`
+   * holds, so when the body defeats it the WHOLE ability is discarded including
+   * a cost that parsed perfectly. "{2}{R}, {T}, Discard a card: <unreadable>"
+   * contributed nothing, not even that it taps.
+   *
+   * Measured against a 374-word key built by two independent readers: 21 of the
+   * 35 words that neither the compiler nor Scryfall Tagger could reach were
+   * exactly this. It is the largest free win on the board and needs no reading.
+   *
+   * DONE HERE AND NOT IN THE COMPILER, AND THE REASON IS THE REGENERATE RULE.
+   * `activatedAbilitiesOfCard` in `src/lib/game/activate.ts` filters on
+   * `kind === 'activated'` and nothing else, so an ability published with an
+   * unreadable body becomes a button that takes the player's mana and does
+   * nothing. That is the one unforgivable outcome and it is why regenerate is
+   * refused. Reading the cost into a FACET gives deck building the information
+   * while publishing NO ABILITY, so the runtime is untouched and still reports
+   * the clause as manual.
+   *
+   * A quote mark means the colon belongs to a granted ability, which is a
+   * different declared gap. `compiler.ts` excludes it on the same test.
+   */
+  for (const clause of refused) {
+    const text = String(clause?.text ?? '');
+    if (!text || text.includes('"')) continue;
+    const colon = text.indexOf(':');
+    if (colon <= 0) continue;
+    const costs = parseCosts(text.slice(0, colon));
+    if (costs) readActivationCost(costs, out);
   }
 
   /*

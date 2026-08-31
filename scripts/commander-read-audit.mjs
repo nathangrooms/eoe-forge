@@ -28,7 +28,7 @@
  * Reads the live catalogue with the anon key, which is client-visible by
  * design. It writes nothing.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
 const KEY = readFileSync(new URL('../scratch/anon.txt', import.meta.url), 'utf8').trim();
 const BASE = 'https://udnaflcohfyljrsgqggy.supabase.co/rest/v1';
@@ -90,7 +90,29 @@ const abilityLines = card => {
     .filter(l => l.length > 12);
 };
 
-const rows = (await fetchAll()).filter(isCommander);
+/*
+ * CACHED TO DISK, because this walk is 4,222 rows over twenty-odd requests and
+ * the analysis on top of it gets re-run many times while a rule is being
+ * written. CLAUDE.md's first database rule is not to run two heavy workloads at
+ * once; a cache is how several analyses share one fetch.
+ *
+ * The cache holds the CATALOGUE, never a verdict. Every number below is
+ * recomputed from the working tree's compiler on every run, so a rule written
+ * five minutes ago is measured against these rows immediately. Delete the file
+ * or pass FRESH=1 after a sync.
+ */
+const CACHE = new URL('../scratch/commander-cache.json', import.meta.url);
+let rows;
+if (!process.env.FRESH && existsSync(CACHE)) {
+  rows = JSON.parse(readFileSync(CACHE, 'utf8'));
+  process.stderr.write(`  ${rows.length} commanders from the cache (FRESH=1 to refetch)
+`);
+} else {
+  rows = (await fetchAll()).filter(isCommander);
+  writeFileSync(CACHE, JSON.stringify(rows));
+  process.stderr.write(`  cached ${rows.length} commanders
+`);
+}
 const ranked = rows.slice().sort((a, b) => (a.edhrec_rank ?? 1e9) - (b.edhrec_rank ?? 1e9));
 const cards = LIMIT ? ranked.slice(0, LIMIT) : ranked;
 

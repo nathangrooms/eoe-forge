@@ -146,9 +146,36 @@ describe('a record beats a word', () => {
     assert.equal(CARDS.boneSaw.tags.includes('voltron'), true);
   });
 
-  it('Bone Saw serves no role at all, so it never enters a quota pass', () => {
+  /*
+   * THIS ASSERTED `[]` UNTIL 31 AUG 2026, AND THE CHANGE IS DELIBERATE.
+   *
+   * The bug it was written against is the one directly above: every win
+   * condition in four decks was Equipment, because `voltron` sat in
+   * `ROLE_TAGS.wincon`. "Serves no role at all" was locked in as the
+   * consequence, and it went further than the bug.
+   *
+   * The category error was calling a Bone Saw a WIN CONDITION. It is not one.
+   * It is an Equipment, and "auras and equipment that make one creature
+   * better" is a real slot in a real deck — for a voltron commander it is most
+   * of the deck. While no role named that, the generator could not build one:
+   * measured on Uril, the Miststalker, Rancor at rank 827 and planFit 0.585
+   * served NO role and stayed out, while On Thin Ice at rank 9424 got in
+   * because it happens to exile something.
+   *
+   * What stops a Bone Saw being CHOSEN is the ranker, not the vocabulary. A
+   * role says which slot a card may fill; the ranking says which card fills it,
+   * and Bone Saw loses to Rancor on every axis the ranker reads. The two
+   * assertions that matter are kept and unchanged: it is not a win condition,
+   * and its `voltron` tag gets no vote there.
+   */
+  it('Bone Saw is an Equipment, and that is the only slot it may fill', () => {
     const served = ROLES.filter(r => cardRole(CARDS.boneSaw, r));
-    assert.deepEqual(served, []);
+    assert.deepEqual(served, ['enhance']);
+    // The point of the original ratchet, still held.
+    assert.equal(cardRole(CARDS.boneSaw, 'wincon'), false);
+    assert.equal(cardRole(CARDS.boneSaw, 'ramp'), false);
+    assert.equal(cardRole(CARDS.boneSaw, 'draw'), false);
+    assert.equal(cardRole(CARDS.boneSaw, 'removal'), false);
   });
 
   it('Adventuring Gear is not a win condition either, mass pump selector or not', () => {

@@ -76,6 +76,33 @@ export type Role =
    * A deck with ten draw spells and no tutor still cannot find its engine.
    */
   | 'tutor'
+  /*
+   * AURAS AND EQUIPMENT: THE CARDS THAT MAKE ONE CREATURE BETTER.
+   *
+   * Measured on Uril, the Miststalker, whose plan asks for `sub:equipment` at
+   * 0.5, `sub:aura` at 0.45 and `eff:pump` at 0.4 — the engine reads him
+   * exactly right:
+   *
+   *   card               rank   planFit   role      in the deck
+   *   Rancor              827    0.585    NONE      no
+   *   All That Glitters   623    0.527    NONE      no
+   *   Ethereal Armor     1084    0.450    NONE      no
+   *   On Thin Ice        9424    0.450    removal   YES
+   *   Gift of Paradise   6761    0.450    ramp      YES
+   *
+   * Every card that makes Uril bigger served no role, so the only auras that
+   * could get in were the ones that happen to ALSO do something the vocabulary
+   * could name: On Thin Ice exiles, Gift of Paradise taps for mana, Snake Umbra
+   * draws. A voltron deck was not being built badly, it could not be built: the
+   * engine assembled a deck of auras that happen to do other things and passed
+   * over Rancor for a rank-9424 snow card.
+   *
+   * It is not `wincon`. That role is deliberately narrow and the note on it
+   * explains why at length: admitting a pump made three pieces of Equipment the
+   * win conditions of a Muldrotha deck. Suiting a creature up is a different
+   * job from winning the game, and it is the job this role names.
+   */
+  | 'enhance'
   | 'wincon'
   | 'land'
   | 'creature';
@@ -86,6 +113,7 @@ export const ROLES: readonly Role[] = [
   'removal',
   'interaction',
   'tutor',
+  'enhance',
   'wincon',
   'land',
   'creature',

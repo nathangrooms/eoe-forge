@@ -99,6 +99,7 @@ const ROLE_LABEL: Record<Role, string> = {
   removal: 'Removal',
   interaction: 'Interaction',
   tutor: 'Tutors',
+  enhance: 'Auras and equipment',
   wincon: 'Win conditions',
   land: 'Lands',
   creature: 'Creatures',

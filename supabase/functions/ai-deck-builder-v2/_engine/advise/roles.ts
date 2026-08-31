@@ -36,6 +36,11 @@ export const ROLE_TAGS: Readonly<Record<Role, readonly string[]>> = {
   interaction: ['counterspell', 'protection', 'stax', 'graveyard-hate'],
   /* The three the tagger emits, and it has emitted them all along. */
   tutor: ['tutor', 'tutor-broad', 'tutor-narrow'],
+  /* `voltron` was removed from `wincon` on 2026-08-23 because every Equipment
+     carries it and a Bone Saw is not a strategy. It is right HERE, because
+     here the claim is only "this card suits a creature up", which is exactly
+     what a Bone Saw does. */
+  enhance: ['aura', 'equipment', 'voltron', 'protection'],
   /*
    * `voltron` was removed on 2026-08-23 and it is the largest single fix in
    * this file.
@@ -153,6 +158,10 @@ export const YARDSTICK_WHEN_NO_SHAPE_WAS_DERIVED: Readonly<Record<Role, number>>
   /* Two. The yardstick is only reached when no shape could be derived, and a
      deck that has never been read still wants to be told it has none. */
   tutor: 2,
+  /* Two, so a deck that has never been read still reaches for the protection
+     every commander wants. A voltron commander asks for many more through its
+     own plan, and the shape derivation is what answers that. */
+  enhance: 2,
   wincon: 3,
   land: 36,
   creature: 0,

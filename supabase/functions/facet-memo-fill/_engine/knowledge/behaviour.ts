@@ -254,6 +254,10 @@ const ROLE_FACETS: Readonly<Record<Role, readonly Facet[]>> = {
    * destination. `facetRoleQualifies` below is where that is said.
    */
   tutor: ['eff:search-library'],
+  /* The two subtypes, and nothing cleverer. `eff:attach` looks like the right
+     facet and is not: Ethereal Armor and Rancor do not carry it, so a rule
+     built on it misses the two best cards in the archetype. */
+  enhance: ['sub:aura', 'sub:equipment'],
   /*
    * Deliberately narrow, and it stays narrow.
    *

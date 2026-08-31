@@ -221,6 +221,13 @@ const WHEN_IT_MATTERS: Readonly<Partial<Record<Role, number>>> = {
    * started.
    */
   tutor: 6,
+  /*
+   * Turn five. Equipment and auras that protect a commander are wanted about
+   * when the commander is: a little after it has been cast and before the
+   * first removal spell arrives. Earlier would buy a Bone Saw over a ramp
+   * spell; later leaves the deck with none, which is where this started.
+   */
+  enhance: 5,
   wincon: 10,
 };
 

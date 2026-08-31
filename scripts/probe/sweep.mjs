@@ -186,6 +186,26 @@ const snapshot = () =>
       getComputedStyle(document.body).backgroundColor +
       '|' +
       (document.documentElement.getAttribute('class') ?? ''),
+    /* SELECTION, for the same reason as `theme` and against the same hole.
+       Choosing a format on /tournament/new moves `aria-pressed` from one chip
+       to another and changes nothing else: not the text, not the height, not
+       the URL, not one request. The sweep reported twelve working controls as
+       "no request and no change" on that one route, which is noise, and noise
+       is what a real finding hides behind.
+
+       Every ARIA state a control can carry, in document order, joined. Radix
+       writes `data-state` rather than ARIA on some primitives, so that is in
+       here too. */
+    selection: [...document.querySelectorAll('[aria-pressed],[aria-selected],[aria-checked],[aria-expanded],[data-state]')]
+      .map(
+        el =>
+          (el.getAttribute('aria-pressed') ?? '') +
+          (el.getAttribute('aria-selected') ?? '') +
+          (el.getAttribute('aria-checked') ?? '') +
+          (el.getAttribute('aria-expanded') ?? '') +
+          (el.getAttribute('data-state') ?? '')
+      )
+      .join(','),
   });
 
 
@@ -256,8 +276,13 @@ try {
 
     const net = await page.evaluate(() => window.__net || []);
     const late = await page.evaluate(snapshot).catch(() => before);
-    const differs = a => a.text !== before.text || a.art !== before.art ||
-      a.height !== before.height || a.href !== before.href || a.theme !== before.theme;
+    /* EVERY KEY THE SNAPSHOT CARRIES, not a hand-written list of some of them.
+       `selection` was added to `snapshot` and this comparison kept its own
+       enumeration, so the new field was collected on every press and read on
+       none: the twelve false positives it was written to remove did not move.
+       A snapshot field nobody compares is a field that does nothing, and the
+       next one added would have gone the same way. */
+    const differs = a => Object.keys(before).some(k => a[k] !== before[k]);
     const after = differs(early) ? early : late;
 
     const failed = net.filter(n => n.status >= 400);

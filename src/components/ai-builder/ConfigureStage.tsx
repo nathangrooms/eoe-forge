@@ -7,6 +7,7 @@ import { CardImage } from '@/components/cards';
 import { BORDERLESS_SLIDER } from '@/components/cards/CardSizeSlider';
 import { OracleText } from '@/components/cards/OracleText';
 import { ColorIdentity } from '@/components/ui/mana-cost';
+import { readingFor } from '@/lib/deck/commanderStrategies';
 import { bandForScore, bandLabel, powerTextClass } from '@/lib/deck/power';
 import { ArrowLeft, Loader2, Wand2, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -145,14 +146,31 @@ export function ConfigureStage({
 }: ConfigureStageProps) {
   const patch = (next: Partial<BuildConfig>) => onConfigChange({ ...config, ...next });
 
+  /* The engine's own reading of this commander, for the column beside the
+     card. Deduplicated and ordered by how loudly it asked; capped at five so
+     the block stays a summary rather than a dump. */
+  const reading = readingFor(commander).slice(0, 5);
+
   const band = bandForScore(config.targetPower);
   const chosen = archetypes.find(a => a.value === config.archetype);
 
   return (
     <div className="space-y-4">
       <div className="grid gap-4 xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
-        {/* The commander, at size, for the whole of this step. */}
-        <aside className="space-y-3 rounded-xl bg-card p-4 shadow-lg shadow-black/20">
+        {/*
+          The commander, at size, for the whole of this step — and STICKY, so
+          that sentence is true rather than aspirational.
+
+          The panel beside it is twice as tall on a laptop, so scrolling to the
+          budget slider used to take the card off screen entirely, which is the
+          one thing this column exists to prevent. Sticking it also turns the
+          leftover height at the bottom of the column from dead charcoal into
+          the reason the card is still there.
+
+          `xl:` only: below that breakpoint the grid is one column and a sticky
+          card would sit on top of the controls it is meant to inform.
+        */}
+        <aside className="space-y-3 self-start rounded-xl bg-card p-4 shadow-lg shadow-black/20 xl:sticky xl:top-4">
           <div className="flex items-start justify-between gap-2">
             <span className="text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               Commander
@@ -182,6 +200,36 @@ export function ConfigureStage({
           {commander?.oracle_text && (
             <div className="rounded-lg bg-muted/40 p-3">
               <OracleText text={commander.oracle_text} size="xs" className="text-xs leading-relaxed" />
+            </div>
+          )}
+
+          {/*
+            WHAT THE BUILDER READ, in the engine's own sentences.
+
+            This column ended under the card and left about 300px of empty
+            charcoal beside a panel that ran on, which is the "unutilised space"
+            note. Filling it with the reading rather than with anything
+            decorative answers the one question a player cannot otherwise check:
+            whether the builder understood the card they just chose. A generator
+            that says what it read can be argued with; one that does not has to
+            be trusted.
+
+            Hidden entirely when the engine has nothing to say, because an empty
+            heading is worse than the space it was put there to fill.
+          */}
+          {reading.length > 0 && (
+            <div className="space-y-2 rounded-lg bg-muted/40 p-3">
+              <span className="text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                What the builder read
+              </span>
+              <ul className="space-y-1.5">
+                {reading.map(line => (
+                  <li key={line} className="flex gap-2 text-xs leading-relaxed text-muted-foreground">
+                    <Zap className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground/70" />
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
         </aside>

@@ -307,9 +307,28 @@ export function strategiesFor(commander: StrategyCommander | null | undefined): 
        list in the same order. A list that reshuffles between visits reads as
        the app changing its mind. */
     scored.sort((a, b) => b.score - a.score || a.shell.id.localeCompare(b.shell.id));
+
+    /*
+     * NO SENTENCE TWICE.
+     *
+     * One want can be the reason for several shells: Krenko, Mob Boss "does its
+     * work through a tap ability", and that single want is why Big mana,
+     * Two-card combo, Aggro and Voltron were all offered. All four tiles then
+     * carried the identical line, which on screen reads as the panel being
+     * broken rather than as four strategies sharing a reason.
+     *
+     * The loudest offer keeps the engine's sentence, because it earned it, and
+     * the rest fall back to the shell's own description of what it is. That is
+     * still true and it is the more useful thing to say on the second tile.
+     */
+    const saidAlready = new Set<string>();
     for (const s of scored) {
       if (out.length >= STRATEGY_SLOTS) break;
-      out.push(offerFrom(s.shell, s.synergy, s.score));
+      const synergy = saidAlready.has(s.synergy)
+        ? (SHELL_SIGNALS[s.shell.id]?.fallback ?? s.synergy)
+        : s.synergy;
+      saidAlready.add(s.synergy);
+      out.push(offerFrom(s.shell, synergy, s.score));
     }
   }
 
@@ -320,5 +339,44 @@ export function strategiesFor(commander: StrategyCommander | null | undefined): 
     if (shell) out.push(offerFrom(shell, filler.synergy, 0));
   }
 
+  return out;
+}
+
+/**
+ * What the builder read off this commander, in its own sentences.
+ *
+ * The plan's `because` lines, deduplicated and ordered by how loudly the
+ * commander asked. They are written to complete "…, so the deck wants" and are
+ * already in a player's words — "is paid when your creatures die", "does its
+ * work through a tap ability" — so they need no rewriting to be shown.
+ *
+ * It exists because the configure screen had 300px of empty charcoal under the
+ * commander's card while the panel beside it ran on, and because the one thing
+ * a player cannot otherwise check is whether the builder understood the card
+ * they chose. A generator that says what it read can be argued with; one that
+ * does not has to be trusted.
+ */
+export function readingFor(commander: StrategyCommander | null | undefined): string[] {
+  if (!commander?.name) return [];
+  const plan = planForCommander({
+    name: commander.name,
+    typeLine: commander.type_line,
+    tags: commander.tags,
+    oracleText: commander.oracle_text,
+    faces: commander.faces ?? commander.card_faces,
+  });
+
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const want of [...plan.wants].sort((a, b) => b.weight - a.weight)) {
+    /* The commander's own name opens every sentence the plan builds, and
+       repeating it down a list is noise when the card is beside it. */
+    const line = want.because.startsWith(`${commander.name} `)
+      ? want.because.slice(commander.name.length + 1)
+      : want.because;
+    if (seen.has(line)) continue;
+    seen.add(line);
+    out.push(line);
+  }
   return out;
 }

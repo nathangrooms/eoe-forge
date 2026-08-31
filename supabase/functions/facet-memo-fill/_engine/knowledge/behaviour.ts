@@ -635,6 +635,17 @@ const INTENT_RULES: readonly IntentRule[] = [
          the COST of its own ability. They are different cards and this rule
          used to ask for the wrong one. */
       ['cost:sacrifice', 0.9],
+      /*
+       * AND THE ONE-SHOT VERSION, lower, because it is a different card.
+       *
+       * Village Rites, Deadly Dispute and Diabolic Intent eat one creature once
+       * and are real aristocrats cards; Ashnod's Altar and Viscera Seer are the
+       * engine the deck cannot function without. They carried the same facet
+       * until 31 Aug 2026, which is how a Meren deck came out with Grave Pact,
+       * Dictate of Erebos, Bastion of Remembrance, Grim Haruspex and Midnight
+       * Reaper in it and nothing at all to sacrifice a creature to.
+       */
+      ['cost:cast-sacrifice', 0.6],
       ['trig:dies', 0.85],
       ['eff:sacrifice', 0.8],
       ['eff:create-token', 0.7],
@@ -3291,8 +3302,35 @@ export function planFit(plan: CommanderPlan | null, card: FacetCarrier): PlanFit
   return { fit: 1 - miss, matched };
 }
 
-/** Each want after the best counts for this much of what it would alone. */
-const EXTRA_WANT_DECAY = 0.35;
+/**
+ * Each want after the best counts for this much of what it would alone.
+ *
+ * 0.35 -> 0.20 on 31 Aug 2026, and it is the fix for the complaint that a
+ * generated deck contains cards nobody would ever include.
+ *
+ * `planFit` is a noisy-OR, so a card matching five wants weakly outscores the
+ * card that IS one of them. Reading a whole Meren deck showed what that costs:
+ * Cauldron of Essence, rank 2,508, matched five wants at 0.888 and took the
+ * `cost:sacrifice` slot, while Ashnod's Altar and Viscera Seer sat at 0.720 for
+ * doing the one thing the deck cannot function without. The deck came out with
+ * Grave Pact, Dictate of Erebos, Bastion of Remembrance, Grim Haruspex and
+ * Midnight Reaper in it and NOTHING to sacrifice a creature to.
+ *
+ * Lowering it compresses the breadth bonus so the best match dominates, and a
+ * tie between two cards whose best match is the same want then breaks on the
+ * ranker's own score, where being a card people actually play counts.
+ *
+ * MEASURED across the six decks in `generator-synergy-audit.mjs`:
+ *
+ *          keyed  staples  orphans   median ranks
+ *   0.35     83%    37/54       3    3138 1697 2387 2316  985 2712
+ *   0.20     84%    37/54       2    2731 1638 2387 2026  985 3011
+ *   0.10     84%    36/54       2    2731 1506 2229 2015  985 2712
+ *
+ * 0.10 loses Adeline a staple for nothing, so 0.20 is where it sits: the same
+ * staple count, fewer orphans, and four of the six decks reaching less deep.
+ */
+const EXTRA_WANT_DECAY = 0.20;
 
 
 function clamp01(n: number): number {

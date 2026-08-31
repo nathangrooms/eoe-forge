@@ -587,12 +587,29 @@ function readAbility(ability: Ability, out: Set<Facet>): void {
 
   if (ability.kind === 'spell') {
     readEffects(ability.effects, out);
-    /* What you must ALSO do to cast it, which is half of what the card is.
-       Village Rites and Faithless Looting both draw; one eats a creature and
-       the other discards, and the aristocrats plan asks for `cost:sacrifice`
-       by name. Read through the same function the activation cost uses, so a
-       cost means the same thing wherever it is printed. */
-    readActivationCost(ability.additionalCosts ?? [], out);
+    /*
+     * What you must ALSO do to cast it — under `cost:cast-`, NOT `cost:`.
+     *
+     * THE PREFIX IS THE WHOLE POINT and the first version of this got it wrong.
+     * `cost:` was introduced for ACTIVATION costs, to tell Viscera Seer from
+     * Diabolic Edict: an outlet you can use every turn against a spell that
+     * eats one creature once. Emitting `cost:sacrifice` for a spell's
+     * additional cost erased exactly that distinction, and the Meren deck built
+     * the same night proves what it costs — twelve "when a creature dies"
+     * payoffs, Grave Pact and Dictate of Erebos among them, and NO SACRIFICE
+     * OUTLET, because Deadly Dispute answered the plan's `cost:sacrifice` want
+     * and Ashnod's Altar never got a look.
+     *
+     * Village Rites is an aristocrats card and should say so; it is not an
+     * engine and must not answer the want that asks for one. Two facets, two
+     * weights in the plan.
+     */
+    for (const cost of ability.additionalCosts ?? []) {
+      if (cost.pay === 'mana') continue;
+      out.add(`cost:cast-${cost.pay}` as Facet);
+      const what = (cost as { what?: Selector }).what;
+      if (what) readSelector(what, out);
+    }
     for (const t of ability.targets ?? []) if (t.filter) readFilter(t.filter, out, 'cares');
     return;
   }
@@ -688,8 +705,24 @@ function readActivationCost(costs: readonly Cost[] | undefined, out: Set<Facet>)
        re-extraction exists to stop doing. What gets sacrificed is already read
        by `readSelector` below into `cares:type:creature`. */
     if (cost.pay !== 'mana') {
-      out.add(`cost:${cost.pay}` as Facet);
       const what = (cost as { what?: Selector }).what;
+      /*
+       * SACRIFICING ITSELF IS NOT AN OUTLET, and until 31 Aug 2026 the facet
+       * could not tell the two apart.
+       *
+       * "Sacrifice this artifact: draw a card" and "Sacrifice a creature: add
+       * two mana" both produced `cost:sacrifice`, so the aristocrats plan's
+       * loudest want was answered by Vexing Bauble, Soul-Guide Lantern, Stone
+       * of Erech and Hedron Archive — four cards that eat only themselves,
+       * once. A Meren deck came out with twelve "when a creature dies" payoffs,
+       * Grave Pact and Dictate of Erebos among them, and NOTHING that could
+       * sacrifice a creature on demand.
+       *
+       * `cost:sacrifice` now means the card eats something else, which is what
+       * an outlet is and what every consumer of the facet was written to mean.
+       */
+      const eatsItself = (what as { sel?: string } | undefined)?.sel === 'self';
+      out.add((eatsItself ? `cost:${cost.pay}-self` : `cost:${cost.pay}`) as Facet);
       if (what) readSelector(what, out);
       continue;
     }

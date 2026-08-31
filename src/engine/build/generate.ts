@@ -862,7 +862,24 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
    */
   const colourlessCap = spellSlots - colouredFloorFor(identity, spellSlots);
   let colourlessPicked = 0;
-  const overColourlessCap = (card: BuildCard) => !hasColour(card) && colourlessPicked >= colourlessCap;
+  /*
+   * A COLOURLESS BUDGET HELD BACK, for the same reason the deck slots are.
+   *
+   * The reserved commander-fit pass runs after the quota loop and could not
+   * spend, because the quota loop had already filled the colourless cap. A
+   * Meren deck came out with exactly 15 of 15 colourless cards — Vexing Bauble,
+   * Soul-Guide Lantern (graveyard hate, in a graveyard deck), Crowded Crypt,
+   * Mask of Griselbrand, Heirloom Blade and Realmbreaker among them — and
+   * Ashnod's Altar, the card the whole deck needs, could not be added because
+   * the budget was gone.
+   *
+   * Reserving deck slots without reserving the colourless budget reserves
+   * nothing for a colourless card, and the cards this pass exists to rescue are
+   * mostly artifacts.
+   */
+  const COLOURLESS_FIT_RESERVE = 2;
+  let colourlessLimit = Math.max(0, colourlessCap - COLOURLESS_FIT_RESERVE);
+  const overColourlessCap = (card: BuildCard) => !hasColour(card) && colourlessPicked >= colourlessLimit;
 
   /* ---------------------------------------------------------------- *
    * 2a-. What the commander asked for and no role can hold.
@@ -1013,12 +1030,31 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
    * exists and whose quota is already full, which is the Ashnod's Altar case
    * and the one the earlier pass could not touch.
    *
-   * Ordered by fit descending, and score is only the tie-break. That is the
-   * whole point of the pass: `rankedSpells` carries a popularity prior, and a
-   * card that is cheap, unplayed and exactly what this commander wants loses
-   * on that prior every time. It cannot lose on it here.
+   * WHICH WANT FIRST is decided by the plan; WHICH CARD SERVES IT is decided by
+   * the ranker's own score. Ordering the whole pass by fit was tried and is
+   * wrong, and the card that proves it is Cauldron of Essence.
+   *
+   * `planFit` is a noisy-OR, so a card matching five of the commander's wants
+   * weakly outscores the card that IS one of them. Cauldron of Essence, rank
+   * 2,508, matched five at 0.829 and took the `cost:sacrifice` slot; Ashnod's
+   * Altar and Viscera Seer sat at 0.720 for doing the single thing a Meren deck
+   * cannot function without, and the deck came out with Grave Pact, Dictate of
+   * Erebos, Grim Haruspex and Midnight Reaper in it and nothing at all to
+   * sacrifice a creature to. Lowering EXTRA_WANT_DECAY helps and cannot fix it:
+   * five weak matches will always sum past one strong one somewhere.
+   *
+   * So the reserve guarantees each want is SERVED, and the best card that
+   * serves it is the one that goes in. Fit is still the gate — a card below
+   * COMMANDER_RESCUE_FIT is not really being asked for, and that gate is where
+   * a cheap unplayed card with real synergy gets its place, which is the half
+   * of "popularity gets no vote" that was right.
    */
   if (fitReserve > 0) {
+    /* The held-back colourless budget is released for exactly this pass, and
+       stays released afterwards: the passes below it are the flex and land
+       fills, and holding it shut for them would only leave the deck short. */
+    colourlessLimit = colourlessCap;
+    const wantWeightOf = new Map(commanderPlan.wants.map(w => [w.facet as string, w.weight]));
     const byFit = rankedSpells
       .filter(rec => {
         const card = rec.card as BuildCard;
@@ -1029,7 +1065,35 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
         return { rec, fit: hit.fit, want: hit.matched?.[0]?.facet ?? null };
       })
       .filter(entry => entry.fit >= COMMANDER_RESCUE_FIT)
-      .sort((a, b) => b.fit - a.fit || b.rec.score - a.rec.score);
+      /*
+       * Want weight first, then HOW PLAYED, and score is not consulted at all.
+       *
+       * `rec.score` was the tie-break and it put Codex Shredder (rank 2,387) in
+       * a Meren deck ahead of Ashnod's Altar (rank 134) for the `cost:sacrifice`
+       * slot, 11.09 against 9.33. Almost the whole gap is `roleGap`: the Altar
+       * classifies as ramp and the ramp quota was full at 11 of 8, so it scored
+       * nothing for its role while the Shredder scored the full 3.0 for a role
+       * that was short.
+       *
+       * Which is the role term sneaking back into the ONE pass that exists
+       * because role quotas cannot reach a card. Ordering by score here undoes
+       * the reason the pass was written.
+       *
+       * Total fit is not the answer either: it is a noisy-OR, so a card that
+       * does five of the commander's jobs weakly outranks the card that IS one
+       * of them, and Cauldron of Essence at rank 2,508 wins that ordering.
+       *
+       * Within one want, every candidate does the same thing. What separates
+       * them is how good a card it is, and `edhrec_rank` is the only broad
+       * evidence of that we hold.
+       */
+      .sort(
+        (a, b) =>
+          (wantWeightOf.get(b.want ?? '') ?? 0) - (wantWeightOf.get(a.want ?? '') ?? 0) ||
+          ((a.rec.card as BuildCard).edhrecRank ?? Number.MAX_SAFE_INTEGER) -
+            ((b.rec.card as BuildCard).edhrecRank ?? Number.MAX_SAFE_INTEGER) ||
+          b.fit - a.fit
+      );
 
     /*
      * ONE CARD PER THING THE COMMANDER ASKS FOR, before a second card for

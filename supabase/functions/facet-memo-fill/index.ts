@@ -126,7 +126,26 @@ const json = (body: unknown, status = 200) =>
  * count as ramp. Before it they compiled to `rec:full type:enchantment` and had
  * no role at all.
  */
-const COMPILER_VERSION = 6;
+/*
+ * 6 -> 7, same day, fourth batch, and this one is the most consequential of the
+ * four. Two facets were doing the work of four, and both splits came out of
+ * reading a whole generated Meren deck card by card:
+ *
+ *   cost:sacrifice-self   "Sacrifice this artifact: draw a card" is not an
+ *                         outlet. Vexing Bauble, Soul-Guide Lantern, Stone of
+ *                         Erech, Hedron Archive and Sakura-Tribe Elder all
+ *                         answered the aristocrats plan's loudest want while
+ *                         eating only themselves, once.
+ *   cost:cast-sacrifice   Village Rites and Deadly Dispute eat one creature
+ *                         once. Ashnod's Altar and Viscera Seer are the engine
+ *                         the deck cannot function without. `cost:` was
+ *                         introduced to tell those apart and had stopped
+ *                         being able to.
+ *
+ * `cost:sacrifice` now means the card eats something else, on demand, which is
+ * what every consumer of the facet was written to mean.
+ */
+const COMPILER_VERSION = 7;
 
 /**
  * Cards read per call.

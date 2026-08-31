@@ -2297,6 +2297,56 @@ Production runs facet compiler version 7, and `ai-deck-builder-v2`,
 tree. **Pushing is not deploying** and this file has said so three times about
 three different functions.
 
+### Two more things the quota system got wrong, found by reading roleFill
+
+**A quota system that does not meet its quotas while slots remain is not a
+quota system.** `neediestRole` is decided ONCE per card in score order, so a
+card serving both `enhance` and `protection` is spent on enhance while enhance
+is the shorter of the two, and by the time protection is neediest the loop has
+walked past everything that could have filled it. There is a pass that goes
+back for them now, one walk per short role. Order the pool ONCE outside it: the
+first version re-sorted 10,913 cards per slot and took a Meren build from 1.7 s
+to 8.8 s.
+
+**A target the pool cannot fill is not a local problem.** `protection` asked for
+SEVEN cards, because `WHEN_IT_MATTERS` said turn four and `copiesToSeeOne`
+answers "how many to have drawn one by then". No real Commander deck runs seven
+protection cards, and the four unfillable slots came out of the budget every
+other role was competing for. Turn six now.
+
+`wincon` stays short at 1 of 4 on most decks and that is honest: its facet list
+is deliberately narrow and most finishers reach the role through the tag
+fallback, so the target is often more than the pool holds.
+
+### The two reserve passes are one pass
+
+There were two, with two budgets, both spending from the same spell slots: one
+before the quota loop for cards serving no role, one after it with six reserved
+slots. Role targets summed to 49 of 51 available, so four cards filling no
+target left four targets unfillable. They do the same job — reaching a card the
+quota system cannot, whether because it serves no role or because the role it
+serves is full — and they are one pass with one budget of eight.
+
+### Final state, 31 Aug 2026
+
+    the 2,000 most played cards
+      no ability record at all                19.9%   was 21.0%
+      top 100 blind                           17.9%   was 23.2%
+      cannot be placed in any role            12.6%   was 14.0%
+
+    seven local decks (generator-synergy-audit)
+      format staples                          47/61
+    fourteen DEPLOYED decks (deployed-deck-sweep)
+      all 100 cards                           14/14   Najeela included
+      format staples                          67/94
+      cards past EDHREC rank 15,000              16
+
+    production
+      facet memo                              version 7, gap 0, one version held
+      facet-memo-top-up                       every 15 minutes, 0 failures
+      deployed from this tree                 ai-deck-builder-v2, deck-optimizer,
+                                              mtg-brain, facet-memo-fill
+
 ### Still wrong, measured, and worth doing next
 
 - **Six equipment in a Meren deck.** The `enhance` quota is too generous for a

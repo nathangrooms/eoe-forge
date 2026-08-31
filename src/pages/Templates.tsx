@@ -6,6 +6,7 @@ import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { TemplateFitPanel } from '@/components/templates/TemplateFitPanel';
 import { useArchetypeFaces } from '@/components/templates/useArchetypeFaces';
 import { CardImage, CardImageSkeleton, cardDetailPath } from '@/components/cards';
+import { cn } from '@/lib/utils';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -349,20 +350,48 @@ export default function Templates() {
                    * at all rather than falling back to popular cards, which
                    * would put Sol Ring under Aggressive Burn.
                    */}
+                  {/*
+                    * FANNED, NOT THREE COLUMNS.
+                    *
+                    * Three equal columns in a 419px tile is 128px a card, which
+                    * measured as the smallest card anywhere in the product:
+                    * every other screen sits between 174 and 370, and `precons`
+                    * draws ONE card at 260px in a tile of exactly this width.
+                    * The standing instruction is that a card should be shown
+                    * whole and larger.
+                    *
+                    * Overlapping gets the width back without dropping a card,
+                    * and it costs the RIGHT side of the first two. That is the
+                    * cheap side to lose: a Magic card prints its name and mana
+                    * cost along the top LEFT, so a left-anchored fan keeps every
+                    * name and cost readable, which is what a strip of examples
+                    * is for.
+                    *
+                    * Percentages, not pixels, so the same fan holds at one, two
+                    * and three columns. 48% each and each subsequent card
+                    * pulled back 22% lands the last card's right edge exactly on
+                    * the container's: 48 + 26 + 26 = 100.
+                    */}
                   {(faces.length > 0 || facesLoading) && (
-                    <div className="flex gap-1.5 bg-muted/25 px-3 pt-3">
+                    <div className="flex bg-muted/25 px-3 pt-3">
                       {facesLoading && faces.length === 0
                         ? [0, 1, 2].map(i => (
-                            <div key={i} className="min-w-0 flex-1">
+                            <div key={i} className={i === 0 ? 'w-[48%]' : '-ml-[22%] w-[48%]'}>
                               <CardImageSkeleton />
                             </div>
                           ))
-                        : faces.map(face => (
+                        : faces.map((face, i) => (
                             <Link
                               key={face.id}
                               to={cardDetailPath(face) ?? `/cards/${face.id}`}
                               title={face.name}
-                              className="min-w-0 flex-1 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              /* Later cards sit on top, so the fan reads left to
+                                 right the way a hand does. */
+                              style={{ zIndex: i + 1 }}
+                              className={cn(
+                                'relative w-[48%] rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                i > 0 && '-ml-[22%]'
+                              )}
                             >
                               <CardImage card={face} fill hideFlip />
                             </Link>

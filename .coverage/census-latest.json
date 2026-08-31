@@ -1,26 +1,26 @@
 {
   "cards": 33032,
   "withText": 32685,
-  "anyRecord": 25788,
-  "full": 10463,
+  "anyRecord": 25811,
+  "full": 10469,
   "coverage": {
-    "partial": 15325,
-    "full": 10463,
-    "manual": 6890,
+    "partial": 15342,
+    "full": 10469,
+    "manual": 6867,
     "none": 7
   },
-  "charsRead": 1760798,
-  "charsTotal": 3336768,
+  "charsRead": 1766674,
+  "charsTotal": 3335908,
   "charBuckets": {
-    "100%": 16579,
-    "75-99%": 585,
-    "50-74%": 1708,
-    "25-49%": 2558,
-    "1-24%": 4342,
-    "0%": 6890
+    "100%": 16610,
+    "75-99%": 589,
+    "50-74%": 1717,
+    "25-49%": 2556,
+    "1-24%": 4323,
+    "0%": 6867
   },
-  "unreadClauses": 21900,
-  "distinctShapes": 10654,
+  "unreadClauses": 21839,
+  "distinctShapes": 10594,
   "topShapes": [
     {
       "shape": "as an additional cost to cast this spell",
@@ -148,11 +148,6 @@
       "example": "Halimar Wavewatch"
     },
     {
-      "shape": "ACTIVATED: you gain life",
-      "cards": 49,
-      "example": "Hurska Sweet-Tooth"
-    },
-    {
       "shape": "when you cycle this card",
       "cards": 49,
       "example": "Krosan Tusker"
@@ -161,6 +156,11 @@
       "shape": "this spell costs {mana} less to cast for",
       "cards": 48,
       "example": "Deadly Alliance"
+    },
+    {
+      "shape": "ACTIVATED: you gain life",
+      "cards": 48,
+      "example": "Hurska Sweet-Tooth"
     },
     {
       "shape": "this land enters tapped",

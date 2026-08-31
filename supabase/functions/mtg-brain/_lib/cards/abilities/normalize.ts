@@ -209,14 +209,69 @@ const UNSAFE_SHORT_NAMES = new Set([
  */
 export function selfNames(card: AbilityCard): string[] {
   const names = new Set<string>();
+
+  /*
+   * A COMMA IS NOT THE ONLY WAY A LEGEND IS NAMED, and assuming it was cost 199
+   * commanders their own name.
+   *
+   * "Ragavan, Nimble Pilferer" splits at the comma and everything works. So do
+   * most modern legends. But the older and the licensed ones use a preposition:
+   *
+   *     Kaalia of the Vast          text says "Kaalia"
+   *     Loran of the Third Path     text says "Loran"
+   *     Kaervek the Merciless       text says "Kaervek"
+   *     Bladewing the Risen         text says "Bladewing"
+   *
+   * and with no short form in the set, `normalizeParagraph` leaves the proper
+   * noun standing. "Whenever Kaalia attacks" then matches no rule at all, and
+   * the whole trigger reads as an unknown shape — which is worse than a missing
+   * rule, because every work list ranks it as one and a rule for it already
+   * exists.
+   *
+   * Measured over all 3,373 commanders with rules text: 199 carry a word of
+   * their own name into the normalised text, and NOT ONE OF THEM IS `full`.
+   *
+   * GATED ON LEGENDARY, deliberately. The short-form convention is a legendary
+   * one, and `normalizeParagraph` replaces by SUBSTRING rather than by word, so
+   * a short name is a blunt instrument: shortening "Rite of Replication" to
+   * "rite" would rewrite "favorite" and "sprite" across every card that shares
+   * the name list. Legendary cards are the ones that benefit, so they are the
+   * only ones that take the risk.
+   */
+  const legendary = /Legendary/i.test(String(card.type_line ?? '')) ||
+    faceList(card).some((f) => /Legendary/i.test(String(f?.type_line ?? '')));
+
+  const offer = (short: string): void => {
+    if (short.length >= 4 && !UNSAFE_SHORT_NAMES.has(short) && !isSubtypeWord(short)) {
+      names.add(short);
+    }
+  };
+
   const addWithShortForm = (raw: string): void => {
     const lower = raw.toLowerCase().trim();
     if (!lower) return;
     names.add(lower);
+
     const comma = lower.indexOf(',');
-    if (comma < 0) return;
-    const short = lower.slice(0, comma).trim();
-    if (short.length >= 4 && !UNSAFE_SHORT_NAMES.has(short) && !isSubtypeWord(short)) names.add(short);
+    if (comma >= 0) {
+      offer(lower.slice(0, comma).trim());
+      return;
+    }
+    if (!legendary) return;
+
+    /*
+     * THE EARLIEST separator, not the first one in a fixed order. "Kaalia of
+     * the Vast" contains both, and checking " the " first gives "kaalia of",
+     * which folds nothing and reads as a fix while leaving the card exactly as
+     * broken as before. Six of the most played names in the list failed that
+     * way on the first attempt.
+     */
+    let at = -1;
+    for (const sep of [' of ', ' the ']) {
+      const i = lower.indexOf(sep);
+      if (i > 0 && (at < 0 || i < at)) at = i;
+    }
+    if (at > 0) offer(lower.slice(0, at).trim());
   };
 
   if (card.name) {

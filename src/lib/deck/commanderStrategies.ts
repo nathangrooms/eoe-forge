@@ -138,12 +138,26 @@ const SHELL_SIGNALS: Record<string, ShellSignal> = {
   blink: {
     /*
      * `trig:enters` is NOT here, and it was. It is one of the commonest facets
-     * in the catalogue — every token maker and every value creature carries an
-     * enters trigger — so including it offered Blink to Krenko and to Talrand,
+     * in the catalogue: every token maker and every value creature carries an
+     * enters trigger, so including it offered Blink to Krenko and to Talrand,
      * neither of whom flickers anything. What makes a deck a blink deck is the
-     * card LEAVING and coming back, which is `eff:move-zone` and `trig:leaves`.
+     * card LEAVING and coming back.
+     *
+     * `eff:exile-own` IS THAT, and it is what a blink spell actually carries.
+     * Added 1 Sep 2026 after the compiler learned to read "exile target
+     * creature you control, THEN return it": Cloudshift, Ephemerate, Momentary
+     * Blink, Scrollshift, Conjurer's Closet, Teleportation Circle and Felidar
+     * Guardian all carry it, 206 cards in all, and before that rule existed not
+     * one of them produced an effect facet at all.
+     *
+     * THIS LIST WAS BROKEN BY A CHANGE ELSEWHERE AND THE TEST CAUGHT IT. Syr
+     * Vondam's intent rule used to want `eff:move-zone`, which no blink card
+     * carries, and moving it to `eff:exile-own` left this shell matching
+     * nothing for him. `eff:move-zone` stays, because bouncing a permanent is
+     * still a way to reuse an enters trigger, but it is no longer the whole
+     * signal.
      */
-    facets: ['eff:move-zone', 'trig:leaves'],
+    facets: ['eff:exile-own', 'eff:move-zone', 'trig:leaves'],
     tags: ['blink'],
     fallback: 'This commander is paid when creatures leave and come back',
   },

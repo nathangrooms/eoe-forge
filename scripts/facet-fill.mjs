@@ -25,6 +25,20 @@ const KEY = readFileSync(new URL('../scratch/anon.txt', import.meta.url), 'utf8'
 const BASE = 'https://udnaflcohfyljrsgqggy.supabase.co';
 const NOTE = process.argv[2] ?? 'manual fill';
 
+/*
+ * Rows per call. `cards_missing_facets` selects thirteen columns off
+ * `cards_unique`, whose rows average 3.2 KB because they carry oracle text,
+ * faces and legalities, so a page of 1,000 is roughly 3 MB of heap fetches and
+ * measured at 948 ms for the FIRST page. That is inside a generous timeout and
+ * outside the one the edge role actually carries under load: a version 9 refill
+ * died on "canceling statement due to statement timeout" on call one.
+ *
+ * 400 is the size that survives. The whole catalogue is 83 calls instead of 34,
+ * which costs about a minute and is the correct trade against a fill that does
+ * not finish at all.
+ */
+const BATCH = Number(process.env.BATCH || 400);
+
 const rest = async (path, init = {}) => {
   const res = await fetch(`${BASE}/rest/v1/${path}`, {
     ...init,
@@ -73,7 +87,7 @@ for (;;) {
   const res = await fetch(`${BASE}/functions/v1/facet-memo-fill`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ run_token: run.run_token, batch: 1000, only_missing: true }),
+    body: JSON.stringify({ run_token: run.run_token, batch: BATCH, only_missing: true }),
   });
 
   const text = await res.text();
@@ -110,7 +124,7 @@ for (;;) {
     break;
   }
 
-  if (calls > 200) throw new Error('200 calls without finishing; something is not converging');
+  if (calls > 400) throw new Error('400 calls without finishing; something is not converging');
 }
 
 const coverage = await rest('rpc/engine_coverage', { method: 'POST', body: '{}' });

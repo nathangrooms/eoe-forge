@@ -159,7 +159,7 @@ const json = (body: unknown, status = 200) =>
  * piece of graveyard hate in the format into an ANSWER, which is worse than not
  * reading them, since it takes a removal slot from something that removes.
  */
-const COMPILER_VERSION = 8;
+const COMPILER_VERSION = 9;
 
 /**
  * Cards read per call.

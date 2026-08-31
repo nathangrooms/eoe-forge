@@ -1,6 +1,9 @@
 {
-  "note": "A HUMAN-BUILT Syr Vondam blink deck, kept as a COMPARISON TARGET for the generator and nothing else. The owner linked it on 31 Aug 2026 with the words 'this is just to test our system against, not to copy'. Only card NAMES are recorded, which are facts about what is in a deck rather than anything authored, and nothing here is ingested into the product, shown to a user, or used to build a deck. CLAUDE.md rules Moxfield out as a DATA SOURCE and that stands: this is one page a person pointed at, read once, to score ourselves against. Do not write a scraper.",
-  "source": "moxfield.com/decks/znb6bcM9b0udk8dCIseoIQ, 'Syr Vondam, Blink King v1.6.1'",
+  "note": "TWO HUMAN-BUILT Syr Vondam blink decks, kept as a COMPARISON TARGET for the generator and nothing else. The owner linked them on 31 Aug 2026 with the words 'this is just to test our system against, not to copy'. Only card NAMES are recorded, which are facts about what is in a deck rather than anything authored, and nothing here is ingested into the product, shown to a user, or used to build a deck. CLAUDE.md rules Moxfield out as a DATA SOURCE and that stands: this is two pages a person pointed at, read once, to score ourselves against. Do not write a scraper.",
+  "source": [
+    "moxfield.com/decks/znb6bcM9b0udk8dCIseoIQ, 'Syr Vondam, Blink King v1.6.1'",
+    "moxfield.com/decks/fNoafuoK70KBOjMHzq3ABw, \"Don't Blink\""
+  ],
   "commander": "Syr Vondam, Sunstar Exemplar",
   "whatToScore": "The blink half. The generator already finds the aristocrats half of Vondam on its own, because 'dies' is read and 'is put into exile' was not. These three groups are the thing that was missing.",
   "blinkSpells": [
@@ -14,7 +17,9 @@
     "Semester's End",
     "Malakir Rebirth",
     "Beyond the Quiet",
-    "Morningtide's Light"
+    "Morningtide's Light",
+    "Emergency Eject",
+    "Touch the Spirit Realm"
   ],
   "blinkEngines": [
     "Conjurer's Closet",
@@ -27,7 +32,13 @@
     "Far Traveler",
     "Icewind Stalwart",
     "Elegy Acolyte",
-    "Abdel Adrian, Gorion's Ward"
+    "Abdel Adrian, Gorion's Ward",
+    "Eldrazi Displacer",
+    "Flickerwisp",
+    "Distinguished Conjurer",
+    "Minion Reflector",
+    "Golden Argosy",
+    "Blade of Selves"
   ],
   "worthBlinking": [
     "Skyclave Apparition",
@@ -44,6 +55,63 @@
     "Grave Titan",
     "Claim Jumper",
     "Helpful Hunter",
-    "Loyal Warhound"
-  ]
+    "Loyal Warhound",
+    "Ravenous Chupacabra",
+    "Inspiring Overseer",
+    "Circuit Mender",
+    "Ashen Rider",
+    "Myr Battlesphere",
+    "Timeline Culler",
+    "Witch of the Moors",
+    "Combat Thresher",
+    "Rumor Gatherer",
+    "Senu, Keen-Eyed Protector",
+    "Guardian of Ghirapur",
+    "All-Fates Stalker",
+    "Haliya, Guided by Light",
+    "Deathbringer Liege",
+    "Gilraen, Dúnedain Protector"
+  ],
+  "whyTwo": "One deck is one builder's opinion. Two independent decks AGREEING on a card is evidence that the card belongs to the archetype rather than to a person's taste, so the shared core below is the part worth scoring hardest against.",
+  "inBothDecks": [
+    "Cloudshift",
+    "Ephemerate",
+    "Scrollshift",
+    "Conjurer's Closet",
+    "Felidar Guardian",
+    "Restoration Angel",
+    "Charming Prince",
+    "Claim Jumper",
+    "Solemn Simulacrum",
+    "Skyclave Apparition",
+    "Gray Merchant of Asphodel",
+    "Knight of the White Orchid",
+    "Loran of the Third Path",
+    "All-Fates Stalker",
+    "Deathbringer Liege",
+    "Guardian of Ghirapur",
+    "Haliya, Guided by Light",
+    "Gilraen, Dúnedain Protector",
+    "Massacre Wurm",
+    "Grave Titan",
+    "Arcane Signet",
+    "Sol Ring",
+    "Talisman of Hierarchy",
+    "Command Tower",
+    "Path of Ancestry",
+    "Rogue's Passage",
+    "Vault of the Archangel",
+    "Caves of Koilos",
+    "Fetid Heath",
+    "Isolated Chapel",
+    "Evolving Wilds",
+    "Brightclimb Pathway"
+  ],
+  "notATheme": {
+    "note": "Deck two runs Swords to Plowshares and Path to Exile and deck one does not. So they are not WRONG for Vondam, they are simply not the theme. Before the direction fix the generator filled with them because eff:exile was 0.45 of his plan, and the failure was never that removal is bad, it was that removal was being counted as synergy.",
+    "cards": [
+      "Swords to Plowshares",
+      "Path to Exile"
+    ]
+  }
 }

@@ -2090,7 +2090,7 @@ artifacts and 0 of 64 cards keyed off him.
   has a smaller pool, so some of that is inherent and some is not.
 - Boots, Greaves, Skullclamp and Demonic Tutor are missing from most decks.
 
-## The facet memo is on COMPILER_VERSION 2, and the order of the bump matters
+## ~~The facet memo is on COMPILER_VERSION 2~~ IT IS ON 7. See the 31 Aug section at the end
 
 Three places pin it and they move together: `facet-memo-fill`,
 `public.facets(cards_unique)`, and the `cards_pool` view's own join. A reader on
@@ -2118,3 +2118,197 @@ and all four indexes have to come back with it. `cards_pool_identity_rank_id_idx
 is the one that lets a colour-filtered pool be WALKED in popularity order rather
 than sorted; without it the pool query went from 25 ms to 13.7 s against a 3 s
 `statement_timeout`.
+
+---
+
+## 31 Aug 2026 — the engine night. What changed, and what is now true
+
+The owner's brief: *"get this to full coverage of all cards, strategies, new
+cards, old cards, automatic ongoing systems, roles, everything - the text engine
+is probably one of the most important things"*, and *"everything must be
+universal and work across every commander and card and type"*.
+
+### The facet memo is on COMPILER_VERSION 7, and it TOPS ITSELF UP now
+
+The version is pinned in three places and they move together: `facet-memo-fill`,
+`public.facets(cards_unique)`, and the `cards_pool` matview's own join. **Bump
+the WRITER first, refill, and only then move the readers.** A reader on one
+version and a writer on another is silent: every card reads as having no facets,
+which the ranker cannot tell from a card that does nothing. 33,032 rows take
+about 40 seconds over 34 calls.
+
+**`facet-memo-top-up` runs every 15 minutes** and is the answer to *"we need to
+be prepared for when new cards come in that this happens automatically"*. Before
+it, `card_facet_memo` had been written exactly once, by hand, in 65 seconds on
+30 Aug, and nothing was scheduled to write it again — so every card of the next
+set would have arrived in `cards_pool` with `facets = NULL`, invisible to
+commander fit, to the optimiser and to every suggestion surface, silently.
+
+    public.card_facet_gap()             cards with no facets at the current version
+    public.cards_missing_facets(v,a,n)  exactly those, so the fill asks for the gap
+                                        instead of walking 33,032 rows to find 300
+    public.fill_card_facets_if_needed() one HTTP call, ONLY when the gap is not zero
+
+The version is READ (`max(compiler_version)`), never hardcoded, so a bump
+self-heals: the first write moves it, the gap becomes the catalogue, and the job
+closes it over the following hours. Proven end to end against production by
+deleting Sol Ring's memo row and watching it come back identical.
+
+`pg_net` defaults to a **five second timeout** and the fill takes longer, so the
+call succeeded, the memo was written, and the response row recorded only
+"Timeout of 5000 ms reached". `timeout_milliseconds := 120000` now. A scheduled
+job whose record says nothing about its own success is how one fails for two
+days unnoticed.
+
+### The intent rules are gated on `rec:full`, not on how many wants exist
+
+Measured over the 400 most-played commanders: the compiler reported `rec:full`
+for **42, 10.5%**. For **322, 80.5%**, it said it had NOT read the whole card
+and the plan nonetheless had four or more wants, so the 113 English intent rules
+never ran. Four in five of the commanders people actually build had a second
+reader that could have spoken about the unread half and was silent.
+
+`rec:full` is the right gate and the want count never was. English must not talk
+over a parsed record — that reasoning is exactly right, and `rec:full` is the
+facet that means "there IS a parsed record for every clause". A thick plan is
+not that. Effect: mean wants 5.2 → 7.8, and 220 of the 400 gained wants.
+
+**The weak number and the strong one.** 100% of 3,542 commanders get a plan with
+wants; that is the number that looked fine for months. Only 10.5% have the whole
+card read, and **40.6% of commander ability lines produce nothing at all**. Use
+`scripts/commander-read-audit.mjs`, which reports both and says which is which.
+
+### The role vocabulary is ten roles, and one was measured and rejected
+
+`ramp draw removal interaction tutor enhance protection wincon land creature`.
+
+`protection` is new and it is why Swiftfoot Boots — the twelfth most played card
+in the format — was missing from every generated deck for weeks. It was not
+outranked; it was competing for `enhance` slots against auras that make a
+creature bigger, which is a different job.
+
+**A `tokens` role was written, measured and REVERTED.** Thirteen rescues looked
+like a clear win; it made Krenko's creature target fall from 32 to 27 and
+Talrand's rise from 18 to 21, so a spellslinger in creature mode came out ahead
+of a Goblin lord in spell mode. The cause is structural: `creature` is a floor
+taken over the WHOLE deck rather than a bucket, so a second board-presence role
+double-counts the same job. A rule that measures worse is the wrong rule.
+
+**`scripts/role-rule-try.mjs` is how a role rule gets decided.** It prints the
+list of cards a candidate would claim, in both directions — what it rescues and
+what it takes from a role that already had it right. `ROLE_FACETS` carries two
+long comments about rules added, measured and removed for exactly this reason.
+An `edict` rule looked good and the list killed it: two rescues, and Scapeshift
+filed as removal.
+
+### `cost:` tells an outlet from a spell, and it nearly stopped being able to
+
+Four facets where there had been two, and both splits came out of reading a
+whole generated Meren deck card by card rather than looking at its score. The
+deck had Grave Pact, Dictate of Erebos, Bastion of Remembrance, Grim Haruspex,
+Midnight Reaper, Vindictive Vampire and Blood Artist in it, and **nothing that
+could sacrifice a creature on demand**. Its power score was 6.8.
+
+| facet | means | example |
+|---|---|---|
+| `cost:sacrifice` | eats something else, on demand. AN OUTLET | Ashnod's Altar, Viscera Seer |
+| `cost:sacrifice-self` | eats only itself, once | Vexing Bauble, Sakura-Tribe Elder |
+| `cost:cast-sacrifice` | an additional cost to CAST a spell | Village Rites, Deadly Dispute |
+
+### Six deck slots are reserved for commander fit, and three orderings were wrong
+
+They are spent AFTER the quota loop, because which roles filled up is not known
+until they have, and a card whose role quota is full was unreachable however
+well it fits. Ashnod's Altar classifies as `ramp`; in a Meren deck it is the
+engine.
+
+Ordering that pass is where the mistakes were:
+
+- **by fit** — `planFit` is a noisy-OR, so a card matching five wants weakly
+  outranks the card that IS one of them. Cauldron of Essence, rank 2,508.
+- **by `rec.score`** — contains `roleGap`, so the role term sneaks back into the
+  one pass that exists BECAUSE role quotas cannot reach a card. Codex Shredder
+  (rank 2,387) beat Ashnod's Altar (rank 134) 11.09 to 9.33, almost all of it
+  role.
+- **one card per want, loudest want first, and within a want the card people
+  play most.** Within one want every candidate does the same thing, so what
+  separates them is how good a card it is.
+
+A colourless budget is held back for it too: reserving deck slots without
+reserving colourless slots reserves nothing for an artifact.
+
+`EXTRA_WANT_DECAY` is **0.20**, down from 0.35, measured across all six audit
+decks. See the note on the constant for the table.
+
+### The strategy list reads the engine. There is no model call left in the builder
+
+`strategiesFor` in `src/lib/deck/commanderStrategies.ts` reads
+`planForCommander` and `deriveCardTags` and nothing else. It replaced a call to
+`mtg-brain` plus seven hardcoded substrings of the commander's rules text, which
+was a FOURTH implementation of "what does this commander want".
+
+Eighteen archetype shells, up from eight, against the 28 strategies the tagger
+can already name. Syr Vondam is offered Blink now, with the engine's own
+sentence: *"is also paid when your own creatures are exiled, which is what
+blinking them does"*.
+
+### The probes, and the one that was lying
+
+    scripts/commander-read-audit.mjs   does the engine read commanders properly
+    scripts/unparsed-shapes.mjs        which SENTENCE recurs, ranked by cards
+    scripts/role-rule-try.mjs          what would this role rule claim, by name
+    scripts/why-not-in-deck.mjs        why is THIS card not in THAT deck
+    scripts/role-coverage.mjs          how many played cards can be placed at all
+
+`role-coverage.mjs` paged with `offset=1000`, which makes Postgres walk and
+discard a thousand rows, so page two timed out — and it printed "read 1000
+cards, most played first" and carried on reporting percentages over half the
+slice it named. Three query shapes, measured:
+
+    offset=1000                               walks and discards 1,000 rows
+    or=(rank.gt.N,and(rank.eq.N,id.gt.X))     2.29 s, cannot use the index
+    edhrec_rank=gte.N                         0.34 s, a clean index range
+
+`gte`, not `gt`, because `edhrec_rank` is not unique. It says so out loud when
+it reads fewer rows than asked for.
+
+**And the trap that wasted an hour: the generator reads STORED facets from
+`cards_pool`, not the working tree's compiler.** Every measurement of a deck
+after a compiler change is stale until the memo is refilled and the readers
+moved. `compiler-gap-probe` and `unparsed-shapes` compile locally and are not
+affected; `generator-synergy-audit` is.
+
+### Where the numbers stand
+
+    the 2,000 most played cards
+      compiler produces no record at all      19.9%   (was 21.0%)
+      top 100 blind                           17.9%   (was 23.2%)
+      cannot be placed in any role            12.6%   (was 14.0%)
+
+    the six decks in generator-synergy-audit
+      format staples found                    40/54   (was 35/54)
+      Adeline 8/8, Ghalta 9/9, Niv-Mizzet 8/10
+      Niv-Mizzet median rank         1697 -> 1086
+      Teysa median rank              2316 -> 1225
+      Ghalta cards past rank 15,000     3 -> 0
+
+Production runs facet compiler version 7, and `ai-deck-builder-v2`,
+`deck-optimizer`, `mtg-brain` and `facet-memo-fill` are all deployed from this
+tree. **Pushing is not deploying** and this file has said so three times about
+three different functions.
+
+### Still wrong, measured, and worth doing next
+
+- **Six equipment in a Meren deck.** The `enhance` quota is too generous for a
+  deck with no voltron plan; it should come off the commander's own wants rather
+  than a floor.
+- **The junk tail.** Popular Egotist (12,255), Blood Speaker (13,304), Gríma
+  Wormtongue (9,186) still reach the deck. They fill roles nothing better fills.
+- **164 of the top 2,000 produce no usable record**, which is the compiler's own
+  work list. `scripts/unparsed-shapes.mjs` ranks it: modal "choose one" (17
+  cards), shocklands (10, and a player CHOICE the runtime cannot offer at
+  replacement time), "cast without paying its mana cost" (8), replacement
+  doubling — Panharmonicon, Hardened Scales (8).
+- **Anti-synergy is not modelled at all.** Soul-Guide Lantern is graveyard hate
+  and the generator put it in a graveyard deck. Nothing scores a card as working
+  AGAINST the plan.

@@ -75,7 +75,11 @@ const PAYOFFS = [
   { what: 'equipment payoff', payoff: /whenever equipped|equipped creature/i, type: 'Equipment', floor: 4 },
 ];
 
-const KEYS = (process.env.COMMANDERS ?? 'adeline,nivmizzet,meren,teysa,ghalta,kozilek')
+/* Krenko is here because he is the SMALLEST pool of the roster and the deck
+   that reaches deepest, and because he is the only entry with no archetype, so
+   one of the six measures what a player gets when they pick a commander and
+   press build without choosing anything else. */
+const KEYS = (process.env.COMMANDERS ?? 'adeline,nivmizzet,meren,teysa,ghalta,kozilek,krenko')
   .split(',').map(s => s.trim()).filter(Boolean);
 
 const { ROSTER } = await import('./generator-roster.mjs');

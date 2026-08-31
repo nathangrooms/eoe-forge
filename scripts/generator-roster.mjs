@@ -7,6 +7,28 @@
  */
 export const ROSTER = [
   {
+    key: 'krenko',
+    name: 'Krenko, Mob Boss',
+    id: '5a04a833-0ccf-4f59-9d94-2018e2f220e0',
+    type_line: 'Legendary Creature — Goblin Warrior',
+    color_identity: ['R'],
+    colors: ['R'],
+    /* NO ARCHETYPE, deliberately, and he is the only entry without one.
+       `withArchetype` folds the shell's wants into the commander's and can
+       outweigh them: asking for `tokens` here put `sub:goblin` and `tok:goblin`
+       at 1.00 and pushed `kw:haste` out of the plan entirely, so the audit was
+       measuring a different question from the one a player asks when they pick
+       a commander and press build. */
+    archetype: null,
+    style: 'creatures',
+    why:
+      'Mono red, and the SMALLEST pool of the roster, which is where a deck ' +
+      'reaches deepest: he was the worst of the fourteen in the deployed sweep ' +
+      'at median rank 3,092. He is also a TAP ability, so Swiftfoot Boots and ' +
+      'Lightning Greaves are near-mandatory and were missing, which is the ' +
+      'question this entry exists to keep asking.',
+  },
+  {
     key: 'adeline',
     name: 'Adeline, Resplendent Cathar',
     id: '21a0e852-7855-4a6b-8eca-191a8e83023a',

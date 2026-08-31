@@ -2092,6 +2092,39 @@ const PLAN_RULES: readonly {
   when: Facet;
   wants: readonly { facet: Facet; weight: number }[];
 }[] = [
+  /*
+   * A COMMANDER WITH A TAP ABILITY WANTS HASTE, and this is a FACET rule rather
+   * than an intent rule for a reason worth stating.
+   *
+   * The intent rules exist to rescue a card the compiler could not read, so
+   * they are gated on `rec:full` — English must not talk over a parsed record.
+   * Krenko, Mob Boss is `rec:full`: the compiler read "{T}: Create X 1/1 red
+   * Goblin creature tokens" perfectly. It simply has no vocabulary for the
+   * CONSEQUENCE, which every Commander player knows: a creature that taps for
+   * value is doing nothing the turn it lands unless something gives it haste.
+   *
+   * That is not a rescue, it is an inference layered on a record that was read,
+   * so the gate should not apply and the rule belongs here. Swiftfoot Boots and
+   * Lightning Greaves, ranked 12 and 13 in the format, scored a commander fit of
+   * ZERO for Krenko and were missing from every deck built for him.
+   *
+   * `cost:tap` on a COMMANDER, never on a card in the pool: these rules read the
+   * commander's own facets, so a Sol Ring carrying `cost:tap` is not what fires
+   * it. A commander whose only tap ability is a mana ability still wants haste,
+   * which is why the rule is not narrowed further.
+   *
+   * The weights match the intent rule that says the same thing in English, so a
+   * commander the compiler CANNOT read gets the identical plan through the other
+   * door.
+   */
+  {
+    when: 'cost:tap',
+    wants: [
+      { facet: 'eff:untap', weight: 0.8 },
+      { facet: 'kw:haste', weight: 0.6 },
+      { facet: 'sub:equipment', weight: 0.45 },
+    ],
+  },
   {
     when: 'eff:proliferate',
     wants: [

@@ -164,6 +164,18 @@ export const EFFECT_VERBS: readonly string[] = [
   'lose-game',
   'set-monarch',
   'unless-pays',
+  /*
+   * THE SAME VERB, AIMED AT YOUR OWN SIDE. Not a qualifier, because a role
+   * check asks whether the card carries one facet, so an `aims:` facet
+   * alongside would change nothing. Same reasoning as `exile-graveyard`.
+   */
+  'exile-own',
+  'destroy-own',
+  'tap-own',
+  'discard-self',
+  'damage-self',
+  'draw-each',
+  'shrink',
   /* An open choice made as a permanent enters, with the SUBJECT on the effect
      rather than in the verb, the way `among` sits on `add-mana`. So every
      consumer that reads `eff:choose` reads all of them, and a new subject needs
@@ -264,7 +276,11 @@ export const ROLE_FACETS: Readonly<Record<Role, readonly Facet[]>> = {
    * Witness which keep `creature` and gain this too, correctly.
    */
   draw: ['eff:draw', 'eff:return-from'],
-  removal: ['eff:destroy', 'eff:exile', 'eff:damage', 'eff:gain-control'],
+  /* `eff:shrink` is here rather than in `enhance` because a mass minus-N KILLS
+     things, which is the job removal names. Splitting the sign moved 116 cards
+     out of enhance, where a sweeper was being counted as an anthem: Massacre
+     Wurm, Massacre Girl, Doomwake Giant, Languish. */
+  removal: ['eff:destroy', 'eff:exile', 'eff:damage', 'eff:gain-control', 'eff:shrink'],
   /*
    * `eff:move-zone` is bounce, and bounce at INSTANT speed is interaction.
    *
@@ -296,7 +312,23 @@ export const ROLE_FACETS: Readonly<Record<Role, readonly Facet[]>> = {
   /* The keyword is only half the rule; `facetRoleQualifies` carries the other
      half, and without it this claims every creature that HAS hexproof rather
      than the cards that GRANT it. See the long note on the role in types.ts. */
-  protection: ['kw:hexproof', 'kw:shroud', 'kw:indestructible', 'kw:protection', 'kw:ward'],
+  /*
+   * `eff:exile-own` is the owner's friend's point, made mechanical.
+   *
+   * Exiling your OWN board is what Teferi's Protection (rank 109) and Eerie
+   * Interlude (956) do, and it is exactly what a blink spell does in response
+   * to removal. Both were filed as REMOVAL until the facet learned to say who
+   * the exile was aimed at, and 140 cards catalogue-wide held the removal role
+   * on nothing else.
+   *
+   * The keywords stay first: a card that HAS hexproof and a card that GRANTS a
+   * save are both protection, and `facetRoleQualifies` decides which by looking
+   * at whether the card also attaches or targets.
+   */
+  protection: [
+    'kw:hexproof', 'kw:shroud', 'kw:indestructible', 'kw:protection', 'kw:ward',
+    'eff:exile-own',
+  ],
   /*
    * Deliberately narrow, and it stays narrow.
    *

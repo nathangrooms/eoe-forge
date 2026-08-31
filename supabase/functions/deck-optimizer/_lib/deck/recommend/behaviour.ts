@@ -54,7 +54,9 @@ import type {
   CardFilter,
   Cost,
   Effect,
+  PlayerSelector,
   Selector,
+  TargetSpec,
   TokenSpec,
   ValueExpr,
 } from '../../cards/abilities/dsl.ts';
@@ -614,13 +616,13 @@ function readAbility(ability: Ability, out: Set<Facet>): void {
   if (ability.kind === 'triggered') {
     out.add(`trig:${ability.event.on}`);
     readTriggerEvent(ability.event, out);
-    readEffects(ability.effects, out);
+    readEffects(ability.effects, out, (ability as { targets?: readonly TargetSpec[] }).targets);
     for (const t of ability.targets ?? []) if (t.filter) readFilter(t.filter, out, 'cares');
     return;
   }
 
   if (ability.kind === 'activated' || ability.kind === 'mana') {
-    readEffects(ability.effects, out);
+    readEffects(ability.effects, out, (ability as { targets?: readonly TargetSpec[] }).targets);
     readActivationCost(ability.costs, out);
     if (ability.kind === 'activated') {
       for (const t of ability.targets ?? []) if (t.filter) readFilter(t.filter, out, 'cares');
@@ -629,7 +631,7 @@ function readAbility(ability: Ability, out: Set<Facet>): void {
   }
 
   if (ability.kind === 'spell') {
-    readEffects(ability.effects, out);
+    readEffects(ability.effects, out, (ability as { targets?: readonly TargetSpec[] }).targets);
     /*
      * What you must ALSO do to cast it — under `cost:cast-`, NOT `cost:`.
      *
@@ -697,7 +699,9 @@ function readAbility(ability: Ability, out: Set<Facet>): void {
       out.add('eff:add-counters');
       out.add(`ctr:${ability.result.counter.toLowerCase()}`);
     }
-    if (ability.result.do === 'additional') readEffects(ability.result.effects, out);
+    if (ability.result.do === 'additional') {
+      readEffects(ability.result.effects, out, (ability as { targets?: readonly TargetSpec[] }).targets);
+    }
   }
 }
 
@@ -785,8 +789,12 @@ function readTriggerEvent(event: { on: string } & Record<string, unknown>, out: 
   if (typeof counter === 'string' && counter) out.add(`ctr:${counter.toLowerCase()}`);
 }
 
-function readEffects(effects: readonly Effect[] | undefined, out: Set<Facet>): void {
-  for (const e of effects ?? []) readEffect(e, out);
+function readEffects(
+  effects: readonly Effect[] | undefined,
+  out: Set<Facet>,
+  targets?: readonly TargetSpec[]
+): void {
+  for (const e of effects ?? []) readEffect(e, out, targets);
 }
 
 /**
@@ -797,11 +805,11 @@ function readEffects(effects: readonly Effect[] | undefined, out: Set<Facet>): v
  * "destroy all creatures" inside a mode of a modal spell count the same as one
  * printed on its own line, which the tag matcher could never do.
  */
-function readEffect(effect: Effect, out: Set<Facet>): void {
+function readEffect(effect: Effect, out: Set<Facet>, targets?: readonly TargetSpec[]): void {
   switch (effect.do) {
     case 'if':
-      readEffects(effect.then, out);
-      readEffects(effect.else, out);
+      readEffects(effect.then, out, targets);
+      readEffects(effect.else, out, targets);
       return;
     /* Both branches are read, and the verb itself is recorded, because a deck
      * built around "you may pay 2 life: draw a card" is built around a
@@ -809,18 +817,18 @@ function readEffect(effect: Effect, out: Set<Facet>): void {
      * it as a cantrip. */
     case 'do-if-cost-paid':
       out.add('eff:do-if-cost-paid');
-      readEffects(effect.then, out);
-      readEffects(effect.else, out);
+      readEffects(effect.then, out, targets);
+      readEffects(effect.else, out, targets);
       return;
     case 'for-each':
     case 'repeat':
     case 'may':
     case 'unless-pays':
       if (effect.do === 'unless-pays') out.add('eff:unless-pays');
-      readEffects(effect.effects, out);
+      readEffects(effect.effects, out, targets);
       return;
     case 'choose-mode':
-      for (const m of effect.modes) readEffects(m.effects, out);
+      for (const m of effect.modes) readEffects(m.effects, out, targets);
       return;
 
     /*
@@ -888,11 +896,34 @@ function readEffect(effect: Effect, out: Set<Facet>): void {
       readSelector(effect.what, out);
       return;
 
-    case 'pump':
-      out.add('eff:pump');
+    case 'pump': {
+      /*
+       * A SIGN, because minus two is not an anthem.
+       *
+       * `ROLE_FACETS.enhance` reads `eff:pump`, so every mass minus-N sweeper
+       * in the format was filed as a card that makes your creatures better.
+       * Measured: 116 cards carry a negative mass pump and no positive pump
+       * anywhere on the card. Massacre Wurm (513), Massacre Girl (1702),
+       * Doomwake Giant (1788), Languish (5684).
+       *
+       * Shrinking an opponent's board IS removal, so the new verb goes in that
+       * role rather than nowhere: it kills things, which is the job.
+       *
+       * The numbers can be expressions rather than literals, and an expression
+       * whose sign cannot be read stays `eff:pump`. Refusing to guess is right
+       * here, because guessing the sign backwards is what this fixes.
+       */
+      const num = (v: unknown): number | null =>
+        typeof v === 'number' ? v : null;
+      const p = num((effect as { power?: unknown }).power);
+      const t = num((effect as { toughness?: unknown }).toughness);
+      const negative = (p !== null && p < 0) || (t !== null && t < 0);
+      const positive = (p !== null && p > 0) || (t !== null && t > 0);
+      out.add(negative && !positive ? 'eff:shrink' : 'eff:pump');
       readSelector(effect.what, out);
       for (const g of effect.grant ?? []) out.add(`kw:${String(g).toLowerCase()}`);
       return;
+    }
 
     case 'exile': {
       /*
@@ -913,13 +944,32 @@ function readEffect(effect: Effect, out: Set<Facet>): void {
        */
       const zone =
         (effect as { from?: string }).from ?? (effect.what as { zone?: string } | undefined)?.zone;
-      out.add(zone === 'graveyard' ? 'eff:exile-graveyard' : 'eff:exile');
+      if (zone === 'graveyard') {
+        out.add('eff:exile-graveyard');
+      } else if (isSelfAimed(aimOfSelector(effect.what, targets))) {
+        /* EXILING YOUR OWN BOARD IS PROTECTION, not an answer. Teferi's
+           Protection (rank 109) and Eerie Interlude (956) were filed as
+           removal, and 140 cards catalogue-wide held the removal role on
+           nothing but this. It is also, precisely, what a blink spell does. */
+        out.add('eff:exile-own');
+      } else {
+        out.add('eff:exile');
+      }
       readSelector(effect.what, out);
       return;
     }
 
     case 'destroy':
-    case 'tap':
+    case 'tap': {
+      /* Destroying or tapping YOUR OWN permanents is a cost or an engine, never
+         an answer. Krark-Clan Ironworks and Springleaf Drum were both filed as
+         removal and interaction respectively on this exact confusion. */
+      const aim = aimOfSelector(effect.what, targets);
+      out.add(isSelfAimed(aim) ? `eff:${effect.do}-own` : `eff:${effect.do}`);
+      readSelector(effect.what, out);
+      return;
+    }
+
     case 'untap':
     case 'counter':
       out.add(`eff:${effect.do}`);
@@ -934,11 +984,6 @@ function readEffect(effect: Effect, out: Set<Facet>): void {
     case 'sacrifice':
       out.add('eff:sacrifice');
       readSelector(effect.what, out);
-      return;
-
-    case 'damage':
-      out.add('eff:damage');
-      if ('sel' in effect.to) readSelector(effect.to as Selector, out);
       return;
 
     /*
@@ -967,9 +1012,37 @@ function readEffect(effect: Effect, out: Set<Facet>): void {
       if (effect.what === 'basic-land-type') out.add('cares:type:land');
       return;
 
-    case 'draw':
+    case 'draw': {
+      /* GROUP HUG IS NOT CARD ADVANTAGE. 28 cards make each player draw with
+         no draw for you, and 26 held the `draw` role on nothing else, so
+         Temple Bell (1899) was indistinguishable from Rhystic Study. */
+      const aim = aimOfPlayer((effect as { who?: PlayerSelector }).who);
+      out.add(aim === 'everyone' || aim === 'opponent' ? 'eff:draw-each' : 'eff:draw');
+      return;
+    }
+
+    case 'discard': {
+      /* LOOTING IS NOT INTERACTION. 279 cards held the interaction role solely
+         on an `eff:discard` aimed at the caster: Faithless Looting (97),
+         Frantic Search (101). Discarding your own cards is card selection, and
+         the draw half of the card already says so. */
+      const aim = aimOfPlayer((effect as { who?: PlayerSelector }).who);
+      out.add(isSelfAimed(aim) ? 'eff:discard-self' : 'eff:discard');
+      return;
+    }
+
+    case 'damage': {
+      /* PAYING LIFE TO MAKE MANA IS NOT REMOVAL. 60 cards deal damage only to
+         their own controller and 58 held the removal role on nothing else.
+         Talisman of Dominance (rank 93) came back `ramp, removal`. */
+      const aim = aimOfPlayer((effect as { to?: PlayerSelector }).to as PlayerSelector | undefined);
+      const selfHit = isSelfAimed(aim) || isSelfAimed(aimOfSelector((effect as { to?: Selector }).to as Selector | undefined, targets));
+      out.add(selfHit ? 'eff:damage-self' : 'eff:damage');
+      if ('sel' in (effect.to as object)) readSelector(effect.to as Selector, out);
+      return;
+    }
+
     case 'mill':
-    case 'discard':
     case 'gain-life':
     case 'lose-life':
     case 'set-life':
@@ -1024,6 +1097,87 @@ function readToken(token: TokenSpec, out: Set<Facet>): void {
  * `cares:` facets, which is how "destroys all creatures" and "destroys all
  * lands" stop being the same fact.
  */
+/* ------------------------------------------------------------------ *
+ * WHO AN EFFECT IS AIMED AT
+ * ------------------------------------------------------------------ */
+
+/**
+ * Whose stuff an effect touches.
+ *
+ * ## The defect this exists to fix
+ *
+ * The word "controller" appeared ZERO times in this file, and `effect.who` was
+ * never read, despite `who` being a mandatory field on nineteen effect verbs
+ * and present on 9,202 of 9,202 emissions. Every effect was recorded as though
+ * it were aimed at an opponent.
+ *
+ * Measured over all 33,032 cards: **574 cards hold a role SOLELY because the
+ * facet cannot say who the effect is aimed at**, 546 of them non-land and
+ * therefore competing for real spell slots.
+ *
+ *     eff:discard   279   Faithless Looting (97) is INTERACTION. It is looting.
+ *     eff:exile     140   Teferi's Protection (109) is REMOVAL. It is the best
+ *                         protection spell in the format.
+ *     eff:damage     63   Talisman of Dominance (93) is REMOVAL, because it
+ *                         deals one damage to YOU to make mana.
+ *     eff:tap        41
+ *     eff:pump       36
+ *     eff:destroy    13
+ *
+ * The owner's friend found this from the other end: *"blink and bounce can also
+ * be protection"*. He was right, and blink was one instance of a general fault.
+ *
+ * ## Why a separate verb and not a qualifier
+ *
+ * `ROLE_FACETS.removal` reads `eff:exile`, and a role check asks whether the
+ * card carries that one facet. An `aims:self` facet sitting alongside would
+ * change nothing, because nothing would consult it. So the direction has to be
+ * IN the verb, which is exactly the precedent `eff:exile-graveyard` set when
+ * reading graveyard hate turned every piece of it into an answer.
+ *
+ * ## Unknown means unknown
+ *
+ * A `{sel:'target'}` can be anything, and the ability's targeting restriction
+ * lives on the `TargetSpec` rather than here. Returning 'unknown' for those is
+ * deliberate: guessing "opponent" is what produced the 574, and guessing "you"
+ * would strip removal off the whole format. Only a selector that SAYS whose it
+ * is counts.
+ */
+type Aim = 'you' | 'opponent' | 'everyone' | 'unknown';
+
+function aimOfPlayer(who: PlayerSelector | undefined): Aim {
+  switch (who?.who) {
+    case 'you': return 'you';
+    case 'each-opponent': return 'opponent';
+    case 'each-player': return 'everyone';
+    default: return 'unknown';
+  }
+}
+
+function aimOfSelector(sel: Selector | undefined, targets?: readonly TargetSpec[]): Aim {
+  if (!sel) return 'unknown';
+  /* The card itself. Vexing Bauble exiling itself is not removal. */
+  if (sel.sel === 'self' || sel.sel === 'attached') return 'you';
+  if (sel.sel === 'all') return aimOfPlayer(sel.controller);
+  /*
+   * A TARGET SAYS WHOSE IT IS ON THE TargetSpec, NOT ON THE SELECTOR.
+   *
+   * "Exile any number of target creatures you control" compiles to
+   * `{sel:'target', ref:0}`, and the "you control" lives on `targets[0]
+   * .controller`. Without this lookup Eerie Interlude stayed filed as REMOVAL
+   * after the rest of the direction work landed, which is how this gap was
+   * found: seven of eight test cards moved and it did not.
+   */
+  if (sel.sel === 'target') {
+    const spec = (targets ?? []).find(t => t.ref === sel.ref);
+    return aimOfPlayer(spec?.controller);
+  }
+  return 'unknown';
+}
+
+/** True when the effect touches only the caster's own side. */
+const isSelfAimed = (aim: Aim): boolean => aim === 'you';
+
 function readSelector(selector: Selector, out: Set<Facet>): void {
   if (selector.sel !== 'all') return;
   out.add('scope:all');

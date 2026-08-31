@@ -206,6 +206,17 @@ const snapshot = () =>
           (el.getAttribute('data-state') ?? '')
       )
       .join(','),
+    /* A CONTROL THAT RELABELS ITSELF HAS DONE SOMETHING.
+       The sort-direction toggle changes its own `aria-label` and `title` and
+       an icon, and nothing else: the list reorders, but on a fixture whose two
+       decks share an update date, reversing a stable sort over equal keys is
+       genuinely the same order. Without this the sweep could not tell that
+       press apart from a dead button.
+
+       Labels only, not all text, which `text` already carries. */
+    labels: [...document.querySelectorAll('[aria-label],[title]')]
+      .map(el => (el.getAttribute('aria-label') ?? '') + '/' + (el.getAttribute('title') ?? ''))
+      .join(','),
   });
 
 

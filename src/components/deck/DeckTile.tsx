@@ -619,6 +619,11 @@ export function DeckTile({
               <button
                 type="button"
                 onClick={onOpen}
+                /* The clamp promises there is more, and this is how the rest is
+                   reachable. A generated name like "Atraxa, Praetors' Voice
+                   superfriends-(playtest)" runs past two lines at this size, and
+                   the name is the thing a person scans a deck list for. */
+                title={deckSummary.name}
                 className="block w-full text-left underline-offset-4 hover:underline"
               >
                 <h3 className="line-clamp-2 text-lg font-bold leading-tight tracking-tight sm:text-xl">

@@ -2268,14 +2268,27 @@ function trimToBudget(input: TrimBudgetInput): TrimBudgetOutcome {
     const removed = picked[worstIndex];
     const wantsLand = removed.bucket === 'land';
     const pool = wantsLand ? input.landPool : input.spellPool;
-    const replacement = pool.find(
-      c =>
-        !taken.has(c.oracleId) &&
-        (c.usd ?? 0) < worstPrice &&
-        isLandCandidate(c) === wantsLand &&
-        // A cheaper land still has to be a mana source. See `identity`.
-        (!wantsLand || !landMakesNothing(c, deckColourMask))
-    );
+    const affordable = (c: BuildCard) =>
+      !taken.has(c.oracleId) &&
+      (c.usd ?? 0) < worstPrice &&
+      isLandCandidate(c) === wantsLand &&
+      // A cheaper land still has to be a mana source. See `identity`.
+      (!wantsLand || !landMakesNothing(c, deckColourMask));
+
+    /*
+     * A CHEAPER CARD THAT DOES THE SAME JOB, and only then a cheaper card.
+     *
+     * This used to take the first affordable card of the right kind — land or
+     * spell — and nothing else. Measured on a $500 Meren build: Vampiric Tutor
+     * at $50.89 was replaced by Zulaport Cutthroat at $1.00, and Imperial Seal
+     * at $165.15 by Vengeful Bloodwitch. Both substitutes are aristocrats
+     * creatures and neither is a tutor, so the deck lost its ability to find a
+     * card and gained a second copy of a job it already had.
+     */
+    const sameJob = ROLES.includes(removed.bucket as Role)
+      ? pool.find(c => affordable(c) && cardRole(c, removed.bucket as Role))
+      : undefined;
+    const replacement = sameJob ?? pool.find(affordable);
 
     if (!replacement) {
       // Nothing cheaper of the right kind. Stop rather than move on to the next
@@ -2286,14 +2299,31 @@ function trimToBudget(input: TrimBudgetInput): TrimBudgetOutcome {
 
     taken.delete(removed.card.oracleId);
     taken.add(replacement.oracleId);
+    /*
+     * AND THE LABEL FOLLOWS THE CARD, not the slot it fell into.
+     *
+     * The bucket used to be inherited outright, so the deck told a player that
+     * Zulaport Cutthroat was one of its tutors. The result screen groups by
+     * this field, so an inherited label is not a cosmetic slip: it is the deck
+     * describing itself wrongly, in the one place a player looks to check what
+     * the builder did.
+     */
+    const keepsJob = ROLES.includes(removed.bucket as Role) && cardRole(replacement, removed.bucket as Role);
+    const nowServes = keepsJob
+      ? (removed.bucket as Role)
+      : (ROLES.find(role => role !== 'land' && cardRole(replacement, role)) ?? 'flex');
+
     picked[worstIndex] = {
       card: replacement,
       quantity: 1,
       reason:
         `${replacement.name} at $${(replacement.usd ?? 0).toFixed(2)} in place of ` +
-        `${removed.card.name} at $${worstPrice.toFixed(2)}, to stay inside the budget.`,
+        `${removed.card.name} at $${worstPrice.toFixed(2)}, to stay inside the budget.` +
+        (keepsJob
+          ? ''
+          : ` Nothing cheaper does the same job, so the deck is one ${removed.bucket} short.`),
       score: removed.score,
-      bucket: removed.bucket,
+      bucket: nowServes as Bucket,
       preferred: false,
     };
     swaps++;

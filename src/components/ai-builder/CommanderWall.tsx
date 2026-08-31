@@ -271,6 +271,12 @@ export function CommanderWall({
                 type="button"
                 onClick={() => onSelect(card)}
                 aria-pressed={selectedId === null ? undefined : chosen}
+                /* The accessible name, spelled out. Without it the name is
+                   computed from the tile's own content and comes out as
+                   "Syr Konrad, the GrimEDHREC #258B" - the card name, the rank
+                   and the colour identity run together with no separator,
+                   which is what a screen reader reads aloud. */
+                aria-label={`${selectVerb} ${card.name}`}
                 title={`${selectVerb} ${card.name}`}
                 className={cn(
                   'group/pick block w-full rounded-lg text-left transition-shadow',

@@ -635,6 +635,40 @@ export function costAdjustmentFor(
     .reduce((total, mod) => total + mod.delta, 0);
 }
 
+/**
+ * How many lands this player may play this turn. One, unless something says
+ * otherwise.
+ *
+ * `max-lands-per-turn` has been in the Restriction vocabulary since it was
+ * written, with nothing producing it and nothing reading it, while `moves.ts`
+ * hardcoded the limit to one. Exploration, Dryad of the Ilysian Grove, Oracle
+ * of Mul Daya, Azusa, Aesi and The Gitrog Monster are eleven of the 2,000 most
+ * played cards in the format and NONE of them did anything in a game.
+ *
+ * THEY STACK, so this sums `n - 1` over every source rather than taking the
+ * largest. Exploration says "you may play 2 lands each turn" and Azusa says 3;
+ * together the answer is 4, which is what Magic does and what taking the
+ * maximum would get wrong.
+ *
+ * A source whose count cannot be evaluated contributes nothing rather than
+ * guessing. Under-counting means a player is stopped from a land drop they
+ * were owed, which they can see and complain about; over-counting means a
+ * silent extra land every turn, which nobody notices and which is cheating.
+ */
+export function landsAllowedPerTurn(state: GameState, playerId: PlayerId): number {
+  let extra = 0;
+  for (const active of scanStatics(state).restrictions) {
+    if (active.rule.rule !== 'max-lands-per-turn') continue;
+    const source = state.cards[active.sourceInstanceId];
+    if (!source) continue;
+    const ctx = makeContext(state, active.sourceInstanceId, source.controllerId ?? playerId);
+    if (!resolvePlayers(active.rule.who, ctx).includes(playerId)) continue;
+    const n = evalValue(active.rule.n, ctx);
+    if (typeof n === 'number' && Number.isFinite(n) && n > 1) extra += n - 1;
+  }
+  return 1 + extra;
+}
+
 /** Every static ability a card record carries, for the coverage report. */
 export function staticsOf(state: GameState, instanceId: InstanceId): StaticAbility[] {
   return staticAbilitiesOf(state.cards[instanceId]);

@@ -14,7 +14,7 @@
 
 import { getCard, getPlayer } from './rules.ts';
 import { announceCommanderCast, taxForCard } from './commander.ts';
-import { costAdjustmentFor } from './abilities/statics.ts';
+import { costAdjustmentFor, landsAllowedPerTurn } from './abilities/statics.ts';
 import {
   adjustGeneric,
   castingCostOf,
@@ -332,7 +332,7 @@ export interface LandPlan {
   reason: string;
 }
 
-/** One land per turn, from hand, on your own turn. */
+/** One land per turn unless something says otherwise, from hand, on your own turn. */
 export function planLandDrop(
   state: GameState,
   playerId: PlayerId,
@@ -346,8 +346,22 @@ export function planLandDrop(
   if (!card || !player) return { ok: false, actions: [], reason: 'That card is not in this game.' };
   if (!isLand(card)) return { ok: false, actions: [], reason: 'That is not a land.' };
   if (card.zone !== 'hand') return { ok: false, actions: [], reason: 'That land is not in your hand.' };
-  if (!options.ignoreLandLimit && player.landsPlayedThisTurn >= 1) {
-    return { ok: false, actions: [], reason: 'You have already played a land this turn.' };
+  /*
+   * ONE, unless something on the battlefield says otherwise. This used to be
+   * the literal number 1, so Exploration, Azusa, Dryad of the Ilysian Grove,
+   * Oracle of Mul Daya, Aesi and The Gitrog Monster — eleven of the 2,000 most
+   * played cards in Commander — resolved and did nothing at all.
+   */
+  const allowed = options.ignoreLandLimit ? Infinity : landsAllowedPerTurn(state, playerId);
+  if (!options.ignoreLandLimit && player.landsPlayedThisTurn >= allowed) {
+    return {
+      ok: false,
+      actions: [],
+      reason:
+        allowed === 1
+          ? 'You have already played a land this turn.'
+          : `You have already played ${allowed} lands this turn, which is all this turn allows.`,
+    };
   }
   if (!options.ignoreLandLimit && state.activePlayerId !== playerId) {
     return { ok: false, actions: [], reason: 'Lands can only be played on your own turn.' };

@@ -727,6 +727,63 @@ export const EFFECT_RULES: EffectRule[] = [
     },
   },
   {
+    /*
+     * Reanimate is ranked 56 and had NO ability record at all, and so did every
+     * card shaped like it. The rule above accepts exactly one sentence:
+     * "return X from YOUR graveyard to the battlefield". Reanimation spells are
+     * mostly not written that way.
+     *
+     *   Reanimate   put target creature card from A graveyard onto the
+     *               battlefield under your control
+     *   Persist     return ... to the battlefield WITH a -1/-1 counter on it
+     *
+     * Three differences and every one of them refused the whole card: the verb
+     * is "put" rather than "return", the graveyard is anyone's, and the
+     * preposition is "onto". None of the three changes what the card does for a
+     * deck: it is a reanimation spell, it wants big creatures in the yard, and
+     * `eff:return-from` plus `cares:zone:graveyard` is what says so.
+     *
+     * WHICH GRAVEYARD IS KEPT rather than flattened. "A graveyard" reaches an
+     * opponent's, which is a different card in a game — Reanimate on the
+     * creature somebody else just lost is most of why it is played — so the
+     * target spec carries no controller when the card names none.
+     *
+     * The rule above is left exactly as it is and this one runs after it, so
+     * the sentence it already reads keeps taking the path it has tests for.
+     */
+    id: 'recursion-any-graveyard',
+    re: /^(?:return|put) (.+?) from (a|your) graveyard (?:on|in)?to (the battlefield|your hand)(?: under your control)?$/,
+    build(m, ctx) {
+      const which = m[2];
+      const ref = parseObject(`${m[1].trim()} from ${which} graveyard`);
+      if (!ref || ref.upTo) return null;
+      const to = m[3] === 'your hand' ? 'hand' : 'battlefield';
+      const mine = which === 'your';
+
+      if (ref.targeted) {
+        if (typeof ref.count !== 'number') return null;
+        const spec: Omit<TargetSpec, 'ref'> = {
+          what: 'card',
+          zone: 'graveyard',
+          filter: ref.filter,
+          min: ref.count,
+          max: ref.count,
+          prompt: mine ? 'Choose a card in your graveyard' : 'Choose a card in any graveyard',
+        };
+        if (mine) spec.controller = { who: 'you' };
+        if (ref.count > 1) spec.distinct = true;
+        return [{
+          do: 'return-from', zone: 'graveyard', who: { who: 'you' },
+          what: { sel: 'target', ref: ctx.addTarget(spec) }, count: ref.count, to,
+        }];
+      }
+      return [{
+        do: 'return-from', zone: 'graveyard', who: { who: 'you' },
+        what: objectSelector({ ...ref, zone: 'graveyard' }), count: ref.count, to,
+      }];
+    },
+  },
+  {
     id: 'return-self-from-graveyard',
     re: /^return ~ from your graveyard to (your hand|the battlefield)$/,
     build(m) {

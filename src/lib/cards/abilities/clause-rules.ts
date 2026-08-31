@@ -638,6 +638,40 @@ function parseStaticBody(paragraph: string, ctx: BuildCtx): StaticShape | null {
     if (who) return { affects: who, modifications: [{ layer: 'restriction', rule: { rule: 'cant-untap', who } }] };
   }
 
+  /*
+   * "You may play an additional land on each of your turns."
+   *
+   * Exploration (300), Dryad of the Ilysian Grove (301), Oracle of Mul Daya
+   * (504), Azusa, Aesi and The Gitrog Monster — eleven of the 2,000 most played
+   * cards, all of them the centre of a lands-matter deck, and every one of them
+   * produced NO ability record at all.
+   *
+   * `max-lands-per-turn` has been in the Restriction vocabulary the whole time
+   * with nothing producing it and nothing reading it, which is the third
+   * instance of the shape CLAUDE.md names: wired to the engine, never fed.
+   * `moves.ts` hardcoded the limit to one, so this rule is only worth writing
+   * together with the change there that reads it.
+   *
+   * THE NUMBER IS THE TOTAL, not the extra, because that is what the renderer
+   * already says: "you may play 2 lands each turn". Two of these cards stack in
+   * Magic, so the runtime sums `n - 1` over every source rather than taking the
+   * largest — Exploration plus Azusa is four land drops, not three.
+   */
+  const extraLands = p.match(
+    new RegExp(`^you may play (?:(${N}) )?additional lands?(?: on each of your turns| each turn| during each of your turns)$`)
+  );
+  if (extraLands) {
+    const extra = extraLands[1] ? parseCount(extraLands[1]) : 1;
+    if (typeof extra === 'number' && extra > 0) {
+      return {
+        affects: { sel: 'self' },
+        modifications: [
+          { layer: 'restriction', rule: { rule: 'max-lands-per-turn', who: { who: 'you' }, n: extra + 1 } },
+        ],
+      };
+    }
+  }
+
   /* E4 — cost modification. See `parseCostModification`. */
   const costMod = parseCostModification(p);
   if (costMod) return costMod;

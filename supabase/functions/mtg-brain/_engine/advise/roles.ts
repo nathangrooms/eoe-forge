@@ -34,6 +34,8 @@ export const ROLE_TAGS: Readonly<Record<Role, readonly string[]>> = {
     'bounce',
   ],
   interaction: ['counterspell', 'protection', 'stax', 'graveyard-hate'],
+  /* The three the tagger emits, and it has emitted them all along. */
+  tutor: ['tutor', 'tutor-broad', 'tutor-narrow'],
   /*
    * `voltron` was removed on 2026-08-23 and it is the largest single fix in
    * this file.
@@ -148,6 +150,9 @@ export const YARDSTICK_WHEN_NO_SHAPE_WAS_DERIVED: Readonly<Record<Role, number>>
   draw: 10,
   removal: 8,
   interaction: 4,
+  /* Two. The yardstick is only reached when no shape could be derived, and a
+     deck that has never been read still wants to be told it has none. */
+  tutor: 2,
   wincon: 3,
   land: 36,
   creature: 0,

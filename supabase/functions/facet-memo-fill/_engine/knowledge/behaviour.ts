@@ -247,6 +247,14 @@ const ROLE_FACETS: Readonly<Record<Role, readonly Facet[]>> = {
   removal: ['eff:destroy', 'eff:exile', 'eff:damage', 'eff:gain-control'],
   interaction: ['eff:counter', 'eff:tap', 'eff:unless-pays', 'eff:discard'],
   /*
+   * Searching a library, EXCEPT for the land case, which is ramp and is
+   * already claimed by `cares:zone:library-land` above. Rampant Growth and
+   * Demonic Tutor both compile to `eff:search-library`; only one of them is
+   * a tutor in the sense a deck builder means, and the difference is the
+   * destination. `facetRoleQualifies` below is where that is said.
+   */
+  tutor: ['eff:search-library'],
+  /*
    * Deliberately narrow, and it stays narrow.
    *
    * A card that says a player wins, a player loses, a player takes poison, or
@@ -302,6 +310,8 @@ function facetRoleQualifies(role: Role, facets: readonly Facet[]): boolean {
   // A land taps for mana; that is not ramp, it is a land, and crediting it
   // would re-open the land quota inside the spell passes.
   if (role === 'ramp') return !facets.includes('type:land');
+  // Fetching a basic is ramp, not tutoring. Cultivate is not Demonic Tutor.
+  if (role === 'tutor') return !facets.includes('cares:zone:library-land');
   return true;
 }
 

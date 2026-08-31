@@ -211,6 +211,16 @@ const WHEN_IT_MATTERS: Readonly<Partial<Record<Role, number>>> = {
   draw: 5,
   removal: 6,
   interaction: 5,
+  /*
+   * Turn six, the same as removal.
+   *
+   * A tutor is not a card you need on curve, it is the card you need once the
+   * deck has a shape to find a piece for. Setting it earlier would buy tutors
+   * at the cost of the ramp and draw that make them worth casting; setting it
+   * later would mean a deck can be built with none at all, which is where this
+   * started.
+   */
+  tutor: 6,
   wincon: 10,
 };
 

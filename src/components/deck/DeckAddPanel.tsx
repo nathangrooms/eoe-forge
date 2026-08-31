@@ -98,6 +98,7 @@ const ROLE_LABEL: Record<Role, string> = {
   draw: 'Card draw',
   removal: 'Removal',
   interaction: 'Interaction',
+  tutor: 'Tutors',
   wincon: 'Win conditions',
   land: 'Lands',
   creature: 'Creatures',

@@ -55,6 +55,27 @@ export type Role =
   | 'draw'
   | 'removal'
   | 'interaction'
+  /*
+   * FINDING A CARD IS NOT DRAWING ONE, AND THE DECK HAD NO WORD FOR IT.
+   *
+   * Every tutor in the format answered `cardRole` with NOTHING, so the
+   * generator's first pass — which places a card into its neediest role and
+   * skips it outright when it serves none — could never take one. Measured:
+   *
+   *   Demonic Tutor      rank  62   role NONE
+   *   Vampiric Tutor     rank 112   role NONE
+   *   Enlightened Tutor  rank 123   role NONE
+   *   Worldly Tutor      rank 166   role NONE
+   *
+   * and eight of ten generated decks scored 0 on the product's own `tutors`
+   * subscore as a result. The tagger has always said `tutor`; the ROLE
+   * vocabulary is what had no slot for it.
+   *
+   * It is its own role rather than folded into `draw`, because they answer
+   * different questions. Draw is how many cards you see; a tutor is which one.
+   * A deck with ten draw spells and no tutor still cannot find its engine.
+   */
+  | 'tutor'
   | 'wincon'
   | 'land'
   | 'creature';
@@ -64,6 +85,7 @@ export const ROLES: readonly Role[] = [
   'draw',
   'removal',
   'interaction',
+  'tutor',
   'wincon',
   'land',
   'creature',

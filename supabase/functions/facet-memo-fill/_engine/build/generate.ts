@@ -906,111 +906,26 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
   const overColourlessCap = (card: BuildCard) => !hasColour(card) && colourlessPicked >= colourlessLimit;
 
   /* ---------------------------------------------------------------- *
-   * 2a-. What the commander asked for and no role can hold.
+   * 2a. What the commander asked for and the quotas cannot reach.
    * ---------------------------------------------------------------- *
    *
-   * Pass one places a card into its NEEDIEST ROLE, and skips it outright when
-   * it serves none. That is right for a quota system and it makes a whole
-   * class of card unreachable: not "loses on a tiebreak", unreachable, however
-   * well it fits, because `if (!role) continue` is the first thing that
-   * happens to it.
+   * THIS WAS TWO PASSES WITH TWO BUDGETS and that was the bug. One ran BEFORE
+   * the quota loop and took up to four cards that serve no role at all; the
+   * other ran after it with six reserved slots. Both spent from the same 59
+   * spell slots, and the role targets summed to 49, so four cards that fill no
+   * target left four targets unfillable. Measured on Meren: the quota loop hit
+   * its cap after seeing 472 cards with `tutor` 3 short, `protection` 3 short
+   * and `wincon` 2 short, which is why Swiftfoot Boots — score 7.31, in the
+   * pool, not taken, and serving a role that was three slots short — never got
+   * a look.
    *
-   * Measured on the DEPLOYED generator, Krenko, Mob Boss, whose own plan says
-   * in its own words that he "does its work through a tap ability" and asks
-   * for `kw:haste` at 0.6 and `sub:equipment` at 0.45:
-   *
-   *   card                rank   planFit   role     in the deck
-   *   Lightning Greaves     13     0.663    NONE     no
-   *   Swiftfoot Boots       12     0.663    NONE     no
-   *   Goblin Chieftain    2575     0.656    creature yes
-   *   Sol Ring               1     0        ramp     yes
-   *
-   * So the engine scored Greaves among the best cards it could find for this
-   * commander, said why, and could not put it in, while Sol Ring went in at a
-   * fit of zero. Every one of the six commanders in
-   * `scripts/generator-synergy-audit.mjs` was missing both Boots and Greaves.
-   *
-   * The flex pass at step 3 does ignore roles, and cannot help: it runs on
-   * `spellSlots` minus what is already picked, and the role, creature and
-   * colour floors spend all 64 of Krenko's before it is reached.
-   *
-   * THIS IS A RESCUE, NOT A COMPETITOR. It only considers cards that serve NO
-   * role, so nothing that the quotas could already reach loses a slot to it,
-   * and it is capped at four so a deck cannot become a pile of equipment. The
-   * fit floor is what stops it spending those four on the least bad of a bad
-   * pool: below it, the plan is not really asking for the card.
+   * One pass, one budget, one rule. Both jobs are the same job: a card the
+   * commander asks for that the quota system cannot reach, whether because it
+   * serves no role or because the role it serves is full. The pass below is
+   * that pass, and `COMMANDER_FIT_RESERVE` is the whole of what it may spend.
    */
-  /*
-   * AND THE SAME THING HAPPENS TO A CARD WHOSE ROLE IS FULL, which the first
-   * version of this pass did not reach because it only considered cards that
-   * serve NO role.
-   *
-   * The owner, 31 Aug 2026: *"Some cards are cheap and low rank, but super
-   * synergised to some commanders"*, and *"everything must be universal and
-   * work across every commander and card and type"*.
-   *
-   * Meren of Clan Nel Toth is the worked case and it was already written down
-   * as unfixed. `cost:sacrifice` exists, the aristocrats plan asks for it at
-   * 0.72, and Ashnod's Altar and Viscera Seer both score a real fit of 0.720
-   * against Eternal Witness at 0.752. Neither gets in, because pass one takes
-   * each card into its NEEDIEST role and Ashnod's Altar classifies as `ramp`:
-   * once Sol Ring, Arcane Signet, Fellwar Stone, Mind Stone and Commander's
-   * Sphere have filled that quota, `neediestRole` returns null and the card is
-   * skipped however well it fits. In a Meren deck the Altar is not ramp, it is
-   * the engine.
-   *
-   * So the rescue is now SLOTS RESERVED FROM THE QUOTA LOOP rather than a pass
-   * that runs before it, and it considers every card rather than only the
-   * roleless ones. Role quotas and commander fit are different axes; this is
-   * the only place the second one is allowed to win.
-   *
-   * TWO THINGS ABOUT IT ARE DELIBERATE AND SHOULD NOT BE TIDIED.
-   *
-   * It runs AFTER the quota loop, because which roles filled up is not known
-   * until they have. Reserving the slots up front is what leaves it room.
-   *
-   * It is ordered by FIT, not by score. Everywhere else in this file the order
-   * is `rankedSpells`, which carries a popularity prior, and that prior is
-   * exactly what buries a card that is cheap, unplayed and perfect for this
-   * one commander. These few slots are the one place popularity gets no vote.
-   */
-  const COMMANDER_FIT_RESERVE = 6;
-  const COMMANDER_RESCUE_SLOTS = 4;
+  const COMMANDER_FIT_RESERVE = 8;
   const COMMANDER_RESCUE_FIT = 0.45;
-  let rescued = 0;
-  if (commanderPlan.wants.length > 0) {
-    for (const rec of orderPreferredFirst(rankedSpells, preferred)) {
-      if (rescued >= COMMANDER_RESCUE_SLOTS) break;
-      if (picked.length - chosenLands.length >= spellSlots) break;
-      const card = rec.card as BuildCard;
-      if (takenOracleIds.has(card.oracleId)) continue;
-      if (overColourlessCap(card)) continue;
-      if (ROLES.some(role => cardRole(card, role))) continue;
-      if (fitOf(card).fit < COMMANDER_RESCUE_FIT) continue;
-      /* Only the COLOURLESS tally, because `colouredPicked` is not declared
-         until the colour floor below and this runs before it. Under-counting
-         a rescued coloured card can only make that floor add one more
-         coloured card than it needed, which is the safe direction; the
-         colourless cap is the one that guards a real failure, and the cards
-         this pass exists to rescue are colourless equipment. */
-      if (!hasColour(card)) colourlessPicked += 1;
-      takenOracleIds.add(card.oracleId);
-      rescued += 1;
-      picked.push({
-        card,
-        quantity: 1,
-        reason: rec.reason,
-        score: rec.score,
-        bucket: 'commander',
-        preferred: preferred.has(card.oracleId),
-      });
-    }
-    if (rescued > 0) {
-      notes.push(
-        `${rescued} card${rescued === 1 ? '' : 's'} the commander asks for that fill no deck role`
-      );
-    }
-  }
 
   /*
    * SLOTS HELD BACK FROM THE QUOTA LOOP for the pass below it.
@@ -1185,6 +1100,69 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
         `${reserved} card${reserved === 1 ? '' : 's'} chosen purely on how well ` +
           `${commanderPlan.commanderName} wants them, whatever role they fill`
       );
+    }
+  }
+
+  /* ---------------------------------------------------------------- *
+   * 2a+. Roles the first pass left short, filled directly.
+   * ---------------------------------------------------------------- *
+   *
+   * `neediestRole` is decided ONCE per card, in score order, and sends the card
+   * to whichever role is neediest AT THAT MOMENT. A card that serves both
+   * `enhance` and `protection` is spent on enhance while enhance is still the
+   * shorter of the two, and by the time protection is the neediest role the
+   * loop has already walked past every card that could have filled it.
+   *
+   * Measured on Meren: `protection` 3 of 7 and `wincon` 1 of 4 with NINE deck
+   * slots still unspent. Swiftfoot Boots was in the pool, unclaimed, serving a
+   * role four slots short, and nothing was going back for it.
+   *
+   * So this goes back for it. One walk per short role, in ranked order, taking
+   * anything that serves it. A quota system that does not meet its quotas while
+   * slots remain is not a quota system.
+   *
+   * A role the POOL cannot supply still ends short and is still reported below.
+   * `wincon` is the standing case: its facet list is deliberately narrow and
+   * most finishers reach the role through the tag fallback, so a target of four
+   * is often more than the pool holds.
+   */
+  /* Ordered ONCE, outside both loops. Calling `orderPreferredFirst` inside the
+     `while` re-sorted 10,913 cards for every slot filled and took a Meren build
+     from 1.7 s to 8.8 s. */
+  const topUpOrder = orderPreferredFirst(rankedSpells, preferred);
+  for (const role of ROLES) {
+    if (role === 'land' || role === 'creature') continue;
+    let from = 0;
+    while (quota[role] > 0) {
+      if (picked.length - chosenLands.length >= quotaSlots) break;
+      /* And the cursor does not restart. Every candidate before it has already
+         been taken or refused for this role, so rescanning them is the same
+         quadratic walk one level down. */
+      let found = -1;
+      for (let i = from; i < topUpOrder.length; i++) {
+        const candidate = topUpOrder[i].card as BuildCard;
+        if (takenOracleIds.has(candidate.oracleId)) continue;
+        if (overColourlessCap(candidate)) continue;
+        if (!cardRole(candidate, role)) continue;
+        found = i;
+        break;
+      }
+      if (found < 0) break;
+      from = found + 1;
+      const rec = topUpOrder[found];
+      const card = rec.card as BuildCard;
+      if (!hasColour(card)) colourlessPicked += 1;
+      quota[role] -= 1;
+      roleFill[role].picked += 1;
+      takenOracleIds.add(card.oracleId);
+      picked.push({
+        card,
+        quantity: 1,
+        reason: rec.reason,
+        score: rec.score,
+        bucket: role,
+        preferred: preferred.has(card.oracleId),
+      });
     }
   }
 

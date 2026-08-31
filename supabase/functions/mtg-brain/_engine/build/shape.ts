@@ -228,10 +228,21 @@ const WHEN_IT_MATTERS: Readonly<Partial<Record<Role, number>>> = {
    * spell; later leaves the deck with none, which is where this started.
    */
   enhance: 5,
-  /* Turn four, a little before `enhance`. You want the Boots down BEFORE the
-     commander is worth killing, and a protection piece held for later is a
-     protection piece that arrives after the removal spell. */
-  protection: 4,
+  /*
+   * Turn six, and it was four.
+   *
+   * Four reads well — you want the Boots down before the commander is worth
+   * killing — and it asks for SEVEN copies, because `copiesToSeeOne` is
+   * answering "how many do I need to have drawn one by then". Seven protection
+   * cards in a 99-card deck is more than any real Commander list runs, and a
+   * target the pool cannot fill does not stay a local problem: measured on
+   * Meren, `protection` came out 3 of 7 and the four unfillable slots were
+   * taken out of the budget every other role was competing for.
+   *
+   * Six is when a commander is genuinely under threat: it has been cast, it has
+   * done something, and somebody has drawn an answer.
+   */
+  protection: 6,
   wincon: 10,
 };
 

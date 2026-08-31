@@ -2145,7 +2145,7 @@ artifacts and 0 of 64 cards keyed off him.
   has a smaller pool, so some of that is inherent and some is not.
 - Boots, Greaves, Skullclamp and Demonic Tutor are missing from most decks.
 
-## ~~The facet memo is on COMPILER_VERSION 2~~ IT IS ON 7. See the 31 Aug section at the end
+## ~~The facet memo is on COMPILER_VERSION 2~~ IT IS ON 9. See the 1 Sep section at the end
 
 Three places pin it and they move together: `facet-memo-fill`,
 `public.facets(cards_unique)`, and the `cards_pool` view's own join. A reader on
@@ -2482,7 +2482,7 @@ Two memoisations are worth keeping for the same reason: one `planFit` and one
 ROLE SET per card per build. `cardRole` is asked eight times per card by
 `neediestRole` alone and again by three other passes.
 
-**The facet memo is on COMPILER_VERSION 8.**
+**The facet memo is on COMPILER_VERSION 9.** (Was 8; see the 1 Sep section.)
 
 ### Still wrong, measured, and worth doing next
 
@@ -2618,3 +2618,180 @@ planner, labelled "about".
 **`ilike` cost 12x on a matview scan.** The same vocabulary query measured
 **2,007 ms with two ILIKE per row and 172 ms with LIKE**. Type lines are cased
 by Scryfall, so `like '%Land%'` is the correct match, not a shortcut.
+
+---
+
+## 1 Sep 2026 — the dictionary got a denominator, and the facet layer got a direction
+
+Owner: *"the dictionary is 100000% complete for MTG"*, *"the word engine must 100%
+read every single card automatically"*, and *"I refuse to launch until we are
+100% on this system"*.
+
+### The dictionary is measured against Wizards, not against memory
+
+`public.mtg_vocabulary` holds all **885** things Magic officially names, seeded
+from Scryfall's catalog endpoints, which are the lists Wizards maintains:
+
+    keyword-abilities   223     creature-types      350
+    keyword-actions      79     planeswalker-types   99
+    ability-words        69     artifact-types       20
+    land-types           18     enchantment-types    13
+    supertypes            7     spell-types           6
+    battle-types          1
+
+`public.dictionary_coverage()` joins that against what the engine actually
+emits over every card, and `/admin` → Words shows it. **95.5%, 823 of 885.**
+It GROWS ON ITS OWN: a keyword from a set released next month appears unread
+without anybody remembering to look.
+
+**The honest ceiling is about 97-98%, not 100%,** and the residue is not card
+vocabulary. 20 creature types (Germ, Servo, Orb, Balloon) plus the Token
+supertype appear on ZERO card type lines and exist only on tokens. "Activate",
+"Reveal" and "Play" are rules-speak Scryfall files as keyword actions. Dungeon
+is AFR, not a planeswalker. Closing those by loosening the check would be
+padding the number.
+
+### Five fixes, all catalogue-wide, all found by measuring
+
+| what was wrong | cards |
+|---|---:|
+| `readTypeLine` did `split('//')[0]` and threw the back face away | 851 |
+| `parseObject` stripped "another" only AFTER "target", so the phrase refused | 416 |
+| the facet layer never read `effect.who` | 574 misfiled |
+| Scryfall's own `keywords` array was never read | 16,507 carry one |
+| the ability word was stripped for parsing and then discarded | 193+ |
+| "exile X, THEN return it" had no rule while the delayed wording did | 47 |
+
+### `effect.who` was never read, and it is the biggest one
+
+**The word "controller" appeared ZERO times in
+`src/lib/deck/recommend/behaviour.ts`,** and `who` is a mandatory field on
+nineteen verbs, present on 9,202 of 9,202 emissions. Every effect was recorded
+as though aimed at an opponent. 574 cards held a role SOLELY because of it:
+
+    Teferi's Protection (109)    removal      -> protection
+    Eerie Interlude (956)        removal      -> protection
+    Talisman of Dominance (93)   ramp,removal -> ramp        (1 damage to YOU)
+    Faithless Looting (97)       interaction  -> draw
+    Temple Bell (1899)           draw         -> none        (group hug)
+    Massacre Wurm (513)          enhance      -> removal     (mass minus-N)
+
+**A SEPARATE VERB, NOT A QUALIFIER.** A role check asks whether a card carries
+ONE facet, so an `aims:self` facet alongside `eff:exile` would change nothing
+because nothing would consult it. Same precedent as `eff:exile-graveyard`. The
+new verbs: `eff:exile-own` 156, `eff:shrink` 306, `eff:discard-self` 275,
+`eff:tap-own` 91, `eff:damage-self` 86, `eff:draw-each` 30, `eff:destroy-own`
+20.
+
+**A TARGET SAYS WHOSE IT IS ON THE `TargetSpec`, NOT ON THE SELECTOR.** "Exile
+any number of target creatures you control" compiles to `{sel:'target',ref:0}`
+with "you control" on `targets[0].controller`. Seven of eight test cards moved
+on the first pass and Eerie Interlude did not; that is what found the missing
+ref lookup. UNKNOWN STAYS UNKNOWN: guessing "opponent" is what produced the
+574, and guessing "you" would strip removal off the whole format.
+
+### The route to reading every card. There is no ceiling
+
+    Read completely             10,523   32.2%
+    Blocked by unread clauses   13,753   42.1%   write a RULE
+    Blocked by markers only      6,197   19.0%   extend the DSL
+    Blocked by both              2,205    6.7%
+    No clause found                  7    0.0%
+
+    rules alone -> 74.3%    DSL alone -> 51.2%    both -> 100.0%
+
+The 57.4% ceiling reported on 31 Aug was wrong twice over: measured over
+COMMANDERS only, and treating a marker as a wall. **A marker is not a wall, it
+is a DSL member nobody has written.** `scripts/probe/route-to-full.mjs`.
+
+**XMAGE DOES NOT HELP WITH THE GAP.** `XMAGE_LOWERED` has records for **69.7%
+of the cards we already read completely and 0.6% of the ones we do not**. Only
+7,392 of its 32,168 records lower at all, and the 24,627 blocked ones are
+precisely the hard cards. The XMage route runs through 9,965 unwritten class
+lowerings before it reaches one new card. Do not put it first again.
+
+**THE TAIL IS THE PROBLEM.** 10,399 distinct unread shapes, top 14 cover 7.5%
+of instances. 5,429 marker shapes, top 14 cover 12.6%. There is no small set of
+big wins left; there are roughly 15,800 independent, individually verifiable
+pieces of work.
+
+### The instrument lied five times in one day, and once in the flattering direction
+
+`scripts/probe/dictionary-gap.mjs` was wrong five ways before it was right:
+
+1. hyphenated every facet, so it looked for `kw:first-strike` while the engine
+   emits `kw:first strike` WITH A SPACE. Reported First strike (794 cards) and
+   Double strike (296) as gaps.
+2. checked one prefix per catalog, so Army, Servo, Blood and Role read as
+   missing while the engine said `tok:servo` and `tok:blood` quite happily.
+3. stripped apostrophes the engine keeps: `kw:doctor's companion`, `sub:urza's`,
+   `sub:c'tan`.
+4. matched "does any card print this" by SUBSTRING, so "Vote" matched "devote"
+   and "Play" reported 5,230 cards against a real 482.
+5. **and then a literal backspace byte got written into the word-boundary
+   regex, it matched nothing, every gap was reclassified as "on no card", and
+   the report printed 100.0%.**
+
+Four of the five made the engine look worse than it is. The fifth made it look
+perfect. **A number that reaches 100% immediately after somebody touches the
+instrument is a symptom, not a result.**
+
+### Two database findings
+
+**`cards_missing_facets` read every card to find out which cards to read.** A
+version 9 refill could not write a single row at batch 1000, 400 or 150 alike,
+which is the clue: the cost was not in how many rows came back.
+
+    anti-join, ids only               12 ms    index-only, Heap Fetches 0
+    fat columns, no anti-join        679 ms      408 buffers
+    anti-join AND fat columns      4,954 ms   13,457 buffers
+    after splitting them           1,496 ms    4,764 buffers
+
+`MATERIALIZED` on the CTE is load-bearing, not a hint: without it Postgres may
+inline it and rebuild exactly the plan being avoided.
+
+**`service_role` cannot be given its own `statement_timeout`.** It is a
+reserved role and only a superuser may alter it, so it inherits
+`authenticator`'s 8 s. That is the right outcome: 8 s is a page-view budget and
+a batch job should be made cheap rather than handed a longer rope.
+
+### Regenerate is the fourth deliberate refusal, and the reasoning generalises
+
+273 cards, and **208 of them have the regenerate clause as the ONLY thing
+between them and `coverage: 'full'`** — the largest single-shape cluster in the
+catalogue, worth about +2%. It is still refused, and the argument is worth
+reusing:
+
+- **The verb already exists.** `RegenerateEffect`, `regenerateShield` and
+  `regenerate` in `HandledDo` all shipped. Vocabulary is not the blocker.
+- **Nothing spends the shield.** `sba.ts` does not, so compiling it would
+  publish `{B}: Regenerate this creature` as a real activated ability, take the
+  player's mana, place a counter nothing reads, and let the creature die.
+- **Deck building is already served.** `tagger.ts` tags `regenerate target` as
+  `protection` on exactly the 54 cards where that role is true.
+- **Play mode is already honest.** `computeAutomation` reports Drudge Skeletons
+  as `needsManual` with the clause quoted.
+
+So the whole prize is a coverage number, and paying for it costs 177 creatures
+whose only ability becomes a button that does nothing. Same shape as the
+shocklands: **half of that fix is worse than none of it.**
+
+### Syr Vondam is a standing regression test
+
+He is in `scripts/generator-roster.mjs` with the whole chain written into his
+entry, because he exposed the direction fault. His plan correctly said *"is
+also paid when your own creatures are exiled, which is what blinking them
+does"*, then asked for `eff:move-zone`, which no blink card carries, and
+`eff:exile` at 0.45, which every removal spell carries. That is why his deck
+filled with Swords to Plowshares.
+
+**A blink deck for him should still be aristocrats and counters too.** His plan
+wants `cost:sacrifice` 0.90, `trig:dies` 0.85, `eff:exile-own` 0.85,
+`ctr:+1/+1` 0.80 all at once, and that is correct: he is paid when creatures
+die OR are exiled, and he grows with counters. The bug was never that removal
+is bad, it was that removal was being counted as synergy.
+
+`scripts/probe/vondam-benchmark.json` holds two human-built decks the owner
+linked, CARD NAMES ONLY, as a scoring target. **CLAUDE.md ruling Moxfield out
+as a DATA SOURCE still stands.** Two pages a person pointed at, read once, to
+score ourselves against. Do not write a scraper.

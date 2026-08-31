@@ -696,6 +696,30 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
    * ---------------------------------------------------------------- */
 
   const spellSlots = Math.max(0, slots - landTarget);
+
+  /*
+   * ONE `planFit` PER CARD, for the whole build.
+   *
+   * Three places ask it and two of them walk the entire ranked pool. On a
+   * five-colour commander that pool is the catalogue, so the answer was being
+   * computed about thirty thousand times, and Najeela came back
+   * WORKER_RESOURCE_LIMIT — a five-colour deck that had built in 4.4 seconds on
+   * 30 Aug stopped building at all.
+   *
+   * `planFit` is a pure function of the plan and the card's facets and the plan
+   * does not change during a build, so the second call can never differ from
+   * the first. Keyed on `oracleId` because the pool is deduped by it already.
+   */
+  const fitMemo = new Map<string, ReturnType<typeof planFit>>();
+  const fitOf = (card: BuildCard) => {
+    let hit = fitMemo.get(card.oracleId);
+    if (!hit) {
+      hit = planFit(commanderPlan, card);
+      fitMemo.set(card.oracleId, hit);
+    }
+    return hit;
+  };
+
   const spellPool = pool.filter(c => !isLandCandidate(c));
 
   /*
@@ -814,7 +838,7 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
 
          So the two passes are made strictly complementary: synergy explains
          what it can, and this fills what is left with what every deck plays. */
-      .filter(c => planFit(commanderPlan, c).fit <= 0)
+      .filter(c => fitOf(c).fit <= 0)
       /* And nothing that shares a theme with the commander either. A card can
          be synergistic through its TAGS without the plan naming it, which is
          how the proliferate commander's Contentious Plan slipped through the
@@ -962,7 +986,7 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
       if (takenOracleIds.has(card.oracleId)) continue;
       if (overColourlessCap(card)) continue;
       if (ROLES.some(role => cardRole(card, role))) continue;
-      if (planFit(commanderPlan, card).fit < COMMANDER_RESCUE_FIT) continue;
+      if (fitOf(card).fit < COMMANDER_RESCUE_FIT) continue;
       /* Only the COLOURLESS tally, because `colouredPicked` is not declared
          until the colour floor below and this runs before it. Under-counting
          a rescued coloured card can only make that floor add one more
@@ -1061,7 +1085,7 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
         return !takenOracleIds.has(card.oracleId) && !overColourlessCap(card);
       })
       .map(rec => {
-        const hit = planFit(commanderPlan, rec.card as BuildCard);
+        const hit = fitOf(rec.card as BuildCard);
         return { rec, fit: hit.fit, want: hit.matched?.[0]?.facet ?? null };
       })
       .filter(entry => entry.fit >= COMMANDER_RESCUE_FIT)

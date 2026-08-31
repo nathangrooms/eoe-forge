@@ -87,11 +87,22 @@ export function EventEmptyState({ decks, loading }: EventEmptyStateProps) {
           </Link>
         </Button>
 
-        {/* The decks come first because they are the only real thing on this
-            screen. Three paragraphs of what the tool can do are worth reading
-            second. */}
+        {/*
+          The decks come first because they are the only real thing on this
+          screen. Three paragraphs of what the tool can do are worth reading
+          second.
+
+          SIDE BY SIDE ON A WIDE SCREEN, and stacked everywhere else. Stacked
+          throughout, a library of two decks drew two cards at their 22rem cap
+          and left about 500px of empty charcoal to their right, with the small
+          print on its own row underneath. Two cards cannot fill 1,250px without
+          being absurdly large, so the fix is composition rather than a bigger
+          cap. Left to right is still decks then small print, so the reading
+          order the note above describes is unchanged.
+        */}
+        <div className="mt-8 xl:grid xl:grid-cols-[minmax(0,1fr)_18rem] xl:items-start xl:gap-8">
         {!loading && shown.length > 0 && (
-          <div className="mt-8">
+          <div>
             <DeckRail
               label="Your decks, ready to register"
               decks={shown.map(deck => ({
@@ -107,7 +118,7 @@ export function EventEmptyState({ decks, loading }: EventEmptyStateProps) {
           </div>
         )}
 
-        <div className="mt-8 grid gap-5 sm:grid-cols-3">
+        <div className="mt-8 grid gap-5 sm:grid-cols-3 xl:mt-0 xl:grid-cols-1 xl:gap-6">
           {CAPABILITIES.map(item => {
             const Icon = item.icon;
             return (
@@ -118,6 +129,7 @@ export function EventEmptyState({ decks, loading }: EventEmptyStateProps) {
               </div>
             );
           })}
+        </div>
         </div>
       </div>
     </section>

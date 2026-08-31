@@ -10,6 +10,7 @@ import { DECK_ARCHETYPES, type DeckArchetype } from '@/lib/deck/archetypeShells'
 import { ROLES } from '@/engine/core/types';
 import { ROLE_FACETS } from '@/engine/knowledge/behaviour';
 import { Search, X } from 'lucide-react';
+import { reachFor, type ArchetypeReach } from './archetypeReach';
 
 /**
  * EVERY WORD THE ENGINE KNOWS, in one place, with how many cards carry it.
@@ -103,6 +104,8 @@ function ArchetypePanel({ shell, onClose }: { shell: DeckArchetype | null; onClo
     [shell]
   );
   const [art, setArt] = useState<Map<string, { id: string; image_uris: unknown }>>(new Map());
+  const [reach, setReach] = useState<ArchetypeReach | null>(null);
+  const [reachError, setReachError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!names.length) return;
@@ -122,12 +125,24 @@ function ArchetypePanel({ shell, onClose }: { shell: DeckArchetype | null; onClo
     return () => { cancelled = true; };
   }, [names]);
 
+  /* Ask the engine what this shell means, rather than restating the twelve. */
+  useEffect(() => {
+    if (!shell) return;
+    let cancelled = false;
+    setReach(null);
+    setReachError(null);
+    reachFor(shell)
+      .then(r => { if (!cancelled) setReach(r); })
+      .catch(e => { if (!cancelled) setReachError(e instanceof Error ? e.message : String(e)); });
+    return () => { cancelled = true; };
+  }, [shell]);
+
   return (
     <Sheet open={Boolean(shell)} onOpenChange={open => { if (!open) onClose(); }}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-3xl">
+      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-4xl">
         <SheetTitle className="text-xl">{shell?.name ?? ''}</SheetTitle>
         {shell ? (
-          <div className="mt-2 space-y-6">
+          <div className="mt-2 space-y-8">
             <div>
               <p className="text-sm text-muted-foreground">{shell.description}</p>
               <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
@@ -138,48 +153,153 @@ function ArchetypePanel({ shell, onClose }: { shell: DeckArchetype | null; onClo
                   <Badge key={f} variant="outline" className="capitalize">{f}</Badge>
                 ))}
                 {shell.colors.length > 0 && (
-                  <span className="text-muted-foreground">
-                    usually {shell.colors.join('')}
-                  </span>
+                  <span className="text-muted-foreground">usually {shell.colors.join('')}</span>
                 )}
               </div>
             </div>
 
-            {shell.packages.map(pkg => (
-              <div key={pkg.name} className="space-y-3">
+            {/*
+              WHAT IT MEANS, FIRST.
+
+              The twelve named cards are a SEED and this is what the engine
+              makes of them. Reading the facets they share turns "Aristocrats"
+              from a word into a list of things a card can do, and that list is
+              what actually decides which cards the builder reaches for. If it
+              is wrong, everything downstream is wrong, so it goes above the
+              cards rather than under them.
+            */}
+            <div className="space-y-3">
+              <div>
+                <h4 className="text-sm font-semibold">What the engine reads this as</h4>
+                <p className="text-xs text-muted-foreground">
+                  Worked out from what the named cards have in common, not written down anywhere.
+                  This is the list the builder scores every card against.
+                </p>
+              </div>
+              {reachError && <p className="text-sm text-destructive">{reachError}</p>}
+              {!reach && !reachError && (
+                <p className="text-sm text-muted-foreground">Reading the shell.</p>
+              )}
+              {reach && (
+                <>
+                  <div className="flex flex-wrap gap-1.5">
+                    {reach.plan.wants.map(w => (
+                      <span
+                        key={w.facet}
+                        className="rounded bg-muted/40 px-2 py-1 text-[11px]"
+                        title={`${w.facet} — ${w.weight.toFixed(1)}x more common here than in the pool`}
+                      >
+                        {w.because}
+                      </span>
+                    ))}
+                    {reach.plan.wants.length === 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        Nothing recurred across the named cards, so the engine has no reading of this
+                        shell at all. That is a real gap, not a display problem.
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    From {reach.seedsFound} of {reach.seedsNamed} named cards
+                    {reach.seedsWithoutRecord > 0
+                      ? `, ${reach.seedsWithoutRecord} of which the engine cannot read at all`
+                      : ''}
+                    .
+                  </p>
+                </>
+              )}
+            </div>
+
+            {reach && reach.picks.length > 0 && (
+              <div className="space-y-3">
                 <div>
-                  <h4 className="text-sm font-semibold">{pkg.name}</h4>
-                  <p className="text-xs text-muted-foreground">{pkg.blurb}</p>
+                  <h4 className="text-sm font-semibold">
+                    What it reaches for, out of {nf.format(reach.poolSize)} cards
+                  </h4>
+                  <p className="max-w-3xl text-xs text-muted-foreground">
+                    Ranked by how well each one answers the reading above. Nobody chose these. Under
+                    each card is every want it matched, and that list is the thing to read: the
+                    ranking adds a card's best want to only a little of the rest, so a card that
+                    answers one loud want sits beside a card that answers four. If a card here has
+                    no business in this shell, the reading is wrong.
+                  </p>
                 </div>
-                {/* Whole cards, at a size worth looking at. A shell is an
-                    argument about which cards belong together, so the cards
-                    have to be legible enough to argue with. */}
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  {pkg.cards.map(name => {
-                    const found = art.get(name);
-                    return (
-                      /* The name is drawn ONLY when the card is not. A card
-                         image already says its name in larger type than this
-                         label could, so printing both is noise; printing
-                         neither would hide a name that stopped resolving. */
-                      <div key={name}>
-                        {found ? (
-                          <CardImage
-                            card={{ id: found.id, name, image_uris: found.image_uris } as never}
-                            size="md"
-                            className="w-full"
-                          />
-                        ) : (
-                          <div className="flex aspect-[5/7] w-full items-center justify-center rounded-lg bg-muted/40 p-2 text-center text-[11px] text-muted-foreground">
-                            {name}
-                          </div>
-                        )}
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+                  {reach.picks.map(card => (
+                    <div key={card.id} className="space-y-1.5">
+                      {card.imageUris ? (
+                        <CardImage
+                          card={{ id: card.id, name: card.name, image_uris: card.imageUris } as never}
+                          size="md"
+                          className="w-full"
+                        />
+                      ) : (
+                        <div className="flex aspect-[5/7] w-full items-center justify-center rounded-lg bg-muted/40 p-2 text-center text-[11px] text-muted-foreground">
+                          {card.name}
+                        </div>
+                      )}
+                      <div className="flex flex-wrap gap-0.5">
+                        {card.matched.map(f => (
+                          <code
+                            key={f}
+                            className="rounded bg-muted/40 px-1 py-0.5 font-mono text-[9px] leading-none text-muted-foreground"
+                          >
+                            {f}
+                          </code>
+                        ))}
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))}
+            )}
+
+            <div className="space-y-5">
+              <div>
+                <h4 className="text-sm font-semibold">The cards it is defined by</h4>
+                <p className="text-xs text-muted-foreground">
+                  Twelve, chosen by hand, because somebody had to say what this shell is before the
+                  engine could work out the rest. They are the question, not the answer.
+                </p>
+              </div>
+              {shell.packages.map(pkg => (
+                <div key={pkg.name} className="space-y-3">
+                  <div>
+                    <h5 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {pkg.name}
+                    </h5>
+                    <p className="text-xs text-muted-foreground">{pkg.blurb}</p>
+                  </div>
+                  {/* Whole cards, at a size worth looking at. A shell is an
+                      argument about which cards belong together, so the cards
+                      have to be legible enough to argue with. */}
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    {pkg.cards.map(name => {
+                      const found = art.get(name);
+                      return (
+                        /* The name is drawn ONLY when the card is not. A card
+                           image already says its name in larger type than this
+                           label could, so printing both is noise; printing
+                           neither would hide a name that stopped resolving. */
+                        <div key={name}>
+                          {found ? (
+                            <CardImage
+                              card={{ id: found.id, name, image_uris: found.image_uris } as never}
+                              size="md"
+                              className="w-full"
+                            />
+                          ) : (
+                            <div className="flex aspect-[5/7] w-full items-center justify-center rounded-lg bg-muted/40 p-2 text-center text-[11px] text-muted-foreground">
+                              {name}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         ) : null}
       </SheetContent>
@@ -386,7 +506,8 @@ export function EngineDictionary() {
                 </div>
                 <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{a.description}</p>
                 <p className="mt-2 text-[11px] text-muted-foreground">
-                  {a.packages.length} pieces, {a.packages.reduce((n, p) => n + p.cards.length, 0)} cards named
+                  {a.packages.reduce((n, p) => n + p.cards.length, 0)} cards name it, then the engine
+                  finds the rest
                 </p>
               </button>
             ))}

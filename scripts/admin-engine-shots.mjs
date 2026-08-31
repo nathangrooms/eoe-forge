@@ -113,5 +113,54 @@ await shoot('admin-words-shell', {
   fullPage: false,
 });
 
+/*
+ * HIGH RESOLUTION, SECTION BY SECTION.
+ *
+ * Owner: *"tried sending this to friend but its super blurry on whatsapp"*.
+ * A 1,592 x 4,930 full-page capture is 8:1, and every messaging app downsizes
+ * a tall image to fit a preview before it compresses it, so the type is gone
+ * before the recipient ever taps it. Two changes fix it: `deviceScaleFactor: 2`
+ * so the type is drawn at twice the pixels, and one image per section so each
+ * one is a sane shape.
+ */
+async function sections(label, { tab: adminTab, width = 1500, slice = 950 }) {
+  const tab = await browser.newPage();
+  await tab.setViewport({ width, height: slice, deviceScaleFactor: 2 });
+  await tab.evaluateOnNewDocument(SHIM);
+  await tab.goto(`${BASE}/admin`, { waitUntil: 'networkidle2', timeout: 60000 });
+  await tab.waitForSelector('[role="tab"]', { timeout: 20000 });
+  for (const t of await tab.$$('[role="tab"]')) {
+    const text = await tab.evaluate(el => el.textContent?.trim() ?? '', t);
+    if (text.toLowerCase().includes(adminTab)) { await t.click(); break; }
+  }
+  await new Promise(r => setTimeout(r, 2500));
+  await scrollThrough(tab);
+
+  /*
+   * FIXED VIEWPORT SLICES, NOT DOM SECTIONS.
+   *
+   * The first version walked up from each `h2` to find its card. It found the
+   * left navigation's own headings, produced two 232px-wide pictures of nothing,
+   * and missed the last section entirely. Slicing the viewport cannot miss
+   * anything and cannot pick the wrong ancestor; the overlap means a heading
+   * that lands on a boundary appears whole in one of the two.
+   */
+  const total = await tab.evaluate(() => document.body.scrollHeight);
+  const overlap = 60;
+  let n = 0;
+  for (let y = 0; y < total; y += slice - overlap) {
+    await tab.evaluate(top => window.scrollTo(0, top), y);
+    await new Promise(r => setTimeout(r, 250));
+    n++;
+    const file = path.join(OUT, `${label}-${String(n).padStart(2, '0')}.png`);
+    await tab.screenshot({ path: file });
+  }
+  log(`  ${label}  ${n} slices, ${width * 2}px wide at 2x, page ${total}px`);
+  await tab.close();
+}
+
+await sections('share-engine', { tab: 'engine' });
+await sections('share-words', { tab: 'words' });
+
 await browser.close();
 log('done');

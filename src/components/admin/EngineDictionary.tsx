@@ -48,6 +48,29 @@ import { reachFor, type ArchetypeReach } from './archetypeReach';
  * images anyway.
  */
 
+interface CoverageRow {
+  kind: string;
+  value: string;
+  facet: string;
+  cards: number;
+  is_read: boolean;
+}
+
+/** What each catalog is called in words a player would use. */
+const KIND_LABEL: Record<string, string> = {
+  'keyword-abilities': 'Keyword abilities',
+  'keyword-actions': 'Keyword actions',
+  'ability-words': 'Ability words',
+  'creature-types': 'Creature types',
+  'land-types': 'Land types',
+  'artifact-types': 'Artifact types',
+  'enchantment-types': 'Enchantment types',
+  'spell-types': 'Spell types',
+  'planeswalker-types': 'Planeswalker types',
+  'supertypes': 'Supertypes',
+  'battle-types': 'Battle types',
+};
+
 interface VocabRow {
   kind: 'facet' | 'tag' | 'coverage';
   name: string;
@@ -95,6 +118,86 @@ const ROLE_GLOSS: Record<string, string> = {
   land: 'Lands.',
   creature: 'Bodies on the board. Counted over the whole deck rather than as a bucket, so a mana dork is ramp AND a creature.',
 };
+
+/**
+ * WORDS THIS ENGINE INVENTED, which Magic has no name for.
+ *
+ * The owner: *"what if we also have custom ones from our engine, these can be
+ * included too"*. They should, and they are the more interesting half.
+ *
+ * Magic names 885 things and the section above checks us against all of them.
+ * But Magic has no word for "this card is a sacrifice OUTLET rather than a card
+ * that eats itself", and a deck builder cannot work without one. Every entry
+ * below exists because a real deck came out wrong without it, and each one is
+ * recorded with the deck that forced it, because a distinction nobody can
+ * justify is a distinction somebody will delete.
+ *
+ * These are DELIBERATELY not in `mtg_vocabulary`: that table is Wizards' list
+ * and mixing ours into it would destroy the one denominator on this screen
+ * that is not an opinion.
+ */
+const OUR_WORDS: Array<{ facet: string; means: string; why: string }> = [
+  {
+    facet: 'cost:sacrifice',
+    means: 'Eats something else, on demand. A sacrifice outlet.',
+    why: 'A generated Meren deck had Grave Pact, Blood Artist and Grim Haruspex in it and nothing that could sacrifice a creature on demand. Magic calls Ashnod’s Altar and Sakura-Tribe Elder the same thing; a deck does not.',
+  },
+  {
+    facet: 'cost:sacrifice-self',
+    means: 'Eats only itself, once.',
+    why: 'The other half of the same split. Sakura-Tribe Elder is not an outlet.',
+  },
+  {
+    facet: 'cost:cast-sacrifice',
+    means: 'An extra cost to CAST a spell, not an ability you activate.',
+    why: 'Village Rites and Deadly Dispute pay with a creature but cannot be used at will.',
+  },
+  {
+    facet: 'eff:exile-graveyard',
+    means: 'Graveyard hate, kept apart from ordinary exile.',
+    why: 'Reading it as `eff:exile` made every piece of graveyard hate count as REMOVAL, which is worse than not reading it. The generator put Soul-Guide Lantern in a graveyard deck.',
+  },
+  {
+    facet: 'eff:extra-land-drop',
+    means: 'More lands per turn. Exploration, Azusa.',
+    why: 'Not mana, but it is what a player means by ramp, and no Magic keyword covers it.',
+  },
+  {
+    facet: 'eff:choose',
+    means: 'An open choice made as a permanent arrives.',
+    why: 'Cavern of Souls and Secluded Courtyard produced no record at all while every "as this enters, choose" was filed as hidden information alongside "name a card".',
+  },
+  {
+    facet: 'cares:sub:chosen',
+    means: 'It is about a creature type, and the type is up to you.',
+    why: 'Fifty cards choose a type as they enter and every one is a tribal card. Naming a real subtype would be an invention: Secluded Courtyard is not a Goblin card, it is a card that becomes one.',
+  },
+  {
+    facet: 'cares:zone:*',
+    means: 'Which zone the card is about. Graveyard, library, exile.',
+    why: 'How recursion is told from tutoring, and the thing Syr Vondam needs: he is paid by exile FROM THE BATTLEFIELD and by nothing else.',
+  },
+  {
+    facet: 'rec:full / rec:partial',
+    means: 'How much of the card the engine got to the end of.',
+    why: 'So a consumer can tell "this card does nothing" from "we could not read this card". Nothing else in the vocabulary can express the difference, and treating them alike is how a silent gap becomes a wrong answer.',
+  },
+  {
+    facet: 'scope:all',
+    means: 'It reaches everything, rather than one target.',
+    why: 'A board wipe and a removal spell share every other word.',
+  },
+  {
+    facet: 'acost:0',
+    means: 'The ability is free to activate.',
+    why: 'Free is different in kind, not in degree. It is what makes a combo piece.',
+  },
+  {
+    facet: 'tok:* / ctr:*',
+    means: 'The tokens it makes and the counters it uses, by name.',
+    why: 'Magic names Treasure and +1/+1 counters but has no vocabulary for "this card is about them", which is what a token or counters deck is built on.',
+  },
+];
 
 const nf = new Intl.NumberFormat();
 
@@ -309,6 +412,8 @@ function ArchetypePanel({ shell, onClose }: { shell: DeckArchetype | null; onClo
 
 export function EngineDictionary() {
   const [vocab, setVocab] = useState<VocabRow[] | null>(null);
+  const [coverage, setCoverage] = useState<CoverageRow[] | null>(null);
+  const [openKind, setOpenKind] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [shell, setShell] = useState<DeckArchetype | null>(null);
@@ -336,12 +441,58 @@ export function EngineDictionary() {
           if (batch.length < 1000) break;
         }
         if (!cancelled) setVocab(rows);
+
+        /*
+         * DOES THE ENGINE READ EVERY WORD MAGIC NAMES.
+         *
+         * The denominator is `mtg_vocabulary`, seeded from Scryfall's own
+         * catalog endpoints, which are the lists Wizards maintains. That is
+         * what makes this a measurement rather than an opinion, and it is why
+         * a keyword from a set released next month turns up here on its own.
+         */
+        const cov: CoverageRow[] = [];
+        for (let page = 0; page < 6; page++) {
+          const from = page * 1000;
+          const { data, error: err } = await supabase
+            .rpc('dictionary_coverage' as never)
+            .range(from, from + 999);
+          if (err) throw err;
+          const batch = (data ?? []) as unknown as CoverageRow[];
+          cov.push(...batch);
+          if (batch.length < 1000) break;
+        }
+        if (!cancelled) setCoverage(cov);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
       }
     })();
     return () => { cancelled = true; };
   }, []);
+
+  /*
+   * Grouped by catalog, with the unread ones kept in printed order of how many
+   * cards mention them. A word on 941 cards and a word on 3 are different sizes
+   * of problem and the screen has to say which is which.
+   */
+  const byKind = useMemo(() => {
+    const groups = new Map<string, { total: number; read: number; missing: CoverageRow[] }>();
+    for (const row of coverage ?? []) {
+      let g = groups.get(row.kind);
+      if (!g) {
+        g = { total: 0, read: 0, missing: [] };
+        groups.set(row.kind, g);
+      }
+      g.total += 1;
+      if (row.is_read) g.read += 1;
+      else g.missing.push(row);
+    }
+    return [...groups.entries()]
+      .map(([kind, g]) => ({ kind, ...g }))
+      .sort((a, b) => b.total - a.total);
+  }, [coverage]);
+
+  const covTotal = byKind.reduce((n, g) => n + g.total, 0);
+  const covRead = byKind.reduce((n, g) => n + g.read, 0);
 
   const facets = useMemo(() => (vocab ?? []).filter(r => r.kind === 'facet'), [vocab]);
   const tags = useMemo(() => (vocab ?? []).filter(r => r.kind === 'tag'), [vocab]);
@@ -441,6 +592,103 @@ export function EngineDictionary() {
               )}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* ------------------------------------------- does it cover Magic? -- */}
+      {/*
+        FIRST, because it is the only thing on this screen with a real
+        denominator. Everything below counts what the engine DOES say. This
+        counts what Magic says, and how much of it we answer.
+      */}
+      <Card>
+        <CardContent className="space-y-4 p-5 md:p-6">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold">Does this cover Magic?</h2>
+              <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+                Checked against the lists Wizards themselves publish, not against anyone's memory.
+                A word counts as read when the engine says it about a real card. When a new set
+                introduces a keyword it appears here on its own, unread, without anyone looking.
+              </p>
+            </div>
+            {coverage && (
+              <div className="text-right">
+                <div className="text-3xl font-semibold tabular-nums">
+                  {covTotal > 0 ? `${((covRead / covTotal) * 100).toFixed(1)}%` : '—'}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {nf.format(covRead)} of {nf.format(covTotal)} words
+                </div>
+              </div>
+            )}
+          </div>
+
+          {!coverage && <p className="text-sm text-muted-foreground">Checking against Magic.</p>}
+
+          {coverage && (
+            <div className="space-y-2">
+              {byKind.map(g => {
+                const open = openKind === g.kind;
+                const share = g.total > 0 ? (g.read / g.total) * 100 : 0;
+                return (
+                  <div key={g.kind} className="overflow-hidden rounded-lg bg-muted/30">
+                    <button
+                      type="button"
+                      onClick={() => setOpenKind(open ? null : g.kind)}
+                      disabled={g.missing.length === 0}
+                      className="flex w-full items-center gap-4 p-4 text-left transition-colors enabled:hover:bg-muted/50 disabled:cursor-default"
+                    >
+                      <h3 className="text-sm font-semibold">{KIND_LABEL[g.kind] ?? g.kind}</h3>
+                      {/* A bar, because eleven percentages in a column is a table
+                          nobody reads and the shape of the gap is the point. */}
+                      <div className="ml-auto flex items-center gap-3">
+                        <div className="h-1.5 w-28 overflow-hidden rounded-full bg-background/70 sm:w-40">
+                          <div
+                            className="h-full rounded-full bg-foreground/70"
+                            style={{ width: `${share}%` }}
+                          />
+                        </div>
+                        <span className="w-32 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                          {g.read} of {g.total}
+                          {g.missing.length > 0 ? `, ${g.missing.length} unread` : ''}
+                        </span>
+                      </div>
+                    </button>
+                    {open && g.missing.length > 0 && (
+                      <div className="px-4 pb-4">
+                        <p className="mb-2 text-xs text-muted-foreground">
+                          The engine says nothing about these. The number is how many cards in the
+                          catalogue mention the word.
+                        </p>
+                        <div className="grid gap-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                          {g.missing.map(m => (
+                            <div
+                              key={m.value}
+                              className="flex items-baseline gap-2 rounded bg-background/60 px-2 py-1"
+                              title={`would be ${m.facet}`}
+                            >
+                              <span className="min-w-0 flex-1 truncate text-xs">{m.value}</span>
+                              <code className="shrink-0 font-mono text-[10px] text-muted-foreground">
+                                {m.facet}
+                              </code>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* The caveat has to sit on the screen, not in a commit message. */}
+          <p className="max-w-3xl text-xs text-muted-foreground">
+            Read means the engine can name it. It does not mean the engine can play it: knowing a
+            card cycles is not the same as paying the cost and drawing the card. Naming is what deck
+            building and suggestions need, and it is the number this page reports.
+          </p>
         </CardContent>
       </Card>
 
@@ -588,6 +836,29 @@ export function EngineDictionary() {
                 </div>
               </div>
             )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ------------------------------------------------ our own words -- */}
+      <Card>
+        <CardContent className="space-y-4 p-5 md:p-6">
+          <div>
+            <h2 className="text-lg font-semibold">Words we had to invent</h2>
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+              Magic has no name for some of the things a deck builder has to know. Each of these
+              exists because a real deck came out wrong without it, and the reason is written down
+              so nobody deletes a distinction they cannot see the point of.
+            </p>
+          </div>
+          <div className="grid gap-3 lg:grid-cols-2">
+            {OUR_WORDS.map(w => (
+              <div key={w.facet} className="space-y-1.5 rounded-lg bg-muted/30 p-4">
+                <code className="font-mono text-xs font-semibold">{w.facet}</code>
+                <p className="text-sm">{w.means}</p>
+                <p className="text-xs text-muted-foreground">{w.why}</p>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>

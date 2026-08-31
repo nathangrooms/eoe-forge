@@ -63,8 +63,18 @@ async function shoot(label, { tab: adminTab, width, height, clicks = [], fullPag
     if (m.type() === 'error') log('  [console]', m.text().slice(0, 200));
   });
 
-  await tab.goto(`${BASE}/admin`, { waitUntil: 'networkidle2', timeout: 60000 });
-  await tab.waitForSelector('[role="tab"]', { timeout: 20000 });
+  /*
+   * `domcontentloaded`, NOT `networkidle2`.
+   *
+   * The admin page fires a lot of requests and several of them 401 by design
+   * (owner-scoped tables an anonymous key may not read), so the network never
+   * goes quiet and `networkidle2` waits for a condition that will not arrive.
+   * It survived until the machine was busy with a workflow, then timed out at
+   * 60 s on the first shot. Waiting for the thing we actually need, which is
+   * the tab strip, is both faster and correct.
+   */
+  await tab.goto(`${BASE}/admin`, { waitUntil: 'domcontentloaded', timeout: 120000 });
+  await tab.waitForSelector('[role="tab"]', { timeout: 60000 });
 
   /* Radix opens on POINTER events; a synthetic el.click() silently does
      nothing. CLAUDE.md records a sweep reporting all nine admin tabs as
@@ -127,8 +137,18 @@ async function sections(label, { tab: adminTab, width = 1500, slice = 950 }) {
   const tab = await browser.newPage();
   await tab.setViewport({ width, height: slice, deviceScaleFactor: 2 });
   await tab.evaluateOnNewDocument(SHIM);
-  await tab.goto(`${BASE}/admin`, { waitUntil: 'networkidle2', timeout: 60000 });
-  await tab.waitForSelector('[role="tab"]', { timeout: 20000 });
+  /*
+   * `domcontentloaded`, NOT `networkidle2`.
+   *
+   * The admin page fires a lot of requests and several of them 401 by design
+   * (owner-scoped tables an anonymous key may not read), so the network never
+   * goes quiet and `networkidle2` waits for a condition that will not arrive.
+   * It survived until the machine was busy with a workflow, then timed out at
+   * 60 s on the first shot. Waiting for the thing we actually need, which is
+   * the tab strip, is both faster and correct.
+   */
+  await tab.goto(`${BASE}/admin`, { waitUntil: 'domcontentloaded', timeout: 120000 });
+  await tab.waitForSelector('[role="tab"]', { timeout: 60000 });
   for (const t of await tab.$$('[role="tab"]')) {
     const text = await tab.evaluate(el => el.textContent?.trim() ?? '', t);
     if (text.toLowerCase().includes(adminTab)) { await t.click(); break; }

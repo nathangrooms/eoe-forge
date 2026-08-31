@@ -94,6 +94,62 @@ function Meter({ pct }: { pct: number }) {
   );
 }
 
+/**
+ * The three states a card can be in, and they PARTITION.
+ *
+ * `read part of it` is deliberately the middle band and deliberately the
+ * widest: measured over commanders on 31 Aug 2026, every card marked "not read
+ * at all" reads 0% of its characters and every card marked "read the whole
+ * card" reads 100%, but this one spans 1.5% to 100%. Adeline consumes nine
+ * characters of 176, the word "vigilance", and sits in the same band as a card
+ * whose only outstanding item is a human resolving a choice.
+ *
+ * Monochrome, per design law: the bar separates the bands by LIGHTNESS, not by
+ * hue. Colour in this product means something (mana, card type, power) and a
+ * coverage band is none of those.
+ */
+const BANDS = [
+  {
+    key: 'read the whole card',
+    label: 'Read the whole card',
+    note: 'runs with no help',
+    bar: 'bg-foreground/80',
+    dot: 'bg-foreground/80',
+  },
+  {
+    key: 'read some of it',
+    label: 'Read part of it',
+    note: 'one word to all but one line',
+    bar: 'bg-foreground/45',
+    dot: 'bg-foreground/45',
+  },
+  {
+    key: 'needs a human for all of it',
+    label: 'Not read at all',
+    note: 'a person does all of it',
+    bar: 'bg-foreground/15',
+    dot: 'bg-foreground/15',
+  },
+  /*
+   * A VANILLA CREATURE IS NOT AN UNREAD CARD.
+   *
+   * 347 of these 354 have no rules text at all: Aegis Turtle, Zombie Goliath.
+   * They were in NO band, which is why the first three summed to 99% and left a
+   * gap a careful reader would have spotted.
+   *
+   * They are deliberately not folded into "read the whole card", which would be
+   * true and misleading. That is the number this project quotes as progress,
+   * and 347 cards with nothing written on them are not progress.
+   */
+  {
+    key: 'nothing to read',
+    label: 'Nothing to read',
+    note: 'no rules text at all',
+    bar: 'bg-foreground/5',
+    dot: 'bg-foreground/25',
+  },
+] as const;
+
 export function EngineHealth() {
   /*
    * LIVE, FROM THE DATABASE, over the WHOLE CATALOGUE.
@@ -267,23 +323,66 @@ export function EngineHealth() {
             <p className="text-sm text-muted-foreground">Reading the catalogue.</p>
           ) : (
             <>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {[
-                  ['read the whole card', 'Read the whole card', 'runs with no help'],
-                  ['read some of it', 'Read part of it', 'anywhere from one word to all but one'],
-                  ['needs a human for all of it', 'Not read at all', 'a person does all of it'],
-                  ['no record at all', 'No record', 'nothing to rank or resolve'],
-                ].map(([key, label, note]) => {
-                  const row = measure(key);
-                  return (
-                    <Stat
-                      key={key}
-                      label={label}
-                      value={row ? `${row.share ?? 0}%` : '—'}
-                      note={row ? `${row.cards.toLocaleString()} cards${note ? `, ${note}` : ''}` : undefined}
-                    />
-                  );
-                })}
+              {/*
+                THREE BOXES, NOT FOUR, BECAUSE ONLY THREE OF THEM PARTITION.
+
+                This drew four equal stats: read the whole card, read part of
+                it, not read at all, and "no record". The first three add to
+                32,678 of 33,032 and are a real partition. The fourth is the
+                UNION of the third and the 354 cards the compiler read and found
+                nothing on, so it double-counted 6,736 cards and the row summed
+                to 120%. On a screen whose entire purpose is being honest about
+                what the engine knows, four numbers that do not add up is the
+                worst possible defect.
+
+                It is a derived line under the bar now, said as what it is: how
+                many of the above produce nothing a consumer can use.
+              */}
+              <div className="space-y-3">
+                {/*
+                  ONE BAR, FULL WIDTH. Three boxes side by side make three
+                  numbers you have to compare by reading; a bar makes the shape
+                  of the problem the first thing you see, which is that the
+                  middle band is the biggest and it is also the vaguest.
+                */}
+                <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted/40">
+                  {BANDS.map(band => {
+                    const row = measure(band.key);
+                    const share = row?.share ?? 0;
+                    if (share <= 0) return null;
+                    return (
+                      <div
+                        key={band.key}
+                        className={band.bar}
+                        style={{ width: `${share}%` }}
+                        title={`${band.label}: ${row?.cards.toLocaleString()} cards`}
+                      />
+                    );
+                  })}
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {BANDS.map(band => {
+                    const row = measure(band.key);
+                    return (
+                      <div key={band.key} className="rounded-lg bg-muted/30 p-4">
+                        <div className="flex items-center gap-2">
+                          <span className={`h-2 w-2 shrink-0 rounded-full ${band.dot}`} />
+                          <span className="text-2xl font-semibold tabular-nums">
+                            {row ? `${row.share ?? 0}%` : '—'}
+                          </span>
+                        </div>
+                        <div className="mt-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          {band.label}
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {row ? `${row.cards.toLocaleString()} cards` : ''}
+                          {band.note ? `, ${band.note}` : ''}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               {/*
@@ -305,6 +404,16 @@ export function EngineHealth() {
               </p>
 
               {/* A share of a number nobody can see is not a measurement. */}
+              {/* An OVERLAP, not a fourth band: these cards are already counted
+                  above, mostly in "not read at all". Saying so is the point. */}
+              {measure('no record at all') && (
+                <p className="max-w-3xl text-xs text-muted-foreground">
+                  Of those, {measure('no record at all')?.cards.toLocaleString()} produce no
+                  usable record at all, so there is nothing for the deck builder to rank or the
+                  game to resolve. They are counted in the bands above, not on top of them.
+                </p>
+              )}
+
               <p className="text-xs text-muted-foreground">
                 Measured over {measured.toLocaleString()} cards.
                 {stillToMeasure > 0

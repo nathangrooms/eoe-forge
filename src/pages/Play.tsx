@@ -107,6 +107,7 @@ import { combatIsLive } from '@/components/play/combatUi';
 import { useCardPrewarm } from '@/components/play/useCardPrewarm';
 import { illegalBlockReason } from '@/components/play/combatUi';
 import { GameFeed } from '@/components/play/GameFeed';
+import { cn } from '@/lib/utils';
 import { TurnBanner } from '@/components/play/TurnBanner';
 import { GameResult } from '@/components/play/GameResult';
 import { ZonePanel } from '@/components/play/ZonePanel';
@@ -1941,7 +1942,21 @@ export default function Play() {
           because the rail ends at x=230, so nothing on the board is behind it.
         */}
         <div
-          className="pointer-events-none absolute z-40 max-w-[46vw]"
+          /* HIDDEN WHEN THERE IS NO BOARD TO ANNOTATE.
+
+             The feed is `z-40` and `BoardRail` carries no z-index, so the feed
+             draws over it. That never collided while the rail was at most 430px
+             on the right and the feed at `left: 8`; it collides the moment the
+             rail takes a phone's whole width, and the log chips landed on top of
+             the game menu.
+
+             Keyed on the board having width rather than on a breakpoint,
+             because that is the actual condition: a log of what happened on the
+             board has nothing to sit beside when the board is not on screen. */
+          className={cn(
+            'pointer-events-none absolute z-40 max-w-[46vw]',
+            boardWidth <= 0 && 'hidden'
+          )}
           /*
            * THE FEED GOES TO THE TOP WHILE THE OPENING HAND IS BEING JUDGED.
            *
@@ -2125,9 +2140,12 @@ export default function Play() {
       </div>
 
       {/* The rail: a zone's contents, or the game menu. Part of the board, never
-          on top of it. The card preview left for the centre of the mat. */}
+          on top of it. The card preview left for the centre of the mat.
+
+          `topInset` is the MEASURED bar height rather than the constant, so the
+          rail is held off the top edge by the same bar everything else is. */}
       {railContent && (
-        <BoardRail width={railWidth} topInset={HUD_INSET}>
+        <BoardRail width={railWidth} topInset={hudHeight}>
           {railContent === 'zone' && zoneTarget && (
             <ZonePanel
               state={state}

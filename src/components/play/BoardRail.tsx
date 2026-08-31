@@ -33,7 +33,24 @@ export interface BoardRailProps {
  * preview — so the rail is sized from the viewport rather than fixed, and it
  * never gets so wide that the table it sits beside stops being the main event.
  */
+/**
+ * Below this the board left over is not a board, so the rail takes the screen.
+ *
+ * The 250px floor guarantees a readable card at any width, which is right, and
+ * on a 390px phone it took 64% of the screen and left 140px of "table": the
+ * zone counters cramped into a strip with the life counter clipped, measured as
+ * 132px of a 212px row. Neither half was usable.
+ *
+ * A rail that fills a phone hides the board while it is open, which is correct
+ * for what it holds — settings, a zone's contents, a seat — and the control
+ * that opened it is in the HUD above and stays pressable, so it is one tap
+ * back. The card-size sliders lose their live preview at this width, and they
+ * had already lost it: 140px of board shows counters, not permanents.
+ */
+const RAIL_TAKES_THE_SCREEN_BELOW = 640;
+
 export function railWidthFor(viewportWidth: number): number {
+  if (viewportWidth < RAIL_TAKES_THE_SCREEN_BELOW) return viewportWidth;
   return Math.round(Math.min(430, Math.max(250, viewportWidth * 0.26)));
 }
 

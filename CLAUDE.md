@@ -1299,6 +1299,48 @@ propagates only because writing `tags` bumps `updated_at`. Until it runs, the
 tags in the app are the old ones: the deck page, the generator and the optimiser
 all read the views, never `cards`.
 
+## Play mode did not work on a phone, and no rule caught it (31 Aug 2026)
+
+Every structural audit passed `/play` at 390px. `nav-audit` reported no dead
+space, no unused width, no cropped art, no horizontal overflow; `clip-audit`
+reported nothing hidden; `sweep` found no control that misbehaved. All of them
+were right, and the game still could not be played on a phone, because **none
+of them opens a game.** The board is behind two clicks and a Start.
+
+Measured by asking the button where it was, on the opening hand of a real
+goldfish game:
+
+    390px   "Keep this hand" starts at x=393. 133px off the right edge.
+    430px   93px off.
+    768px   visible.
+
+Every group in the HUD is `shrink-0` and the bar does not scroll, so the
+primary action was unreachable, not merely awkward. A player could press
+Mulligan forever and never keep a hand, under a banner reading "Both buttons
+are in the bar at the top".
+
+The bar wraps below `md` now. **Not** by hiding the utilities group, which is
+where the game menu lives: that trades one unreachable control for three.
+
+### `HUD_INSET` is a floor now, not the answer
+
+`HUD_INSET = 56` places everything held off the top of the board — the
+battlefield, the mulligan bar, the game result, the opening feed. A wrapping
+bar makes it wrong, and the first version of the fix hid the banner it was
+meant to reveal. The bar reports its own height through a ResizeObserver and
+the rest follows it; the constant survives as the starting value and the
+floor.
+
+> ⚠️ **It needs a CALLBACK ref, not a ref plus an effect.** The effect version
+> read `hudRef.current` when `table` changed, and the bar attaches later than
+> that, so the node was null, the observer was never created, and nothing
+> moved. It was caught by reading the banner's inline style (`top: 64px`
+> against a 92px bar), not by looking at the screenshot, where 18px of overlap
+> and 18px of clearance look much the same.
+
+**The lesson is the coverage gap, not the flexbox.** Everything reachable only
+after a click is unaudited by every probe in `scripts/probe/`. If a screen
+takes a Start button to reach, no rule in this repo has ever seen it.
 ## Owning a card is not owning one printing of it (30 Aug 2026)
 
 `user_collections.card_id` and `deck_cards.card_id` are both PRINTING ids, and

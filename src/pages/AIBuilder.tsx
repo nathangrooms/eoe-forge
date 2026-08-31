@@ -90,6 +90,29 @@ const STAGES: Array<{ id: Stage; label: string }> = [
   { id: 'result', label: 'Deck' },
 ];
 
+/**
+ * What to call the deck, in the words a player would use.
+ *
+ * It was `${commander.name} ${config.archetype} Deck`, which produced "Meren of
+ * Clan Nel Toth aristocrats Deck": the archetype id rather than its name, so
+ * lowercase mid-sentence, and a trailing "Deck" on a thing that is obviously a
+ * deck. It is also long enough to run past two lines in a deck tile, and the
+ * name is what a person scans a list for.
+ *
+ * Players say "Krenko Goblins" and "Atraxa Superfriends" — the commander,
+ * short, then what it does. So the title after the comma comes off, because
+ * "Krenko, Mob Boss Tokens" is not a thing anybody says, and the strategy is
+ * the shell's own LABEL rather than its id.
+ */
+function deckNameFor(commanderName: string | undefined, archetypeId: string): string {
+  const commander = (commanderName ?? '').split(',')[0].trim();
+  const label = DECK_ARCHETYPES.find(shell => shell.id === archetypeId)?.name;
+  /* No commander is not a case this screen can normally reach, and "New deck
+     Value engine" is what pretending otherwise reads like. */
+  if (!commander) return label ?? 'New deck';
+  return label ? `${commander} ${label}` : commander;
+}
+
 export default function AIBuilder() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -548,7 +571,7 @@ export default function AIBuilder() {
 
       setValidationErrors(errors);
       setPendingResult({
-        deckName: `${commander?.name || 'New'} ${config.archetype} Deck`,
+        deckName: deckNameFor(commander?.name, config.archetype),
         cards: deckCards,
         deckId: data.deckId,
         power: data.result?.analysis?.power || data.power || config.targetPower,

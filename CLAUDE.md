@@ -1299,6 +1299,34 @@ propagates only because writing `tags` bumps `updated_at`. Until it runs, the
 tags in the app are the old ones: the deck page, the generator and the optimiser
 all read the views, never `cards`.
 
+## The blur rule has now been broken and fixed three times (31 Aug 2026)
+
+Scryfall: *"Do not blur, sharpen, desaturate, or color-shift card images."*
+
+    1. the blurred identity ground   ->  src/lib/cards/identityGround.ts
+    2. the playmat                   ->  procedural CSS, saturate/brightness gone
+    3. `CardImage`'s blur-up         ->  the muted pulse every grid already used
+
+The third is the one worth learning from, because it sat in the component
+**every card in the app goes through** while the first two were being fixed.
+The reason is legible in the code: the twelve-line comment above the
+placeholder is entirely about REQUEST COUNT and never mentions the picture. It
+was reasoned about carefully, on the wrong axis, so every later pass read a
+considered decision and moved on.
+
+**A brief display is a display.** The placeholder faded out on load; it was
+still a blurred card image on screen.
+
+Removing it also halved the images on the two screens that draw the most:
+card search was 48 `<img>` for 24 cards and precons 48 for 24.
+
+### The lens that found it
+
+Counting what a screen DRAWS against what it SAYS it is showing. Card search
+says "Showing 1 to 24 of 30,636" and drew 48 card images; marketplace drew 42
+for 42. That discrepancy is the whole finding, and no rule in
+`scripts/probe/` asks the question.
+
 ## Play mode did not work on a phone, and no rule caught it (31 Aug 2026)
 
 Every structural audit passed `/play` at 390px. `nav-audit` reported no dead

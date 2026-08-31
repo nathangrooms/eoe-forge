@@ -223,7 +223,7 @@ export interface GenerateDeckInput {
   avoidOracleIds?: readonly string[];
 }
 
-export type Bucket = 'land' | 'basic' | Role | 'flex';
+export type Bucket = 'land' | 'basic' | Role | 'flex' | 'commander';
 
 /** Where the deck's picks came from: behaviour records, or the old tag words. */
 export interface BuildEvidence {
@@ -863,6 +863,78 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
   const colourlessCap = spellSlots - colouredFloorFor(identity, spellSlots);
   let colourlessPicked = 0;
   const overColourlessCap = (card: BuildCard) => !hasColour(card) && colourlessPicked >= colourlessCap;
+
+  /* ---------------------------------------------------------------- *
+   * 2a-. What the commander asked for and no role can hold.
+   * ---------------------------------------------------------------- *
+   *
+   * Pass one places a card into its NEEDIEST ROLE, and skips it outright when
+   * it serves none. That is right for a quota system and it makes a whole
+   * class of card unreachable: not "loses on a tiebreak", unreachable, however
+   * well it fits, because `if (!role) continue` is the first thing that
+   * happens to it.
+   *
+   * Measured on the DEPLOYED generator, Krenko, Mob Boss, whose own plan says
+   * in its own words that he "does its work through a tap ability" and asks
+   * for `kw:haste` at 0.6 and `sub:equipment` at 0.45:
+   *
+   *   card                rank   planFit   role     in the deck
+   *   Lightning Greaves     13     0.663    NONE     no
+   *   Swiftfoot Boots       12     0.663    NONE     no
+   *   Goblin Chieftain    2575     0.656    creature yes
+   *   Sol Ring               1     0        ramp     yes
+   *
+   * So the engine scored Greaves among the best cards it could find for this
+   * commander, said why, and could not put it in, while Sol Ring went in at a
+   * fit of zero. Every one of the six commanders in
+   * `scripts/generator-synergy-audit.mjs` was missing both Boots and Greaves.
+   *
+   * The flex pass at step 3 does ignore roles, and cannot help: it runs on
+   * `spellSlots` minus what is already picked, and the role, creature and
+   * colour floors spend all 64 of Krenko's before it is reached.
+   *
+   * THIS IS A RESCUE, NOT A COMPETITOR. It only considers cards that serve NO
+   * role, so nothing that the quotas could already reach loses a slot to it,
+   * and it is capped at four so a deck cannot become a pile of equipment. The
+   * fit floor is what stops it spending those four on the least bad of a bad
+   * pool: below it, the plan is not really asking for the card.
+   */
+  const COMMANDER_RESCUE_SLOTS = 4;
+  const COMMANDER_RESCUE_FIT = 0.45;
+  let rescued = 0;
+  if (commanderPlan.wants.length > 0) {
+    for (const rec of orderPreferredFirst(rankedSpells, preferred)) {
+      if (rescued >= COMMANDER_RESCUE_SLOTS) break;
+      if (picked.length - chosenLands.length >= spellSlots) break;
+      const card = rec.card as BuildCard;
+      if (takenOracleIds.has(card.oracleId)) continue;
+      if (overColourlessCap(card)) continue;
+      if (ROLES.some(role => cardRole(card, role))) continue;
+      if (planFit(commanderPlan, card).fit < COMMANDER_RESCUE_FIT) continue;
+      /* Only the COLOURLESS tally, because `colouredPicked` is not declared
+         until the colour floor below and this runs before it. Under-counting
+         a rescued coloured card can only make that floor add one more
+         coloured card than it needed, which is the safe direction; the
+         colourless cap is the one that guards a real failure, and the cards
+         this pass exists to rescue are colourless equipment. */
+      if (!hasColour(card)) colourlessPicked += 1;
+      takenOracleIds.add(card.oracleId);
+      rescued += 1;
+      picked.push({
+        card,
+        quantity: 1,
+        reason: rec.reason,
+        score: rec.score,
+        bucket: 'commander',
+        preferred: preferred.has(card.oracleId),
+      });
+    }
+    if (rescued > 0) {
+      notes.push(
+        `${rescued} card${rescued === 1 ? '' : 's'} the commander asks for that fill no deck role`
+      );
+    }
+  }
 
   const quota = { ...targets, land: 0, creature: 0 } as Record<Role, number>;
   for (const rec of orderPreferredFirst(rankedSpells, preferred)) {

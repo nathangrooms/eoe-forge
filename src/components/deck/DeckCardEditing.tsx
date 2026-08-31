@@ -1,4 +1,5 @@
-import { Minus, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { Check, Minus, Plus, RefreshCw, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FIELD } from '@/components/listing';
@@ -99,6 +100,20 @@ export function DeckCardOverlay({
     editing.onSetQuantity(row, row.quantity + 1);
   };
 
+  /*
+   * REMOVING EVERY COPY ASKS FIRST.
+   *
+   * Measured at 390px on the deck page: the trash is 28x28 and sits eight
+   * pixels below "Add one copy" at 32x32, ninety-one times over. A mis-tap
+   * turned adding a card into deleting every copy of it, and `deleteAll` is
+   * `setQuantity(row, 0)` with no confirmation and no undo behind it.
+   *
+   * Design law 3 already says what to do: no centred dialog, the destructive
+   * control swaps to Confirm/Cancel in place. This is that, kept to one line so
+   * a decklist row does not grow a paragraph.
+   */
+  const [confirming, setConfirming] = useState(false);
+
   return (
     <div
       className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg bg-black/75 p-2 opacity-0 transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100 motion-reduce:transition-none"
@@ -126,24 +141,58 @@ export function DeckCardOverlay({
         </Button>
       </div>
       <div className="flex items-center gap-1">
-        <Button
-          size="sm"
-          variant="secondary"
-          className="h-7 text-xs"
-          onClick={() => editing.onReplace(row)}
-        >
-          <RefreshCw className="mr-1 h-3 w-3" />
-          Replace
-        </Button>
-        <Button
-          size="icon"
-          variant="destructive"
-          className="h-7 w-7"
-          onClick={() => editing.onDeleteAll(row)}
-          title="Remove all copies"
-        >
-          <Trash2 className="h-3 w-3" />
-        </Button>
+        {confirming ? (
+          <>
+            {/* The control became the question. Design law 3: no centred
+                dialog, and a destructive control swaps to Confirm/Cancel in
+                place. `GameMenu`'s concede is the same pattern. */}
+            <span className="text-[0.7rem] font-medium text-foreground">
+              Remove {row.quantity === 1 ? 'it' : `all ${row.quantity}`}?
+            </span>
+            <Button
+              size="icon"
+              variant="destructive"
+              className="h-7 w-7"
+              onClick={() => {
+                setConfirming(false);
+                editing.onDeleteAll(row);
+              }}
+              title="Yes, remove every copy"
+            >
+              <Check className="h-3 w-3" />
+            </Button>
+            <Button
+              size="icon"
+              variant="secondary"
+              className="h-7 w-7"
+              onClick={() => setConfirming(false)}
+              title="Keep it"
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="h-7 text-xs"
+              onClick={() => editing.onReplace(row)}
+            >
+              <RefreshCw className="mr-1 h-3 w-3" />
+              Replace
+            </Button>
+            <Button
+              size="icon"
+              variant="destructive"
+              className="h-7 w-7"
+              onClick={() => setConfirming(true)}
+              title="Remove all copies"
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -157,29 +206,68 @@ export function DeckRowActions({
   row: DeckCardRow;
   editing: DeckCardEditing;
 }) {
+  /* Same question as the grid overlay, same reason. */
+  const [confirming, setConfirming] = useState(false);
+
   return (
     <span
-      className="flex items-center justify-end gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 motion-reduce:transition-none"
+      className={cn(
+        'flex items-center justify-end gap-0.5 transition-opacity motion-reduce:transition-none',
+        /* A row mid-question stays visible: hiding the Confirm/Cancel on
+           pointer-out would leave the reader wondering what they had started. */
+        confirming ? 'opacity-100' : 'opacity-0 focus-within:opacity-100 group-hover:opacity-100'
+      )}
       onClick={event => event.stopPropagation()}
     >
-      <Button
-        size="icon"
-        variant="ghost"
-        className="h-7 w-7"
-        onClick={() => editing.onReplace(row)}
-        title="Replace"
-      >
-        <RefreshCw className="h-3.5 w-3.5" />
-      </Button>
-      <Button
-        size="icon"
-        variant="ghost"
-        className="h-7 w-7 text-muted-foreground hover:text-destructive"
-        onClick={() => editing.onDeleteAll(row)}
-        title="Remove all copies"
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </Button>
+      {confirming ? (
+        <>
+          <span className="mr-1 text-[0.7rem] font-medium text-foreground">
+            Remove {row.quantity === 1 ? 'it' : `all ${row.quantity}`}?
+          </span>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+            onClick={() => {
+              setConfirming(false);
+              editing.onDeleteAll(row);
+            }}
+            title="Yes, remove every copy"
+          >
+            <Check className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7"
+            onClick={() => setConfirming(false)}
+            title="Keep it"
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </>
+      ) : (
+        <>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7"
+            onClick={() => editing.onReplace(row)}
+            title="Replace"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+            onClick={() => setConfirming(true)}
+            title="Remove all copies"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </>
+      )}
     </span>
   );
 }

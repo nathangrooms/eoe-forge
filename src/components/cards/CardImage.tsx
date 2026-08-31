@@ -177,29 +177,31 @@ export function CardImage({
     () => getBestCardImage(card, quality, face),
     [card, quality, face]
   );
-  /**
-   * Blur-up placeholder — `lg` and `xl` only.
+  /*
+   * THE BLUR-UP PLACEHOLDER IS GONE, AND THE REASON IS THE LICENCE.
    *
-   * It costs a second request per card, and in a 60-card grid that is 120
-   * requests instead of 60, which is what made card loading crawl. At `lg`/`xl`
-   * a card is a focal element and the lists are short, so the blur-up is worth
-   * one extra 15 kB fetch; at grid sizes the fade up from the muted surface is
-   * enough on its own.
+   * It drew a second `<img>` of the card at `small`, under the real one, with
+   * `blur-md scale-105 object-cover`, and faded it out on load. Scryfall's
+   * image guidelines say plainly: *"Do not blur, sharpen, desaturate, or
+   * color-shift card images."* A blur-up displays a blurred card image. That it
+   * is brief does not make it not displayed.
    *
-   * A caller that has dropped to `small`/`normal` via `quality` is by
-   * definition drawing a long grid, so it opts out of the second request too —
-   * otherwise the override would trade transferred bytes for request count and
-   * win nothing.
+   * This project has already removed that treatment twice for that exact
+   * sentence — the blurred identity ground, replaced by
+   * `src/lib/cards/identityGround.ts`, and the playmat, which was applying
+   * `saturate(0.26) brightness(0.4)`. Both notes say the same thing: the
+   * downside of guessing wrong is losing the API this product is built on, so
+   * we do not guess. Neither pass reached HERE, the component every card in the
+   * app goes through, because the reasoning written above it was entirely about
+   * request count and never about the picture.
+   *
+   * What replaces it is what `lg` and `xl` are the only sizes that were not
+   * already doing: the muted pulse below, which every grid in the product fades
+   * up from.
+   *
+   * It is also cheaper, which is the smaller half. Measured at 1600: card
+   * search drew 48 `<img>` for 24 cards and precons 48 for 24. Both halve.
    */
-  const dense = quality === 'small' || quality === 'normal';
-  const placeholder = useMemo(
-    () =>
-      !dense && (resolved === 'lg' || resolved === 'xl')
-        ? getBestCardImage(card, 'small', face)
-        : undefined,
-    [card, dense, resolved, face]
-  );
-
   /**
    * Load state is tracked as "which src finished", not as a boolean.
    *
@@ -290,23 +292,6 @@ export function CardImage({
         )}
         style={{ aspectRatio: CARD_ASPECT, borderRadius: CARD_RADIUS }}
       >
-        {/* Blurred low-resolution under-layer — fades out once the real art lands. */}
-        {placeholder && !failed && (
-          <img
-            src={placeholder}
-            alt=""
-            aria-hidden="true"
-            loading={eager ? 'eager' : 'lazy'}
-            decoding="async"
-            draggable={false}
-            className={cn(
-              'absolute inset-0 h-full w-full scale-105 object-cover blur-md transition-opacity duration-300',
-              'motion-reduce:transition-none',
-              loaded ? 'opacity-0' : 'opacity-100'
-            )}
-          />
-        )}
-
         {/* Cards with no image at all, or whose image failed.
             The name is the only true thing we have, so it is the whole tile
             rather than a caption inside one. `line-clamp-4` because a long
@@ -324,7 +309,7 @@ export function CardImage({
             </span>
           </div>
         )}
-        {!placeholder && !loaded && src && !failed && (
+        {!loaded && src && !failed && (
           <div className="absolute inset-0 animate-pulse bg-muted motion-reduce:animate-none" />
         )}
 

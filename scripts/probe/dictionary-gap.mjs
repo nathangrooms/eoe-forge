@@ -119,6 +119,9 @@ for (const c of cards) {
  * `kw:`, `sub:` and `type:` keep the printed spacing, lowercased.
  * `eff:` is a DSL verb and those are hyphenated.
  */
+/** Regex-escape, so a value like "B.O.B." or "Urza's" cannot break the match. */
+const escapeRe = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, (m) => `\\${m}`);
+
 const slugKeepSpaces = s =>
   /* Apostrophes are KEPT and normalised to ASCII, because the engine keeps
      them: it emits `kw:doctor's companion`, `sub:urza's`, `sub:c'tan` and
@@ -187,10 +190,21 @@ for (const { kind, prefix, label } of CATALOGS) {
         : [`${prefix}${bare}`, `tok:${bare}`, `kw:${bare}`, `type:${bare}`, `cares:sub:${bare}`];
     const facet = candidates.find(f => (emitted.get(f) ?? 0) > 0) ?? candidates[0];
     const cardsWithFacet = emitted.get(facet) ?? 0;
-    /* Does ANY card print it at all? A keyword no card in our catalogue uses is
-       not a gap in the engine, it is vocabulary Magic has and we do not stock. */
+    /*
+     * Does ANY card print it at all? A word no card in our catalogue uses is not
+     * a gap in the engine, it is vocabulary Magic has and we do not stock.
+     *
+     * WORD BOUNDARIES, because a substring match is not this question. The first
+     * version used `includes`, so "Vote" matched "devote" and reported 41 cards,
+     * "Exchange" matched "exchanged" and reported 57, and "Absorb" matched
+     * "absorbed". All eight of the last supposedly-fixable gaps turned out to
+     * appear on ZERO cards once the boundaries were there. Four separate
+     * corrections to this file so far and every one of them made the engine look
+     * worse than it is.
+     */
     const needle = String(v).toLowerCase().replace(/[’']/g, "'");
-    const printed = cardsWithFacet > 0 ? cardsWithFacet : corpus.filter(t => t.includes(needle)).length;
+    const bounded = new RegExp(`\\b${escapeRe(needle)}\\b`);
+    const printed = cardsWithFacet > 0 ? cardsWithFacet : corpus.filter(t => bounded.test(t)).length;
     return { value: v, facet, cardsWithFacet, printed };
   });
 

@@ -174,6 +174,35 @@ export function facetsForCard(row: FacetInput): FacetResult {
   readNamedSubtypesInRules(row, out);
 
   /*
+   * SCRYFALL ALREADY KNOWS EVERY KEYWORD ON EVERY CARD, and this file has never
+   * once asked.
+   *
+   * `keywords` is a curated field on every Scryfall row, derived from Wizards'
+   * own labelling. 16,507 cards in the catalogue carry one. Until now the only
+   * source of `kw:` was the compiler recognising a keyword LINE, so a keyword
+   * with no rule produced nothing at all: Bonesplitter's whole record was empty
+   * because "Equip {1}" is not a shape any rule matched, and Equip is on 941
+   * cards. Measured against Scryfall's catalog of 223 keyword abilities, the
+   * engine named 162 and missed 60, and every one of the 60 was sitting in this
+   * array untouched.
+   *
+   * IT SUPPLEMENTS THE COMPILER RATHER THAN REPLACING IT, because the two know
+   * different things. Scryfall lists the keywords a card HAS. The compiler also
+   * finds the keywords a card GRANTS — "target creature gains flying until end
+   * of turn" — which never appear in this array, and granting flying is what
+   * makes a card an evasion enabler rather than a flier.
+   *
+   * Spelling matches what the compiler already emits: lowercased, printed
+   * spacing kept, so it is `kw:first strike` with a space. A hyphenated variant
+   * would double every multi-word keyword in the vocabulary and split the count
+   * for every consumer.
+   */
+  for (const kw of (row as { keywords?: string[] | null }).keywords ?? []) {
+    const word = String(kw).toLowerCase().replace(/’/g, "'").trim();
+    if (word) out.add(`kw:${word}`);
+  }
+
+  /*
    * THE ABILITY WORD, which the parser correctly throws away and deck building
    * cannot do without.
    *
@@ -503,7 +532,26 @@ const CARD_TYPES: readonly string[] = [
 
 function readTypeLine(typeLine: string | null, out: Set<Facet>): void {
   if (!typeLine) return;
-  const front = typeLine.split('//')[0];
+  /*
+   * BOTH FACES, not just the front.
+   *
+   * This read `split('//')[0]` and threw the back away, so 851 double-faced
+   * cards were described by half their type line. Bonecrusher Giant is
+   * "Creature — Giant // Instant — Adventure" and the engine could not see that
+   * it was an Adventure at all: 145 cards carry that spell type and 13 carry
+   * Omen, and neither was readable.
+   *
+   * A back face is a REAL part of the card here in a way it is not for
+   * abilities. `compiler.ts` deliberately refuses to fold a back face's
+   * abilities into the front's, because that would grant the card abilities it
+   * does not have while front side up. A TYPE is different: an Adventure
+   * creature is an Adventure creature in your deck list, in your search
+   * results, and in every count of what the deck is made of.
+   */
+  for (const face of typeLine.split('//')) readTypeFace(face, out);
+}
+
+function readTypeFace(front: string, out: Set<Facet>): void {
   // The em dash is the printed separator between types and subtypes. Some rows
   // carry a hyphen instead, so both are accepted; nothing else is.
   const dash = front.search(/[—-]/);
@@ -513,10 +561,25 @@ function readTypeLine(typeLine: string | null, out: Set<Facet>): void {
   for (const t of CARD_TYPES) {
     if (new RegExp(`\\b${t}\\b`).test(types)) out.add(`type:${t}`);
   }
-  for (const word of subs.trim().split(/\s+/)) {
-    const w = word.trim().toLowerCase();
+  const subRun = subs.trim().toLowerCase();
+  for (const word of subRun.split(/\s+/)) {
+    const w = word.trim();
     if (w) out.add(`sub:${w}`);
   }
+  /*
+   * THE ONE MULTI-WORD SUBTYPE IN MAGIC.
+   *
+   * Splitting on whitespace is correct for every subtype Wizards has ever
+   * printed except one: checked against all eight Scryfall subtype catalogs on
+   * 31 Aug 2026, "Time Lord" is the only value containing a space, out of 507.
+   * It was becoming `sub:time` and `sub:lord`, neither of which is a creature
+   * type, on 33 cards.
+   *
+   * The joined form is added rather than the split being replaced, because the
+   * split is right for the other 506 and a lookup table for one value would be
+   * a table somebody has to maintain.
+   */
+  if (subRun.includes(' ')) out.add(`sub:${subRun}`);
 }
 
 /* ------------------------------------------------------------------ *

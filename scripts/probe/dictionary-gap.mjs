@@ -120,7 +120,10 @@ for (const c of cards) {
  * `eff:` is a DSL verb and those are hyphenated.
  */
 const slugKeepSpaces = s =>
-  String(s).toLowerCase().replace(/[’']/g, '').replace(/\s+/g, ' ').trim();
+  /* Apostrophes are KEPT and normalised to ASCII, because the engine keeps
+     them: it emits `kw:doctor's companion`, `sub:urza's`, `sub:c'tan` and
+     `sub:shi'ar`. Stripping them here reported all four as unread. */
+  String(s).toLowerCase().replace(/’/g, "'").replace(/\s+/g, ' ').trim();
 
 const slug = s =>
   String(s)
@@ -158,10 +161,31 @@ const report = [];
 for (const { kind, prefix, label } of CATALOGS) {
   const values = await catalog(kind);
   const rows = values.map(v => {
-    const facet =
+    /*
+     * ANY PREFIX COUNTS, because a word can arrive by more than one road and
+     * asking about only one of them measures the probe rather than the engine.
+     *
+     * Army, Servo, Scion and Germ are CREATURE TYPES that appear almost only on
+     * TOKENS, so the engine says `tok:servo` and never `sub:servo` — no card in
+     * the catalogue has Servo on its type line. Same for Blood, Gold, Map, Junk
+     * and Incubator among artifact types, and Role among enchantment types.
+     * Checking `sub:` alone reported all of them as unread while the engine was
+     * naming them perfectly well.
+     *
+     * Treasure and Food are listed by Scryfall as keyword ACTIONS ("create a
+     * Treasure token") and the engine records them as `tok:treasure`. Same
+     * word, same knowledge, different road.
+     *
+     * The question this file exists to answer is "does the engine have a word
+     * for this thing", so the check is over every prefix that could carry it.
+     */
+    const bare = slugKeepSpaces(v);
+    const hyphen = slug(v);
+    const candidates =
       kind === 'keyword-actions'
-        ? `eff:${ACTION_ALIAS[slug(v)] ?? slug(v)}`
-        : `${prefix}${slugKeepSpaces(v)}`;
+        ? [`eff:${ACTION_ALIAS[hyphen] ?? hyphen}`, `eff:${bare}`, `tok:${bare}`, `trig:${hyphen}`, `kw:${bare}`]
+        : [`${prefix}${bare}`, `tok:${bare}`, `kw:${bare}`, `type:${bare}`, `cares:sub:${bare}`];
+    const facet = candidates.find(f => (emitted.get(f) ?? 0) > 0) ?? candidates[0];
     const cardsWithFacet = emitted.get(facet) ?? 0;
     /* Does ANY card print it at all? A keyword no card in our catalogue uses is
        not a gap in the engine, it is vocabulary Magic has and we do not stock. */

@@ -2347,6 +2347,40 @@ serves is full — and they are one pass with one budget of eight.
       deployed from this tree                 ai-deck-builder-v2, deck-optimizer,
                                               mtg-brain, facet-memo-fill
 
+### One card in five shows its Marvel printing, and that is a decision for the owner
+
+`cards_unique` holds ONE printing per card, chosen as the cheapest USD price.
+That rule was picked for the optimiser's budget reasoning and is deliberately
+written in three places that are verified to agree. Its visual consequence had
+never been measured.
+
+Measured 31 Aug 2026 over the 300 most played cards in Commander: **63 of them,
+21%, are represented by a crossover printing.** Including the top three.
+
+    #1    Sol Ring              Marvel Super Heroes Commander
+    #3    Arcane Signet         Final Fantasy Commander
+    #18   Rogue's Passage       The Hobbit Eternal
+    #20   Cultivate             Marvel Super Heroes Commander
+    #30   Heroic Intervention   Marvel Universe
+    #89   Feed the Swarm        Avatar: The Last Airbender Eternal
+    #96   City of Brass         Teenage Mutant Ninja Turtles Eternal
+
+So the card search page draws Captain America on Arcane Signet and M.O.D.O.K. on
+Skullclamp, and so does every deck list, every suggestion and every result
+screen in the product. Against the standing instruction to judge this **as an
+MTG enthusiast**, that is worth a decision rather than an assumption.
+
+**NOT CHANGED, deliberately.** It is a product-identity call with two defensible
+readings — the cheapest printing is the one you would actually buy, and the
+iconic art is what a player pictures when they read the name — and it touches
+the `cards_unique` ORDER BY, `comparePrintings()` in `source.ts` and the
+optimiser's `cheaper()`, all three of which are checked against each other.
+
+**And the rule cannot be "avoid crossover sets".** The One Ring is ranked 91 and
+exists ONLY in Tales of Middle-earth; so do Feed the Swarm's Avatar printing's
+siblings. The rule would have to be "prefer a non-crossover printing WHEN ONE
+EXISTS", which is a third comparison in the same three places.
+
 ### Still wrong, measured, and worth doing next
 
 - **Six equipment in a Meren deck.** The `enhance` quota is too generous for a

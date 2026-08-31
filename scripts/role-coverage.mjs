@@ -20,16 +20,50 @@ const BASE = 'https://udnaflcohfyljrsgqggy.supabase.co/rest/v1';
 const TOP = Number(process.env.TOP || 2000);
 const cols = 'name,oracle_text,type_line,mana_cost,cmc,colors,color_identity,keywords,tags,edhrec_rank,oracle_id';
 
+/*
+ * A RANK RANGE PLUS A SEEN-SET, which is the only one of the three shapes that
+ * is both fast and complete. Measured against this database:
+ *
+ *   offset=1000                                 walks and discards 1,000 rows
+ *   or=(rank.gt.N,and(rank.eq.N,id.gt.X))       2.29 s, the disjunction cannot
+ *                                               use the index
+ *   edhrec_rank=gte.N                           0.34 s, a clean index range
+ *
+ * Both of the first two started returning 57014 statement timeouts on page two
+ * once the database had other work on, and the probe printed "read 1000 cards"
+ * and carried on, which is worse than failing.
+ *
+ * `gte` rather than `gt` because `edhrec_rank` is NOT unique, and a `gt` cursor
+ * after a page that ended on a shared rank steps straight over the other card.
+ * The overlap `gte` creates is removed by id, which costs a Set.
+ */
 const rows = [];
-for (let from = 0; rows.length < TOP; from += 1000) {
+const seen = new Set();
+let fromRank = 0;
+while (rows.length < TOP) {
   const r = await fetch(
-    `${BASE}/cards_unique?select=${cols}&edhrec_rank=not.is.null&order=edhrec_rank.asc&limit=1000&offset=${from}`,
+    `${BASE}/cards_unique?select=id,${cols}&edhrec_rank=gte.${fromRank}` +
+      `&order=edhrec_rank.asc,id.asc&limit=250`,
     { headers: { apikey: ANON, Authorization: `Bearer ${ANON}`, Prefer: 'count=none' } });
   if (!r.ok) { console.error(r.status, (await r.text()).slice(0, 140)); break; }
   const page = await r.json();
   if (!page.length) break;
-  rows.push(...page);
+  let added = 0;
+  for (const row of page) {
+    if (seen.has(row.id)) continue;
+    seen.add(row.id);
+    rows.push(row);
+    added++;
+  }
+  const last = page[page.length - 1];
+  // No progress and no advance means the end of the catalogue. Stop, do not spin.
+  if (!added && last.edhrec_rank <= fromRank) break;
+  fromRank = last.edhrec_rank;
 }
+if (rows.length < TOP) {
+  console.error(`!! only ${rows.length} of ${TOP} rows were read. The figures below are over that slice, not the one asked for.`);
+}
+
 console.log(`read ${rows.length} cards, most played first\n`);
 
 const tally = {}; for (const r of ROLES) tally[r] = 0;

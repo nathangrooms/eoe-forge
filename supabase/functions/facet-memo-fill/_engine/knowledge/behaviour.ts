@@ -242,7 +242,11 @@ export function facetCoverage(cards: readonly FacetCarrier[]): {
  * is about the card; both fall out of the same three lines of table.
  */
 const ROLE_FACETS: Readonly<Record<Role, readonly Facet[]>> = {
-  ramp: ['eff:add-mana', 'cares:zone:library-land'],
+  /* `eff:extra-land-drop` is Exploration and Azusa: not mana, but more lands
+     in play every turn, which is what a player means by ramp. Derived from the
+     `max-lands-per-turn` restriction, so only a card that actually grants one
+     carries it. */
+  ramp: ['eff:add-mana', 'cares:zone:library-land', 'eff:extra-land-drop'],
   /*
    * Drawing a card, AND buying one back out of the graveyard, which is the same
    * thing from the deck's point of view: a card you did not have and now do.

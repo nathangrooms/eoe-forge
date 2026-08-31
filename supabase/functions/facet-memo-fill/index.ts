@@ -107,7 +107,19 @@ const json = (body: unknown, status = 200) =>
  * card reads as having no facets, which the ranker cannot tell apart from a
  * card that genuinely does nothing.
  */
-const COMPILER_VERSION = 4;
+/*
+ * 4 -> 5, same day, second batch. Three more rules changed the output for cards
+ * the compiler already read:
+ *
+ *   "you may play an additional land"    Exploration (300), Dryad of the
+ *                                        Ilysian Grove (301), Oracle of Mul
+ *                                        Daya (504), Azusa, Aesi, Gitrog
+ *   reanimation written as "put ... from  Reanimate (56) and everything shaped
+ *   A graveyard onto the battlefield"     like it
+ *   the additional-cost marker            every card carrying one is `partial`
+ *                                         now rather than `manual`
+ */
+const COMPILER_VERSION = 5;
 
 /**
  * Cards read per call.

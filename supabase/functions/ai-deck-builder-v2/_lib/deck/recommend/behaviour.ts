@@ -604,6 +604,30 @@ function readAbility(ability: Ability, out: Set<Facet>): void {
       if (mod.layer === 'ability') {
         for (const g of mod.grant ?? []) out.add(`kw:${String(g).toLowerCase()}`);
       }
+      /*
+       * An extra land drop is RAMP, and it had no facet at all.
+       *
+       * Exploration, Dryad of the Ilysian Grove, Oracle of Mul Daya, Azusa,
+       * Aesi and The Gitrog Monster compiled to a `restriction` modification,
+       * which produced nothing here, so the eleven best lands-matter cards in
+       * the format read as doing nothing and the builder could not place any of
+       * them.
+       *
+       * A FACET OF ITS OWN rather than `cares:type:land`, which was measured
+       * first and is the Bone Saw mistake in a new word: 85 cards in the top
+       * 2,000 carry it, and among them Cyclonic Rift, Anguished Unmaking and
+       * Stroke of Midnight, which mention lands only to say "nonland
+       * permanent". Nine rescues against three removal spells filed as ramp is
+       * not a narrower version of the right rule.
+       *
+       * The `eff:` prefix on something that is not an Effect verb follows
+       * `eff:pump` directly above, which comes from a pt modification for the
+       * same reason: the facet vocabulary describes what a card DOES for a deck
+       * builder, and the layer it was written on is not that.
+       */
+      if (mod.layer === 'restriction' && mod.rule.rule === 'max-lands-per-turn') {
+        out.add('eff:extra-land-drop');
+      }
     }
     return;
   }

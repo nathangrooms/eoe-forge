@@ -35,7 +35,7 @@ import { ROLES } from '../core/types.ts';
 import { isLegalIn, withinIdentity } from './query.ts';
 import { roleShortfall } from './profile.ts';
 import { cardRole } from './roles.ts';
-import { archetypeFit, planFit } from '../knowledge/behaviour.ts';
+import { archetypeFit, planFit, worksAgainstPlan } from '../knowledge/behaviour.ts';
 
 /* ------------------------------------------------------------------ *
  * Weights
@@ -430,6 +430,38 @@ export function scoreCandidate(
         fit.matched.length === 1
           ? best.because
           : `${best.because}, and this does ${fit.matched.length} of what it wants`,
+    });
+  }
+
+  /* --- Working against the plan ------------------------------------- */
+  /*
+   * THE FIRST NEGATIVE SIGNAL IN THIS MODEL, and the reason it took this long
+   * is that the engine could not say the thing until 31 Aug 2026.
+   *
+   * The generator put Soul-Guide Lantern in a Meren deck: graveyard hate, in a
+   * deck whose whole plan is a graveyard. Every signal above answers "how much
+   * does this help", so a card that empties the resource the deck is built on
+   * and a card that does nothing scored the same. The compiler could not even
+   * read the card - "exile all graveyards" had no rule - and once it could,
+   * `eff:exile-graveyard` had to be split from `eff:exile` or the card counted
+   * as REMOVAL and got picked more often.
+   *
+   * ONE ENTRY, and the table is the honest shape rather than the ambitious one.
+   * Anti-synergy is not a general theory here: it is a list of facts of the
+   * form "this facet attacks that want", each one measured before it is added,
+   * the same discipline `ROLE_FACETS` runs on. A second entry needs a second
+   * measurement, not a second guess.
+   *
+   * The penalty is a FULL commander-fit weight, because the card is not merely
+   * unhelpful — it is the deck's own plan being undone, and a small nudge would
+   * leave it winning on popularity, which is exactly how it got in.
+   */
+  const against = worksAgainstPlan(profile.commanderPlan ?? null, card);
+  if (against) {
+    signals.push({
+      kind: 'anti-synergy',
+      score: -commanderFitWeight(options),
+      detail: against.because,
     });
   }
 

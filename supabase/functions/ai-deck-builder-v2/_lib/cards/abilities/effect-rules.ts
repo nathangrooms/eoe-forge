@@ -645,6 +645,40 @@ export const EFFECT_RULES: EffectRule[] = [
     },
   },
   {
+    /*
+     * "Exile all graveyards", "exile each opponent's graveyard".
+     *
+     * The rule below reads a phrase describing an OBJECT, and a graveyard is a
+     * ZONE, so every piece of graveyard hate in the format fell through it:
+     * Soul-Guide Lantern, Relic of Progenitus, Tormod's Crypt. They are common
+     * cards and the generator has been putting them in graveyard decks, because
+     * a card with no record cannot be scored as working AGAINST the plan any
+     * more than it can be scored as working for it.
+     *
+     * WHO the exile hits is kept, and it is the whole value of reading these.
+     * "Each opponent's graveyard" is asymmetric hate and belongs in a graveyard
+     * deck perfectly happily; "all graveyards" empties yours too and is the
+     * card that should never have been suggested. A rule that flattened the two
+     * would be worse than no rule, because it would file Bojuka Bog as a
+     * mistake.
+     */
+    id: 'exile-graveyard-zone',
+    re: /^exile (all graveyards|each opponents graveyard|your graveyard)$/,
+    build(m) {
+      const who = m[1];
+      const what: Selector =
+        who === 'all graveyards'
+          ? { sel: 'all', zone: 'graveyard', where: { is: 'any' } }
+          : {
+              sel: 'all',
+              zone: 'graveyard',
+              where: { is: 'any' },
+              controller: who === 'your graveyard' ? { who: 'you' } : { who: 'each-opponent' },
+            };
+      return [{ do: 'exile', what }];
+    },
+  },
+  {
     id: 'exile',
     re: /^exile (.+)$/,
     note: '"exile ... until ..." is temporary exile, a duration the DSL refuses; it fails the anchor and lands in manual.',
@@ -652,7 +686,12 @@ export const EFFECT_RULES: EffectRule[] = [
       if (/ until | unless /.test(m[1])) return null;
       const what = phraseSelector(m[1], ctx, 'Choose what to exile');
       if (!what) return null;
-      return [{ do: 'exile', what }];
+      /* Read the phrase a second time for its ZONE alone. `phraseSelector`
+         hands a targeted phrase to `registerTarget`, which puts the zone on the
+         `TargetSpec`, so the effect's own selector cannot say where the card is
+         being exiled from. See `from` on the DSL member. */
+      const from = parseObject(m[1])?.zone;
+      return [from ? { do: 'exile', what, from } : { do: 'exile', what }];
     },
   },
   {

@@ -3336,6 +3336,79 @@ export function planFit(plan: CommanderPlan | null, card: FacetCarrier): PlanFit
 }
 
 /**
+ * Facts of the form "this facet ATTACKS that want".
+ *
+ * The first negative knowledge in the engine, and it is a LIST rather than a
+ * theory on purpose. Anti-synergy is not something the facet vocabulary can be
+ * made to derive: it is a small set of measured cases, each added only after
+ * somebody has looked at the cards it would claim, which is the discipline
+ * `ROLE_FACETS` runs on and for the same reason.
+ *
+ * The case that forced it: the generator put Soul-Guide Lantern - graveyard
+ * hate - in a Meren deck and in a Sheoldred deck, both of which are built on a
+ * graveyard. Every other signal in the model answers "how much does this help",
+ * so a card that empties the resource the deck runs on and a card that does
+ * nothing scored the same.
+ */
+export const ATTACKS: ReadonlyArray<{ facet: Facet; want: Facet; because: string }> = [
+  {
+    facet: 'eff:exile-graveyard',
+    want: 'cares:zone:graveyard',
+    because: 'this empties graveyards, and the deck is built on using one',
+  },
+];
+
+/**
+ * Does this card work AGAINST what the commander asked for?
+ *
+ * One definition, because there are two callers and they must not drift: the
+ * ranker subtracts a full commander-fit weight for it, and the generator's
+ * reserved slots refuse it outright. The reserve is the one that matters - it
+ * deliberately ignores `score`, so a penalty alone could not stop it, and
+ * Soul-Guide Lantern went into a Sheoldred deck carrying a reason that said in
+ * so many words that it empties graveyards and the deck is built on using one.
+ */
+/*
+ * The plan's wants as a Set, built ONCE per plan.
+ *
+ * Building it inside the function looks harmless and is not: the ranker asks
+ * this of every card in the pool, and on a five-colour commander that pool is
+ * the whole catalogue, so it was fifteen thousand Set allocations per build.
+ * Najeela came back WORKER_RESOURCE_LIMIT on the deployed function within
+ * minutes of the check being added.
+ *
+ * Keyed on the plan object, which is created once per build and never mutated,
+ * so the entry dies with it.
+ */
+const WANT_SETS = new WeakMap<CommanderPlan, ReadonlySet<string>>();
+
+function wantSetFor(plan: CommanderPlan): ReadonlySet<string> {
+  let set = WANT_SETS.get(plan);
+  if (!set) {
+    set = new Set(plan.wants.map(w => w.facet as string));
+    WANT_SETS.set(plan, set);
+  }
+  return set;
+}
+
+export function worksAgainstPlan(
+  plan: CommanderPlan | null | undefined,
+  card: FacetCarrier
+): { because: string } | null {
+  if (!plan?.wants.length) return null;
+  const facets = facetsOf(card);
+  if (!facets.length) return null;
+  /* The cheap test first: almost no card carries an attacking facet, so this
+     returns on the first line for the overwhelming majority and never touches
+     the want set at all. */
+  for (const attack of ATTACKS) {
+    if (!facets.includes(attack.facet)) continue;
+    if (wantSetFor(plan).has(attack.want)) return { because: attack.because };
+  }
+  return null;
+}
+
+/**
  * Each want after the best counts for this much of what it would alone.
  *
  * 0.35 -> 0.20 on 31 Aug 2026, and it is the fix for the complaint that a

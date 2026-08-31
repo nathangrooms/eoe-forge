@@ -7,6 +7,22 @@
  */
 export const ROSTER = [
   {
+    key: 'najeela',
+    name: 'Najeela, the Blade-Blossom',
+    id: '08eb1bef-b00d-490b-a631-2849e0d1fd8e',
+    type_line: 'Legendary Creature — Human Warrior',
+    color_identity: ['B', 'G', 'R', 'U', 'W'],
+    colors: ['R'],
+    archetype: null,
+    style: 'balanced',
+    why:
+      'FIVE COLOURS, so the candidate pool is the whole commander-legal ' +
+      'catalogue and this is the only entry that can hit the edge function CPU ' +
+      'budget. It has failed with WORKER_RESOURCE_LIMIT twice, both times ' +
+      'within minutes of an engine change, so it is the roster entry that ' +
+      'answers "did that cost more than it looks".',
+  },
+  {
     key: 'krenko',
     name: 'Krenko, Mob Boss',
     id: '5a04a833-0ccf-4f59-9d94-2018e2f220e0',

@@ -851,8 +851,31 @@ function readEffect(effect: Effect, out: Set<Facet>): void {
       for (const g of effect.grant ?? []) out.add(`kw:${String(g).toLowerCase()}`);
       return;
 
+    case 'exile': {
+      /*
+       * EXILING A GRAVEYARD IS NOT REMOVAL, and the flat facet set cannot say
+       * so any other way.
+       *
+       * `ROLE_FACETS.removal` reads `eff:exile`, so the moment the compiler
+       * learned to read "exile all graveyards" — Soul-Guide Lantern, Tormod's
+       * Crypt, Relic of Progenitus — every piece of graveyard hate in the
+       * format became an ANSWER, and the builder started reaching for them to
+       * fill removal slots. That is worse than not reading the card at all: it
+       * takes a slot from a card that removes something.
+       *
+       * A separate verb rather than a qualifier on the role, because the
+       * distinction is a fact about the EFFECT and belongs where the effect is
+       * read. It is also the exact facet anti-synergy will key on: a card that
+       * empties a graveyard, in a deck whose plan is built on one.
+       */
+      const zone =
+        (effect as { from?: string }).from ?? (effect.what as { zone?: string } | undefined)?.zone;
+      out.add(zone === 'graveyard' ? 'eff:exile-graveyard' : 'eff:exile');
+      readSelector(effect.what, out);
+      return;
+    }
+
     case 'destroy':
-    case 'exile':
     case 'tap':
     case 'untap':
     case 'counter':

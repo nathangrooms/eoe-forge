@@ -501,7 +501,14 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
        The parameter stays because it is correct and the index is built; what is
        missing is a fetch that orders by rank instead of by id, and that belongs
        with moving selection into Postgres rather than bolted onto the walk. */
-    catalog.poolFor(query, { withOracleText: true }),
+    /* The pool budget is pushed DOWN into the fetch rather than applied after
+       it. The walk is rank-ordered, so its first N rows are the top N by rank -
+       exactly what the slice below produces - and a five-colour build stops
+       fetching at 5,000 instead of parsing 31,829 and keeping 5,000. */
+    catalog.poolFor(query, {
+      withOracleText: true,
+      limit: poolBudgetFor(commanderIdentity.length),
+    }),
     catalog.landPoolFor(query),
     catalog.cardsByName([...BASIC_LANDS], format),
     /*

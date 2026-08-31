@@ -145,7 +145,21 @@ const json = (body: unknown, status = 200) =>
  * `cost:sacrifice` now means the card eats something else, on demand, which is
  * what every consumer of the facet was written to mean.
  */
-const COMPILER_VERSION = 7;
+/*
+ * 7 -> 8 on 31 Aug 2026. Graveyard hate is read, and it is read as its own
+ * thing. "Exile all graveyards" and "exile each opponent's graveyard" had no
+ * rule at all - a graveyard is a ZONE and the exile rule reads a phrase
+ * describing an OBJECT - so Soul-Guide Lantern, Tormod's Crypt and Relic of
+ * Progenitus produced nothing, and the generator put them in graveyard decks
+ * because a card with no record cannot be scored as working against the plan
+ * any more than for it.
+ *
+ * `eff:exile-graveyard` rather than `eff:exile`, because `ROLE_FACETS.removal`
+ * reads the latter: reading these cards without splitting the verb turned every
+ * piece of graveyard hate in the format into an ANSWER, which is worse than not
+ * reading them, since it takes a removal slot from something that removes.
+ */
+const COMPILER_VERSION = 8;
 
 /**
  * Cards read per call.

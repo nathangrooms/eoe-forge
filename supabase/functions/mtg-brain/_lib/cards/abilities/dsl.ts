@@ -334,7 +334,17 @@ export type Effect =
   | { do: 'move-zone'; what: Selector; to: Zone; position?: 'top' | 'bottom' | number; tapped?: boolean }
   | { do: 'destroy'; what: Selector }
   | { do: 'sacrifice'; who: PlayerSelector; what: Selector; count: ValueExpr }
-  | { do: 'exile'; what: Selector }
+  /*
+   * `from` is the zone the cards are exiled OUT OF, and it exists because a
+   * targeted exile hides that on the `TargetSpec` where a facet reader cannot
+   * see it. "Exile target card from a graveyard" and "exile target creature"
+   * are the same verb on the same selector shape and are not the same card:
+   * one answers a threat and one attacks a graveyard, and `ROLE_FACETS.removal`
+   * reads `eff:exile`, so without this every piece of graveyard hate in the
+   * format counts as an answer and takes a removal slot from something that
+   * removes.
+   */
+  | { do: 'exile'; what: Selector; from?: Zone }
   | { do: 'return-from'; zone: Zone; who: PlayerSelector; what: Selector; count: ValueExpr; to: Zone }
   /**
    * `upTo` is the difference between Rampant Growth and Cultivate.

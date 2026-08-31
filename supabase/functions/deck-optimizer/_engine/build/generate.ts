@@ -54,6 +54,7 @@ import type { EngineCard, EngineDeckEntry } from '../core/card.ts';
 import { deriveDeckProfile } from '../advise/profile.ts';
 import { rankCandidates } from '../advise/rank.ts';
 import { cardRole, styleFor, type DeckStyle } from '../advise/roles.ts';
+import { worksAgainstPlan } from '../knowledge/behaviour.ts';
 /* Identity only. Legality is settled by the pool query before a card ever
    reaches this module, so re-testing it here would be a second opinion about
    something already decided. */
@@ -698,6 +699,29 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
   const spellSlots = Math.max(0, slots - landTarget);
 
   /*
+   * ONE ROLE SET PER CARD, for the whole build.
+   *
+   * `cardRole` is asked eight times per card by `neediestRole` alone, and again
+   * by the staple pass, the short-role top-up and the creature floor. On a
+   * five-colour commander the pool is the whole catalogue, so that is well over
+   * a hundred thousand calls, each one walking the facet list and then the tag
+   * fallback. Najeela came back WORKER_RESOURCE_LIMIT.
+   *
+   * A card's roles are a pure function of its facets, tags and type line, none
+   * of which change during a build, so the second answer can never differ from
+   * the first.
+   */
+  const roleMemo = new Map<string, Set<Role>>();
+  const rolesOf = (card: BuildCard): Set<Role> => {
+    let roles = roleMemo.get(card.oracleId);
+    if (!roles) {
+      roles = new Set(ROLES.filter(role => cardRole(card, role)));
+      roleMemo.set(card.oracleId, roles);
+    }
+    return roles;
+  };
+
+  /*
    * ONE `planFit` PER CARD, for the whole build.
    *
    * Three places ask it and two of them walk the entire ranked pool. On a
@@ -945,7 +969,7 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
     const card = rec.card as BuildCard;
     if (takenOracleIds.has(card.oracleId)) continue;
     if (overColourlessCap(card)) continue;
-    const role = neediestRole(card, quota);
+    const role = neediestRole(card, quota, rolesOf(card));
     if (!role) continue;
     if (!hasColour(card)) colourlessPicked += 1;
     quota[role] -= 1;
@@ -1004,6 +1028,16 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
         return { rec, fit: hit.fit, want: hit.matched?.[0]?.facet ?? null };
       })
       .filter(entry => entry.fit >= COMMANDER_RESCUE_FIT)
+      /* AND NOTHING THAT WORKS AGAINST THE PLAN. This pass ignores `score` by
+         design, so the ranker's anti-synergy penalty cannot reach it: Soul-Guide
+         Lantern shares `cares:zone:graveyard` with a graveyard commander, scored
+         a real fit on it, and was taken carrying a reason that said in so many
+         words that it empties graveyards and the deck is built on using one.
+
+         AFTER the fit floor, never before it. Asked of every ranked spell this
+         is another walk of the whole pool, and on a five-colour commander that
+         pool is the catalogue. Above the floor it is a few hundred cards. */
+      .filter(entry => !worksAgainstPlan(commanderPlan, entry.rec.card as BuildCard))
       /*
        * Want weight first, then HOW PLAYED, and score is not consulted at all.
        *
@@ -1080,7 +1114,7 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
         /* The role tally still moves, so the shortfall lines below stay honest:
            a card taken here that happens to serve a short role really did fill
            it, and reporting it as missing would be a lie about the deck. */
-        const filled = ROLES.find(role => role !== 'land' && quota[role] > 0 && cardRole(card, role));
+        const filled = ROLES.find(role => role !== 'land' && quota[role] > 0 && rolesOf(card).has(role));
         if (filled) {
           quota[filled] -= 1;
           roleFill[filled].picked += 1;
@@ -1143,7 +1177,7 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
         const candidate = topUpOrder[i].card as BuildCard;
         if (takenOracleIds.has(candidate.oracleId)) continue;
         if (overColourlessCap(candidate)) continue;
-        if (!cardRole(candidate, role)) continue;
+        if (!rolesOf(candidate).has(role)) continue;
         found = i;
         break;
       }
@@ -1746,12 +1780,16 @@ function toEngineCard(card: BuildCard): EngineCard {
 }
 
 /** The role this card should be credited for: the one the deck needs most. */
-function neediestRole(card: BuildCard, quota: Record<Role, number>): Role | null {
+function neediestRole(
+  card: BuildCard,
+  quota: Record<Role, number>,
+  roles: ReadonlySet<Role>
+): Role | null {
   let best: Role | null = null;
   let bestLeft = 0;
   for (const role of ROLES) {
     if (quota[role] <= 0) continue;
-    if (!cardRole(card, role)) continue;
+    if (!roles.has(role)) continue;
     // Strict `>` over a fixed role order, so ties resolve the same way every
     // time — the same rule `scoreCandidate` uses.
     if (quota[role] > bestLeft) {

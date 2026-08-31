@@ -306,8 +306,18 @@ export interface Signal {
     | 'curve-fit'
     | 'budget-fit'
     | 'castability'
-    | 'popularity';
-  /** Contribution to the total score. May be negative (curve fit only). */
+    | 'popularity'
+    /**
+     * The card works AGAINST the deck's plan.
+     *
+     * Every other signal here answers "how much does this help". This one is
+     * the first that can answer "this hurts", and it exists because the
+     * generator put Soul-Guide Lantern - graveyard hate - in a graveyard deck.
+     * Nothing could score that, because a card that empties a graveyard and a
+     * card that does nothing were the same to a model with no negative term.
+     */
+    | 'anti-synergy';
+  /** Contribution to the total score. May be negative (curve fit and anti-synergy). */
   score: number;
   /** Human-readable clause, built from numbers. */
   detail: string;

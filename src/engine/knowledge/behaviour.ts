@@ -118,6 +118,19 @@ export const FACET_PREFIXES: readonly string[] = [
      specific thing a card can do and had no word at all. Bastion Protector,
      Command Beacon, the whole "commander matters" shell. */
   'cares:commander',
+  /* A filter that names a COLOUR, the way `cares:type:` names a card type.
+     Four readers asked for it independently across two rounds. */
+  'cares:color:',
+  /* How much mana, or which colours, were spent to cast a spell: convoke,
+     improvise, sunburst, "spend only mana produced by". Three readers. */
+  'cares:mana-spent',
+  /* A card whose condition reads a creature's POWER. Ghalta's own shell, and
+     every "power 4 or greater matters" payoff. */
+  'cares:power',
+  /* Payoffs keyed on life having been GAINED, which is not the same as a card
+     that gains life. Two readers, and the distinction is the whole lifegain
+     archetype: Ajani's Pridemate wants the trigger, not the gain. */
+  'cares:lifegain',
   'trig:',
   'scope:',
   'rec:',
@@ -277,6 +290,41 @@ export const EFFECT_VERBS: readonly string[] = [
   /* Goad, and "must attack". Different from `cant-attack` by direction and by
      purpose: one neutralises a creature, the other points it at somebody else. */
   'goad',
+  /*
+   * THE SAME RESTRICTION, POINTED AT ITSELF, and it is a different card.
+   *
+   * `eff:cant-attack` is Pacifism and is REMOVAL: you have answered something
+   * of theirs. A creature that itself cannot attack is a Wall, and that is a
+   * DRAWBACK priced into its stats. Tagger keeps the two apart as
+   * `prevent-attack` (151 cards) and `restricted-attacker` (115), and mapping
+   * both to one word would have filed every defensive creature in the game as
+   * removal.
+   *
+   * Precisely the fault the `effect.who` work cost 574 cards to fix, and the
+   * reason `exile-own`, `tap-own` and `discard-self` are separate verbs rather
+   * than an `aims:` qualifier: a role check asks whether a card carries ONE
+   * facet, so a qualifier alongside would change nothing.
+   */
+  'cant-attack-self',
+  'cant-block-self',
+  /* Cascade, discover, and "you may cast it without paying its mana cost".
+     CLAUDE.md lists this as an unread cluster in the top 2,000 by name. */
+  'cast-free',
+  /* Lure and provoke. The opposite of `cant-block`: it compels the block rather
+     than forbidding it, and the deck that wants it is a trample deck. */
+  'force-block',
+  /* Handing a permanent to somebody else. Donate, and the punisher cards that
+     give away a drawback. The mirror of `gain-control`, and it must not share
+     a word with it: one is removal and the other is a combo piece. */
+  'give-control',
+  /* A permanent turns to its other face. Werewolves, sagas that flip, the whole
+     day/night shell. */
+  'transform',
+  /* Your spells cannot be countered. */
+  'uncounterable',
+  /* A player skips or gains a phase or a step: extra untap steps, skipped draw
+     steps, Necropotence's own first line. */
+  'skip-phase',
   /*
    * PREVENTING DAMAGE, and KEEPING A CREATURE ALIVE, which are different jobs.
    *
@@ -1567,6 +1615,22 @@ const INTENT_RULES: readonly IntentRule[] = [
     when: /(as a copy of|becomes? a copy of|tokens? that are copies of|copy of (another )?target creature)/i,
     reads: "copies your creatures",
     wants: [
+      /*
+       * `eff:copy` first, because without it this rule asked a clone commander
+       * for everything EXCEPT clones.
+       *
+       * The three wants below are the shell around the theme — enters triggers
+       * worth copying, creatures to copy, tokens to copy them with — and not
+       * one of the 61 cards carrying the `clone` tag has any of them. Clone,
+       * Phantasmal Image, Spark Double, Sakashima and Vesuva compile to a
+       * Shapeshifter type line and nothing else, so a Commander built to copy
+       * things pulled no copy card toward itself at all.
+       *
+       * Found by the reader verifying the tag mapping, which is the point of
+       * adding a word and a consumer in the same pass: `eff:copy` was declared,
+       * fed by 65 cards, and read by nobody.
+       */
+      ['eff:copy', 0.85],
       ['trig:enters', 0.8],
       ['type:creature', 0.6],
       ['eff:create-token', 0.5],
@@ -3996,6 +4060,14 @@ const EFFECT_PHRASES: Readonly<Record<string, string>> = {
   'play-from-graveyard': 'plays lands from the graveyard',
   random: 'flips a coin or rolls a die',
   goad: 'forces creatures to attack elsewhere',
+  'cant-attack-self': 'cannot attack itself',
+  'cant-block-self': 'cannot block itself',
+  'cast-free': 'casts a spell without paying for it',
+  'force-block': 'forces a creature to block it',
+  'give-control': 'gives a permanent away',
+  transform: 'turns a permanent to its other face',
+  uncounterable: 'cannot be countered',
+  'skip-phase': 'skips or adds a phase',
   'remove-counters': 'takes counters off',
   'player-counter': 'puts counters on players',
   pump: 'pumps creatures',

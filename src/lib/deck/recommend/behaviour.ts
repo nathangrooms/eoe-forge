@@ -762,9 +762,39 @@ function readAbility(ability: Ability, out: Set<Facet>): void {
   if (ability.kind === 'static') {
     readSelector(ability.affects, out);
     for (const mod of ability.modifications) {
-      if (mod.layer === 'pt-modify' || mod.layer === 'pt-set') out.add('eff:pump');
+      /*
+       * SETTING power and toughness is not PUMPING it, and the two were the
+       * same word.
+       *
+       * Humble ("target creature loses all abilities and becomes 0/1") and
+       * Kenrith's Transformation are ANSWERS: they work through indestructible,
+       * through a giant creature, through anything, because they overwrite the
+       * number rather than adding to it. Reading them as `eff:pump` filed them
+       * in `enhance`, the role for cards that make your creatures better.
+       */
+      if (mod.layer === 'pt-modify') out.add('eff:pump');
+      if (mod.layer === 'pt-set') out.add('eff:set-pt');
       if (mod.layer === 'ability') {
-        for (const g of mod.grant ?? []) out.add(`kw:${String(g).toLowerCase()}`);
+        /*
+         * GIVING A KEYWORD IS NOT HAVING ONE, and this line could not tell them
+         * apart.
+         *
+         * `kw:hexproof` meant both "this creature has hexproof" and "this card
+         * grants hexproof to something", so Purphoros (who HAS indestructible)
+         * and Swiftfoot Boots (which GRANT hexproof) produced the same facet.
+         * CLAUDE.md records the consequence as roughly 15% false positives on
+         * the `protection` role and gives the reason as the facet set being
+         * flat; it is not, it is this line throwing the distinction away.
+         *
+         * `grants:` keeps both, because a deck wants both and for different
+         * reasons: a flier is evasion, a card that gives flying is an evasion
+         * ENABLER, and only the second is a reason to run more creatures.
+         */
+        for (const g of mod.grant ?? []) {
+          const kw = String(g).toLowerCase();
+          out.add(`grants:${kw}`);
+          out.add(`kw:${kw}`);
+        }
       }
       /*
        * An extra land drop is RAMP, and it had no facet at all.
@@ -874,7 +904,24 @@ function readActivationCost(costs: readonly Cost[] | undefined, out: Set<Facet>)
       continue;
     }
     const parsed = parseCost(cost.cost);
-    if (parsed.hasX) return;
+    if (parsed.hasX) {
+      /*
+       * AN X COST IS A MANA SINK, AND IT USED TO EMIT NOTHING.
+       *
+       * This was `return`, so an activated ability whose cost contains X
+       * produced NO `acost:` facet at all and the card read as having no
+       * activated ability whatsoever. 1,864 cards, and they are a coherent
+       * archetype: Walking Ballista, Hydra, Shark Typhoon, every "mana sink"
+       * a deck runs precisely because it absorbs a late-game surplus.
+       *
+       * Returning was right about one thing, which is why it survived: X has no
+       * mana VALUE, so adding it to the total would be a lie. `acost:x` says
+       * the cost is variable, which is the fact a deck cares about.
+       */
+      out.add('acost:x');
+      sawMana = true;
+      continue;
+    }
     mana += parsed.manaValue ?? 0;
     sawMana = true;
   }
@@ -1021,7 +1068,13 @@ function readEffect(effect: Effect, out: Set<Facet>, targets?: readonly TargetSp
       const positive = (p !== null && p > 0) || (t !== null && t > 0);
       out.add(negative && !positive ? 'eff:shrink' : 'eff:pump');
       readSelector(effect.what, out);
-      for (const g of effect.grant ?? []) out.add(`kw:${String(g).toLowerCase()}`);
+      /* Same distinction as the static layer above: a pump spell that grants
+         trample is an evasion ENABLER, not a card that has trample. */
+      for (const g of effect.grant ?? []) {
+        const kw = String(g).toLowerCase();
+        out.add(`grants:${kw}`);
+        out.add(`kw:${kw}`);
+      }
       return;
     }
 

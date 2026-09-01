@@ -86,6 +86,11 @@ export type Facet = string;
 
 /** Facet prefixes the engine reads. A producer may emit no others. */
 export const FACET_PREFIXES: readonly string[] = [
+  /* GIVING a keyword, as opposed to having one. `kw:hexproof` meant both until
+     1 Sep 2026, so Purphoros (has indestructible) and Swiftfoot Boots (grants
+     hexproof) produced the same facet, which is the ~15% false-positive rate
+     CLAUDE.md records on the protection role. */
+  'grants:',
   'type:',
   'sub:',
   'kw:',
@@ -164,6 +169,11 @@ export const EFFECT_VERBS: readonly string[] = [
   'lose-game',
   'set-monarch',
   'unless-pays',
+  /* Setting power and toughness is an ANSWER, not a pump: Humble and Kenrith's
+     Transformation work through indestructible because they overwrite the
+     number rather than adding to it. Reading them as `eff:pump` filed them in
+     `enhance`, the role for cards that make your creatures better. */
+  'set-pt',
   /*
    * THE SAME VERB, AIMED AT YOUR OWN SIDE. Not a qualifier, because a role
    * check asks whether the card carries one facet, so an `aims:` facet

@@ -166,6 +166,9 @@ export function EngineHealth() {
    * it is current for cards printed next week.
    */
   const [census, setCensus] = useState<{ measure: string; cards: number; share: number | null }[] | null>(null);
+  const [knowledge, setKnowledge] = useState<
+    { measure: string; cards: number; share: number | null; note: string | null }[] | null
+  >(null);
   const [sources, setSources] = useState<Sources | null>(null);
   const [coverage, setCoverage] = useState<Coverage | null>(null);
   const [running, setRunning] = useState(false);
@@ -180,6 +183,25 @@ export function EngineHealth() {
           .rpc('engine_coverage' as never)
           .then(({ data }) => {
             if (!cancelled && Array.isArray(data)) setCensus(data as never);
+          });
+
+        /*
+         * A SECOND QUESTION, AND IT IS NOT THE SAME QUESTION.
+         *
+         * `engine_coverage` is the compiler's own span-accounted verdict: did
+         * OUR parser get to the end of every line. `engine_knowledge` is what
+         * the app can actually say about a card, over `cards_pool`, so it
+         * includes Scryfall Tagger's community reading merged under the
+         * precision gate.
+         *
+         * Both are on the screen because quoting either alone is a lie by
+         * omission. Tagger saying "this draws cards" is enough to offer a card
+         * as draw and nowhere near enough to resolve it in play mode.
+         */
+        void supabase
+          .rpc('engine_knowledge' as never)
+          .then(({ data }) => {
+            if (!cancelled && Array.isArray(data)) setKnowledge(data as never);
           });
 
         /*
@@ -293,11 +315,104 @@ export function EngineHealth() {
   const pct = (k: number, of: number) => (of > 0 ? (k / of) * 100 : 0);
 
   const measure = (name: string) => census?.find(row => row.measure === name);
+  const known = (name: string) => knowledge?.find(row => row.measure === name);
+  /* The five bands partition the catalogue, so their sum IS the denominator. */
+  const knownTotal =
+    (known('nothing to read')?.cards ?? 0) +
+    (known('whole card read')?.cards ?? 0) +
+    (known('knows what it does, not all of it')?.cards ?? 0) +
+    (known('knows what it looks at, not what it does')?.cards ?? 0) +
+    (known('knows nothing about what it does')?.cards ?? 0);
   const measured = measure('measured')?.cards ?? 0;
   const stillToMeasure = measure('still to be measured')?.cards ?? 0;
 
   return (
     <div className="space-y-6">
+      {/*
+        WHAT THE APP KNOWS, which is the number deck building actually depends
+        on, and it is deliberately ABOVE the compiler's own verdict below.
+
+        The two are different questions and this project has conflated them
+        before. A card the compiler could not finish reading can still be
+        offered as a draw spell if Tagger's community reading says it draws
+        cards, and that is genuinely useful; it is also nowhere near enough to
+        resolve the card in play mode. So the headline says what it means, the
+        partition underneath adds to 100, and the compiler's own figure keeps
+        its own card below with its own heading.
+      */}
+      <Card>
+        <CardContent className="space-y-4 p-5 md:p-6">
+          <div>
+            <h2 className="text-lg font-semibold">What we can say about a card</h2>
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+              Whether we know what a card <em>does</em>, from any source we trust. This is what deck
+              building, suggestions and the optimiser read. It is not the same as having read the
+              whole card, which is the next section.
+            </p>
+          </div>
+
+          {knowledge === null ? (
+            <p className="text-sm text-muted-foreground">Reading the catalogue.</p>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <p className="text-4xl font-semibold tabular-nums leading-none">
+                  {(known('the app knows what it does')?.share ?? 0).toFixed(1)}%
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {(known('the app knows what it does')?.cards ?? 0).toLocaleString()} of{' '}
+                  {knownTotal.toLocaleString()} cards
+                </p>
+              </div>
+              <Meter pct={known('the app knows what it does')?.share ?? 0} />
+
+              <CardGrid width={190}>
+                <Stat
+                  label="Whole card read"
+                  value={(known('whole card read')?.cards ?? 0).toLocaleString()}
+                  note="every paragraph accounted for"
+                />
+                <Stat
+                  label="Knows the job"
+                  value={(known('knows what it does, not all of it')?.cards ?? 0).toLocaleString()}
+                  note="at least one verb, not the whole card"
+                />
+                <Stat
+                  label="Nothing to read"
+                  value={(known('nothing to read')?.cards ?? 0).toLocaleString()}
+                  note="no rules text. Complete, not missing"
+                />
+                <Stat
+                  label="Still to work out"
+                  value={(
+                    (known('knows what it looks at, not what it does')?.cards ?? 0) +
+                    (known('knows nothing about what it does')?.cards ?? 0)
+                  ).toLocaleString()}
+                  note="cannot be offered for a job"
+                />
+              </CardGrid>
+
+              {/*
+                PROVENANCE, said out loud. A word from our compiler comes from a
+                parsed record and can be regenerated and checked; a word from
+                Tagger comes from a person and cannot. Anyone reading this screen
+                should know how much of the headline rests on which.
+              */}
+              <div className="rounded-lg bg-muted/30 p-4">
+                <p className="text-sm">
+                  <span className="font-semibold tabular-nums">
+                    {(known('Tagger was the only source')?.cards ?? 0).toLocaleString()}
+                  </span>{' '}
+                  of those cards have no verb from our own compiler at all. What we know about them
+                  comes from Scryfall Tagger&rsquo;s community reading, merged only where it cleared
+                  86% precision against a hand-built answer key.
+                </p>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
       {/*
         HOW MUCH OF EVERY CARD THE ENGINE READS. No sample, no top-N.
 

@@ -103,6 +103,21 @@ export const FACET_PREFIXES: readonly string[] = [
   'cares:type:',
   'cares:sub:',
   'cares:zone:',
+  /*
+   * A CARD WHOSE FILTER NAMES A KEYWORD rather than a type or a subtype.
+   * "Whenever a creature with flying attacks", "creatures with cycling", the
+   * foretell and transform payoffs. Three readers hit this independently and
+   * every one of them had to skip a correct, uniform tag for want of it.
+   *
+   * It is the third member of a family that already has two: `cares:type:` and
+   * `cares:sub:`. The card is asking about a PROPERTY of another card, and a
+   * keyword is a property.
+   */
+  'cares:kw:',
+  /* And the card that singles out YOUR COMMANDER, which is the most Commander-
+     specific thing a card can do and had no word at all. Bastion Protector,
+     Command Beacon, the whole "commander matters" shell. */
+  'cares:commander',
   'trig:',
   'scope:',
   'rec:',
@@ -191,6 +206,96 @@ export const EFFECT_VERBS: readonly string[] = [
      consumer that reads `eff:choose` reads all of them, and a new subject needs
      no entry here and no role rule before the card counts for anything. */
   'choose',
+  /*
+   * COMBAT RESTRICTIONS, which the DSL has modelled all along and the facet
+   * layer has never read.
+   *
+   * `dsl.ts` carries `{rule:'cant-be-blocked-except-by'}`, `{rule:'cant-block'}`
+   * and `{rule:'cant-attack'}`, and `readEffects` reads exactly one Restriction
+   * rule, `max-lands-per-turn`. So Pacifism — an aura whose entire text is
+   * "enchanted creature can't attack or block" — carried NO facet at all, could
+   * serve no role, and could not be chosen by any deck for any reason.
+   *
+   * Two of them are removal and one is evasion, which is why they are three
+   * words and not one. A card that stops a creature attacking and blocking has
+   * answered it; a card that makes YOUR creature unblockable has not answered
+   * anything.
+   */
+  'cant-block',
+  'cant-attack',
+  'cant-be-blocked',
+  /*
+   * WHAT A SPELL COSTS, which CLAUDE.md has named as a hole for two days:
+   * "Grand Arbiter Augustin IV compiles to three exact cost-modifying statics
+   * and contributes nothing to deck building, because cost reduction has no
+   * facet."
+   *
+   * Ghalta, Primal Hunger is rank 461 and carried NO facet at all, because her
+   * whole card is a cost reduction and a trample keyword. Reduction is filed as
+   * ramp: paying less for a spell and making more mana are the same job seen
+   * from opposite ends, which is the reasoning `eff:extra-land-drop` already
+   * uses. Taxing is interaction, because a card that makes everyone else pay
+   * more is answering them.
+   */
+  'reduce-cost',
+  'increase-cost',
+  /*
+   * STAX, which had no vocabulary whatsoever. Silence is rank 407 and its
+   * entire text is "your opponents can't cast spells this turn"; Drannith
+   * Magistrate is 720. Both produced nothing and could serve no role.
+   */
+  'cant-cast',
+  'cant-activate',
+  /*
+   * COPYING, asked for by seven separate readers, which is the strongest signal
+   * in the whole triage. Clone, Strionic Resonator (590), Vesuva (925). Copying
+   * a permanent, a spell and a triggered ability are one word because the deck
+   * building question is the same: this card becomes the best thing available.
+   */
+  'copy',
+  /*
+   * DOUBLING, which CLAUDE.md lists as an unread cluster by name: "replacement
+   * doubling - Panharmonicon, Hardened Scales". Fiery Emancipation (855) and
+   * Twinflame Tyrant (811) triple and double damage; Delney doubles triggers.
+   * One word, because what is multiplied is already said by the other facets
+   * the card carries.
+   */
+  'multiply',
+  /* A noncreature permanent becomes a creature: manlands, and the enchantments
+     that stand up. Not `eff:pump`, which assumes there is a creature already. */
+  'animate',
+  /* Pariah and Palisade Giant. Damage still happens, so it is not prevention,
+     and the deck it belongs to is built on that difference. */
+  'redirect-damage',
+  /* Playing lands out of the graveyard. Crucible of Worlds (597) and Ramunap
+     Excavator (476) both carried nothing at all. Ramp, for the same reason
+     `eff:extra-land-drop` is ramp: it is more lands in play per turn. */
+  'play-from-graveyard',
+  /* Coin flips and dice. Roughly 200 cards across roll-d6, roll-d20 and
+     coin-flip, and every existing verb would have been a lie about them. */
+  'random',
+  /* Goad, and "must attack". Different from `cant-attack` by direction and by
+     purpose: one neutralises a creature, the other points it at somebody else. */
+  'goad',
+  /*
+   * PREVENTING DAMAGE, and KEEPING A CREATURE ALIVE, which are different jobs.
+   *
+   * `prevent-damage` is the Fog and the Circle of Protection: the damage does
+   * not happen. The DSL models it twice, as `{rule:'damage-prevention'}` and as
+   * a `{do:'prevent'}` replacement, and the facet layer read neither.
+   *
+   * `protect` is the abstraction over four different keywords doing one job.
+   * Measured across the `protects-creature` tag: hexproof dominates, then
+   * shroud, then indestructible, then protection, plus shield counters. So
+   * `grants:hexproof` would be right for three quarters and a lie for the rest,
+   * and the deck builder's question is "what keeps my commander alive", which
+   * is one question.
+   */
+  'prevent-damage',
+  'protect',
+  /* Setting a life total is not gaining or losing life, and the difference is
+     the whole card: Repay in Kind and Biorhythm are symmetric resets. */
+  'set-life',
   // Named `manual` hints, read by hint id.
   'proliferate',
   'extra-turn',
@@ -273,7 +378,15 @@ export const ROLE_FACETS: Readonly<Record<Role, readonly Facet[]>> = {
      in play every turn, which is what a player means by ramp. Derived from the
      `max-lands-per-turn` restriction, so only a card that actually grants one
      carries it. */
-  ramp: ['eff:add-mana', 'cares:zone:library-land', 'eff:extra-land-drop'],
+  /* `eff:reduce-cost` and `eff:play-from-graveyard` join for the reason the
+     comment above gives `eff:extra-land-drop`: paying less and playing more
+     lands are both "this deck does more per turn than its mana says it should".
+     Ghalta at rank 461 and Crucible of Worlds at 597 could serve no role at all
+     before this. */
+  ramp: [
+    'eff:add-mana', 'cares:zone:library-land', 'eff:extra-land-drop',
+    'eff:reduce-cost', 'eff:play-from-graveyard',
+  ],
   /*
    * Drawing a card, AND buying one back out of the graveyard, which is the same
    * thing from the deck's point of view: a card you did not have and now do.
@@ -290,7 +403,18 @@ export const ROLE_FACETS: Readonly<Record<Role, readonly Facet[]>> = {
      things, which is the job removal names. Splitting the sign moved 116 cards
      out of enhance, where a sweeper was being counted as an anthem: Massacre
      Wurm, Massacre Girl, Doomwake Giant, Languish. */
-  removal: ['eff:destroy', 'eff:exile', 'eff:damage', 'eff:gain-control', 'eff:shrink'],
+  /*
+   * `eff:cant-block` and `eff:cant-attack` are Pacifism, Arrest, Cage of Hands,
+   * Ice Cage, Bound in Silence, Nahiri's Binding — the whole neutralising-aura
+   * family, which carried no facet at all and so could serve no role and be
+   * chosen by nothing. A creature that can neither attack nor block has been
+   * answered as surely as one that was destroyed, and in white it is often the
+   * only answer available at that mana value.
+   */
+  removal: [
+    'eff:destroy', 'eff:exile', 'eff:damage', 'eff:gain-control', 'eff:shrink',
+    'eff:cant-block', 'eff:cant-attack',
+  ],
   /*
    * `eff:move-zone` is bounce, and bounce at INSTANT speed is interaction.
    *
@@ -302,7 +426,14 @@ export const ROLE_FACETS: Readonly<Record<Role, readonly Facet[]>> = {
    * answers. An instant that returns a permanent to its owner's hand is an
    * answer to what somebody just did, which is what this role means.
    */
-  interaction: ['eff:counter', 'eff:tap', 'eff:unless-pays', 'eff:discard', 'eff:move-zone'],
+  /* The three stax words. A card that stops a spell being cast, stops an
+     ability being activated, or makes both cost more is answering what the
+     other players are trying to do, which is what this role means. Silence
+     (407) and Drannith Magistrate (720) had no role before this. */
+  interaction: [
+    'eff:counter', 'eff:tap', 'eff:unless-pays', 'eff:discard', 'eff:move-zone',
+    'eff:cant-cast', 'eff:cant-activate', 'eff:increase-cost',
+  ],
   /*
    * Searching a library, EXCEPT for the land case, which is ramp and is
    * already claimed by `cares:zone:library-land` above. Rampant Growth and
@@ -338,6 +469,21 @@ export const ROLE_FACETS: Readonly<Record<Role, readonly Facet[]>> = {
   protection: [
     'kw:hexproof', 'kw:shroud', 'kw:indestructible', 'kw:protection', 'kw:ward',
     'eff:exile-own',
+    /*
+     * `eff:protect` is one word for one job done by four keywords, so a card is
+     * not missed because it chose shroud over hexproof. `eff:prevent-damage` is
+     * the Fog half: stopping the damage is protecting the board, and Teferi's
+     * Protection is already here through `eff:exile-own` for the same reason.
+     *
+     * `grants:protection` joins `kw:protection` because GIVING protection is
+     * the thing a deck wants and HAVING it is incidental — the same distinction
+     * the `grants:` prefix was added to make, and the one that stopped
+     * Purphoros being counted as protection.
+     */
+    'eff:protect', 'eff:prevent-damage', 'grants:protection',
+    /* Pariah does not stop the damage, it moves it, and the deck runs it for
+       exactly that reason. Still protection: you do not take it. */
+    'eff:redirect-damage',
   ],
   /*
    * Deliberately narrow, and it stays narrow.
@@ -3833,6 +3979,23 @@ const EFFECT_PHRASES: Readonly<Record<string, string>> = {
   'search-library': 'searches your library',
   'create-token': 'makes tokens',
   'add-counters': 'puts counters on things',
+  'cant-block': 'stops a creature blocking',
+  'cant-attack': 'stops a creature attacking',
+  'cant-be-blocked': 'makes a creature unblockable',
+  'prevent-damage': 'prevents damage',
+  protect: 'keeps your creatures alive',
+  'set-life': 'sets a life total',
+  'reduce-cost': 'makes spells cost less',
+  'increase-cost': 'makes spells cost more',
+  'cant-cast': 'stops spells being cast',
+  'cant-activate': 'stops abilities being activated',
+  copy: 'copies things',
+  multiply: 'doubles or triples what happens',
+  animate: 'turns a permanent into a creature',
+  'redirect-damage': 'redirects damage',
+  'play-from-graveyard': 'plays lands from the graveyard',
+  random: 'flips a coin or rolls a die',
+  goad: 'forces creatures to attack elsewhere',
   'remove-counters': 'takes counters off',
   'player-counter': 'puts counters on players',
   pump: 'pumps creatures',

@@ -960,7 +960,29 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
    * cards the plan asks for loudest, so the worst case is six cards that fit
    * the commander instead of six that filled a quota.
    */
-  const fitReserve = commanderPlan.wants.length > 0 ? COMMANDER_FIT_RESERVE : 0;
+  /*
+   * A COMMANDER THAT ASKS FOR MORE THINGS NEEDS MORE SLOTS TO ASK THEM WITH.
+   *
+   * Eight was a fixed number against a fixed assumption: that a commander is
+   * one strategy and eight cards is enough to say so. Syr Vondam is not. He is
+   * paid when your creatures die OR are exiled, which is aristocrats AND blink,
+   * and eight slots split across two strategies is four cards of each, which is
+   * neither.
+   *
+   * The role floors take 48 of 55 nonland slots, so whatever the commander
+   * wants has to fit in what is left. A commander with three loud wants can say
+   * what it is in eight; one with eight loud wants cannot.
+   *
+   * LOUD is 0.7, which is where the plan stops describing the commander and
+   * starts describing things that would be nice. Capped at 16 so the floors
+   * always keep a working majority: the deck still has to draw cards, remove
+   * things and make mana, and a deck that is all theme loses to one that works.
+   */
+  const loudWants = commanderPlan.wants.filter(w => w.weight >= 0.7).length;
+  const fitReserve =
+    commanderPlan.wants.length > 0
+      ? Math.min(16, COMMANDER_FIT_RESERVE + Math.max(0, loudWants - 3))
+      : 0;
   const quotaSlots = Math.max(0, spellSlots - fitReserve);
 
   const quota = { ...targets, land: 0, creature: 0 } as Record<Role, number>;
@@ -1087,53 +1109,163 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
      * `matched[0]` is the card's own best reason, so the pass is grouped by why
      * each card was wanted rather than by anything imposed from outside.
      */
-    const servedWants = new Set<string>();
+    /*
+     * THE RESERVE SPENDS ON WHAT THE DECK HAS NOT GOT, NOT ON WHAT THE
+     * COMMANDER SAYS LOUDEST.
+     *
+     * The owner, on Syr Vondam: *"this commander benefits from 2 strategies
+     * together"*. He is paid when your creatures die OR are exiled, so his plan
+     * correctly asks for `cost:sacrifice` 0.90 and `eff:exile-own` 0.85 at the
+     * same time — aristocrats AND blink. The generated deck was 67% on theme
+     * and every themed card was aristocrats. Not one blink card.
+     *
+     * Two things caused that and they compound:
+     *
+     *   `planFit` is a NOISY-OR, so a card matching sacrifice, dies and
+     *   create-token together scores 0.90 while Cloudshift, which matches the
+     *   one facet that IS the other strategy, scores 0.868. The bigger cluster
+     *   always wins on total fit.
+     *
+     *   Black holds hundreds of aristocrats cards and white holds about twenty
+     *   blink cards. So the quota loop fills the deck from the larger pool, and
+     *   then the reserve — ordered by WANT WEIGHT — spends its slots on
+     *   `cost:sacrifice` first, which is the half the deck already has.
+     *
+     * A want that fifteen cards already serve does not need a reserved slot. A
+     * want that NOTHING serves is the whole reason this pass exists. So the
+     * priority of a want is its weight divided by how many cards already serve
+     * it, seeded from the cards the quota loop actually picked.
+     *
+     * Vondam: after the quota loop `cost:sacrifice` is served by a dozen cards
+     * and drops to 0.90/13, while `eff:exile-own` is served by none and stays
+     * at 0.85. Blink takes the slots, and keeps taking them until it is no
+     * longer the thing the deck is most short of.
+     *
+     * This is not a Vondam rule. Every commander with two strategies had the
+     * smaller-pool half squeezed out, and the ones with a single strategy are
+     * unaffected because their one cluster is under-served until it is served.
+     */
+    const servedCount = new Map<string, number>();
+    for (const entry of picked) {
+      const facets = (entry.card as BuildCard).facets;
+      if (!facets) continue;
+      for (const f of facets) {
+        if (wantWeightOf.has(f)) servedCount.set(f, (servedCount.get(f) ?? 0) + 1);
+      }
+    }
+    /*
+     * HOW MANY CARDS A WANT NEEDS BEFORE IT IS A STRATEGY RATHER THAN A CARD.
+     *
+     * The first version of this divided the weight by the number of cards
+     * already serving it, which is right about the direction and wrong about
+     * the shape: it makes the SECOND card for a want worth half the first, so
+     * the reserve spread one card across eight different wants and Vondam's
+     * blink half came out as a single copy of Ephemerate. One blink spell in a
+     * 99-card deck is not a blink deck; it is a blink card.
+     *
+     * A want as loud as 0.85 is a thing the deck is supposed to DO, and doing
+     * it takes about as many cards as any other role floor. So a want has a
+     * target, proportional to how loudly it is asked for, and its urgency is
+     * how far short of that target the deck currently is. A want at or past its
+     * target contributes nothing and the slots move to the next thing missing.
+     *
+     * Ten is the scale because the role floors this competes with come out
+     * around six to eight, and a commander's loudest want should be worth at
+     * least as much as a generic floor. It is deliberately NOT tuned per
+     * commander: a number fitted to Syr Vondam is a number that will be wrong
+     * for the next one.
+     */
+    const WANT_TARGET_SCALE = 10;
+    const targetFor = (want: string) =>
+      Math.max(1, Math.round((wantWeightOf.get(want) ?? 0) * WANT_TARGET_SCALE));
+
+    /** How far short of its target this want is, weighted by how loud it is. */
+    const urgency = (want: string | null) => {
+      if (!want) return 0;
+      const weight = wantWeightOf.get(want) ?? 0;
+      const short = targetFor(want) - (servedCount.get(want) ?? 0);
+      if (short <= 0) return 0;
+      return weight * (short / targetFor(want));
+    };
+
     let reserved = 0;
-    const spend = (allowRepeat: boolean) => {
-      for (const { rec, fit, want } of byFit) {
-        if (reserved >= fitReserve) break;
-        if (picked.length - chosenLands.length >= spellSlots) break;
-        const card = rec.card as BuildCard;
+    const reservedNames: string[] = [];
+    const remaining = byFit.filter(e => !takenOracleIds.has((e.rec.card as BuildCard).oracleId));
+
+    while (reserved < fitReserve && picked.length - chosenLands.length < spellSlots) {
+      let best: (typeof remaining)[number] | null = null;
+      let bestUrgency = -1;
+      for (const entry of remaining) {
+        const card = entry.rec.card as BuildCard;
         if (takenOracleIds.has(card.oracleId)) continue;
-        if (!allowRepeat && want && servedWants.has(want)) continue;
         /* Re-checked inside the loop, not only in the filter above: this pass
            picks cards, so the colourless tally moves as it runs. */
         if (overColourlessCap(card)) continue;
-        if (!hasColour(card)) colourlessPicked += 1;
-        if (want) servedWants.add(want);
-        takenOracleIds.add(card.oracleId);
-        reserved += 1;
-        picked.push({
-          card,
-          quantity: 1,
-          reason: rec.reason,
-          score: rec.score,
-          bucket: 'commander',
-          preferred: preferred.has(card.oracleId),
-        });
-        /* The role tally still moves, so the shortfall lines below stay honest:
-           a card taken here that happens to serve a short role really did fill
-           it, and reporting it as missing would be a lie about the deck. */
-        const filled = ROLES.find(role => role !== 'land' && quota[role] > 0 && rolesOf(card).has(role));
-        if (filled) {
-          quota[filled] -= 1;
-          roleFill[filled].picked += 1;
+        const u = urgency(entry.want);
+        if (u > bestUrgency) { bestUrgency = u; best = entry; continue; }
+        if (u === bestUrgency && best) {
+          /* Within one want every candidate does the same thing, so what
+             separates them is how good a card it is. */
+          const a = card.edhrecRank ?? Number.MAX_SAFE_INTEGER;
+          const b = (best.rec.card as BuildCard).edhrecRank ?? Number.MAX_SAFE_INTEGER;
+          if (a < b) best = entry;
         }
-        void fit;
       }
-    };
+      if (!best) break;
 
-    /* One round serving each want once, then a second round with the
-       restriction lifted, so the slots are always all spent even when the
-       commander asks for fewer things than there are slots. */
-    spend(false);
-    spend(true);
+      const card = best.rec.card as BuildCard;
+      if (!hasColour(card)) colourlessPicked += 1;
+      takenOracleIds.add(card.oracleId);
+      reserved += 1;
+      reservedNames.push(card.name);
+      /* Every want this card serves gets more served, not only the one it was
+         chosen for: a card doing two of the commander's jobs really does both,
+         and counting one would send the next slot after a job now covered. */
+      for (const f of card.facets ?? []) {
+        if (wantWeightOf.has(f)) servedCount.set(f, (servedCount.get(f) ?? 0) + 1);
+      }
+      picked.push({
+        card,
+        quantity: 1,
+        reason: best.rec.reason,
+        score: best.rec.score,
+        bucket: 'commander',
+        preferred: preferred.has(card.oracleId),
+      });
+      /* The role tally still moves, so the shortfall lines below stay honest:
+         a card taken here that happens to serve a short role really did fill
+         it, and reporting it as missing would be a lie about the deck. */
+      const filled = ROLES.find(role => role !== 'land' && quota[role] > 0 && rolesOf(card).has(role));
+      if (filled) {
+        quota[filled] -= 1;
+        roleFill[filled].picked += 1;
+      }
+    }
 
     if (reserved > 0) {
       notes.push(
         `${reserved} card${reserved === 1 ? '' : 's'} chosen purely on how well ` +
-          `${commanderPlan.commanderName} wants them, whatever role they fill`
+          `${commanderPlan.commanderName} wants them, whatever role they fill: ` +
+          reservedNames.join(', ')
       );
+      /*
+       * WHICH OF THE COMMANDER'S OWN ASKS THE DECK STILL HAS NOTHING FOR.
+       *
+       * A deck that ends with a loud want served by one card or none is the
+       * two-strategy failure, and it is invisible from the decklist: Syr
+       * Vondam's came back 67% on theme with every themed card belonging to the
+       * same half of him. Saying it out loud is how the next one gets noticed
+       * without anyone running a probe.
+       */
+      const stillShort = [...wantWeightOf.entries()]
+        .filter(([facet, weight]) => weight >= 0.6 && (servedCount.get(facet) ?? 0) < 2)
+        .sort((a, b) => b[1] - a[1])
+        .map(([facet]) => facet);
+      if (stillShort.length) {
+        notes.push(
+          `still short of ${commanderPlan.commanderName}'s own asks: ${stillShort.join(', ')}`
+        );
+      }
     }
   }
 

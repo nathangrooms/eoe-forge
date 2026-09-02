@@ -1099,6 +1099,30 @@ function readEffect(effect: Effect, out: Set<Facet>, targets?: readonly TargetSp
         (effect as { from?: string }).from ?? (effect.what as { zone?: string } | undefined)?.zone;
       if (zone === 'graveyard') {
         out.add('eff:exile-graveyard');
+      } else if ((effect.what as { sel?: string } | undefined)?.sel === 'self') {
+        /*
+         * A CARD THAT EXILES ITSELF IS NOT BLINKING YOUR BOARD.
+         *
+         * "{R}: Exile Urabrask, then return it to the battlefield transformed"
+         * is how every New Phyrexia Praetor and every Final Fantasy Dominant
+         * reaches its back face. It reads as a blink and it is not one: Syr
+         * Vondam is paid when ANOTHER creature you control is exiled, so a card
+         * exiling itself pays him nothing, and a blink DECK wants cards that
+         * flicker its other creatures repeatedly.
+         *
+         * Measured: widening the blink rule to read "... transformed under its
+         * owner's control" gave 14 cards the facet, all of them correctly a
+         * blink of SOMETHING — and Syr Vondam's archetype score fell 6/60 to
+         * 4/60, because those cards took the reserved slots that Eerie
+         * Interlude and Ghostway had. Better reading, worse deck, and the gap
+         * between the two was this distinction.
+         *
+         * Same shape and same precedent as `cost:sacrifice` against
+         * `cost:sacrifice-self`, and as the whole `effect.who` split: a
+         * separate verb, never a qualifier, because a role check asks whether a
+         * card carries ONE facet and a qualifier alongside would change nothing.
+         */
+        out.add('eff:exile-self');
       } else if (isSelfAimed(aimOfSelector(effect.what, targets))) {
         /* EXILING YOUR OWN BOARD IS PROTECTION, not an answer. Teferi's
            Protection (rank 109) and Eerie Interlude (956) were filed as

@@ -208,6 +208,11 @@ export const EFFECT_VERBS: readonly string[] = [
    * alongside would change nothing. Same reasoning as `exile-graveyard`.
    */
   'exile-own',
+  /* Exiling ITSELF, which is how a Praetor or a Dominant reaches its back
+     face. Not a blink of your board: Syr Vondam is paid when ANOTHER creature
+     you control is exiled, so this pays him nothing. See the long note in
+     src/lib/deck/recommend/behaviour.ts. */
+  'exile-self',
   'destroy-own',
   'tap-own',
   'discard-self',

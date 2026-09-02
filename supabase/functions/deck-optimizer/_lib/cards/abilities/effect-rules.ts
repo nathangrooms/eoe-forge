@@ -733,10 +733,37 @@ export const EFFECT_RULES: EffectRule[] = [
      * thing that comes back is the thing you chose.
      */
     id: 'blink',
+    /*
+     * WIDENED 1 Sep 2026, after measuring rather than reading.
+     *
+     * `scripts/probe/blink-read.mjs` compiles the cards our own tagger calls
+     * blink. Of the sixty most played, the compiler read TWENTY-FIVE. The other
+     * thirty-five are not exotic; they are four wordings this anchor refused:
+     *
+     *   you may exile ...          Restoration Angel (1375). An optional blink
+     *                              is still a blink.
+     *   ... transformed under      Urabrask, Sheoldred, and every Praetor whose
+     *                              back face is reached by blinking itself.
+     *   ... with a +1/+1 counter   Planar Incision (2259).
+     *   ... under your control     Ghostly Flicker (585) — allowed already, but
+     *                              only after the mods group learned to end.
+     *
+     * The mods group is a TAIL now rather than a closed list, because the tail
+     * is decoration on a mechanic that has already happened: the card was
+     * exiled and it came back, and whether it came back tapped, transformed or
+     * carrying a counter does not change that. Bounded to 48 characters and
+     * stopped at a full stop so it cannot swallow a following sentence, which
+     * is the failure the `exile` rule below this one is guarded against.
+     *
+     * "Under an opponent's control" is still refused in `build`, because that
+     * is a gift rather than a blink and the two are opposites.
+     */
     re: new RegExp(
-      `^exile (.+?),? then return (?:it|that card|those cards|them)` +
+      `^(?:you may )?exile (.+?),? then return (?:it|that card|those cards|them)` +
         `(?: to the battlefield)?` +
-        `(?<mods>(?: tapped| attacking| under (?:its owners|their owners|your|an opponents) control)*)$`
+        `(?<mods>(?: tapped| attacking| transformed` +
+        `| under (?:its owners|their owners|your|an opponents) control` +
+        `| with [^.]{1,48})*)$`
     ),
     note:
       'The immediate wording. The delayed one ("... at the beginning of the ' +

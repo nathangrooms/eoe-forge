@@ -9,9 +9,52 @@
       "archetype": "blink",
       "why": "The purest blink commander in the format, and the contrast with Syr Vondam: nothing about Brago is aristocrats, so a deck for him that comes back with sacrifice outlets is unambiguously wrong.",
       "groups": [
-        { "job": "blink effects", "floor": 4, "cards": ["Ephemerate", "Ghostly Flicker", "Eldrazi Displacer", "Cloudshift", "Teleportation Circle", "Conjurer's Closet", "Deadeye Navigator", "Flickerwisp", "Restoration Angel", "Displacer Kitten", "Soulherder", "Thassa, Deep-Dwelling"] },
-        { "job": "things worth blinking", "floor": 6, "cards": ["Mulldrifter", "Solemn Simulacrum", "Sun Titan", "Wall of Omens", "Cloudblazer", "Skyclave Apparition", "Reflector Mage", "Archaeomancer", "Spirited Companion", "Knight of the White Orchid", "Sea Gate Oracle", "Agent of Treachery"] },
-        { "job": "doubling the arrival", "floor": 1, "cards": ["Panharmonicon", "Strionic Resonator", "Yarok, the Desecrated", "Lithoform Engine"] }
+        {
+          "job": "blink effects",
+          "floor": 4,
+          "cards": [
+            "Ephemerate",
+            "Ghostly Flicker",
+            "Eldrazi Displacer",
+            "Cloudshift",
+            "Teleportation Circle",
+            "Conjurer's Closet",
+            "Deadeye Navigator",
+            "Flickerwisp",
+            "Restoration Angel",
+            "Displacer Kitten",
+            "Soulherder",
+            "Thassa, Deep-Dwelling"
+          ]
+        },
+        {
+          "job": "things worth blinking",
+          "floor": 6,
+          "cards": [
+            "Mulldrifter",
+            "Solemn Simulacrum",
+            "Sun Titan",
+            "Wall of Omens",
+            "Cloudblazer",
+            "Skyclave Apparition",
+            "Reflector Mage",
+            "Archaeomancer",
+            "Spirited Companion",
+            "Knight of the White Orchid",
+            "Sea Gate Oracle",
+            "Agent of Treachery"
+          ]
+        },
+        {
+          "job": "doubling the arrival",
+          "floor": 1,
+          "cards": [
+            "Panharmonicon",
+            "Strionic Resonator",
+            "Yarok, the Desecrated",
+            "Lithoform Engine"
+          ]
+        }
       ]
     },
     {
@@ -20,9 +63,46 @@
       "archetype": "tokens",
       "why": "Mono-red, small pool, and a commander whose whole text is making tokens. A deck for him that is mostly artifacts is the failure CLAUDE.md records from 29 Aug.",
       "groups": [
-        { "job": "goblins that matter", "floor": 4, "cards": ["Goblin Chieftain", "Goblin Warchief", "Goblin King", "Skirk Prospector", "Goblin Recruiter", "Goblin Matron", "Muxus, Goblin Grandee", "Krenko, Tin Street Kingpin", "Pashalik Mons", "Goblin Chirurgeon"] },
-        { "job": "payoff for going wide", "floor": 3, "cards": ["Purphoros, God of the Forge", "Impact Tremors", "Shared Animosity", "Coat of Arms", "Goblin Bombardment", "Skullclamp", "Mob Justice", "Massive Raid"] },
-        { "job": "haste and protection", "floor": 2, "cards": ["Lightning Greaves", "Swiftfoot Boots", "Fervor", "Hammer of Purphoros"] }
+        {
+          "job": "goblins that matter",
+          "floor": 4,
+          "cards": [
+            "Goblin Chieftain",
+            "Goblin Warchief",
+            "Goblin King",
+            "Skirk Prospector",
+            "Goblin Recruiter",
+            "Goblin Matron",
+            "Muxus, Goblin Grandee",
+            "Krenko, Tin Street Kingpin",
+            "Pashalik Mons",
+            "Goblin Chirurgeon"
+          ]
+        },
+        {
+          "job": "payoff for going wide",
+          "floor": 3,
+          "cards": [
+            "Purphoros, God of the Forge",
+            "Impact Tremors",
+            "Shared Animosity",
+            "Coat of Arms",
+            "Goblin Bombardment",
+            "Skullclamp",
+            "Mob Justice",
+            "Massive Raid"
+          ]
+        },
+        {
+          "job": "haste and protection",
+          "floor": 2,
+          "cards": [
+            "Lightning Greaves",
+            "Swiftfoot Boots",
+            "Fervor",
+            "Hammer of Purphoros"
+          ]
+        }
       ]
     },
     {
@@ -31,9 +111,49 @@
       "archetype": "aristocrats",
       "why": "CLAUDE.md records a Meren deck built with Grave Pact, Dictate of Erebos, Blood Artist and NOTHING TO SACRIFICE TO. The sacrifice outlet group is the one that matters here.",
       "groups": [
-        { "job": "sacrifice outlets", "floor": 3, "cards": ["Viscera Seer", "Carrion Feeder", "Ashnod's Altar", "Phyrexian Altar", "Altar of Dementia", "Woe Strider", "Yawgmoth, Thran Physician", "Bloodthrone Vampire", "Blasting Station"] },
-        { "job": "death payoffs", "floor": 3, "cards": ["Blood Artist", "Zulaport Cutthroat", "Grave Pact", "Dictate of Erebos", "Midnight Reaper", "Poison-Tip Archer", "Bastion of Remembrance", "Grim Haruspex"] },
-        { "job": "recursion", "floor": 3, "cards": ["Eternal Witness", "Regrowth", "Sakura-Tribe Elder", "Sidisi, Undead Vizier", "Journey to Eternity", "Living Death", "Victimize", "Grave Titan"] }
+        {
+          "job": "sacrifice outlets",
+          "floor": 3,
+          "cards": [
+            "Viscera Seer",
+            "Carrion Feeder",
+            "Ashnod's Altar",
+            "Phyrexian Altar",
+            "Altar of Dementia",
+            "Woe Strider",
+            "Yawgmoth, Thran Physician",
+            "Bloodthrone Vampire",
+            "Blasting Station"
+          ]
+        },
+        {
+          "job": "death payoffs",
+          "floor": 3,
+          "cards": [
+            "Blood Artist",
+            "Zulaport Cutthroat",
+            "Grave Pact",
+            "Dictate of Erebos",
+            "Midnight Reaper",
+            "Poison-Tip Archer",
+            "Bastion of Remembrance",
+            "Grim Haruspex"
+          ]
+        },
+        {
+          "job": "recursion",
+          "floor": 3,
+          "cards": [
+            "Eternal Witness",
+            "Regrowth",
+            "Sakura-Tribe Elder",
+            "Sidisi, Undead Vizier",
+            "Journey to Eternity // Atzal, Cave of Eternity",
+            "Living Death",
+            "Victimize",
+            "Grave Titan"
+          ]
+        }
       ]
     },
     {
@@ -42,9 +162,47 @@
       "archetype": "spellslinger",
       "why": "Mono-blue, and the commander asks for instants and sorceries by name. A deck of creatures for Talrand is wrong in a way that is easy to measure.",
       "groups": [
-        { "job": "cheap interaction", "floor": 4, "cards": ["Counterspell", "Swan Song", "An Offer You Can't Refuse", "Pongify", "Rapid Hybridization", "Cyclonic Rift", "Negate", "Arcane Denial", "Reality Shift"] },
-        { "job": "card selection", "floor": 3, "cards": ["Brainstorm", "Ponder", "Preordain", "Opt", "Frantic Search", "Impulse", "Windfall"] },
-        { "job": "spell payoffs", "floor": 2, "cards": ["Murmuring Mystic", "Talrand's Invocation", "Archmage Emeritus", "Baral, Chief of Compliance", "Docent of Perfection", "Third Path Iconoclast", "Metallurgic Summonings"] }
+        {
+          "job": "cheap interaction",
+          "floor": 4,
+          "cards": [
+            "Counterspell",
+            "Swan Song",
+            "An Offer You Can't Refuse",
+            "Pongify",
+            "Rapid Hybridization",
+            "Cyclonic Rift",
+            "Negate",
+            "Arcane Denial",
+            "Reality Shift"
+          ]
+        },
+        {
+          "job": "card selection",
+          "floor": 3,
+          "cards": [
+            "Brainstorm",
+            "Ponder",
+            "Preordain",
+            "Opt",
+            "Frantic Search",
+            "Impulse",
+            "Windfall"
+          ]
+        },
+        {
+          "job": "spell payoffs",
+          "floor": 2,
+          "cards": [
+            "Murmuring Mystic",
+            "Talrand's Invocation",
+            "Archmage Emeritus",
+            "Baral, Chief of Compliance",
+            "Docent of Perfection // Final Iteration",
+            "Third Path Iconoclast",
+            "Metallurgic Summonings"
+          ]
+        }
       ]
     },
     {
@@ -53,9 +211,47 @@
       "archetype": "landfall",
       "why": "Extra land drops are the whole card, so a deck that does not put lands into play is not an Azusa deck at all.",
       "groups": [
-        { "job": "lands into play", "floor": 4, "cards": ["Exploration", "Burgeoning", "Cultivate", "Kodama's Reach", "Rampant Growth", "Sakura-Tribe Elder", "Harrow", "Nature's Lore", "Three Visits", "Skyshroud Claim", "Farseek"] },
-        { "job": "landfall payoffs", "floor": 3, "cards": ["Avenger of Zendikar", "Rampaging Baloths", "Scute Swarm", "Tireless Tracker", "Lotus Cobra", "Field of the Dead", "Ancient Greenwarden", "Zendikar's Roil"] },
-        { "job": "lands back", "floor": 1, "cards": ["Crucible of Worlds", "Ramunap Excavator", "Life from the Loam", "Splendid Reclamation"] }
+        {
+          "job": "lands into play",
+          "floor": 4,
+          "cards": [
+            "Exploration",
+            "Burgeoning",
+            "Cultivate",
+            "Kodama's Reach",
+            "Rampant Growth",
+            "Sakura-Tribe Elder",
+            "Harrow",
+            "Nature's Lore",
+            "Three Visits",
+            "Skyshroud Claim",
+            "Farseek"
+          ]
+        },
+        {
+          "job": "landfall payoffs",
+          "floor": 3,
+          "cards": [
+            "Avenger of Zendikar",
+            "Rampaging Baloths",
+            "Scute Swarm",
+            "Tireless Tracker",
+            "Lotus Cobra",
+            "Field of the Dead",
+            "Ancient Greenwarden",
+            "Zendikar's Roil"
+          ]
+        },
+        {
+          "job": "lands back",
+          "floor": 1,
+          "cards": [
+            "Crucible of Worlds",
+            "Ramunap Excavator",
+            "Life from the Loam",
+            "Splendid Reclamation"
+          ]
+        }
       ]
     },
     {
@@ -64,9 +260,44 @@
       "archetype": "enchantress",
       "why": "Draws a card on every enchantment, so the deck is cheap enchantments and the cards that copy that trigger.",
       "groups": [
-        { "job": "other enchantresses", "floor": 2, "cards": ["Argothian Enchantress", "Enchantress's Presence", "Setessan Champion", "Eidolon of Blossoms", "Verduran Enchantress", "Mesa Enchantress", "Sanctum Weaver"] },
-        { "job": "cheap enchantments", "floor": 4, "cards": ["Utopia Sprawl", "Wild Growth", "Fertile Ground", "Sterling Grove", "Song of the Dryads", "Kenrith's Transformation", "Overgrowth", "Abundance"] },
-        { "job": "enchantment payoffs", "floor": 1, "cards": ["Sigil of the Empty Throne", "Sphere of Safety", "Ghostly Prison", "Starfield of Nyx", "Serra's Sanctum"] }
+        {
+          "job": "other enchantresses",
+          "floor": 2,
+          "cards": [
+            "Argothian Enchantress",
+            "Enchantress's Presence",
+            "Setessan Champion",
+            "Eidolon of Blossoms",
+            "Verduran Enchantress",
+            "Mesa Enchantress",
+            "Sanctum Weaver"
+          ]
+        },
+        {
+          "job": "cheap enchantments",
+          "floor": 4,
+          "cards": [
+            "Utopia Sprawl",
+            "Wild Growth",
+            "Fertile Ground",
+            "Sterling Grove",
+            "Song of the Dryads",
+            "Kenrith's Transformation",
+            "Overgrowth",
+            "Abundance"
+          ]
+        },
+        {
+          "job": "enchantment payoffs",
+          "floor": 1,
+          "cards": [
+            "Sigil of the Empty Throne",
+            "Sphere of Safety",
+            "Ghostly Prison",
+            "Starfield of Nyx",
+            "Serra's Sanctum"
+          ]
+        }
       ]
     },
     {
@@ -75,9 +306,45 @@
       "archetype": "counters",
       "why": "Four colours, so the pool is enormous and the deck should still be about counters. Proliferate is the commander's own word.",
       "groups": [
-        { "job": "proliferate", "floor": 3, "cards": ["Flux Channeler", "Evolution Sage", "Thrummingbird", "Contagion Engine", "Contagion Clasp", "Inexorable Tide", "Karn's Bastion", "Viral Drake"] },
-        { "job": "counter payoffs", "floor": 3, "cards": ["Doubling Season", "Hardened Scales", "Corpsejack Menace", "Deepglow Skate", "Kalonian Hydra", "Vorinclex, Monstrous Raider", "Branching Evolution"] },
-        { "job": "things to put counters on", "floor": 2, "cards": ["Walking Ballista", "Forgotten Ancient", "Hydra Broodmaster", "Fathom Mage", "Managorger Hydra", "Herald of Secret Streams"] }
+        {
+          "job": "proliferate",
+          "floor": 3,
+          "cards": [
+            "Flux Channeler",
+            "Evolution Sage",
+            "Thrummingbird",
+            "Contagion Engine",
+            "Contagion Clasp",
+            "Inexorable Tide",
+            "Karn's Bastion",
+            "Viral Drake"
+          ]
+        },
+        {
+          "job": "counter payoffs",
+          "floor": 3,
+          "cards": [
+            "Doubling Season",
+            "Hardened Scales",
+            "Corpsejack Menace",
+            "Deepglow Skate",
+            "Kalonian Hydra",
+            "Vorinclex, Monstrous Raider",
+            "Branching Evolution"
+          ]
+        },
+        {
+          "job": "things to put counters on",
+          "floor": 2,
+          "cards": [
+            "Walking Ballista",
+            "Forgotten Ancient",
+            "Hydra Broodmaster",
+            "Fathom Mage",
+            "Managorger Hydra",
+            "Herald of Secret Streams"
+          ]
+        }
       ]
     },
     {
@@ -86,10 +353,48 @@
       "archetype": "tribal",
       "why": "Eminence makes a Vampire token on every Vampire cast, so the deck is Vampires and the cards that reward a wide board.",
       "groups": [
-        { "job": "vampires that matter", "floor": 4, "cards": ["Bloodline Keeper", "Captivating Vampire", "Vampire Nocturnus", "Cordial Vampire", "Champion of Dusk", "Malakir Bloodwitch", "Sanctum Seeker", "Bloodsworn Steward", "Stromkirk Captain"] },
-        { "job": "payoff for going wide", "floor": 2, "cards": ["Shared Animosity", "Coat of Arms", "Blood Artist", "Impact Tremors", "Skullclamp", "Purphoros, God of the Forge"] },
-        { "job": "removal that fits", "floor": 2, "cards": ["Swords to Plowshares", "Anguished Unmaking", "Vindicate", "Path to Exile", "Generous Gift"] }
+        {
+          "job": "vampires in the deck",
+          "floor": 8,
+          "cards": [
+            "Bloodline Keeper // Lord of Lineage",
+            "Captivating Vampire",
+            "Vampire Nocturnus",
+            "Cordial Vampire",
+            "Champion of Dusk",
+            "Malakir Bloodwitch",
+            "Sanctum Seeker",
+            "Bloodsworn Steward",
+            "Stromkirk Captain"
+          ],
+          "typeMatch": "Vampire",
+          "note": "Counted by TYPE LINE, not by name. Any Vampire does Edgar's job: his eminence trigger fires on casting a Vampire spell, whichever Vampire it is."
+        },
+        {
+          "job": "payoff for going wide",
+          "floor": 2,
+          "cards": [
+            "Shared Animosity",
+            "Coat of Arms",
+            "Blood Artist",
+            "Impact Tremors",
+            "Skullclamp",
+            "Purphoros, God of the Forge"
+          ]
+        },
+        {
+          "job": "removal that fits",
+          "floor": 2,
+          "cards": [
+            "Swords to Plowshares",
+            "Anguished Unmaking",
+            "Vindicate",
+            "Path to Exile",
+            "Generous Gift"
+          ]
+        }
       ]
     }
-  ]
+  ],
+  "typeMatchNote": "A group may carry typeMatch instead of a card list. A name list is right for a job with a few canonical answers (sacrifice outlets, blink spells); it is WRONG for a tribal deck, where the job is \"play creatures of the tribe\" and there are two hundred right answers. Scoring Edgar Markov against nine named Vampires reported 0/4 while the deck held TWELVE Vampires including Olivia Voldaren, Immersturm Predator and Elenda. The instrument was wrong, not the generator."
 }

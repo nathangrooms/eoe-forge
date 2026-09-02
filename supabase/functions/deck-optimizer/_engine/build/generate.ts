@@ -1405,9 +1405,37 @@ const PACKAGE_MATCH = 0.6;
        * commander reserve uses, and the reason a rank-10,744 card does not take
        * a slot from a rank-12 one.
        */
+      /*
+       * THE PACKAGE SAYS WHAT JOB. THE COMMANDER SAYS WHOSE DECK.
+       *
+       * Ordering by package fit alone put KRENKO, MOB BOSS in an Edgar Markov
+       * deck. Edgar is a Vampire commander whose whole card is "make a Vampire
+       * token whenever you cast a Vampire spell", he reads as the Tokens shell
+       * because he does make tokens, and the Tokens shell's "Token makers"
+       * package then took the two best token makers in the pool — both Goblins.
+       * Every step was locally correct and the deck was wrong.
+       *
+       * So the package's job stays PRIMARY and the commander breaks its ties.
+       * Between two cards that make tokens equally well, Edgar gets the Vampire
+       * that makes Vampires rather than the Goblin that makes Goblins; rank
+       * breaks what is left, so a card people actually play wins between two
+       * equal answers.
+       *
+       * ORDERING BY COMMANDER FIT FIRST WAS TRIED AND IS WRONG, measured: jobs
+       * done fell 12/24 to 10/24 and the groups a deck could not do at all rose
+       * 4 to 7. `planFit` is a noisy-OR and saturates, so a card matching a
+       * handful of the commander's wants scores 1.0 and beats the card that
+       * actually does the package's job. The whole reason this pass exists is
+       * to fill a job the quota loop cannot reach, and a card that half-does
+       * the job for a commander who loves it is still not doing the job.
+       */
       const candidates = rankedSpells
         .filter(rec => !takenOracleIds.has((rec.card as BuildCard).oracleId))
-        .map(rec => ({ rec, fit: packageFit(rec.card as BuildCard, pkg.wants) }))
+        .map(rec => {
+          const card = rec.card as BuildCard;
+          const hit = fitOf(card);
+          return { rec, fit: packageFit(card, pkg.wants), commander: hit.fit };
+        })
         .filter(entry => entry.fit >= PACKAGE_MATCH)
         .sort(
           (a, b) =>

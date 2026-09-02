@@ -312,11 +312,43 @@ function shellsForCommander(
        building and wrong for choosing: a shell should be picked for what it
        is, not for how unusual its cards are in one commander's colours. */
     const plan = planForArchetype(input);
-    let score = 0;
+    /*
+     * A SHARE OF THE SHELL, not a sum of the overlap.
+     *
+     * Summing `commanderWeight * shellWeight` over shared facets is pure recall:
+     * a shell is rewarded for what the commander also wants and pays nothing for
+     * what it wants that the commander does not. So the biggest, broadest shell
+     * wins, and Brago, King Eternal — whose entire card is "exile any number of
+     * target nonland permanents you control, then return those cards" — read as
+     * REANIMATOR (1.23) ahead of Blink, because Reanimator also wants
+     * `eff:return-from` and its `cares:zone:graveyard` was free. Brago never
+     * touches a graveyard.
+     *
+     * Dividing by the shell's own total weight asks the right question instead:
+     * how much of THIS SHELL does the commander actually want. Reanimator is
+     * mostly graveyard and Brago wants none of it, so it falls behind a shell he
+     * matches nearly all of.
+     */
+    let overlap = 0;
+    let shellMagnitude = 0;
     for (const want of plan.wants) {
+      shellMagnitude += want.weight * want.weight;
       const mine = commanderWants.get(want.facet);
-      if (mine) score += mine * want.weight;
+      if (mine) overlap += mine * want.weight;
     }
+    /* COSINE, not a plain share. Dividing by the shell total was tried and
+       over-corrects: it favours whichever shell is narrowest, and Syr Vondam
+       went from Aristocrats + Blink, which is what he is, to counters + Tokens.
+       The square root is the milder penalty and keeps a broad shell competitive
+       when the commander genuinely wants most of it. The commander magnitude is
+       the same for every shell, so it is left out. */
+    /*
+     * MULTIPLYING BY THE COMMANDER'S WEIGHT FOR THE SHELL'S STRONGEST WANT WAS
+     * TRIED AND IS TOO HARSH, measured: Talrand flipped from Spellslinger to
+     * Tokens and three commanders came out with no shell at all. A shell's
+     * top want is often a broad facet the commander expresses differently.
+     */
+    const score = shellMagnitude > 0 ? overlap / Math.sqrt(shellMagnitude) : 0;
     return { shell, input, score, packages: plan.packages.length };
   });
   return scored

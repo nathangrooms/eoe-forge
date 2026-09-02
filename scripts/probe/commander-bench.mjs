@@ -75,6 +75,53 @@ async function deckFor(entry) {
   return (body?.result?.deck ?? []).map(d => d?.card ?? d);
 }
 
+/*
+ * THE INSTRUMENT CHECKS ITSELF FIRST.
+ *
+ * A benchmark name that does not resolve against the catalogue can never be
+ * found, and it reads exactly like a generator failure. Three did: Bloodline
+ * Keeper, Docent of Perfection and Journey to Eternity are all double-faced and
+ * the catalogue holds them under their `//` names, so Edgar Markov was being
+ * marked down for a card that does not exist by the name asked for.
+ *
+ * Checked every run, because the catalogue changes and a benchmark that quietly
+ * stops resolving is worse than no benchmark at all.
+ */
+{
+  const REST = `${BASE}/rest/v1`;
+  const H = { apikey: K, Authorization: `Bearer ${K}` };
+  const allNames = [
+    ...new Set(bench.commanders.flatMap(c => c.groups.flatMap(g => g.cards ?? []))),
+  ];
+  const found = new Set();
+  let failedChunks = 0;
+  for (let i = 0; i < allNames.length; i += 40) {
+    const list = allNames.slice(i, i + 40).map(n => `"${n.replace(/"/g, '')}"`).join(',');
+    const res = await fetch(
+      `${REST}/cards_pool?select=name&name=in.(${encodeURIComponent(list)})`, { headers: H }
+    );
+    /*
+     * A FAILED CHUNK IS NOT SIXTY MISSING CARDS, and the first version of this
+     * check said it was: two chunks errored and it reported 120 unresolvable
+     * names against a true answer of three. A self-check that invents failures
+     * is worse than no self-check, because it teaches you to ignore it.
+     */
+    if (!res.ok) { failedChunks++; continue; }
+    const rows = await res.json();
+    if (!Array.isArray(rows)) { failedChunks++; continue; }
+    for (const r of rows) found.add(r.name);
+  }
+  if (failedChunks) {
+    console.log(`\n  NOTE: ${failedChunks} name-check request(s) failed, so the check below is incomplete.`);
+  } else {
+    const missing = allNames.filter(n => !found.has(n));
+    if (missing.length) {
+      console.log(`\n  WARNING: ${missing.length} benchmark names do not resolve and can never be found:`);
+      for (const m of missing) console.log(`    ${m}`);
+    }
+  }
+}
+
 console.log(
   `\nEIGHT COMMANDERS, against what a well-built version of each runs.` +
   `  ${LOCAL ? 'LOCAL build' : 'DEPLOYED function'}${useArchetype ? ', archetype passed' : ', no archetype passed'}\n`
@@ -97,11 +144,24 @@ for (const entry of bench.commanders) {
   const parts = [];
   let done = 0;
   for (const g of entry.groups) {
-    const hit = g.cards.filter(c => have.has(norm(c)));
+    /*
+     * A GROUP MAY BE A TYPE RATHER THAN A LIST, and for a tribal deck it must
+     * be. "Play Vampires" has two hundred right answers, so scoring Edgar
+     * Markov against nine named ones reported 0/4 while his deck held TWELVE
+     * Vampires — Olivia Voldaren, Immersturm Predator, Elenda. The instrument
+     * was wrong and the generator was not, which is the third time this session
+     * a probe has invented a defect.
+     *
+     * A name list stays right for a job with a few canonical answers: there are
+     * not two hundred sacrifice outlets worth running.
+     */
+    const hit = g.typeMatch
+      ? deck.filter(c => new RegExp(g.typeMatch, 'i').test(String(c.type_line ?? ''))).map(c => c.name)
+      : g.cards.filter(c => have.has(norm(c)));
     jobsTotal++;
     if (hit.length >= g.floor) { done++; jobsDone++; }
     if (hit.length === 0) zeroes++;
-    parts.push({ job: g.job, hit, floor: g.floor, of: g.cards.length });
+    parts.push({ job: g.job, hit, floor: g.floor, of: g.typeMatch ? hit.length : g.cards.length });
   }
 
   rows.push({ name: entry.name, done, of: entry.groups.length, parts,

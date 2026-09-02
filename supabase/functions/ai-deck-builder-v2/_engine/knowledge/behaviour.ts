@@ -2439,13 +2439,49 @@ const PLAN_RULES: readonly {
       { facet: 'eff:damage', weight: 0.7 },
     ],
   },
+  /*
+   * A RETURN IS NOT A RETURN FROM THE GRAVEYARD, and this rule said it was.
+   *
+   * Brago, King Eternal exiles his own permanents and returns them. The blink
+   * rule compiles that to `eff:exile-own` + `eff:return-from` with the zone on
+   * the return set to exile, and this rule then handed him `cares:zone:graveyard`
+   * at 0.8, `eff:mill` and `eff:sacrifice` — a reanimator plan for a commander
+   * who never touches a graveyard. Measured: he read as Reanimator ahead of
+   * Blink, and his deck came back with Entomb-shaped cards in it.
+   *
+   * The companions that assume a graveyard belong to the `cares:zone:graveyard`
+   * rule directly below, which fires only when the card actually names one. A
+   * return on its own says only that things come back.
+   */
   {
     when: 'eff:return-from',
     wants: [
       { facet: 'eff:return-from', weight: 0.9 },
-      { facet: 'cares:zone:graveyard', weight: 0.8 },
-      { facet: 'eff:mill', weight: 0.5 },
-      { facet: 'eff:sacrifice', weight: 0.4 },
+    ],
+  },
+  /*
+   * BLINK, read from the facet that means it.
+   *
+   * `eff:exile-own` is the direction reader's word for "exiles one of YOUR
+   * permanents", and paired with a return it is a blink. Brago, King Eternal
+   * compiles to exactly that and had NO want for it: the only rules that could
+   * speak about him were the combat-damage rule, which pushed voltron, and
+   * the return-from rule above, which (until today) pushed reanimation. A
+   * blink commander read as anything but blink.
+   *
+   * Universal, not a Brago rule: every commander whose own text blinks
+   * something — Brago, Roon, Yorion, Aminatou, Norin — reaches this through
+   * the same facet, and the wants are the Blink shell's own packages said as
+   * facets: the blink, the things worth blinking, the doubling.
+   */
+  {
+    when: 'eff:exile-own',
+    wants: [
+      { facet: 'eff:exile-own', weight: 0.9 },
+      { facet: 'eff:return-from', weight: 0.8 },
+      { facet: 'trig:enters', weight: 0.75 },
+      { facet: 'cares:zone:exile', weight: 0.6 },
+      { facet: 'eff:multiply', weight: 0.5 },
     ],
   },
   {

@@ -394,6 +394,918 @@
           ]
         }
       ]
+    },
+    {
+      "name": "Giada, Font of Hope",
+      "ci": "W",
+      "archetype": "tribal",
+      "why": "Giada's mana can only be spent on Angels and her counters grow with every Angel already out, so the deck is a critical mass of Angels, ways to afford five-drops early, and payoffs that turn each Angel entering into life and cards.",
+      "groups": [
+        {
+          "job": "Angels to cast",
+          "floor": 20,
+          "typeMatch": "Angel",
+          "note": "Giada only ramps and only grows Angels, so a real list runs 25 to 30. Below 20 her abilities have nothing to do on most turns."
+        },
+        {
+          "job": "making Angels cheaper, or reaching five mana early",
+          "floor": 5,
+          "cards": [
+            "Pearl Medallion",
+            "Herald's Horn",
+            "Urza's Incubator",
+            "Starnheim Aspirant",
+            "Herald of War",
+            "Oketra's Monument",
+            "Cloud Key",
+            "Semblance Anvil",
+            "Smothering Tithe",
+            "Marble Diamond",
+            "Archaeomancer's Map",
+            "Land Tax"
+          ],
+          "note": "Most Angels cost four to six. Tribal cost reducers and white's own ramp; Sol Ring and signets are counted elsewhere."
+        },
+        {
+          "job": "payoffs that reward Angels entering or sitting on the board",
+          "floor": 4,
+          "cards": [
+            "Bishop of Wings",
+            "Righteous Valkyrie",
+            "Lyra Dawnbringer",
+            "Archangel of Thune",
+            "Resplendent Angel",
+            "Angelic Accord",
+            "Youthful Valkyrie",
+            "Angel of Vitality",
+            "Sephara, Sky's Blade",
+            "Coat of Arms",
+            "Vanquisher's Banner",
+            "Cathars' Crusade"
+          ],
+          "note": "Lifegain on each Angel, lords, and anthem-style scaling. A pile of Angels with none of these is just big creatures."
+        },
+        {
+          "job": "card draw in mono-white",
+          "floor": 4,
+          "cards": [
+            "Esper Sentinel",
+            "Well of Lost Dreams",
+            "Dawn of Hope",
+            "The Immortal Sun",
+            "Inspiring Overseer",
+            "Endless Atlas",
+            "Mind's Eye",
+            "Archivist of Oghma",
+            "Smuggler's Share",
+            "Wedding Announcement // Wedding Festivity",
+            "Mask of Memory"
+          ],
+          "note": "White draws off lifegain, which this deck does constantly, off tax effects, and off flyers connecting. Draw that keys on small creatures entering does not work here, because Giada makes every Angel enter bigger than printed."
+        }
+      ]
+    },
+    {
+      "name": "Yawgmoth, Thran Physician",
+      "ci": "B",
+      "archetype": "aristocrats",
+      "why": "The commander is a free sacrifice outlet that pays in cards and -1/-1 counters, so the deck is creatures that refuse to stay dead, engines that keep handing him bodies, and payoffs that make every death cost the table.",
+      "groups": [
+        {
+          "job": "creatures that come back after dying, so Yawgmoth can sacrifice them again",
+          "floor": 4,
+          "cards": [
+            "Geralf's Messenger",
+            "Butcher Ghoul",
+            "Mikaeus, the Unhallowed",
+            "Gravecrawler",
+            "Bloodghast",
+            "Reassembling Skeleton",
+            "Nether Traitor",
+            "Bloodsoaked Champion",
+            "Cult Conscript"
+          ],
+          "note": "Undying creatures are the combo: Yawgmoth's -1/-1 counter cancels the +1/+1 counter and the creature can die again. Two undying bodies plus the commander is a loop. Gravecrawler and the recursive one-drops are the fodder that outlast a wrath. No persist creatures here on purpose: a -1/-1 counter stops persist from returning, so they are anti-synergy with the commander."
+        },
+        {
+          "job": "payoffs when creatures die: drain, draw, or make opponents sacrifice",
+          "floor": 4,
+          "cards": [
+            "Blood Artist",
+            "Zulaport Cutthroat",
+            "Bastion of Remembrance",
+            "Grim Haruspex",
+            "Midnight Reaper",
+            "Pitiless Plunderer",
+            "Grave Pact",
+            "Dictate of Erebos",
+            "Butcher of Malakir",
+            "Syr Konrad, the Grim",
+            "Morbid Opportunist"
+          ],
+          "note": "Yawgmoth draws off his own sacrifices already; these are the cards that turn a loop into a kill and a single death into board control."
+        },
+        {
+          "job": "a steady supply of bodies to feed the commander",
+          "floor": 3,
+          "cards": [
+            "Bitterblossom",
+            "Ophiomancer",
+            "Endrek Sahr, Master Breeder",
+            "Pawn of Ulamog",
+            "Sifter of Skulls",
+            "Grave Titan",
+            "Ogre Slumlord",
+            "Cryptbreaker",
+            "Dreadhorde Invasion"
+          ],
+          "note": "Fodder that renews itself every turn. Without these the deck runs out of things to sacrifice and the commander reads as one card per creature in hand."
+        },
+        {
+          "job": "sacrifice outlets besides the commander, especially ones that make mana",
+          "floor": 2,
+          "cards": [
+            "Phyrexian Altar",
+            "Ashnod's Altar",
+            "Viscera Seer",
+            "Carrion Feeder",
+            "Woe Strider",
+            "Priest of Forgotten Gods",
+            "Altar of Dementia",
+            "Yahenni, Undying Partisan",
+            "Spawning Pit"
+          ],
+          "note": "Yawgmoth costs one life per activation and can be removed. The altars are also the other half of the Gravecrawler loop, and Carrion Feeder is the accumulator that makes it a win."
+        }
+      ]
+    },
+    {
+      "name": "Yuriko, the Tiger's Shadow",
+      "ci": "UB",
+      "archetype": "aggro",
+      "why": "Cheap evasive creatures connect on turn one or two, get swapped out for Ninjas with ninjutsu, and every Ninja hit reveals the top card and drains the table for its mana value, so the deck deliberately runs cards it never intends to cast.",
+      "groups": [
+        {
+          "job": "Ninjas to ninjutsu in off an unblocked attacker",
+          "floor": 6,
+          "typeMatch": "Ninja",
+          "note": "Yuriko herself matches the type; a real list runs six or more besides her. Satoru Umezawa is a Human Ninja too and grants ninjutsu to every creature. 74 UB-legal Ninjas exist in the pool. Changelings (Changeling Outcast, Mothdust Changeling) are Ninjas in play but carry Shapeshifter on the type line, so they are counted under the evasive group instead."
+        },
+        {
+          "job": "Cheap evasive creatures that connect on turn one or two so a Ninja can swap in",
+          "floor": 6,
+          "cards": [
+            "Ornithopter",
+            "Changeling Outcast",
+            "Mist-Cloaked Herald",
+            "Slither Blade",
+            "Triton Shorestalker",
+            "Tormented Soul",
+            "Gudul Lurker",
+            "Spectral Sailor",
+            "Siren Stormtamer",
+            "Baleful Strix",
+            "Invisible Stalker",
+            "Mothdust Changeling"
+          ],
+          "note": "One-mana flyers and unblockables. Without these the Ninjas never get a body to replace."
+        },
+        {
+          "job": "High mana value cards to reveal off the top for a big Yuriko drain",
+          "floor": 5,
+          "cards": [
+            "Draco",
+            "Blinkmoth Infusion",
+            "Temporal Trespass",
+            "Temporal Mastery",
+            "Dig Through Time",
+            "Treasure Cruise",
+            "Commit // Memory",
+            "Enter the Infinite",
+            "Sea Gate Restoration // Sea Gate, Reborn",
+            "Emrakul, the Promised End",
+            "Curtains' Call",
+            "Consign // Oblivion"
+          ],
+          "note": "Delve, miracle and alternate-cost cards count their printed mana value on the reveal, and a split card counts both halves, which is why a Yuriko deck runs them where nobody else would. Blinkmoth Infusion and Draco rank past 10,000 globally because almost nothing but Yuriko plays them; in this deck they are staples."
+        },
+        {
+          "job": "Putting the right card on top before combat",
+          "floor": 4,
+          "cards": [
+            "Brainstorm",
+            "Ponder",
+            "Preordain",
+            "Scroll Rack",
+            "Sensei's Divining Top",
+            "Vampiric Tutor",
+            "Mystical Tutor",
+            "Lim-Dûl's Vault",
+            "Mystic Sanctuary",
+            "Personal Tutor",
+            "Insidious Dreams",
+            "Portent"
+          ],
+          "note": "Top-of-library control is the deck's engine: a tutor to the top is a reveal of exactly the card you chose."
+        }
+      ]
+    },
+    {
+      "name": "Prosper, Tome-Bound",
+      "ci": "BR",
+      "archetype": "value",
+      "why": "Prosper exiles a card every end step and pays a Treasure each time you play from exile, so the deck is every impulse-draw effect in Rakdos plus the things that turn a pile of Treasure into cards, damage and a win.",
+      "groups": [
+        {
+          "job": "impulse draw: exile the top card and let you play it, so Prosper makes Treasure",
+          "floor": 8,
+          "cards": [
+            "Jeska's Will",
+            "Light Up the Stage",
+            "Wrenn's Resolve",
+            "Reckless Impulse",
+            "Commune with Lava",
+            "Outpost Siege",
+            "Stolen Strategy",
+            "Laelia, the Blade Reforged",
+            "Chandra, Torch of Defiance",
+            "Theater of Horrors",
+            "Ignite the Future",
+            "Gonti, Lord of Luxury",
+            "Etali, Primal Storm"
+          ],
+          "note": "Every one of these plays a card from exile and so triggers Prosper's Pact Boon. Florian, Voldaren Scion and Professional Face-Breaker are the same job and also legal answers. Valakut Awakening was listed here and is not impulse draw: it bottoms cards from hand and draws, exiling nothing."
+        },
+        {
+          "job": "Treasure payoffs: rewards for Treasures entering or being sacrificed",
+          "floor": 4,
+          "cards": [
+            "Xorn",
+            "Revel in Riches",
+            "Mayhem Devil",
+            "Reckless Fireweaver",
+            "Marionette Master",
+            "Hellkite Tyrant",
+            "Academy Manufactor",
+            "Goldspan Dragon",
+            "Disciple of the Vault",
+            "Mirkwood Bats",
+            "Nadier's Nightblade"
+          ],
+          "note": "Without these Prosper is only ramp. These are what make a Treasure a card, a point of damage or a win."
+        },
+        {
+          "job": "extra Treasure makers beyond the commander",
+          "floor": 4,
+          "cards": [
+            "Brass's Bounty",
+            "Rain of Riches",
+            "Curse of Opulence",
+            "Mahadi, Emporium Master",
+            "Storm-Kiln Artist",
+            "Big Score",
+            "Unexpected Windfall",
+            "Deadly Dispute",
+            "Pitiless Plunderer",
+            "Grim Hireling",
+            "Ragavan, Nimble Pilferer",
+            "Ancient Copper Dragon"
+          ],
+          "note": "One Treasure a turn from Prosper is not enough to feed the payoffs; the deck runs its own makers. Dockside Extortionist is banned and must not appear. Professional Face-Breaker (rank 209) belongs here too and doubles as impulse draw."
+        }
+      ]
+    },
+    {
+      "name": "Xenagos, God of Revels",
+      "ci": "RG",
+      "archetype": "big-mana",
+      "why": "Xenagos doubles one creature's power and gives it haste at the start of every combat, so the deck is a ramp package, a stack of huge trample bodies that each threaten lethal alone, and the pump and trample that make that one swing connect.",
+      "groups": [
+        {
+          "job": "huge creatures worth doubling: big enough that one hit at double power ends a player, ideally with trample or built-in evasion",
+          "floor": 6,
+          "cards": [
+            "Malignus",
+            "Ghalta, Primal Hunger",
+            "Blightsteel Colossus",
+            "Ulamog, the Ceaseless Hunger",
+            "Craterhoof Behemoth",
+            "Etali, Primal Conqueror // Etali, Primal Sickness",
+            "Old Gnawbone",
+            "Kogla, the Titan Ape",
+            "Moraug, Fury of Akoum",
+            "Zopandrel, Hunger Dominus",
+            "Terror of the Peaks",
+            "Elder Gargaroth"
+          ],
+          "note": "Malignus is the signature card: half the highest life total, doubled, unpreventable. Blightsteel is 22 infect. Terror of the Peaks doubles to 10 in the air and shoots for every fatty cast after it. A real list runs 15 or more of these; the floor is the number below which the deck has nothing to double."
+        },
+        {
+          "job": "making the one doubled creature connect: trample, double strike, extra pump or evasion on the attacker",
+          "floor": 4,
+          "cards": [
+            "Rancor",
+            "Nylea, God of the Hunt",
+            "Garruk's Uprising",
+            "Kessig Wolf Run",
+            "Berserk",
+            "Temur Battle Rage",
+            "Unnatural Growth",
+            "Embercleave",
+            "Shadowspear",
+            "Fireshrieker",
+            "Pathbreaker Ibex",
+            "Goreclaw, Terror of Qal Sisma"
+          ],
+          "note": "Xenagos gives haste and size, not trample. A doubled 12/12 chump-blocked by a Saproling did nothing. Berserk and Temur Battle Rage double again on top of the trigger. Pathbreaker Ibex reads the doubled creature's power and hands it to the whole team with trample; Goreclaw gives trample to every attacker with power 4 or more. Garruk's Uprising also appears in the draw group because it does both jobs."
+        },
+        {
+          "job": "ramp that reaches six or more mana by turn four: land ramp and mana creatures",
+          "floor": 6,
+          "cards": [
+            "Sakura-Tribe Elder",
+            "Rampant Growth",
+            "Cultivate",
+            "Kodama's Reach",
+            "Three Visits",
+            "Nature's Lore",
+            "Farseek",
+            "Skyshroud Claim",
+            "Somberwald Sage",
+            "Selvala, Heart of the Wilds",
+            "Circle of Dreams Druid",
+            "Llanowar Elves"
+          ],
+          "note": "Xenagos costs five and the payoffs cost six to ten. Somberwald Sage and Selvala are the deck-specific ones; Selvala taps for the power of your biggest creature."
+        },
+        {
+          "job": "card draw keyed to big creatures: drawing a hand off a creature's power, or a card off each fatty that enters, so the deck refills after each finisher is answered",
+          "floor": 3,
+          "cards": [
+            "Return of the Wildspeaker",
+            "Rishkar's Expertise",
+            "Garruk's Uprising",
+            "Elemental Bond",
+            "Greater Good",
+            "Life's Legacy",
+            "Momentous Fall",
+            "Colossal Majesty",
+            "Guardian Project",
+            "The Great Henge",
+            "Hunter's Insight",
+            "Soul's Majesty"
+          ],
+          "note": "Most of these read power, which this deck has more of than any other. Elemental Bond, Guardian Project and The Great Henge instead draw once per creature that enters, which in a deck of fatties is a card per threat. Greater Good and Momentous Fall also answer removal in response by cashing the creature in."
+        }
+      ]
+    },
+    {
+      "name": "Niv-Mizzet, Parun",
+      "ci": "UR",
+      "archetype": "spellslinger",
+      "why": "Every card drawn is a point of damage and every instant or sorcery cast is a card drawn, so the deck is built to draw as many cards as possible and to make Niv draw whenever he deals damage.",
+      "groups": [
+        {
+          "job": "Curiosity effects on Niv and other draw-into-damage payoffs",
+          "floor": 2,
+          "cards": [
+            "Curiosity",
+            "Ophidian Eye",
+            "Tandem Lookout",
+            "Psychosis Crawler",
+            "The Locust God",
+            "Niv-Mizzet, the Firemind"
+          ],
+          "note": "Curiosity, Ophidian Eye and Tandem Lookout on Niv are the deck's win: each point of damage draws a card and each card drawn deals damage, and it loops until every opponent is dead. Only three exist in UR. Psychosis Crawler and the older Niv add a second draw-to-damage body, and The Locust God turns every draw into a hasty flier."
+        },
+        {
+          "job": "wheels that refill every hand at once",
+          "floor": 3,
+          "cards": [
+            "Windfall",
+            "Wheel of Fortune",
+            "Wheel of Misfortune",
+            "Reforge the Soul",
+            "Magus of the Wheel",
+            "Jace's Archivist",
+            "Echo of Eons",
+            "Timetwister",
+            "Commit // Memory",
+            "Molten Psyche",
+            "Time Reversal",
+            "Winds of Change"
+          ],
+          "note": "Seven cards drawn is seven damage split as you like, and the wheel itself is a sorcery, so it draws an eighth."
+        },
+        {
+          "job": "cheap instants and sorceries to chain through Niv",
+          "floor": 6,
+          "cards": [
+            "Brainstorm",
+            "Ponder",
+            "Preordain",
+            "Opt",
+            "Consider",
+            "Frantic Search",
+            "Faithless Looting",
+            "Gitaxian Probe",
+            "Serum Visions",
+            "Expressive Iteration",
+            "Impulse",
+            "Sleight of Hand"
+          ],
+          "note": "Each one is a card drawn from Niv's cast trigger on top of whatever the spell itself draws, so a one-mana cantrip is two or three points of damage."
+        },
+        {
+          "job": "draw engines that give Niv extra cards every turn",
+          "floor": 3,
+          "cards": [
+            "Rhystic Study",
+            "Mystic Remora",
+            "Consecrated Sphinx",
+            "Teferi's Ageless Insight",
+            "Alhammarret's Archive",
+            "Howling Mine",
+            "Font of Mythos",
+            "Kami of the Crescent Moon",
+            "Dictate of Kruphix",
+            "Temple Bell",
+            "Thought Reflection",
+            "Fevered Visions"
+          ],
+          "note": "Symmetrical group-hug draw is correct here and nowhere else: opponents drawing more cards costs nothing, but every card Niv draws is damage. Draw doublers turn the wheels and cantrips into twice the damage."
+        }
+      ]
+    },
+    {
+      "name": "Feather, the Redeemed",
+      "ci": "RW",
+      "archetype": "spellslinger",
+      "why": "Every instant that targets her own creature comes back to hand at end step, so the deck is a loop: one-mana cantrips aimed at your own board, recast every turn, feeding creatures that grow or copy when targeted and engines that trigger on every cast.",
+      "groups": [
+        {
+          "job": "cheap cantrips that target your own creature and come back every turn",
+          "floor": 6,
+          "cards": [
+            "Defiant Strike",
+            "Expedite",
+            "Crimson Wisps",
+            "Shelter",
+            "Renegade Tactics",
+            "Ancestral Anger",
+            "Fists of Flame",
+            "Titan's Strength"
+          ],
+          "note": "The card advantage engine. Each one draws or scries, targets a creature (you aim it at your own), and Feather returns it to hand, so a real deck runs many and reuses each every turn. Cards that draw without targeting a creature you control (Warlord's Fury, Crash Through, Faithless Looting) do not come back and are not this job. Most are one mana; Shelter and Fists of Flame are two."
+        },
+        {
+          "job": "cheap protection tricks that target your own creature",
+          "floor": 4,
+          "cards": [
+            "Gods Willing",
+            "Feat of Resistance",
+            "Sheltering Light",
+            "Apostle's Blessing",
+            "Loran's Escape",
+            "Blacksmith's Skill",
+            "Emerge Unscathed",
+            "Fight as One",
+            "Stave Off",
+            "Ajani's Presence"
+          ],
+          "note": "Feather must survive to loop. Every one of these targets a creature you control, so it returns too, giving permanent protection for one mana a turn. Boros Charm is not this job: its indestructible mode does not target and its targeting mode is double strike, not protection."
+        },
+        {
+          "job": "creatures that reward being targeted",
+          "floor": 3,
+          "cards": [
+            "Zada, Hedron Grinder",
+            "Mirrorwing Dragon",
+            "Tenth District Legionnaire",
+            "Tethmos High Priest",
+            "Phalanx Leader",
+            "Akroan Crusader",
+            "Favored Hoplite",
+            "Hero of Iroas",
+            "Anax and Cymede",
+            "Illuminator Virtuoso",
+            "Vanguard of Brimaz"
+          ],
+          "note": "Heroic and copy-when-targeted creatures. Zada and Mirrorwing Dragon copy each cantrip to every creature you control, which is the deck's biggest draw and pump turn."
+        },
+        {
+          "job": "payoffs for casting a spell",
+          "floor": 3,
+          "cards": [
+            "Guttersnipe",
+            "Firebrand Archer",
+            "Electrostatic Field",
+            "Young Pyromancer",
+            "Monastery Mentor",
+            "Birgi, God of Storytelling // Harnfel, Horn of Bounty",
+            "Thermo-Alchemist",
+            "Storm-Kiln Artist",
+            "Kessig Flamebreather",
+            "Aria of Flame",
+            "Balefire Liege"
+          ],
+          "note": "Recasting the same cantrip every turn only wins if something triggers on each cast: damage, tokens or mana back."
+        }
+      ]
+    },
+    {
+      "name": "Kinnan, Bonder Prodigy",
+      "ci": "GU",
+      "archetype": "big-mana",
+      "why": "Every nonland permanent that taps for mana makes one extra, so dorks and rocks fuel a seven-mana activation that cheats a big non-Human creature into play, and one untapper on a dork turns the whole thing into infinite mana.",
+      "groups": [
+        {
+          "job": "creatures that tap for mana, so Kinnan doubles them",
+          "floor": 8,
+          "cards": [
+            "Llanowar Elves",
+            "Elvish Mystic",
+            "Fyndhorn Elves",
+            "Birds of Paradise",
+            "Bloom Tender",
+            "Priest of Titania",
+            "Elvish Archdruid",
+            "Marwyn, the Nurturer",
+            "Incubation Druid",
+            "Selvala, Heart of the Wilds",
+            "Boreal Druid",
+            "Sylvan Caryatid"
+          ],
+          "note": "Nonland permanents only. Noble Hierarch, Ignoble Hierarch, Deathrite Shaman, Elves of Deep Shadow and Faeburrow Elder are all outside GU by colour identity. All twelve verified as mono-G in the database."
+        },
+        {
+          "job": "mana rocks that Kinnan doubles, especially ones that tap for two or more",
+          "floor": 5,
+          "cards": [
+            "Mana Vault",
+            "Grim Monolith",
+            "Basalt Monolith",
+            "Thran Dynamo",
+            "Gilded Lotus",
+            "Worn Powerstone",
+            "Everflowing Chalice",
+            "Coalition Relic",
+            "Simic Signet",
+            "Talisman of Curiosity",
+            "Fellwar Stone",
+            "Mind Stone"
+          ],
+          "note": "Basalt Monolith plus Kinnan is infinite colourless on its own. Sol Ring and Arcane Signet are deliberately left out as generic staples; Mana Crypt is banned."
+        },
+        {
+          "job": "untappers that make infinite mana with a mana creature",
+          "floor": 2,
+          "cards": [
+            "Freed from the Real",
+            "Pemmin's Aura",
+            "Dramatic Reversal",
+            "Vigean Graftmage",
+            "Staff of Domination",
+            "Thousand-Year Elixir",
+            "Umbral Mantle",
+            "Sword of the Paruns",
+            "Kiora's Follower"
+          ],
+          "note": "Freed from the Real or Pemmin's Aura on Bloom Tender or any dork that taps for two under Kinnan is the deck's main infinite. Dramatic Reversal is the other one, with Isochron Scepter. Vigean Graftmage is specifically the Incubation Druid combo. Staff of Domination is both untapper and outlet. Kiora's Follower needs an aura on it to loop but is a Kinnan staple and a Kinnan hit itself."
+        },
+        {
+          "job": "big non-Human creatures worth cheating in with Kinnan's activation",
+          "floor": 6,
+          "cards": [
+            "Hullbreaker Horror",
+            "Koma, Cosmos Serpent",
+            "Craterhoof Behemoth",
+            "Consecrated Sphinx",
+            "Void Winnower",
+            "Tidespout Tyrant",
+            "Terastodon",
+            "Woodfall Primus",
+            "Blightsteel Colossus",
+            "Ulamog, the Ceaseless Hunger",
+            "Kozilek, Butcher of Truth"
+          ],
+          "note": "The ability only finds non-Human creatures, so Agent of Treachery and other Humans are not valid hits. Type lines of all eleven checked: none is a Human."
+        }
+      ]
+    },
+    {
+      "name": "Korvold, Fae-Cursed King",
+      "ci": "BRG",
+      "archetype": "aristocrats",
+      "why": "Korvold draws a card and grows every time you sacrifice ANY permanent, so the deck is a supply chain of cheap things to feed him plus outlets to feed them faster than his own attack trigger allows.",
+      "groups": [
+        {
+          "job": "cheap things to sacrifice: Treasure, Food, Clues and tokens",
+          "floor": 6,
+          "cards": [
+            "Pitiless Plunderer",
+            "Tireless Provisioner",
+            "Professional Face-Breaker",
+            "Gilded Goose",
+            "Bitterblossom",
+            "Ophiomancer",
+            "Tireless Tracker",
+            "Chatterfang, Squirrel General",
+            "Old Gnawbone",
+            "Goldspan Dragon",
+            "Prosperous Innkeeper",
+            "Sakura-Tribe Elder"
+          ],
+          "note": "Korvold needs something to eat every attack and every trigger draws a card, so the fodder has to be plentiful and nearly free. Treasure and Food count as permanents and are the best fuel because they also pay for the next thing."
+        },
+        {
+          "job": "sacrifice outlets that work on demand",
+          "floor": 4,
+          "cards": [
+            "Ashnod's Altar",
+            "Phyrexian Altar",
+            "Viscera Seer",
+            "Woe Strider",
+            "Carrion Feeder",
+            "Yawgmoth, Thran Physician",
+            "Goblin Bombardment",
+            "Altar of Dementia",
+            "Evolutionary Leap",
+            "Phyrexian Tower"
+          ],
+          "note": "Korvold's own trigger sacrifices once per attack. A real deck wants to sacrifice at instant speed and many times a turn, both to draw off Korvold and to dodge removal."
+        },
+        {
+          "job": "payoffs when things die",
+          "floor": 4,
+          "cards": [
+            "Mayhem Devil",
+            "Grim Haruspex",
+            "Midnight Reaper",
+            "Blood Artist",
+            "Zulaport Cutthroat",
+            "Grave Pact",
+            "Dictate of Erebos",
+            "Butcher of Malakir",
+            "Bastion of Remembrance",
+            "Syr Konrad, the Grim",
+            "Juri, Master of the Revue",
+            "Moldervine Reclamation"
+          ],
+          "note": "Korvold draws on every sacrifice; the deck stacks a second trigger on top so each death also pings, drains, or makes opponents sacrifice. Mayhem Devil and Juri trigger off Treasure and Food too."
+        },
+        {
+          "job": "things that come back after being sacrificed",
+          "floor": 3,
+          "cards": [
+            "Bloodghast",
+            "Gravecrawler",
+            "Reassembling Skeleton",
+            "Nether Traitor",
+            "Squee, the Immortal",
+            "Crucible of Worlds",
+            "Ramunap Excavator",
+            "Life from the Loam",
+            "Titania, Protector of Argoth"
+          ],
+          "note": "Recursive creatures and land recursion turn one card into repeated Korvold triggers. Sacrificing fetch lands and replaying them off Crucible or Ramunap is the land half of the deck."
+        }
+      ]
+    },
+    {
+      "name": "Chulane, Teller of Tales",
+      "ci": "GWU",
+      "archetype": "value",
+      "why": "Every creature cast draws a card and drops a land, so the deck is a pile of cheap creatures, ways to pick them back up and cast them again, and payoffs for the lands and cards that pour in.",
+      "groups": [
+        {
+          "job": "cheap creatures that make mana, so every cast is ramp twice over",
+          "floor": 6,
+          "cards": [
+            "Llanowar Elves",
+            "Elvish Mystic",
+            "Fyndhorn Elves",
+            "Birds of Paradise",
+            "Noble Hierarch",
+            "Avacyn's Pilgrim",
+            "Bloom Tender",
+            "Lotus Cobra",
+            "Sakura-Tribe Elder",
+            "Coiling Oracle",
+            "Wood Elves",
+            "Priest of Titania"
+          ],
+          "note": "One to three mana creatures. Chulane draws off the cast whatever the body does, so a mana dork is a cantrip that also ramps."
+        },
+        {
+          "job": "bounce your own creatures to cast them again",
+          "floor": 3,
+          "cards": [
+            "Cloudstone Curio",
+            "Temur Sabertooth",
+            "Whitemane Lion",
+            "Shrieking Drake",
+            "Kor Skyfisher",
+            "Stonecloaker",
+            "Dream Stalker",
+            "Man-o'-War",
+            "Equilibrium",
+            "Erratic Portal",
+            "Words of Wind"
+          ],
+          "note": "Return-to-hand, not flicker. A blink does not recast the creature, so it never triggers Chulane. Cloudstone Curio, Sabertooth and the self-bouncing drakes and lions are the loop pieces."
+        },
+        {
+          "job": "landfall payoffs for the lands Chulane puts onto the battlefield",
+          "floor": 2,
+          "cards": [
+            "Tatyova, Benthic Druid",
+            "Aesi, Tyrant of Gyre Strait",
+            "Tireless Tracker",
+            "Scute Swarm",
+            "Avenger of Zendikar",
+            "Rampaging Baloths",
+            "Field of the Dead",
+            "Ancient Greenwarden",
+            "Retreat to Coralhelm"
+          ],
+          "note": "Each creature cast is also a land drop, so landfall fires far more often than once a turn."
+        },
+        {
+          "job": "more card draw off casting or landing a creature",
+          "floor": 2,
+          "cards": [
+            "Beast Whisperer",
+            "Guardian Project",
+            "The Great Henge",
+            "Glimpse of Nature",
+            "Kindred Discovery",
+            "Soul of the Harvest",
+            "Primordial Sage",
+            "Lifecrafter's Bestiary"
+          ],
+          "note": "Backups for the commander's own trigger so the deck keeps drawing when Chulane is off the table, and doubles the draw when he is on it. Must fire on any creature, because this deck's creatures are one and two power."
+        }
+      ]
+    },
+    {
+      "name": "Muldrotha, the Gravetide",
+      "ci": "BGU",
+      "archetype": "reanimator",
+      "why": "Muldrotha lets you play one permanent of each type from your graveyard every turn, so the deck mills itself, runs cheap permanents that sacrifice themselves, and replays them from the yard.",
+      "groups": [
+        {
+          "job": "fill your own graveyard",
+          "floor": 5,
+          "cards": [
+            "Hermit Druid",
+            "Mesmeric Orb",
+            "Stitcher's Supplier",
+            "Satyr Wayfinder",
+            "Grisly Salvage",
+            "Buried Alive",
+            "Entomb",
+            "Mulch",
+            "Sidisi, Brood Tyrant",
+            "Old Stickfingers",
+            "Glowspore Shaman",
+            "Winding Way"
+          ],
+          "note": "The graveyard is the second hand. A Muldrotha deck that cannot put cards in it has nothing to replay."
+        },
+        {
+          "job": "sacrifice outlets to reset permanents and loop them",
+          "floor": 3,
+          "cards": [
+            "Ashnod's Altar",
+            "Phyrexian Altar",
+            "Altar of Dementia",
+            "Viscera Seer",
+            "Carrion Feeder",
+            "Woe Strider",
+            "Birthing Pod",
+            "Evolutionary Leap",
+            "Greater Good",
+            "Yawgmoth, Thran Physician",
+            "Phyrexian Tower",
+            "High Market"
+          ],
+          "note": "An outlet turns every permanent into a repeatable enters-the-battlefield effect: sacrifice it, then recast it from the graveyard next turn."
+        },
+        {
+          "job": "cheap permanents that sacrifice themselves and are worth recasting",
+          "floor": 6,
+          "cards": [
+            "Spore Frog",
+            "Sakura-Tribe Elder",
+            "Burnished Hart",
+            "Wayfarer's Bauble",
+            "Ichor Wellspring",
+            "Expedition Map",
+            "Seal of Doom",
+            "Seal of Primordium",
+            "Executioner's Capsule",
+            "Nihil Spellbomb",
+            "Mishra's Bauble",
+            "Kaya's Ghostform"
+          ],
+          "note": "Spore Frog every turn, a Seal of Doom every turn, a ramp piece every turn. These are the cards that make the commander a value engine rather than a one-shot reanimation."
+        },
+        {
+          "job": "lands worth replaying from the graveyard",
+          "floor": 4,
+          "cards": [
+            "Strip Mine",
+            "Wasteland",
+            "Glacial Chasm",
+            "Command Beacon",
+            "Bojuka Bog",
+            "Evolving Wilds",
+            "Terramorphic Expanse",
+            "Fabled Passage",
+            "Myriad Landscape",
+            "Verdant Catacombs",
+            "Misty Rainforest",
+            "Polluted Delta"
+          ],
+          "note": "The land slot is free every turn, so lands that sacrifice themselves (fetches, Strip Mine, Command Beacon) become repeatable effects."
+        }
+      ]
+    },
+    {
+      "name": "Animar, Soul of Elements",
+      "ci": "GUR",
+      "archetype": "big-mana",
+      "why": "Every creature cast adds a counter to Animar and every counter takes a colourless mana off the next creature, so the deck is a loop of cheap and self-bouncing creatures that ends with big colourless Eldrazi cast for nothing.",
+      "groups": [
+        {
+          "job": "creatures that return to hand so they can be recast for another counter",
+          "floor": 3,
+          "cards": [
+            "Shrieking Drake",
+            "Ancestral Statue",
+            "Man-o'-War",
+            "Dream Stalker",
+            "Temur Sabertooth",
+            "Kederekt Leviathan",
+            "Tidespout Tyrant",
+            "Cloudstone Curio",
+            "Equilibrium",
+            "Erratic Portal",
+            "Crystal Shard"
+          ],
+          "note": "The counter engine. Cloudstone Curio, Equilibrium, Erratic Portal and Crystal Shard are not creatures but do the same job of putting a cheap creature back in hand; Tidespout Tyrant bounces a permanent on every cast. Ancestral Statue with five counters on Animar is the deck's best known loop. Peregrine Drake, Cloud of Faeries and Great Whale untap lands and are the creatures that get bounced, not the bounce, so they are not listed here."
+        },
+        {
+          "job": "big colourless creatures that cost nothing once Animar is large",
+          "floor": 4,
+          "cards": [
+            "Ulamog, the Ceaseless Hunger",
+            "Kozilek, Butcher of Truth",
+            "Ulamog, the Infinite Gyre",
+            "Artisan of Kozilek",
+            "Void Winnower",
+            "It That Betrays",
+            "Pathrazer of Ulamog",
+            "Ulamog's Crusher",
+            "Bane of Bala Ged",
+            "Conduit of Ruin",
+            "Emrakul, the Promised End"
+          ],
+          "note": "The payoff. A colourless creature's whole cost is generic, so an Animar with ten counters casts Ulamog free. Emrakul, the Aeons Torn is banned and is deliberately not listed. Kozilek, the Great Distortion is {8}{C}{C}: Animar cannot reduce the two colourless pips, so he never costs nothing and is not listed."
+        },
+        {
+          "job": "one and two mana creatures that make mana so he grows in the first three turns",
+          "floor": 5,
+          "cards": [
+            "Llanowar Elves",
+            "Elvish Mystic",
+            "Fyndhorn Elves",
+            "Birds of Paradise",
+            "Delighted Halfling",
+            "Boreal Druid",
+            "Sakura-Tribe Elder",
+            "Wood Elves",
+            "Coiling Oracle"
+          ],
+          "note": "Ramp in this deck must be a creature. A mana rock accelerates you; a mana dork accelerates you AND puts a counter on Animar."
+        },
+        {
+          "job": "draw a card whenever a creature enters or is cast",
+          "floor": 3,
+          "cards": [
+            "Beast Whisperer",
+            "Guardian Project",
+            "Primordial Sage",
+            "Soul of the Harvest",
+            "Glimpse of Nature",
+            "The Great Henge",
+            "Lifecrafter's Bestiary",
+            "Zendikar Resurgent"
+          ],
+          "note": "The deck casts eight or more creatures a turn once it is going, and each one has to replace itself or the loop runs out of gas. Every card here triggers on the cast or the entry itself, not on combat damage and not only on big creatures, because the loop is made of two and three mana creatures."
+        }
+      ]
     }
   ],
   "typeMatchNote": "A group may carry typeMatch instead of a card list. A name list is right for a job with a few canonical answers (sacrifice outlets, blink spells); it is WRONG for a tribal deck, where the job is \"play creatures of the tribe\" and there are two hundred right answers. Scoring Edgar Markov against nine named Vampires reported 0/4 while the deck held TWELVE Vampires including Olivia Voldaren, Immersturm Predator and Elenda. The instrument was wrong, not the generator."

@@ -363,13 +363,31 @@ function readNamedSubtypesInRules(row: FacetInput, out: Set<Facet>): void {
   /* One pass over the words the text actually contains, rather than a pass over
      the whole vocabulary: the vocabulary is about 280 words and a rules text is
      about 30, so this is the cheap direction and the pool is 30,000 rows. */
+  /*
+   * WITH THE FRAME IN FRONT OF EACH WORD, because a subtype in a negative
+   * phrase is a fact about what the card AVOIDS. This scan split the text on
+   * non-letters and read every subtype word as a thing the card cares about,
+   * so "Protection from Humans" made Yawgmoth, Thran Physician a Human tribal
+   * commander and "a non-Human creature" did the same to Kinnan. Both are
+   * Humans, and both decks filled with Humans on the strength of the one
+   * phrase on the card that means the reverse.
+   *
+   * The tokeniser is replaced by a positioned scan so the twenty-four
+   * characters before a hit can be checked against the closed list of
+   * negative frames `namesWordPositively` uses. Same words are skipped, same
+   * token and basic-land exclusions apply; only the frame check is new.
+   */
   const seen = new Set<string>();
-  for (const raw of text.split(/[^a-z'-]+/)) {
-    const word = raw.replace(/^[-']+|[-']+$/g, '');
+  const wordRe = /[a-z'-]+/g;
+  let m: RegExpExecArray | null;
+  while ((m = wordRe.exec(text)) !== null) {
+    const word = m[0].replace(/^[-']+|[-']+$/g, '');
     if (word.length < 2 || seen.has(word)) continue;
-    seen.add(word);
     const sub = singularSubtype(word);
-    if (!sub || BASIC_LAND_TYPES.has(sub) || madeAsTokens.has(sub)) continue;
+    if (!sub || BASIC_LAND_TYPES.has(sub) || madeAsTokens.has(sub)) { seen.add(word); continue; }
+    const before = text.slice(Math.max(0, m.index - 24), m.index);
+    if (NEGATIVE_FRAME.test(before)) continue; /* not `seen`: a later, positive mention still counts */
+    seen.add(word);
     out.add(`cares:sub:${sub}`);
   }
 }
@@ -460,8 +478,41 @@ function readOwnTypeInRules(row: FacetInput, out: Set<Facet>): void {
 
   for (const sub of subs) {
     if (!/^[a-z][a-z'-]*$/.test(sub)) continue;
-    if (namesWord(text, sub)) out.add(`cares:sub:${sub}`);
+    if (namesWordPositively(text, sub)) out.add(`cares:sub:${sub}`);
   }
+}
+
+/**
+ * The word appears, and NOT in a phrase that means the opposite.
+ *
+ * `namesWord` finds the word. This asks what the words before it are doing,
+ * because the same subtype in a negative frame is a fact about what the card
+ * AVOIDS, and reading it as what the card wants produced two wrong commanders
+ * in one afternoon:
+ *
+ *   Yawgmoth, Thran Physician   "Protection from Humans"     -> Human tribal
+ *   Kinnan, Bonder Prodigy      "a non-Human creature"       -> Human tribal
+ *
+ * Both are Humans themselves, so the scan was looking for their OWN type in
+ * their rules and found it in the one place it means the reverse. The frames
+ * are a closed list, on purpose: each was found on a real card and a wider
+ * guess would start refusing real tribal payoffs.
+ */
+/** The closed list of phrases that put the subtype after them in a NEGATIVE frame. */
+const NEGATIVE_FRAME =
+  /(protection from|non-?|can't be blocked by|other than|except by|except for|rather than|isn't a|aren't|not a|without)\s*$/;
+
+function namesWordPositively(text: string, word: string): boolean {
+  const forms = [word, `${word}s`, `${word}es`, IRREGULAR_PLURALS[word]].filter(Boolean) as string[];
+  for (const form of forms) {
+    const re = new RegExp(`(^|[^a-z'])${escapeRe(form)}([^a-z']|$)`, 'g');
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      const before = text.slice(Math.max(0, m.index - 24), m.index + m[1].length);
+      if (!NEGATIVE_FRAME.test(before)) return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -515,7 +566,10 @@ function namesWord(text: string, word: string): boolean {
   const irregular = IRREGULAR_PLURALS[word];
   if (irregular) forms.add(irregular);
   for (const form of forms) {
-    if (new RegExp(`(^|[^a-z'])${escapeRe(form)}([^a-z']|$)`).test(text)) return true;
+    /* `non-` is not a boundary before a word, it is a negation of it. The
+       hyphen matched `[^a-z']` and "non-Human" read as naming Humans, which is
+       how a commander who fetches NON-Humans was told he loves Humans. */
+    if (new RegExp(`(^|[^a-z'])(?<!non-)(?<!non)${escapeRe(form)}([^a-z']|$)`).test(text)) return true;
   }
   return false;
 }
@@ -689,6 +743,18 @@ function readCaresFilters(node: unknown, out: Set<Facet>): void {
     return;
   }
   const rec = node as Record<string, unknown>;
+  /*
+   * A NEGATED FILTER IS NOT A THING THE CARD CARES ABOUT. "non-Human creature"
+   * is a filter that EXCLUDES Humans, and walking into it emitted
+   * `cares:sub:human` all the same. Kinnan, Bonder Prodigy puts a non-Human
+   * creature onto the battlefield, read as "triggers on human spells", and a
+   * refinement round filled his deck with Gran-Gran and Tifa Lockhart. Stop at
+   * the `not` and read nothing inside it.
+   */
+  /* The DSL spells a negated filter `{ is: 'not', of }`, not `{ not: ... }`;
+     the first version of this guard checked for a key that never exists and
+     so never fired. "nonland" kept reading as caring about lands. */
+  if (rec.is === 'not') return;
   if (typeof rec.value === 'string') {
     if (rec.is === 'type') out.add(`cares:type:${rec.value.toLowerCase()}`);
     else if (rec.is === 'subtype') out.add(`cares:sub:${rec.value.toLowerCase()}`);
@@ -1380,7 +1446,17 @@ function readFilter(filter: CardFilter, out: Set<Facet>, prefix: 'cares'): void 
       out.add(`${prefix}:type:token`);
       return;
     case 'not':
-      readFilter(filter.of, out, prefix);
+      /*
+       * A NEGATED FILTER IS NOT A THING THE CARD CARES ABOUT, and this case
+       * walked into it and read the inside as if it were. Brago, King Eternal
+       * blinks "any number of target nonland permanents"; the target compiles
+       * correctly to `{is:'not', of:{is:'type', value:'land'}}`, this emitted
+       * `cares:type:land`, the plan echoed it as `type:land` at 0.90, and a
+       * blink commander wanted lands harder than anything on his card. Same
+       * class as "non-Human" and "Protection from Humans" in the word scans:
+       * a negative frame read as a positive one. The filter says what to
+       * EXCLUDE; nothing is wanted.
+       */
       return;
     case 'and':
     case 'or':

@@ -52,7 +52,7 @@ import type { CandidateCard, DeckCard, DeckProfile, Role } from '../core/types.t
 import { ROLES } from '../core/types.ts';
 import type { EngineCard, EngineDeckEntry } from '../core/card.ts';
 import { deriveDeckProfile } from '../advise/profile.ts';
-import { rankCandidates } from '../advise/rank.ts';
+import { rankCandidates, scoreCandidate } from '../advise/rank.ts';
 import { cardRole, styleFor, type DeckStyle } from '../advise/roles.ts';
 import { worksAgainstPlan } from '../knowledge/behaviour.ts';
 /* Identity only. Legality is settled by the pool query before a card ever
@@ -84,6 +84,7 @@ import {
   type ManaProfile,
   type PlayabilityCardInput,
 } from '../playability/castability.ts';
+import { chooseCuts } from '../advise/cuts.ts';
 import { evaluateDeck, type DeckEvaluation } from '../evaluate.ts';
 
 /* ------------------------------------------------------------------ *
@@ -224,7 +225,12 @@ export interface GenerateDeckInput {
   avoidOracleIds?: readonly string[];
 }
 
-export type Bucket = 'land' | 'basic' | Role | 'flex' | 'commander';
+/**
+ * `refined` is a card a refinement round swapped IN, replacing one the deck-aware
+ * evaluation ranked worst. Kept distinct from `commander` and `flex` so a
+ * decklist can be read for what each pass decided.
+ */
+export type Bucket = 'land' | 'basic' | Role | 'flex' | 'commander' | 'refined';
 
 /** Where the deck's picks came from: behaviour records, or the old tag words. */
 export interface BuildEvidence {
@@ -1800,6 +1806,236 @@ const PACKAGE_MATCH = 0.6;
   // Basics are lands. Reporting the nonbasic count as the land count is how a
   // 36-land deck comes to say "27 of 35 lands" beside its own manabase.
   roleFill.land.picked += basicEntries.reduce((n, e) => n + e.quantity, 0);
+
+  /* ---------------------------------------------------------------- *
+   * 4b. Refinement rounds: the deck reviews itself before anyone sees it.
+   * ---------------------------------------------------------------- *
+   *
+   * The owner: *"It doesn't seem like the system is even reviewing the deck as
+   * it spurts all cards out at once, I'd expect multiple rounds of
+   * optimisation before displaying."* They were describing the code exactly.
+   * Every pass above chooses cards against a profile of the deck AS IT WAS
+   * WHEN THAT PASS RAN — the quota loop against a seed profile holding only
+   * the commander, the flex fill against whatever the quota loop left. Nothing
+   * ever looked at the finished deck and asked whether every card still
+   * belonged.
+   *
+   * Measured on the 20-commander benchmark before this existed, the same gap
+   * repeated across commanders that share nothing else:
+   *
+   *     creatures that tap for mana   Kinnan 0/8   Chulane 0/6   Animar 0/5
+   *     sacrifice outlets on demand   Korvold 0/4  Muldrotha 0/3
+   *
+   * Kinnan's plan correctly wants creatures that make mana. The ramp floor is
+   * filled before that plan is consulted, by the best ramp in the pool, which
+   * is rocks; by the time a dork is considered, ramp is full. A Signet has
+   * commander fit 0 in that deck and Llanowar Elves has 1.0, and the only pass
+   * that could have said so had already run.
+   *
+   * THE ROUND. Evaluate the whole deck with the same functions that score it
+   * on the deck page, take the cards the evaluation ranks worst, and for each
+   * one ask the ranker for the best card not yet in the deck — scored against
+   * a profile of THIS deck, commander plan and all. Swap only when the
+   * replacement clearly beats the cut and still serves a role the deck needs.
+   * Repeat until a round changes nothing.
+   *
+   * WHY THE CUT SCORE AND THE CANDIDATE SCORE ARE COMPARABLE. `chooseCuts`
+   * scores a deck card with `scoreCandidate` against the profile, and
+   * `rankCandidates` scores a pool card with the same function against the
+   * same profile. Same scale, same signals, same reason strings. A swap is
+   * therefore a statement the engine can defend in one sentence: this card
+   * scores X here, that one scores Y here, and Y is enough better to act on.
+   *
+   * WHY `evaluateDeck`'S OWN CUTS ARE NOT USED. Its profile is built without
+   * the commander plan or the archetype — it is the deck page's evaluation and
+   * carries only what a saved deck carries. Cuts chosen from it are
+   * commander-blind, and a commander-blind cut list would cut the themed card
+   * and keep the staple every time. `deckProfileFrom` passes both, so the
+   * cuts here know what the commander wants.
+   *
+   * BEFORE THE BUDGET STEP, NOT AFTER IT. The first placement ran after the
+   * trim, and a round then swapped the $400 card the trim had just removed
+   * straight back in: rank 1, high score, and the loop never looked at price.
+   * The trim has to have the last word, so this runs first and the trim
+   * cleans up whatever it chose. A price guard below is belt and braces for
+   * the case where a budget is set and a round would exceed it on its own.
+   *
+   * THE MARGIN is the guard against churn. Two cards within a point of each
+   * other are a coin-flip, and swapping on a coin-flip makes the deck
+   * different rather than better. 0.75 is a quarter of `roleGap` and a third
+   * of `commanderFit`: a real signal, not noise.
+   */
+  const REFINE_ROUNDS = 4;
+  const REFINE_CUTS_PER_ROUND = 5;
+  const REFINE_MARGIN = 0.75;
+  const refineLog: string[] = [];
+  let refineSwaps = 0;
+
+  for (let round = 1; round <= REFINE_ROUNDS; round++) {
+    const roundEntries: EngineDeckEntry[] = [
+      { card: toEngineCard(input.commander), quantity: 1, isCommander: true },
+      ...picked.map(e => ({ card: toEngineCard(e.card), quantity: e.quantity })),
+    ];
+    const roundEval = evaluateDeck(roundEntries, { format, commander: toEngineCard(input.commander) });
+    const roundProfile = deckProfileFrom(
+      format,
+      identity,
+      input.commander,
+      picked,
+      roundEval.playability.profile,
+      targets,
+      commanderPlan,
+      plan.archetype ?? null
+    );
+
+    /* Worst first, by the evaluation's own ordering. Lands are never offered
+       by `chooseCuts`; basics and the commander are excluded by it too. A card
+       the caller asked for by name is never cut: they asked. */
+    const cuts = chooseCuts(roundEntries, roundEval.playability, roundProfile, {
+      limit: REFINE_CUTS_PER_ROUND * 3,
+    }).filter(cut => {
+      const entry = picked.find(e => e.card.name === cut.name);
+      return entry && !entry.preferred && entry.bucket !== 'land' && entry.bucket !== 'basic';
+    }).slice(0, REFINE_CUTS_PER_ROUND);
+    if (cuts.length === 0) break;
+
+    /*
+     * THE SAME SCALE ON BOTH SIDES, and the first version of this got it wrong.
+     *
+     * `chooseCuts` scores a deck card with `scoreCandidate(card, profile)` and
+     * NO options, so commander fit is weighted 2.2 and popularity 0.8 — the
+     * optimiser's defaults. `rankCandidates` below is handed `rankOptions`,
+     * which weight them 3.6 and 2.4. Same function, different weights, and the
+     * result was every card in the deck scoring 0.6 to 3.4 while every card
+     * outside it scored 8 to 9. Solemn Simulacrum, rank 38, went out at 3.1 for
+     * a rank-1,545 Human at 8.1, and twenty cards were swapped in four rounds
+     * on a margin that measured nothing. Measured: 17/71 jobs to 15/71, junk
+     * from 0 to 7.
+     *
+     * So the cut is re-scored here with the options the replacement is scored
+     * with. `chooseCuts` still decides the ORDER (castability first, then
+     * fit); this decides the NUMBER the margin is tested against.
+     */
+    /*
+     * AND LEAVE-ONE-OUT, which matters more than the options did.
+     *
+     * Re-scoring with `rankOptions` changed nothing: the numbers were identical
+     * to the decimal. The asymmetry is structural. A card IN the deck is scored
+     * against a profile that CONTAINS it, so the role it fills reads as full and
+     * `roleGap` pays it nothing, while a card OUTSIDE the deck sees that same
+     * role one short and is paid the full 3.0 for filling it. Every member
+     * loses to every outsider by construction, whatever the weights.
+     *
+     * So each cut is scored against the deck WITHOUT it — the profile a
+     * replacement would actually be measured against. Now the two numbers
+     * answer the same question: if this slot were empty, how well would this
+     * card fill it. Five profile builds a round, over ~60 cards; cheap.
+     */
+    const cutScore = new Map<string, number>();
+    for (const cut of cuts) {
+      const idx = picked.findIndex(e => e.card.name === cut.name);
+      if (idx < 0) continue;
+      const without = picked.filter((_, i) => i !== idx);
+      const loo = deckProfileFrom(
+        format,
+        identity,
+        input.commander,
+        without,
+        roundEval.playability.profile,
+        targets,
+        commanderPlan,
+        plan.archetype ?? null
+      );
+      /*
+       * THE BUILDCARD, NOT `toCandidate(entry)`. That helper rebuilds a
+       * candidate from an EngineCard and carries no `facets` and
+       * `edhrecRank: null` — right for a cut list read on its own, and a
+       * six-point handicap the moment the number is compared against a pool
+       * card that has both. Commander fit, archetype fit and popularity all
+       * read zero for every deck member and full for every outsider. The card
+       * in `picked` is the same object the ranker scored when it went in.
+       */
+      cutScore.set(cut.name, scoreCandidate(picked[idx].card, loo, rankOptions).score);
+    }
+
+    /* The best cards NOT in the deck, scored against the deck as it stands. */
+    const replacements = rankCandidates(
+      shortlist.filter(c => !takenOracleIds.has(c.oracleId)),
+      roundProfile,
+      rankOptions
+    );
+
+    let swapsThisRound = 0;
+    for (const cut of cuts) {
+      const outIdx = picked.findIndex(e => e.card.name === cut.name);
+      if (outIdx < 0) continue;
+      const outEntry = picked[outIdx];
+      const outRoles = rolesOf(outEntry.card);
+
+      const replacement = replacements.find(rec => {
+        const card = rec.card as BuildCard;
+        if (takenOracleIds.has(card.oracleId)) return false;
+        if (rec.score - (cutScore.get(cut.name) ?? cut.fitScore) < REFINE_MARGIN) return false;
+        /* The same rank floor the quota loop uses. Without it a round swapped
+           Kogla, the Titan Ape for a rank-14,071 card on a 1.1 margin: the
+           replacement did more in the profile and was a card nobody plays. */
+        if (typeof card.edhrecRank === 'number' && card.edhrecRank > PLAYED_ENOUGH_RANK) return false;
+        if (typeof input.budgetUsd === 'number' && input.budgetUsd > 0) {
+          const spent = picked.reduce((n, e) => n + (e.card.usd ?? 0) * e.quantity, 0);
+          const delta = (card.usd ?? 0) - (outEntry.card.usd ?? 0);
+          if (spent + delta > input.budgetUsd) return false;
+        }
+        if (worksAgainstPlan(commanderPlan, card)) return false;
+        /* Colour discipline holds through a swap: a colourless card may only
+           replace a colourless card once the cap is reached, and a coloured
+           card is always allowed to replace a colourless one. */
+        if (!hasColour(card) && hasColour(outEntry.card) && overColourlessCap(card)) return false;
+        /* The deck's shape holds too. The replacement must do a job the cut
+           did, or a job the deck is still short of; otherwise a role the floors
+           filled on purpose is quietly emptied. */
+        const inRoles = rolesOf(card);
+        const keepsShape =
+          [...outRoles].some(r => inRoles.has(r)) ||
+          [...inRoles].some(r => roleFill[r] && roleFill[r].picked < roleFill[r].target);
+        return keepsShape;
+      });
+      if (!replacement) continue;
+
+      const inCard = replacement.card as BuildCard;
+      takenOracleIds.delete(outEntry.card.oracleId);
+      takenOracleIds.add(inCard.oracleId);
+      if (!hasColour(outEntry.card)) colourlessPicked -= 1;
+      if (!hasColour(inCard)) colourlessPicked += 1;
+      for (const r of outRoles) if (roleFill[r]) roleFill[r].picked -= 1;
+      for (const r of rolesOf(inCard)) if (roleFill[r]) roleFill[r].picked += 1;
+      picked[outIdx] = {
+        card: inCard,
+        quantity: 1,
+        reason: replacement.reason,
+        score: replacement.score,
+        bucket: 'refined',
+        preferred: false,
+      };
+      swapsThisRound++;
+      refineSwaps++;
+      refineLog.push(
+        `round ${round}: ${outEntry.card.name} out (${(cutScore.get(cut.name) ?? cut.fitScore).toFixed(1)}, ${cut.grounds === 'uncastable' ? 'hard to cast' : 'weak fit'}) ` +
+          `for ${inCard.name} (${replacement.score.toFixed(1)}): ${replacement.reason}`
+      );
+    }
+    if (swapsThisRound === 0) break;
+  }
+
+  if (refineSwaps > 0) {
+    notes.push(
+      `reviewed the finished deck in ${Math.min(REFINE_ROUNDS, refineLog.length ? refineLog[refineLog.length - 1].match(/^round (\d+)/)?.[1] ?? '1' : '0')} ` +
+        `round${refineSwaps === 1 ? '' : 's'} and swapped ${refineSwaps} card${refineSwaps === 1 ? '' : 's'} ` +
+        `for ones that do more in THIS deck`
+    );
+    for (const line of refineLog) notes.push(line);
+  } else {
+    notes.push('reviewed the finished deck: no card could be clearly improved on');
+  }
 
   /* ---------------------------------------------------------------- *
    * 5. Budget, enforced on the deck rather than guessed per card.

@@ -986,7 +986,7 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
   const quotaSlots = Math.max(0, spellSlots - fitReserve);
 
   const quota = { ...targets, land: 0, creature: 0 } as Record<Role, number>;
-  for (const rec of orderPreferredFirst(rankedSpells, preferred)) {
+  for (const rec of orderPreferredFirst(playedFirst(rankedSpells), preferred)) {
     if (picked.length - chosenLands.length >= quotaSlots) break;
     const card = rec.card as BuildCard;
     if (takenOracleIds.has(card.oracleId)) continue;
@@ -1295,7 +1295,7 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
   /* Ordered ONCE, outside both loops. Calling `orderPreferredFirst` inside the
      `while` re-sorted 10,913 cards for every slot filled and took a Meren build
      from 1.7 s to 8.8 s. */
-  const topUpOrder = orderPreferredFirst(rankedSpells, preferred);
+  const topUpOrder = orderPreferredFirst(playedFirst(rankedSpells), preferred);
   for (const role of ROLES) {
     if (role === 'land' || role === 'creature') continue;
     let from = 0;
@@ -1384,7 +1384,7 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
     bucket: Bucket
   ) => {
     if (enough()) return;
-    for (const rec of orderPreferredFirst(rankedSpells, preferred)) {
+    for (const rec of orderPreferredFirst(playedFirst(rankedSpells), preferred)) {
       if (enough()) break;
       if (picked.length - chosenLands.length >= spellSlots) break;
       const card = rec.card as BuildCard;
@@ -1949,6 +1949,60 @@ function orderPreferredFirst<T extends { card: CandidateCard }>(
   const rest: T[] = [];
   for (const r of ranked) (preferred.has(r.card.oracleId) ? first : rest).push(r);
   return [...first, ...rest];
+}
+
+/**
+ * How badly played a card has to be before the deck looks elsewhere first.
+ *
+ * NOT A BAN, and the difference is the whole design. A card past this rank can
+ * still be taken; it just does not get to take a role slot while a card people
+ * actually play is available for the same slot.
+ *
+ * The owner, twice, months apart: *"there are cards he would absolutely never
+ * include"*. Measured across the seven audit decks, 22 cards past EDHREC rank
+ * 15,000 reached a deck. The cause is not that the ranker is wrong about them,
+ * it is that the ranker has no notion of card QUALITY except popularity, and
+ * popularity is weighted 2.4 against commander fit at 3.6. So Oathkeeper,
+ * Takeno's Daisho — rank 10,744, a three-mana Equipment costing two more to
+ * equip — beats Swiftfoot Boots at rank 12 for a protection slot, because it
+ * carries one facet the commander asked for and Boots carries none.
+ *
+ * LOWERING THE FIT WEIGHT WAS TRIED FIRST AND REJECTED, with the numbers in
+ * `scripts/probe/fit-weight-sweep.mjs`: every value below 3.6 buys staples and
+ * kills junk and pays for it in keyed synergy, 72% to 68%, because the quota
+ * loop stops preferring cards that fit. Raising the reserve cap to compensate
+ * does nothing at all — 16, 22 and 28 measure identically, since these
+ * commanders never reach the cap. There is no free lunch on that axis, and
+ * trading theme away is the opposite of what was asked for.
+ *
+ * This axis has one. A rank floor separates "does this card do the job" from
+ * "is this card any good", which the score conflates, and it leaves the fit
+ * weight alone so a themed card that people actually play still wins.
+ *
+ * 12,000 rather than 15,000: the complaint is measured at 15,000, so a floor
+ * set there would only ever tie it, and the cards between 12,000 and 15,000 are
+ * the same kind of card. Not lower, because a narrow colour or a small pool
+ * genuinely runs out of played cards, and this must degrade to "take it anyway"
+ * rather than to a deck that is short.
+ */
+const PLAYED_ENOUGH_RANK = 12_000;
+
+/**
+ * Cards people actually play, then the rest, each half still in score order.
+ *
+ * Effectively a two-pass fill without a second loop: the quota loop walks this
+ * in order, so it exhausts the played cards for a role before it will consider
+ * an unplayed one, and a role the pool genuinely cannot fill any other way
+ * still gets filled.
+ */
+function playedFirst<T extends { card: CandidateCard }>(ranked: readonly T[]): T[] {
+  const played: T[] = [];
+  const fringe: T[] = [];
+  for (const r of ranked) {
+    const rank = (r.card as { edhrecRank?: number | null }).edhrecRank;
+    (typeof rank === 'number' && rank <= PLAYED_ENOUGH_RANK ? played : fringe).push(r);
+  }
+  return [...played, ...fringe];
 }
 
 /**

@@ -32,6 +32,7 @@
  * this generator serving old code for days while the repo was correct.
  */
 import { readFileSync } from 'node:fs';
+import process from 'node:process';
 
 const K = readFileSync(new URL('../../scratch/anon.txt', import.meta.url), 'utf8').trim();
 const BASE = 'https://udnaflcohfyljrsgqggy.supabase.co';
@@ -53,6 +54,7 @@ const res = await fetch(`${BASE}/functions/v1/ai-deck-builder-v2`, {
     powerLevel: 7,
     includeLands: true,
     useAIPlanning: false,
+    ...(process.env.ARCHETYPE ? { archetype: process.env.ARCHETYPE } : {}),
   }),
 });
 const ms = Date.now() - t0;

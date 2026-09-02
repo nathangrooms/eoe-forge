@@ -949,6 +949,36 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
    * that pass, and `COMMANDER_FIT_RESERVE` is the whole of what it may spend.
    */
   const COMMANDER_FIT_RESERVE = 8;
+
+/**
+ * Slots per package of the chosen shell(s).
+ *
+ * TWO, which is SIX for one shell, and the sweep below is over that total. Measured on the seven-deck roster and on
+ * Syr Vondam against the two human-built decks, moving only this number:
+ *
+ *     budget   Vondam archetype   roster keyed   staples   past15k
+ *        6          11/60              69%        45/61       0
+ *        9          10/60              68%        44/61       1
+ *       12          11/60              67%        44/61       1
+ *       16          13/60              64%        41/61       1
+ *
+ * Six buys the whole of the archetype gain that twelve buys and costs less of
+ * everything else, so twelve is simply worse. Sixteen buys two more archetype
+ * cards for three points of commander synergy and four staples, which is not a
+ * trade worth making: a deck that is more on-shell and less on-COMMANDER is not
+ * what was asked for.
+ */
+const PACKAGE_BUDGET_PER_PACKAGE = 2;
+/**
+ * How much of a package a card has to do to fill one of its slots.
+ *
+ * A package's wants are normalised, so 1.0 is a card carrying every facet the
+ * package's own exemplars agreed on and the single loudest facet alone is
+ * usually about 0.55. Above this floor means the card does more than the one
+ * broad thing, which is the conjunction the pass exists for: `trig:enters` is
+ * on hundreds of cards, `trig:enters` AND a value effect is Mulldrifter.
+ */
+const PACKAGE_MATCH = 0.6;
   const COMMANDER_RESCUE_FIT = 0.45;
 
   /*
@@ -983,7 +1013,37 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
     commanderPlan.wants.length > 0
       ? Math.min(16, COMMANDER_FIT_RESERVE + Math.max(0, loudWants - 3))
       : 0;
-  const quotaSlots = Math.max(0, spellSlots - fitReserve);
+  /*
+   * THE ARCHETYPE'S PACKAGES NEED THEIR SLOTS HELD BACK TOO, and the first
+   * version of this did not do that: the package pass ran after the quota loop
+   * and the commander reserve had already spent all 55 nonland slots, so it
+   * reported "Things worth blinking 0/4" three times and changed nothing.
+   *
+   * A reserved slot is only reserved if it is taken out of the budget BEFORE
+   * the loop that would otherwise spend it.
+   *
+   * When a shell is chosen the two theme mechanisms share, rather than stack:
+   * the packages ARE the archetype, said more precisely than a flat want list
+   * can, so the commander reserve shrinks to make room. 6 + 12 = 18 of 55,
+   * which leaves the floors a working majority.
+   */
+  /*
+   * SCALED BY HOW MANY PACKAGES THERE ARE, not a flat number.
+   *
+   * Six was measured against a single shell, which is three packages, so each
+   * got two cards. A commander that reads as TWO shells has six packages, and a
+   * flat six then buys one card each — six packages of one card is not two
+   * strategies, it is six gestures. Syr Vondam came out with "Sacrifice outlets
+   * 1/1, Fodder 1/1, Death payoffs 1/1, Things worth blinking 1/1".
+   *
+   * Two per package holds the measured single-shell behaviour exactly (3 x 2 =
+   * 6) and gives a two-shell commander the twelve it needs. Capped so a shell
+   * that grows a fourth package cannot quietly take the deck over.
+   */
+  const packageCount = archetypePlan?.packages?.length ?? 0;
+  const packageBudget = packageCount > 0 ? Math.min(14, PACKAGE_BUDGET_PER_PACKAGE * packageCount) : 0;
+  const commanderReserve = packageBudget > 0 ? Math.min(fitReserve, 6) : fitReserve;
+  const quotaSlots = Math.max(0, spellSlots - commanderReserve - packageBudget);
 
   const quota = { ...targets, land: 0, creature: 0 } as Record<Role, number>;
   for (const rec of orderPreferredFirst(playedFirst(rankedSpells), preferred)) {
@@ -1034,7 +1094,7 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
    * a cheap unplayed card with real synergy gets its place, which is the half
    * of "popularity gets no vote" that was right.
    */
-  if (fitReserve > 0) {
+  if (commanderReserve > 0) {
     /* The held-back colourless budget is released for exactly this pass, and
        stays released afterwards: the passes below it are the flex and land
        fills, and holding it shut for them would only leave the deck short. */
@@ -1192,7 +1252,7 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
     const reservedNames: string[] = [];
     const remaining = byFit.filter(e => !takenOracleIds.has((e.rec.card as BuildCard).oracleId));
 
-    while (reserved < fitReserve && picked.length - chosenLands.length < spellSlots) {
+    while (reserved < commanderReserve && picked.length - chosenLands.length < spellSlots) {
       let best: (typeof remaining)[number] | null = null;
       let bestUrgency = -1;
       for (const entry of remaining) {
@@ -1266,6 +1326,131 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
           `still short of ${commanderPlan.commanderName}'s own asks: ${stillShort.join(', ')}`
         );
       }
+    }
+  }
+
+  /* ---------------------------------------------------------------- *
+   * 2a++. The archetype's PACKAGES, each filled to its share.
+   * ---------------------------------------------------------------- *
+   *
+   * A SHELL IS NOT A BAG OF TWELVE CARDS. It is three or four packages with
+   * names, and until now `planForArchetype` flattened them into one want list
+   * before anything could use them.
+   *
+   * What that costs is measurable. Blink's twelve cards flatten to a list in
+   * which `trig:enters` and `eff:exile-own` are two wants among many, so a card
+   * carrying either one scores. Kept apart, the packages say something much
+   * sharper:
+   *
+   *     The blinks              cares:zone:exile + eff:return-from
+   *     Things worth blinking   trig:enters@1.00 + eff:draw@0.75
+   *     Doubling the arrival    eff:exile-own + trig:enters
+   *
+   * "Things worth blinking" is the one that could never be expressed before.
+   * `trig:enters` alone is on hundreds of cards and most of them are not worth
+   * blinking; `trig:enters` AND a value effect is Mulldrifter, Solemn
+   * Simulacrum, Cloudblazer, Sun Titan. Measured against the two human-built
+   * Vondam decks, the generator was finding 1 of those 30 cards.
+   *
+   * A CONJUNCTION, WHICH IS THE POINT. `planFit` is a noisy-OR over the whole
+   * plan, so it can never say "this card does BOTH of these things"; that is
+   * the same limitation that let a card matching three wants weakly outrank the
+   * card that IS the strategy. Scoring against ONE package restores the
+   * conjunction, because a package's wants describe a single job.
+   *
+   * Each package gets its share of the budget, and share is exemplar count over
+   * the shell's. A shell that names four blink spells and four things to blink
+   * is saying those matter equally, and nothing else in the data disagrees.
+   */
+  const shellPackages = archetypePlan?.packages ?? [];
+  if (shellPackages.length > 0) {
+    /*
+     * Twelve, against 55-odd nonland slots. Enough that each of three packages
+     * gets four cards, which is what the shell itself names, and small enough
+     * that the role floors keep a working majority: a deck that is all theme
+     * loses to one that draws cards and removes things.
+     */
+    /* declared at module scope */
+    /*
+     * How much of a package a card has to do. The wants of a package are
+     * normalised, so 1.0 is a card carrying every facet the package's own
+     * exemplars agreed on, and the loudest single facet alone is usually
+     * around 0.55. Above that floor means the card does more than the one
+     * broad thing, which is exactly the conjunction this pass exists for.
+     */
+    /* declared at module scope */
+
+    const packageFit = (card: BuildCard, wants: readonly { facet: string; weight: number }[]) => {
+      const facets = card.facets;
+      if (!facets || facets.length === 0) return 0;
+      const has = new Set(facets as readonly string[]);
+      let hit = 0;
+      let total = 0;
+      for (const w of wants) {
+        total += w.weight;
+        if (has.has(w.facet)) hit += w.weight;
+      }
+      return total > 0 ? hit / total : 0;
+    };
+
+    const filledBy: string[] = [];
+    for (const pkg of shellPackages) {
+      const slots = Math.max(1, Math.round(packageBudget * pkg.share));
+      let taken = 0;
+      const tookNames: string[] = [];
+      /*
+       * Ordered by how much of the package the card does, then by how played it
+       * is. Within one package every candidate does the same job, so what
+       * separates them is how good a card it is — the same reasoning the
+       * commander reserve uses, and the reason a rank-10,744 card does not take
+       * a slot from a rank-12 one.
+       */
+      const candidates = rankedSpells
+        .filter(rec => !takenOracleIds.has((rec.card as BuildCard).oracleId))
+        .map(rec => ({ rec, fit: packageFit(rec.card as BuildCard, pkg.wants) }))
+        .filter(entry => entry.fit >= PACKAGE_MATCH)
+        .sort(
+          (a, b) =>
+            b.fit - a.fit ||
+            ((a.rec.card as BuildCard).edhrecRank ?? Number.MAX_SAFE_INTEGER) -
+              ((b.rec.card as BuildCard).edhrecRank ?? Number.MAX_SAFE_INTEGER)
+        );
+
+      for (const { rec } of candidates) {
+        if (taken >= slots) break;
+        if (picked.length - chosenLands.length >= spellSlots) break;
+        const card = rec.card as BuildCard;
+        if (takenOracleIds.has(card.oracleId)) continue;
+        if (overColourlessCap(card)) continue;
+        /* Nothing that works against the commander's own plan, for the same
+           reason the commander reserve refuses it: this pass ignores `score`,
+           so the ranker's anti-synergy penalty cannot reach it. */
+        if (worksAgainstPlan(commanderPlan, card)) continue;
+        if (!hasColour(card)) colourlessPicked += 1;
+        takenOracleIds.add(card.oracleId);
+        taken += 1;
+        tookNames.push(card.name);
+        picked.push({
+          card,
+          quantity: 1,
+          reason: rec.reason,
+          score: rec.score,
+          bucket: 'commander',
+          preferred: preferred.has(card.oracleId),
+        });
+        const filled = ROLES.find(role => role !== 'land' && quota[role] > 0 && rolesOf(card).has(role));
+        if (filled) {
+          quota[filled] -= 1;
+          roleFill[filled].picked += 1;
+        }
+      }
+      /* NAMED, not counted. "Sacrifice outlets 2/2" reads as a success and can
+         still be two cards nobody would call a sacrifice outlet; the names are
+         how that is caught without running a probe. */
+      filledBy.push(`${pkg.name} ${taken}/${slots}${tookNames.length ? ` (${tookNames.join(", ")})` : ""}`);
+    }
+    if (filledBy.length) {
+      notes.push(`${archetypePlan?.name} packages filled: ${filledBy.join(', ')}`);
     }
   }
 

@@ -62,6 +62,7 @@ const out = await build({
     commander: { name: NAME, type_line: 'Legendary Creature',
                  color_identity: CI, colors: CI },
     powerLevel: 7, useAIPlanning: false, includeLands: true,
+    ...(process.env.ARCHETYPE ? { archetype: process.env.ARCHETYPE } : {}),
   },
   apiKey: null,
   startedAt: started,

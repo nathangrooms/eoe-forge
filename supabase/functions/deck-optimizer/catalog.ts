@@ -723,6 +723,46 @@ export class Catalog {
   }
 
   /**
+   * The facets the POOL carries for these cards, by name.
+   *
+   * `cardsByName` reads {@link POOL_TABLE}, which is `cards_unique` and has no
+   * facets column, so everything needing facets compiled them on the spot with
+   * `facetsForCard`. That was the same answer the pool held until Scryfall
+   * Tagger was merged in on 2 Sep 2026. It is not the same answer now:
+   *
+   *     Animate Dead     pool: cares:zone:graveyard eff:return-from
+   *                     local: cares:sub:aura eff:pump trig:enters
+   *
+   * That broke the archetype shells silently. A shell is read by compiling its
+   * example cards and keeping what they agree on, and those facets are matched
+   * against POOL cards — so compiling locally compares two vocabularies.
+   * Reanimator's "The reanimation" package (Reanimate, Animate Dead, Victimize,
+   * Stitch Together, all four carrying `eff:return-from` in the pool) agreed on
+   * nothing but `cares:type:creature`, and a Meren deck came back with no
+   * recursion in it at all.
+   *
+   * One extra round trip for about 200 names, run beside the pool query.
+   */
+  async poolFacetsByName(names: readonly string[]): Promise<Map<string, string[]>> {
+    const unique = [...new Set(names.flatMap(n => nameVariants(n)))];
+    const byName = new Map<string, string[]>();
+    if (!unique.length) return byName;
+
+    const CHUNK = 80;
+    for (let i = 0; i < unique.length; i += CHUNK) {
+      const list = unique.slice(i, i + CHUNK).map(quoteForIn).join(',');
+      const rows = await this.fetchAll<{ name: string; facets: string[] | null }>(
+        `${RANK_POOL_TABLE}?select=name,facets&name=in.${encodeURIComponent(`(${list})`)}`
+      );
+      for (const r of rows) {
+        if (!r?.name || !r.facets) continue;
+        if (!byName.has(r.name)) byName.set(r.name, r.facets);
+      }
+    }
+    return byName;
+  }
+
+  /**
    * The caller's WHOLE collection, in one read.
    *
    * `ownedQuantities` asks about a list of names, which is right once the

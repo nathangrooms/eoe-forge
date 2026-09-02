@@ -3078,6 +3078,26 @@ function describeFacet(facet: Facet): string {
 export interface ArchetypeExemplar {
   name: string;
   facets: readonly Facet[];
+  /**
+   * WHICH PACKAGE OF THE SHELL THIS CARD BELONGS TO, and it is the whole of
+   * why an archetype can now be built rather than merely leaned toward.
+   *
+   * A shell is not a bag of twelve cards, it is three or four PACKAGES with
+   * names: "The blinks", "Things worth blinking", "Doubling the arrival".
+   * `planForArchetype` used to flatten them into one want list, which destroys
+   * the only information the shell actually carries.
+   *
+   * Flattened, Blink asks for `trig:enters` (4 of 12 cards) and `eff:exile-own`
+   * (3 of 12) as two wants among many, and a card carrying either one scores.
+   * Kept apart, "The blinks" asks for `eff:exile-own` AND `eff:return-from`
+   * together, and "Things worth blinking" asks for `trig:enters` AND a value
+   * effect together — which is the difference between Mulldrifter and any
+   * creature that happens to enter the battlefield.
+   *
+   * Optional so a caller that does not know its packages still works; the
+   * whole shell then behaves as one package, which is the old behaviour.
+   */
+  pkg?: string;
 }
 
 /** A shell, as the engine receives it. The names are resolved by the caller. */
@@ -3089,6 +3109,22 @@ export interface ArchetypeInput {
   named: number;
   /** The ones that resolved, in the caller's order. */
   exemplars: readonly ArchetypeExemplar[];
+}
+
+/**
+ * One package of a shell, read as wants.
+ *
+ * The wants are derived from that package's OWN cards only, so they describe
+ * one job rather than the whole archetype. `eff:exile-own` and `eff:return-from`
+ * appearing together is what "a blink spell" means; either alone is not.
+ */
+export interface ArchetypePackagePlan {
+  name: string;
+  wants: readonly Want[];
+  /** Cards of this package the catalogue resolved. */
+  read: number;
+  /** This package's share of the shell, by exemplar count. */
+  share: number;
 }
 
 export interface ArchetypePlan {
@@ -3110,6 +3146,16 @@ export interface ArchetypePlan {
   named: number;
   /** Cards that resolved and produced no ability record at all. */
   withoutRecord: number;
+  /**
+   * The shell's packages, each with its own wants and its own share of the
+   * theme slots. Empty when the caller supplied no package labels.
+   *
+   * A package's `share` is its exemplar count over the shell's, which is the
+   * only evidence available about how much of the deck it should be: a shell
+   * that names four blink spells and four things to blink is saying those are
+   * equally important, and nothing else in the data says otherwise.
+   */
+  packages: readonly ArchetypePackagePlan[];
   /**
    * Facets that recurred across the shell and were dropped anyway, and why.
    *
@@ -3198,7 +3244,31 @@ export interface ArchetypeInfluence {
 const ARCHETYPE_MIN_EXEMPLARS = 2;
 
 /** The only prefixes a shell may want. See the header above for the measurements. */
-const ARCHETYPE_WANT_PREFIXES: readonly string[] = ['eff:', 'cares:', 'trig:'];
+/**
+ * The facet families a shell is allowed to want.
+ *
+ * `cost:`, `ctr:` and `tok:` were added on 2 Sep 2026 and their absence was a
+ * hole straight through the middle of the archetype system. The Aristocrats
+ * shell names Viscera Seer, Carrion Feeder, Goblin Bombardment and Altar of
+ * Dementia as its sacrifice outlets; all four carry `cost:sacrifice` and NONE
+ * of it was readable, so the package derived `cares:type:creature` and nothing
+ * else — and a "Sacrifice outlets" slot in a Meren deck was filled with
+ * Swiftfoot Boots and Lightning Greaves, which share that facet and no other.
+ *
+ * The same hole silently emptied three more shells: Counters could not see
+ * `ctr:+1/+1`, Tokens could not see `tok:`, and Treasure-shaped packages could
+ * not see what they make.
+ *
+ * WHAT IS STILL EXCLUDED, and why it is not an oversight. `kw:`, `sub:` and
+ * `type:` are what a card IS rather than what it does, and a shell wanting
+ * `type:creature` would claim half the pool. `acost:` and `scope:` are the
+ * incidental end of the vocabulary — `acost:0` is on every free activation and
+ * `scope:all` on every anthem — and they are exactly the facets that let Boots
+ * pass as a sacrifice outlet. `mana:` is a magnitude, not a job.
+ */
+const ARCHETYPE_WANT_PREFIXES: readonly string[] = [
+  'eff:', 'cares:', 'trig:', 'cost:', 'ctr:', 'tok:',
+];
 
 /**
  * How loud the archetype is allowed to be next to the commander.
@@ -3340,6 +3410,61 @@ export function planForArchetype(
   wants.sort((a, b) => b.weight - a.weight || a.facet.localeCompare(b.facet));
   dropped.sort((a, b) => b.poolCards - a.poolCards || a.facet.localeCompare(b.facet));
 
+  /*
+   * THE PACKAGES, EACH READ ON ITS OWN.
+   *
+   * The flat `wants` above stay exactly as they were, because everything that
+   * consumes an ArchetypePlan today reads them and a shell should still tilt a
+   * build even when nothing uses the packages. This is added beside them.
+   *
+   * A package's wants use SHARE rather than lift: within four cards, "how many
+   * of them do this" is the whole of what can be said, and the background lift
+   * that makes sense over a twelve-card shell is noise over four. A facet on
+   * half a package is a real signal about that package's job.
+   */
+  const byPackage = new Map<string, ArchetypeExemplar[]>();
+  for (const card of input.exemplars) {
+    if (!card.pkg) continue;
+    const list = byPackage.get(card.pkg);
+    if (list) list.push(card);
+    else byPackage.set(card.pkg, [card]);
+  }
+
+  const packages: ArchetypePackagePlan[] = [];
+  for (const [name, cards] of byPackage) {
+    const seen = new Map<Facet, number>();
+    const firstSeen = new Map<Facet, string>();
+    for (const card of cards) {
+      for (const facet of new Set(card.facets)) {
+        if (PLAN_IGNORED.has(facet)) continue;
+        if (!ARCHETYPE_WANT_PREFIXES.some(p => facet.startsWith(p))) continue;
+        seen.set(facet, (seen.get(facet) ?? 0) + 1);
+        if (!firstSeen.has(facet)) firstSeen.set(facet, card.name);
+      }
+    }
+    const pkgWants: Want[] = [];
+    for (const [facet, n] of seen) {
+      /* Half the package, so one card of four cannot define the job. With four
+         exemplars that is two, which is the same floor the flat list uses. */
+      if (n * 2 < cards.length) continue;
+      pkgWants.push({
+        facet,
+        weight: n / cards.length,
+        because:
+          `${input.name}: ${n} of the ${cards.length} cards in "${name}" ` +
+          `${describeWant(facet)}, ${firstSeen.get(facet)} among them`,
+      });
+    }
+    pkgWants.sort((a, b) => b.weight - a.weight || a.facet.localeCompare(b.facet));
+    if (pkgWants.length === 0) continue;
+    packages.push({
+      name,
+      wants: pkgWants,
+      read: cards.length,
+      share: cards.length / Math.max(1, read),
+    });
+  }
+
   return {
     id: input.id,
     name: input.name,
@@ -3348,6 +3473,7 @@ export function planForArchetype(
     named: input.named,
     withoutRecord,
     dropped,
+    packages,
   };
 }
 

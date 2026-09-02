@@ -24,11 +24,18 @@ import {
 } from './_engine/advise/index.ts';
 import { generateDeck, type BuildCard, type GeneratedDeck } from './_engine/build/generate.ts';
 import { popularityCoverage } from './_engine/advise/rank.ts';
-import type { ArchetypeExemplar, ArchetypeInput } from './_engine/knowledge/behaviour.ts';
+import {
+  planForArchetype,
+  planForCommander,
+  type ArchetypeExemplar,
+  type ArchetypeInput,
+  type ArchetypePlan,
+} from './_engine/knowledge/behaviour.ts';
 import { evaluateDeck } from './_engine/evaluate.ts';
 import type { EngineCard } from './_engine/core/card.ts';
 import { facetsForCard, type FacetCensus } from './_lib/deck/recommend/behaviour.ts';
 import {
+  DECK_ARCHETYPES,
   shellCardNames,
   shellForRequestedArchetype,
   type DeckArchetype,
@@ -36,6 +43,16 @@ import {
 
 /** Bumped whenever the grounding or the assembly rules change. */
 export const ENGINE_VERSION = 'ai-deck-builder-v2/7-behaviour';
+
+/**
+ * Every card named by every shell, deduped. About 200 names.
+ *
+ * Fetched in one round trip when the player named no archetype, so the
+ * commander can be scored against all eighteen shells rather than none.
+ */
+const ALL_SHELL_CARD_NAMES: readonly string[] = [
+  ...new Set(DECK_ARCHETYPES.flatMap(shellCardNames)),
+];
 
 /** A Commander deck is the commander plus this many. A rule, not a policy. */
 const DECK_SLOTS = 99;
@@ -255,18 +272,141 @@ function facetsForPoolRows(
  * come back as forty rows; counting a card once per printing would weight the
  * shell by how many times a card has been reprinted.
  */
-function archetypeFor(shell: DeckArchetype, rows: readonly CatalogRow[]): ArchetypeInput {
+/**
+ * WHICH SHELLS THIS COMMANDER IS, when the player did not say.
+ *
+ * A player who picks "Blink" gets the Blink shell and its packages. A player
+ * who picks nothing used to get no shell at all, so the package machinery — the
+ * only thing in the engine that can express "this card does BOTH of these
+ * things" — was reachable only by asking for it. That is backwards: the
+ * commander already says what it wants, and 3,542 of them cannot each be asked
+ * about by hand.
+ *
+ * So every shell is read, scored against the commander's own plan, and the best
+ * TWO are taken. Two rather than one because a commander is often two things at
+ * once and the owner said so about the case that drove this: *"syr vondom
+ * sunstar ... this commander benefits from 2 strategies together"*. He is paid
+ * when your creatures die OR are exiled, which is Aristocrats AND Blink, and a
+ * single-shell answer has to throw one of them away.
+ *
+ * THE SCORE IS AN OVERLAP, deliberately crude: sum over facets the shell and
+ * the commander both want, of the two weights multiplied. A shell that wants
+ * what the commander wants scores; one that does not scores zero and is not
+ * taken. Nothing here invents an affinity that the two plans do not already
+ * share, which is the property that keeps it honest for a commander nobody has
+ * thought about.
+ *
+ * A shell scoring nothing is DROPPED rather than ranked last. A commander with
+ * no shell above zero gets no packages, which is the old behaviour and the
+ * right one: an arbitrary shell would shape the deck toward something the
+ * commander never asked for.
+ */
+function shellsForCommander(
+  commanderWants: ReadonlyMap<string, number>,
+  candidates: readonly { shell: DeckArchetype; input: ArchetypeInput }[],
+  take: number
+): { shell: DeckArchetype; input: ArchetypeInput; score: number }[] {
+  const scored = candidates.map(({ shell, input }) => {
+    /* Scored WITHOUT a pool background, deliberately. The background turns a
+       share into a lift against this deck's colours, which is right for
+       building and wrong for choosing: a shell should be picked for what it
+       is, not for how unusual its cards are in one commander's colours. */
+    const plan = planForArchetype(input);
+    let score = 0;
+    for (const want of plan.wants) {
+      const mine = commanderWants.get(want.facet);
+      if (mine) score += mine * want.weight;
+    }
+    return { shell, input, score, packages: plan.packages.length };
+  });
+  return scored
+    .filter(x => x.score > 0 && x.packages > 0)
+    .sort((a, b) => b.score - a.score || a.shell.id.localeCompare(b.shell.id))
+    .slice(0, take)
+    .map(({ shell, input, score }) => ({ shell, input, score }));
+}
+
+/**
+ * Two shells as ONE archetype input, so the generator reads both.
+ *
+ * An `ArchetypeInput`, not a plan, because `generateDeck` calls
+ * `planForArchetype` itself with the pool as background — that is what turns a
+ * raw share into a LIFT, and a merged plan would arrive with the background
+ * already skipped.
+ *
+ * Package names are prefixed with the shell they came from, so "The blinks" and
+ * Aristocrats' "Sacrifice outlets" stay distinct jobs with distinct slots
+ * rather than colliding on a shared name.
+ */
+function mergeShellInputs(
+  picked: readonly { shell: DeckArchetype; input: ArchetypeInput }[]
+): ArchetypeInput | null {
+  if (picked.length === 0) return null;
+  if (picked.length === 1) return picked[0].input;
+  const exemplars: ArchetypeExemplar[] = [];
+  const seen = new Set<string>();
+  for (const { shell, input } of picked) {
+    for (const card of input.exemplars) {
+      /* A card in both shells counts once, for the shell that scored higher.
+         Counting it twice would weight the overlap rather than the strategies. */
+      if (seen.has(card.name)) continue;
+      seen.add(card.name);
+      exemplars.push({
+        ...card,
+        pkg: card.pkg ? `${shell.name}: ${card.pkg}` : undefined,
+      });
+    }
+  }
+  return {
+    id: picked.map(p => p.shell.id).join('+'),
+    name: picked.map(p => p.shell.name).join(' + '),
+    named: picked.reduce((n, p) => n + p.input.named, 0),
+    exemplars,
+  };
+}
+
+function archetypeFor(
+  shell: DeckArchetype,
+  rows: readonly CatalogRow[],
+  poolFacets: ReadonlyMap<string, string[]>
+): ArchetypeInput {
   const names = shellCardNames(shell);
   const wanted = new Map(names.map(name => [normalizeName(name), name]));
   const seen = new Set<string>();
   const exemplars: ArchetypeExemplar[] = [];
+
+  /* Which package each name belongs to, so `planForArchetype` can read the
+     shell's packages apart instead of flattening them into one want list.
+     First package wins for a name that appears in two, which is rare and does
+     not matter: the card is an example of both jobs. */
+  const pkgOf = new Map<string, string>();
+  for (const pkg of shell.packages) {
+    for (const card of pkg.cards) {
+      const key = normalizeName(card);
+      if (!pkgOf.has(key)) pkgOf.set(key, pkg.name);
+    }
+  }
 
   for (const row of rows) {
     const key = normalizeName(row.name ?? '');
     const name = wanted.get(key);
     if (!name || seen.has(key)) continue;
     seen.add(key);
-    exemplars.push({ name, facets: facetsForCard(row).facets });
+    /*
+     * THE POOL'S FACETS, not a fresh local compile.
+     *
+     * A shell's wants are matched against POOL cards, so they have to be said
+     * in the pool's vocabulary. Since the Tagger merge those differ: Animate
+     * Dead carries `eff:return-from` in the pool and not from the compiler
+     * alone, so Reanimator's reanimation package agreed on nothing and a Meren
+     * deck came back with no recursion. `facetsForCard` remains the fallback
+     * for a name the pool does not hold.
+     */
+    exemplars.push({
+      name,
+      facets: poolFacets.get(row.name ?? '') ?? facetsForCard(row).facets,
+      pkg: pkgOf.get(key),
+    });
   }
 
   return { id: shell.id, name: shell.name, named: names.length, exemplars };
@@ -479,7 +619,7 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
   const query: CandidateQuery = buildCandidateQuery(profileForQuery);
 
   const poolStarted = Date.now();
-  const [spellRows, landRows, basicRows, shellRows] = await Promise.all([
+  const [spellRows, landRows, basicRows, shellRows, shellFacets] = await Promise.all([
     // WITH oracle text. The generator compiles it into behaviour facets, and
     // without them every card in the pool reaches the ranker claiming to do
     // nothing. The optimiser's own call is unchanged and still pays nothing.
@@ -524,17 +664,67 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
      * Eleven or twelve names, one round trip, run beside the pool query rather
      * than after it. Nothing when no shell matched.
      */
-    shell ? catalog.cardsByName(shellCardNames(shell), format) : Promise.resolve([]),
+    /* When the player named a shell, its cards. When they did not, EVERY
+       shell's cards, so the commander can be matched against all of them. That
+       is roughly 200 names in one round trip beside the pool query, against 12
+       for a single shell, and it is what makes package-based building reach a
+       commander nobody asked a question about. */
+    catalog.cardsByName(
+      shell ? shellCardNames(shell) : ALL_SHELL_CARD_NAMES,
+      format
+    ),
+    /* And the facets the POOL holds for those same names, because that is the
+       vocabulary the shell's wants are matched in. See `poolFacetsByName`. */
+    catalog.poolFacetsByName(shell ? shellCardNames(shell) : ALL_SHELL_CARD_NAMES),
   ]);
   const poolMs = Date.now() - poolStarted;
 
-  const archetype = shell ? archetypeFor(shell, shellRows) : null;
+  const archetype = shell ? archetypeFor(shell, shellRows, shellFacets) : null;
   if (shell && archetype) {
     console.log(
       `  archetype: ${shell.name}, ${archetype.exemplars.length} of ${archetype.named} of its ` +
         `cards found in the card database`
     );
   }
+
+  /*
+   * NO SHELL WAS ASKED FOR, so work out which ones this commander IS.
+   *
+   * `generateDeck` derives the commander's plan itself and this repeats that
+   * call, which is cheap and pure — it reads facets already on the row and
+   * touches nothing. The alternative is moving shell selection inside the
+   * generator, which cannot be done: choosing a shell needs the shells' cards,
+   * and fetching them is a database round trip the engine must not make.
+   */
+  /*
+   * NO SHELL WAS ASKED FOR, so work out which ones this commander IS.
+   *
+   * `generateDeck` derives the commander's plan itself and this repeats that
+   * call, which is cheap and pure — it reads facets already on the row and
+   * touches nothing. The alternative is choosing the shell inside the
+   * generator, which cannot be done: it needs the shells' cards, and fetching
+   * them is a database round trip the engine must not make.
+   */
+  let derived: ArchetypeInput | null = null;
+  if (!shell) {
+    const commanderPlan = planForCommander(commander);
+    const commanderWants = new Map(commanderPlan.wants.map(w => [w.facet as string, w.weight]));
+    const candidates = DECK_ARCHETYPES.map(one => ({
+      shell: one,
+      input: archetypeFor(one, shellRows, shellFacets),
+    }));
+    const picked = shellsForCommander(commanderWants, candidates, 2);
+    derived = mergeShellInputs(picked);
+    if (picked.length) {
+      console.log(
+        `  no archetype asked for; ${commanderName} reads as ` +
+          picked.map(x => `${x.shell.name} (${x.score.toFixed(2)})`).join(' and ')
+      );
+    } else {
+      console.log(`  no archetype asked for, and no shell overlaps ${commanderName}'s plan`);
+    }
+  }
+  const archetypeInput = archetype ?? derived;
 
   // Both halves now carry oracle text, so where a card appears in both either
   // row would do. The land row still wins, because it is the one whose text was
@@ -768,7 +958,12 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
     // And so does the archetype, for the same reason and a second one: the
     // planner is asked to make the archetype's plan work, so a shortlist ranked
     // without it would be a list of cards for a different deck.
-    archetype,
+    //
+    // `archetypeInput`, not `archetype`: this is the BASELINE build, and with
+    // `useAIPlanning: false` — which is every request the app makes — the
+    // baseline IS the deck. Passing the raw shell here meant the shells derived
+    // from the commander reached only the second build, which never runs.
+    archetype: archetypeInput,
   });
 
   /* --- 4. Ground the model in that shortlist ------------------------ */
@@ -798,7 +993,7 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
           roleTargets: roleOverrides,
           budgetUsd: targetBudget,
           style,
-          archetype,
+          archetype: archetypeInput,
           preferOracleIds: plan.preferOracleIds,
           avoidOracleIds: plan.avoidOracleIds,
         })

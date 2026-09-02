@@ -2795,3 +2795,168 @@ is bad, it was that removal was being counted as synergy.
 linked, CARD NAMES ONLY, as a scoring target. **CLAUDE.md ruling Moxfield out
 as a DATA SOURCE still stands.** Two pages a person pointed at, read once, to
 score ourselves against. Do not write a scraper.
+
+---
+
+## 2 Sep 2026 — the community read the cards, and the generator learned to say no
+
+Owner: *"Need to ensure the entire card catalogue is fully mapped and dictionary
+updated"*, then *"I generated a syr vondom sunstar deck and it was nothing like
+the 2 examples"*, and *"this should be universal for every commander whatever
+the fix is"*.
+
+### Scryfall Tagger is merged, under a gate, in `cards_pool` and nowhere else
+
+`tag_facet_map` turns Tagger's community tags into our facet vocabulary. 723
+mappings, 289 of them `gated`. Two rules, and they are not one rule:
+
+    gated        applied to EVERY card carrying the tag
+    the rest     ONLY where our compiler produced no verb at all
+
+Scored against a 374-word answer key written by two readers who saw none of the
+contenders: compiler alone 86.7% precision / 48.7% recall; the whole mapping
+merged in 83.5% / 75.7% (**FAILS**); gated only 86.9% / 67.1%; gated plus
+everything where the compiler is silent 86.3% / 72.5% (**shipped**). The naive
+union fails because both sources' errors compound. 85% is the bar because these
+facets put cards into ROLES and a wrong one spends a real deck slot.
+
+**The merge is in the VIEW, never in `card_facet_memo`.** The memo holds what our
+compiler derived from a parsed record; writing a person's reading into it would
+destroy the one property that makes the compiler improvable. `compiler_facets`
+and `tag_facets` are separate columns so any row can be taken apart and the whole
+merge reverted by changing one expression.
+
+    the app knows what a card does    97.2%   32,111 of 33,032
+    Tagger was the ONLY source        28.5%   9,427 cards
+
+### Eight samples make a reader systematically too harsh
+
+All 196 gated mappings were audited, and every proposed change re-checked by a
+second reader who pulled the WHOLE tag. **34 of 62 verdicts were overturned,
+nearly all toward keeping.** Eight cards show you a mapping's exceptions and hide
+the eight hundred it gets right. Ungating `burn-player` would have withheld a
+correct `eff:damage` from 364 cards, Boros Charm among them, to avoid six
+unplayable ones.
+
+Read the whole tag. Do not judge a mapping from a sample.
+
+### The dictionary grew 26 words and every one was asked for by a card
+
+Three triage rounds over 973 tags: 346 became mappings, 573 were correctly
+refused as shape, flavour or too-broad. **67 refusals carried the same note: the
+tag is real and uniform and the engine has no word.** Those are the words.
+
+`eff:reduce-cost` — Ghalta (461) carried NO facet at all, her whole card being a
+cost reduction. `eff:cant-cast` — Silence (407), whose entire text produced
+nothing. `eff:cant-block` / `eff:cant-attack` — Pacifism carried no facet, served
+no role, and could be chosen by nothing; the DSL had modelled both restrictions
+since it was written and the facet layer read exactly one, `max-lands-per-turn`.
+`eff:copy` — seven readers asked for it independently, the strongest signal in
+the run.
+
+**A word with no consumer is decoration**, so eleven went into roles in the same
+commit. And check every new word against the pool afterwards:
+`eff:play-from-graveyard` was declared, wired into `ramp`, and fed by NOTHING —
+the fifth instance of that shape. So was `eff:extra-combat`, sitting in `wincon`
+since the role was written while the generator kept reporting it could not fill
+wincon.
+
+### A commander with two strategies got the one with more cards
+
+Vondam is paid when your creatures die OR are exiled. His deck came back 67% on
+theme with every themed card in the aristocrats half and zero blink.
+
+`planFit` is a NOISY-OR, so a card matching sacrifice + dies + create-token
+scores 0.90 while Cloudshift, matching the one facet that IS the other strategy,
+scores 0.868. Black holds hundreds of aristocrats cards against about twenty
+white blink cards, so **the bigger pool wins every slot** — and the reserve,
+ordered by want WEIGHT, then spent its slots on the half already covered.
+
+The reserve spends on what the deck HAS NOT GOT. A want's urgency is how far
+short of a target it is, seeded from what the quota loop picked, target
+proportional to weight. Dividing by cards-already-serving was tried first and is
+wrong-shaped: it makes the second card for a want worth half the first, so the
+reserve spread one card across eight wants and blink came out as a single
+Ephemerate. The budget scales with loud wants, capped at 16 so the floors keep a
+working majority.
+
+### A card ranked 10,744 is not a better answer than one ranked 12
+
+22 cards past rank 15,000 reached a deck, and Swiftfoot Boots and Lightning
+Greaves were missing from five of seven. Same fact: Oathkeeper, Takeno's Daisho
+(10,744) takes the protection slot because it carries one facet the commander
+asked for and Boots carries none.
+
+**Lowering `EMPTY_DECK_COMMANDER_FIT` was the obvious fix and is REJECTED**, with
+`scripts/probe/fit-weight-sweep.mjs`: every value below 3.6 buys staples and pays
+in keyed synergy, 72% to 68%. `fit-reserve-grid.mjs` tested raising the reserve
+cap to compensate — 16, 22 and 28 measure IDENTICALLY, because these commanders
+never reach the cap. No free lunch on that axis, and trading theme away is the
+opposite of what was asked for.
+
+`PLAYED_ENOUGH_RANK = 12_000` has one, because it separates "does this card do
+the job" from "is this card any good", which the score conflates. **Not a ban:**
+`playedFirst` is a two-pass fill, so a role a narrow colour cannot otherwise fill
+still gets filled. Measured at 8,000 / 12,000 / 20,000; the other two cost keyed
+synergy or give a staple back.
+
+    past rank 15,000, 14 DEPLOYED decks      16 -> 0
+
+### Blinking yourself is not blinking your board
+
+Widening the blink rule (compiler 11) gave 14 cards `eff:exile-own`, every one
+correctly a blink of something, ZERO lost — and Vondam's archetype score FELL
+6/60 to 4/60, deterministically. **Better reading, worse deck.**
+
+Most of the 14 were transforming Praetors and Dominants: "Exile Urabrask, then
+return it transformed". That is a blink of ITSELF, and Vondam is paid when
+ANOTHER creature you control is exiled. `eff:exile-self` is a separate verb, on
+the precedent of `cost:sacrifice-self` and the whole `effect.who` split.
+
+> **Teferi's Protection is rank 109 and its ONLY compiled effect is
+> `{do:'exile', what:{sel:'self'}}`** — taken from the card's own cleanup line.
+> Its real protection is the phasing clause, which the compiler does not read at
+> all. It held the `protection` role by ACCIDENT and keeps it only through its
+> `protection` tag and the tag fallback. Scryfall's `phasing` tag is deliberately
+> NOT mapped: over all 68 members only 35% clearly phase out YOUR permanents, and
+> the rest would put removal spells in protection slots.
+
+### The instruments broke the same way twice, and it is the pool getting fatter
+
+`engine_knowledge()` and `unmapped_tag_worklist()` both classified all 33,032
+cards per call by unnesting facets and running a regex per element. Affordable at
+compiler-only length, a **57014 timeout** once Tagger's words lengthened the
+arrays — and an admin screen that draws nothing is the exact failure the screen
+exists to prevent. `knowledge_band` is a column computed at refresh with an index
+on it; the function is a GROUP BY and answers in 0.42 s.
+
+### Numbers to compare against, all measured 2 Sep 2026
+
+    catalogue, app knows what it does     97.2%   (was 64.2%)
+    still blind                             921   27 of them in the top 2,000
+    dictionary_coverage()                  85.0%  752 of 885
+
+> **CLAUDE.md recorded 95.5% for `dictionary_coverage()` on 1 Sep and it reads
+> 85.0% now.** I could not reconcile it: the older `card_facet_memo` versions
+> were deleted when the readers moved to compiler 12. The 133 unread words are
+> structural — 66 are "keyword-actions", which is Scryfall filing rules-speak
+> like Activate and Reveal, and most of the rest are token-only types (Blood,
+> Gold, Map) and obscure ability words (Kinfall, Landship). Nothing this session
+> changed appears in the list. Treat 85.0% as the honest figure from the function
+> and re-derive rather than trusting either number.
+
+    seven local decks    keyed 70%, staples 45/61, past-15k 4
+    fourteen deployed    100 cards 14/14, staples 63/94, past-15k 0
+    Syr Vondam           archetype 1/60 -> 6/60 against the two human decks
+
+### Still wrong, named, and neither is a tuning job
+
+- **Two-card synergy is not expressible.** "Wall of Omens is good BECAUSE this
+  deck has Conjurer's Closet" cannot be said: the ranker scores cards one at a
+  time. That is why Vondam gets blink SPELLS (3/13) and not blink ENGINES (2/17)
+  or the creatures worth blinking (1/30).
+- **Swiftfoot Boots still loses its slot**, and the rank floor does not help
+  because Boots is rank 12. It loses to themed cards under the floor. The
+  popularity decay is `1 - ln(rank)/ln(25000)`, so rank 12 scores only twice rank
+  500 while appearing in an order of magnitude more decks — but that curve is
+  shared with the optimiser and must not be changed on a hunch.

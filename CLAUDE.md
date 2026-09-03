@@ -3104,3 +3104,59 @@ the NEXT version.
   draw, pump-by-power, protection of your choice, wheels, "unless that player
   pays", "without paying its mana cost") — the second workflow round.
 - Keyed synergy 67% against 72% before the staples came in.
+
+### The second workflow round, and the memo is on COMPILER 16
+
+Seven more shapes, written in seven worktrees and merged by hand because
+every adversarial verifier died on the spend limit for the second time:
+own-bounce, impulse draw, a pump sized by a creature’s power, protection
+from a colour chosen on resolution, the wheel, "unless that player pays",
+and "cast without paying its mana cost". Suite 3,249 -> 3,337, none failing.
+
+    read the whole card    10,469 -> 10,988      unread clauses  21,839 -> 20,799
+
+** had to be narrowed the same day it landed.** 182 cards in
+Chulane’s colours carried it and the ranker reached Rancor (829), Spine of
+Ish Sah and Batterskull first, because those return THEMSELVES and are not
+creatures. His job stayed at zero with the facet in place and his plan
+asking for it at 0.6. A creature returning itself still counts: Whitemane
+Lion’s own re-entry IS the recast. Compiler 16 is that one narrowing.
+
+**Two staples are named, not ranked.** Sol Ring and Arcane Signet in every
+Commander deck; Lightning Greaves and Swiftfoot Boots too when the commander
+is a creature. Ranks 1, 3, 12 and 20, all colourless. The plan already wanted
+what Boots and Greaves grant and they still lost four of seven decks, because
+a card matching the strategy at fit 0.5 beats a card matching it at 0.
+Staples 40/61 -> 51/61 on the roster.
+
+> ⚠️ The first version read , which is EMPTY on the
+> path the generator is actually called through: the plan reads its type line
+> from the catalogue row and that object does not carry one. The test was
+> false for every commander and named nothing, silently. It reads the
+>  FACET now. **Check a note in the build log before believing
+> a pass ran** — that is what caught it.
+
+### Najeela fails on the edge worker again, and the pool size is not why
+
+She passed at 5.2 s once the review rounds were bounded, and returned
+ once compiler 15 and 16 put facets on 1,016 more
+cards. **A 4,000-card five-colour pool was tried and measured: it failed at
+8.0 s exactly as 5,000 does**, so the cost is per-card facet work rather than
+the fetch, and narrowing the pool only narrows the deck. Left at 5,000 for
+somebody who profiles the worker instead of guessing. 13 of 14 deployed decks
+build, 75/85 staples, 1 card past rank 15,000.
+
+### Similar cards: the tie-break moved, the metric did not
+
+ never fetched , so the last tie-break compared
+undefined and fell through to price DESCENDING. It breaks on how many decks
+play the card now. **A metric change was tried and reverted, and the
+measurement is the point:**  is a weighted Jaccard, so a
+card carrying FEWER facets has a smaller union and scores higher, and a card
+the compiler could not finish reading carries fewer facets for the worst
+reason. Against Swiftfoot Boots, Vorrac Battlehorns (5,935, incomplete) 0.844
+and Lightning Greaves (13, complete) 0.783. Demoting incomplete records to
+their own tier put Greaves second and then took Mystic Remora (99, also
+incomplete) off Rhystic Study’s list, which is the right answer for that
+card. One bias for another. **Fixing it needs an answer key over many
+subjects, the way the deck side has one.**

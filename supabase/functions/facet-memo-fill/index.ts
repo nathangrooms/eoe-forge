@@ -177,7 +177,12 @@ const json = (body: unknown, status = 200) =>
  * `trig:cast:targeting` from the previous batch, which the facet layer
  * emitted and the pool never saw.
  */
-const COMPILER_VERSION = 15;
+/*
+ * 15 -> 16, same day. `eff:bounce-own` no longer counts a NON-CREATURE
+ * returning itself: Rancor, Batterskull and Spine of Ish Sah were taking the
+ * slots Chulane's "bounce your own creatures" job wanted.
+ */
+const COMPILER_VERSION = 16;
 
 /**
  * Cards read per call.

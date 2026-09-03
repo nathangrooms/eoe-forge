@@ -3470,10 +3470,35 @@ export function planForArchetype(
   for (const [name, cards] of byPackage) {
     const seen = new Map<Facet, number>();
     const firstSeen = new Map<Facet, string>();
+    /*
+     * `type:creature` IS ADMITTED, for a package and for nothing else.
+     *
+     * `ARCHETYPE_WANT_PREFIXES` excludes every `type:` facet, and for a whole
+     * shell that is right: a shell wanting `type:creature` claims half the
+     * pool. A PACKAGE is different. The benchmark's jobs are creature-shaped —
+     * "creatures that tap for mana", "things worth blinking", "cheap evasive
+     * creatures" — and without the type a package cannot say so. Kinnan's
+     * mana-creature package asked for `eff:add-mana` and got Sol Ring, Arcane
+     * Signet and Fellwar Stone: the facets of a dork and a rock are identical
+     * except for the type line. Measured: three commanders at 0 of 8, 0 of 6,
+     * 0 of 5 on that one job.
+     *
+     * Only when at least three quarters of the package's own cards are
+     * creatures, so a package that happens to contain one creature does not
+     * start asking for bodies. And only `creature`: `type:artifact` on a
+     * rocks package would be right too but is already said by `eff:add-mana`
+     * plus the absence of `type:creature`, and admitting more types is how a
+     * package quietly becomes a type filter.
+     */
+    const creatures = cards.filter(c => c.facets.includes('type:creature')).length;
+    const creaturePackage = creatures * 4 >= cards.length * 3;
     for (const card of cards) {
       for (const facet of new Set(card.facets)) {
         if (PLAN_IGNORED.has(facet)) continue;
-        if (!ARCHETYPE_WANT_PREFIXES.some(p => facet.startsWith(p))) continue;
+        const admitted =
+          ARCHETYPE_WANT_PREFIXES.some(p => facet.startsWith(p)) ||
+          (creaturePackage && facet === 'type:creature');
+        if (!admitted) continue;
         seen.set(facet, (seen.get(facet) ?? 0) + 1);
         if (!firstSeen.has(facet)) firstSeen.set(facet, card.name);
       }

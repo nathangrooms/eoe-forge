@@ -2767,8 +2767,11 @@ const PLAN_RULES: readonly {
      */
     when: 'trig:cast:targeting',
     wants: [
-      { facet: 'eff:pump', weight: 0.8 },
-      { facet: 'type:instant', weight: 0.75 },
+      /* Instants lead, at 0.8: the loud want is what admits a shell, and at
+         pump 0.8 / instant 0.75 Feather read as Voltron (0.53) and got an
+         Equipment package. She is a spellslinger whose spells happen to pump. */
+      { facet: 'type:instant', weight: 0.8 },
+      { facet: 'eff:pump', weight: 0.75 },
       { facet: 'grants:hexproof', weight: 0.7 },
       { facet: 'eff:protect', weight: 0.6 },
       { facet: 'grants:indestructible', weight: 0.6 },

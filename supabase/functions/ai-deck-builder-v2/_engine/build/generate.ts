@@ -1965,16 +1965,40 @@ const PACKAGE_MATCH = 0.6;
   const REFINE_ROUNDS = 4;
   const REFINE_CUTS_PER_ROUND = 5;
   const REFINE_MARGIN = 0.75;
+  /*
+   * THE ROUNDS ARE WHAT MADE NAJEELA FAIL. Measured on a five-colour build,
+   * 3 Sep 2026: the four rounds took 1,513 ms and 1,451 of it was ranking the
+   * whole 1,500-card shortlist against the deck, four times over. On the
+   * edge worker that is the CPU budget, and the deployed function answered
+   * `WORKER_RESOURCE_LIMIT` for the one commander with the biggest pool.
+   *
+   * Two limits, both measured rather than guessed. The shortlist is already
+   * in the order the seed profile ranked it, so the card a round would swap
+   * in is near its top: the first five hundred are re-scored, not the lot.
+   * And the rounds stop when they have spent their time, so a slow worker
+   * ships a deck reviewed twice rather than no deck at all.
+   */
+  const REFINE_POOL = 500;
+  const REFINE_TIME_BUDGET_MS = 900;
 
   const refineLog: string[] = [];
   let refineSwaps = 0;
+  const refineStartedAt = Date.now();
+  let refineEvalMs = 0;
+  let refineRankMs = 0;
 
   for (let round = 1; round <= REFINE_ROUNDS; round++) {
+    if (round > 1 && Date.now() - refineStartedAt > REFINE_TIME_BUDGET_MS) {
+      refineLog.push(`round ${round}: skipped, the review had spent its ${REFINE_TIME_BUDGET_MS} ms`);
+      break;
+    }
     const roundEntries: EngineDeckEntry[] = [
       { card: toEngineCard(input.commander), quantity: 1, isCommander: true },
       ...picked.map(e => ({ card: toEngineCard(e.card), quantity: e.quantity })),
     ];
+    const evalStartedAt = Date.now();
     const roundEval = evaluateDeck(roundEntries, { format, commander: toEngineCard(input.commander) });
+    refineEvalMs += Date.now() - evalStartedAt;
     const roundPlan = withUrgency(commanderPlan, picked);
     const roundProfile = deckProfileFrom(
       format,
@@ -2058,11 +2082,13 @@ const PACKAGE_MATCH = 0.6;
     }
 
     /* The best cards NOT in the deck, scored against the deck as it stands. */
+    const rankStartedAt = Date.now();
     const replacements = rankCandidates(
-      shortlist.filter(c => !takenOracleIds.has(c.oracleId)),
+      shortlist.filter(c => !takenOracleIds.has(c.oracleId)).slice(0, REFINE_POOL),
       roundProfile,
       rankOptions
     );
+    refineRankMs += Date.now() - rankStartedAt;
 
     let swapsThisRound = 0;
     for (const cut of cuts) {
@@ -2131,6 +2157,7 @@ const PACKAGE_MATCH = 0.6;
     if (swapsThisRound === 0) break;
   }
 
+  notes.push(`review rounds took ${Date.now() - refineStartedAt} ms (evaluating ${refineEvalMs} ms, ranking ${refineRankMs} ms)`);
   if (refineSwaps > 0) {
     notes.push(
       `reviewed the finished deck in ${Math.min(REFINE_ROUNDS, Number(refineLog.length ? refineLog[refineLog.length - 1].match(/^round (\d+)/)?.[1] ?? '1' : '0'))} ` +

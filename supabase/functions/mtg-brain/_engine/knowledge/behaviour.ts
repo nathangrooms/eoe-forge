@@ -1081,6 +1081,17 @@ const INTENT_RULES: readonly IntentRule[] = [
     ],
   },
   {
+    // Yuriko, the Tiger's Shadow: the top card's mana value is the damage,
+    // so the deck wants expensive cards and ways to put one on top.
+    when: /loses? life equal to (that card's|its|the revealed card's) mana value/i,
+    reads: 'drains for the mana value of the top card, so the deck wants big spells and ways to stack the top',
+    wants: [
+      ['mv:big', 0.75],
+      ['cares:zone:library', 0.55],
+      ['eff:look-and-pick', 0.45],
+    ],
+  },
+  {
     // Kodama of the West Tree, Rishkar, and "modified" generally.
     /* NO `i` FLAG, because the exclusion needs case: "put a +1/+1 counter on
        Korvold" is the commander growing itself, and a capital after "on" is
@@ -2553,6 +2564,9 @@ const PLAN_RULES: readonly {
     wants: [
       { facet: 'eff:create-token', weight: 0.9 },
       { facet: 'eff:pump', weight: 0.5 },
+      /* Impact Tremors, Purphoros: a token maker's payoff is paid per body
+         that enters. Krenko had none - "payoff for going wide 0/3". */
+      { facet: 'trig:enters', weight: 0.45 },
       { facet: 'eff:sacrifice', weight: 0.4 },
     ],
   },
@@ -2634,12 +2648,27 @@ const PLAN_RULES: readonly {
       { facet: 'cares:zone:graveyard', weight: 0.85 },
       { facet: 'eff:mill', weight: 0.75 },
       { facet: 'eff:return-from', weight: 0.65 },
+      /* Muldrotha, Karador: a permission to recast is worth most when you
+         can put the permanent back in the graveyard on demand. */
+      { facet: 'cost:sacrifice', weight: 0.6 },
+      { facet: 'cost:sacrifice-self', weight: 0.5 },
       { facet: 'eff:discard', weight: 0.5 },
     ],
   },
   /* Lands out of the graveyard want lands IN the graveyard and more land drops
      to spend them on. Not `cares:type:land`, which is the Bone Saw mistake
      `eff:extra-land-drop`'s note in the facet layer describes. */
+  {
+    /* Azusa, Mina and Denn, Wayward Swordtooth: extra land drops want lands
+       to drop, lands that come back, and the cards paid per land. */
+    when: 'eff:extra-land-drop',
+    wants: [
+      { facet: 'eff:play-from-graveyard', weight: 0.6 },
+      { facet: 'cares:type:land', weight: 0.55 },
+      { facet: 'eff:search-library', weight: 0.4 },
+      { facet: 'eff:draw', weight: 0.4 },
+    ],
+  },
   {
     when: 'eff:play-from-graveyard',
     wants: [
@@ -2725,6 +2754,27 @@ const PLAN_RULES: readonly {
       { facet: 'tok:treasure', weight: 0.6 },
       { facet: 'cost:sacrifice-self', weight: 0.5 },
       { facet: 'trig:dies', weight: 0.5 },
+      /* Bloodghast, Reassembling Skeleton: fodder that comes back is fodder forever. */
+      { facet: 'eff:return-from', weight: 0.45 },
+    ],
+  },
+  {
+    /*
+     * "Whenever you cast a spell that targets a creature you control", read
+     * off the trigger's own filter. Feather, Zada, and every heroic
+     * commander: the English rule for this shape reached the plan at 0.42
+     * after two scalings and lost every slot to an instant at 0.9.
+     */
+    when: 'trig:cast:targeting',
+    wants: [
+      { facet: 'eff:pump', weight: 0.8 },
+      { facet: 'type:instant', weight: 0.75 },
+      { facet: 'grants:hexproof', weight: 0.7 },
+      { facet: 'eff:protect', weight: 0.6 },
+      { facet: 'grants:indestructible', weight: 0.6 },
+      { facet: 'grants:protection', weight: 0.6 },
+      { facet: 'mv:cheap', weight: 0.6 },
+      { facet: 'eff:draw', weight: 0.5 },
     ],
   },
   {
@@ -3424,6 +3474,8 @@ function describeFacet(facet: Facet): string {
   if (facet === 'cares:zone:exile') return 'plays cards from exile';
   if (facet === 'cost:tap') return 'taps for its ability';
   if (facet === 'trig:cast:creature') return 'is paid whenever you cast a creature spell';
+  if (facet === 'trig:cast:targeting') return 'is paid when your own spells target your own creatures';
+  if (facet === 'eff:extra-land-drop') return 'plays extra lands';
   if (facet === 'eff:put-onto-battlefield') return 'cheats cards straight onto the battlefield';
   if (facet === 'eff:attach') return 'attaches things to creatures';
   if (facet.startsWith('eff:')) return `uses ${facet.slice(4)}`;

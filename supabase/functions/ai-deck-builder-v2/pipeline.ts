@@ -769,7 +769,13 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
   if (!shell) {
     const commanderPlan = planForCommander(commander);
     const commanderWants = new Map(commanderPlan.wants.map(w => [w.facet as string, w.weight]));
-    const candidates = DECK_ARCHETYPES.map(one => ({
+    /* A -1/-1 COMMANDER IS NOT A +1/+1 COMMANDER, and the Counters shell is
+       +1/+1 through and through. Yawgmoth's proliferate is loud, so the shell
+       was admissible, and its packages handed him Walking Ballista and two
+       Rings. No shell holds the -1/-1 packages; his own plan does. */
+    const minusOnly =
+      commanderFacets.facets.includes('ctr:-1/-1') && !commanderFacets.facets.includes('ctr:+1/+1');
+    const candidates = DECK_ARCHETYPES.filter(one => !(minusOnly && one.id === 'counters')).map(one => ({
       shell: one,
       input: archetypeFor(one, shellRows, shellFacets),
     }));

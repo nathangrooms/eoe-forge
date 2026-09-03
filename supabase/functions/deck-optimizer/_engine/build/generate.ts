@@ -604,10 +604,16 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
    * a deck that wants forty creatures should rank creatures higher than a deck
    * that wants six, and that is exactly the difference this number carries.
    */
+  /* A TRIBAL DECK IS A CREATURE DECK. Giada, Font of Hope's Angels were 7 of
+     20 with the creature floor at 19, because half of those nineteen slots
+     went to the Angel-matters payoffs the plan also wants. Every human tribal
+     list runs the tribe first and the payoffs around it; twenty-six is the
+     low end of what they run. */
+  const tribalFloor = commanderPlan.tribe ? 26 : 0;
   const targets = {
     ...shape.roleFloors,
     land: landTarget,
-    creature: shape.creatureTarget,
+    creature: Math.max(shape.creatureTarget, tribalFloor),
   } as Record<Role, number>;
 
   const notes: string[] = [];
@@ -1733,11 +1739,59 @@ const PACKAGE_MATCH = 0.6;
    * 3. Flex slots, re-ranked against the deck as it now stands.
    * ---------------------------------------------------------------- */
 
+  /*
+   * THE PLAN, AS THIS DECK STILL NEEDS IT.
+   *
+   * `planFit` is deck-blind: a want at 0.9 scores 0.9 on the first card that
+   * carries it and on the thirty-fifth. In Kinnan's deck that made every rock
+   * a perfect fit forever, so the review rounds - built to make the deck
+   * better - cut Craterhoof Behemoth and Avenger of Zendikar for Endurance
+   * Bobblehead and Lotus Ring, each swap explained by the commander wanting
+   * mana. The reserve pass already knows better: it spends on what the deck
+   * has NOT got, a want's urgency being how far short of a target it is.
+   * The same arithmetic here, applied to the plan the rounds score against:
+   * each want's weight is scaled by its shortfall, floored at a quarter so a
+   * saturated want still prefers the on-theme card over an off-theme one,
+   * but no longer over a card the deck actually lacks.
+   *
+   * Target per want is weight x 30, NOT the reserve's ten. Measured with ten
+   * on 3 Sep 2026: Krenko's eleventh Goblin and Niv-Mizzet's tenth instant
+   * scored a quarter and were swapped for Sol Ring and Rhystic Study, keyed
+   * synergy fell from 71% to 64% across the roster and the benchmark medians
+   * collapsed toward staple piles. A human Goblin deck runs thirty Goblins
+   * and a spellslinger deck thirty instants; the reserve's ten is the right
+   * scale for spending eight slots across many wants, not for deciding when
+   * a deck has enough of its own theme.
+   */
+  const WANT_SATURATION = 30;
+  const withUrgency = (
+    plan: typeof commanderPlan,
+    deck: ReadonlyArray<{ card: BuildCard; bucket: Bucket }>
+  ): typeof commanderPlan => {
+    if (!plan) return plan;
+    const served = new Map<string, number>();
+    for (const entry of deck) {
+      if (entry.bucket === 'land' || entry.bucket === 'basic') continue;
+      for (const f of new Set<string>(entry.card.facets ?? [])) served.set(f, (served.get(f) ?? 0) + 1);
+    }
+    return {
+      ...plan,
+      wants: plan.wants.map(w => {
+        const target = Math.max(1, Math.round(w.weight * WANT_SATURATION));
+        const have = served.get(w.facet) ?? 0;
+        const shortfall = Math.max(0.35, 1 - have / target);
+        return { ...w, weight: w.weight * shortfall };
+      }),
+    };
+  };
   const flexRoom = spellSlots - (picked.length - chosenLands.length);
   if (flexRoom > 0) {
     // The profile now has real tags, a real curve and real role counts, so
     // synergy and curve fit finally have something to measure against. At the
     // seed profile `spellCount` is 0 and curve fit cannot fire at all.
+    /* Against the plan AS THE DECK STILL NEEDS IT, for the same reason the
+       review rounds are: Kinnan's untappers at 0.6 lost every flex slot to
+       the twenty-first rock at 0.9. */
     const nowProfile = deckProfileFrom(
       format,
       identity,
@@ -1745,7 +1799,7 @@ const PACKAGE_MATCH = 0.6;
       picked,
       provisionalMana,
       targets,
-      commanderPlan,
+      withUrgency(commanderPlan, picked),
       plan.archetype ?? null
     );
     const rerank = rankCandidates(
@@ -1912,51 +1966,6 @@ const PACKAGE_MATCH = 0.6;
   const REFINE_CUTS_PER_ROUND = 5;
   const REFINE_MARGIN = 0.75;
 
-  /*
-   * THE PLAN, AS THIS DECK STILL NEEDS IT.
-   *
-   * `planFit` is deck-blind: a want at 0.9 scores 0.9 on the first card that
-   * carries it and on the thirty-fifth. In Kinnan's deck that made every rock
-   * a perfect fit forever, so the review rounds - built to make the deck
-   * better - cut Craterhoof Behemoth and Avenger of Zendikar for Endurance
-   * Bobblehead and Lotus Ring, each swap explained by the commander wanting
-   * mana. The reserve pass already knows better: it spends on what the deck
-   * has NOT got, a want's urgency being how far short of a target it is.
-   * The same arithmetic here, applied to the plan the rounds score against:
-   * each want's weight is scaled by its shortfall, floored at a quarter so a
-   * saturated want still prefers the on-theme card over an off-theme one,
-   * but no longer over a card the deck actually lacks.
-   *
-   * Target per want is weight x 30, NOT the reserve's ten. Measured with ten
-   * on 3 Sep 2026: Krenko's eleventh Goblin and Niv-Mizzet's tenth instant
-   * scored a quarter and were swapped for Sol Ring and Rhystic Study, keyed
-   * synergy fell from 71% to 64% across the roster and the benchmark medians
-   * collapsed toward staple piles. A human Goblin deck runs thirty Goblins
-   * and a spellslinger deck thirty instants; the reserve's ten is the right
-   * scale for spending eight slots across many wants, not for deciding when
-   * a deck has enough of its own theme.
-   */
-  const WANT_SATURATION = 30;
-  const withUrgency = (
-    plan: typeof commanderPlan,
-    deck: ReadonlyArray<{ card: BuildCard; bucket: Bucket }>
-  ): typeof commanderPlan => {
-    if (!plan) return plan;
-    const served = new Map<string, number>();
-    for (const entry of deck) {
-      if (entry.bucket === 'land' || entry.bucket === 'basic') continue;
-      for (const f of new Set<string>(entry.card.facets ?? [])) served.set(f, (served.get(f) ?? 0) + 1);
-    }
-    return {
-      ...plan,
-      wants: plan.wants.map(w => {
-        const target = Math.max(1, Math.round(w.weight * WANT_SATURATION));
-        const have = served.get(w.facet) ?? 0;
-        const shortfall = Math.max(0.35, 1 - have / target);
-        return { ...w, weight: w.weight * shortfall };
-      }),
-    };
-  };
   const refineLog: string[] = [];
   let refineSwaps = 0;
 

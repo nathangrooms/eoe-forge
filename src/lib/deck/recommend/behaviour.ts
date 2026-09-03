@@ -869,6 +869,9 @@ function readAbility(ability: Ability, out: Set<Facet>): void {
     if (ability.event.on === 'cast') {
       const where = (ability.event as { what?: { where?: CardFilter } }).what?.where;
       for (const type of typesNamedBy(where)) out.add(`trig:cast:${type}`);
+      /* "...spell that targets a creature you control": the condition on
+         the spell is the whole of Feather and every heroic commander. */
+      if (namesTargets(where)) out.add('trig:cast:targeting');
     }
     readTriggerEvent(ability.event, out);
     readEffects(ability.effects, out, (ability as { targets?: readonly TargetSpec[] }).targets);
@@ -1630,6 +1633,17 @@ function aimOfSelector(sel: Selector | undefined, targets?: readonly TargetSpec[
 
 /** True when the effect touches only the caster's own side. */
 const isSelfAimed = (aim: Aim): boolean => aim === 'you';
+
+/** Does the filter say what the spell must TARGET? `{is:'targets'}` under `and`/`or`. */
+function namesTargets(filter: CardFilter | undefined): boolean {
+  if (!filter) return false;
+  switch (filter.is) {
+    case 'targets': return true;
+    case 'and':
+    case 'or': return filter.of.some(namesTargets);
+    default: return false;
+  }
+}
 
 /** The card types a filter names positively: `type` leaves under `and`/`or`, never under `not`. */
 function typesNamedBy(filter: CardFilter | undefined): string[] {

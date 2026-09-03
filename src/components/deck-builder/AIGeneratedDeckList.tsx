@@ -18,6 +18,7 @@ import { computeDeckPower, entriesFromStoreCards } from '@/lib/deck/power';
 import { ArchetypeDetection } from '@/components/deck-builder/ArchetypeDetection';
 import { deriveCardTags } from '@/lib/cards/tagger';
 import { DeckBudgetTracker } from '@/components/deck-builder/DeckBudgetTracker';
+import { ReviewRounds } from '@/components/deck-builder/ReviewRounds';
 import { EnhancedDeckAnalysisPanel } from '@/components/deck-builder/EnhancedDeckAnalysis';
 import {
   Crown,
@@ -456,6 +457,7 @@ export function AIGeneratedDeckList({
         </TabsContent>
 
         <TabsContent value="log" className="mt-4">
+          <ReviewRounds changelog={changelog} cards={cards} className="mb-4" />
           <section className="rounded-xl bg-card p-4 shadow-lg shadow-black/20 md:p-5">
             <h3 className="mb-3 text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               Build log

@@ -110,6 +110,7 @@ export function returnFromForced(
         type: 'MOVE_ZONE',
         instanceId,
         to: effect.to,
+        ...(effect.tapped ? { tapped: true } : {}),
         at: env.at,
         ...(env.cause ? { cause: env.cause } : {}),
       });
@@ -129,6 +130,7 @@ export function returnFromForced(
           type: 'MOVE_ZONE',
           instanceId,
           to: effect.to,
+          ...(effect.tapped ? { tapped: true } : {}),
           at: env.at,
           ...(env.cause ? { cause: env.cause } : {}),
         });

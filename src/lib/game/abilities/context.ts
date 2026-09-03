@@ -400,6 +400,16 @@ export function resolveSelector(selector: Selector, ctx: AbilityContext): Instan
       return host && ctx.state.cards[host] ? [host] : [];
     }
 
+    case 'revealed':
+      // Nothing records which card a `{do:'draw', revealed:true}` moved, so
+      // this cannot be answered here yet. Nobody, NOT the top card of the
+      // library: by the time a second effect asks, the first may have moved
+      // it, and guessing would compute a life total from the wrong card.
+      // `unrunnableReasons` refuses ownership of an ability naming this, and
+      // `runEffects` notes it when one is run by hand, so the empty answer is
+      // never mistaken for zero.
+      return [];
+
     case 'all': {
       const zone: Zone = (selector.zone as Zone) ?? 'battlefield';
       const controllerIds = selector.controller ? resolvePlayers(selector.controller, ctx) : undefined;
@@ -493,6 +503,32 @@ export function matchesFilter(filter: CardFilter, instanceId: InstanceId, ctx: A
 
     case 'mana-value':
       return compare(view.manaValue, filter.cmp, evalValue(filter.value, ctx));
+
+    case 'targets': {
+      /*
+       * What the spell was announced as aiming at. `CAST_SPELL` builds the
+       * stack object with `action.targets` and the same action moves the card,
+       * so by the time the cast event is derived the object is on the stack
+       * with its targets locked in (CR 601.2c). A card that is not a spell on
+       * the stack has no targets and never satisfies this; nor does a spell
+       * announced with none.
+       *
+       * `ctx.state.stack` is read directly rather than through `stackOf`,
+       * because `stack.ts` imports this file and the cycle would close.
+       *
+       * Player targets are skipped, not failed: "targets a creature you
+       * control" is satisfied by a spell aimed at your creature AND at you.
+       * With `only`, every target must be a card the selector names, so a
+       * player target fails it, which is what "targets only Zada" means.
+       */
+      const spell = (ctx.state.stack ?? []).find(object => object.cardInstanceId === instanceId);
+      if (!spell || spell.targets.length === 0) return false;
+      const named = new Set(resolveSelector(filter.of, ctx));
+      if (filter.only) {
+        return spell.targets.every(target => target.kind === 'card' && !!target.instanceId && named.has(target.instanceId));
+      }
+      return spell.targets.some(target => target.kind === 'card' && !!target.instanceId && named.has(target.instanceId));
+    }
 
     case 'not':
       return !matchesFilter(filter.of, instanceId, ctx);

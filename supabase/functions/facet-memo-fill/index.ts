@@ -159,7 +159,15 @@ const json = (body: unknown, status = 200) =>
  * piece of graveyard hate in the format into an ANSWER, which is worse than not
  * reading them, since it takes a removal slot from something that removes.
  */
-const COMPILER_VERSION = 13;
+/*
+ * 13 -> 14, 3 Sep 2026. Counters the card puts on ITSELF are `eff:add-counters
+ * -self` / `ctr:+1/+1-self` (Korvold and Animar stop planning as counters
+ * decks); `mv:cheap`, `mv:big` and `pt:big` are read off the row; `eff:wheel`
+ * is derived from draw + discard + scope:all + hand; an ability word is no
+ * longer a subtype the card cares about (Prosper, Tome-Bound was Mystic
+ * tribal); and the eight compiler rules from the 2 Sep workflow.
+ */
+const COMPILER_VERSION = 14;
 
 /**
  * Cards read per call.

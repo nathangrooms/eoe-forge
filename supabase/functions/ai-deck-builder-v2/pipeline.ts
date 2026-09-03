@@ -745,12 +745,52 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
       shell: one,
       input: archetypeFor(one, shellRows, shellFacets),
     }));
-    const picked = shellsForCommander(commanderWants, candidates, 2);
+    const scored = shellsForCommander(commanderWants, candidates, 2);
+    /*
+     * A TRIBE IS A SHELL BEFORE IT IS A SCORE.
+     *
+     * Giada, Font of Hope is an Angel that makes Angels bigger and cheaper.
+     * She read as +1/+1 counters (1.26) and Lifegain (0.95), because the
+     * counter she puts on each other Angel is a facet the Counters shell
+     * scores and "is an Angel" is not a facet any shell can carry - the tribe
+     * is different for every commander, so no shell's cards can name it. The
+     * refinement rounds then filled an Angel deck with Hangarback Walker,
+     * Stonecoil Serpent and Endless One on the shell's say-so: 4 Angels of 20.
+     *
+     * So when the plan has a tribe, the Tribal shell is taken first - its
+     * packages are the lords, banners and Coat of Arms that work for ANY
+     * tribe - and the tribe itself is stated as a package outright, with the
+     * wants no exemplar could supply. The cosine still picks the second shell.
+     */
+    const tribe = commanderPlan.tribe;
+    const tribal = tribe ? candidates.find(c => c.shell.id === 'tribal') : undefined;
+    const picked = tribal
+      ? [{ ...tribal, score: 1 }, ...scored.filter(x => x.shell.id !== 'tribal')].slice(0, 2)
+      : scored;
     derived = mergeShellInputs(picked);
+    if (derived && tribe) {
+      const because = `${commanderName} is a ${tribe} that counts ${tribe}s`;
+      derived = {
+        ...derived,
+        extraPackages: [
+          ...(derived.extraPackages ?? []),
+          {
+            name: `The ${tribe}s`,
+            wants: [
+              { facet: `sub:${tribe}`, weight: 1, because },
+              { facet: 'type:creature', weight: 1, because },
+            ],
+            read: 0,
+            share: 0.34,
+          },
+        ],
+      };
+    }
     if (picked.length) {
       console.log(
         `  no archetype asked for; ${commanderName} reads as ` +
-          picked.map(x => `${x.shell.name} (${x.score.toFixed(2)})`).join(' and ')
+          picked.map(x => `${x.shell.name} (${x.score.toFixed(2)})`).join(' and ') +
+          (tribe ? `, tribe ${tribe}` : '')
       );
     } else {
       console.log(`  no archetype asked for, and no shell overlaps ${commanderName}'s plan`);

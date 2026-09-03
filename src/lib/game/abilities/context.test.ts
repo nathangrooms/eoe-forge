@@ -407,3 +407,51 @@ test('a supplied layer view overrides printed characteristics', () => {
 
   assert.ok(matchesFilter({ is: 'power', cmp: 'gte', value: 9 }, 'c', ctx));
 });
+
+test('a "targets" filter reads the announced targets of a spell on the stack, in the watcher\'s context', () => {
+  // Zada is the watcher, so `{sel:'self'}` is Zada and "you control" is p1.
+  const state = game([
+    { id: 'zada', name: 'Zada, Hedron Grinder', typeLine: 'Legendary Creature — Goblin Ally' },
+    { id: 'other', name: 'Goblin Piker', typeLine: 'Creature — Goblin' },
+    { id: 'theirs', name: 'Their Bear', owner: 'p2' },
+    { id: 'spell', name: 'Brute Strength', typeLine: 'Instant', zone: 'stack' },
+  ]);
+  const aimed = (targets: Array<string | { player: string }>): GameState => ({
+    ...state,
+    stack: [
+      {
+        stackId: 's1',
+        kind: 'spell',
+        name: 'Brute Strength',
+        controllerId: 'p1',
+        cardInstanceId: 'spell',
+        turn: state.turn,
+        effects: [],
+        targets: targets.map(t =>
+          typeof t === 'string'
+            ? { kind: 'card' as const, instanceId: t, zone: 'battlefield' as const }
+            : { kind: 'player' as const, playerId: t.player }
+        ),
+      },
+    ],
+  });
+  const ctx = (s: GameState) => ctxFor(s, 'zada');
+  const self = { is: 'targets', of: { sel: 'self' } } as const;
+  const onlySelf = { is: 'targets', of: { sel: 'self' }, only: true } as const;
+  const mine = {
+    is: 'targets',
+    of: { sel: 'all', where: { is: 'type', value: 'creature' }, controller: { who: 'you' }, zone: 'battlefield' },
+  } as const;
+
+  assert.ok(matchesFilter(self, 'spell', ctx(aimed(['zada']))));
+  assert.ok(matchesFilter(onlySelf, 'spell', ctx(aimed(['zada']))));
+  assert.ok(matchesFilter(self, 'spell', ctx(aimed(['other', 'zada']))), 'one of two targets is enough without "only"');
+  assert.ok(!matchesFilter(onlySelf, 'spell', ctx(aimed(['other', 'zada']))), '"only" refuses a spell that also aims elsewhere');
+  assert.ok(!matchesFilter(self, 'spell', ctx(aimed(['other']))), 'aimed at something else');
+  assert.ok(matchesFilter(mine, 'spell', ctx(aimed(['other']))), 'a creature the watcher\'s controller controls');
+  assert.ok(!matchesFilter(mine, 'spell', ctx(aimed(['theirs']))), 'not one an opponent controls');
+  assert.ok(!matchesFilter(mine, 'spell', ctx(aimed([{ player: 'p1' }]))), 'a player is not a creature');
+  assert.ok(!matchesFilter(onlySelf, 'spell', ctx(aimed(['zada', { player: 'p2' }]))), 'a player target breaks "only"');
+  assert.ok(!matchesFilter(self, 'spell', ctx(aimed([]))), 'a spell with no targets satisfies nothing');
+  assert.ok(!matchesFilter(self, 'zada', ctx(aimed(['zada']))), 'the filter is about a spell on the stack, and Zada is not one');
+});

@@ -384,6 +384,56 @@ test('Blind Creeper shrinks when an OPPONENT casts a spell', () => {
 });
 
 /* ------------------------------------------------------------------ *
+ * cast — the subject is a spell, described by what it TARGETS
+ * ------------------------------------------------------------------ */
+
+/** Heroic. "a spell that targets this creature" is a filter on the spell. */
+const AKROAN_SKYGUARD: Spec = {
+  id: 'skyguard',
+  name: 'Akroan Skyguard',
+  typeLine: 'Creature — Human Soldier',
+  oracleText: 'Flying\nHeroic — Whenever you cast a spell that targets this creature, put a +1/+1 counter on this creature.',
+  power: '1',
+  toughness: '1',
+};
+
+test('heroic fires for a spell announced against the watcher, and for nothing else', () => {
+  resetAbilityCache();
+  // The relative clause "that targets this creature" used to refuse the whole
+  // trigger, so every heroic creature was a card the engine could not run.
+  // Read as `{is:'targets', of:{sel:'self'}}`, the subject check asks the
+  // stack object what it was announced against, which `CAST_SPELL` carries.
+  const state = game([
+    { ...AKROAN_SKYGUARD, zone: 'battlefield' },
+    { id: 'bear', name: 'Bear', zone: 'battlefield' },
+    { id: 'growth', name: 'Titanic Growth', typeLine: 'Instant', oracleText: '' },
+    { id: 'growth2', name: 'Titanic Growth', typeLine: 'Instant', oracleText: '' },
+    { id: 'growth3', name: 'Titanic Growth', typeLine: 'Instant', oracleText: '' },
+  ]);
+  assert.equal(abilityEngineOwns(state.cards.skyguard), true, 'precondition: the engine owns the heroic trigger');
+
+  const cast = (instanceId: string, targets: string[]): GameAction =>
+    ({
+      type: 'CAST_SPELL',
+      instanceId,
+      controllerId: 'p1',
+      targets: targets.map(id => ({ kind: 'card', instanceId: id, zone: 'battlefield' })),
+      at: 1,
+    }) as GameAction;
+
+  const onMe = cast('growth', ['skyguard']);
+  const fired = collectTriggers(state, onMe, applyAction(state, onMe));
+  assert.equal(fired.length, 1, 'aimed at the Skyguard: heroic fires');
+  assert.equal(fired[0].sourceInstanceId, 'skyguard');
+
+  const onBear = cast('growth2', ['bear']);
+  assert.equal(collectTriggers(state, onBear, applyAction(state, onBear)).length, 0, 'aimed at the Bear: it does not');
+
+  const unaimed = cast('growth3', []);
+  assert.equal(collectTriggers(state, unaimed, applyAction(state, unaimed)).length, 0, 'a spell with no targets targets nothing');
+});
+
+/* ------------------------------------------------------------------ *
  * step — "the end step", not "your end step"
  * ------------------------------------------------------------------ */
 

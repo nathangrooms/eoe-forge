@@ -159,8 +159,13 @@ const OUR_WORDS: Array<{ facet: string; means: string; why: string }> = [
   },
   {
     facet: 'eff:extra-land-drop',
-    means: 'More lands per turn. Exploration, Azusa.',
-    why: 'Not mana, but it is what a player means by ramp, and no Magic keyword covers it.',
+    means: 'More lands per turn. Exploration, Azusa, and every "put a land card from your hand onto the battlefield".',
+    why: 'Not mana, but it is what a player means by ramp, and no Magic keyword covers it. Chulane and Uro carry it for the land they put down off a trigger.',
+  },
+  {
+    facet: 'eff:put-onto-battlefield',
+    means: 'A card goes from your hand straight onto the battlefield without being cast. Elvish Piper, Sneak Attack.',
+    why: 'The compiler reads it with the same verb as recursion, and recursion is filed as card advantage. Sakura-Tribe Scout is not a Regrowth, so it needed its own word.',
   },
   {
     facet: 'eff:choose',

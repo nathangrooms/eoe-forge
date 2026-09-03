@@ -322,6 +322,40 @@ describe('reading the commander', () => {
     assert.ok(plan.wants.some(w => w.facet === 'type:sorcery'));
   });
 
+  it('Kinnan is paid for tapping things for mana, so the deck is mana rocks, dorks and untappers', () => {
+    /*
+     * Facets as the producer printed them on 3 Sep 2026, once the compiler
+     * could read "Whenever you tap a nonland permanent for mana, add one mana
+     * of any type that permanent produced". Before that line was read his
+     * record was empty and the plan was the voltron floor: a mana commander
+     * armed with Equipment. There is no `cares:type:land` here, and must not
+     * be: "nonland" is not about lands.
+     */
+    const kinnan = {
+      name: 'Kinnan, Bonder Prodigy',
+      typeLine: 'Legendary Creature — Human Druid',
+      tags: ['creature', 'legendary', 'ramp', 'mana-dork'],
+      facets: [
+        'acost:3', 'eff:add-mana', 'mana:1', 'rec:partial', 'scope:all', 'sub:druid', 'sub:human',
+        'sub:human druid', 'trig:tapped-for-mana', 'type:creature', 'type:legendary',
+      ],
+    };
+    const plan = planForCommander(kinnan);
+    assert.equal(plan.fromTagsOnly, false);
+    assert.equal(plan.floorOnly, false);
+    const want = (facet: string) => plan.wants.find(w => w.facet === facet);
+    assert.ok((want('eff:add-mana')?.weight ?? 0) >= 0.9, 'mana producers are the deck');
+    assert.ok(want('mana:3'), 'the permanents that make the most per tap');
+    assert.ok(want('eff:untap'), 'untap it and tap it again');
+    // A Human who digs for NON-Humans is not a Human tribal commander.
+    assert.equal(plan.tribe, null);
+    assert.ok(!want('sub:equipment'), 'the voltron floor fired on a commander that was read');
+    assert.ok(!want('type:land'), '"nonland" was read as caring about lands');
+    for (const w of plan.wants) {
+      assert.ok(!/carries trig:/.test(w.because), `raw facet in copy a player reads: ${w.because}`);
+    }
+  });
+
   it('a commander with no record gets the floor, and is marked as having only that', () => {
     /* THIS ASSERTION CHANGED ON 2026-08-30 and the old one is worth recording.
        It used to require `plan.wants` to be EMPTY, on the argument that an

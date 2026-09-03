@@ -405,11 +405,26 @@ export function parseObject(input: string): ObjectRef | null {
     }
   }
 
+  // " with mana value 3 or less" / " with mana value 4 or greater" — a bound,
+  // not a keyword. `{is:'mana-value'}` has been in `CardFilter` since it was
+  // written and the runtime compares it, but no phrase ever produced it, so
+  // "return target creature card with mana value 3 or less from your
+  // graveyard" (Teshar) and Lurrus's "permanent spell with mana value 2 or
+  // less" both refused on the word "mana". Read BEFORE the keyword branch:
+  // "mana value x or less" is all letters and would reach `parseKeywordList`.
+  const mvMatch = s.match(/ with (mana value .+)$/);
+  if (mvMatch) {
+    const bound = parseManaValueBound(mvMatch[1]);
+    if (!bound) return null;
+    s = s.slice(0, mvMatch.index);
+    extra.push(bound);
+  }
+
   // " with flying" / " without flying".
   const withMatch = s.match(/ (with|without) ([a-z ]+)$/);
   if (withMatch) {
     const kws = parseKeywordList(withMatch[2]);
-    if (!kws) return null; // "with a +1/+1 counter on it", "with mana value 3 or less" — not modelled
+    if (!kws) return null; // "with a +1/+1 counter on it" — not modelled
     s = s.slice(0, withMatch.index);
     const f = orF(...kws.map((k) => ({ is: 'keyword', value: k } as CardFilter)));
     extra.push(withMatch[1] === 'with' ? f : notF(f));
@@ -515,6 +530,28 @@ export function parseObject(input: string): ObjectRef | null {
             if (nonType) {
               s = s.slice(nonType[0].length);
               extra.push(notF({ is: 'type', value: nonType[1] }));
+            } else {
+              /*
+               * "non-Human creature", "non-Vampire creature", "non-Aura
+               * enchantment". Wizards hyphenates a negated SUBTYPE and runs a
+               * negated type together ("noncreature"), so the hyphen is the
+               * whole signal and the branch above cannot be widened to cover
+               * this: `non([a-z]+)` would read "nonsnow" as a subtype called
+               * snow and refuse nothing.
+               *
+               * It has to be a NEGATED filter, not a dropped word. Kinnan,
+               * Bonder Prodigy puts "a non-Human creature card" onto the
+               * battlefield; reading that as "a creature card" would let the
+               * runtime offer Humans, which is a wrong ability rather than a
+               * missing one, and this folder treats those as worse. The word
+               * is checked against the subtype vocabulary so "non-gizmo"
+               * still refuses the phrase, the way an unread head noun does.
+               */
+              const nonSub = s.match(/^non-([a-z]+) /);
+              if (nonSub && SUBTYPES.has(nonSub[1])) {
+                s = s.slice(nonSub[0].length);
+                extra.push(notF({ is: 'subtype', value: nonSub[1] }));
+              }
             }
           }
         }
@@ -689,6 +726,22 @@ const LIFE_TOTALS: Array<[RegExp, PlayerSelector]> = [
   [/^your life total$/, { who: 'you' }],
   [/^the number of life you have$/, { who: 'you' }],
 ];
+
+/**
+ * "mana value 3 or less" / "mana value 4 or greater" -> the filter, or `null`.
+ *
+ * Only the two closed spellings. "Mana value less than or equal to Alesha's
+ * power" is a comparison against a computed value and stays refused rather
+ * than rounded to a number, and "total mana value 6 or less" (Invoke Calamity)
+ * is a bound on a SUM, which no filter on one card can say.
+ */
+export function parseManaValueBound(input: string): CardFilter | null {
+  const m = input.trim().toLowerCase().match(/^mana value (.+?) or (less|greater)$/);
+  if (!m) return null;
+  const value = parseValueExpr(m[1]);
+  if (value === null) return null;
+  return { is: 'mana-value', cmp: m[2] === 'less' ? 'lte' : 'gte', value };
+}
 
 /**
  * A quantity phrase -> a `ValueExpr`, or `null` to refuse.
@@ -1066,6 +1119,30 @@ export function parseCondition(input: string): Condition | null {
       : { who: 'each-opponent' };
     const bound = parseBound(controls[2]);
     if (!bound) return null;
+    /*
+     * THE EVALUATOR SUMS. `{if:'controls'}` counts the battlefield of every
+     * player `who` resolves to, so for anyone but "you" the count is the
+     * TABLE's and not one opponent's. Whether that is the sentence depends on
+     * the quantifier, and it has to be checked here because the DSL has no
+     * way to say "any one of them":
+     *
+     *   an opponent controls an artifact          sum >= 1  <=>  somebody has one   sound
+     *   an opponent controls three or more         sum >= 3  three opponents with one each   WRONG
+     *   your opponents control no creatures        sum == 0  <=>  none of them has one   sound
+     *   each opponent controls a creature          sum >= 1  one opponent with three  WRONG
+     *
+     * Defense of the Heart (rank 1302) reads "if an opponent controls three or
+     * more creatures", and once an intervening "if" rides on a trigger a
+     * loosened condition is not a subscore — it puts two creatures onto the
+     * battlefield at the wrong time. Refused until the DSL can quantify.
+     */
+    if (controls[1] !== 'you') {
+      const existential = controls[1] === 'an opponent' || controls[1] === 'a player';
+      const collective = controls[1] === 'your opponents';
+      const isZero = bound.cmp === 'eq' && bound.value === 0;
+      const isOneOrMore = bound.cmp === 'gte' && bound.value === 1;
+      if (!(collective || isZero || (existential && isOneOrMore))) return null;
+    }
     const ref = parseObject(bound.rest);
     // A zone phrase inside "controls" is not a thing anyone controls, and a
     // targeted phrase is not a continuous condition.

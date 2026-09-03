@@ -64,7 +64,7 @@ import type {
   TriggerEvent as DslTriggerEvent,
   TriggeredAbility,
 } from '../../cards/abilities/dsl.ts';
-import { playerSelectorsIn, watchQueriesIn } from '../../cards/abilities/dsl.ts';
+import { playerSelectorsIn, selectorsIn, watchQueriesIn } from '../../cards/abilities/dsl.ts';
 import { abilitiesFor, announcedTargetsOf, triggeredAbilitiesOf } from './card-abilities.ts';
 import type { AbilityContext } from './context.ts';
 import { evalCondition, makeContext, matchesFilter, resolvePlayers, viewOf } from './context.ts';
@@ -117,8 +117,10 @@ export function gameEventKindFor(event: DslTriggerEvent | undefined): TriggerEve
       return null;
     default:
       // 'leaves', 'zone-change', 'becomes-blocked', 'dealt-damage', 'tapped',
-      // 'untapped', 'counter-added', 'gains-life', 'loses-life', 'sacrificed'.
-      // The engine derives no event for any of these.
+      // 'untapped', 'tapped-for-mana', 'counter-added', 'gains-life',
+      // 'loses-life', 'sacrificed'. The engine derives no event for any of
+      // these. `tapped-for-mana` is Kinnan and the mana doublers: the record
+      // is read for deck building, and nothing fires it in a game yet.
       return null;
   }
 }
@@ -403,6 +405,12 @@ function unbindableEffectReason(
   }
   if (playerSelectorsIn(effects).some(selector => selector.who === 'trigger-player')) {
     return `"that player": a ${JSON.stringify(event?.on ?? 'unknown')} event names no one player for it`;
+  }
+  if (selectorsIn(effects).some(selector => selector.sel === 'revealed')) {
+    // "That card's mana value" after a revealed draw. `resolveSelector` answers
+    // nobody for it because nothing records which card the draw moved, and an
+    // owned Dark Confidant would then draw the card and charge no life.
+    return 'names the card it revealed, and nothing records which card a draw revealed yet';
   }
   if (effects.some(hasUnlessPays)) {
     return 'an opponent-facing optional cost, which nothing can offer them';

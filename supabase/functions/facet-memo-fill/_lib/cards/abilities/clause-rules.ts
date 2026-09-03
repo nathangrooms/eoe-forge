@@ -17,15 +17,17 @@ import type {
   Condition,
   Cost,
   Modification,
+  PlayFromLimit,
   PlayerSelector,
   ReplaceableEvent,
   ReplacementResult,
+  Restriction,
   Selector,
   Step,
   TriggerEvent,
   ValueExpr,
 } from './dsl.ts';
-import { notF } from './dsl.ts';
+import { andF, notF, orF } from './dsl.ts';
 import type { BuildCtx } from './effect-rules.ts';
 import { phraseSelector } from './effect-rules.ts';
 import {
@@ -38,6 +40,7 @@ import {
   parseForEachValue,
   parseKeywordList,
   parseKeywordWithParameter,
+  parseManaValueBound,
   parseObject,
   parsePlayer,
   parseValueExpr,
@@ -86,6 +89,32 @@ function triggerSubject(phrase: string): Selector | null {
   return objectSelector(ref);
 }
 
+/** Who "you cast", "an opponent casts", "a player casts" and "each opponent casts" name. */
+function casterOf(word: string): PlayerSelector {
+  if (word === 'you') return { who: 'you' };
+  if (word === 'a player') return { who: 'each-player' };
+  return { who: 'each-opponent' };
+}
+
+/**
+ * What a spell "targets": the object phrase after "that targets".
+ *
+ * "targets ~" is the source (the whole heroic mechanic), "targets a creature
+ * you control" is a class of permanent (Feather, the Redeemed), and "targets
+ * only a single creature" (Leyline of Resonance) or "one or more permanents"
+ * (Dack Fayden) carry a count word that says nothing about WHICH object is
+ * targeted, so it is peeled before the phrase is read. `triggerSubject` owns
+ * the rest of the vocabulary, and it is the same vocabulary because it is the
+ * same question: which object satisfies this description.
+ *
+ * "targets a player", "targets you or a creature you control" and "targets a
+ * single creature other than Ivy" all refuse, because `parseObject` refuses
+ * them: a player is not a card filter, and a name is a word it does not read.
+ */
+function targetedSubject(phrase: string): Selector | null {
+  return triggerSubject(phrase.trim().replace(/^(?:a single|one or more|any number of) /, ''));
+}
+
 /**
  * A trigger condition -> one or more `TriggerEvent`s.
  *
@@ -113,6 +142,35 @@ export function parseTriggerEvent(phrase: string, ctx: BuildCtx): TriggerEvent[]
     return [{ on: 'zone-change', who: { sel: 'self' }, from: 'any', to: 'graveyard' }];
   }
 
+  /* --- tapping for mana ---
+     "Whenever you tap a nonland permanent for mana" (Kinnan, Bonder Prodigy),
+     "whenever a player taps a land for mana" (Mana Flare), "whenever enchanted
+     land is tapped for mana" (Wild Growth), "whenever you tap a Swamp for mana"
+     (Crypt Ghast). Its own event and NOT `tapped`, which fires on a creature
+     attacking: Kinnan is paid only for the tap that made mana.
+
+     The player stays on the event. "You tap a land" and "an opponent taps a
+     land" are the two halves of Vorinclex, Voice of Hunger, one paying you and
+     the other punishing them, and the same event without the player would
+     hand the opponent's lands to you. The passive wording names nobody, so
+     nobody is recorded and the body says "its controller". */
+  const tapsForMana = p.match(/^(you|an opponent|a player|each player) taps? (.+?) for mana$/);
+  if (tapsForMana) {
+    const who = triggerSubject(tapsForMana[2]);
+    if (!who) return null;
+    const by: PlayerSelector =
+      tapsForMana[1] === 'you' ? { who: 'you' }
+      : tapsForMana[1] === 'an opponent' ? { who: 'each-opponent' }
+      : { who: 'each-player' };
+    return [{ on: 'tapped-for-mana', who, by }];
+  }
+  const tappedForMana = p.match(/^(.+?) is tapped for mana$/);
+  if (tappedForMana) {
+    const who = triggerSubject(tappedForMana[1]);
+    if (!who) return null;
+    return [{ on: 'tapped-for-mana', who }];
+  }
+
   /* --- damage a subject deals. The subject may be the source, an Aura's or
          Equipment's host, or a whole group ("a creature you control"). --- */
   const dealt = p.match(/^(.+?) deals (combat )?damage(?: to (a player|an opponent|a creature|a planeswalker|any target))?$/);
@@ -138,24 +196,58 @@ export function parseTriggerEvent(phrase: string, ctx: BuildCtx): TriggerEvent[]
     return null; // an owner phrase we cannot name — "enchanted player's upkeep"
   }
 
-  /* --- casting --- */
-  const cast = p.match(/^(you|an opponent|a player|each opponent) cast(?:s)? (?:a|an|your) (.+) spell$/);
+  /* --- casting ---
+     "Another" is kept, not stripped: "whenever you cast another Vampire spell"
+     (Edgar Markov) excludes the source itself, and `{is:'other'}` on the stack
+     object says exactly that. Dropping it would make the trigger fire on the
+     source being cast, which is the one case the card rules out. */
+  /* "you cast an instant or sorcery spell that targets a creature you control"
+     ------------------------------------------------------------------------
+     The spell filter carries a RELATIVE CLAUSE about the spell's targets, and
+     until this rule the whole trigger refused: `(.+) spell$` needs the phrase
+     to end at "spell", so Feather, the Redeemed, Zada, Hedron Grinder, and all
+     53 heroic creatures ("whenever you cast a spell that targets ~") produced
+     no cast trigger at all. Measured over the catalogue with
+     `scratch/shape.mjs`: 97 cards carry "cast ... spell that targets", 0 read.
+
+     The clause is a property of the spell, so it is a FILTER on the event's
+     subject — `{is:'targets'}` sits beside the type filter — rather than a
+     condition bolted onto the ability. A condition would fire the trigger for
+     every instant and then ask; the card fires only for that spell. The facet
+     layer then reads the nested "creature you control" the way it reads any
+     filter, so the plan wants instants, sorceries AND creatures, which is what
+     a Feather deck is.
+
+     "only" is kept as a flag because "targets only ~" (Zada) and "targets ~"
+     (heroic) are different spells: a Zada copy trigger must not fire for a
+     spell that also targets something else.
+
+     The spell KIND is optional — "a spell that targets ~" has none — and when
+     present it goes through `parseObject` exactly as the plain cast rule below
+     does, so "noncreature", "aura" and "instant or sorcery" all read the same
+     way in both. */
+  const castTargeting = p.match(
+    /^(you|an opponent|a player|each opponent) cast(?:s)? (?:a|an|your) (?:(.+?) )?spell that targets (only )?(.+)$/,
+  );
+  if (castTargeting) {
+    const kind = castTargeting[2] ? parseObject(castTargeting[2]) : null;
+    if (castTargeting[2] && (!kind || kind.targeted)) return null;
+    const of = targetedSubject(castTargeting[4]);
+    if (!of) return null;
+    const targets: CardFilter = castTargeting[3] ? { is: 'targets', of, only: true } : { is: 'targets', of };
+    const where = kind ? andF(kind.filter, targets) : targets;
+    return [{ on: 'cast', what: { sel: 'all', where, zone: 'stack' }, by: casterOf(castTargeting[1]) }];
+  }
+
+  const cast = p.match(/^(you|an opponent|a player|each opponent) cast(?:s)? (a|an|your|another) (.+) spell$/);
   if (cast) {
-    const by =
-      cast[1] === 'you' ? { who: 'you' } as PlayerSelector
-      : cast[1] === 'a player' ? { who: 'each-player' } as PlayerSelector
-      : { who: 'each-opponent' } as PlayerSelector;
-    const ref = parseObject(cast[2]);
+    const ref = parseObject(cast[2] === 'another' ? `another ${cast[3]}` : cast[3]);
     if (!ref || ref.targeted) return null;
-    return [{ on: 'cast', what: { sel: 'all', where: ref.filter, zone: 'stack' }, by }];
+    return [{ on: 'cast', what: { sel: 'all', where: ref.filter, zone: 'stack' }, by: casterOf(cast[1]) }];
   }
   const castAny = p.match(/^(you|an opponent|a player) cast(?:s)? (?:a|an) spell$/);
   if (castAny) {
-    const by =
-      castAny[1] === 'you' ? { who: 'you' } as PlayerSelector
-      : castAny[1] === 'a player' ? { who: 'each-player' } as PlayerSelector
-      : { who: 'each-opponent' } as PlayerSelector;
-    return [{ on: 'cast', what: { sel: 'all', where: { is: 'any' }, zone: 'stack' }, by }];
+    return [{ on: 'cast', what: { sel: 'all', where: { is: 'any' }, zone: 'stack' }, by: casterOf(castAny[1]) }];
   }
 
   /* --- players --- */
@@ -216,6 +308,64 @@ export function parseTriggerEvent(phrase: string, ctx: BuildCtx): TriggerEvent[]
   }
 
   return null;
+}
+
+/* ------------------------------------------------------------------ *
+ * Intervening "if" — CR 603.4
+ * ------------------------------------------------------------------ */
+
+export interface InterveningIf {
+  /** The condition, when `parseCondition` could read it. */
+  condition: Condition | null;
+  /** The normalised condition clause, "if" included, verbatim from the body. */
+  text: string;
+  /** The body with the clause removed: what the ability does. */
+  rest: string;
+}
+
+/**
+ * "[trigger], if [condition], [effect]" -> the condition and the effect apart,
+ * or `null` when the body does not open with one.
+ *
+ * The clause between the event and the effect is not part of either. Left in
+ * the body it is the first sentence the effect grammar sees, no effect rule
+ * begins with "if", and the whole body collapsed into one `{do:'manual'}`
+ * marker: the trigger fired and nothing under it was read. Measured over the
+ * 3,000 most played cards on 2 Sep 2026, 93 triggered abilities open this
+ * way — Field of the Dead's Zombie, The Ozolith's counters, Land Tax's search,
+ * Kederekt Parasite's whole card. That is NOT the same failure as a blind
+ * card, and it does not show in `compiler-gap-probe`, which counts a hollow
+ * trigger as a record; it shows as a facet layer that saw `trig:enters` and
+ * no `eff:create-token`. Peeled, the effect underneath compiles as it would
+ * without the clause.
+ *
+ * WHAT HAPPENS TO THE CONDITION depends on whether the grammar can read it,
+ * and the two answers are deliberately different:
+ *
+ *   readable    it rides on `TriggeredAbility.condition`, which the runtime
+ *               already evaluates at both moments CR 603.4 names — when the
+ *               trigger would go on the stack and again as it resolves.
+ *   unreadable  the caller must put a `{do:'manual'}` marker in the effect
+ *               list. That keeps `coverage` at `partial`, and `partial` is
+ *               what stops the ability bridge owning the card, so the token
+ *               is never created on a false condition by an engine that could
+ *               not check it. A boolean flag with no marker is the failure
+ *               `lowered.test.ts` pins for the XMage port, and this is the
+ *               same bar.
+ *
+ * Splits at the FIRST comma after "if". A condition with a comma inside it is
+ * rare in oracle text; an effect with a comma inside it is on half the cards
+ * in the game, so the greedy split would be wrong far more often.
+ */
+export function peelInterveningIf(body: string): InterveningIf | null {
+  const m = body.trim().match(/^if (.+?), (.+)$/);
+  if (!m) return null;
+  /* "If you do, …" is a consequence of a "you may" before it, never a
+     condition on the trigger, and `compileEffectBody` owns that shape. It
+     cannot open a trigger body, but the guard costs nothing and documents the
+     boundary. */
+  if (/^you do$/.test(m[1])) return null;
+  return { condition: parseCondition(m[1]), text: `if ${m[1]}`, rest: m[2] };
 }
 
 /* ------------------------------------------------------------------ *
@@ -417,7 +567,10 @@ function peelCondition(p: string): { condition: Condition; rest: string } | null
   }
 
   /* Prefix: "During your turn, ~ has first strike." */
-  const during = p.match(/^during your turn, (.+)$/);
+  /* "During each of your turns" is the same condition said of a permission
+     that recurs: Muldrotha writes it, Grand Abolisher writes the short form,
+     and a continuous effect is on or off by whose turn it is either way. */
+  const during = p.match(/^during (?:your turn|each of your turns), (.+)$/);
   if (during) return { condition: { if: 'your-turn' }, rest: during[1] };
 
   /* Suffix: "~ gets +2/+2 as long as you control three or more artifacts."
@@ -674,11 +827,137 @@ function parseStaticBody(paragraph: string, ctx: BuildCtx): StaticShape | null {
     }
   }
 
+  /*
+   * A permission to play or cast out of the graveyard. See
+   * `parsePlayFromGraveyard`.
+   *
+   * Seven of the 2,000 most played cards say "You may play lands from your
+   * graveyard" word for word and every one of them produced no record, while
+   * `eff:play-from-graveyard` sat in the engine's vocabulary with nothing
+   * feeding it. CLAUDE.md names that shape as the fifth instance of "declared,
+   * wired into a role, fed by nothing".
+   */
+  const playFrom = parsePlayFromGraveyard(p);
+  if (playFrom) return playFrom;
+
   /* E4 — cost modification. See `parseCostModification`. */
   const costMod = parseCostModification(p);
   if (costMod) return costMod;
 
   return null;
+}
+
+/* ------------------------------------------------------------------ *
+ * Playing and casting out of the graveyard
+ * ------------------------------------------------------------------ */
+
+/**
+ * The types a permanent SPELL can have. A land is a permanent and is never a
+ * spell (CR 305.1), so "a permanent spell" excludes it and "a permanent card"
+ * does not; that is the whole reason there are two lists.
+ */
+const PERMANENT_SPELL_TYPES: readonly string[] = ['artifact', 'battle', 'creature', 'enchantment', 'planeswalker'];
+const PERMANENT_CARD_TYPES: readonly string[] = [...PERMANENT_SPELL_TYPES, 'land'];
+
+const anyOfTypes = (types: readonly string[]): CardFilter =>
+  orF(...types.map((value): CardFilter => ({ is: 'type', value })));
+
+/**
+ * "you may play lands from your graveyard" -> a `may-play-from` static, or
+ * `null`.
+ *
+ *   "You may play lands from your graveyard."                  Crucible of Worlds (597)
+ *   "You may play Forests from your graveyard."                Titania, Nature's Force
+ *   "During each of your turns, you may play a land and cast
+ *    a permanent spell of each permanent type from your
+ *    graveyard."                                               Muldrotha, the Gravetide (1097)
+ *   "Once during each of your turns, you may cast a creature
+ *    spell from your graveyard."                               Karador, Ghost Chieftain
+ *   "... a permanent spell with mana value 2 or less ..."      Lurrus of the Dream-Den
+ *   "... a Dragon creature spell ..."                          Rivaz of the Claw
+ *
+ * The "during each of your turns" on Muldrotha is peeled by `peelCondition`
+ * before this runs; the "once during" form is not, because it is a LIMIT and
+ * not only a condition, and the sentence is read here with both.
+ *
+ * Three refusals, each because reading on would say something the card did
+ * not:
+ *
+ *   - THE CARD ITSELF. "You may cast this card from your graveyard as long as
+ *     you control a Zombie" (Gravecrawler) is an alternative way to cast one
+ *     card, flashback without the name, and `GAP_SIGNALS` already files that
+ *     wording as `alt-cast`. Reading it here would make every recursive
+ *     creature look like a graveyard engine.
+ *   - A SECOND SENTENCE. Kess, Dissident Mage adds "If a spell cast this way
+ *     would be put into your graveyard, exile it instead", which is half of
+ *     what she does. A static ability has no `manual` marker the way an
+ *     effect does, so a paragraph is read whole or not at all, and the
+ *     anchored match refuses the longer one.
+ *   - AN ADDED COST. Exploration Broodship's "by sacrificing a land in
+ *     addition to paying its other costs" ends the sentence with words nothing
+ *     below consumes, and the same anchor refuses it.
+ */
+function parsePlayFromGraveyard(p: string): StaticShape | null {
+  const m = p.match(/^(once during each of your turns, )?you may (play|cast) (.+?) from your graveyard$/);
+  if (!m) return null;
+  const once = Boolean(m[1]);
+  const verb = m[2];
+  const phrase = m[3];
+
+  let filter: CardFilter | null;
+  let limit: PlayFromLimit | undefined = once ? 'once-per-turn' : undefined;
+
+  if (verb === 'play' && phrase === 'a land and cast a permanent spell of each permanent type') {
+    // Muldrotha. "Of each permanent type" is the limit, and a land is one of
+    // those types, so the whole permission is one selector over permanent
+    // cards rather than a land half and a spell half.
+    filter = anyOfTypes(PERMANENT_CARD_TYPES);
+    limit = 'once-per-type-per-turn';
+  } else if (verb === 'play') {
+    // "lands", "a land", "Forests", "land cards".
+    filter = bareCardsFilter(phrase.replace(/^an? /, ''));
+  } else {
+    // "a creature spell", "an instant or sorcery spell", "spells", "a
+    // permanent spell with mana value 2 or less". The word "spell" is the
+    // noun `parseObject` does not know, so it comes off here and the bound
+    // that may follow it is read by the same helper `parseObject` uses.
+    const spell = phrase.match(/^(?:an? )?(.*?)\s?spells?(?: with (mana value .+))?$/);
+    if (!spell) return null;
+    const bound = spell[2] ? parseManaValueBound(spell[2]) : null;
+    if (spell[2] && !bound) return null;
+    const head = spell[1];
+    if (head === '') filter = notF({ is: 'type', value: 'land' });
+    else if (head === 'permanent') filter = anyOfTypes(PERMANENT_SPELL_TYPES);
+    else filter = bareCardsFilter(head);
+    if (filter && bound) filter = andF(filter, bound);
+  }
+  if (!filter) return null;
+
+  const rule: Restriction = {
+    rule: 'may-play-from',
+    who: { who: 'you' },
+    from: 'graveyard',
+    what: { sel: 'all', where: filter, zone: 'graveyard', controller: { who: 'you' } },
+    ...(limit ? { limit } : {}),
+  };
+  return {
+    affects: { sel: 'self' },
+    modifications: [{ layer: 'restriction', rule }],
+    // "During each of your turns" is in the sentence whenever the limit is,
+    // and a permission that counts your turns is one that exists only on them.
+    ...(once ? { condition: { if: 'your-turn' } as Condition } : {}),
+  };
+}
+
+/**
+ * A bare object phrase, "lands" or "dragon creature", as a card filter.
+ * Anything with a target, a quantity, a zone or a controller in it was not a
+ * bare phrase and is refused: the caller has already placed the cards.
+ */
+function bareCardsFilter(phrase: string): CardFilter | null {
+  const ref = parseObject(phrase);
+  if (!ref || ref.targeted || ref.upTo || ref.zone || ref.controller) return null;
+  return ref.filter;
 }
 
 /* ------------------------------------------------------------------ *
@@ -1008,6 +1287,31 @@ export function parseReplacement(paragraph: string): ReplacementShape | null {
       result: { do: 'multiply', factor: counterDoubler[1] === 'twice' ? 2 : 3 },
       selfReplacement: false,
     };
+  }
+
+  /* "IF YOU TAP A PERMANENT FOR MANA, IT PRODUCES TWICE AS MUCH OF THAT MANA INSTEAD."
+     Mana Reflection, Nyxbloom Ancient (three times), Virtue of Strength (a
+     basic land). The event is the one Kinnan's trigger uses and the result is
+     the `multiply` Doubling Season uses; nothing needed inventing. It is NOT
+     read as a trigger that adds mana, and that is the point of routing it
+     here: a replacement never uses the stack, and "twice as much" is a factor
+     on whatever was made, not an amount the record could name. */
+  const manaMultiplier = p.match(
+    /^if (you|a player|an opponent) taps? (.+?) for mana, it produces (twice|three times) as much of that mana instead$/,
+  );
+  if (manaMultiplier) {
+    const ref = parseObject(manaMultiplier[2]);
+    if (ref && !ref.targeted && !ref.upTo) {
+      const by: PlayerSelector =
+        manaMultiplier[1] === 'you' ? { who: 'you' }
+        : manaMultiplier[1] === 'an opponent' ? { who: 'each-opponent' }
+        : { who: 'each-player' };
+      return {
+        event: { on: 'tapped-for-mana', who: objectSelector(ref), by },
+        result: { do: 'multiply', factor: manaMultiplier[3] === 'twice' ? 2 : 3 },
+        selfReplacement: false,
+      };
+    }
   }
 
   return null;

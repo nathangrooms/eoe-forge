@@ -28,6 +28,8 @@
  */
 
 import type {
+  CardDestination,
+  CardFilter,
   Cost,
   Effect,
   ManaColourSource,
@@ -133,6 +135,18 @@ export interface BuildCtx {
    * that one read, so the carry cannot leak into the next sentence.
    */
   subjectFallback?: PlayerSelector;
+  /**
+   * True once a sentence of THIS ability compiled to a revealed draw, so that
+   * a later "that card's mana value" has a card to mean. Set by
+   * `compileEffectBody` from the effects it actually kept, never by a rule
+   * from a match it may have discarded, and read by `valueOf`.
+   *
+   * Without the antecedent the phrase is refused. "You lose life equal to its
+   * mana value" on a card that revealed nothing is a pronoun with no referent,
+   * and binding it anyway is exactly the confident wrong number the value
+   * grammar was written to avoid.
+   */
+  revealedCard?: boolean;
 }
 
 /**
@@ -196,6 +210,46 @@ function boundIt(ctx: BuildCtx): Selector | null {
   return ctx.itBinding;
 }
 
+/**
+ * What a dig takes out of the cards it looked at, or `null` to refuse.
+ *
+ * "one of them", "up to two of them", "a non-Human creature card from among
+ * them", "any number of Rat cards from among them". The trailing "of them" /
+ * "from among them" has already been cut off by the rule; what arrives is the
+ * quantity and, when the card names one, the filter.
+ *
+ * A bare count carries no filter, so `what` is absent: any of the looked cards
+ * may be taken, which is what `look-and-pick` says when the field is missing.
+ * "Any number" is `pick = look` with `upTo`, the spelling the XMage lowering
+ * already uses for `Integer.MAX_VALUE`, so the two producers agree on the shape.
+ */
+function parseDigPick(
+  phrase: string,
+  look: ValueExpr,
+): { pick: ValueExpr; upTo: boolean; what?: CardFilter } | null {
+  const s = phrase.trim();
+  const bare = s.match(new RegExp(`^(up to )?(${NUM})$`));
+  if (bare) {
+    const n = parseCount(bare[2]);
+    if (n === null) return null;
+    return { pick: n, upTo: Boolean(bare[1]) };
+  }
+  if (s === 'any number') return { pick: look, upTo: true };
+
+  const ref = parseObject(s);
+  if (!ref || ref.targeted) return null;
+  // The cards are the ones just looked at. A phrase naming a zone or a
+  // controller ("a creature card in your graveyard") is not describing them.
+  if (ref.zone || ref.controller) return null;
+  const anyNumber = /^any number of /.test(s);
+  const out: { pick: ValueExpr; upTo: boolean; what?: CardFilter } = {
+    pick: anyNumber ? look : ref.count,
+    upTo: anyNumber || ref.upTo,
+  };
+  if (ref.filter.is !== 'any') out.what = ref.filter;
+  return out;
+}
+
 /** An object phrase in effect position -> a `Selector`, or `null` to refuse. */
 export function phraseSelector(phrase: string, ctx: BuildCtx, prompt: string): Selector | null {
   const p = phrase.trim().replace(/[.,]+$/, '');
@@ -253,6 +307,27 @@ function playerOr(phrase: string | undefined, ctx: BuildCtx, fallback: PlayerSel
 }
 
 /**
+ * Who receives the mana a "tapped for mana" trigger adds.
+ *
+ * Three subjects and they name three different players. Bare "add" is the
+ * controller. "That player adds" is Mana Flare: the player whose tap fired the
+ * trigger, which is exactly what `trigger-player` means and why it exists.
+ * "Its controller adds" is Wild Growth: the controller of the permanent that
+ * was tapped, which is the trigger subject.
+ *
+ * The third reading is refused once a target has been announced, for the same
+ * reason a bare "it" is: after "tap target land", "its controller" is the
+ * target's controller, and pointing it at the trigger subject would pay the
+ * wrong player. `targetsSoFar` is the check the pronoun rule already uses.
+ */
+function manaRecipient(subject: string | undefined, ctx: BuildCtx): PlayerSelector | null {
+  if (!subject) return playerOr(undefined, ctx);
+  if (subject === 'that player') return { who: 'trigger-player' };
+  if ((ctx.targetsSoFar ?? 0) > 0) return null;
+  return { who: 'controller-of', of: { sel: 'trigger-subject' } };
+}
+
+/**
  * Who the first half of a split sentence was about, if it was about anybody.
  *
  * The RESOLVED selector, not the words. That distinction is the whole point:
@@ -298,6 +373,43 @@ function countOf(word: string, ctx: BuildCtx): ValueExpr | null {
   if (parsed === null) return null;
   if (typeof parsed !== 'number' && parsed.v === 'x' && ctx.xValue !== undefined) return ctx.xValue;
   return parsed;
+}
+
+/**
+ * "That card's mana value", "its mana value", "the card's mana value" — the
+ * spellings a card uses for the card it just revealed. Apostrophes are gone by
+ * the time a phrase gets here (`normalize.ts` strips them), so "cards" is the
+ * possessive.
+ */
+const REVEALED_MANA_VALUE = /^(?:that cards|its|the cards|the revealed cards) mana value$/;
+
+/**
+ * An amount phrase -> a `ValueExpr`, with what THIS ability has bound in scope.
+ *
+ * `parseValueExpr` is deliberately context-free and refuses every phrase whose
+ * subject an earlier sentence bound, because it cannot know what "that card"
+ * was. This ability can: once a sentence of it compiled to a revealed draw, the
+ * next sentence's "that card" is that card and nothing else, and the value is
+ * `{v:'mana-value', of:{sel:'revealed'}}`. Every other bound phrase is still
+ * refused, so "its power" on a card that revealed nothing stays a marker.
+ */
+function valueOf(phrase: string, ctx: BuildCtx): ValueExpr | null {
+  const parsed = parseValueExpr(phrase);
+  if (parsed !== null) return parsed;
+  const s = phrase.trim().toLowerCase().replace(/[.,]+$/, '');
+  if (ctx.revealedCard && REVEALED_MANA_VALUE.test(s)) return { v: 'mana-value', of: { sel: 'revealed' } };
+  return null;
+}
+
+/** True when any effect in the tree, however nested, is a revealed draw. */
+export function revealsACard(effects: readonly Effect[]): boolean {
+  return effects.some((e) => {
+    if (e.do === 'draw' && e.revealed) return true;
+    if (e.do === 'if' || e.do === 'do-if-cost-paid') return revealsACard(e.then) || (e.else ? revealsACard(e.else) : false);
+    if (e.do === 'for-each' || e.do === 'repeat' || e.do === 'may' || e.do === 'unless-pays') return revealsACard(e.effects);
+    if (e.do === 'choose-mode') return e.modes.some((m) => revealsACard(m.effects));
+    return false;
+  });
 }
 
 /** `base × factor`, without the `{v:'mul', of:[1, …]}` noise for the common base of 1. */
@@ -497,6 +609,38 @@ export const EFFECT_RULES: EffectRule[] = [
       const count = countOf(m[2], ctx);
       if (!who || count === null) return null;
       return [{ do: 'draw', who, count }];
+    },
+  },
+  {
+    /*
+     * "Reveal the top card of your library and put that card into your hand."
+     *
+     * Dark Confidant, Yuriko, Ad Nauseam, Dark Tutelage, Pain Seer, Ruin Raider,
+     * Sorin's +1 and Twilight Prophet all open with this sentence and follow it
+     * with a life total computed from the card. Before this rule the sentence
+     * fell to `NAMED_MANUAL_EFFECTS` with the hint "no reveal effect in the
+     * vocabulary", the next sentence had no card to mean, and Yuriko, the
+     * payoff of an entire archetype, read as a Ninja trigger that did nothing.
+     *
+     * A `draw` carrying `revealed: true`, for the reason on the DSL member: it
+     * moves the top card to the hand exactly as a draw does and every consumer
+     * that understands a draw understands this. What the flag keeps is that it
+     * is NOT a draw under CR 121.1, and what it binds is `{sel:'revealed'}`
+     * for the sentence after it.
+     *
+     * "Your library" only, on purpose. "Each player reveals the top card of
+     * their library" is a different card doing a different thing to everyone,
+     * and the one-card, one-player shape is the one measured here.
+     *
+     * Approximate, the same way `search-library` marks a dropped reveal: the
+     * runtime moves the card without showing it and fires it as a `DRAW`.
+     */
+    id: 'reveal-top-to-hand',
+    re: /^(?:you )?reveal the top card of your library(?:,| and)?(?: then)? put (?:it|that card|the card) into your hand$/,
+    note: 'A revealed draw. The sentence after it may read "that card\'s mana value".',
+    build(_m, ctx) {
+      ctx.approximate = true;
+      return [{ do: 'draw', who: { who: 'you' }, count: 1, revealed: true }];
     },
   },
   /*
@@ -947,6 +1091,60 @@ export const EFFECT_RULES: EffectRule[] = [
     },
   },
   {
+    /*
+     * "Put a land card from your hand onto the battlefield."
+     *
+     * 151 cards say it and every one of them was refused whole, because the
+     * object is an untargeted, bounded choice — exactly what `phraseSelector`
+     * declines, since `{sel:'all'}` means EVERY match. But `return-from` was
+     * built for precisely this shape: "return a creature card from your
+     * graveyard to your hand" is the same sentence with a different zone, and
+     * the runtime's `returnFromForced` already treats a pool larger than
+     * `count` as a decision to defer. Reading from the hand is the same verb
+     * with `zone: 'hand'`; nothing new is needed on the play side.
+     *
+     * Most of the 151 are the compound "draw a card, then you may put a land
+     * card from your hand onto the battlefield": Chulane, Teller of Tales,
+     * Uro, Growth Spiral, Spelunking, Pendant of Prosperity. The split on
+     * ", then " and the "you may" wrapper both existed; the whole compound
+     * landed in `manual` only because this half had no rule.
+     *
+     * Two readings are refused on purpose and the reason is the same for both:
+     * `count` is a fixed number and the card's is not. "Put any number of
+     * creature cards" (Ghalta, Stampede Tyrant) and "up to two creature cards"
+     * (Tooth and Nail) are the player's number, and a fixed 1 would resolve
+     * them as one card — the wrong ability rather than the missing one.
+     *
+     * "Tapped and attacking" (Kaalia, Ilharg, Preeminent Captain) fails the
+     * anchor and stays in manual: the runtime cannot put a creature onto the
+     * battlefield attacking, and recording the move without the attack would
+     * resolve Kaalia's whole reason for existing as a tapped creature that
+     * does nothing this combat.
+     *
+     * The facet layer reads this as `eff:extra-land-drop` when the card names
+     * a land and `eff:put-onto-battlefield` otherwise — NOT `eff:return-from`,
+     * which is in the `draw` role and means recursion. See the note on
+     * `readEffect` in `src/lib/deck/recommend/behaviour.ts`.
+     */
+    id: 'put-from-hand-onto-battlefield',
+    re: /^put (.+?) from your hand onto the battlefield( tapped)?$/,
+    note: 'Sakura-Tribe Scout, Elvish Piper, and the second half of every "draw a card, then you may put a land card" trigger.',
+    build(m) {
+      const ref = parseObject(`${m[1].trim()} from your hand`);
+      if (!ref) return null;
+      // A card in your hand is hidden information and cannot be targeted.
+      if (ref.targeted) return null;
+      // "Up to N" and "any number of" are the player's number to pick.
+      if (ref.upTo || ref.each) return null;
+      const e: Extract<Effect, { do: 'return-from' }> = {
+        do: 'return-from', zone: 'hand', who: { who: 'you' },
+        what: objectSelector({ ...ref, zone: 'hand' }), count: ref.count, to: 'battlefield',
+      };
+      if (m[2]) e.tapped = true;
+      return [e];
+    },
+  },
+  {
     id: 'search-library',
     re: new RegExp(
       '^search your library for (.+?),' +
@@ -1065,6 +1263,81 @@ export const EFFECT_RULES: EffectRule[] = [
         onto,
         { do: 'search-library', who: { who: 'you' }, what, count: 1, to: 'hand', thenShuffle: true },
       ];
+    },
+  },
+  {
+    /*
+     * THE DIG. Look at the top few cards, take what the card names, and put
+     * the rest somewhere. Three sentences on the card and ONE effect here,
+     * because the DSL member for it (`look-and-pick`) carries all three
+     * quantities and both destinations, and was written for exactly this
+     * sentence — and then nothing produced it. Every `look-and-pick` in the
+     * catalogue came from the XMage port; the oracle-text compiler classified
+     * "look at the top" as a named manual and read none of them.
+     *
+     * Kinnan, Bonder Prodigy (rank 1,360) is the card that made this a rule:
+     * "Look at the top five cards of your library. You may put a non-Human
+     * creature card from among them onto the battlefield. Put the rest on the
+     * bottom of your library in a random order." Collected Company, Impulse,
+     * Dig Through Time and Ureni of the Unwritten are the same three sentences
+     * with different numbers and filters. The rule matches the WHOLE body,
+     * which is how `compileEffectBody` offers it first, so a card whose dig is
+     * preceded by another sentence (Professor Onyx's "you lose 1 life") is
+     * still refused: splitting the body by sentence would leave "put the rest
+     * on the bottom" as an orphan with nothing to refer to.
+     *
+     * What it will not read, on purpose:
+     *
+     *   "if you don't, put a card from among them into your hand"  a branch
+     *   "and the rest into your hand"                               two takes
+     *   "reveal X from among them" with no "and put it"             not a take
+     *   a fourth sentence after the rest is placed                  unread text
+     *
+     * "You may put" is `upTo`: the player may take fewer, down to none, which
+     * is the field's stated meaning and the spelling the XMage lowering uses
+     * for its `optional` flag. A "reveal" before the take is information-only
+     * and marks the ability approximate, the way `search-library` already does.
+     */
+    id: 'dig',
+    re: new RegExp(
+      `^look at the top (${N}) cards? of your library\\. ` +
+      `(you may )?(put|reveal) (.+?) (?:from among them|of them|of those cards)` +
+      `( and put (?:it|them|that card|those cards|the revealed cards?))? ` +
+      `(onto the battlefield|into your hand|into your graveyard)( tapped)?` +
+      `(?:\\. (?:then )?put the rest|,? and (?:put )?the (?:rest|other)) ` +
+      `(?:on the bottom of your library(?: in (a random|any) order)?|(into your graveyard))$`,
+    ),
+    note: 'A three-sentence dig read as one look-and-pick. A dropped "reveal" is information-only and marks the ability approximate.',
+    build(m, ctx) {
+      const look = parseCount(m[1]);
+      if (look === null) return null;
+      // "reveal X and put it" needs both halves; "put X" has neither. A reveal
+      // with no take is not a dig, and a put with an "and put it" is not a
+      // sentence.
+      const revealed = m[3] === 'reveal';
+      if (revealed !== Boolean(m[5])) return null;
+      const picked = parseDigPick(m[4], look);
+      if (!picked) return null;
+      if (m[7] && m[6] !== 'onto the battlefield') return null; // "into your hand tapped"
+      if (revealed) ctx.approximate = true;
+
+      const pickedTo: CardDestination =
+        m[6] === 'onto the battlefield' ? { zone: 'battlefield' }
+          : m[6] === 'into your hand' ? { zone: 'hand' }
+            : { zone: 'graveyard' };
+      if (m[7]) pickedTo.tapped = true;
+      const restTo: CardDestination = m[9]
+        ? { zone: 'graveyard' }
+        : { zone: 'library', position: 'bottom' };
+      if (m[8]) restTo.order = m[8] === 'any' ? 'any' : 'random';
+
+      const e: Effect = {
+        do: 'look-and-pick', who: { who: 'you' },
+        look, pick: picked.pick, upTo: picked.upTo || Boolean(m[2]),
+        pickedTo, restTo,
+      };
+      if (picked.what) (e as { what?: CardFilter }).what = picked.what;
+      return [e];
     },
   },
 
@@ -1259,6 +1532,78 @@ export const EFFECT_RULES: EffectRule[] = [
       }];
     },
   },
+  /*
+   * "ONE MANA OF ANY TYPE THAT PERMANENT PRODUCED."
+   *
+   * Kinnan, Bonder Prodigy, Zendikar Resurgent, Mirari's Wake, Vorinclex,
+   * Voice of Hunger, and the four cards that say "that player adds one mana of
+   * any type that land produced" (Mana Flare, Dictate of Karametra, Heartbeat
+   * of Spring, Zhur-Taa Ancient). None produced an ability record before this,
+   * because the colour is not a choice among five: it is whatever the tapped
+   * permanent just made. That is an `among` source like the commander's
+   * identity, so the record keeps `eff:add-mana` and everything that
+   * understands Sol Ring understands Kinnan.
+   *
+   * SIX-WAY HYBRID, NOT FIVE. "Type" includes colourless, and the most played
+   * partner of every card on this list is Sol Ring: the extra mana is {C}.
+   * Reflecting Pool's rule above spells its "any type" as five colours, which
+   * is a decision about that land; copying it here would take the colourless
+   * off exactly the cards this rule exists for.
+   */
+  {
+    id: 'add-mana-tapped-permanent',
+    re: /^(?:(that player|its controller) adds|add) (?:an additional )?(one|two|three) (?:additional )?mana of any type that (?:permanent|land) produced$/,
+    note: 'Kinnan, Bonder Prodigy; Zendikar Resurgent; Mana Flare, where "that player" is the one whose tap fired it.',
+    build(m, ctx) {
+      const who = manaRecipient(m[1], ctx);
+      if (!who) return null;
+      const n = m[2] === 'one' ? 1 : m[2] === 'two' ? 2 : 3;
+      return [restrictedMana(
+        { do: 'add-mana', who, mana: '{W/U/B/R/G/C}'.repeat(n), among: 'tapped-permanent' },
+        ctx,
+      )];
+    },
+  },
+  /*
+   * "ADD AN ADDITIONAL {G}."
+   *
+   * The wording of every mana aura and every "whenever you tap a Swamp"
+   * creature: Wild Growth, Overgrowth, Crypt Ghast, Nirkana Revenant, Nissa,
+   * Who Shakes the World. "Additional" is not a property of the mana, the
+   * trigger IS the addition, so it compiles to the same `add-mana` a land's
+   * own ability does. "Of the chosen color" and "in any combination of colors"
+   * both fail these anchors and stay manual, which is right: the first is a
+   * colour the card remembered and the second is a split the DSL cannot
+   * spell, and reading either as any colour would be inventing a choice.
+   */
+  {
+    id: 'add-mana-additional',
+    re: /^(?:(that player|its controller) adds|add) an additional ((?:\{[wubrgc]\})+)$/,
+    note: 'Wild Growth ("its controller adds"), Crypt Ghast, Nissa, Who Shakes the World.',
+    build(m, ctx) {
+      const who = manaRecipient(m[1], ctx);
+      if (!who) return null;
+      return [restrictedMana({ do: 'add-mana', who, mana: m[2].toUpperCase() }, ctx)];
+    },
+  },
+  {
+    id: 'add-mana-additional-any-color',
+    re: /^(?:(that player|its controller) adds|add) an additional (one|two|three) mana of any (?:one )?color$/,
+    note: 'Fertile Ground. The five enumerated modes `add-mana-any-color` uses, with the recipient the sentence named.',
+    build(m, ctx) {
+      const who = manaRecipient(m[1], ctx);
+      if (!who) return null;
+      const n = m[2] === 'one' ? 1 : m[2] === 'two' ? 2 : 3;
+      const colors = ['{W}', '{U}', '{B}', '{R}', '{G}'];
+      return [{
+        do: 'choose-mode', min: 1, max: 1,
+        modes: colors.map((c) => {
+          const mana = c.repeat(n);
+          return { text: `Add ${mana}`, effects: [restrictedMana({ do: 'add-mana', who, mana }, ctx)] };
+        }),
+      }];
+    },
+  },
 
   /* ---------------- table state ---------------- */
   {
@@ -1303,7 +1648,7 @@ export const EFFECT_RULES: EffectRule[] = [
     re: new RegExp(`^(?:(${P}) )?gains? life equal to (.+)$`),
     build(m, ctx) {
       const who = playerOr(m[1], ctx);
-      const amount = parseValueExpr(m[2]);
+      const amount = valueOf(m[2], ctx);
       if (!who || amount === null) return null;
       return [{ do: 'gain-life', who, amount }];
     },
@@ -1313,7 +1658,9 @@ export const EFFECT_RULES: EffectRule[] = [
     re: new RegExp(`^(${P}) loses? life equal to (.+)$`),
     build(m, ctx) {
       const who = playerOr(m[1], ctx);
-      const amount = parseValueExpr(m[2]);
+      // `valueOf`, not `parseValueExpr`: "that card's mana value" is readable
+      // here when, and only when, this ability revealed a card first.
+      const amount = valueOf(m[2], ctx);
       if (!who || amount === null) return null;
       return [{ do: 'lose-life', who, amount }];
     },
@@ -1425,7 +1772,15 @@ const CONNECTIVES = [', then ', ' then ', ', and then ', ', and ', ' and ', ', '
  * half-resolving.
  */
 export function compileEffectPhrase(phrase: string, ctx: BuildCtx, depth = 0): Effect[] | null {
-  const p = phrase.trim().replace(/^,\s*/, '').replace(/[.]+$/, '').trim();
+  /*
+   * A sentence-initial "Then" is sequencing, and the effect list already IS
+   * the sequence. "Draw a card. Then you may put a land card from your hand
+   * onto the battlefield tapped." (Insidious Fungus, Nick Fury) is the same
+   * compound as "draw a card, then you may put …" written across a full stop,
+   * and the word carried no meaning the position did not. Only the bare word
+   * is stripped; "then" inside a phrase is a connective and is split below.
+   */
+  const p = phrase.trim().replace(/^,\s*/, '').replace(/^then /, '').replace(/[.]+$/, '').trim();
   if (!p) return null;
 
   for (const rule of EFFECT_RULES) {
@@ -1455,7 +1810,9 @@ export function compileEffectPhrase(phrase: string, ctx: BuildCtx, depth = 0): E
    * the card never said they should. */
   const whereX = p.match(/^(.+?),? where x is (.+)$/);
   if (whereX && ctx.xValue === undefined) {
-    const bound = parseValueExpr(whereX[2]);
+    // `valueOf` so that "where X is that card's mana value" (Twilight Prophet)
+    // binds after a revealed draw, and is refused on any ability without one.
+    const bound = valueOf(whereX[2], ctx);
     if (bound !== null) {
       ctx.xValue = bound;
       const inner = compileEffectPhrase(whereX[1], ctx, depth + 1);
@@ -1635,6 +1992,14 @@ export function compileEffectBody(body: string, ctx: BuildCtx): Effect[] {
      * Only ever attaches to a `may` that is the immediately preceding effect.
      * "If you do" after anything else names a cost or an event this compiler
      * has not read, and guessing which one would be inventing the antecedent. */
+    /* "That card's mana value" means the card THIS ability revealed, and only
+     * the sentences already KEPT decide whether it did. Set from `out` rather
+     * than by the reveal rule itself, because a rule fires on every split
+     * `compileEffectPhrase` tries and most of those are thrown away; a flag
+     * raised by a discarded attempt would let a sentence read a card the
+     * ability never actually put in hand. */
+    if (!ctx.revealedCard && revealsACard(out)) ctx.revealedCard = true;
+
     const ifYouDo = s.match(/^if you do,? (.+)$/);
     const prior = out[out.length - 1];
     if (ifYouDo && prior && prior.do === 'may') {

@@ -96,6 +96,25 @@ export type Selector =
   | { sel: 'trigger-source' }
   | { sel: 'trigger-subject' }
   | { sel: 'attached' }
+  /**
+   * The card an earlier effect in the SAME ability revealed and kept, wherever
+   * it went. "Reveal the top card of your library and put that card into your
+   * hand. Each opponent loses life equal to that card's mana value" is Yuriko,
+   * and the second sentence has no other way to name the card the first one
+   * moved: it is not the source, not a target and not on the battlefield.
+   *
+   * Bound only by a `{do:'draw', revealed:true}` that compiled BEFORE the
+   * phrase reading it, in the same effect list. `effect-rules.ts` refuses
+   * "that card's mana value" on any ability that has not revealed a card, so a
+   * bare "its mana value" with no antecedent stays a manual marker rather
+   * than becoming a confident wrong number.
+   *
+   * The runtime does not record which card a draw revealed yet, so it
+   * resolves to NOTHING there, and nothing is not zero: `unrunnableReasons`
+   * refuses to let the trigger bridge own such an ability, and `runEffects`
+   * says so in the log when one is run by hand. Same shape as `{v:'watch'}`.
+   */
+  | { sel: 'revealed' }
   | { sel: 'all'; where: CardFilter; zone?: Zone; controller?: PlayerSelector };
 
 export type CardFilter =
@@ -114,6 +133,27 @@ export type CardFilter =
   | { is: 'any' }
   | { is: 'has-counter'; counter: string; atLeast?: number }
   | { is: 'power' | 'toughness' | 'mana-value'; cmp: Cmp; value: ValueExpr }
+  /**
+   * The object is a SPELL on the stack and one of its announced targets
+   * satisfies `of`; with `only`, every one of them does.
+   *
+   * "Whenever you cast an instant or sorcery spell that targets a creature you
+   * control" (Feather, the Redeemed), "that targets only Zada" (Zada, Hedron
+   * Grinder), and the whole heroic mechanic, "whenever you cast a spell that
+   * targets ~". The relative clause is a property of the spell being cast, the
+   * same as its type, which is why it is a filter on the cast event's subject
+   * and not a condition on the ability: the trigger does not fire and then
+   * check, it fires only for that spell.
+   *
+   * `of` is a `Selector` rather than a `CardFilter` because "targets ~" names
+   * the source itself and a filter has no way to say that. It is evaluated in
+   * the watcher's context, so `{sel:'self'}` is the watcher and `controller:
+   * {who:'you'}` is the watcher's controller. A target that is a player never
+   * satisfies it; a spell with no targets never satisfies it.
+   *
+   * Not watchable: a snapshot of a past object does not carry what it aimed at.
+   */
+  | { is: 'targets'; of: Selector; only?: boolean }
   | { is: 'not'; of: CardFilter }
   | { is: 'and'; of: CardFilter[] }
   | { is: 'or'; of: CardFilter[] };
@@ -249,7 +289,7 @@ export function isWatchableFilter(filter: CardFilter): boolean {
       return filter.of.every(isWatchableFilter);
     default:
       // 'keyword', 'tapped', 'untapped', 'attacking', 'blocking', 'blocked',
-      // 'other', 'has-counter', 'power', 'toughness'.
+      // 'other', 'has-counter', 'power', 'toughness', 'targets'.
       return false;
   }
 }
@@ -345,7 +385,24 @@ export type Effect =
   | { do: 'damage'; to: Selector | PlayerSelector; amount: ValueExpr }
   | { do: 'poison'; who: PlayerSelector; amount: ValueExpr }
   /* cards & zones */
-  | { do: 'draw' | 'mill'; who: PlayerSelector; count: ValueExpr }
+  /*
+   * `revealed` is "reveal the top card of your library and put that card into
+   * your hand": the top card goes to the hand exactly as a draw moves it, and
+   * everybody at the table sees it on the way. Dark Confidant, Yuriko, Ad
+   * Nauseam, and every explore-shaped card once its branch is read.
+   *
+   * It is a FLAG on `draw` and not a verb of its own because every consumer
+   * that understands a draw understands this: it is card advantage for the
+   * deck builder, a `DRAW` action for the runtime, and the same count. What
+   * the flag preserves is the one thing that differs. CR 121.1 says putting a
+   * card into your hand this way is NOT a draw, so a "whenever you draw" trigger
+   * must not fire on it and a "draw instead" replacement must not catch it;
+   * a runtime that folds the flag away is approximating, and the compiler
+   * marks the ability so. It also binds `{sel:'revealed'}` for the sentence
+   * after it.
+   */
+  | { do: 'draw'; who: PlayerSelector; count: ValueExpr; revealed?: boolean }
+  | { do: 'mill'; who: PlayerSelector; count: ValueExpr }
   | { do: 'discard'; who: PlayerSelector; count: ValueExpr; random?: boolean }
   | { do: 'move-zone'; what: Selector; to: Zone; position?: 'top' | 'bottom' | number; tapped?: boolean }
   | { do: 'destroy'; what: Selector }
@@ -361,7 +418,15 @@ export type Effect =
    * removes.
    */
   | { do: 'exile'; what: Selector; from?: Zone }
-  | { do: 'return-from'; zone: Zone; who: PlayerSelector; what: Selector; count: ValueExpr; to: Zone }
+  /*
+   * `tapped` is for the hand-to-battlefield shape: "put a land card from your
+   * hand onto the battlefield tapped" (Arboreal Grazer, Terrain Generator,
+   * Horizon of Progress). `MOVE_ZONE` already carries `tapped`, so the runtime
+   * can honour it exactly; without the field the rule would have to refuse
+   * the tapped wording or drop the word, and dropping it puts an untapped land
+   * into play off a card that says tapped.
+   */
+  | { do: 'return-from'; zone: Zone; who: PlayerSelector; what: Selector; count: ValueExpr; to: Zone; tapped?: boolean }
   /**
    * `upTo` is the difference between Rampant Growth and Cultivate.
    *
@@ -677,7 +742,17 @@ export type ManaColourSource =
   | 'commander-identity'
   | 'opponent-lands'
   | 'your-lands'
-  | 'your-legendary-permanents';
+  | 'your-legendary-permanents'
+  /**
+   * "One mana of any type that permanent produced" — Kinnan, Bonder Prodigy,
+   * Zendikar Resurgent, Mirari's Wake, Vorinclex, Voice of Hunger, and the Mana
+   * Flare family. The choice is among whatever the permanent that fired the
+   * `tapped-for-mana` trigger just made, so it resolves against the trigger
+   * subject rather than against the board. The `mana` string carries a SIX-way
+   * hybrid for this one, because "type" includes colourless and the most played
+   * partner of every card in the list is Sol Ring.
+   */
+  | 'tapped-permanent';
 
 export interface ManaSpendRestriction {
   spendOn: 'cast' | 'activate' | 'cast-or-activate';
@@ -714,7 +789,37 @@ export type Restriction =
   | { rule: 'cant-be-targeted'; who: Selector; by: PlayerSelector }
   | { rule: 'cant-cast'; what: Selector; who: PlayerSelector }
   | { rule: 'max-lands-per-turn'; who: PlayerSelector; n: ValueExpr }
-  | { rule: 'damage-prevention'; to: Selector; from?: Selector; amount: ValueExpr | 'all' };
+  | { rule: 'damage-prevention'; to: Selector; from?: Selector; amount: ValueExpr | 'all' }
+  /**
+   * A PERMISSION to play or cast cards out of a zone they normally cannot be
+   * played from: "You may play lands from your graveyard" (Crucible of Worlds),
+   * "you may play a land and cast a permanent spell of each permanent type
+   * from your graveyard" (Muldrotha), "Once during each of your turns, you may
+   * cast a creature spell from your graveyard" (Karador).
+   *
+   * It lives under `Restriction` on the precedent of `max-lands-per-turn`,
+   * which is also a permission: both are continuous effects that widen what the
+   * rules let a player do, and the runtime reads them from the same list.
+   *
+   * `what` is the set of cards the permission covers, in `from`. A land card is
+   * PLAYED and a nonland card is CAST; that split is CR 305.1 and 601.1, so the
+   * verb the card printed is not recorded, and a reader that needs to know
+   * whether lands are included asks the filter.
+   *
+   * `limit` is absent when the card set none. `once-per-type-per-turn` is
+   * Muldrotha's own wording, "a permanent spell of each permanent type", and is
+   * kept distinct from `once-per-turn` because it is a different number of
+   * cards: up to six a turn against one.
+   */
+  | {
+      rule: 'may-play-from';
+      who: PlayerSelector;
+      from: Zone;
+      what: Selector;
+      limit?: PlayFromLimit;
+    };
+
+export type PlayFromLimit = 'once-per-turn' | 'once-per-type-per-turn';
 
 export type Modification =
   | { layer: 'control'; newController: PlayerSelector }
@@ -744,6 +849,26 @@ export type TriggerEvent =
   | { on: 'cast'; what: Selector; by?: PlayerSelector }
   | { on: 'step'; step: Step; whose: PlayerSelector }
   | { on: 'tapped' | 'untapped'; who: Selector }
+  /**
+   * "Whenever you tap a nonland permanent for mana" — Kinnan, Bonder Prodigy.
+   *
+   * NOT `{on:'tapped'}`. That event fires whenever a permanent becomes tapped,
+   * attacking included, and Kinnan is paid only for the tap that made mana
+   * (CR 605.1a). Reading him as the wider event would add mana every time a
+   * creature attacked, which is a wrong ability rather than a missing one.
+   *
+   * `who` is the permanent tapped. `by` is the player who tapped it, and it is
+   * kept on the event because "whenever you tap a land" and "whenever an
+   * opponent taps a land" are the two halves of Vorinclex, Voice of Hunger:
+   * one pays you, the other punishes them, and the same event with the player
+   * dropped would hand the opponent's lands to you. Absent means any player,
+   * which is the passive wording "whenever enchanted land is tapped for mana"
+   * (Wild Growth), and the effect there says "its controller" for a reason.
+   *
+   * The tapped permanent is the trigger subject, so "that permanent" and
+   * "its controller" in the effect reach it through `{sel:'trigger-subject'}`.
+   */
+  | { on: 'tapped-for-mana'; who: Selector; by?: PlayerSelector }
   | { on: 'counter-added'; who: Selector; counter: string }
   | { on: 'gains-life' | 'loses-life'; whose: PlayerSelector }
   | { on: 'draws-card'; whose: PlayerSelector }
@@ -763,6 +888,16 @@ export type ReplaceableEvent =
   | { on: 'counter-placed'; target: Selector; counter?: string }
   | { on: 'life-gain' | 'life-loss'; whose: PlayerSelector }
   | { on: 'token-created'; whose: PlayerSelector }
+  /**
+   * "If you tap a permanent for mana, it produces twice as much of that mana
+   * instead" — Mana Reflection, Nyxbloom Ancient (three times), Virtue of
+   * Strength (a basic land). The same fields as the trigger of this name, and
+   * the result is `multiply`, the member Doubling Season and Parallel Lives
+   * already use. It is a replacement and not a trigger that adds mana: it
+   * never uses the stack, and "twice as much" is a factor on whatever was
+   * made rather than an amount.
+   */
+  | { on: 'tapped-for-mana'; who: Selector; by?: PlayerSelector }
   | { on: 'step'; step: Step; whose: PlayerSelector };
 
 export type ReplacementResult =
@@ -1185,6 +1320,31 @@ export function playerSelectorsIn(effects: readonly Effect[]): PlayerSelector[] 
     for (const list of childEffectLists(effect)) for (const inner of list) walk(inner);
   };
   for (const effect of effects) walk(effect);
+  return out;
+}
+
+/**
+ * Every `Selector` an effect tree names, anywhere: as an effect's object, as
+ * the subject of a computed value, inside a condition, or under a
+ * `controller-of` player selector.
+ *
+ * A generic walk rather than a field list, and that is safe here where it was
+ * not for `valueExprsIn`: `sel` is the discriminant of exactly one type, so any
+ * object carrying a string `sel` IS a selector, whereas a number-ish field
+ * could be a `TokenSpec.power` string. The caller is `unrunnableReasons`,
+ * asking whether an ability names a selector the runtime cannot bind, and a
+ * walk that missed a nesting would report such an ability as runnable.
+ */
+export function selectorsIn(effects: readonly Effect[]): Selector[] {
+  const out: Selector[] = [];
+  const walk = (node: unknown): void => {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) { for (const inner of node) walk(inner); return; }
+    const record = node as Record<string, unknown>;
+    if (typeof record.sel === 'string') out.push(node as Selector);
+    for (const value of Object.values(record)) walk(value);
+  };
+  walk(effects);
   return out;
 }
 

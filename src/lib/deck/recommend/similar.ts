@@ -164,7 +164,10 @@ const MIN_RECORD_SCORE = 0.15;
  * is "also a Beast" is the friend's complaint, sitting inside the group that
  * was supposed to have fixed it.
  */
-const SHAPE_PREFIXES: readonly string[] = ['type:', 'sub:', 'kw:', 'rec:'];
+/* `mv:` and `pt:` are printed facts about a card's cost and size, read off the
+   row like the type line. Two five-power creatures are not doing the same
+   thing any more than two Beasts are. */
+const SHAPE_PREFIXES: readonly string[] = ['type:', 'sub:', 'kw:', 'rec:', 'mv:', 'pt:'];
 
 function saysWhatHappens(facet: Facet): boolean {
   return !SHAPE_PREFIXES.some(prefix => facet.startsWith(prefix));

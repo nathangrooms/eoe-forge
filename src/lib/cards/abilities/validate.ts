@@ -120,12 +120,13 @@ interface FieldSpec {
   optional?: boolean;
 }
 
-/** The four sources a card may name for "one mana of any colour". */
+/** The five sources a card may name for "one mana of any colour". */
 const isManaColourSource = isEnum([
   'commander-identity',
   'opponent-lands',
   'your-lands',
   'your-legendary-permanents',
+  'tapped-permanent',
 ] as const);
 
 const req = (check: Check<unknown>): FieldSpec => ({ check });
@@ -213,6 +214,7 @@ export const STEPS = [
 ] as const;
 export const CMPS = ['lt', 'lte', 'eq', 'gte', 'gt', 'ne'] as const;
 export const DURATIONS = ['end-of-turn', 'your-next-turn', 'while-source-on-battlefield', 'permanent'] as const;
+export const PLAY_FROM_LIMITS = ['once-per-turn', 'once-per-type-per-turn'] as const;
 export const GAP_REASONS = [
   'copy-layer', 'alt-cast', 'granted-ability', 'layer-dependency', 'state-trigger', 'duration',
   'hidden-choice', 'needs-history', 'outside-game', 'meta-replacement', 'complex-combat', 'stale',
@@ -256,6 +258,7 @@ const selectorImpl = union<Selector>('sel', {
   'trigger-source': object({}, 'sel'),
   'trigger-subject': object({}, 'sel'),
   attached: object({}, 'sel'),
+  revealed: object({}, 'sel'),
   all: object({ where: req(cardFilter), zone: opt(zone), controller: opt(playerSelector) }, 'sel'),
 }, 'selector');
 
@@ -281,6 +284,7 @@ const cardFilterImpl = union<CardFilter>('is', {
   power: object({ cmp: req(cmp), value: req(valueExpr) }, 'is'),
   toughness: object({ cmp: req(cmp), value: req(valueExpr) }, 'is'),
   'mana-value': object({ cmp: req(cmp), value: req(valueExpr) }, 'is'),
+  targets: object({ of: req(selector), only: opt(isBool) }, 'is'),
   not: object({ of: req(cardFilter) }, 'is'),
   and: object({ of: req(isArrayOf(cardFilter, 1)) }, 'is'),
   or: object({ of: req(isArrayOf(cardFilter, 1)) }, 'is'),
@@ -382,7 +386,11 @@ const conditionImpl = union<Condition>('if', {
 const manaString: Check<string> = (v, p, e) => {
   const s = isString(v, p, e);
   if (s === undefined) return undefined;
-  if (!/^(\{[^{}]{1,8}\})+$/.test(s.trim())) {
+  // Up to twelve characters inside a brace, not eight: the compiler spells
+  // "one mana of any colour" as the five-way hybrid `{W/U/B/R/G}` (nine) and
+  // "any type that permanent produced" as the six-way `{W/U/B/R/G/C}` (eleven).
+  // At eight, Command Tower's own record failed this check.
+  if (!/^(\{[^{}]{1,12}\})+$/.test(s.trim())) {
     return bad(e, p, `expected braced mana symbols like {2}{R}, got ${JSON.stringify(s)}`);
   }
   return s.trim();
@@ -452,7 +460,10 @@ const effectImpl = union<Effect>('do', {
   'set-life': lifeEffect,
   damage: object({ to: req(selectorOrPlayer), amount: req(valueExpr) }, 'do'),
   poison: lifeEffect,
-  draw: drawEffect,
+  /* `revealed` is optional on a draw and absent from mill: "reveal the top
+   * card of your library and put it into your hand" is a draw everyone sees,
+   * and there is no milling equivalent. */
+  draw: object({ who: req(playerSelector), count: req(valueExpr), revealed: opt(isBool) }, 'do'),
   mill: drawEffect,
   discard: object({ who: req(playerSelector), count: req(valueExpr), random: opt(isBool) }, 'do'),
   'move-zone': object({
@@ -467,6 +478,7 @@ const effectImpl = union<Effect>('do', {
   exile: object({ what: req(selector) }, 'do'),
   'return-from': object({
     zone: req(zone), who: req(playerSelector), what: req(selector), count: req(valueExpr), to: req(zone),
+    tapped: opt(isBool),
   }, 'do'),
   'search-library': object({
     who: req(playerSelector), what: req(selector), count: req(valueExpr), to: req(zone),
@@ -550,6 +562,9 @@ const restrictionRule = union<Restriction>('rule', {
   'cant-cast': object({ what: req(selector), who: req(playerSelector) }, 'rule'),
   'max-lands-per-turn': object({ who: req(playerSelector), n: req(valueExpr) }, 'rule'),
   'damage-prevention': object({ to: req(selector), from: opt(selector), amount: req(amountOrAll) }, 'rule'),
+  'may-play-from': object({
+    who: req(playerSelector), from: req(zone), what: req(selector), limit: opt(isEnum(PLAY_FROM_LIMITS)),
+  }, 'rule'),
 }, 'restriction');
 
 const modification = union<Modification>('layer', {
@@ -615,6 +630,7 @@ const triggerEvent = union<TriggerEvent>('on', {
   step: object({ step: req(step), whose: req(playerSelector) }, 'on'),
   tapped: object({ who: req(selector) }, 'on'),
   untapped: object({ who: req(selector) }, 'on'),
+  'tapped-for-mana': object({ who: req(selector), by: opt(playerSelector) }, 'on'),
   'counter-added': object({ who: req(selector), counter: req(isNonEmptyString) }, 'on'),
   'gains-life': object({ whose: req(playerSelector) }, 'on'),
   'loses-life': object({ whose: req(playerSelector) }, 'on'),
@@ -631,6 +647,7 @@ const replaceableEvent = union<ReplaceableEvent>('on', {
   'life-gain': object({ whose: req(playerSelector) }, 'on'),
   'life-loss': object({ whose: req(playerSelector) }, 'on'),
   'token-created': object({ whose: req(playerSelector) }, 'on'),
+  'tapped-for-mana': object({ who: req(selector), by: opt(playerSelector) }, 'on'),
   step: object({ step: req(step), whose: req(playerSelector) }, 'on'),
 }, 'replaceable event');
 
@@ -782,11 +799,11 @@ export const ACCEPTED_TAGS: Readonly<Record<string, readonly string[]>> = Object
     'enters-tapped', 'enters-with-counters', 'enters-under-control', 'prevent', 'redirect', 'multiply',
     'replace-zone', 'skip', 'additional',
   ],
-  sel: ['self', 'none', 'each', 'target', 'trigger-source', 'trigger-subject', 'attached', 'all'],
+  sel: ['self', 'none', 'each', 'target', 'trigger-source', 'trigger-subject', 'attached', 'revealed', 'all'],
   is: [
     'type', 'subtype', 'supertype', 'name', 'keyword', 'color', 'colorless', 'multicolored', 'tapped',
     'untapped', 'attacking', 'blocking', 'blocked', 'token', 'commander', 'other', 'any', 'has-counter',
-    'power', 'toughness', 'mana-value', 'not', 'and', 'or',
+    'power', 'toughness', 'mana-value', 'targets', 'not', 'and', 'or',
   ],
   v: [
     'x', 'count', 'count-players', 'power', 'toughness', 'mana-value', 'counters', 'life', 'cards-in',
@@ -799,8 +816,8 @@ export const ACCEPTED_TAGS: Readonly<Record<string, readonly string[]>> = Object
   ],
   on: [
     'enters', 'dies', 'leaves', 'zone-change', 'attacks', 'blocks', 'becomes-blocked', 'deals-damage',
-    'dealt-damage', 'cast', 'step', 'tapped', 'untapped', 'counter-added', 'gains-life', 'loses-life',
-    'draws-card', 'sacrificed',
+    'dealt-damage', 'cast', 'step', 'tapped', 'untapped', 'tapped-for-mana', 'counter-added', 'gains-life',
+    'loses-life', 'draws-card', 'sacrificed',
     // ReplaceableEvent shares the `on` key.
     'damage', 'draw', 'counter-placed', 'life-gain', 'life-loss', 'token-created',
   ],
@@ -815,7 +832,7 @@ export const ACCEPTED_TAGS: Readonly<Record<string, readonly string[]>> = Object
   ],
   rule: [
     'cant-attack', 'cant-block', 'must-attack', 'cant-untap', 'cant-be-blocked-except-by',
-    'cant-be-targeted', 'cant-cast', 'max-lands-per-turn', 'damage-prevention',
+    'cant-be-targeted', 'cant-cast', 'max-lands-per-turn', 'damage-prevention', 'may-play-from',
   ],
   kind: ['triggered', 'activated', 'static', 'replacement', 'spell', 'mana', 'keyword'],
 });

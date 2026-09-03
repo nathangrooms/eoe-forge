@@ -64,6 +64,7 @@ const MANA_SOURCE_WORDS: Record<string, string> = {
   'opponent-lands': 'of any color that a land an opponent controls could produce',
   'your-lands': 'of any type that a land you control could produce',
   'your-legendary-permanents': 'of any color among legendary creatures and planeswalkers you control',
+  'tapped-permanent': 'of any type that permanent produced',
 };
 
 const join = (parts: Array<string | undefined | null>, sep = ' '): string =>
@@ -161,6 +162,7 @@ export function renderFilter(filter: CardFilter): string {
     case 'power': return `with power ${renderCmp(filter.cmp)} ${renderValue(filter.value)}`;
     case 'toughness': return `with toughness ${renderCmp(filter.cmp)} ${renderValue(filter.value)}`;
     case 'mana-value': return `with mana value ${renderCmp(filter.cmp)} ${renderValue(filter.value)}`;
+    case 'targets': return `that targets ${filter.only ? 'only ' : ''}${renderSelector(filter.of)}`;
     case 'not': return `non-${renderFilter(filter.of)}`;
     case 'and': return filter.of.map(renderFilter).join(' ');
     case 'or': return filter.of.map(renderFilter).join(' or ');
@@ -189,6 +191,9 @@ export function renderSelector(selector: Selector): string {
     case 'trigger-source': return 'that permanent';
     case 'trigger-subject': return 'that creature';
     case 'attached': return 'enchanted permanent';
+    // "That card" is what the oracle text says after a reveal, and the round
+    // trip compares words, so the phrase the card uses is the one rendered.
+    case 'revealed': return 'that card';
     case 'all': {
       // No leading quantifier. Oracle text writes "creatures you control", not
       // "each creature you control", and the ones that do write "all" are not
@@ -314,7 +319,13 @@ export function renderEffect(effect: Effect): string {
       return `deals ${renderValue(effect.amount)} damage to ${to}`;
     }
     case 'poison': return `${renderPlayer(effect.who)} gets ${renderValue(effect.amount)} poison counters`;
-    case 'draw': return `${renderPlayer(effect.who)} draws ${renderValue(effect.count)} cards`;
+    case 'draw':
+      // A revealed draw is worded the way the card words it, because the round
+      // trip would otherwise report "reveal" dropped and "draw" invented.
+      if (effect.revealed) {
+        return `${renderPlayer(effect.who)} reveal the top ${renderValue(effect.count)} cards of your library and put them into your hand`;
+      }
+      return `${renderPlayer(effect.who)} draws ${renderValue(effect.count)} cards`;
     case 'mill': return `${renderPlayer(effect.who)} mills ${renderValue(effect.count)} cards`;
     case 'discard':
       return join([renderPlayer(effect.who), 'discards', renderValue(effect.count), 'cards', effect.random && 'at random']);
@@ -331,7 +342,10 @@ export function renderEffect(effect: Effect): string {
     case 'sacrifice': return `${renderPlayer(effect.who)} sacrifices ${renderValue(effect.count)} ${renderSelector(effect.what)}`;
     case 'exile': return `exile ${renderSelector(effect.what)}`;
     case 'return-from':
-      return `${renderPlayer(effect.who)} returns ${renderValue(effect.count)} ${renderSelector(effect.what)} from ${zoneWords(effect.zone)} to ${zoneWords(effect.to)}`;
+      return join([
+        renderPlayer(effect.who), 'returns', renderValue(effect.count), renderSelector(effect.what),
+        `from ${zoneWords(effect.zone)} to ${zoneWords(effect.to)}`, effect.tapped && 'tapped',
+      ]);
     case 'search-library':
       return join([
         renderPlayer(effect.who), 'searches library for', effect.upTo ? 'up to' : undefined,
@@ -559,6 +573,15 @@ function renderRestriction(rule: Restriction): string {
     case 'cant-be-targeted': return `${renderSelector(rule.who)} cant be the target of ${renderPlayer(rule.by)} spells`;
     case 'cant-cast': return `${renderPlayer(rule.who)} cant cast ${renderSelector(rule.what)}`;
     case 'max-lands-per-turn': return `${renderPlayer(rule.who)} may play ${renderValue(rule.n)} lands each turn`;
+    case 'may-play-from':
+      // "play" covers both verbs: a land is played and a spell is cast, and
+      // the selector already says which zone the cards come from.
+      return join([
+        rule.limit === 'once-per-turn' ? 'once during each of your turns,' : undefined,
+        renderPlayer(rule.who), 'may play',
+        rule.limit === 'once-per-type-per-turn' ? 'one of each permanent type among' : undefined,
+        renderSelector(rule.what),
+      ]);
     case 'damage-prevention':
       return join([
         'prevent', rule.amount === 'all' ? 'all' : renderValue(rule.amount), 'damage',
@@ -592,6 +615,10 @@ export function renderTriggerEvent(event: TriggerEvent): string {
     case 'step': return `at ${renderStep(event.step)} of ${renderPlayer(event.whose)}`;
     case 'tapped': return `whenever ${renderSelector(event.who)} becomes tapped`;
     case 'untapped': return `whenever ${renderSelector(event.who)} becomes untapped`;
+    case 'tapped-for-mana':
+      return event.by
+        ? `whenever ${renderPlayer(event.by)} ${event.by.who === 'you' ? 'tap' : 'taps'} ${renderSelector(event.who)} for mana`
+        : `whenever ${renderSelector(event.who)} is tapped for mana`;
     case 'counter-added': return `whenever a ${event.counter} counter is put on ${renderSelector(event.who)}`;
     case 'gains-life': return `whenever ${renderPlayer(event.whose)} gains life`;
     case 'loses-life': return `whenever ${renderPlayer(event.whose)} loses life`;
@@ -614,6 +641,10 @@ export function renderReplaceableEvent(event: ReplaceableEvent): string {
     case 'life-gain': return `if ${renderPlayer(event.whose)} would gain life`;
     case 'life-loss': return `if ${renderPlayer(event.whose)} would lose life`;
     case 'token-created': return `if ${renderPlayer(event.whose)} would create a token`;
+    case 'tapped-for-mana':
+      return event.by
+        ? `if ${renderPlayer(event.by)} would tap ${renderSelector(event.who)} for mana`
+        : `if ${renderSelector(event.who)} would be tapped for mana`;
     case 'step': return `at ${renderStep(event.step)} of ${renderPlayer(event.whose)}`;
     default: return assertNever(event);
   }

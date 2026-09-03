@@ -65,6 +65,7 @@ type Selector =
   | { sel:'self' } | { sel:'none' } | { sel:'each' }
   | { sel:'target'; ref:number }
   | { sel:'trigger-source' } | { sel:'trigger-subject' } | { sel:'attached' }
+  | { sel:'revealed' }                             // the card a draw with revealed:true put in hand earlier in this ability
   | { sel:'all'; where:CardFilter; zone?:Zone; controller?:PlayerSelector };
 
 type CardFilter =
@@ -74,6 +75,7 @@ type CardFilter =
   | { is:'token' } | { is:'commander' } | { is:'other' } | { is:'any' }
   | { is:'has-counter'; counter:string; atLeast?:number }
   | { is:'power'|'toughness'|'mana-value'; cmp:Cmp; value:ValueExpr }
+  | { is:'targets'; of:Selector; only?:boolean }   // a SPELL whose announced targets satisfy "of"
   | { is:'not'; of:CardFilter } | { is:'and'; of:CardFilter[] } | { is:'or'; of:CardFilter[] };
 
 type PlayerSelector =
@@ -123,13 +125,14 @@ type Effect =
   | { do:'gain-life'|'lose-life'|'set-life'; who:PlayerSelector; amount:ValueExpr }
   | { do:'damage'; to:Selector|PlayerSelector; amount:ValueExpr }
   | { do:'poison'; who:PlayerSelector; amount:ValueExpr }
-  | { do:'draw'|'mill'; who:PlayerSelector; count:ValueExpr }
+  | { do:'draw'; who:PlayerSelector; count:ValueExpr; revealed?:boolean }   // revealed: "reveal the top card of your library and put it into your hand"
+  | { do:'mill'; who:PlayerSelector; count:ValueExpr }
   | { do:'discard'; who:PlayerSelector; count:ValueExpr; random?:boolean }
   | { do:'move-zone'; what:Selector; to:Zone; position?:'top'|'bottom'|number; tapped?:boolean }
   | { do:'destroy'; what:Selector }
   | { do:'sacrifice'; who:PlayerSelector; what:Selector; count:ValueExpr }
   | { do:'exile'; what:Selector }
-  | { do:'return-from'; zone:Zone; who:PlayerSelector; what:Selector; count:ValueExpr; to:Zone }
+  | { do:'return-from'; zone:Zone; who:PlayerSelector; what:Selector; count:ValueExpr; to:Zone; tapped?:boolean }
   | { do:'search-library'; who:PlayerSelector; what:Selector; count:ValueExpr; to:Zone; thenShuffle:boolean; tapped?:boolean }
   | { do:'shuffle'; who:PlayerSelector }
   | { do:'create-token'; who:PlayerSelector; token:TokenSpec; count:ValueExpr; tapped?:boolean }
@@ -173,7 +176,9 @@ type Restriction =
   | { rule:'cant-be-targeted'; who:Selector; by:PlayerSelector }
   | { rule:'cant-cast'; what:Selector; who:PlayerSelector }
   | { rule:'max-lands-per-turn'; who:PlayerSelector; n:ValueExpr }
-  | { rule:'damage-prevention'; to:Selector; from?:Selector; amount:ValueExpr|'all' };
+  | { rule:'damage-prevention'; to:Selector; from?:Selector; amount:ValueExpr|'all' }
+  // a permission to play or cast cards out of a zone: "you may play lands from your graveyard"
+  | { rule:'may-play-from'; who:PlayerSelector; from:Zone; what:Selector; limit?:'once-per-turn'|'once-per-type-per-turn' };
 
 type Modification =
   | { layer:'control'; newController:PlayerSelector }
@@ -196,6 +201,7 @@ type TriggerEvent =
   | { on:'cast'; what:Selector; by?:PlayerSelector }
   | { on:'step'; step:Step; whose:PlayerSelector }
   | { on:'tapped'|'untapped'; who:Selector }
+  | { on:'tapped-for-mana'; who:Selector; by?:PlayerSelector }
   | { on:'counter-added'; who:Selector; counter:string }
   | { on:'gains-life'|'loses-life'; whose:PlayerSelector }
   | { on:'draws-card'; whose:PlayerSelector }
@@ -208,6 +214,7 @@ type ReplaceableEvent =
   | { on:'counter-placed'; target:Selector; counter?:string }
   | { on:'life-gain'|'life-loss'; whose:PlayerSelector }
   | { on:'token-created'; whose:PlayerSelector }
+  | { on:'tapped-for-mana'; who:Selector; by?:PlayerSelector }
   | { on:'step'; step:Step; whose:PlayerSelector };
 
 type ReplacementResult =

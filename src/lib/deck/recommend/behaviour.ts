@@ -108,6 +108,7 @@ export function facetsForCard(row: FacetInput): FacetResult {
   // Type line facts. Always available, never from a record, and the only source
   // for `type:` and `sub:` — the engine's creature role is decided here.
   readTypeLine(row.type_line ?? null, out);
+  readSizeAndCost(row, out);
 
   let abilities: readonly Ability[] = [];
   let source: FacetResult['source'] = 'none';
@@ -256,6 +257,23 @@ export function facetsForCard(row: FacetInput): FacetResult {
    */
   for (const word of abilityWordsOf(row as AbilityCard)) out.add(`kw:${word}`);
 
+  /*
+   * A WHEEL, derived. Wheel of Fortune reads `eff:discard eff:draw scope:all
+   * cares:zone:hand` and Windfall the same with `eff:discard-self`: a whole
+   * table throwing away its hand and drawing a new one, which is the one job
+   * a draw-payoff commander wants most and no single verb says. The hand zone
+   * is the guard: "each other player discards a card, you draw" is a Syphon
+   * Mind, not a wheel.
+   */
+  if (
+    out.has('eff:draw') &&
+    (out.has('eff:discard') || out.has('eff:discard-self')) &&
+    out.has('scope:all') &&
+    out.has('cares:zone:hand')
+  ) {
+    out.add('eff:wheel');
+  }
+
   return { facets: [...out].sort(), source, coverage };
 }
 
@@ -387,6 +405,10 @@ function readNamedSubtypesInRules(row: FacetInput, out: Set<Facet>): void {
     if (!sub || BASIC_LAND_TYPES.has(sub) || madeAsTokens.has(sub)) { seen.add(word); continue; }
     const before = text.slice(Math.max(0, m.index - 24), m.index);
     if (NEGATIVE_FRAME.test(before)) continue; /* not `seen`: a later, positive mention still counts */
+    /* "Mystic Arcanum -" is an ability word, and Mystic is a creature type.
+       Prosper, Tome-Bound was a Mystic tribal commander on the strength of it. */
+    const wordEnd = m.index + m[0].length;
+    if (ABILITY_WORD_AFTER.test(text.slice(wordEnd, wordEnd + 40))) continue;
     seen.add(word);
     out.add(`cares:sub:${sub}`);
   }
@@ -502,6 +524,15 @@ function readOwnTypeInRules(row: FacetInput, out: Set<Facet>): void {
 const NEGATIVE_FRAME =
   /(protection from|non-?|can't be blocked by|other than|except by|except for|rather than|isn't a|aren't|not a|without)\s*$/;
 
+/**
+ * The word is the start of an ABILITY WORD, which Scryfall prints as one to
+ * three capitalised words and a dash before the ability: "Mystic Arcanum -",
+ * "Pact Boon -", "Will of the council -". A creature type inside one is not a
+ * creature type the card cares about. Matched against the text AFTER the hit,
+ * up to two more words and then the dash.
+ */
+const ABILITY_WORD_AFTER = /^(?: [a-z'-]+){0,2} [\u2014\u2013-] /;
+
 function namesWordPositively(text: string, word: string): boolean {
   const forms = [word, `${word}s`, `${word}es`, IRREGULAR_PLURALS[word]].filter(Boolean) as string[];
   for (const form of forms) {
@@ -509,6 +540,8 @@ function namesWordPositively(text: string, word: string): boolean {
     let m: RegExpExecArray | null;
     while ((m = re.exec(text)) !== null) {
       const before = text.slice(Math.max(0, m.index - 24), m.index + m[1].length);
+      const wordEnd = m.index + m[1].length + form.length;
+      if (ABILITY_WORD_AFTER.test(text.slice(wordEnd, wordEnd + 40))) continue;
       if (!NEGATIVE_FRAME.test(before)) return true;
     }
   }
@@ -561,6 +594,18 @@ const IRREGULAR_PLURALS: Readonly<Record<string, string>> = {
   goose: 'geese',
 };
 
+/**
+ * Does the text name this word, as a word?
+ *
+ * "NON-HUMAN" IS NOT NAMING HUMANS. Kinnan, Bonder Prodigy is a Human Druid
+ * whose only use of the word is "a non-Human creature card", and this read it
+ * as him naming his own type: `cares:sub:human`, which `tribeOf` then took as
+ * proof he is a Human tribal commander, so his deck wanted the one creature
+ * type his ability refuses to put onto the battlefield. Junji, the Midnight
+ * Sky ("non-Dragon creature card") was a Dragon tribal commander by the same
+ * route. The lookbehind is the whole fix: a subtype written straight after
+ * "non-" is the complement being named, not the type.
+ */
 function namesWord(text: string, word: string): boolean {
   const forms = new Set([word, `${word}s`, `${word}es`]);
   const irregular = IRREGULAR_PLURALS[word];
@@ -620,6 +665,31 @@ const CARD_TYPES: readonly string[] = [
   'token',
   'world',
 ];
+
+/**
+ * Mana value and printed power, in the coarse bands a plan can ask for.
+ *
+ * Read off the row, never from a record: a card's cost and size are printed
+ * facts, and the wants that needed them are about shape rather than text.
+ * Yuriko wants a creature that connects on turn two, Xenagos wants a body worth
+ * doubling, Animar wants the seven-drop that costs nothing once he is big.
+ * None of that is a facet a rule could produce from the rules text, and the
+ * curve signal in the ranker scores the exact number but cannot be ASKED for.
+ *
+ * Lands carry no `mv:` band: a land's mana value is zero and it is not cheap.
+ * Power is read only when it is a number; `*` stays unknown.
+ */
+function readSizeAndCost(row: FacetInput, out: Set<Facet>): void {
+  const r = row as { cmc?: number | string | null; power?: string | number | null; type_line?: string | null };
+  const isLand = /\bLand\b/.test(r.type_line ?? '');
+  const cmc = r.cmc == null || r.cmc === '' ? NaN : Number(r.cmc);
+  if (!isLand && Number.isFinite(cmc)) {
+    if (cmc <= 2) out.add('mv:cheap');
+    if (cmc >= 6) out.add('mv:big');
+  }
+  const power = r.power == null || r.power === '' ? NaN : Number(r.power);
+  if (Number.isFinite(power) && power >= 5) out.add('pt:big');
+}
 
 function readTypeLine(typeLine: string | null, out: Set<Facet>): void {
   if (!typeLine) return;
@@ -744,12 +814,16 @@ function readCaresFilters(node: unknown, out: Set<Facet>): void {
   }
   const rec = node as Record<string, unknown>;
   /*
-   * A NEGATED FILTER IS NOT A THING THE CARD CARES ABOUT. "non-Human creature"
-   * is a filter that EXCLUDES Humans, and walking into it emitted
-   * `cares:sub:human` all the same. Kinnan, Bonder Prodigy puts a non-Human
-   * creature onto the battlefield, read as "triggers on human spells", and a
-   * refinement round filled his deck with Gran-Gran and Tifa Lockhart. Stop at
-   * the `not` and read nothing inside it.
+   * A NEGATED FILTER NAMES WHAT THE CARD IS NOT ABOUT. "Nonland permanent",
+   * "noncreature spell", "nontoken creature", "non-Human creature card": the
+   * word under the `not` is the thing being excluded, and walking into it
+   * said the card cares about exactly that thing. Measured over the 3,000 most
+   * played cards (`scratch/neg-measure.mjs`, 2 Sep 2026): 92 cards lose a
+   * facet and none gains one. Cyclonic Rift stops caring about lands, Negate
+   * and Mystic Remora about creatures, Go for the Throat about artifacts, and
+   * Kinnan, Bonder Prodigy about Humans, which is the one that matters for a
+   * deck: his ability puts a NON-Human onto the battlefield and the plan was
+   * asking for Humans. Same rule in `readFilter` below, for the hand walk.
    */
   /* The DSL spells a negated filter `{ is: 'not', of }`, not `{ not: ... }`;
      the first version of this guard checked for a key that never exists and
@@ -781,6 +855,21 @@ function readAbility(ability: Ability, out: Set<Facet>): void {
 
   if (ability.kind === 'triggered') {
     out.add(`trig:${ability.event.on}`);
+    /*
+     * WHAT KIND OF SPELL a cast trigger listens for, as its own word.
+     *
+     * "Whenever you cast a creature spell" is the whole of Chulane and Animar,
+     * and it used to reach the plan only through an English intent rule. The
+     * moment the compiler read Chulane whole, the intent rules were skipped -
+     * correctly, English must not talk over a parsed record - and the parsed
+     * record said `trig:cast` and `cares:type:creature`, which is also what a
+     * card that pumps a creature whenever you cast anything says. The type on
+     * the EVENT's own filter is the fact, so it is named on the trigger.
+     */
+    if (ability.event.on === 'cast') {
+      const where = (ability.event as { what?: { where?: CardFilter } }).what?.where;
+      for (const type of typesNamedBy(where)) out.add(`trig:cast:${type}`);
+    }
     readTriggerEvent(ability.event, out);
     readEffects(ability.effects, out, (ability as { targets?: readonly TargetSpec[] }).targets);
     for (const t of ability.targets ?? []) if (t.filter) readFilter(t.filter, out, 'cares');
@@ -886,6 +975,42 @@ function readAbility(ability: Ability, out: Set<Facet>): void {
       if (mod.layer === 'restriction' && mod.rule.rule === 'max-lands-per-turn') {
         out.add('eff:extra-land-drop');
       }
+      /*
+       * A permission to play or cast out of the graveyard, split by what the
+       * permission covers, because the two halves are two different jobs:
+       *
+       *   eff:play-from-graveyard   LANDS. Crucible of Worlds (597) and Ramunap
+       *                             Excavator (476): more land drops over a
+       *                             game, which is why the engine files it as
+       *                             ramp.
+       *   eff:cast-from-graveyard   NONLAND cards. Karador, Lurrus, Rivaz: a
+       *                             second hand, which is card advantage and
+       *                             files as recursion under `draw`.
+       *
+       * Muldrotha carries both, Crucible only the first, Karador only the
+       * second. One verb for the pair would put Karador in ramp, and a
+       * qualifier facet beside it would change nothing, because a role check
+       * asks whether ONE facet is present. Same reasoning as
+       * `eff:exile-graveyard` and `eff:exile-own`: a separate verb, not a
+       * qualifier.
+       *
+       * The FILTER decides, not the word the card printed. The DSL does not
+       * keep the verb, because a land is played and a spell is cast whatever
+       * the sentence said (CR 305.1, 601.1), so "play Forests" and "play
+       * lands" are one permission and "cast a creature spell" is another.
+       *
+       * `eff:play-from-graveyard` was declared, wired into `ramp`, and fed by
+       * nothing until this block — CLAUDE.md's fifth instance of that shape.
+       */
+      if (mod.layer === 'restriction' && mod.rule.rule === 'may-play-from') {
+        const { from, what } = mod.rule;
+        if (from === 'graveyard' && what.sel === 'all') {
+          out.add('cares:zone:graveyard');
+          if (mayMatchLand(what.where)) out.add('eff:play-from-graveyard');
+          if (mayMatchNonland(what.where)) out.add('eff:cast-from-graveyard');
+          readFilter(what.where, out, 'cares');
+        }
+      }
     }
     return;
   }
@@ -897,6 +1022,19 @@ function readAbility(ability: Ability, out: Set<Facet>): void {
     }
     if (ability.result.do === 'additional') {
       readEffects(ability.result.effects, out, (ability as { targets?: readonly TargetSpec[] }).targets);
+    }
+    /*
+     * "If you tap a permanent for mana, it produces twice as much" is Mana
+     * Reflection, and a deck runs it as ramp. The record carries no `add-mana`
+     * effect to read, because a multiplier is a factor and not an amount, so
+     * the verb is written here the way `enters-with-counters` writes
+     * `eff:add-counters` above. No `mana:` figure with it: twice what a
+     * permanent makes is not a number this card knows, and one would be
+     * invented.
+     */
+    if (ability.event.on === 'tapped-for-mana' && ability.result.do === 'multiply') {
+      out.add('eff:add-mana');
+      readSelector(ability.event.who, out);
     }
   }
 }
@@ -1076,11 +1214,28 @@ function readEffect(effect: Effect, out: Set<Facet>, targets?: readonly TargetSp
     }
 
     case 'add-counters':
-    case 'remove-counters':
-      out.add(`eff:${effect.do}`);
-      out.add(`ctr:${effect.counter.toLowerCase()}`);
+    case 'remove-counters': {
+      /*
+       * WHOSE COUNTERS. "Put a +1/+1 counter on Korvold" and "put a +1/+1
+       * counter on each creature you control" both compiled to the same two
+       * facets, so Korvold, Fae-Cursed King and Animar, Soul of Elements - a
+       * sacrifice commander and a creature-cast commander - both planned as
+       * +1/+1 counters decks and were built around Hardened Scales. The same
+       * fault as `effect.who` on the other verbs, on the one verb that names
+       * its object with a selector rather than a player.
+       *
+       * A SEPARATE WORD, on the precedent of `cost:sacrifice-self` and
+       * `eff:exile-self`: a qualifier alongside `eff:add-counters` would change
+       * nothing, because a role or a plan rule asks whether a card carries ONE
+       * facet. Managorger Hydra and Forgotten Ancient move with it, and a
+       * counters shell that wants them names them through this word.
+       */
+      const own = effect.do === 'add-counters' && (effect.what as { sel?: string }).sel === 'self';
+      out.add(own ? 'eff:add-counters-self' : `eff:${effect.do}`);
+      out.add(own ? `ctr:${effect.counter.toLowerCase()}-self` : `ctr:${effect.counter.toLowerCase()}`);
       readSelector(effect.what, out);
       return;
+    }
 
     case 'player-counter':
       out.add('eff:player-counter');
@@ -1088,6 +1243,35 @@ function readEffect(effect: Effect, out: Set<Facet>, targets?: readonly TargetSp
       return;
 
     case 'return-from':
+      /*
+       * FROM THE HAND IS NOT RECURSION.
+       *
+       * "Put a land card from your hand onto the battlefield" compiles to the
+       * same verb as "return a creature card from your graveyard to your hand",
+       * because the DSL has one word for "move N cards matching this out of a
+       * zone". The deck-building reading is not the same word: `eff:return-from`
+       * is in the `draw` role and is what every reanimator plan asks for, so
+       * reading Sakura-Tribe Scout as `eff:return-from` would file it as card
+       * advantage and offer it to Meren. Same shape as `eff:exile-graveyard`
+       * and `eff:exile-own`: a separate word, not a qualifier, because a role
+       * check asks whether ONE facet is present.
+       *
+       * A land from hand onto the battlefield is an extra land drop in every
+       * sense a deck builder means — Chulane, Uro and Growth Spiral are ramp —
+       * so it takes the word Exploration already carries. Anything else from
+       * the hand (Elvish Piper, Sneak Attack, Stoneforge Mystic's activation)
+       * is `eff:put-onto-battlefield`. "A creature or land card" (Court of
+       * Bounty) carries both, because it does both.
+       */
+      if (effect.zone === 'hand' && effect.to === 'battlefield') {
+        const where = effect.what.sel === 'all' ? effect.what.where : null;
+        const land = where !== null && namesLand(where);
+        if (land) out.add('eff:extra-land-drop');
+        if (!land || where === null || namesNonLand(where)) out.add('eff:put-onto-battlefield');
+        out.add('cares:zone:hand');
+        readSelector(effect.what, out);
+        return;
+      }
       out.add('eff:return-from');
       out.add(`cares:zone:${effect.zone}`);
       readSelector(effect.what, out);
@@ -1261,6 +1445,13 @@ function readEffect(effect: Effect, out: Set<Facet>, targets?: readonly TargetSp
          Temple Bell (1899) was indistinguishable from Rhystic Study. */
       const aim = aimOfPlayer((effect as { who?: PlayerSelector }).who);
       out.add(aim === 'everyone' || aim === 'opponent' ? 'eff:draw-each' : 'eff:draw');
+      /* A REVEALED DRAW READS THE TOP OF THE LIBRARY. "Reveal the top card of
+         your library and put that card into your hand" is Dark Confidant and
+         Yuriko, and what is on top decides what the card costs or deals, so a
+         deck built around one wants the top of its library arranged. That is
+         the want `cares:zone:library` already carries for every plan that
+         plays off the top, and a plain draw does not care what it draws. */
+      if ((effect as { revealed?: boolean }).revealed) out.add('cares:zone:library');
       return;
     }
 
@@ -1285,6 +1476,26 @@ function readEffect(effect: Effect, out: Set<Facet>, targets?: readonly TargetSp
       return;
     }
 
+    case 'look-and-pick':
+      /*
+       * A dig reads the top of the library, and that is what the plan rules
+       * for "plays cards straight off the top of your library" ask for. The
+       * selector-carrying verbs say so through `readSelector`, which emits the
+       * zone of every non-battlefield selector; this member carries a bare
+       * filter and no selector, so the zone has to be said here. The filter
+       * itself is read by the `readCaresFilters` sweep.
+       */
+      out.add('eff:look-and-pick');
+      out.add('cares:zone:library');
+      /* A dig that puts the card ONTO THE BATTLEFIELD is Elvish Piper by
+         another route: Kinnan's activation, Collected Company, Lurking
+         Predators. The plan rule for cheating things in wants big bodies,
+         and a dig into the hand (Impulse) is not that. */
+      if ((effect as { pickedTo?: { zone?: string } }).pickedTo?.zone === 'battlefield') {
+        out.add('eff:put-onto-battlefield');
+      }
+      return;
+
     case 'mill':
     case 'gain-life':
     case 'lose-life':
@@ -1293,7 +1504,6 @@ function readEffect(effect: Effect, out: Set<Facet>, targets?: readonly TargetSp
     case 'shuffle':
     case 'scry':
     case 'surveil':
-    case 'look-and-pick':
     case 'attach':
     case 'set-monarch':
     case 'win-game':
@@ -1421,6 +1631,17 @@ function aimOfSelector(sel: Selector | undefined, targets?: readonly TargetSpec[
 /** True when the effect touches only the caster's own side. */
 const isSelfAimed = (aim: Aim): boolean => aim === 'you';
 
+/** The card types a filter names positively: `type` leaves under `and`/`or`, never under `not`. */
+function typesNamedBy(filter: CardFilter | undefined): string[] {
+  if (!filter) return [];
+  switch (filter.is) {
+    case 'type': return [filter.value.toLowerCase()];
+    case 'and':
+    case 'or': return filter.of.flatMap(typesNamedBy);
+    default: return [];
+  }
+}
+
 function readSelector(selector: Selector, out: Set<Facet>): void {
   if (selector.sel !== 'all') return;
   out.add('scope:all');
@@ -1477,6 +1698,74 @@ function namesType(filter: CardFilter, type: string): boolean {
       return filter.of.some(f => namesType(f, type));
     default:
       return false;
+  }
+}
+
+/**
+ * Does this filter name a land, by type, by the `basic` supertype, or by a
+ * basic land type? "A basic Forest card" (Gaea's Touch) carries no `type` leaf
+ * at all and is still a land drop, which `namesType` alone would miss.
+ * `BASIC_LAND_TYPES` is the set declared beside `readOwnTypeInRules` above.
+ */
+function namesLand(filter: CardFilter): boolean {
+  switch (filter.is) {
+    case 'type':
+      return filter.value.toLowerCase() === 'land';
+    case 'supertype':
+      return filter.value.toLowerCase() === 'basic';
+    case 'subtype':
+      return BASIC_LAND_TYPES.has(filter.value.toLowerCase());
+    case 'and':
+    case 'or':
+      return filter.of.some(namesLand);
+    default:
+      return false;
+  }
+}
+
+/** Does this filter name a card type OTHER than land? "A creature or land card" does. */
+function namesNonLand(filter: CardFilter): boolean {
+  switch (filter.is) {
+    case 'type':
+      return filter.value.toLowerCase() !== 'land';
+    case 'and':
+    case 'or':
+      return filter.of.some(namesNonLand);
+    default:
+      return false;
+  }
+}
+
+/**
+ * Could a LAND card satisfy this filter? Could a NONLAND card?
+ *
+ * Both are conservative in the same direction: a filter this cannot read
+ * (a colour, a mana value bound, `any`) says yes, so an unread clause widens
+ * a permission rather than hiding it. The two are separate functions rather
+ * than one with a flag because `not` is asymmetric: "nonland" rules lands
+ * out and rules nothing else in, while "noncreature" tells us nothing about
+ * lands either way. `BASIC_LAND_TYPES` is the set the tribe reader already
+ * keeps, so "You may play Forests from your graveyard" (Titania, Nature's
+ * Force) reads as a land permission without the word "land" in it.
+ */
+function mayMatchLand(filter: CardFilter): boolean {
+  switch (filter.is) {
+    case 'type': return filter.value.toLowerCase() === 'land';
+    case 'subtype': return BASIC_LAND_TYPES.has(filter.value.toLowerCase());
+    case 'not': return !(filter.of.is === 'type' && filter.of.value.toLowerCase() === 'land');
+    case 'and': return filter.of.every(mayMatchLand);
+    case 'or': return filter.of.some(mayMatchLand);
+    default: return true;
+  }
+}
+
+function mayMatchNonland(filter: CardFilter): boolean {
+  switch (filter.is) {
+    case 'type': return filter.value.toLowerCase() !== 'land';
+    case 'subtype': return !BASIC_LAND_TYPES.has(filter.value.toLowerCase());
+    case 'and': return filter.of.every(mayMatchNonland);
+    case 'or': return filter.of.some(mayMatchNonland);
+    default: return true;
   }
 }
 

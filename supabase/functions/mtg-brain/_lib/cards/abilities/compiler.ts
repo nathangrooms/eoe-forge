@@ -31,6 +31,7 @@
 import type {
   Ability,
   CardAbilities,
+  Condition,
   Cost,
   Effect,
   GapReason,
@@ -50,6 +51,7 @@ import {
   parseReplacement,
   parseStatic,
   parseTriggerEvent,
+  peelInterveningIf,
 } from './clause-rules.ts';
 import { xmageSwapFor } from '../xmage/lowered.ts';
 
@@ -354,14 +356,34 @@ function classify(para: Paragraph, shape: CardShape, idAt: number): Classified |
       // `undefined`, which costs those cards a manual marker and costs nobody a
       // creature that flew when it should not have.
       if (!events.every(eventSubjectIsSelf)) build.ctx.itBinding = undefined;
-      const effects = compileEffectBody(trigger[3], build.ctx);
+
+      /* CR 603.4 — "[trigger], if [condition], [effect]". The clause comes off
+         before the body is compiled, because no effect rule begins with "if"
+         and leaving it in made the whole body one manual marker: Field of the
+         Dead knew WHEN to fire and not that it makes a Zombie. See
+         `peelInterveningIf` for the two outcomes; the marker below is the
+         unreadable one, and it is what keeps the bridge from running the
+         effect on a condition nothing checked. */
+      const intervening = peelInterveningIf(trigger[3]);
+      const effects = compileEffectBody(intervening ? intervening.rest : trigger[3], build.ctx);
+      if (intervening && !intervening.condition) {
+        effects.unshift(manual(
+          intervening.text,
+          'intervening-if: a condition the vocabulary cannot express; check it by hand when this triggers and again as it resolves',
+        ));
+      }
       const confidence = build.ctx.approximate ? 'approximate' : 'exact';
       const abilities = events.map((event, n) => {
         const a: Ability = { kind: 'triggered', id: id(n), text: raw, confidence, event, effects };
+        if (intervening?.condition) {
+          (a as { condition?: Condition }).condition = intervening.condition;
+          (a as { interveningIf?: boolean }).interveningIf = true;
+        }
         if (build.targets.length) (a as { targets?: TargetSpec[] }).targets = build.targets;
         return a;
       });
-      return { rule: `trigger:${events[0].on}`, abilities };
+      const suffix = !intervening ? '' : intervening.condition ? '+if' : '+if-manual';
+      return { rule: `trigger:${events[0].on}${suffix}`, abilities };
     }
   }
 

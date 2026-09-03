@@ -2028,7 +2028,7 @@ const PACKAGE_MATCH = 0.6;
 
   if (refineSwaps > 0) {
     notes.push(
-      `reviewed the finished deck in ${Math.min(REFINE_ROUNDS, refineLog.length ? refineLog[refineLog.length - 1].match(/^round (\d+)/)?.[1] ?? '1' : '0')} ` +
+      `reviewed the finished deck in ${Math.min(REFINE_ROUNDS, Number(refineLog.length ? refineLog[refineLog.length - 1].match(/^round (\d+)/)?.[1] ?? '1' : '0'))} ` +
         `round${refineSwaps === 1 ? '' : 's'} and swapped ${refineSwaps} card${refineSwaps === 1 ? '' : 's'} ` +
         `for ones that do more in THIS deck`
     );

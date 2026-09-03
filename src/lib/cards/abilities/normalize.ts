@@ -225,6 +225,8 @@ const UNSAFE_SHORT_NAMES = new Set([
   'shadow', 'spirit', 'ring', 'sword', 'shield', 'song', 'dream', 'water',
   'earth', 'wind', 'stone', 'iron', 'gold', 'silver', 'plague', 'wall',
   'anger', 'greed', 'brawl', 'growth', 'chaos', 'order',
+  // A game object, not a name. "Dungeon Delver" talks about dungeons.
+  'dungeon',
 ]);
 
 /**
@@ -312,7 +314,34 @@ export function selfNames(card: AbilityCard): string[] {
       const i = lower.indexOf(sep);
       if (i > 0 && (at < 0 || i < at)) at = i;
     }
-    if (at > 0) offer(lower.slice(0, at).trim());
+    if (at > 0) {
+      offer(lower.slice(0, at).trim());
+      return;
+    }
+
+    /*
+     * NO SEPARATOR AT ALL IS THE THIRD SPELLING, and it is a first name.
+     *
+     *     Edgar Markov          text says "Whenever Edgar attacks"
+     *     Zurgo Helmsmasher     text says "Zurgo attacks each combat if able"
+     *     Legolas Greenleaf     text says "Legolas can't be blocked"
+     *     Kaito Shizuki         text says "if Kaito entered this turn"
+     *
+     * A legend named Firstname Lastname is addressed by the first name, and
+     * with no comma and no preposition to cut at, nothing above offered it.
+     * Edgar Markov's attack trigger — a shape the compiler has read for months,
+     * "whenever ~ attacks, put a +1/+1 counter on each vampire you control" —
+     * was refused whole because the subject was "edgar", not "~".
+     *
+     * Measured over the 4,119 ranked legends: the first word folds something
+     * on 34 of them, 33 as a whole word or a possessive, and the one partial
+     * fold is "Dungeon Delver" turning "dungeons" into "~s", which is why
+     * `dungeon` is on the unsafe list. A name carrying a possessive is
+     * "<Owner>'s <Thing>" — Marit Lage's Slumber is a Slumber, not Marit — so
+     * those are left alone: the first word there is somebody else.
+     */
+    const words = lower.split(' ');
+    if (words.length >= 2 && !words.some((w) => /['’]s$/.test(w))) offer(words[0]);
   };
 
   if (card.name) {

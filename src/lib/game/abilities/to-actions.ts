@@ -46,7 +46,7 @@
 
 import type { GameAction, GameState, InstanceId, PlayerId } from '../types.ts';
 import type { CardDestination, Effect, PlayerSelector, Selector } from '../../cards/abilities/dsl.ts';
-import { watchQueriesIn } from '../../cards/abilities/dsl.ts';
+import { selectorsIn, watchQueriesIn } from '../../cards/abilities/dsl.ts';
 import type { AbilityContext } from './context.ts';
 import {
   cardOf,
@@ -242,6 +242,14 @@ export function runEffects(
         `needs turn history this game does not keep yet: ${query.measure} of ${query.event.saw} (${query.window}). Any amount computed from it is 0, and 0 is not the real number`
       );
     }
+  }
+  // The same gate for "that card's mana value" after a revealed draw. Nothing
+  // records which card the draw moved, so `{sel:'revealed'}` resolves to nobody
+  // and a life total computed from it is 0. Said first, for the same reason.
+  if (selectorsIn(effects).some(selector => selector.sel === 'revealed')) {
+    scope.deferred.push(
+      'names the card it revealed, and this game does not record which card a draw revealed yet. Any amount computed from it is 0, and 0 is not the real number'
+    );
   }
 
   for (const effect of effects) runEffect(effect, ctx, scope);
@@ -499,6 +507,17 @@ function runEffect(effect: Effect, ctx: AbilityContext, scope: RunScope): void {
       if (count <= 0) break;
       for (const playerId of livingIds(state, resolvePlayers(effect.who, ctx))) {
         scope.out.push({ type: 'DRAW', playerId, count, ...m });
+        // "Reveal the top card of your library and put it into your hand" moves
+        // the card exactly as `DRAW` does and shows it to the table on the way,
+        // which `DRAW` cannot. The card reaches the hand; the showing is asked
+        // for out loud. The compiler marks such an ability approximate for the
+        // other half of the distance: CR 121.1 says this is not a draw, and a
+        // "whenever you draw" trigger watching this `DRAW` would fire.
+        if (effect.revealed) {
+          scope.deferred.push(
+            `${nameOf(state, playerId)} reveals the card as it goes to their hand; show it to the table`
+          );
+        }
       }
       break;
     }

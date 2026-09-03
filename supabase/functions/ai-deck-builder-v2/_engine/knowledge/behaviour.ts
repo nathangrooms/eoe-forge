@@ -100,6 +100,17 @@ export const FACET_PREFIXES: readonly string[] = [
   'cost:',
   'tok:',
   'ctr:',
+  /*
+   * SIZE AND COST, read off the row rather than the rules text. `mv:cheap` is
+   * mana value two or less on a nonland, `mv:big` six or more, `pt:big` printed
+   * power five or more. Coarse bands on purpose: a want is a claim about a
+   * job, and the jobs the benchmark could not express were exactly these -
+   * Yuriko's "cheap evasive creature", Xenagos's "body worth doubling",
+   * Animar's "big thing that costs nothing once he is large". Curve fit
+   * already scores the exact number; these let a PLAN ask for a shape.
+   */
+  'mv:',
+  'pt:',
   'cares:type:',
   'cares:sub:',
   'cares:zone:',
@@ -186,6 +197,9 @@ export const EFFECT_VERBS: readonly string[] = [
   'search-library',
   'create-token',
   'add-counters',
+  /* Counters the card puts on ITSELF. See the facet layer: Korvold and Animar
+     grow themselves and are not counters commanders. */
+  'add-counters-self',
   'remove-counters',
   'player-counter',
   'pump',
@@ -218,6 +232,11 @@ export const EFFECT_VERBS: readonly string[] = [
   'discard-self',
   'damage-self',
   'draw-each',
+  /* Every player throws away a hand and draws a new one. A conjunction the
+     facet layer derives from draw + discard + scope:all + the hand zone, kept
+     as one word because wheels are a job (Niv-Mizzet, Nekusar, The Locust
+     God) and no single verb says it. */
+  'wheel',
   'shrink',
   /* An open choice made as a permanent enters, with the SUBJECT on the effect
      rather than in the verb, the way `among` sits on `add-mana`. So every
@@ -287,8 +306,26 @@ export const EFFECT_VERBS: readonly string[] = [
   'redirect-damage',
   /* Playing lands out of the graveyard. Crucible of Worlds (597) and Ramunap
      Excavator (476) both carried nothing at all. Ramp, for the same reason
-     `eff:extra-land-drop` is ramp: it is more lands in play per turn. */
+     `eff:extra-land-drop` is ramp: it is more lands in play per turn.
+     Produced by the compiler's `may-play-from` static since 2 Sep 2026;
+     before that it was declared, wired into a role and fed by nothing. */
   'play-from-graveyard',
+  /*
+   * A card goes from the HAND straight onto the battlefield, uncast. Elvish
+   * Piper, Sneak Attack, Quicksilver Amulet, Stoneforge Mystic's activation.
+   * The compiler reads the sentence as `return-from` with `zone: 'hand'`, and
+   * the facet layer refuses to call that `eff:return-from`, which is in the
+   * `draw` role and means recursion. A land from the hand is
+   * `eff:extra-land-drop` instead; this word is for everything else.
+   */
+  'put-onto-battlefield',
+  /* Casting NONLAND cards out of the graveyard: Karador, Lurrus, Kess, and
+     Muldrotha alongside the verb above. A second hand is card advantage, so
+     it files as recursion under `draw`, and it is a separate word rather than
+     a qualifier for the reason `eff:exile-graveyard` is: a role check asks
+     whether one facet is present, and one verb for both halves would have put
+     Karador in ramp. */
+  'cast-from-graveyard',
   /* Coin flips and dice. Roughly 200 cards across roll-d6, roll-d20 and
      coin-flip, and every existing verb would have been a lie about them. */
   'random',
@@ -354,6 +391,12 @@ export const EFFECT_VERBS: readonly string[] = [
   'extra-turn',
   'extra-combat',
   'scry',
+  /* A dig: look at the top few, take what the card names, the rest to the
+     bottom. Impulse, Collected Company, Kinnan. Produced by the XMage port for
+     a while and by the oracle-text compiler since the `dig` rule, and absent
+     from this list the whole time, so the Words screen filed it as a word
+     nobody had written down. */
+  'look-and-pick',
 ];
 
 /* ------------------------------------------------------------------ *
@@ -436,9 +479,13 @@ export const ROLE_FACETS: Readonly<Record<Role, readonly Facet[]>> = {
      lands are both "this deck does more per turn than its mana says it should".
      Ghalta at rank 461 and Crucible of Worlds at 597 could serve no role at all
      before this. */
+  /* `eff:put-onto-battlefield` is Elvish Piper and Sneak Attack, and it sits
+     here for the reason `eff:reduce-cost` does: a permanent that arrives
+     without being paid for is the deck doing more per turn than its mana says
+     it should. */
   ramp: [
     'eff:add-mana', 'cares:zone:library-land', 'eff:extra-land-drop',
-    'eff:reduce-cost', 'eff:play-from-graveyard',
+    'eff:reduce-cost', 'eff:play-from-graveyard', 'eff:put-onto-battlefield',
   ],
   /*
    * Drawing a card, AND buying one back out of the graveyard, which is the same
@@ -450,8 +497,14 @@ export const ROLE_FACETS: Readonly<Record<Role, readonly Facet[]>> = {
    * what the rule claims: eight rescued, every one of them genuine card
    * advantage, and eleven that already had a role, all creatures like Eternal
    * Witness which keep `creature` and gain this too, correctly.
+   *
+   * `eff:cast-from-graveyard` is the same claim made continuously: Karador,
+   * Lurrus and Kess do not return the card, they let you cast it from where it
+   * is, and the deck gains the same second copy of every spell it mills. It
+   * qualifies through `facetRoleQualifies` the way `eff:return-from` does,
+   * because the permission always carries `cares:zone:graveyard`.
    */
-  draw: ['eff:draw', 'eff:return-from'],
+  draw: ['eff:draw', 'eff:return-from', 'eff:cast-from-graveyard'],
   /* `eff:shrink` is here rather than in `enhance` because a mass minus-N KILLS
      things, which is the job removal names. Splitting the sign moved 116 cards
      out of enhance, where a sweeper was being counted as an anthem: Massacre
@@ -965,11 +1018,70 @@ const INTENT_RULES: readonly IntentRule[] = [
     wants: [
       ['type:creature', 0.8],
       ['cares:type:creature', 0.5],
+      /* The bigger the creature, the more a discount is worth: Animar decks
+         run the seven-drops that cost nothing once he is large. */
+      ['mv:big', 0.45],
+    ],
+  },
+  {
+    // Niv-Mizzet (both), Nekusar, Kydele: a draw that becomes damage, or the
+    // reverse, is a loop the deck closes with Curiosity and wheels.
+    when: /(whenever (you|a player|an opponent|each player) draws? (a|your first) card[^.]{0,60}deals? \d+ damage|deals? (\d+ )?damage[^.]{0,40}, (you |that player )?draws? a card)/i,
+    reads: 'turns drawing into damage, so the deck wants loops and wheels',
+    wants: [
+      ['eff:wheel', 0.85],
+      ['trig:deals-damage', 0.75],
+      ['eff:draw-each', 0.7],
+      ['eff:draw', 0.65],
+    ],
+  },
+  {
+    // Yuriko, Satoru Umezawa, Kaito: ninjutsu needs a creature nobody blocks,
+    // cast early enough to connect on the second turn.
+    when: /ninjutsu/i,
+    reads: 'brings Ninjas in off an unblocked attacker, so it wants cheap creatures nobody blocks',
+    wants: [
+      ['sub:ninja', 0.9],
+      ['eff:cant-be-blocked', 0.8],
+      ['mv:cheap', 0.7],
+      ['kw:flying', 0.55],
+      ['kw:menace', 0.4],
+    ],
+  },
+  {
+    // Xenagos, Ghalta, Rhonas, Ruric Thar: the commander rewards ONE big body.
+    when: /(gets \+X\/\+X[^.]{0,30}where X is (that|its|this) creature's power|doubles? (its|that creature's|target creature's) power|total power of creatures you control|with power (\d|[5-9]|1\d) or greater|creatures? with the greatest power)/i,
+    reads: 'rewards a huge creature, so the deck wants bodies big enough to end a game',
+    wants: [
+      ['pt:big', 0.85],
+      ['kw:trample', 0.6],
+      ['cares:power', 0.6],
+      ['type:creature', 0.5],
+    ],
+  },
+  {
+    // Feather, Zada, Anax and Cymede: a spell that targets your own creature IS
+    // the trigger, so the deck is cheap tricks and cantrips that do.
+    when: /(instant or sorcery spell that targets a creature you control|spells? that targets? (a creature you control|only a single creature you control)|whenever you cast a spell that targets)/i,
+    reads: 'is paid when your own spells target your own creatures',
+    wants: [
+      ['type:instant', 0.7],
+      ['eff:pump', 0.65],
+      ['grants:hexproof', 0.55],
+      ['grants:indestructible', 0.5],
+      ['grants:protection', 0.5],
+      ['eff:protect', 0.5],
+      ['cares:type:creature', 0.45],
+      ['eff:draw', 0.4],
     ],
   },
   {
     // Kodama of the West Tree, Rishkar, and "modified" generally.
-    when: /(modified creature|counters? on it|put a \+1\/\+1 counter)/i,
+    /* NO `i` FLAG, because the exclusion needs case: "put a +1/+1 counter on
+       Korvold" is the commander growing itself, and a capital after "on" is
+       the only way English marks a name here. The alternatives spell out both
+       casings instead. */
+    when: /([Mm]odified creature|[Cc]ounters? on it\b|[Pp]ut a \+1\/\+1 counter on (?!this\b|it\b|[A-Z]))/,
     reads: 'works with counters on your creatures',
     wants: [
       ['ctr:+1/+1', 0.8],
@@ -1500,7 +1612,12 @@ const INTENT_RULES: readonly IntentRule[] = [
     wants: [
       ['type:creature', 0.8],
       ['cares:type:creature', 0.55],
+      /* More casts is more triggers, so the cheap creature beats the dear one,
+         and a creature that also makes mana is a cast that pays for the next.
+         Every human Chulane and Animar list runs the one-mana dorks. */
+      ['mv:cheap', 0.45],
       ['trig:cast', 0.35],
+      ['eff:add-mana', 0.25],
     ],
   },
   {
@@ -2398,10 +2515,17 @@ const PLAN_RULES: readonly {
    */
   {
     when: 'cost:tap',
+    /*
+     * Toned down on 3 Sep 2026. At 0.8 this was the LOUDEST want on Chulane,
+     * Teller of Tales, louder than the creature-cast trigger that is his whole
+     * card, because a facet-keyed rule runs at full weight while the English
+     * reading of a partially-read commander is scaled to 0.8. And
+     * `sub:equipment` "for haste" dragged Swords and Batterskull into every
+     * deck whose commander taps; `grants:haste` is the word for what was meant.
+     */
     wants: [
-      { facet: 'eff:untap', weight: 0.8 },
-      { facet: 'kw:haste', weight: 0.6 },
-      { facet: 'sub:equipment', weight: 0.45 },
+      { facet: 'eff:untap', weight: 0.55 },
+      { facet: 'grants:haste', weight: 0.5 },
     ],
   },
   {
@@ -2492,6 +2616,33 @@ const PLAN_RULES: readonly {
       { facet: 'eff:mill', weight: 0.5 },
     ],
   },
+  /*
+   * The facet-side twin of the "casts spells out of your graveyard" intent
+   * rule, same weights, so Muldrotha gets the same plan now that the compiler
+   * reads her whole card as it got while the English reader was the only door.
+   * A commander reported `rec:full` never reaches the intent rules, so without
+   * this the better reading would have produced the thinner plan.
+   */
+  {
+    when: 'eff:cast-from-graveyard',
+    wants: [
+      { facet: 'cares:zone:graveyard', weight: 0.85 },
+      { facet: 'eff:mill', weight: 0.75 },
+      { facet: 'eff:return-from', weight: 0.65 },
+      { facet: 'eff:discard', weight: 0.5 },
+    ],
+  },
+  /* Lands out of the graveyard want lands IN the graveyard and more land drops
+     to spend them on. Not `cares:type:land`, which is the Bone Saw mistake
+     `eff:extra-land-drop`'s note in the facet layer describes. */
+  {
+    when: 'eff:play-from-graveyard',
+    wants: [
+      { facet: 'cares:zone:graveyard', weight: 0.75 },
+      { facet: 'eff:mill', weight: 0.6 },
+      { facet: 'eff:extra-land-drop', weight: 0.5 },
+    ],
+  },
   {
     when: 'eff:gain-life',
     wants: [{ facet: 'eff:gain-life', weight: 0.7 }],
@@ -2500,11 +2651,117 @@ const PLAN_RULES: readonly {
     when: 'eff:add-mana',
     wants: [{ facet: 'eff:add-mana', weight: 0.6 }],
   },
+  /*
+   * A COMMANDER PAID FOR TAPPING THINGS FOR MANA WANTS THINGS TO TAP FOR MANA.
+   *
+   * Kinnan, Bonder Prodigy: "Whenever you tap a nonland permanent for mana, add
+   * one mana of any type that permanent produced." Until the compiler read that
+   * line he planned as voltron, "tells us nothing but its stats", and the deck
+   * armed a mana commander with Equipment. The trigger is the whole card. Every
+   * dork and every rock is a Kinnan card, the ones that make the most per tap
+   * most of all, and anything that untaps them taps them again: Basalt Monolith
+   * with Kinnan is the format's best known infinite, and it is an untap.
+   *
+   * Vorinclex, Voice of Hunger and Zendikar Resurgent carry the same trigger on
+   * lands and take the same plan; their `cares:type:land` adds the land half
+   * through the type rule below.
+   *
+   * `eff:add-mana` sits above the generic rule's 0.6 because that rule reads
+   * "this commander makes mana" and this one reads "this commander is paid
+   * every time you do". There is no `type:creature` want for the dorks, and
+   * deliberately: a dork reaches the deck through `eff:add-mana`, and a want for
+   * a card type every creature carries would hand every creature the same fit.
+   */
+  {
+    when: 'trig:tapped-for-mana',
+    wants: [
+      { facet: 'eff:add-mana', weight: 0.9 },
+      { facet: 'mana:3', weight: 0.7 },
+      { facet: 'mana:2', weight: 0.6 },
+      { facet: 'eff:untap', weight: 0.6 },
+    ],
+  },
   {
     when: 'eff:sacrifice',
     wants: [
       { facet: 'eff:sacrifice', weight: 0.8 },
       { facet: 'eff:create-token', weight: 0.6 },
+    ],
+  },
+  {
+    /*
+     * "Whenever you sacrifice a permanent" had NO rule, so Korvold, Fae-Cursed
+     * King - the most played sacrifice commander in the format - never asked
+     * for a sacrifice outlet and planned as a +1/+1 counters deck off the
+     * counter he puts on himself. A commander paid per sacrifice wants the
+     * things that let you sacrifice on demand first, then things to feed them.
+     */
+    when: 'trig:sacrificed',
+    wants: [
+      { facet: 'cost:sacrifice', weight: 0.9 },
+      { facet: 'eff:create-token', weight: 0.7 },
+      { facet: 'tok:treasure', weight: 0.6 },
+      { facet: 'cost:sacrifice-self', weight: 0.5 },
+      { facet: 'trig:dies', weight: 0.5 },
+    ],
+  },
+  {
+    /*
+     * A commander that grows ITSELF is not a counters commander. Animar and
+     * Korvold both put a counter on themselves and both were built as
+     * Hardened Scales decks. Counters still help them - proliferate does grow
+     * the commander - so the want is real, at half the weight of a card that
+     * puts counters on your board.
+     */
+    when: 'eff:add-counters-self',
+    wants: [
+      { facet: 'eff:add-counters', weight: 0.5 },
+      { facet: 'eff:proliferate', weight: 0.5 },
+      { facet: 'ctr:+1/+1-self', weight: 0.45 },
+    ],
+  },
+  {
+    /* Prosper, Laelia, Faldorn: the deck lives in exile. The same shape as
+       `cares:zone:graveyard` below. */
+    when: 'cares:zone:exile',
+    wants: [
+      { facet: 'cares:zone:exile', weight: 0.75 },
+      { facet: 'eff:exile-own', weight: 0.45 },
+    ],
+  },
+  {
+    /* Niv-Mizzet, The Locust God, Chasm Skulker, Nekusar: paid per card
+       drawn, so the deck wants the cards that draw the most at once. */
+    when: 'trig:draws-card',
+    wants: [
+      { facet: 'eff:wheel', weight: 0.8 },
+      { facet: 'eff:draw-each', weight: 0.7 },
+      { facet: 'eff:draw', weight: 0.7 },
+    ],
+  },
+  {
+    /*
+     * The parsed form of "whenever you cast a creature spell". The English
+     * intent rule with the same wants is skipped once the compiler reads the
+     * commander whole, which is exactly when Chulane, Teller of Tales lost his
+     * creature want and planned around lands instead. Same wants, facet-keyed.
+     */
+    when: 'trig:cast:creature',
+    wants: [
+      { facet: 'type:creature', weight: 0.85 },
+      { facet: 'mv:cheap', weight: 0.5 },
+      { facet: 'cares:type:creature', weight: 0.5 },
+      { facet: 'eff:add-mana', weight: 0.3 },
+    ],
+  },
+  {
+    /* Elvish Piper, Sneak Attack, Kinnan's dig, Lurking Predators: a card that
+       cheats a creature onto the battlefield wants creatures worth cheating. */
+    when: 'eff:put-onto-battlefield',
+    wants: [
+      { facet: 'pt:big', weight: 0.75 },
+      { facet: 'mv:big', weight: 0.7 },
+      { facet: 'type:creature', weight: 0.5 },
     ],
   },
   {
@@ -2539,6 +2796,11 @@ const PLAN_RULES: readonly {
  */
 const TYPE_WANT_WEIGHT = 0.9;
 const TYPE_ECHO_WEIGHT = 0.7;
+
+/** Artifact subtypes that exist only as tokens: a commander that names one wants the cards that MAKE it. */
+const TOKEN_ARTIFACT_TYPES: ReadonlySet<string> = new Set([
+  'treasure', 'food', 'clue', 'blood', 'gold', 'map', 'powerstone', 'junk', 'incubator', 'lander',
+]);
 
 /** A tribe want: being the creature type, and caring about the creature type. */
 const TRIBE_MEMBER_WEIGHT = 1.0;
@@ -2577,10 +2839,13 @@ const PLAN_IGNORED: ReadonlySet<Facet> = new Set([
  * `commanderTags` is used ONLY when the commander's record is empty, and the
  * plan says so through `fromTagsOnly` so a caller can report the fallback rate
  * rather than discover it later. Measured over the four test commanders, one of
- * four (Muldrotha, the Gravetide) falls back: the oracle-text compiler returns
+ * four (Muldrotha, the Gravetide) fell back: the oracle-text compiler returned
  * `coverage: 'manual'` and no abilities for "you may play a land and cast a
  * permanent spell of each permanent type from your graveyard", and the XMage
- * table holds no record for that oracle id either.
+ * table holds no record for that oracle id either. Since 2 Sep 2026 that
+ * sentence compiles to a `may-play-from` static and she reads `rec:full`, so
+ * her plan comes through the facet rules for `eff:cast-from-graveyard` and
+ * `cares:zone:graveyard` instead.
  */
 export function planForCommander(commander: {
   name: string;
@@ -2633,7 +2898,12 @@ export function planForCommander(commander: {
   for (const f of facets) {
     if (!f.startsWith('cares:type:')) continue;
     const type = f.slice('cares:type:'.length);
-    if (type === 'creature' || type === 'permanent') continue;
+    /* `land` is skipped as a MEMBER want: lands are chosen by the mana base,
+       never from the spell pool, and "triggers on land spells" is not a
+       sentence. The echo below stays, because a commander whose filters name
+       lands (Chulane putting them onto the battlefield, Muldrotha playing
+       them from the graveyard) does want the cards that care about lands. */
+    if (type === 'creature' || type === 'permanent' || type === 'land') continue;
     add(`type:${type}`, TYPE_WANT_WEIGHT, `${commander.name} triggers on ${type} spells`);
     add(f, TYPE_ECHO_WEIGHT, `${commander.name} triggers on ${type} spells`);
   }
@@ -2660,6 +2930,15 @@ export function planForCommander(commander: {
     if (!f.startsWith('cares:sub:')) continue;
     const sub = f.slice('cares:sub:'.length);
     if (!sub) continue;
+    /* A TREASURE IS MADE, NOT CAST. Nothing in the catalogue has Treasure on
+       its type line, so `sub:treasure` at 1.0 was a want no card could meet,
+       while Prosper, Tome-Bound's real ask - cards that make Treasure - sat on
+       `tok:treasure` with nothing pointing at it. Same for Food, Clues, Blood. */
+    if (TOKEN_ARTIFACT_TYPES.has(sub)) {
+      add(`tok:${sub}`, TRIBE_MEMBER_WEIGHT, `${commander.name} is paid in ${sub}`);
+      add(f, TYPE_ECHO_WEIGHT, `${commander.name} is paid in ${sub}`);
+      continue;
+    }
     add(`sub:${sub}`, TRIBE_MEMBER_WEIGHT, `${commander.name} triggers on ${sub} spells`);
     add(f, TYPE_ECHO_WEIGHT, `${commander.name} triggers on ${sub} spells`);
   }
@@ -2675,6 +2954,15 @@ export function planForCommander(commander: {
   // Counter kinds the commander puts out or reads.
   for (const f of facets) {
     if (!f.startsWith('ctr:')) continue;
+    /* A counter the commander puts on ITSELF, at half weight. This loop is
+       where Korvold's `0.90 ctr:+1/+1` came from: he grows himself, and the
+       loop read that as a counters plan. */
+    if (f.endsWith('-self')) {
+      const kind = f.slice(4, -'-self'.length);
+      add(f, 0.45, `${commander.name} grows itself with ${kind} counters`);
+      add('eff:proliferate', 0.45, `${commander.name} grows itself with ${kind} counters`);
+      continue;
+    }
     add(f, 0.9, `${commander.name} works with ${f.slice(4)} counters`);
     add('eff:proliferate', 0.8, `${commander.name} works with ${f.slice(4)} counters`);
   }
@@ -3050,12 +3338,20 @@ const TAG_TO_FACET: Readonly<Record<string, Facet>> = {
 
 /** Turn a commander facet into a clause. Built from the facet, never invented. */
 function describeFacet(facet: Facet): string {
+  if (facet === 'trig:tapped-for-mana') return 'is paid every time you tap something for mana';
   if (facet === 'eff:proliferate') return 'proliferates';
   if (facet === 'eff:add-counters') return 'puts counters on things';
   if (facet === 'eff:create-token') return 'makes tokens';
   if (facet === 'eff:return-from') return 'brings cards back';
   if (facet === 'cares:zone:graveyard') return 'plays out of the graveyard';
   if (facet === 'eff:sacrifice') return 'sacrifices things';
+  if (facet === 'eff:add-counters-self') return 'grows itself with counters';
+  if (facet === 'trig:sacrificed') return 'is paid whenever you sacrifice something';
+  if (facet === 'trig:draws-card') return 'is paid whenever a card is drawn';
+  if (facet === 'cares:zone:exile') return 'plays cards from exile';
+  if (facet === 'cost:tap') return 'taps for its ability';
+  if (facet === 'trig:cast:creature') return 'is paid whenever you cast a creature spell';
+  if (facet === 'eff:put-onto-battlefield') return 'cheats cards straight onto the battlefield';
   if (facet === 'eff:attach') return 'attaches things to creatures';
   if (facet.startsWith('eff:')) return `uses ${facet.slice(4)}`;
   return `carries ${facet}`;
@@ -3145,6 +3441,13 @@ export interface ArchetypeInput {
   named: number;
   /** The ones that resolved, in the caller's order. */
   exemplars: readonly ArchetypeExemplar[];
+  /**
+   * Packages the CALLER states outright, with no exemplars behind them. The
+   * tribe is the case: "the Angels" is a job with a name and a want, and no
+   * shell can name its cards because the tribe is different for every
+   * commander. Appended after the exemplar-derived packages, unchanged.
+   */
+  extraPackages?: readonly ArchetypePackagePlan[];
 }
 
 /**
@@ -3494,10 +3797,14 @@ export function planForArchetype(
     const creaturePackage = creatures * 4 >= cards.length * 3;
     for (const card of cards) {
       for (const facet of new Set(card.facets)) {
-        if (PLAN_IGNORED.has(facet)) continue;
-        const admitted =
-          ARCHETYPE_WANT_PREFIXES.some(p => facet.startsWith(p)) ||
-          (creaturePackage && facet === 'type:creature');
+        /* `type:creature` is IN `PLAN_IGNORED`, which is why the shell-level
+           loop above never sees it and why this check has to come first: the
+           first version tested the exception after the ignore list and the
+           exception never ran. Found with a four-creature synthetic package
+           whose wants came back without the type. */
+        const creatureWant = creaturePackage && facet === 'type:creature';
+        if (PLAN_IGNORED.has(facet) && !creatureWant) continue;
+        const admitted = ARCHETYPE_WANT_PREFIXES.some(p => facet.startsWith(p)) || creatureWant;
         if (!admitted) continue;
         seen.set(facet, (seen.get(facet) ?? 0) + 1);
         if (!firstSeen.has(facet)) firstSeen.set(facet, card.name);
@@ -3525,6 +3832,7 @@ export function planForArchetype(
       share: cards.length / Math.max(1, read),
     });
   }
+  for (const extra of input.extraPackages ?? []) packages.push(extra);
 
   return {
     id: input.id,
@@ -3715,6 +4023,7 @@ const TRIGGER_PHRASES: Readonly<Record<string, string>> = {
   blocks: 'trigger on a block',
   step: 'trigger at a point in the turn',
   sacrificed: 'trigger on a sacrifice',
+  'tapped-for-mana': 'trigger on something being tapped for mana',
   'zone-change': 'trigger on a card changing zones',
   'deals-damage': 'trigger on dealing damage',
   'dealt-damage': 'trigger on taking damage',
@@ -4235,6 +4544,8 @@ const EFFECT_PHRASES: Readonly<Record<string, string>> = {
   'search-library': 'searches your library',
   'create-token': 'makes tokens',
   'add-counters': 'puts counters on things',
+  'add-counters-self': 'grows itself with counters',
+  wheel: 'makes every player throw away their hand and draw a new one',
   'cant-block': 'stops a creature blocking',
   'cant-attack': 'stops a creature attacking',
   'cant-be-blocked': 'makes a creature unblockable',
@@ -4250,6 +4561,8 @@ const EFFECT_PHRASES: Readonly<Record<string, string>> = {
   animate: 'turns a permanent into a creature',
   'redirect-damage': 'redirects damage',
   'play-from-graveyard': 'plays lands from the graveyard',
+  'put-onto-battlefield': 'puts a card from your hand straight onto the battlefield',
+  'cast-from-graveyard': 'casts spells from the graveyard',
   random: 'flips a coin or rolls a die',
   goad: 'forces creatures to attack elsewhere',
   'cant-attack-self': 'cannot attack itself',

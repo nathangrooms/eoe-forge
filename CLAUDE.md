@@ -3109,37 +3109,38 @@ the NEXT version.
 
 Seven more shapes, written in seven worktrees and merged by hand because
 every adversarial verifier died on the spend limit for the second time:
-own-bounce, impulse draw, a pump sized by a creature’s power, protection
+own-bounce, impulse draw, a pump sized by a creature's power, protection
 from a colour chosen on resolution, the wheel, "unless that player pays",
-and "cast without paying its mana cost". Suite 3,249 -> 3,337, none failing.
+and "cast without paying its mana cost". Suite 3,249 to 3,337, none failing.
 
     read the whole card    10,469 -> 10,988      unread clauses  21,839 -> 20,799
 
-** had to be narrowed the same day it landed.** 182 cards in
-Chulane’s colours carried it and the ranker reached Rancor (829), Spine of
+**`eff:bounce-own` had to be narrowed the same day it landed.** 182 cards in
+Chulane's colours carried it and the ranker reached Rancor (829), Spine of
 Ish Sah and Batterskull first, because those return THEMSELVES and are not
-creatures. His job stayed at zero with the facet in place and his plan
-asking for it at 0.6. A creature returning itself still counts: Whitemane
-Lion’s own re-entry IS the recast. Compiler 16 is that one narrowing.
+creatures. His "bounce your own creatures" job stayed at zero with the facet
+in place and his plan asking for it at 0.6. A creature returning itself still
+counts: Whitemane Lion's own re-entry IS the recast. Compiler 16 is that one
+narrowing, and nothing else.
 
-**Two staples are named, not ranked.** Sol Ring and Arcane Signet in every
+**Four staples are named, not ranked.** Sol Ring and Arcane Signet in every
 Commander deck; Lightning Greaves and Swiftfoot Boots too when the commander
 is a creature. Ranks 1, 3, 12 and 20, all colourless. The plan already wanted
 what Boots and Greaves grant and they still lost four of seven decks, because
 a card matching the strategy at fit 0.5 beats a card matching it at 0.
-Staples 40/61 -> 51/61 on the roster.
+Staples 40/61 to 51/61 on the roster.
 
-> ⚠️ The first version read , which is EMPTY on the
-> path the generator is actually called through: the plan reads its type line
-> from the catalogue row and that object does not carry one. The test was
+> **The first version read `input.commander.typeLine`, which is EMPTY on the
+> path the generator is actually called through:** the plan reads its type
+> line from the catalogue row and that object does not carry one. The test was
 > false for every commander and named nothing, silently. It reads the
->  FACET now. **Check a note in the build log before believing
-> a pass ran** — that is what caught it.
+> `type:creature` FACET now. **Read the note the pass writes into the build
+> log before believing it ran** — that is what caught it.
 
 ### Najeela fails on the edge worker again, and the pool size is not why
 
 She passed at 5.2 s once the review rounds were bounded, and returned
- once compiler 15 and 16 put facets on 1,016 more
+`WORKER_RESOURCE_LIMIT` once compiler 15 and 16 put facets on 1,016 more
 cards. **A 4,000-card five-colour pool was tried and measured: it failed at
 8.0 s exactly as 5,000 does**, so the cost is per-card facet work rather than
 the fetch, and narrowing the pool only narrows the deck. Left at 5,000 for
@@ -3148,15 +3149,34 @@ build, 75/85 staples, 1 card past rank 15,000.
 
 ### Similar cards: the tie-break moved, the metric did not
 
- never fetched , so the last tie-break compared
-undefined and fell through to price DESCENDING. It breaks on how many decks
-play the card now. **A metric change was tried and reverted, and the
-measurement is the point:**  is a weighted Jaccard, so a
-card carrying FEWER facets has a smaller union and scores higher, and a card
-the compiler could not finish reading carries fewer facets for the worst
-reason. Against Swiftfoot Boots, Vorrac Battlehorns (5,935, incomplete) 0.844
-and Lightning Greaves (13, complete) 0.783. Demoting incomplete records to
-their own tier put Greaves second and then took Mystic Remora (99, also
-incomplete) off Rhystic Study’s list, which is the right answer for that
-card. One bias for another. **Fixing it needs an answer key over many
-subjects, the way the deck side has one.**
+`CardRelated` never fetched `edhrec_rank`, so the ranker's last tie-break
+compared undefined and fell through to price DESCENDING. It breaks on how
+many decks play the card now.
+
+**A metric change was tried and REVERTED, and the measurement is the point.**
+`behaviourSimilarity` is a weighted Jaccard, so a card carrying FEWER facets
+has a smaller union and scores higher, and a card the compiler could not
+finish reading carries fewer facets for the worst possible reason. Against
+Swiftfoot Boots: Vorrac Battlehorns (rank 5,935, record incomplete) 0.844,
+Lavaspur Boots (1,500, incomplete) 0.844, Lightning Greaves (13, complete)
+0.783. Demoting incomplete records to their own tier put Greaves second and
+then took Mystic Remora (99, also incomplete) off Rhystic Study's list, which
+is the right answer for that card, and broke two tests. One bias for another.
+**Fixing it needs an answer key over many subjects, the way the deck side
+has one. Do not tune it against one card.**
+
+### Where the twenty commanders stand
+
+    jobs done          15/71 -> 18/71
+    groups at zero     28 -> 21
+    roster keyed       72% -> 66%      staples 40/61 -> 51/61
+    past rank 15,000   0 on all twenty
+
+The keyed drop is the price of the staples, and it is the trade the owner
+asked for: *"sol ring should be in every deck - its a staple no deck can live
+without."*
+
+Nine groups still at zero are the same shape: the compiler reads the cards
+and the generator does not reach them. Yuriko's cheap evasive creatures,
+Feather's cantrips, Kinnan's untappers, Animar's colourless fatties. That is
+ranking and slot policy, not vocabulary, and it is the next piece of work.

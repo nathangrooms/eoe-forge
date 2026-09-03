@@ -161,7 +161,11 @@ const BEHAVIOUR_POOL_CAP = 900;
  * 533 kB on `CARD_COLUMNS`.
  */
 const RANK_COLUMNS =
-  'id, oracle_id, name, mana_cost, type_line, cmc, oracle_text, keywords, tags, layout, power, toughness, prices';
+  /* `edhrec_rank` is the ranker's last tie-break - two cards that do the
+     same thing at the same cost are separated by how many decks play them -
+     and a column this list does not name comes back undefined, which sorts
+     every card equal. */
+  'id, oracle_id, name, mana_cost, type_line, cmc, oracle_text, keywords, tags, layout, power, toughness, prices, edhrec_rank';
 
 export interface RelatedEntry {
   card: any;

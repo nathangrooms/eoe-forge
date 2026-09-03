@@ -250,6 +250,12 @@ function costFactor(subjectCmc: number, candidateCmc: number): number {
   return COST_HALF_LIFE / (COST_HALF_LIFE + over);
 }
 
+/** How played the card is. Unranked sorts last rather than first. */
+function rankOf(card: SimilarCard): number {
+  const r = (card as { edhrec_rank?: number | null }).edhrec_rank;
+  return typeof r === 'number' && Number.isFinite(r) ? r : Number.MAX_SAFE_INTEGER;
+}
+
 export function rankBySameBehaviour<T extends SimilarCard>(
   subject: SimilarCard,
   candidates: readonly T[],
@@ -324,6 +330,18 @@ export function rankBySameBehaviour<T extends SimilarCard>(
     // is the next thing a deckbuilder asks and the only one of the remaining
     // axes that is about the card rather than about the market.
     if (a.gap !== b.gap) return a.gap - b.gap;
+    /*
+     * THEN HOW MANY PEOPLE PLAY IT. The last tie-break used to be price,
+     * descending, and the comment above says why that was uncomfortable:
+     * price is about the market rather than the card. `edhrec_rank` is how
+     * many real decks play it, which is what a player asks next after "does
+     * it do the same thing". Price stays as the resort for two unranked
+     * cards. THE POOL MUST CARRY THE COLUMN: `CardRelated` fetches an
+     * explicit list and did not ask for it, so this compared undefined.
+     */
+    const ra = rankOf(a.card);
+    const rb = rankOf(b.card);
+    if (ra !== rb) return ra - rb;
     return (priceOf(b.card) ?? 0) - (priceOf(a.card) ?? 0);
   });
 

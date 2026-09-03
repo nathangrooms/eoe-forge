@@ -882,14 +882,33 @@ describe('bouncing your own permanent is not bouncing theirs', () => {
     assert.ok(lion.includes('rec:partial'), lion.join(' '));
   });
 
-  it('a card returning itself to hand is bouncing its own side', () => {
+  it('a NON-CREATURE returning itself to hand is not a creature coming back', () => {
+    /*
+     * The rule this test was written with counted any self-bounce, and its
+     * author flagged the false positive in the same breath. Measured on the
+     * built deck, 3 Sep 2026: 182 cards in Chulane's colours carried
+     * `eff:bounce-own` and the ones the ranker reached first were Rancor
+     * (829) and Spine of Ish Sah, so his "bounce your own creatures to cast
+     * them again" job stayed at zero with the facet in place and his plan
+     * asking for it at 0.6. An Equipment returning itself is a fine card and
+     * it is not what Chulane or Animar is paid for.
+     *
+     * A CREATURE returning itself still counts: Whitemane Lion's own
+     * re-entry IS the recast, and it is asserted above.
+     */
     const batterskull = facets({
       oracle_id: 'batterskull', name: 'Batterskull', type_line: 'Artifact — Equipment', mana_cost: '{5}', cmc: 5,
       oracle_text:
-        "Living weapon (When this Equipment enters, create a 0/0 black Phyrexian Germ creature token, then attach this to it.)\nEquipped creature gets +4/+4 and has vigilance and lifelink.\n{3}: Return this Equipment to its owner's hand.\nEquip {5}",
+        "Living weapon\nEquipped creature gets +4/+4 and has vigilance and lifelink.\n{3}: Return this Equipment to its owner's hand.\nEquip {5}",
     });
-    assert.ok(batterskull.includes('eff:bounce-own'), batterskull.join(' '));
-    assert.ok(!batterskull.includes('eff:move-zone'), batterskull.join(' '));
+    assert.ok(!batterskull.includes('eff:bounce-own'), batterskull.join(' '));
+
+    const rancor = facets({
+      oracle_id: 'rancor', name: 'Rancor', type_line: 'Enchantment — Aura', mana_cost: '{G}', cmc: 1,
+      oracle_text:
+        'Enchant creature\nEnchanted creature gets +2/+0 and has trample.\nWhen this Aura is put into a graveyard from the battlefield, return this card to its owner’s hand.',
+    });
+    assert.ok(!rancor.includes('eff:bounce-own'), rancor.join(' '));
   });
 
   it('a karoo bouncing a land carries neither', () => {

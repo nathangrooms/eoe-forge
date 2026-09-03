@@ -1367,10 +1367,30 @@ function readEffect(effect: Effect, out: Set<Facet>, targets?: readonly TargetSp
        * bounce keeps it too: "return target land you control to its owner's
        * hand" is the karoo shape, not a creature coming back for a recast.
        */
+      /*
+       * AND A NON-CREATURE RETURNING ITSELF IS NOT A CREATURE COMING BACK.
+       *
+       * Rancor (829) says "return Rancor to its owner's hand" and Batterskull
+       * (4,993) and Spine of Ish Sah say the same of themselves. Every one is
+       * a bounce of your own permanent and none of them is what Chulane,
+       * Teller of Tales or Animar, Soul of Elements is paid for, which is a
+       * CREATURE re-entering the stack. Measured 3 Sep 2026: 182 cards in
+       * Chulane's colours carried `eff:bounce-own` and the ones the ranker
+       * reached first were Rancor and Spine of Ish Sah, so his "bounce your
+       * own creatures to cast them again" job stayed empty with the facet in
+       * place and the plan asking for it.
+       *
+       * A creature returning ITSELF still counts: Whitemane Lion and Shrieking
+       * Drake are exactly the cards, and their own re-entry is the recast.
+       * So the test is on the card, not on the selector: a `self` bounce
+       * belongs to a creature or it is not this.
+       */
+      const bouncesSelfOnly = (effect.what as { sel?: string }).sel === 'self';
       const own =
         effect.to === 'hand' &&
         isSelfAimed(aimOfSelector(effect.what, targets)) &&
-        !selectsLand(effect.what, targets);
+        !selectsLand(effect.what, targets) &&
+        !(bouncesSelfOnly && !out.has('type:creature'));
       out.add(own ? 'eff:bounce-own' : 'eff:move-zone');
       out.add(`cares:zone:${effect.to}`);
       readSelector(effect.what, out);

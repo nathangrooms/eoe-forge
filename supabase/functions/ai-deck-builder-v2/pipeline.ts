@@ -564,6 +564,15 @@ export type BuildOutcome =
    Commander. Raising that needs a smaller per-card footprint in the engine or
    a function with more memory, not a smaller row. */
 function rankCeilingFor(colours: number): number | undefined {
+  /* FIVE COLOURS STILL FAILS ON THE EDGE WORKER, and 4,000 was tried and
+     measured on 3 Sep 2026: Najeela, the Blade-Blossom returned
+     WORKER_RESOURCE_LIMIT at 8.0 s with a 4,000-card pool exactly as she did
+     with 5,000, so the pool SIZE is not the binding cost and lowering it only
+     narrows the deck. She passed at 5.2 s earlier the same day and stopped
+     when compiler 15 and 16 put facets on 1,016 more cards; what got more
+     expensive is per-card facet work, not the fetch. Left at 5,000 until
+     somebody profiles the worker rather than guessing. The debt below is
+     still the real answer: Postgres should be choosing these rows. */
   if (colours >= 5) return 5000;
   if (colours === 4) return 9000;
   if (colours === 3) return 12000;

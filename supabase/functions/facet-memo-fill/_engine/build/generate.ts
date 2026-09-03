@@ -503,6 +503,23 @@ const EMPTY_DECK_COMMANDER_FIT = 3.6;
  */
 const FORMAT_STAPLE_NAMES: ReadonlySet<string> = new Set(['Sol Ring', 'Arcane Signet']);
 
+/**
+ * And the two that keep a CREATURE commander on the table.
+ *
+ * Lightning Greaves is rank 12 and Swiftfoot Boots rank 20, and both are
+ * colourless, so the only decks they do not belong in are the ones whose
+ * commander is not a creature. `planForCommander` already wants what they
+ * grant - see the "keep the commander on the table" wants - and they still
+ * lost their slots to themed cards on four of the seven roster decks,
+ * because a card matching the strategy at fit 0.5 beats a card matching it
+ * at 0. The want is right and it is not enough; naming them is.
+ *
+ * The same reasoning as Sol Ring, applied to the same evidence: a card the
+ * whole format agrees on is not something a per-deck ranker should have to
+ * rediscover.
+ */
+const CREATURE_COMMANDER_STAPLES: ReadonlySet<string> = new Set(['Lightning Greaves', 'Swiftfoot Boots']);
+
 export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
   const format = (input.format ?? 'commander').toLowerCase();
   const slots = input.slots ?? COMMANDER_SLOTS;
@@ -795,13 +812,27 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
     plan.archetype ?? null
   );
   if (format === 'commander') {
+    /* THE FACET, NOT THE STRING. `input.commander.typeLine` is empty on the
+       path the generator is actually called through - the plan reads its type
+       line from the catalogue row and this object does not carry one - so a
+       string test here was false for every commander, Krenko included, and
+       named nothing. The facet layer put `type:creature` on the commander
+       from that same type line, and it is present wherever the build is. */
+    const wantsProtection = (input.commander.facets ?? []).includes('type:creature');
     const staples: string[] = [];
     for (const c of spellPool) {
-      if (!FORMAT_STAPLE_NAMES.has(c.name) || avoided.has(c.oracleId) || preferred.has(c.oracleId)) continue;
+      const named =
+        FORMAT_STAPLE_NAMES.has(c.name) || (wantsProtection && CREATURE_COMMANDER_STAPLES.has(c.name));
+      if (!named || avoided.has(c.oracleId) || preferred.has(c.oracleId)) continue;
       preferred.add(c.oracleId);
       staples.push(c.name);
     }
-    if (staples.length) notes.push(`${staples.join(' and ')} go in every Commander deck`);
+    if (staples.length) {
+      notes.push(
+        `${staples.join(', ')} go in every Commander deck` +
+          (wantsProtection ? ' with a creature commander' : '')
+      );
+    }
   }
   const rankedSpells = rankCandidates(spellPool, roleProfile, rankOptions);
 

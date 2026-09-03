@@ -3045,8 +3045,16 @@ each swap explained by the commander wanting mana. The rounds and the flex
 pass now score against `withUrgency(plan, picked)`: each want scaled by its
 shortfall against weight × 30, floored at 0.35. **Thirty, not the reserve's
 ten** — at ten, Krenko's eleventh Goblin went out for Sol Ring and keyed fell
-to 64%. A role may run to twice its target plus four in the flex pass, and a
-swap may not take a role below its floor.
+to 64%. A swap may not take a role below its floor.
+
+**No role runs past twice its target plus four, in ANY pass, counted by the
+cards that carry the role.** The first version guarded the flex pass only,
+and Kinnan still came out with 41 ramp pieces against 10 asked for, because
+the creature floor filled with mana dorks: a dork carries the loudest want
+and the creature role, and nothing counted it as ramp. The Consistency line
+on the generator page said "41 ramp out of the 10 you want" in plain words.
+The commander's tribe is exempt (thirty mana Elves are the plan). Kinnan is
+23 mana sources now.
 
 **Sol Ring and Arcane Signet are preferred by name** in every Commander
 build: taken first, never cut, and the deck says so. Chulane's used to arrive

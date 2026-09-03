@@ -132,7 +132,10 @@ for (const { name, ci } of COMMANDERS) {
 
   const flags = [];
   if (total !== 99) flags.push(`ONLY ${total}+1 CARDS`);
-  if (usesGraveyard >= 8 && hate.length) {
+  /* The plan has to WANT the graveyard. Brago runs eight cards that mention
+     one (blink decks recur) and no graveyard hate is wrong in his deck. */
+  const wantsGraveyard = (body.result.changeLog ?? []).some(l => /wants .*(cares:zone:graveyard|eff:return-from.*graveyard)/.test(l));
+  if (usesGraveyard >= 8 && wantsGraveyard && hate.length) {
     flags.push(`graveyard hate in a graveyard deck: ${hate.map(c => c.name).join(', ')}`);
   }
 

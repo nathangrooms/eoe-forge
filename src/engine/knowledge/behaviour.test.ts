@@ -393,7 +393,12 @@ describe('reading the commander', () => {
     const a = new Set(planForCommander(CARDS.atraxa).wants.map(w => w.facet));
     const k = new Set(planForCommander(CARDS.krenko).wants.map(w => w.facet));
     const shared = [...a].filter(f => k.has(f));
-    assert.deepEqual(shared, []);
+    // The one thing every creature commander's plan shares on purpose: the
+    // baseline "keep the commander on the table" wants. Everything else must
+    // differ, and the baseline must be all that is shared.
+    const baseline = new Set(['grants:hexproof', 'grants:shroud', 'grants:indestructible', 'grants:haste']);
+    assert.deepEqual(shared.filter(f => !baseline.has(f)), []);
+    assert.ok(shared.length > 0, 'both are creatures, so both want to survive');
   });
 });
 

@@ -306,6 +306,33 @@ function shellsForCommander(
   candidates: readonly { shell: DeckArchetype; input: ArchetypeInput }[],
   take: number
 ): { shell: DeckArchetype; input: ArchetypeInput; score: number }[] {
+  /*
+   * A SHELL MUST SERVE WHAT THE COMMANDER SHOUTS FOR.
+   *
+   * The cosine ranks shells, and it was being used as if it also admitted
+   * them. It cannot: it is a share of the SHELL, so a commander with three
+   * faint counters wants at 0.5 scores the Counters shell at 0.68 and Giada,
+   * Font of Hope - an Angel whose three loudest wants are all about Angels -
+   * was built around Hangarback Walker, Stonecoil Serpent and Endless One.
+   * Chulane read as Control + Voltron on 0.49 and 0.36 and got Lightning
+   * Greaves and All That Glitters. Measured across the twenty benchmark
+   * commanders on 3 Sep 2026: every second shell under 0.5 was wrong, and
+   * two above it (Giada's Counters at 0.68, Animar's Lifegain at 0.58) were
+   * wrong too, so no floor on the score separates the cases.
+   *
+   * What does: a shell is admissible only when one of the commander's LOUD
+   * wants - weight 0.8 or more, or the three loudest when nothing reaches
+   * that - is a facet the shell itself wants. Korvold's `cost:sacrifice` at
+   * 0.9 is in Aristocrats; Giada's `sub:angel` is in no shell but the tribe,
+   * which is stated as a package separately. A commander whose loud wants no
+   * shell serves is built from its own plan, which is honest.
+   */
+  const loudWants = [...commanderWants].filter(([, w]) => w >= 0.8).map(([f]) => f);
+  const loud = new Set(
+    loudWants.length > 0
+      ? loudWants
+      : [...commanderWants].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([f]) => f)
+  );
   const scored = candidates.map(({ shell, input }) => {
     /* Scored WITHOUT a pool background, deliberately. The background turns a
        share into a lift against this deck's colours, which is right for
@@ -349,10 +376,11 @@ function shellsForCommander(
      * top want is often a broad facet the commander expresses differently.
      */
     const score = shellMagnitude > 0 ? overlap / Math.sqrt(shellMagnitude) : 0;
-    return { shell, input, score, packages: plan.packages.length };
+    const serves = plan.wants.some(w => loud.has(w.facet));
+    return { shell, input, score, packages: plan.packages.length, serves };
   });
   return scored
-    .filter(x => x.score > 0 && x.packages > 0)
+    .filter(x => x.serves && x.score > 0 && x.packages > 0)
     .sort((a, b) => b.score - a.score || a.shell.id.localeCompare(b.shell.id))
     .slice(0, take)
     .map(({ shell, input, score }) => ({ shell, input, score }));

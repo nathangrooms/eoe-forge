@@ -1748,6 +1748,23 @@ const PACKAGE_MATCH = 0.6;
      * nothing else to give, more creatures beat empty slots, and the deck says
      * so through the note below rather than silently.
      */
+    /*
+     * A FLOOR IS NOT A LICENCE. Kinnan, Bonder Prodigy's one loud want is
+     * `eff:add-mana`, so every rock in the pool scored as if it were the
+     * plan and the flex pass, which takes cards in score order, took rocks
+     * until the deck was thirty-five ramp pieces with a median EDHREC rank
+     * of 242. No human list has ever looked like that. A role may run to
+     * twice its target plus four here; a card whose every role is already
+     * there is skipped, and the pass moves on to the next thing the deck
+     * lacks. The counts are kept for the same reason: before this the flex
+     * pass reported nothing to `roleFill`, so the review rounds could not
+     * see what it had done.
+     */
+    const roleCeiling = (role: Role) => (roleFill[role]?.target ?? 0) * 2 + 4;
+    const overCeiling = (card: BuildCard) => {
+      const rs = [...rolesOf(card)].filter(r => r !== 'land');
+      return rs.length > 0 && rs.every(r => roleFill[r] && roleFill[r].picked >= roleCeiling(r));
+    };
     const takeFlex = (wanted: (card: BuildCard) => boolean) => {
       for (const rec of orderPreferredFirst(rerank, preferred)) {
         if (picked.length - chosenLands.length >= spellSlots) break;
@@ -1755,7 +1772,9 @@ const PACKAGE_MATCH = 0.6;
         if (takenOracleIds.has(card.oracleId)) continue;
         if (overColourlessCap(card)) continue;
         if (!wanted(card)) continue;
+        if (!preferred.has(card.oracleId) && overCeiling(card)) continue;
         takenOracleIds.add(card.oracleId);
+        for (const r of rolesOf(card)) if (roleFill[r]) roleFill[r].picked += 1;
         if (cardRole(card, 'creature')) creaturesPicked += 1;
         if (hasColour(card)) colouredPicked += 1;
         else colourlessPicked += 1;
@@ -1868,6 +1887,52 @@ const PACKAGE_MATCH = 0.6;
   const REFINE_ROUNDS = 4;
   const REFINE_CUTS_PER_ROUND = 5;
   const REFINE_MARGIN = 0.75;
+
+  /*
+   * THE PLAN, AS THIS DECK STILL NEEDS IT.
+   *
+   * `planFit` is deck-blind: a want at 0.9 scores 0.9 on the first card that
+   * carries it and on the thirty-fifth. In Kinnan's deck that made every rock
+   * a perfect fit forever, so the review rounds - built to make the deck
+   * better - cut Craterhoof Behemoth and Avenger of Zendikar for Endurance
+   * Bobblehead and Lotus Ring, each swap explained by the commander wanting
+   * mana. The reserve pass already knows better: it spends on what the deck
+   * has NOT got, a want's urgency being how far short of a target it is.
+   * The same arithmetic here, applied to the plan the rounds score against:
+   * each want's weight is scaled by its shortfall, floored at a quarter so a
+   * saturated want still prefers the on-theme card over an off-theme one,
+   * but no longer over a card the deck actually lacks.
+   *
+   * Target per want is weight x 30, NOT the reserve's ten. Measured with ten
+   * on 3 Sep 2026: Krenko's eleventh Goblin and Niv-Mizzet's tenth instant
+   * scored a quarter and were swapped for Sol Ring and Rhystic Study, keyed
+   * synergy fell from 71% to 64% across the roster and the benchmark medians
+   * collapsed toward staple piles. A human Goblin deck runs thirty Goblins
+   * and a spellslinger deck thirty instants; the reserve's ten is the right
+   * scale for spending eight slots across many wants, not for deciding when
+   * a deck has enough of its own theme.
+   */
+  const WANT_SATURATION = 30;
+  const withUrgency = (
+    plan: typeof commanderPlan,
+    deck: ReadonlyArray<{ card: BuildCard; bucket: Bucket }>
+  ): typeof commanderPlan => {
+    if (!plan) return plan;
+    const served = new Map<string, number>();
+    for (const entry of deck) {
+      if (entry.bucket === 'land' || entry.bucket === 'basic') continue;
+      for (const f of new Set<string>(entry.card.facets ?? [])) served.set(f, (served.get(f) ?? 0) + 1);
+    }
+    return {
+      ...plan,
+      wants: plan.wants.map(w => {
+        const target = Math.max(1, Math.round(w.weight * WANT_SATURATION));
+        const have = served.get(w.facet) ?? 0;
+        const shortfall = Math.max(0.35, 1 - have / target);
+        return { ...w, weight: w.weight * shortfall };
+      }),
+    };
+  };
   const refineLog: string[] = [];
   let refineSwaps = 0;
 
@@ -1877,6 +1942,7 @@ const PACKAGE_MATCH = 0.6;
       ...picked.map(e => ({ card: toEngineCard(e.card), quantity: e.quantity })),
     ];
     const roundEval = evaluateDeck(roundEntries, { format, commander: toEngineCard(input.commander) });
+    const roundPlan = withUrgency(commanderPlan, picked);
     const roundProfile = deckProfileFrom(
       format,
       identity,
@@ -1884,7 +1950,7 @@ const PACKAGE_MATCH = 0.6;
       picked,
       roundEval.playability.profile,
       targets,
-      commanderPlan,
+      roundPlan,
       plan.archetype ?? null
     );
 
@@ -1943,7 +2009,7 @@ const PACKAGE_MATCH = 0.6;
         without,
         roundEval.playability.profile,
         targets,
-        commanderPlan,
+        withUrgency(commanderPlan, without),
         plan.archetype ?? null
       );
       /*
@@ -1997,6 +2063,12 @@ const PACKAGE_MATCH = 0.6;
         const keepsShape =
           [...outRoles].some(r => inRoles.has(r)) ||
           [...inRoles].some(r => roleFill[r] && roleFill[r].picked < roleFill[r].target);
+        /* And never below a floor: Craterhoof out for a Bobblehead "fills a
+           protection gap" and empties the win condition slot it came from. */
+        const breaksAFloor = [...outRoles].some(
+          r => roleFill[r] && !inRoles.has(r) && roleFill[r].picked - 1 < roleFill[r].target
+        );
+        if (breaksAFloor) return false;
         return keepsShape;
       });
       if (!replacement) continue;

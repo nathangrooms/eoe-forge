@@ -3214,6 +3214,25 @@ export function planForCommander(commander: {
     }
   }
 
+  /*
+   * KEEP THE COMMANDER ON THE TABLE.
+   *
+   * Swiftfoot Boots is the twelfth most played card in the format and
+   * Lightning Greaves the twentieth, and on 3 Sep 2026 both were missing from
+   * every one of the seven roster decks. Nothing in any plan asked for them:
+   * a commander's wants are read off what its text DOES, and no text says
+   * "and I would like to survive". Every creature commander is the one card
+   * its deck is guaranteed to have, so protecting it is a want every such
+   * deck carries, at a weight below the strategy and above nothing.
+   */
+  if (/\bCreature\b/.test(commander.typeLine ?? '')) {
+    const because = `${commander.name} is the one card the deck is guaranteed, so keeping it on the table is worth a slot`;
+    add('grants:hexproof', 0.5, because);
+    add('grants:shroud', 0.45, because);
+    add('grants:indestructible', 0.4, because);
+    add('grants:haste', 0.3, because);
+  }
+
   const fromTagsOnly = !hasRecord(commander);
   if (fromTagsOnly) {
     // No record. The commander's tags are all that is left, and a tag is a word,

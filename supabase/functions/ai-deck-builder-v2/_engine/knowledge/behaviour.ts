@@ -1030,7 +1030,10 @@ const INTENT_RULES: readonly IntentRule[] = [
     reads: 'turns drawing into damage, so the deck wants loops and wheels',
     wants: [
       ['eff:wheel', 0.85],
-      ['trig:deals-damage', 0.75],
+      /* Curiosity, Ophidian Eye, Tandem Lookout: the loop is the deck. At
+         0.75 this reached the plan at 0.49 after two scalings and lost every
+         slot to an instant at 0.9; the benchmark found 0 of 2. */
+      ['trig:deals-damage', 0.95],
       ['eff:draw-each', 0.7],
       ['eff:draw', 0.65],
     ],
@@ -1057,6 +1060,8 @@ const INTENT_RULES: readonly IntentRule[] = [
       ['kw:trample', 0.6],
       ['cares:power', 0.6],
       ['type:creature', 0.5],
+      /* Six mana by turn four: a Xenagos deck with no ramp never doubles anything. */
+      ['eff:add-mana', 0.45],
     ],
   },
   {
@@ -2696,6 +2701,23 @@ const PLAN_RULES: readonly {
      * counter he puts on himself. A commander paid per sacrifice wants the
      * things that let you sacrifice on demand first, then things to feed them.
      */
+    /*
+     * The commander IS the outlet: Yawgmoth, Thran Physician ("Pay 1 life,
+     * Sacrifice another creature:"), Prossh, Ghave, Marrow-Gnawer. Its own
+     * `cost:sacrifice` used to plan nothing, so Yawgmoth's deck held no
+     * fodder, no death payoff and no recursion - 0 of 4 on the benchmark -
+     * while his -1/-1 counter alone was read as a counters deck.
+     */
+    when: 'cost:sacrifice',
+    wants: [
+      { facet: 'eff:create-token', weight: 0.8 },
+      { facet: 'trig:dies', weight: 0.75 },
+      { facet: 'cost:sacrifice-self', weight: 0.5 },
+      { facet: 'eff:return-from', weight: 0.5 },
+      { facet: 'tok:treasure', weight: 0.4 },
+    ],
+  },
+  {
     when: 'trig:sacrificed',
     wants: [
       { facet: 'cost:sacrifice', weight: 0.9 },
@@ -2749,8 +2771,12 @@ const PLAN_RULES: readonly {
     when: 'trig:cast:creature',
     wants: [
       { facet: 'type:creature', weight: 0.85 },
+      /* Beast Whisperer, Guardian Project: a second card paid per creature
+         cast is what turns Chulane's trigger into a draw engine. */
+      { facet: 'trig:cast:creature', weight: 0.7 },
       { facet: 'mv:cheap', weight: 0.5 },
       { facet: 'cares:type:creature', weight: 0.5 },
+      { facet: 'eff:draw', weight: 0.4 },
       { facet: 'eff:add-mana', weight: 0.3 },
     ],
   },
@@ -2796,6 +2822,9 @@ const PLAN_RULES: readonly {
  */
 const TYPE_WANT_WEIGHT = 0.9;
 const TYPE_ECHO_WEIGHT = 0.7;
+
+/** Counters a PLAYER carries. Proliferate touches them, but a deck is not built around them. */
+const PLAYER_COUNTERS: ReadonlySet<string> = new Set(['experience', 'energy', 'poison', 'rad', 'ticket']);
 
 /** Artifact subtypes that exist only as tokens: a commander that names one wants the cards that MAKE it. */
 const TOKEN_ARTIFACT_TYPES: ReadonlySet<string> = new Set([
@@ -2886,9 +2915,15 @@ export function planForCommander(commander: {
     if (!prev || prev.weight < weight) wants.set(facet, { facet, weight, because });
   };
 
+  /* A -1/-1 COMMANDER IS NOT A +1/+1 COMMANDER. Yawgmoth, Thran Physician
+     puts -1/-1 counters on other creatures; `eff:add-counters` is true of him
+     and of Hardened Scales, and the rule keyed on it wanted Hardened Scales.
+     The kind is on the `ctr:` facet, and it decides. */
+  const minusOnly = facets.includes('ctr:-1/-1') && !facets.includes('ctr:+1/+1');
   for (const rule of PLAN_RULES) {
     if (PLAN_IGNORED.has(rule.when)) continue;
     if (!facets.includes(rule.when)) continue;
+    if (minusOnly && rule.when === 'eff:add-counters') continue;
     for (const w of rule.wants) {
       add(w.facet, w.weight, `${commander.name} ${describeFacet(rule.when)}`);
     }
@@ -2961,6 +2996,15 @@ export function planForCommander(commander: {
       const kind = f.slice(4, -'-self'.length);
       add(f, 0.45, `${commander.name} grows itself with ${kind} counters`);
       add('eff:proliferate', 0.45, `${commander.name} grows itself with ${kind} counters`);
+      continue;
+    }
+    /* A counter on the PLAYER is not a counters deck either. Meren of Clan
+       Nel Toth's experience counters were her only wants at 0.9 and 0.8, so
+       they were the loud wants every shell was judged against: Aristocrats
+       and Reanimator were refused and she read as +1/+1 counters (0.31). */
+    if (PLAYER_COUNTERS.has(f.slice(4))) {
+      add(f, 0.45, `${commander.name} collects ${f.slice(4)} counters`);
+      add('eff:proliferate', 0.4, `${commander.name} collects ${f.slice(4)} counters`);
       continue;
     }
     add(f, 0.9, `${commander.name} works with ${f.slice(4)} counters`);
@@ -3231,6 +3275,16 @@ export function planForCommander(commander: {
     add('grants:shroud', 0.45, because);
     add('grants:indestructible', 0.4, because);
     add('grants:haste', 0.3, because);
+  }
+
+  if (minusOnly) {
+    /* Whatever an English rule inferred about +1/+1 counters, the card's own
+       counters are the other kind. Kept at a whisper rather than deleted:
+       proliferate and counter doublers do move -1/-1 counters too. */
+    for (const facet of ['ctr:+1/+1', 'eff:add-counters'] as const) {
+      const w = wants.get(facet);
+      if (w && w.weight > 0.3) wants.set(facet, { ...w, weight: 0.3, because: `${commander.name} works with -1/-1 counters, not +1/+1` });
+    }
   }
 
   const fromTagsOnly = !hasRecord(commander);
@@ -3851,7 +3905,11 @@ export function planForArchetype(
       share: cards.length / Math.max(1, read),
     });
   }
-  for (const extra of input.extraPackages ?? []) packages.push(extra);
+  /* FIRST, not last. A package stated by the caller is the deck's defining
+     job - the tribe - and the package pass spends its budget in order, so
+     Giada's "The angels" package sat behind three lords packages and got
+     0 of 3 while Lyra Dawnbringer was already in the deck. */
+  packages.unshift(...(input.extraPackages ?? []));
 
   return {
     id: input.id,

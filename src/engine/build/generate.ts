@@ -488,6 +488,21 @@ const EMPTY_DECK_COMMANDER_FIT = 3.6;
  * The generator
  * ------------------------------------------------------------------ */
 
+/**
+ * Cards every Commander deck runs, whatever the commander.
+ *
+ * The owner, 3 Sep 2026: *"sol ring should be in every deck - its a staple no
+ * deck can live without."* Sol Ring is the most played card in the format and
+ * Arcane Signet the third, and both are colourless, so there is no deck they
+ * cannot go in. Before this they were merely very likely: Chulane's Sol Ring
+ * arrived in review round three, replacing Kodama's Reach, because the ramp
+ * floor had been filled by mana creatures the plan wanted more. A card the
+ * whole format agrees on is not something a ranker should have to rediscover
+ * per deck. They are PREFERRED, the same mechanism a caller uses to ask for a
+ * card by name: taken first, never cut, and the deck says so.
+ */
+const FORMAT_STAPLE_NAMES: ReadonlySet<string> = new Set(['Sol Ring', 'Arcane Signet']);
+
 export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
   const format = (input.format ?? 'commander').toLowerCase();
   const slots = input.slots ?? COMMANDER_SLOTS;
@@ -773,6 +788,15 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
     commanderPlan,
     plan.archetype ?? null
   );
+  if (format === 'commander') {
+    const staples: string[] = [];
+    for (const c of spellPool) {
+      if (!FORMAT_STAPLE_NAMES.has(c.name) || avoided.has(c.oracleId) || preferred.has(c.oracleId)) continue;
+      preferred.add(c.oracleId);
+      staples.push(c.name);
+    }
+    if (staples.length) notes.push(`${staples.join(' and ')} go in every Commander deck`);
+  }
   const rankedSpells = rankCandidates(spellPool, roleProfile, rankOptions);
 
   const shortlist = rankedSpells.slice(0, SHORTLIST).map(r => r.card as BuildCard);

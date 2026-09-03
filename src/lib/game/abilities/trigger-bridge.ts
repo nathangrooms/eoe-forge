@@ -63,6 +63,7 @@ import type {
   Selector,
   TriggerEvent as DslTriggerEvent,
   TriggeredAbility,
+  ValueExpr,
 } from '../../cards/abilities/dsl.ts';
 import { playerSelectorsIn, selectorsIn, watchQueriesIn } from '../../cards/abilities/dsl.ts';
 import { abilitiesFor, announcedTargetsOf, triggeredAbilitiesOf } from './card-abilities.ts';
@@ -355,11 +356,46 @@ function needsHistory(condition: Condition | undefined): boolean {
   switch (condition.if) {
     case 'first-time-this-turn':
       return true;
+    /*
+     * A `{v:'watch'}` inside a condition is the same gap as one inside an
+     * effect, and until Esper Sentinel nothing produced one here, so only the
+     * effect side was checked. "Whenever an opponent casts their first
+     * noncreature spell each turn" compiles to a cast trigger conditioned on
+     * "spells that player cast this turn = 1", and an unsupplied watch
+     * evaluates to 0: owned, the ability would never fire, which is a card
+     * switched off with no note saying so.
+     */
+    case 'value':
+      return valueNeedsHistory(condition.a) || valueNeedsHistory(condition.b);
+    case 'count':
+    case 'controls':
+      return valueNeedsHistory(condition.value);
     case 'not':
       return needsHistory(condition.of);
     case 'and':
     case 'or':
       return (condition.of ?? []).some(needsHistory);
+    default:
+      return false;
+  }
+}
+
+/** Does this value fold the action log anywhere inside it? */
+function valueNeedsHistory(value: ValueExpr): boolean {
+  if (typeof value === 'number') return false;
+  switch (value.v) {
+    case 'watch':
+      return true;
+    case 'add':
+    case 'mul':
+    case 'min':
+    case 'max':
+      return value.of.some(valueNeedsHistory);
+    case 'sub':
+    case 'div':
+      return valueNeedsHistory(value.a) || valueNeedsHistory(value.b);
+    case 'if':
+      return needsHistory(value.condition) || valueNeedsHistory(value.then) || valueNeedsHistory(value.else);
     default:
       return false;
   }

@@ -22,6 +22,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { facetsForCard } from './behaviour.ts';
+import { cardRole } from '../../../engine/advise/roles.ts';
 
 const EDGAR = {
   oracle_id: 'edgar',
@@ -787,5 +788,405 @@ describe('a revealed draw: "reveal the top card of your library and put that car
     });
     assert.ok(arena.includes('eff:draw'), arena.join(' '));
     assert.ok(!arena.includes('cares:zone:library'), arena.join(' '));
+  });
+});
+
+describe('a pump sized by a creature\'s power wants big creatures', () => {
+  /*
+   * `cares:power` was declared in the vocabulary for "power 4 or greater"
+   * filters and nothing emitted it. Xenagos is the card that made the gap
+   * visible: for weeks he read as `trig:step` and nothing else, and once the
+   * compiler could read "gets +X/+X, where X is that creature's power" the
+   * facet layer still had no word for what the pump is worth more WITH.
+   */
+  it('Xenagos doubles what he points at, so he cares about power', () => {
+    const f = facets({
+      oracle_id: 'xenagos',
+      name: 'Xenagos, God of Revels',
+      type_line: 'Legendary Enchantment Creature — God',
+      mana_cost: '{3}{R}{G}',
+      cmc: 5,
+      oracle_text:
+        "Indestructible\nAs long as your devotion to red and green is less than seven, Xenagos isn't a creature.\nAt the beginning of combat on your turn, another target creature you control gains haste and gets +X/+X until end of turn, where X is that creature's power.",
+    });
+    assert.ok(f.includes('eff:pump'), f.join(' '));
+    assert.ok(f.includes('grants:haste'), f.join(' '));
+    assert.ok(f.includes('cares:power'), f.join(' '));
+  });
+
+  it('a flat +3/+3 does not care how big the creature was', () => {
+    const f = facets({
+      oracle_id: 'giant-growth',
+      name: 'Giant Growth',
+      type_line: 'Instant',
+      mana_cost: '{G}',
+      cmc: 1,
+      oracle_text: 'Target creature gets +3/+3 until end of turn.',
+    });
+    assert.ok(f.includes('eff:pump'), f.join(' '));
+    assert.ok(!f.includes('cares:power'), f.join(' '));
+  });
+});
+
+describe('bouncing your own permanent is not bouncing theirs', () => {
+  /*
+   * Chulane's activated ability and Cyclonic Rift both compile to `move-zone`
+   * to hand. Until the verb split, both carried `eff:move-zone`, so a plan
+   * asking for creatures that come back to be cast again could only ask for
+   * the facet every blue removal-shaped bounce also carries. Oracle text is
+   * verbatim from `cards_unique`.
+   */
+  const CHULANE = {
+    oracle_id: 'chulane',
+    name: 'Chulane, Teller of Tales',
+    type_line: 'Legendary Creature — Human Druid',
+    mana_cost: '{2}{G}{W}{U}',
+    cmc: 5,
+    oracle_text:
+      "Vigilance\nWhenever you cast a creature spell, draw a card, then you may put a land card from your hand onto the battlefield.\n{3}, {T}: Return target creature you control to its owner's hand.",
+  };
+
+  it('Chulane bounces his own creature', () => {
+    const f = facets(CHULANE);
+    assert.ok(f.includes('eff:bounce-own'), f.join(' '));
+    assert.ok(!f.includes('eff:move-zone'), f.join(' '));
+  });
+
+  it("Cyclonic Rift and Unsummon bounce somebody else's", () => {
+    const rift = facets({
+      oracle_id: 'rift', name: 'Cyclonic Rift', type_line: 'Instant', mana_cost: '{1}{U}', cmc: 2,
+      oracle_text:
+        "Return target nonland permanent you don't control to its owner's hand.\nOverload {6}{U} (You may cast this spell for its overload cost. If you do, change \"target\" in its text to \"each.\")",
+    });
+    assert.ok(rift.includes('eff:move-zone'), rift.join(' '));
+    assert.ok(!rift.includes('eff:bounce-own'), rift.join(' '));
+
+    // Unsummon names no controller at all. Unknown stays unknown: it is not
+    // yours and it is not theirs, and the plain verb is the honest one.
+    const unsummon = facets({
+      oracle_id: 'unsummon', name: 'Unsummon', type_line: 'Instant', mana_cost: '{U}', cmc: 1,
+      oracle_text: "Return target creature to its owner's hand.",
+    });
+    assert.ok(unsummon.includes('eff:move-zone'), unsummon.join(' '));
+    assert.ok(!unsummon.includes('eff:bounce-own'), unsummon.join(' '));
+  });
+
+  it('the named marker on Whitemane Lion reads as the same facet', () => {
+    // The compiler refuses to pick which creature; the marker is named so the
+    // facet layer still knows what the card is for.
+    const lion = facets({
+      oracle_id: 'lion', name: 'Whitemane Lion', type_line: 'Creature — Cat', mana_cost: '{1}{W}', cmc: 2,
+      oracle_text: "Flash\nWhen this creature enters, return a creature you control to its owner's hand.",
+    });
+    assert.ok(lion.includes('eff:bounce-own'), lion.join(' '));
+    assert.ok(lion.includes('rec:partial'), lion.join(' '));
+  });
+
+  it('a card returning itself to hand is bouncing its own side', () => {
+    const batterskull = facets({
+      oracle_id: 'batterskull', name: 'Batterskull', type_line: 'Artifact — Equipment', mana_cost: '{5}', cmc: 5,
+      oracle_text:
+        "Living weapon (When this Equipment enters, create a 0/0 black Phyrexian Germ creature token, then attach this to it.)\nEquipped creature gets +4/+4 and has vigilance and lifelink.\n{3}: Return this Equipment to its owner's hand.\nEquip {5}",
+    });
+    assert.ok(batterskull.includes('eff:bounce-own'), batterskull.join(' '));
+    assert.ok(!batterskull.includes('eff:move-zone'), batterskull.join(' '));
+  });
+
+  it('a karoo bouncing a land carries neither', () => {
+    const karoo = facets({
+      oracle_id: 'karoo', name: 'Simic Growth Chamber', type_line: 'Land', cmc: 0,
+      oracle_text: "This land enters tapped.\nWhen this land enters, return a land you control to its owner's hand.\n{T}: Add {G}{U}.",
+    });
+    assert.ok(!karoo.includes('eff:bounce-own'), karoo.join(' '));
+    assert.ok(!karoo.includes('eff:move-zone'), karoo.join(' '));
+  });
+
+  it('a bounce paid as a cost is read as a cost, with what it bounces', () => {
+    const symbiote = facets({
+      oracle_id: 'symbiote', name: 'Wirewood Symbiote', type_line: 'Creature — Insect', mana_cost: '{G}', cmc: 1,
+      oracle_text: "Return an Elf you control to its owner's hand: Untap target creature. Activate only once each turn.",
+    });
+    assert.ok(symbiote.includes('cost:return-to-hand'), symbiote.join(' '));
+    assert.ok(symbiote.includes('cares:sub:elf'), symbiote.join(' '));
+  });
+});
+
+describe('a grant of protection is grants:protection, whichever colour the table picks', () => {
+  /*
+   * The `protection` role asks for `grants:protection` by name, and a keyword
+   * LINE reading "Protection from red" has always been `kw:protection` with
+   * the parameter left off. A grant of the same thing has to fold the same
+   * way, or Gods Willing — whose grant is a colour nobody has chosen yet —
+   * would carry `grants:protection from the chosen color` and serve no role.
+   */
+  const facets = (row: Parameters<typeof facetsForCard>[0]) => facetsForCard(row).facets;
+
+  it('Gods Willing grants protection and chooses a colour, and no facet carries the colour', () => {
+    const f = facets({
+      oracle_id: 'gods-willing',
+      name: 'Gods Willing',
+      type_line: 'Instant',
+      mana_cost: '{W}',
+      cmc: 1,
+      oracle_text:
+        "Target creature you control gains protection from the color of your choice until end of turn. (It can't be blocked, targeted, dealt damage, enchanted, or equipped by anything of that color.)\nScry 1.",
+    });
+    assert.ok(f.includes('grants:protection'), f.join(' '));
+    assert.ok(f.includes('kw:protection'), f.join(' '));
+    assert.ok(f.includes('eff:choose'), f.join(' '));
+    assert.ok(f.includes('rec:full'), f.join(' '));
+    assert.ok(!f.some((x) => x.startsWith('grants:protection ')), f.join(' '));
+  });
+
+  it('a printed colour folds the same way', () => {
+    const f = facets({
+      oracle_id: 'crimson-acolyte',
+      name: 'Crimson Acolyte',
+      type_line: 'Creature — Human Cleric',
+      mana_cost: '{1}{W}',
+      cmc: 2,
+      oracle_text: 'Protection from red\n{W}: Target creature gains protection from red until end of turn.',
+    });
+    assert.ok(f.includes('grants:protection'), f.join(' '));
+    assert.ok(!f.some((x) => x.startsWith('grants:protection ')), f.join(' '));
+  });
+});
+
+describe("the wheel, read by the compiler and said in the Tagger's word", () => {
+  const WHEEL_OF_FORTUNE = {
+    oracle_id: 'wheel-of-fortune',
+    name: 'Wheel of Fortune',
+    type_line: 'Sorcery',
+    mana_cost: '{2}{R}',
+    cmc: 3,
+    oracle_text: 'Each player discards their hand, then draws seven cards.',
+  };
+
+  it('Wheel of Fortune carries eff:wheel, scope:all and cares:zone:hand from its own record', () => {
+    // `tag_facet_map.wheel-symmetrical` supplies exactly these words for the
+    // same card. The compiler reading it must not lose any of them.
+    const f = facets(WHEEL_OF_FORTUNE);
+    assert.ok(f.includes('eff:wheel'), f.join(' '));
+    assert.ok(f.includes('scope:all'), f.join(' '));
+    assert.ok(f.includes('cares:zone:hand'), f.join(' '));
+    assert.ok(f.includes('rec:full'), f.join(' '));
+    // The aim rules are untouched: the discard reaches opponents, the draw is
+    // everybody's.
+    assert.ok(f.includes('eff:discard'), f.join(' '));
+    assert.ok(f.includes('eff:draw-each'), f.join(' '));
+  });
+
+  it('Mindslicer empties every hand and refills none, so it is not a wheel', () => {
+    const f = facets({
+      oracle_id: 'mindslicer',
+      name: 'Mindslicer',
+      type_line: 'Creature — Horror',
+      mana_cost: '{2}{B}{B}',
+      cmc: 4,
+      oracle_text: 'When this creature dies, each player discards their hand.',
+    });
+    assert.ok(f.includes('cares:zone:hand'), f.join(' '));
+    assert.ok(!f.includes('eff:wheel'), f.join(' '));
+    assert.ok(!f.includes('scope:all'), f.join(' '));
+  });
+
+  it('Tolarian Winds is one-sided, so it is a refill and not a wheel', () => {
+    // The Tagger agrees: `wheel-one-sided` carries no `eff:wheel`.
+    const f = facets({
+      oracle_id: 'tolarian-winds',
+      name: 'Tolarian Winds',
+      type_line: 'Instant',
+      mana_cost: '{1}{U}',
+      cmc: 2,
+      oracle_text: 'Discard all the cards in your hand, then draw that many cards.',
+    });
+    assert.ok(f.includes('eff:discard-self'), f.join(' '));
+    assert.ok(f.includes('cares:zone:hand'), f.join(' '));
+    assert.ok(!f.includes('eff:wheel'), f.join(' '));
+  });
+
+  it('Burning Inquiry draws and discards a NUMBER, which is looting for the table, not a wheel', () => {
+    const f = facets({
+      oracle_id: 'burning-inquiry',
+      name: 'Burning Inquiry',
+      type_line: 'Sorcery',
+      mana_cost: '{R}',
+      cmc: 1,
+      oracle_text: 'Each player draws three cards, then discards three cards at random.',
+    });
+    assert.ok(f.includes('eff:draw-each'), f.join(' '));
+    assert.ok(!f.includes('eff:wheel'), f.join(' '));
+    assert.ok(!f.includes('cares:zone:hand'), f.join(' '));
+  });
+
+  it('Windfall: the draw is a marker, so the record claims the discard and nothing it did not read', () => {
+    // The Tagger's gated `wheel-symmetrical` still supplies `eff:wheel` for
+    // this card in `cards_pool`; the compiler must not claim a draw it could
+    // not count.
+    const f = facets({
+      oracle_id: 'windfall',
+      name: 'Windfall',
+      type_line: 'Sorcery',
+      mana_cost: '{2}{U}',
+      cmc: 3,
+      oracle_text: 'Each player discards their hand, then draws cards equal to the greatest number of cards a player discarded this way.',
+    });
+    assert.ok(f.includes('cares:zone:hand'), f.join(' '));
+    assert.ok(!f.includes('eff:draw-each'), f.join(' '));
+    assert.ok(!f.includes('eff:wheel'), f.join(' '));
+  });
+});
+
+/**
+ * Impulse draw is red's card draw, and for two sentences' worth of reason it
+ * carried no facet at all. Oracle text verbatim from `cards_unique`.
+ */
+describe('impulse draw is its own verb and never removal', () => {
+  const facets = (row: Parameters<typeof facetsForCard>[0]) => facetsForCard(row).facets;
+
+  it('Light Up the Stage reads as impulse plus the exile zone, and not as exile', () => {
+    const f = facets({
+      oracle_id: 'light-up-the-stage',
+      name: 'Light Up the Stage',
+      type_line: 'Sorcery',
+      cmc: 3,
+      oracle_text:
+        'Spectacle {R} (You may cast this spell for its spectacle cost rather than its mana cost if an opponent lost life this turn.)\nExile the top two cards of your library. Until the end of your next turn, you may play those cards.',
+    });
+    assert.ok(f.includes('eff:impulse'), f.join(' '));
+    assert.ok(f.includes('cares:zone:exile'), f.join(' '));
+    // `eff:exile` is the removal role. A draw spell must not take a removal slot.
+    assert.ok(!f.includes('eff:exile'), f.join(' '));
+    assert.ok(f.includes('rec:full'), f.join(' '));
+  });
+
+  it('Prosper carries the facet his plan keys on, off his own end step', () => {
+    const f = facets({
+      oracle_id: 'prosper',
+      name: 'Prosper, Tome-Bound',
+      type_line: 'Legendary Creature — Tiefling Warlock',
+      cmc: 4,
+      oracle_text:
+        'Deathtouch\nMystic Arcanum — At the beginning of your end step, exile the top card of your library. Until the end of your next turn, you may play that card.\nPact Boon — Whenever you play a card from exile, create a Treasure token.',
+    });
+    assert.ok(f.includes('eff:impulse'), f.join(' '));
+    assert.ok(f.includes('cares:zone:exile'), f.join(' '));
+  });
+
+  it('Mystic Forge exiles the top card and gives nothing back, so it is not impulse', () => {
+    const f = facets({
+      oracle_id: 'mystic-forge',
+      name: 'Mystic Forge',
+      type_line: 'Artifact',
+      cmc: 4,
+      oracle_text:
+        'You may look at the top card of your library any time.\nYou may cast artifact spells and colorless spells from the top of your library.\n{T}, Pay 1 life: Exile the top card of your library.',
+    });
+    assert.ok(!f.includes('eff:impulse'), f.join(' '));
+  });
+});
+
+/*
+ * Free spells, two shapes. Oracle text verbatim from `cards_unique`, 3 Sep 2026.
+ *
+ * The free-spell cycle carries its condition as an ALTERNATIVE COST on the
+ * spell, so the card that cares about your commander says so and the
+ * counterspell stays a counterspell. "Cast X without paying its mana cost" as
+ * an effect is the `cast-free` marker, read by id like proliferate.
+ */
+describe('free spells', () => {
+  it('the free-spell cycle cares about your commander and keeps its real effect', () => {
+    const f = facets({
+      oracle_id: 'fg', name: 'Fierce Guardianship', type_line: 'Instant', mana_cost: '{2}{U}', cmc: 3,
+      oracle_text: 'If you control a commander, you may cast this spell without paying its mana cost.\nCounter target noncreature spell.',
+    });
+    assert.ok(f.includes('cares:commander'), f.join(' '));
+    assert.ok(f.includes('eff:counter'), f.join(' '));
+    // Casting itself for nothing is not cheating ANOTHER spell in.
+    assert.ok(!f.includes('eff:cast-free'), f.join(' '));
+
+    const g = facets({
+      oracle_id: 'dr', name: 'Deadly Rollick', type_line: 'Instant', mana_cost: '{3}{B}', cmc: 4,
+      oracle_text: 'If you control a commander, you may cast this spell without paying its mana cost.\nExile target creature.',
+    });
+    assert.ok(g.includes('cares:commander'), g.join(' '));
+    assert.ok(g.includes('eff:exile'), g.join(' '));
+  });
+
+  it('an alternative cost with no commander gate does not invent one', () => {
+    const f = facets({
+      oracle_id: 'fow', name: 'Force of Will', type_line: 'Instant', mana_cost: '{3}{U}{U}', cmc: 5,
+      oracle_text: "You may pay 1 life and exile a blue card from your hand rather than pay this spell's mana cost.\nCounter target spell.",
+    });
+    assert.ok(f.includes('eff:counter'), f.join(' '));
+    assert.ok(!f.includes('cares:commander'), f.join(' '));
+    assert.ok(!f.includes('eff:cast-free'), f.join(' '));
+  });
+
+  it('casting another spell for free is eff:cast-free, beside whatever else the card does', () => {
+    const electro = facets({
+      oracle_id: 'ed', name: 'Electrodominance', type_line: 'Instant', mana_cost: '{X}{R}{R}', cmc: 2,
+      oracle_text: 'Electrodominance deals X damage to any target. You may cast a spell with mana value X or less from your hand without paying its mana cost.',
+    });
+    assert.ok(electro.includes('eff:cast-free'), electro.join(' '));
+    assert.ok(electro.includes('eff:damage'), electro.join(' '));
+
+    const etali = facets({
+      oracle_id: 'etali', name: 'Etali, Primal Storm', type_line: 'Legendary Creature — Elder Dinosaur', mana_cost: '{4}{R}{R}', cmc: 6,
+      oracle_text: "Whenever Etali attacks, exile the top card of each player's library, then you may cast any number of spells from among those cards without paying their mana costs.",
+    });
+    assert.ok(etali.includes('eff:cast-free'), etali.join(' '));
+    assert.ok(etali.includes('trig:attacks'), etali.join(' '));
+
+    const mizzix = facets({
+      oracle_id: 'mm', name: "Mizzix's Mastery", type_line: 'Sorcery', mana_cost: '{3}{R}', cmc: 4,
+      oracle_text: "Exile target card that's an instant or sorcery from your graveyard. For each card exiled this way, copy it, and you may cast the copy without paying its mana cost. Exile Mizzix's Mastery.\nOverload {5}{R}{R}{R} (You may cast this spell for its overload cost. If you do, change \"target\" in its text to \"each.\")",
+    });
+    assert.ok(mizzix.includes('eff:cast-free'), mizzix.join(' '));
+  });
+});
+
+describe('a tax is still the verb it taxes', () => {
+  /*
+   * "Counter target spell unless its controller pays {3}" sat on the
+   * named-manual list for a year, so Mana Leak, Force Spike, Spell Pierce and
+   * the other sixty cards in that census cluster had no record and served no
+   * role. The compiler reads them now, and the facet layer's job is to keep
+   * reading the counter THROUGH the tax: `unless-pays` is a control-flow
+   * member, and its inner effects are read exactly as if printed bare.
+   */
+  const MANA_LEAK = {
+    oracle_id: 'mana-leak',
+    name: 'Mana Leak',
+    type_line: 'Instant',
+    mana_cost: '{1}{U}',
+    cmc: 2,
+    oracle_text: 'Counter target spell unless its controller pays {3}.',
+  };
+  const ESPER_SENTINEL = {
+    oracle_id: 'esper-sentinel',
+    name: 'Esper Sentinel',
+    type_line: 'Artifact Creature — Human Soldier',
+    mana_cost: '{W}',
+    cmc: 1,
+    oracle_text:
+      "Whenever an opponent casts their first noncreature spell each turn, draw a card unless that player pays {X}, where X is this creature's power.",
+  };
+
+  it('Mana Leak is a counterspell with a price on it, and files as interaction', () => {
+    const f = facets(MANA_LEAK);
+    assert.ok(f.includes('eff:counter'), f.join(' '));
+    assert.ok(f.includes('eff:unless-pays'), f.join(' '));
+    assert.ok(f.includes('rec:full'), f.join(' '));
+    assert.ok(cardRole({ facets: f, typeLine: MANA_LEAK.type_line, tags: [] }, 'interaction'));
+  });
+
+  it('Esper Sentinel draws on a cast trigger, and the tax does not hide the draw', () => {
+    const f = facets(ESPER_SENTINEL);
+    assert.ok(f.includes('trig:cast'), f.join(' '));
+    assert.ok(f.includes('eff:draw'), f.join(' '));
+    assert.ok(f.includes('eff:unless-pays'), f.join(' '));
+    assert.ok(f.includes('rec:full'), f.join(' '));
+    assert.ok(cardRole({ facets: f, typeLine: ESPER_SENTINEL.type_line, tags: [] }, 'draw'));
   });
 });

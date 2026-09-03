@@ -30,6 +30,7 @@
 
 import type {
   Ability,
+  AlternativeCost,
   CardAbilities,
   Condition,
   Cost,
@@ -45,9 +46,11 @@ import { abilityKey, normalizeCard } from './normalize.ts';
 import type { BuildCtx } from './effect-rules.ts';
 import { compileEffectBody, namedManual } from './effect-rules.ts';
 import {
+  parseAlternativeCost,
   parseCosts,
   parseKeywordLine,
   parseLoyaltyCost,
+  parseNthCastTrigger,
   parseReplacement,
   parseStatic,
   parseTriggerEvent,
@@ -331,7 +334,11 @@ function classify(para: Paragraph, shape: CardShape, idAt: number): Classified |
   if (trigger) {
     const build = newBuild(shape);
     const phrase = trigger[1] === 'at' ? `at ${trigger[2]}` : trigger[2];
-    const events = parseTriggerEvent(phrase, build.ctx);
+    // "Their first noncreature spell each turn" is a cast event plus a
+    // condition over turn history. Read as one thing so the ordinal cannot
+    // be dropped on the floor and leave a trigger that fires on every spell.
+    const nthCast = trigger[1] === 'whenever' ? parseNthCastTrigger(phrase, build.ctx) : null;
+    const events = nthCast ? nthCast.events : parseTriggerEvent(phrase, build.ctx);
     if (events) {
       // T2 — a bare "it" may mean the source only when the event happened TO
       // the source. Every event in the run has to agree: "whenever ~ enters or
@@ -379,6 +386,7 @@ function classify(para: Paragraph, shape: CardShape, idAt: number): Classified |
           (a as { condition?: Condition }).condition = intervening.condition;
           (a as { interveningIf?: boolean }).interveningIf = true;
         }
+        if (nthCast) (a as { condition?: Condition }).condition = nthCast.condition;
         if (build.targets.length) (a as { targets?: TargetSpec[] }).targets = build.targets;
         return a;
       });
@@ -664,6 +672,8 @@ export function compileWithTrace(card: AbilityCard): CompileTrace {
 
   /** An additional cost read but not yet attached to the spell it belongs to. */
   let pendingCost: { costs: Cost[]; span: [number, number]; text: string; norm: string } | null = null;
+  /** An alternative cost read but not yet attached to the spell it belongs to. */
+  let pendingAlt: { alt: AlternativeCost; span: [number, number]; text: string; norm: string } | null = null;
 
   const paragraphs = normalized.paragraphs;
   for (let i = 0; i < paragraphs.length; i++) {
@@ -716,8 +726,66 @@ export function compileWithTrace(card: AbilityCard): CompileTrace {
       }
     }
 
+    /*
+     * "If you control a commander, you may cast this spell without paying its
+     * mana cost." "You may pay 1 life and exile a blue card from your hand
+     * rather than pay this spell's mana cost."
+     *
+     * The same shape as the additional cost above, held the same way and for
+     * the same reason: it is part of the COST of the spell printed under it,
+     * so it goes on that ability, and only if that ability exists. The
+     * free-spell cycle was reading as `alt-cast` on its first paragraph and a
+     * plain counterspell on its second, which is the record saying nothing
+     * about the one thing that makes Fierce Guardianship (82) a different
+     * card from Negate.
+     *
+     * Deflecting Swat (75) and Obscuring Haze (1503) still produce no record
+     * after this, and that is right: their second paragraphs (retargeting, a
+     * damage-prevention shield) are effects no rule reads, and an alternative
+     * cost with nothing to attach to is reported unread at the end of the
+     * loop, exactly like an orphaned additional cost.
+     */
+    if (!pendingAlt) {
+      const alt = parseAlternativeCost(para.norm);
+      if (alt) {
+        pendingAlt = { alt: { ...alt, text: para.raw }, span: para.span, text: para.raw, norm: para.norm };
+        continue;
+      }
+    }
+
     const classified = classify(para, shape, abilities.length);
     if (classified) {
+      if (pendingAlt) {
+        const spell = classified.abilities.find(a => a.kind === 'spell');
+        if (spell) {
+          const held = (spell as { alternativeCosts?: AlternativeCost[] });
+          held.alternativeCosts = [...(held.alternativeCosts ?? []), pendingAlt.alt];
+          /*
+           * AND A MARKER, because NOTHING OFFERS IT.
+           *
+           * The additional-cost marker below exists because the engine would
+           * resolve the spell without eating the creature. This one exists for
+           * the opposite half of the same fact: the engine has no cost step at
+           * announcement, so it cannot ask "do you want to cast this for the
+           * alternative cost instead", and a record marked `full` would be
+           * claiming the runtime plays Fierce Guardianship as printed when it
+           * plays it as Negate. `deriveCoverage` turns this into `partial`:
+           * every word was read, and one of them needs a person.
+           */
+          (spell as { effects: Effect[] }).effects.unshift(
+            manual(
+              `Cast ${String(card.name ?? 'this spell')} for its alternative cost instead: ${pendingAlt.norm
+                .replace(/\.$/, '')
+                .replace(/~s mana cost/g, 'its mana cost')
+                .replace(/cast ~ /g, 'cast this spell ')}.`,
+              'alternative cost: the engine reads this option but cannot offer it at casting yet, so if you want to cast the spell that way, do it by hand.'
+            )
+          );
+          consumedSpans.push(pendingAlt.span);
+          ruleHits.push('alternative-cost');
+          pendingAlt = null;
+        }
+      }
       if (pendingCost) {
         const spell = classified.abilities.find(a => a.kind === 'spell');
         if (spell) {
@@ -777,6 +845,17 @@ export function compileWithTrace(card: AbilityCard): CompileTrace {
       text: pendingCost.text,
       reason: gapReasonFor(pendingCost.norm, looksStructured(pendingCost.norm)),
       span: pendingCost.span,
+    });
+  }
+  /* Same for an alternative cost: read, and with no spell to be the cost OF.
+     A creature's "You may pay {W}{U}{B}{R}{G} rather than pay this spell's
+     mana cost" (Bringer of the Black Dawn) lands here, because a creature has
+     no spell ability and the DSL has no card-level record to hang it on. */
+  if (pendingAlt) {
+    unparsed.push({
+      text: pendingAlt.text,
+      reason: gapReasonFor(pendingAlt.norm, looksStructured(pendingAlt.norm)),
+      span: pendingAlt.span,
     });
   }
 

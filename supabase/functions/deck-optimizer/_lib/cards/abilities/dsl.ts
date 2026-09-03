@@ -71,6 +71,14 @@ export type Duration =
   | 'while-source-on-battlefield'
   | 'permanent';
 
+/**
+ * How long an impulse-drawn card may be played from exile. See `{do:'impulse'}`
+ * for why this is not `Duration`: `'your-next-turn'` there means until that
+ * turn BEGINS, and the impulse cards that outlive the turn say "until the END
+ * of your next turn".
+ */
+export type ImpulseUntil = 'end-of-turn' | 'end-of-your-next-turn';
+
 /** Mirrors `@/lib/game/types` `TokenSpec`. */
 export interface TokenSpec {
   name: string;
@@ -379,6 +387,34 @@ export type ChoiceSubject =
   | 'opponent'
   | 'basic-land-type';
 
+/**
+ * The `pump.grant` entry for "protection from the color of your choice".
+ *
+ * Mother of Runes, Gods Willing, Shelter and twenty-six more say this, and
+ * every one of them read as nothing: `parseKeywordList` wants a bare keyword
+ * and "protection from the color of your choice" is not one. The first draft
+ * of a rule for them wanted to pick a colour, and there is no colour to pick.
+ * The choice is made when the ability RESOLVES, by the player, looking at the
+ * board; a record that names one is a wrong ability, which this folder treats
+ * as worse than none.
+ *
+ * So the record carries the choice and not its answer. The compiler emits
+ * `{do:'choose', who, what:'color'}` immediately before the pump, and the pump
+ * grants THIS string, which reads as "protection from whatever that choice
+ * was". A card that made the choice in an earlier sentence ("Choose a color.
+ * White creatures you control gain protection from the chosen color", Brave
+ * the Elements) grants the same entry with no second `choose`.
+ *
+ * Downstream it is safe by construction. The runtime's `protectionQualities`
+ * files any quality it cannot classify as `other` and grants NO combat
+ * protection for it, so this string makes the player resolve the colour by
+ * hand rather than making the engine guess one. `grantedKeyword` in the facet
+ * layer folds it to `grants:protection`, which is the fact the deck builder
+ * wants. When the runtime learns to record the answer to a `choose`, this is
+ * the string it substitutes.
+ */
+export const PROTECTION_FROM_CHOSEN_COLOR = 'protection from the chosen color';
+
 export type Effect =
   /* life & damage */
   | { do: 'gain-life' | 'lose-life' | 'set-life'; who: PlayerSelector; amount: ValueExpr }
@@ -403,7 +439,18 @@ export type Effect =
    */
   | { do: 'draw'; who: PlayerSelector; count: ValueExpr; revealed?: boolean }
   | { do: 'mill'; who: PlayerSelector; count: ValueExpr }
-  | { do: 'discard'; who: PlayerSelector; count: ValueExpr; random?: boolean }
+  /*
+   * `count: 'hand'` is "discards their hand", and it is a literal rather than a
+   * `ValueExpr` because no expression says it. `{v:'cards-in', zone:'hand',
+   * of:{who:'each-player'}}` reads as the obvious spelling and is wrong: the
+   * evaluator SUMS over every player it resolves to, so a wheel would announce
+   * that each player discards the whole table's hands. The runtime happens to
+   * clamp that to the hand, which is exactly the kind of accident that reads as
+   * correct until a renderer, a validator or a facet reader believes the number.
+   * The hand size is per player and is only known inside the loop over players,
+   * so the literal says "all of it" and the loop does the counting.
+   */
+  | { do: 'discard'; who: PlayerSelector; count: ValueExpr | 'hand'; random?: boolean }
   | { do: 'move-zone'; what: Selector; to: Zone; position?: 'top' | 'bottom' | number; tapped?: boolean }
   | { do: 'destroy'; what: Selector }
   | { do: 'sacrifice'; who: PlayerSelector; what: Selector; count: ValueExpr }
@@ -560,10 +607,65 @@ export type Effect =
       /** Where the ones not taken go. */
       restTo: CardDestination;
     }
+  /*
+   * IMPULSE DRAW. "Exile the top card of your library. Until end of turn, you
+   * may play that card." Light Up the Stage, Reckless Impulse, Prosper's
+   * Mystic Arcanum, Laelia's attack trigger, Ragavan's combat trigger, the
+   * Khans half of Outpost Siege.
+   *
+   * ONE MEMBER FOR TWO SENTENCES, and that is the point. The exile half on its
+   * own is a real effect the DSL could already almost say, and saying it alone
+   * would be the wrong card: Mystic Forge's "{T}, Pay 1 life: Exile the top
+   * card of your library" really does throw the card away, and an impulse
+   * spell compiled as that would take the player's cards and give nothing
+   * back. The permission half on its own has no antecedent. Together they are
+   * red's card draw, and 107 commander-legal cards say them as a pair.
+   *
+   * `who` is WHOSE library, not who may play the cards. The controller is
+   * always the one allowed to play them in every shape this compiles, so it
+   * is not carried; Ragavan exiles from the damaged player's library and its
+   * controller casts the card, which is `who: {who:'trigger-player'}`.
+   *
+   * `permission` is `play` or `cast` because a land can be PLAYED and only a
+   * spell can be CAST, and the two words appear on different cards on purpose:
+   * Ragavan says cast, so the land on top of that library stays in exile.
+   *
+   * `until` is its own two-member union rather than `Duration`. "Until the end
+   * of your next turn" is not `'your-next-turn'`, which the layer engine reads
+   * as "until your next turn BEGINS", and widening `Duration` would promise the
+   * pump machinery a window it cannot yet expire. `parseDuration` still refuses
+   * "until your next end step" as the declared duration gap, and so does this.
+   *
+   * What it does NOT say, refused rather than approximated: "without paying
+   * its mana cost" (Mind's Desire, Etali), "you may spend mana as though it
+   * were mana of any color" (Stolen Strategy, Grenzo), "choose one of them"
+   * (Tectonic Giant, Chandra, Flameshaper), "for as long as it remains exiled"
+   * (Brainstealer Dragon), and a permission with no window at all (Chandra,
+   * Torch of Defiance), which is a cast during resolution, not a window.
+   *
+   * The runtime cannot hold a play-from-exile permission, so `to-actions.ts`
+   * DEFERS the whole thing rather than exiling without granting. Half of this
+   * effect is worse than none of it.
+   */
+  | { do: 'impulse'; who: PlayerSelector; count: ValueExpr; until: ImpulseUntil; permission: 'play' | 'cast' }
   /* permanents */
   | { do: 'create-token'; who: PlayerSelector; token: TokenSpec; count: ValueExpr; tapped?: boolean }
   | { do: 'tap' | 'untap'; what: Selector }
   | { do: 'add-counters' | 'remove-counters'; what: Selector; counter: string; count: ValueExpr }
+  /*
+   * `grant` is a list of KEYWORDS, in the words the card prints them. A
+   * parameterised keyword carries its parameter verbatim, the way
+   * `KeywordAbility.parameter` does: `"protection from red"`, not a structured
+   * colour. The runtime already reads that string — `protectionQualities` in
+   * `game/keywords.ts` was written for hand-flagged "protection from red" on
+   * `grantedKeywords`, and a grant lands on exactly that list.
+   *
+   * `PROTECTION_FROM_CHOSEN_COLOR` is the one entry that names a quality the
+   * card does NOT print: "protection from the color of your choice" is a colour
+   * picked on resolution, and the only honest way to say that without
+   * inventing a colour is a `{do:'choose', what:'color'}` effect BEFORE the pump
+   * and this entry on it. See the constant.
+   */
   | { do: 'pump'; what: Selector; power: ValueExpr; toughness: ValueExpr; grant?: string[]; duration: Duration }
   | { do: 'gain-control'; what: Selector; who: PlayerSelector; duration: Duration }
   /*
@@ -774,6 +876,22 @@ export type Cost =
   | { pay: 'discard'; what?: Selector; count: ValueExpr; random?: boolean }
   | { pay: 'exile'; from: Zone; what: Selector; count: ValueExpr }
   | { pay: 'life'; amount: ValueExpr }
+  /**
+   * Generic mana whose AMOUNT is computed when the cost is paid.
+   *
+   * "Draw a card unless that player pays {X}, where X is this creature's
+   * power" (Esper Sentinel, Mausoleum Wanderer). `{pay:'mana', cost:'{X}'}`
+   * cannot say it: that string is the X a player ANNOUNCED, the same one
+   * `{v:'x'}` means, and Esper Sentinel's X is nobody's announcement — it is
+   * read off the board at the moment the opponent is asked to pay. Writing it
+   * as the announced X would let the payer choose their own tax, which is
+   * the card resolving backwards.
+   *
+   * Generic only, on purpose: the catalogue's computed costs are all generic
+   * ("{X}", "{1} for each …"), and a computed COLOURED cost has no printed
+   * form to be read from. A mana string stays a string.
+   */
+  | { pay: 'generic-mana'; amount: ValueExpr }
   | { pay: 'remove-counters'; counter: string; count: ValueExpr; from?: Selector }
   | { pay: 'add-counters'; counter: string; count: ValueExpr; to?: Selector }
   | { pay: 'return-to-hand'; what: Selector; count: ValueExpr }
@@ -1009,6 +1127,37 @@ export interface SpellAbility extends AbilityBase {
    * cost attached to the half it is printed above.
    */
   additionalCosts?: Cost[];
+  /**
+   * What you may pay INSTEAD of the mana cost. CR 118.9.
+   *
+   * "If you control a commander, you may cast this spell without paying its
+   * mana cost" is the free-spell cycle — Deflecting Swat (75), Fierce
+   * Guardianship (82), Deadly Rollick (107), Flawless Maneuver (181) — and
+   * "You may pay 1 life and exile a blue card from your hand rather than pay
+   * this spell's mana cost" is Force of Will (192). Every one of them read as
+   * an `alt-cast` gap on its first paragraph, so the record said "counter
+   * target noncreature spell" about a card whose whole reason to exist is that
+   * it costs nothing.
+   *
+   * It lives on the ability rather than in `effects` for the reason
+   * `additionalCosts` gives: it is part of CASTING the spell, and an effect
+   * that "cast this for free" would let a consumer count the free cast as a
+   * second thing the card does. The counterspell stays a counterspell.
+   *
+   * `costs` is EMPTY for the free cycle — nothing is paid instead — and that
+   * is a statement, not an omission: an absent array means "no alternative",
+   * an empty one means "the alternative is nothing". `condition` is when the
+   * option is on offer; absent means always.
+   */
+  alternativeCosts?: AlternativeCost[];
+}
+
+/** See `SpellAbility.alternativeCosts`. */
+export interface AlternativeCost {
+  costs: Cost[];
+  condition?: Condition;
+  /** The verbatim clause, so a player is told the option in the card's own words. */
+  text: string;
 }
 
 export interface ManaAbility extends AbilityBase {

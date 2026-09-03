@@ -1199,3 +1199,75 @@ describe('reading a commander the ability compiler cannot parse', () => {
     }
   });
 });
+
+describe('a commander paid per creature spell wants creatures that come back', () => {
+  it('Chulane asks for own-bounce, and does not ask for every bounce spell', () => {
+    // What the producer prints for him after the verb split: his own bounce
+    // is `eff:bounce-own`. Two intent rules read him, the creature-spell one
+    // and the back-to-hand one, and both must now name the own-side verb.
+    const plan = planForCommander({
+      name: 'Chulane, Teller of Tales',
+      typeLine: 'Legendary Creature — Human Druid',
+      facets: [
+        'acost:3', 'cares:type:creature', 'cares:zone:hand', 'cares:zone:stack', 'cost:tap',
+        'eff:bounce-own', 'rec:partial', 'scope:all', 'trig:cast',
+        'sub:druid', 'sub:human', 'type:creature', 'type:legendary',
+      ],
+      oracleText:
+        "Vigilance\nWhenever you cast a creature spell, draw a card, then you may put a land card from your hand onto the battlefield.\n{3}, {T}: Return target creature you control to its owner's hand.",
+    });
+    const wants = new Map(plan.wants.map(w => [w.facet, w.weight]));
+    assert.ok(wants.has('eff:bounce-own'), plan.wants.map(w => w.facet).join(' '));
+    // Man-o'-War says "target creature" without naming whose and is a Chulane
+    // card pointed at his own side, so the plain verb may stay; it must not
+    // outrank the one that says the creature is yours.
+    assert.ok((wants.get('eff:bounce-own') ?? 0) > (wants.get('eff:move-zone') ?? 0), 'Cyclonic Rift outranks Shrieking Drake');
+  });
+});
+
+/**
+ * Impulse draw. The facet lists here are what `src/lib/deck/recommend/
+ * behaviour.ts` printed for these cards on 3 Sep 2026 (`scratch/_trace.mjs`).
+ */
+describe('impulse draw: the role it serves and the plan it feeds', () => {
+  const lightUpTheStage = {
+    typeLine: 'Sorcery',
+    tags: [] as string[],
+    facets: ['cares:zone:exile', 'eff:impulse', 'rec:full', 'type:sorcery'],
+  };
+
+  it('Light Up the Stage is draw, and is not removal', () => {
+    assert.equal(cardServesRole(lightUpTheStage, 'draw', servesRole), true);
+    assert.equal(cardServesRole(lightUpTheStage, 'removal', servesRole), false);
+  });
+
+  it('Prosper wants impulse draw, off the verb and not off the zone', () => {
+    const plan = planForCommander({
+      name: 'Prosper, Tome-Bound',
+      typeLine: 'Legendary Creature — Tiefling Warlock',
+      facets: [
+        'cares:sub:mystic', 'cares:sub:treasure', 'cares:zone:exile', 'eff:impulse',
+        'kw:deathtouch', 'rec:partial', 'sub:tiefling', 'sub:warlock', 'trig:step',
+        'type:creature', 'type:legendary',
+      ],
+    });
+    const want = plan.wants.find(w => w.facet === 'eff:impulse');
+    assert.ok(want, plan.wants.map(w => w.facet).join(' '));
+    assert.ok(want!.weight >= 0.9);
+  });
+
+  it('a blink commander touches exile and does NOT want impulse draw', () => {
+    // Brago, Thassa and Emiel all carry `cares:zone:exile` from the return
+    // half of a blink, and none of them wants Light Up the Stage. Keying the
+    // rule on the zone would have said they did; it is keyed on the verb.
+    const plan = planForCommander({
+      name: 'Brago, King Eternal',
+      typeLine: 'Legendary Creature — Spirit Noble',
+      facets: [
+        'cares:zone:exile', 'eff:exile-own', 'eff:return-from', 'kw:flying', 'rec:full',
+        'sub:noble', 'sub:spirit', 'trig:deals-damage', 'type:creature', 'type:legendary',
+      ],
+    });
+    assert.equal(plan.wants.some(w => w.facet === 'eff:impulse'), false, plan.wants.map(w => w.facet).join(' '));
+  });
+});

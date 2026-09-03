@@ -227,17 +227,40 @@ export const EFFECT_VERBS: readonly string[] = [
      you control is exiled, so this pays him nothing. See the long note in
      src/lib/deck/recommend/behaviour.ts. */
   'exile-self',
+  /*
+   * A `move-zone` to hand aimed at YOUR side: Chulane's activated ability,
+   * Batterskull returning itself, and the named marker on Whitemane Lion and
+   * Shrieking Drake, whose choice of creature the compiler will not make.
+   * Cyclonic Rift stays `move-zone`. Same precedent as `exile-own`: a Chulane
+   * or Animar plan wants creatures that come back to be cast again, and the
+   * plain verb could only offer it every bounce spell in blue.
+   */
+  'bounce-own',
   'destroy-own',
   'tap-own',
   'discard-self',
   'damage-self',
   'draw-each',
-  /* Every player throws away a hand and draws a new one. A conjunction the
-     facet layer derives from draw + discard + scope:all + the hand zone, kept
-     as one word because wheels are a job (Niv-Mizzet, Nekusar, The Locust
-     God) and no single verb says it. */
+  /*
+   * A SYMMETRICAL WHEEL: every hand emptied and every hand refilled, in one
+   * sentence. Derived by `readEffects` from a whole-hand discard and a draw
+   * both aimed at every player, in the SAME effect list — the one place a
+   * conjunction over facets is sound. It is the word the Tagger already gives
+   * Wheel of Fortune, Windfall and Dark Deal (`wheel-symmetrical`), so the
+   * compiler reading those cards keeps the word rather than losing it.
+   */
   'wheel',
   'shrink',
+  /*
+   * IMPULSE DRAW: exile the top of a library and play those cards from exile
+   * for a turn or two. Light Up the Stage (1222), Reckless Impulse, Jeska's
+   * Will's second mode, Prosper's Mystic Arcanum, Laelia, Ragavan. All of
+   * them produced no effect facet at all, because the exile and the
+   * permission are two sentences and the compiler read neither. Its own verb
+   * rather than `exile`, for the reason `exile-graveyard` is: `eff:exile`
+   * is the removal role, and a draw spell is not an answer.
+   */
+  'impulse',
   /* An open choice made as a permanent enters, with the SUBJECT on the effect
      rather than in the verb, the way `among` sits on `add-mana`. So every
      consumer that reads `eff:choose` reads all of them, and a new subject needs
@@ -504,7 +527,10 @@ export const ROLE_FACETS: Readonly<Record<Role, readonly Facet[]>> = {
    * qualifies through `facetRoleQualifies` the way `eff:return-from` does,
    * because the permission always carries `cares:zone:graveyard`.
    */
-  draw: ['eff:draw', 'eff:return-from', 'eff:cast-from-graveyard'],
+  /* `eff:impulse` joins for the same reason `eff:return-from` did: a card you
+     did not have and now may play. Light Up the Stage is red's Divination and
+     served no role at all, so no quota pass could take it however cheap. */
+  draw: ['eff:draw', 'eff:return-from', 'eff:cast-from-graveyard', 'eff:impulse'],
   /* `eff:shrink` is here rather than in `enhance` because a mass minus-N KILLS
      things, which is the job removal names. Splitting the sign moved 116 cards
      out of enhance, where a sweeper was being counted as an anthem: Massacre
@@ -690,7 +716,10 @@ function facetRoleQualifies(role: Role, facets: readonly Facet[]): boolean {
    * is not, and the difference is the zone.
    */
   if (role === 'draw') {
-    return facets.includes('eff:draw') || facets.includes('cares:zone:graveyard');
+    /* `eff:impulse` passes on its own: the cards come off the top of the
+       library and the permission to play them is the whole effect, so there
+       is no zone gate to apply and no blink to keep out. */
+    return facets.includes('eff:draw') || facets.includes('eff:impulse') || facets.includes('cares:zone:graveyard');
   }
 
   /*
@@ -1625,13 +1654,26 @@ const INTENT_RULES: readonly IntentRule[] = [
   {
     when: /(whenever you cast a creature spell|(?<!non)creature spells? you cast|cast (green )?creature spells)/i,
     reads: "cares about the creature spells you cast",
+    /*
+     * `eff:bounce-own` is the second cast. Chulane and Animar are paid per
+     * creature SPELL, and the deck the archetype actually builds recasts the
+     * same cheap creatures: Shrieking Drake, Whitemane Lion, Cloudstone
+     * Curio, Temur Sabertooth. Before the verb existed the only facet those
+     * cards could carry was `eff:move-zone`, which Cyclonic Rift also
+     * carries, so the plan could not ask for them without asking for every
+     * bounce spell in blue. `cost:return-to-hand` is the same job paid as a
+     * cost, Wirewood Symbiote's shape, and sits just under it because a cost
+     * bounces one creature per activation rather than on every trigger.
+     */
     wants: [
       ['type:creature', 0.8],
+      ['eff:bounce-own', 0.6],
       ['cares:type:creature', 0.55],
       /* More casts is more triggers, so the cheap creature beats the dear one,
          and a creature that also makes mana is a cast that pays for the next.
          Every human Chulane and Animar list runs the one-mana dorks. */
       ['mv:cheap', 0.45],
+      ['cost:return-to-hand', 0.5],
       ['trig:cast', 0.35],
       ['eff:add-mana', 0.25],
     ],
@@ -1806,9 +1848,20 @@ const INTENT_RULES: readonly IntentRule[] = [
   {
     when: /return [^.]{0,40}(creature|permanent|spell|card)s?[^.]{0,40} to (its|their) owner'?s hands?/i,
     reads: "keeps sending permanents back to hand",
+    /*
+     * This is the enters-again deck, and the card it wants most is the one
+     * that puts YOUR creature back in hand so it can enter again: Shrieking
+     * Drake, Whitemane Lion, Cloudstone Curio. Before `eff:bounce-own` existed
+     * the only word for that was `eff:move-zone`, which Cyclonic Rift also
+     * carries, so the loudest effect want here bought as much removal as
+     * engine. The plain verb stays, lower, because Man-o'-War and Aether Adept
+     * say "target creature" without naming whose and are played in exactly
+     * this deck pointed at their own side.
+     */
     wants: [
       ['trig:enters', 0.8],
-      ['eff:move-zone', 0.6],
+      ['eff:bounce-own', 0.6],
+      ['eff:move-zone', 0.4],
       ['type:creature', 0.4],
     ],
   },
@@ -2574,6 +2627,25 @@ const PLAN_RULES: readonly {
     when: 'eff:draw',
     wants: [
       { facet: 'eff:draw', weight: 0.7 },
+    ],
+  },
+  /*
+   * A COMMANDER THAT IMPULSES WANTS IMPULSE. Prosper, Tome-Bound is paid a
+   * Treasure every time a card is played from exile and his own end step
+   * puts one there; Laelia grows whenever cards leave the library for exile;
+   * Faldorn makes a Wolf whenever a spell is cast from exile. All three carry
+   * `eff:impulse` on the ability that does it, so that is the key.
+   *
+   * NOT keyed on `cares:zone:exile`, which was the obvious choice and is
+   * wrong. Measured over `cards_pool`: half the legendary creatures carrying
+   * that facet are blink commanders (Brago, Thassa, Emiel) and Praetors that
+   * exile themselves to transform, and none of them wants Light Up the Stage.
+   * The zone says a card touches exile; only the verb says it plays from it.
+   */
+  {
+    when: 'eff:impulse',
+    wants: [
+      { facet: 'eff:impulse', weight: 0.9 },
     ],
   },
   {
@@ -4663,6 +4735,7 @@ const EFFECT_PHRASES: Readonly<Record<string, string>> = {
   draw: 'draws cards',
   mill: 'mills',
   discard: 'makes a player discard',
+  wheel: 'makes everyone discard their hand and draw a new one',
   destroy: 'destroys',
   exile: 'exiles',
   sacrifice: 'sacrifices',
@@ -4672,6 +4745,7 @@ const EFFECT_PHRASES: Readonly<Record<string, string>> = {
   'lose-life': 'drains life',
   poison: 'gives poison',
   'move-zone': 'moves cards between zones',
+  'bounce-own': 'returns your own creatures to hand',
   'return-from': 'returns cards',
   'search-library': 'searches your library',
   'create-token': 'makes tokens',
@@ -4720,4 +4794,5 @@ const EFFECT_PHRASES: Readonly<Record<string, string>> = {
   'extra-turn': 'takes an extra turn',
   'extra-combat': 'takes an extra combat',
   scry: 'scries',
+  impulse: 'exiles cards off the top of the library to play them',
 };

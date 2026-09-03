@@ -535,11 +535,15 @@ function runEffect(effect: Effect, ctx: AbilityContext, scope: RunScope): void {
     }
 
     case 'discard': {
-      const count = evalValue(effect.count, ctx);
-      if (count <= 0) break;
+      // `'hand'` is the whole hand, and the whole hand is a different size for
+      // every player, so it is counted inside the loop rather than once above
+      // it. A fixed count is evaluated once, as before.
+      const fixed = effect.count === 'hand' ? null : evalValue(effect.count, ctx);
+      if (fixed !== null && fixed <= 0) break;
       for (const playerId of livingIds(state, resolvePlayers(effect.who, ctx))) {
         const hand = playerOf(state, playerId)?.zones.hand ?? [];
         if (hand.length === 0) continue;
+        const count = fixed ?? hand.length;
         if (hand.length <= count) {
           // No choice to make: the whole hand goes.
           for (const instanceId of hand) {
@@ -682,6 +686,34 @@ function runEffect(effect: Effect, ctx: AbilityContext, scope: RunScope): void {
             `${seen < look ? ` (${look} asked for, ${library.length} in library)` : ''}` +
             `, puts ${effect.upTo ? 'up to ' : ''}${taken} of them ${placeOf(effect.pickedTo)}` +
             ` and the rest ${placeOf(effect.restTo)}`
+        );
+      }
+      break;
+    }
+
+    case 'impulse': {
+      /*
+       * DEFERRED WHOLE, AND ON PURPOSE. The exile half is mechanical and this
+       * function could emit it today; the permission half needs the game to
+       * remember that THESE cards may be played from exile until a window
+       * closes, and nothing in `GameState` holds that. Exiling without
+       * granting would take the player's cards and give nothing back, which
+       * is Mystic Forge resolving where Light Up the Stage was cast. So
+       * nothing moves, and the note says what the card asks for in the
+       * player's words, with the count evaluated against the real library.
+       */
+      const count = evalValue(effect.count, ctx);
+      if (count <= 0) break;
+      const window = effect.until === 'end-of-turn' ? 'until end of turn' : 'until the end of your next turn';
+      for (const playerId of resolvePlayers(effect.who, ctx)) {
+        const library = playerOf(state, playerId)?.zones.library ?? [];
+        const seen = Math.min(count, library.length);
+        if (seen === 0) continue;
+        scope.deferred.push(
+          `exile the top ${seen} card${seen === 1 ? '' : 's'} of ${nameOf(state, playerId)}'s library` +
+            `${seen < count ? ` (${count} asked for, ${library.length} in library)` : ''}` +
+            `; ${window} they may be ${effect.permission === 'cast' ? 'cast' : 'played'} from exile` +
+            ' (the engine cannot hold that permission, so nothing was exiled)'
         );
       }
       break;
@@ -984,7 +1016,12 @@ function runEffect(effect: Effect, ctx: AbilityContext, scope: RunScope): void {
       // Both are wrong, so neither happens and the table is told what is owed.
       const askedIds = resolvePlayers(effect.who, ctx);
       const owed = effect.cost
-        .map(cost => (cost.pay === 'mana' ? cost.cost : cost.pay))
+        .map(cost =>
+          cost.pay === 'mana' ? cost.cost
+          // A computed generic amount, read off the board now so the note
+          // names the number the player is actually being asked for.
+          : cost.pay === 'generic-mana' ? `{${evalValue(cost.amount, ctx)}}`
+          : cost.pay)
         .join(', ');
       const asked = askedIds.length
         ? askedIds.map(playerId => nameOf(state, playerId)).join(', ')
@@ -1023,7 +1060,12 @@ function runEffect(effect: Effect, ctx: AbilityContext, scope: RunScope): void {
        */
       const payerIds = resolvePlayers(effect.who, ctx);
       const owed = effect.cost
-        .map(cost => (cost.pay === 'mana' ? cost.cost : cost.pay))
+        .map(cost =>
+          cost.pay === 'mana' ? cost.cost
+          // A computed generic amount, read off the board now so the note
+          // names the number the player is actually being asked for.
+          : cost.pay === 'generic-mana' ? `{${evalValue(cost.amount, ctx)}}`
+          : cost.pay)
         .join(', ');
       const payer = payerIds.length
         ? payerIds.map(playerId => nameOf(state, playerId)).join(', ')

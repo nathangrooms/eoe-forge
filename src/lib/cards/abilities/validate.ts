@@ -29,6 +29,7 @@
 
 import type {
   Ability,
+  AlternativeCost,
   CardDestination,
   CardFilter,
   Condition,
@@ -215,6 +216,10 @@ export const STEPS = [
 export const CMPS = ['lt', 'lte', 'eq', 'gte', 'gt', 'ne'] as const;
 export const DURATIONS = ['end-of-turn', 'your-next-turn', 'while-source-on-battlefield', 'permanent'] as const;
 export const PLAY_FROM_LIMITS = ['once-per-turn', 'once-per-type-per-turn'] as const;
+
+/* `{do:'impulse'}`'s window. Not `DURATIONS`: see `ImpulseUntil` in `dsl.ts`. */
+export const IMPULSE_UNTIL = ['end-of-turn', 'end-of-your-next-turn'] as const;
+export const IMPULSE_PERMISSIONS = ['play', 'cast'] as const;
 export const GAP_REASONS = [
   'copy-layer', 'alt-cast', 'granted-ability', 'layer-dependency', 'state-trigger', 'duration',
   'hidden-choice', 'needs-history', 'outside-game', 'meta-replacement', 'complex-combat', 'stale',
@@ -405,6 +410,7 @@ const cost = union<Cost>('pay', {
   discard: object({ what: opt(selector), count: req(valueExpr), random: opt(isBool) }, 'pay'),
   exile: object({ from: req(zone), what: req(selector), count: req(valueExpr) }, 'pay'),
   life: object({ amount: req(valueExpr) }, 'pay'),
+  'generic-mana': object({ amount: req(valueExpr) }, 'pay'),
   'remove-counters': object({ counter: req(isNonEmptyString), count: req(valueExpr), from: opt(selector) }, 'pay'),
   'add-counters': object({ counter: req(isNonEmptyString), count: req(valueExpr), to: opt(selector) }, 'pay'),
   'return-to-hand': object({ what: req(selector), count: req(valueExpr) }, 'pay'),
@@ -449,6 +455,10 @@ const manaSpendRestriction = object({
 
 const selectorOrPlayer = either(selector, playerSelector, 'sel', 'who', 'selector or player selector');
 
+/** A discard's amount: a value, or the literal `'hand'` for all of it. */
+const discardCount: Check<ValueExpr | 'hand'> = (v, p, e) =>
+  v === 'hand' ? 'hand' : valueExpr(v, p, e);
+
 const lifeEffect = object({ who: req(playerSelector), amount: req(valueExpr) }, 'do');
 const tapEffect = object({ what: req(selector) }, 'do');
 const counterEffect = object({ what: req(selector), counter: req(isNonEmptyString), count: req(valueExpr) }, 'do');
@@ -465,7 +475,8 @@ const effectImpl = union<Effect>('do', {
    * and there is no milling equivalent. */
   draw: object({ who: req(playerSelector), count: req(valueExpr), revealed: opt(isBool) }, 'do'),
   mill: drawEffect,
-  discard: object({ who: req(playerSelector), count: req(valueExpr), random: opt(isBool) }, 'do'),
+  // `'hand'` is the whole hand, per player. See the note on the member in dsl.ts.
+  discard: object({ who: req(playerSelector), count: req(discardCount), random: opt(isBool) }, 'do'),
   'move-zone': object({
     what: req(selector),
     to: req(zone),
@@ -516,6 +527,13 @@ const effectImpl = union<Effect>('do', {
     what: opt(cardFilter), pickedTo: req(cardDestination), restTo: req(cardDestination),
   }, 'do'),
   surveil: object({ who: req(playerSelector), count: req(valueExpr) }, 'do'),
+  /* Every field REQUIRED. An absent `permission` would read as "play" and let
+   * a card that says "cast" put a land onto the battlefield; an absent `until`
+   * would be a window nothing closes. */
+  impulse: object({
+    who: req(playerSelector), count: req(valueExpr),
+    until: req(isEnum(IMPULSE_UNTIL)), permission: req(isEnum(IMPULSE_PERMISSIONS)),
+  }, 'do'),
   'unless-pays': object({
     who: req(playerSelector), cost: req(isArrayOf(cost, 1)), effects: req(isArrayOf(effect, 1)),
   }, 'do'),
@@ -677,6 +695,14 @@ const confidence = isEnum(['exact', 'approximate'] as const);
  */
 const abilityBase = { id: opt(isNonEmptyString), text: req(isString), confidence: opt(confidence) };
 
+/* `costs` may be EMPTY — that is the free-spell cycle, where nothing is paid
+   instead — so no minimum length here, unlike every other cost list. */
+const alternativeCost = object<AlternativeCost>({
+  costs: req(isArrayOf(cost)),
+  condition: opt(condition),
+  text: req(isNonEmptyString),
+});
+
 const ability = union<Ability>('kind', {
   triggered: object({
     ...abilityBase,
@@ -720,6 +746,13 @@ const ability = union<Ability>('kind', {
     ...abilityBase,
     targets: opt(isArrayOf(targetSpec)),
     effects: req(isArrayOf(effect)),
+    /* Both are what the COMPILER writes on a spell (`SpellAbility`), and a
+       validator that called the compiler's own record an unknown field would
+       be checking a DSL the compiler does not emit. The model is not shown
+       either — `llm-prompt.ts` keeps the spell shape to targets and effects —
+       so accepting them here widens nothing the model can say. */
+    additionalCosts: opt(isArrayOf(cost)),
+    alternativeCosts: opt(isArrayOf(alternativeCost)),
   }, 'kind'),
   mana: object({
     ...abilityBase,
@@ -793,7 +826,7 @@ export const ACCEPTED_TAGS: Readonly<Record<string, readonly string[]>> = Object
     'gain-life', 'lose-life', 'set-life', 'damage', 'poison', 'draw', 'mill', 'discard', 'move-zone',
     'destroy', 'sacrifice', 'exile', 'return-from', 'search-library', 'shuffle', 'create-token', 'tap',
     'untap', 'add-counters', 'remove-counters', 'pump', 'gain-control', 'attach', 'add-mana', 'player-counter',
-    'set-monarch', 'lose-game', 'win-game', 'counter', 'scry', 'surveil', 'look-and-pick',
+    'set-monarch', 'lose-game', 'win-game', 'counter', 'scry', 'surveil', 'look-and-pick', 'impulse',
     'unless-pays', 'do-if-cost-paid', 'if', 'for-each', 'repeat', 'choose-mode', 'may',
     // ReplacementResult shares the `do` key.
     'enters-tapped', 'enters-with-counters', 'enters-under-control', 'prevent', 'redirect', 'multiply',
@@ -811,8 +844,8 @@ export const ACCEPTED_TAGS: Readonly<Record<string, readonly string[]>> = Object
   ],
   if: ['count', 'value', 'controls', 'step', 'your-turn', 'first-time-this-turn', 'not', 'and', 'or'],
   pay: [
-    'mana', 'tap', 'untap', 'tap-others', 'sacrifice', 'discard', 'exile', 'life', 'remove-counters',
-    'add-counters', 'return-to-hand', 'reveal',
+    'mana', 'tap', 'untap', 'tap-others', 'sacrifice', 'discard', 'exile', 'life', 'generic-mana',
+    'remove-counters', 'add-counters', 'return-to-hand', 'reveal',
   ],
   on: [
     'enters', 'dies', 'leaves', 'zone-change', 'attacks', 'blocks', 'becomes-blocked', 'deals-damage',

@@ -63,7 +63,7 @@ import type {
 import { compileCardAbilities } from '../../cards/abilities/compiler.ts';
 // The compiler's own subtype vocabulary, so a word is a subtype in exactly one
 // place in this repository. See `readNamedSubtypesInRules`.
-import { isSubtypeWord } from '../../cards/abilities/grammar.ts';
+import { isSubtypeWord, parseKeywordWithParameter } from '../../cards/abilities/grammar.ts';
 import { parseCosts } from '../../cards/abilities/clause-rules.ts';
 import { abilityWordsOf, normalizeCard, type AbilityCard } from '../../cards/abilities/normalize.ts';
 import { xmageSwapFor } from '../../cards/xmage/lowered.ts';
@@ -833,10 +833,38 @@ function readCaresFilters(node: unknown, out: Set<Facet>): void {
     if (rec.is === 'type') out.add(`cares:type:${rec.value.toLowerCase()}`);
     else if (rec.is === 'subtype') out.add(`cares:sub:${rec.value.toLowerCase()}`);
   }
+  /*
+   * `{is:'commander'}` is the one filter with no value, so it is read here on
+   * its own. `cares:commander` was declared in the engine's vocabulary for
+   * "the card that singles out YOUR COMMANDER" and this file had never emitted
+   * it: the compiler produced the filter nowhere, so the free-spell cycle
+   * (Fierce Guardianship, Deadly Rollick, Flawless Maneuver) reached the word
+   * only through Tagger's `cycle-c20-free-spell`. The filter now sits in the
+   * spell's `alternativeCosts[].condition`, which this walk reaches like any
+   * other position.
+   */
+  if (rec.is === 'commander') out.add('cares:commander');
   for (const [key, value] of Object.entries(rec)) {
     if (PROSE_FIELDS.has(key)) continue;
     readCaresFilters(value, out);
   }
+}
+
+/**
+ * The keyword a grant entry gives, with its parameter dropped.
+ *
+ * A grant can now carry a parameterised keyword — "protection from red",
+ * "protection from the chosen color" — the way a printed keyword line does,
+ * and the keyword line has always been read as `kw:protection` with the
+ * parameter left off. Reading a grant of the same thing as
+ * `grants:protection from the chosen color` would make Gods Willing invisible
+ * to the `protection` role, which asks for `grants:protection` by name, while
+ * a card PRINTED with protection counts. The facet says what kind of shield
+ * the card hands out; which colour is a question for the table.
+ */
+function grantedKeyword(grant: unknown): string {
+  const g = String(grant).toLowerCase();
+  return parseKeywordWithParameter(g)?.keyword ?? g;
 }
 
 function readAbility(ability: Ability, out: Set<Facet>): void {
@@ -949,7 +977,7 @@ function readAbility(ability: Ability, out: Set<Facet>): void {
          * ENABLER, and only the second is a reason to run more creatures.
          */
         for (const g of mod.grant ?? []) {
-          const kw = String(g).toLowerCase();
+          const kw = grantedKeyword(g);
           out.add(`grants:${kw}`);
           out.add(`kw:${kw}`);
         }
@@ -1149,6 +1177,47 @@ function readEffects(
   targets?: readonly TargetSpec[]
 ): void {
   for (const e of effects ?? []) readEffect(e, out, targets);
+  if (isWheel(effects)) {
+    out.add('eff:wheel');
+    out.add('scope:all');
+  }
+}
+
+/**
+ * A WHEEL: every player throws their hand away and every player draws, in the
+ * same effect list.
+ *
+ * `eff:wheel` is a word the Tagger has supplied for months (`wheel-symmetrical`
+ * maps to `eff:draw cares:zone:hand scope:all eff:wheel`) and the compiler
+ * never produced, because it could not read "discards their hand" at all. Now
+ * that it can, the same card must come out of both readers with the same word,
+ * or a card the compiler reads loses the facet the Tagger was giving it — the
+ * merge in `cards_pool` lets a non-gated tag speak only where the compiler is
+ * silent, so a better reading would have been a worse record.
+ *
+ * This is a conjunction over facets, and CLAUDE.md is right that those are only
+ * sound when the facets provably come from the same clause. Here they do: both
+ * effects are members of ONE effect list, which is one sentence of one ability,
+ * so a card that discards in one paragraph and draws in another is not a wheel
+ * and does not read as one. `scope:all` is added for the same reason `eff:wheel`
+ * is: it is what the Tagger says about the shape, and it is true — the effect
+ * reaches every player rather than one.
+ *
+ * Only the SYMMETRICAL wheel. "Discard your hand, then draw seven cards" aimed
+ * at one player is a refill, and the Tagger's `wheel-one-sided` carries no
+ * `eff:wheel` either. The verbs themselves are left as they were: `eff:discard`
+ * because the discard reaches opponents, `eff:draw-each` because the draw is
+ * everybody's. Those judgements belong to the aim rules above, not here.
+ */
+function isWheel(effects: readonly Effect[] | undefined): boolean {
+  if (!effects) return false;
+  const everyone = (e: Effect): boolean =>
+    aimOfPlayer((e as { who?: PlayerSelector }).who) === 'everyone';
+  const emptiesHands = effects.some(
+    (e) => e.do === 'discard' && (e as { count?: unknown }).count === 'hand' && everyone(e),
+  );
+  const refills = effects.some((e) => e.do === 'draw' && everyone(e));
+  return emptiesHands && refills;
 }
 
 /**
@@ -1280,11 +1349,33 @@ function readEffect(effect: Effect, out: Set<Facet>, targets?: readonly TargetSp
       readSelector(effect.what, out);
       return;
 
-    case 'move-zone':
-      out.add('eff:move-zone');
+    case 'move-zone': {
+      /*
+       * BOUNCING YOUR OWN PERMANENT IS NOT BOUNCING THEIRS.
+       *
+       * Chulane's "{3}, {T}: Return target creature you control to its owner's
+       * hand" and Cyclonic Rift both compiled to `move-zone` to hand, and the
+       * facet said `eff:move-zone` for both, so a Chulane or Animar plan
+       * asking for creatures that come back to be cast again could only ask
+       * for the facet every removal-shaped bounce spell also carries. Same
+       * fault and same fix as `eff:exile-own`: the direction goes IN the
+       * verb, because a role check and a plan want both ask whether the card
+       * carries one facet.
+       *
+       * Only a bounce, `to: 'hand'`. Putting your own creature on top of its
+       * library is a different card and keeps the plain verb. And a LAND
+       * bounce keeps it too: "return target land you control to its owner's
+       * hand" is the karoo shape, not a creature coming back for a recast.
+       */
+      const own =
+        effect.to === 'hand' &&
+        isSelfAimed(aimOfSelector(effect.what, targets)) &&
+        !selectsLand(effect.what, targets);
+      out.add(own ? 'eff:bounce-own' : 'eff:move-zone');
       out.add(`cares:zone:${effect.to}`);
       readSelector(effect.what, out);
       return;
+    }
 
     case 'search-library':
       out.add('eff:search-library');
@@ -1321,10 +1412,22 @@ function readEffect(effect: Effect, out: Set<Facet>, targets?: readonly TargetSp
       const positive = (p !== null && p > 0) || (t !== null && t > 0);
       out.add(negative && !positive ? 'eff:shrink' : 'eff:pump');
       readSelector(effect.what, out);
+      /*
+       * A pump SIZED BY A CREATURE'S POWER is a card that wants big creatures.
+       *
+       * Xenagos doubles whatever he points at, Berserk doubles the power of
+       * its target, Wild Beastmaster pumps the team by his own power: every
+       * one of them is worth more the bigger the creature already is, which
+       * is the same want as "power 4 or greater matters". `cares:power` was
+       * declared for those filters and nothing emitted it, so the word was
+       * on the list and on no card. A literal +2/+2 does not care how big the
+       * creature was, so it stays silent.
+       */
+      if (readsStat(effect.power) || readsStat(effect.toughness)) out.add('cares:power');
       /* Same distinction as the static layer above: a pump spell that grants
          trample is an evasion ENABLER, not a card that has trample. */
       for (const g of effect.grant ?? []) {
-        const kw = String(g).toLowerCase();
+        const kw = grantedKeyword(g);
         out.add(`grants:${kw}`);
         out.add(`kw:${kw}`);
       }
@@ -1465,6 +1568,10 @@ function readEffect(effect: Effect, out: Set<Facet>, targets?: readonly TargetSp
          the draw half of the card already says so. */
       const aim = aimOfPlayer((effect as { who?: PlayerSelector }).who);
       out.add(isSelfAimed(aim) ? 'eff:discard-self' : 'eff:discard');
+      /* A whole hand, not a card or two. The zone facet is what the Tagger
+         already says about every wheel and about "discards their hand", and
+         it is the facet a hand-size deck asks for. */
+      if ((effect as { count?: unknown }).count === 'hand') out.add('cares:zone:hand');
       return;
     }
 
@@ -1497,6 +1604,15 @@ function readEffect(effect: Effect, out: Set<Facet>, targets?: readonly TargetSp
       if ((effect as { pickedTo?: { zone?: string } }).pickedTo?.zone === 'battlefield') {
         out.add('eff:put-onto-battlefield');
       }
+    case 'impulse':
+      /* RED'S CARD DRAW, and NOT `eff:exile`. Light Up the Stage exiles two
+         cards and gives them back; filing that under the verb that puts Swords
+         to Plowshares in the removal role would spend a removal slot on a draw
+         spell. `cares:zone:exile` is the fact a Prosper deck keys on: he is
+         paid whenever a card is PLAYED from exile, and this is how the cards
+         get there. */
+      out.add('eff:impulse');
+      out.add('cares:zone:exile');
       return;
 
     case 'mill':
@@ -1527,7 +1643,23 @@ function readEffect(effect: Effect, out: Set<Facet>, targets?: readonly TargetSp
  * A hint whose id is not on this list contributes nothing, which is the same
  * refusal the compiler already made.
  */
-const MANUAL_IDS: readonly string[] = ['proliferate', 'extra-turn', 'extra-combat', 'scry'];
+/*
+ * `bounce-own` is the untargeted "return a creature you control to its owner's
+ * hand": Whitemane Lion, Shrieking Drake, Kor Skyfisher, Cloudstone Curio. The
+ * compiler refuses to pick which creature (that is the player's choice, and
+ * `{sel:'all'}` would bounce them all), so the record is a marker — but a
+ * named one, and the name is what lets a Chulane deck find the cards it is
+ * built on. The targeted and self forms reach the same facet through
+ * `move-zone` above.
+ */
+
+/* `cast-free` joined on 3 Sep 2026. The verb had been in `EFFECT_VERBS` since
+   the vocabulary was written and nothing in this file could ever emit it: the
+   compiler had no rule for "cast ... without paying its mana cost", so Etali,
+   Mizzix's Mastery and Electrodominance reached a plan only through Tagger.
+   A card whose ONLY readable clause is the free cast (Rishkar's Expertise)
+   still does: a marker alone is not a record, and that refusal is right. */
+const MANUAL_IDS: readonly string[] = ['proliferate', 'extra-turn', 'extra-combat', 'scry', 'bounce-own', 'cast-free'];
 
 function manualId(hint: string): string | null {
   const head = hint.split(':')[0].trim().toLowerCase();
@@ -1656,6 +1788,21 @@ function typesNamedBy(filter: CardFilter | undefined): string[] {
   }
 }
 
+/**
+ * Does this amount read a creature's power or toughness anywhere inside it?
+ *
+ * Walked structurally rather than by case, because a `ValueExpr` nests —
+ * `{v:'mul', of:[2, {v:'power', …}]}` — and a walker keyed on today's members
+ * would go quiet the day a new arithmetic member arrives. It answers only
+ * "is a stat read", never whose; the pump case above is the one asking.
+ */
+function readsStat(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = (value as { v?: unknown }).v;
+  if (v === 'power' || v === 'toughness') return true;
+  return Object.values(value).some(readsStat);
+}
+
 function readSelector(selector: Selector, out: Set<Facet>): void {
   if (selector.sel !== 'all') return;
   out.add('scope:all');
@@ -1700,6 +1847,21 @@ function readFilter(filter: CardFilter, out: Set<Facet>, prefix: 'cares'): void 
     default:
       return;
   }
+}
+
+/**
+ * Does the moved object certainly describe a land? A bounce of your own land
+ * is the karoo clause and must not read as `eff:bounce-own`. The filter lives
+ * on the selector for `all` and on the `TargetSpec` for a target; `self` and
+ * the pronoun selectors carry no filter, so they answer no.
+ */
+function selectsLand(sel: Selector, targets?: readonly TargetSpec[]): boolean {
+  if (sel.sel === 'all') return namesType(sel.where, 'land');
+  if (sel.sel === 'target') {
+    const spec = (targets ?? []).find(t => t.ref === sel.ref);
+    return spec?.filter ? namesType(spec.filter, 'land') : false;
+  }
+  return false;
 }
 
 /** Does this filter certainly name this card type? Used only for land search. */

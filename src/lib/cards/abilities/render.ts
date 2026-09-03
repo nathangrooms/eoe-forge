@@ -328,6 +328,9 @@ export function renderEffect(effect: Effect): string {
       return `${renderPlayer(effect.who)} draws ${renderValue(effect.count)} cards`;
     case 'mill': return `${renderPlayer(effect.who)} mills ${renderValue(effect.count)} cards`;
     case 'discard':
+      // "Each player discards their hand" is the printed wording for the whole
+      // hand; "discards the number of cards in … hand cards" is not.
+      if (effect.count === 'hand') return `${renderPlayer(effect.who)} discards their hand`;
       return join([renderPlayer(effect.who), 'discards', renderValue(effect.count), 'cards', effect.random && 'at random']);
     case 'move-zone':
       return join([
@@ -368,6 +371,15 @@ export function renderEffect(effect: Effect): string {
         effect.upTo ? 'up to' : undefined, renderValue(effect.pick),
         effect.what ? `matching ${renderFilter(effect.what)}` : 'of them',
         renderDestination(effect.pickedTo), 'and the rest', renderDestination(effect.restTo),
+      ]);
+    /* Both sentences are printed, because both are the card: an exile with
+     * no permission is Mystic Forge, and `roundtrip.ts` has to see the words
+     * "until", "end", "turn" and "play"/"cast" to know the permission was read. */
+    case 'impulse':
+      return join([
+        'exile the top', renderValue(effect.count), 'cards of', `${renderPlayer(effect.who)} library,`
+        + (effect.until === 'end-of-turn' ? ' until end of turn' : ' until the end of your next turn'),
+        `you may ${effect.permission} them`,
       ]);
     case 'create-token':
       return join([
@@ -514,6 +526,10 @@ export function renderCost(cost: Cost): string {
     case 'discard': return join(['discard', renderValue(cost.count), cost.what && renderSelector(cost.what), 'cards', cost.random && 'at random']);
     case 'exile': return `exile ${renderValue(cost.count)} ${renderSelector(cost.what)} from ${zoneWords(cost.from)}`;
     case 'life': return `pay ${renderValue(cost.amount)} life`;
+    // Oracle text writes a computed generic cost as "{X}, where X is …", and
+    // the where-clause is the value. Rendering the value in braces keeps the
+    // shape a player recognises without inventing a symbol.
+    case 'generic-mana': return `{${renderValue(cost.amount)}}`;
     case 'remove-counters':
       return join(['remove', renderValue(cost.count), cost.counter, 'counters from', cost.from && renderSelector(cost.from)]);
     case 'add-counters':

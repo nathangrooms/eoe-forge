@@ -22,10 +22,10 @@ import assert from 'node:assert/strict';
 
 import { compileCardAbilities, compileWithTrace, assertClausesAccounted } from './compiler.ts';
 import { normalizeCard, normalizeParagraph, selfNames } from './normalize.ts';
-import { deriveCoverage, assertSerialisable, hasManualEffect, effectsOf } from './dsl.ts';
+import { deriveCoverage, assertSerialisable, hasManualEffect, effectsOf, PROTECTION_FROM_CHOSEN_COLOR } from './dsl.ts';
 import type { Ability, Effect } from './dsl.ts';
-import { KEYWORDS, parseObject, parseKeywordList, parseDuration, parseCondition } from './grammar.ts';
-import { peelInterveningIf } from './clause-rules.ts';
+import { KEYWORDS, parseObject, parseKeywordList, parseGrantList, parseDuration, parseCondition } from './grammar.ts';
+import { peelInterveningIf, parseAlternativeCost, parseCosts } from './clause-rules.ts';
 // A test file is a leaf, so it may import from `game` even though the compiler
 // may not. This is the drift check between the two keyword lists.
 import {
@@ -1332,4 +1332,752 @@ test('a colour the card remembered is not any colour', () => {
     oracle_text: 'As this artifact enters, choose a color.\nCreatures of the chosen color get +1/+1.\nWhenever a basic land is tapped for mana of the chosen color, its controller adds an additional one mana of that color.',
   });
   assert.ok(!gauntlet.abilities.some((a) => a.kind === 'triggered'));
+});
+
+/* ------------------------------------------------------------------ *
+ * Own-bounce: "return a creature you control to its owner's hand"
+ * ------------------------------------------------------------------ */
+
+test('an untargeted own-bounce is still refused, and the marker now says what it refused', () => {
+  // Whitemane Lion's choice of creature is the player's, and the test above
+  // pins that the compiler will not make it. What changed is the marker: it
+  // carries a NAME, so the facet layer can tell Shrieking Drake from an unread
+  // paragraph. Oracle text is verbatim from `cards_unique`.
+  const lion = compile({
+    name: 'Whitemane Lion', type_line: 'Creature — Cat',
+    oracle_text: "Flash\nWhen this creature enters, return a creature you control to its owner's hand.",
+  });
+  const lionEffects = effectsOf(lion.abilities.find((a) => a.kind === 'triggered')!);
+  assert.equal(lionEffects[0].do, 'manual');
+  assert.match(String((lionEffects[0] as { hint?: string }).hint), /^bounce-own:/);
+  assert.equal(lion.coverage, 'partial', 'named or not, a marker is not full coverage');
+
+  // Kor Skyfisher bounces "a permanent", Fleetfoot Panther "a green or white
+  // creature" (a colour `parseObject` does not read), Roaring Primadox on
+  // upkeep. All three are the shape and all three are named.
+  for (const row of [
+    { name: 'Kor Skyfisher', type_line: 'Creature — Kor Soldier',
+      oracle_text: "Flying\nWhen this creature enters, return a permanent you control to its owner's hand." },
+    { name: 'Fleetfoot Panther', type_line: 'Creature — Cat',
+      oracle_text: "Flash\nWhen this creature enters, return a green or white creature you control to its owner's hand." },
+    { name: 'Roaring Primadox', type_line: 'Creature — Beast',
+      oracle_text: "At the beginning of your upkeep, return a creature you control to its owner's hand." },
+  ]) {
+    const c = compile(row);
+    const e = effectsOf(c.abilities.find((a) => a.kind === 'triggered')!);
+    assert.equal(e[0].do, 'manual', row.name);
+    assert.match(String((e[0] as { hint?: string }).hint), /^bounce-own:/, row.name);
+  }
+
+  // Cloudstone Curio is the archetype's engine and its clause carries a tail
+  // no rule reads. Allowed by name, as a marker, never as an effect.
+  const curio = compile({
+    name: 'Cloudstone Curio', type_line: 'Artifact',
+    oracle_text: "Whenever a nonartifact permanent you control enters, you may return another permanent you control that shares a permanent type with it to its owner's hand.",
+  });
+  const curioEffects = effectsOf(curio.abilities[0]);
+  assert.equal(curioEffects[0].do, 'manual');
+  assert.match(String((curioEffects[0] as { hint?: string }).hint), /^bounce-own:/);
+  assert.equal(curio.coverage, 'partial');
+});
+
+test('a karoo bouncing a land is NOT own-bounce, and keeps the plain marker', () => {
+  // Simic Growth Chamber is rank 308 and thirty-six cards share its clause. A
+  // Chulane deck does not want any of them for that clause, so the marker stays
+  // unnamed and the facet layer reads nothing from it.
+  const karoo = compile({
+    name: 'Simic Growth Chamber', type_line: 'Land',
+    oracle_text: "This land enters tapped.\nWhen this land enters, return a land you control to its owner's hand.\n{T}: Add {G}{U}.",
+  });
+  const e = effectsOf(karoo.abilities.find((a) => a.kind === 'triggered')!);
+  assert.equal(e[0].do, 'manual');
+  assert.equal((e[0] as { hint?: string }).hint, undefined, 'a land bounce is not the shape');
+
+  // And a phrase whose middle names a second controller must not slip through
+  // on the "you control" substring. Not a real card; the refusal is the point.
+  const trap = compile({
+    name: 'Test Trap', type_line: 'Instant',
+    oracle_text: "Return a creature an opponent controls or you control to its owner's hand.",
+  });
+  const trapEffects = trap.abilities.length ? effectsOf(trap.abilities[0]) : [];
+  assert.ok(
+    trapEffects.every((x) => x.do !== 'manual' || !/^bounce-own/.test(String((x as { hint?: string }).hint ?? ''))),
+    'a second controller in the phrase is refused',
+  );
+});
+
+test('a targeted own-bounce carries "you control" on the TargetSpec, and a bounce cost reads its object', () => {
+  // Chulane, Teller of Tales. The `bounce` rule compiles the targeted form, and
+  // the controller is where every other targeted phrase puts it: on the spec.
+  // That is what lets the facet layer say whose creature comes back.
+  const chulane = compile({
+    name: 'Chulane, Teller of Tales', type_line: 'Legendary Creature — Human Druid',
+    oracle_text: "Vigilance\nWhenever you cast a creature spell, draw a card, then you may put a land card from your hand onto the battlefield.\n{3}, {T}: Return target creature you control to its owner's hand.",
+  });
+  const act = chulane.abilities.find((a) => a.kind === 'activated')!;
+  const [bounce] = effectsOf(act);
+  assert.equal(bounce.do, 'move-zone');
+  assert.equal((bounce as { to: string }).to, 'hand');
+  assert.deepEqual((bounce as { what: unknown }).what, { sel: 'target', ref: 0 });
+  const spec = (act as { targets?: Array<{ controller?: { who: string } }> }).targets?.[0];
+  assert.deepEqual(spec?.controller, { who: 'you' });
+
+  // Wirewood Symbiote pays by bouncing an Elf of yours. The cost reads its
+  // object the way "sacrifice a creature" does, and only when the phrase says
+  // the permanent is yours.
+  const symbiote = compile({
+    name: 'Wirewood Symbiote', type_line: 'Creature — Insect',
+    oracle_text: "Return an Elf you control to its owner's hand: Untap target creature. Activate only once each turn.",
+  });
+  const sAct = symbiote.abilities.find((a) => a.kind === 'activated')!;
+  const costs = (sAct as { costs: Array<Record<string, unknown>> }).costs;
+  assert.deepEqual(costs, [{
+    pay: 'return-to-hand',
+    what: { sel: 'all', where: { is: 'subtype', value: 'elf' }, controller: { who: 'you' }, zone: 'battlefield' },
+    count: 1,
+  }]);
+  assert.equal(symbiote.coverage, 'full');
+
+  // "Return a creature to its owner's hand:" without "you control" names no
+  // owner and is refused rather than assumed to be yours.
+  const vague = compile({
+    name: 'Test Vague', type_line: 'Artifact',
+    oracle_text: "Return a creature to its owner's hand: Draw a card.",
+  });
+  assert.equal(vague.abilities.filter((a) => a.kind === 'activated').length, 0);
+});
+
+/* ------------------------------------------------------------------ *
+ * Protection from a colour chosen on resolution
+ *
+ * Twenty-nine cards say "gains protection from the color of your choice
+ * until end of turn" and every one read as nothing. The danger in reading
+ * them is the obvious fix: the colour is NOT in the text, so a record that
+ * names one is a wrong ability. These cases assert the shape that carries
+ * the choice instead — a `choose` in front of the pump, and a grant entry
+ * that says "the chosen colour" rather than a colour.
+ * ------------------------------------------------------------------ */
+
+test('protection from the color of your choice is a colour CHOICE and then a grant, never a colour', () => {
+  // Gods Willing, verbatim.
+  const result = compile({
+    name: 'Gods Willing', type_line: 'Instant',
+    oracle_text: "Target creature you control gains protection from the color of your choice until end of turn. (It can't be blocked, targeted, dealt damage, enchanted, or equipped by anything of that color.)\nScry 1.",
+  });
+  assert.equal(result.coverage, 'full');
+  const effects = effectsOf(result.abilities[0]);
+  assert.deepEqual(effects, [
+    { do: 'choose', who: { who: 'you' }, what: 'color' },
+    { do: 'pump', what: { sel: 'target', ref: 0 }, power: 0, toughness: 0, grant: [PROTECTION_FROM_CHOSEN_COLOR], duration: 'end-of-turn' },
+  ]);
+  assert.ok(!hasManualEffect(effects), 'the choice is a DSL member, not a marker');
+  // The whole point: no colour anywhere in the record, because none is printed.
+  assert.ok(!/from (white|blue|black|red|green)/.test(JSON.stringify(result.abilities)));
+  assert.deepEqual(effectsOf(result.abilities[1]), [{ do: 'scry', who: { who: 'you' }, count: 1 }]);
+  assertSerialisable(result);
+});
+
+test('Mother of Runes: the whole card is that line, and it is an activated ability now', () => {
+  const result = compile({
+    name: 'Mother of Runes', type_line: 'Creature — Human Cleric',
+    oracle_text: '{T}: Target creature you control gains protection from the color of your choice until end of turn.',
+  });
+  assert.equal(result.coverage, 'full');
+  const a = result.abilities[0] as Extract<Ability, { kind: 'activated' }>;
+  assert.equal(a.kind, 'activated');
+  assert.deepEqual(a.costs, [{ pay: 'tap' }]);
+  assert.equal(a.effects[0].do, 'choose');
+  assert.equal(a.effects[1].do, 'pump');
+  assert.deepEqual(a.targets?.[0]?.controller, { who: 'you' });
+});
+
+test('"the chosen color" grants without a second choice: the earlier sentence already chose', () => {
+  // Brave the Elements, verbatim.
+  const result = compile({
+    name: 'Brave the Elements', type_line: 'Instant',
+    oracle_text: 'Choose a color. White creatures you control gain protection from the chosen color until end of turn.',
+  });
+  assert.equal(result.coverage, 'full');
+  const effects = effectsOf(result.abilities[0]);
+  assert.equal(effects.filter((e) => e.do === 'choose').length, 1);
+  const pump = effects[1] as Extract<Effect, { do: 'pump' }>;
+  assert.equal(pump.do, 'pump');
+  assert.deepEqual(pump.grant, [PROTECTION_FROM_CHOSEN_COLOR]);
+  // Every white creature you control, not one of them.
+  assert.equal(pump.what.sel, 'all');
+});
+
+test('"protection from artifacts or from the color of your choice" is a decision between two modes', () => {
+  // Giver of Runes, verbatim. CR 608.2c: the "or" is chosen on resolution.
+  const result = compile({
+    name: 'Giver of Runes', type_line: 'Creature — Kor Cleric',
+    oracle_text: '{T}: Another target creature you control gains protection from colorless or from the color of your choice until end of turn.',
+  });
+  assert.equal(result.coverage, 'full');
+  const a = result.abilities[0] as Extract<Ability, { kind: 'activated' }>;
+  const mode = a.effects[0] as Extract<Effect, { do: 'choose-mode' }>;
+  assert.equal(mode.do, 'choose-mode');
+  assert.equal(mode.min, 1);
+  assert.equal(mode.max, 1);
+  assert.equal(mode.modes.length, 2);
+  assert.deepEqual(mode.modes[0].effects, [
+    { do: 'pump', what: { sel: 'target', ref: 0 }, power: 0, toughness: 0, grant: ['protection from colorless'], duration: 'end-of-turn' },
+  ]);
+  assert.deepEqual(mode.modes[1].effects, [
+    { do: 'choose', who: { who: 'you' }, what: 'color' },
+    { do: 'pump', what: { sel: 'target', ref: 0 }, power: 0, toughness: 0, grant: [PROTECTION_FROM_CHOSEN_COLOR], duration: 'end-of-turn' },
+  ]);
+  // One target announced by the card, shared by both modes — not one per mode.
+  assert.equal(a.targets?.length, 1);
+  assert.ok(!hasManualEffect(a.effects));
+});
+
+test('a printed colour is granted in the words the card prints', () => {
+  // Crimson Acolyte, verbatim. The keyword line and the grant read the same quality.
+  const result = compile({
+    name: 'Crimson Acolyte', type_line: 'Creature — Human Cleric',
+    oracle_text: 'Protection from red\n{W}: Target creature gains protection from red until end of turn.',
+  });
+  assert.equal(result.coverage, 'full');
+  assert.deepEqual(result.abilities[0], {
+    kind: 'keyword', id: 'a0', text: 'Protection from red', confidence: 'exact', keyword: 'protection', parameter: 'from red',
+  });
+  const pump = effectsOf(result.abilities[1])[0] as Extract<Effect, { do: 'pump' }>;
+  assert.deepEqual(pump.grant, ['protection from red']);
+});
+
+test('a PLAYER gaining protection is not a pump, and stays a marker', () => {
+  // Seht's Tiger, verbatim. "You gain protection" has no object to pump; a
+  // rule that bound "you" to the source would shield the wrong thing.
+  const result = compile({
+    name: "Seht's Tiger", type_line: 'Creature — Cat',
+    oracle_text: "Flash (You may cast this spell any time you could cast an instant.)\nWhen this creature enters, you gain protection from the color of your choice until end of turn. (You can't be targeted, dealt damage, or enchanted by anything of the chosen color.)",
+  });
+  assert.equal(result.coverage, 'partial');
+  const trigger = result.abilities.find((a) => a.kind === 'triggered');
+  assert.ok(trigger);
+  const effects = effectsOf(trigger);
+  assert.ok(hasManualEffect(effects));
+  assert.ok(!effects.some((e) => e.do === 'pump' || e.do === 'choose'));
+});
+
+test('parseGrantList admits protection narrowly and refuses what the runtime cannot classify', () => {
+  assert.deepEqual(parseGrantList('hexproof and indestructible'), { grant: ['hexproof', 'indestructible'], choosesColor: false });
+  assert.deepEqual(parseGrantList('flying and protection from red'), { grant: ['flying', 'protection from red'], choosesColor: false });
+  assert.deepEqual(parseGrantList('protection from the color of your choice'), { grant: [PROTECTION_FROM_CHOSEN_COLOR], choosesColor: true });
+  assert.deepEqual(parseGrantList('protection from the chosen color'), { grant: [PROTECTION_FROM_CHOSEN_COLOR], choosesColor: false });
+  // Real qualities on real cards, each a different runtime question, none guessed.
+  assert.equal(parseGrantList('protection from artifacts'), null);            // Tel-Jilad Defiance
+  assert.equal(parseGrantList('protection from each color'), null);           // Eldritch Immunity
+  assert.equal(parseGrantList('protection from black and from red'), null);   // Crown of Awe
+  assert.equal(parseGrantList('protection from each of your opponents'), null); // Cliffside Rescuer
+  assert.equal(parseGrantList('protection from the color of its controllers choice'), null); // Wishmonger
+  assert.equal(parseGrantList('protection from red and haste that attacks'), null);
+});
+
+/* ------------------------------------------------------------------ *
+ * The wheel. Oracle text verbatim from `cards_unique`, 3 Sep 2026.
+ * ------------------------------------------------------------------ */
+
+test('Wheel of Fortune: each player discards their hand, then draws seven', () => {
+  // Rank 569. Produced no record at all while `discard-hand` refused.
+  const card = compile({
+    name: 'Wheel of Fortune', type_line: 'Sorcery',
+    oracle_text: 'Each player discards their hand, then draws seven cards.',
+  });
+  assert.equal(card.coverage, 'full');
+  assert.deepEqual(effectsOf(card.abilities[0]), [
+    { do: 'discard', who: { who: 'each-player' }, count: 'hand' },
+    { do: 'draw', who: { who: 'each-player' }, count: 7 },
+  ]);
+});
+
+test('Magus of the Wheel: the same wheel behind an activation cost', () => {
+  // Was "ambiguous" as a whole line, because the body could not be read.
+  const ability = firstOfKind({
+    name: 'Magus of the Wheel', type_line: 'Creature — Human Wizard',
+    oracle_text: '{1}{R}, {T}, Sacrifice this creature: Each player discards their hand, then draws seven cards.',
+  }, 'activated');
+  assert.ok(ability);
+  assert.deepEqual(effectsOf(ability), [
+    { do: 'discard', who: { who: 'each-player' }, count: 'hand' },
+    { do: 'draw', who: { who: 'each-player' }, count: 7 },
+  ]);
+});
+
+test('Dragon Mage: a wheel as the body of a trigger', () => {
+  const card = compile({
+    name: 'Dragon Mage', type_line: 'Creature — Dragon Wizard',
+    oracle_text: 'Flying\nWhenever this creature deals combat damage to a player, each player discards their hand, then draws seven cards.',
+  });
+  assert.equal(card.coverage, 'full');
+  const trigger = card.abilities.find((a) => a.kind === 'triggered');
+  assert.ok(trigger);
+  assert.deepEqual(effectsOf(trigger), [
+    { do: 'discard', who: { who: 'each-player' }, count: 'hand' },
+    { do: 'draw', who: { who: 'each-player' }, count: 7 },
+  ]);
+});
+
+test('Mindslicer: "discards their hand" alone, with no draw, is just the discard', () => {
+  const card = compile({
+    name: 'Mindslicer', type_line: 'Creature — Horror',
+    oracle_text: 'When this creature dies, each player discards their hand.',
+  });
+  assert.equal(card.coverage, 'full');
+  assert.deepEqual(effectsOf(card.abilities[0]), [
+    { do: 'discard', who: { who: 'each-player' }, count: 'hand' },
+  ]);
+});
+
+test('Windfall: the discard half is read and the draw half is MARKED, never guessed', () => {
+  // Rank 157. "The greatest number of cards a player discarded this way" is a
+  // maximum over players of a number from the moment before, and the value
+  // vocabulary cannot say it. The refusal must be a marker, not a number: a
+  // `{v:'cards-in'}` evaluated after the discard would draw zero.
+  const card = compile({
+    name: 'Windfall', type_line: 'Sorcery',
+    oracle_text: 'Each player discards their hand, then draws cards equal to the greatest number of cards a player discarded this way.',
+  });
+  assert.equal(card.coverage, 'partial');
+  assert.equal(card.unparsed.length, 0, 'the sentence was read, not dropped');
+  const effects = effectsOf(card.abilities[0]);
+  assert.deepEqual(effects[0], { do: 'discard', who: { who: 'each-player' }, count: 'hand' });
+  assert.equal(effects[1].do, 'manual');
+  assert.match((effects[1] as { hint?: string }).hint ?? '', /^draw-that-many:/);
+  assert.ok(!effects.some((e) => e.do === 'draw'), 'no draw effect with an invented count');
+});
+
+test('Dark Deal: "discards all the cards in their hand, then draws that many cards minus one"', () => {
+  const card = compile({
+    name: 'Dark Deal', type_line: 'Sorcery',
+    oracle_text: 'Each player discards all the cards in their hand, then draws that many cards minus one.',
+  });
+  assert.equal(card.coverage, 'partial');
+  const effects = effectsOf(card.abilities[0]);
+  assert.deepEqual(effects[0], { do: 'discard', who: { who: 'each-player' }, count: 'hand' });
+  assert.equal(effects[1].do, 'manual');
+  assert.ok(!effects.some((e) => e.do === 'draw'));
+});
+
+test('Tolarian Winds: your own hand, with the subject carried into "draw that many"', () => {
+  const card = compile({
+    name: 'Tolarian Winds', type_line: 'Instant',
+    oracle_text: 'Discard all the cards in your hand, then draw that many cards.',
+  });
+  const effects = effectsOf(card.abilities[0]);
+  assert.deepEqual(effects[0], { do: 'discard', who: { who: 'you' }, count: 'hand' });
+  assert.equal(effects[1].do, 'manual');
+});
+
+test('a whole hand cannot be multiplied: "for each" over a hand discard is refused', () => {
+  // Not a printed card. The guard in `scaleEffect` is what is under test: a
+  // literal has no number to scale, and scaling it would need an invented one.
+  const card = compile({
+    name: 'Test Wheel', type_line: 'Sorcery',
+    oracle_text: 'Each player discards their hand for each creature you control.',
+  });
+  assert.equal(card.abilities.length, 0);
+  assert.equal(card.unparsed.length, 1);
+});
+
+test("Lion's Eye Diamond: 'discard your hand' as a COST is untouched by the effect rule", () => {
+  // The effect rule reads bodies. A cost is parsed elsewhere and still refuses,
+  // so this card stays exactly where it was rather than gaining a wrong record.
+  const card = compile({
+    name: "Lion's Eye Diamond", type_line: 'Artifact',
+    oracle_text: 'Discard your hand, Sacrifice this artifact: Add three mana of any one color. Activate only as an instant.',
+  });
+  assert.equal(card.abilities.length, 0);
+});
+
+/* ------------------------------------------------------------------ *
+ * Impulse draw: two sentences, one effect
+ *
+ * Oracle text verbatim from `cards_unique`, fetched 3 Sep 2026. The refusal
+ * half of this block is the load-bearing half: every card there says "exile
+ * the top" and "you may", and every one of them would be a WRONG ability if
+ * the rule read it.
+ * ------------------------------------------------------------------ */
+
+/** Compile, prove no text was dropped, and hand back every impulse effect in the tree. */
+function impulseEffects(row: Row): Effect[] {
+  const trace = compileWithTrace({ oracle_id: row.name, ...row });
+  assertClausesAccounted(trace);
+  assertSerialisable(trace.result);
+  return trace.result.abilities.flatMap(allEffects).filter((e) => e.do === 'impulse');
+}
+
+test('impulse: window first, Light Up the Stage reads as one effect and is fully covered', () => {
+  const row: Row = {
+    name: 'Light Up the Stage', type_line: 'Sorcery',
+    oracle_text: 'Spectacle {R} (You may cast this spell for its spectacle cost rather than its mana cost if an opponent lost life this turn.)\nExile the top two cards of your library. Until the end of your next turn, you may play those cards.',
+  };
+  assert.deepEqual(impulseEffects(row), [
+    { do: 'impulse', who: { who: 'you' }, count: 2, until: 'end-of-your-next-turn', permission: 'play' },
+  ]);
+  assert.equal(compile(row).coverage, 'full');
+  // And NOT a plain exile: that verb is the removal role.
+  assert.equal(compile(row).abilities.flatMap(allEffects).some((e) => e.do === 'exile'), false);
+});
+
+test('impulse: window last, Act on Impulse with its reminder text is "until end of turn"', () => {
+  const row: Row = {
+    name: 'Act on Impulse', type_line: 'Sorcery',
+    oracle_text: 'Exile the top three cards of your library. Until end of turn, you may play those cards. (If you cast a spell this way, you still pay its costs. You can play a land this way only if you have an available land play remaining.)',
+  };
+  assert.deepEqual(impulseEffects(row), [
+    { do: 'impulse', who: { who: 'you' }, count: 3, until: 'end-of-turn', permission: 'play' },
+  ]);
+  assert.equal(compile(row).coverage, 'full');
+});
+
+test('impulse: "you may play that card this turn" is the same window as "until end of turn"', () => {
+  const laelia: Row = {
+    name: 'Laelia, the Blade Reforged', type_line: 'Legendary Creature — Spirit Warrior',
+    oracle_text: 'Haste\nWhenever Laelia attacks, exile the top card of your library. You may play that card this turn.\nWhenever one or more cards are put into exile from your library and/or your graveyard, put a +1/+1 counter on Laelia.',
+  };
+  const attack = firstOfKind(laelia, 'triggered');
+  assert.ok(attack, 'the attack trigger compiles');
+  assert.deepEqual(effectsOf(attack!), [
+    { do: 'impulse', who: { who: 'you' }, count: 1, until: 'end-of-turn', permission: 'play' },
+  ]);
+});
+
+test('impulse: inside a step trigger, Prosper, Tome-Bound, whose deck this rule exists for', () => {
+  const prosper: Row = {
+    name: 'Prosper, Tome-Bound', type_line: 'Legendary Creature — Tiefling Warlock',
+    oracle_text: 'Deathtouch\nMystic Arcanum — At the beginning of your end step, exile the top card of your library. Until the end of your next turn, you may play that card.\nPact Boon — Whenever you play a card from exile, create a Treasure token.',
+  };
+  assert.deepEqual(impulseEffects(prosper), [
+    { do: 'impulse', who: { who: 'you' }, count: 1, until: 'end-of-your-next-turn', permission: 'play' },
+  ]);
+});
+
+test('impulse: an X count stays X, Commune with Lava', () => {
+  const row: Row = {
+    name: 'Commune with Lava', type_line: 'Instant',
+    oracle_text: 'Exile the top X cards of your library. Until the end of your next turn, you may play those cards.',
+  };
+  assert.deepEqual(impulseEffects(row), [
+    { do: 'impulse', who: { who: 'you' }, count: { v: 'x' }, until: 'end-of-your-next-turn', permission: 'play' },
+  ]);
+});
+
+test("impulse: after a connective, from that player's library, and CAST not play: Ragavan", () => {
+  // "create a Treasure token and exile the top card of that player's library.
+  // Until end of turn, you may cast that card." The pair reaches the rule
+  // through the " and " split, the library is the damaged player's, and the
+  // word is cast: a land on top of that library stays in exile.
+  const ragavan: Row = {
+    name: 'Ragavan, Nimble Pilferer', type_line: 'Legendary Creature — Monkey Pirate',
+    oracle_text: "Whenever Ragavan deals combat damage to a player, create a Treasure token and exile the top card of that player's library. Until end of turn, you may cast that card.\nDash {1}{R} (You may cast this spell for its dash cost. If you do, it gains haste, and it's returned from the battlefield to its owner's hand at the beginning of the next end step.)",
+  };
+  const trigger = firstOfKind(ragavan, 'triggered');
+  assert.ok(trigger);
+  const effects = effectsOf(trigger!);
+  assert.equal(effects[0].do, 'create-token', 'the Treasure survives the split');
+  assert.deepEqual(effects[1], {
+    do: 'impulse', who: { who: 'trigger-player' }, count: 1, until: 'end-of-turn', permission: 'cast',
+  });
+  assert.equal(hasManualEffect(effects), false);
+});
+
+test('impulse: an activated ability with a discard in the cost, Faldorn', () => {
+  const faldorn: Row = {
+    name: 'Faldorn, Dread Wolf Herald', type_line: 'Legendary Creature — Human Druid',
+    oracle_text: 'Whenever you cast a spell from exile or a land you control enters from exile, create a 2/2 green Wolf creature token.\n{1}, {T}, Discard a card: Exile the top card of your library. You may play it this turn.',
+  };
+  const activated = firstOfKind(faldorn, 'activated');
+  assert.ok(activated, 'the activated ability compiles now that its body reads');
+  assert.deepEqual(effectsOf(activated!), [
+    { do: 'impulse', who: { who: 'you' }, count: 1, until: 'end-of-turn', permission: 'play' },
+  ]);
+});
+
+test('impulse: the extra sentences stay manual, so Bonehoard Dracosaur is partial and says why', () => {
+  const row: Row = {
+    name: 'Bonehoard Dracosaur', type_line: 'Creature — Dinosaur Dragon',
+    oracle_text: 'Flying, first strike\nAt the beginning of your upkeep, exile the top two cards of your library. You may play them this turn. If you exiled a land card this way, create a 3/1 red Dinosaur creature token. If you exiled a nonland card this way, create a Treasure token.',
+  };
+  assert.equal(impulseEffects(row).length, 1);
+  assert.equal(compile(row).coverage, 'partial');
+});
+
+test('impulse REFUSALS: every one of these says "exile the top" and "you may" and none may compile', () => {
+  const refused: Array<[Row, string]> = [
+    [{
+      name: 'Chandra, Torch of Defiance', type_line: 'Legendary Planeswalker — Chandra',
+      oracle_text: "+1: Exile the top card of your library. You may cast that card. If you don't, Chandra deals 2 damage to each opponent.\n+1: Add {R}{R}.\n−3: Chandra deals 4 damage to target creature.\n−7: You get an emblem with \"Whenever you cast a spell, this emblem deals 5 damage to any target.\"",
+    }, 'no window at all: the card is cast during resolution, not from exile later'],
+    [{
+      name: "Mind's Desire", type_line: 'Sorcery',
+      oracle_text: 'Shuffle your library. Then exile the top card of your library. Until end of turn, you may play that card without paying its mana cost.\nStorm (When you cast this spell, copy it for each spell cast before it this turn.)',
+    }, 'without paying its mana cost is a different permission'],
+    [{
+      name: 'Haste Magic', type_line: 'Instant',
+      oracle_text: 'Target creature gets +3/+1 and gains haste until end of turn. Exile the top card of your library. You may play it until your next end step.',
+    }, '"until your next end step" is the declared duration gap'],
+    [{
+      name: 'Stolen Strategy', type_line: 'Enchantment',
+      oracle_text: "At the beginning of your upkeep, exile the top card of each opponent's library. Until end of turn, you may cast spells from among those exiled cards, and you may spend mana as though it were mana of any color to cast those spells.",
+    }, 'mana as though any colour is a rider the DSL cannot say'],
+    [{
+      name: 'Mystic Forge', type_line: 'Artifact',
+      oracle_text: 'You may look at the top card of your library any time.\nYou may cast artifact spells and colorless spells from the top of your library.\n{T}, Pay 1 life: Exile the top card of your library.',
+    }, 'an exile with no permission is a real card and is not this one'],
+    [{
+      name: 'Tectonic Giant', type_line: 'Creature — Elemental Giant',
+      oracle_text: 'Whenever this creature attacks or becomes the target of a spell an opponent controls, choose one —\n• This creature deals 3 damage to each opponent.\n• Exile the top two cards of your library. Choose one of them. Until the end of your next turn, you may play that card.',
+    }, '"choose one of them" is a pick the member cannot carry'],
+  ];
+  for (const [row, why] of refused) {
+    assert.deepEqual(impulseEffects(row), [], `${row.name}: ${why}`);
+  }
+});
+
+test('impulse: "that player" is refused once a target has been announced', () => {
+  // Invented text, on purpose: no real card does this, and the test pins the
+  // gate rather than a card. After "target player", "that player" is the
+  // target, and binding it to the trigger would read the card wrong.
+  const row: Row = {
+    name: 'Test Thief', type_line: 'Sorcery',
+    oracle_text: "Target player loses 2 life. Exile the top card of that player's library. Until end of turn, you may cast that card.",
+  };
+  assert.deepEqual(impulseEffects(row), []);
+});
+
+test('impulse survives structuredClone, Reckless Impulse', () => {
+  const row: Row = {
+    name: 'Reckless Impulse', type_line: 'Sorcery',
+    oracle_text: 'Exile the top two cards of your library. Until the end of your next turn, you may play those cards.',
+  };
+  const record = compile(row);
+  assert.deepEqual(structuredClone(record), record);
+  assert.equal(record.coverage, 'full');
+});
+
+/* ------------------------------------------------------------------ *
+ * Alternative costs (CR 118.9) and "cast … without paying its mana cost"
+ *
+ * Oracle text verbatim from `cards_unique`, 3 Sep 2026. The free-spell cycle
+ * read as `alt-cast` on its first paragraph and a plain counterspell on its
+ * second, so the record could not tell Fierce Guardianship from Negate; and
+ * `eff:cast-free` had been in the engine's vocabulary since the facet layer
+ * was written without the compiler ever producing it.
+ * ------------------------------------------------------------------ */
+
+const COMMANDER_GATE = { if: 'controls', who: { who: 'you' }, what: { is: 'commander' }, cmp: 'gte', value: 1 };
+
+test('the free-spell cycle: the alternative cost is a COST on the spell, and the spell keeps its effect', () => {
+  const trace = compileWithTrace({
+    oracle_id: 'fg', name: 'Fierce Guardianship', type_line: 'Instant',
+    oracle_text: 'If you control a commander, you may cast this spell without paying its mana cost.\nCounter target noncreature spell.',
+  });
+  const { result } = trace;
+  assert.equal(result.abilities.length, 1);
+  const spell = result.abilities[0] as Ability & { alternativeCosts?: unknown };
+  assert.equal(spell.kind, 'spell');
+  // Nothing is paid instead — `costs: []` is the statement, not an omission.
+  assert.deepEqual(spell.alternativeCosts, [{
+    costs: [],
+    condition: COMMANDER_GATE,
+    text: 'If you control a commander, you may cast this spell without paying its mana cost.',
+  }]);
+  // The counterspell is still a counterspell, and the option that nothing can
+  // offer at announcement is a marker in front of it, not a claim of `full`.
+  const effects = effectsOf(spell);
+  assert.equal(effects[0].do, 'manual');
+  assert.match((effects[0] as { hint?: string }).hint ?? '', /^alternative cost:/);
+  assert.deepEqual(effects[1], { do: 'counter', what: { sel: 'target', ref: 0 } });
+  assert.equal(result.unparsed.length, 0);
+  assert.equal(result.coverage, 'partial');
+  assert.ok(trace.ruleHits.includes('alternative-cost'), trace.ruleHits.join(','));
+  assertClausesAccounted(trace);
+  assertSerialisable(result);
+});
+
+test('the rest of the cycle attaches the same way, whatever the spell under it does', () => {
+  const rollick = compile({
+    name: 'Deadly Rollick', type_line: 'Instant',
+    oracle_text: 'If you control a commander, you may cast this spell without paying its mana cost.\nExile target creature.',
+  });
+  assert.deepEqual((rollick.abilities[0] as { alternativeCosts?: unknown }).alternativeCosts, [
+    { costs: [], condition: COMMANDER_GATE, text: 'If you control a commander, you may cast this spell without paying its mana cost.' },
+  ]);
+  assert.deepEqual(effectsOf(rollick.abilities[0])[1], { do: 'exile', what: { sel: 'target', ref: 0 } });
+  assert.equal(rollick.unparsed.length, 0);
+
+  const maneuver = compile({
+    name: 'Flawless Maneuver', type_line: 'Instant',
+    oracle_text: 'If you control a commander, you may cast this spell without paying its mana cost.\nCreatures you control gain indestructible until end of turn.',
+  });
+  assert.equal((maneuver.abilities[0] as { alternativeCosts?: unknown[] }).alternativeCosts?.length, 1);
+  assert.equal(effectsOf(maneuver.abilities[0])[1].do, 'pump');
+  assert.equal(maneuver.unparsed.length, 0);
+});
+
+test('an alternative cost with real costs reads them as costs, gate on either end', () => {
+  // Force of Will: two costs joined by "and", no gate.
+  const fow = compile({
+    name: 'Force of Will', type_line: 'Instant',
+    oracle_text: "You may pay 1 life and exile a blue card from your hand rather than pay this spell's mana cost.\nCounter target spell.",
+  });
+  assert.deepEqual((fow.abilities[0] as { alternativeCosts?: unknown }).alternativeCosts, [{
+    costs: [
+      { pay: 'life', amount: 1 },
+      { pay: 'exile', from: 'hand', what: { sel: 'all', where: { is: 'and', of: [{ is: 'any' }, { is: 'color', value: 'U' }] }, zone: 'hand' }, count: 1 },
+    ],
+    text: "You may pay 1 life and exile a blue card from your hand rather than pay this spell's mana cost.",
+  }]);
+  assert.deepEqual(effectsOf(fow.abilities[0])[1], { do: 'counter', what: { sel: 'target', ref: 0 } });
+  assert.equal(fow.unparsed.length, 0);
+
+  // Force of Negation: the gate is a negated turn check, printed first.
+  const fon = compile({
+    name: 'Force of Negation', type_line: 'Instant',
+    oracle_text: "If it's not your turn, you may exile a blue card from your hand rather than pay this spell's mana cost.\nCounter target noncreature spell. If that spell is countered this way, exile it instead of putting it into its owner's graveyard.",
+  });
+  const fonAlt = (fon.abilities[0] as { alternativeCosts?: Array<{ condition?: unknown; costs: unknown[] }> }).alternativeCosts;
+  assert.deepEqual(fonAlt?.[0].condition, { if: 'not', of: { if: 'your-turn' } });
+  assert.equal(fonAlt?.[0].costs.length, 1);
+
+  // Snuff Out: a land-type gate and a life payment.
+  const snuff = compile({
+    name: 'Snuff Out', type_line: 'Instant',
+    oracle_text: "If you control a Swamp, you may pay 4 life rather than pay this spell's mana cost.\nDestroy target nonblack creature. It can't be regenerated.",
+  });
+  const snuffAlt = (snuff.abilities[0] as { alternativeCosts?: Array<{ condition?: unknown; costs: unknown[] }> }).alternativeCosts;
+  assert.deepEqual(snuffAlt?.[0].costs, [{ pay: 'life', amount: 4 }]);
+  assert.deepEqual(snuffAlt?.[0].condition, { if: 'controls', who: { who: 'you' }, what: { is: 'subtype', value: 'swamp' }, cmp: 'gte', value: 1 });
+
+  // Flare of Denial: a sacrifice. Baleful Mastery: bare mana, "pay" and all.
+  const flare = compile({
+    name: 'Flare of Denial', type_line: 'Instant',
+    oracle_text: "You may sacrifice a nontoken blue creature rather than pay this spell's mana cost.\nCounter target spell.",
+  });
+  assert.equal((flare.abilities[0] as { alternativeCosts?: Array<{ costs: Array<{ pay: string }> }> }).alternativeCosts?.[0].costs[0].pay, 'sacrifice');
+  const baleful = compile({
+    name: 'Baleful Mastery', type_line: 'Instant',
+    oracle_text: "You may pay {1}{B} rather than pay this spell's mana cost.\nIf the {1}{B} cost was paid, an opponent draws a card.\nExile target creature or planeswalker.",
+  });
+  assert.deepEqual((baleful.abilities[0] as { alternativeCosts?: Array<{ costs: unknown[] }> }).alternativeCosts?.[0].costs, [{ pay: 'mana', cost: '{1}{B}' }]);
+  // The consequence of having paid it is history the DSL cannot read; it stays a gap.
+  assert.equal(baleful.unparsed.length, 1);
+  assert.match(baleful.unparsed[0].text, /^If the \{1\}\{B\} cost was paid/);
+});
+
+test('an alternative cost whose gate cannot be read is refused WHOLE, never recorded ungated', () => {
+  // Blasphemous Edict: "on the battlefield" is not a zone `parseObject` reads.
+  // Mindbreak Trap: history. Either recorded without its gate would say the
+  // spell is cheap when it is not.
+  assert.equal(parseAlternativeCost('you may pay {b} rather than pay ~s mana cost if there are thirteen or more creatures on the battlefield.'), null);
+  assert.equal(parseAlternativeCost('if an opponent cast three or more spells this turn, you may pay {0} rather than pay ~s mana cost.'), null);
+  const edict = compile({
+    name: 'Blasphemous Edict', type_line: 'Sorcery',
+    oracle_text: "You may pay {B} rather than pay this spell's mana cost if there are thirteen or more creatures on the battlefield.\nEach player sacrifices thirteen creatures of their choice.",
+  });
+  assert.equal(edict.abilities.length, 0);
+  assert.equal(edict.unparsed.length, 2);
+});
+
+test("an alternative cost for OTHER spells is a permission, not this spell's cost, and is not read", () => {
+  assert.equal(parseAlternativeCost('you may pay {0} rather than pay the mana cost for zombie creature spells you cast.'), null);
+  assert.equal(parseAlternativeCost('you may pay {0} rather than pay the equip cost of the first equip ability you activate each turn.'), null);
+  // Jeska's Will gates a MODE on the commander, not the cost.
+  assert.equal(parseAlternativeCost('choose one. if you control a commander as you cast ~, you may choose both instead.'), null);
+});
+
+test('an alternative cost with no spell ability to be the cost OF is reported unread, not attached elsewhere', () => {
+  // A creature has no spell ability, and the DSL has no card-level record.
+  const trace = compileWithTrace({
+    oracle_id: 'bringer', name: 'Bringer of the Black Dawn', type_line: 'Creature — Bringer',
+    oracle_text: "You may pay {W}{U}{B}{R}{G} rather than pay this spell's mana cost.\nTrample\nAt the beginning of your upkeep, you may pay 2 life. If you do, search your library for a card, then shuffle and put that card on top.",
+  });
+  assert.deepEqual(trace.result.abilities.map(a => a.kind), ['keyword', 'triggered']);
+  for (const a of trace.result.abilities) assert.equal((a as { alternativeCosts?: unknown }).alternativeCosts, undefined);
+  assert.ok(trace.result.unparsed.some(u => u.text.startsWith('You may pay {W}{U}{B}{R}{G}')));
+  assertClausesAccounted(trace);
+
+  // Deflecting Swat: the effect under the cost is one no rule reads, so the
+  // card produces NO record — a cost with nothing to attach to is a gap, and
+  // both paragraphs are accounted for as gaps.
+  const swat = compileWithTrace({
+    oracle_id: 'swat', name: 'Deflecting Swat', type_line: 'Instant',
+    oracle_text: 'If you control a commander, you may cast this spell without paying its mana cost.\nYou may choose new targets for target spell or ability.',
+  });
+  assert.equal(swat.result.abilities.length, 0);
+  assert.equal(swat.result.unparsed.length, 2);
+  assert.equal(swat.result.coverage, 'manual');
+  assertClausesAccounted(swat);
+});
+
+test('the two new gates parse, and only as the fixed sentences they are', () => {
+  assert.deepEqual(parseCondition('you control a commander'), COMMANDER_GATE);
+  assert.deepEqual(parseCondition('its not your turn'), { if: 'not', of: { if: 'your-turn' } });
+  // "commander" is still not a noun `parseObject` knows; the gate is one
+  // sentence, not a pseudo-type that would parse "target commander".
+  assert.equal(parseObject('a commander'), null);
+  assert.equal(parseCondition('you control two or more commanders'), null);
+});
+
+test('"exile … from your hand" is an activation cost the runtime can pay, and "exile this card from your hand" is not', () => {
+  assert.deepEqual(parseCosts('exile a card from your hand'), [
+    { pay: 'exile', from: 'hand', what: { sel: 'all', where: { is: 'any' }, zone: 'hand' }, count: 1 },
+  ]);
+  // Simian Spirit Guide. `{sel:'self'}` from the hand would let the
+  // battlefield copy of the card exile ITSELF for {R}; the compiler has no
+  // active-zone story for a hand ability, so it is refused whole.
+  assert.equal(parseCosts('exile ~ from your hand'), null);
+  const guide = compile({ name: 'Simian Spirit Guide', type_line: 'Creature — Ape Spirit', oracle_text: 'Exile this card from your hand: Add {R}.' });
+  assert.equal(guide.abilities.length, 0);
+});
+
+test('"cast … without paying its mana cost" as an EFFECT is a named marker, and the real effects beside it still run', () => {
+  // Electrodominance: the damage is real, the free cast is the player's.
+  const electro = compile({
+    name: 'Electrodominance', type_line: 'Instant',
+    oracle_text: 'Electrodominance deals X damage to any target. You may cast a spell with mana value X or less from your hand without paying its mana cost.',
+  });
+  const effects = effectsOf(electro.abilities[0]);
+  assert.equal(effects[0].do, 'damage');
+  assert.equal(effects[1].do, 'manual');
+  assert.match((effects[1] as { hint?: string }).hint ?? '', /^cast-free:/);
+  assert.equal(electro.coverage, 'partial');
+
+  // Etali: the marker sits in a trigger, with a prefix the sentence carries.
+  const etali = compile({
+    name: 'Etali, Primal Storm', type_line: 'Legendary Creature — Elder Dinosaur',
+    oracle_text: "Whenever Etali attacks, exile the top card of each player's library, then you may cast any number of spells from among those cards without paying their mana costs.",
+  });
+  assert.equal(etali.abilities[0].kind, 'triggered');
+  assert.ok(effectsOf(etali.abilities[0]).some(e => e.do === 'manual' && /^cast-free:/.test((e as { hint?: string }).hint ?? '')));
+
+  // Mizzix's Mastery: "copy it, and you may cast the copy".
+  const mizzix = compile({
+    name: "Mizzix's Mastery", type_line: 'Sorcery',
+    oracle_text: "Exile target card that's an instant or sorcery from your graveyard. For each card exiled this way, copy it, and you may cast the copy without paying its mana cost. Exile Mizzix's Mastery.\nOverload {5}{R}{R}{R} (You may cast this spell for its overload cost. If you do, change \"target\" in its text to \"each.\")",
+  });
+  assert.ok(effectsOf(mizzix.abilities[0]).some(e => e.do === 'manual' && /^cast-free:/.test((e as { hint?: string }).hint ?? '')));
+
+  // And NEVER for the spell's own alternative cost, which is a cost and lives
+  // on the ability: Fierce Guardianship's marker is the alternative-cost one.
+  const fg = compile({
+    name: 'Fierce Guardianship', type_line: 'Instant',
+    oracle_text: 'If you control a commander, you may cast this spell without paying its mana cost.\nCounter target noncreature spell.',
+  });
+  assert.ok(!effectsOf(fg.abilities[0]).some(e => e.do === 'manual' && /^cast-free:/.test((e as { hint?: string }).hint ?? '')));
+});
+
+test('a paragraph that is ONLY a free cast still produces no ability: a marker alone is not a record', () => {
+  // Rishkar's Expertise. Its first paragraph is unread for its own reason, and
+  // the second is a player action with no real effect beside it, so
+  // `anyAutomated` refuses it — the honest answer, not a gap in this rule.
+  const rishkar = compileWithTrace({
+    oracle_id: 'rishkar', name: "Rishkar's Expertise", type_line: 'Sorcery',
+    oracle_text: 'Draw cards equal to the greatest power among creatures you control.\nYou may cast a spell with mana value 5 or less from your hand without paying its mana cost.',
+  });
+  assert.equal(rishkar.result.abilities.length, 0);
+  assert.equal(rishkar.result.unparsed.length, 2);
+  assertClausesAccounted(rishkar);
 });

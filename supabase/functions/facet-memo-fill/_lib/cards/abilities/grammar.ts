@@ -35,7 +35,7 @@ import type {
   Zone,
   ChoiceSubject,
 } from './dsl.ts';
-import { andF, isWatchableFilter, notF, orF } from './dsl.ts';
+import { andF, isWatchableFilter, notF, orF, PROTECTION_FROM_CHOSEN_COLOR } from './dsl.ts';
 
 /* ------------------------------------------------------------------ *
  * Counts
@@ -156,6 +156,77 @@ export function parseKeywordWithParameter(phrase: string): { keyword: string; pa
     return null;
   }
   return null;
+}
+
+/**
+ * The five colours protection can be from, in the word the card prints.
+ * Kept to what `protectionQualities` in `game/keywords.ts` classifies as a
+ * colour, so a grant this list admits is one the runtime applies in combat.
+ */
+const PROTECTION_COLOURS: ReadonlySet<string> = new Set(['white', 'blue', 'black', 'red', 'green']);
+
+export interface GrantList {
+  /** `pump.grant` entries — see the field's comment in `dsl.ts`. */
+  grant: string[];
+  /**
+   * True when one entry is "protection from the color of your choice": the
+   * ability must CHOOSE a colour on resolution before it can grant anything,
+   * and the rule that builds the pump owes a `{do:'choose'}` in front of it.
+   */
+  choosesColor: boolean;
+}
+
+/**
+ * `"protection from the color of your choice"` -> a grant list, or null.
+ *
+ * `parseKeywordList` reads what "gains flying and haste" gives and nothing
+ * else, so twenty-nine cards saying "gains protection from the color of your
+ * choice until end of turn" — Mother of Runes (rank 507) among them, whose
+ * whole card is that line — produced no record. This is the same list with
+ * protection's parameter admitted, and admitted NARROWLY:
+ *
+ *   protection from red / white / ...        the printed colour, verbatim
+ *   protection from the color of your choice `PROTECTION_FROM_CHOSEN_COLOR`,
+ *                                            and `choosesColor` set
+ *   protection from the chosen color         the same entry, chosen EARLIER
+ *                                            by a "Choose a color" sentence
+ *
+ * Everything else is refused, the same way a non-keyword refuses the whole
+ * list. "From artifacts", "from creatures your opponents control", "from each
+ * of your opponents" and "from the color of its controller's choice" are all
+ * real qualities on real cards, and each is a different runtime question; a
+ * list that let them through would grant a string the engine files as "ask the
+ * player" without saying so anywhere in the record. Add a quality here only
+ * with the consumer that reads it.
+ *
+ * "Black and from red" (Crown of Awe) refuses too, and deliberately: the
+ * `and` split leaves a bare "from red", which is not a grant. Two colours
+ * printed as one phrase wants its own reading, not a lucky split.
+ */
+export function parseGrantList(phrase: string): GrantList | null {
+  const parts = phrase
+    .replace(/\band\b/g, ',')
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (!parts.length) return null;
+  const grant: string[] = [];
+  let choosesColor = false;
+  for (const p of parts) {
+    if (KEYWORD_SET.has(p)) { grant.push(p); continue; }
+    const prot = p.match(/^protection from (.+)$/);
+    if (!prot) return null;
+    const quality = prot[1].trim();
+    if (PROTECTION_COLOURS.has(quality)) { grant.push(p); continue; }
+    if (quality === 'the color of your choice') {
+      grant.push(PROTECTION_FROM_CHOSEN_COLOR);
+      choosesColor = true;
+      continue;
+    }
+    if (quality === 'the chosen color') { grant.push(PROTECTION_FROM_CHOSEN_COLOR); continue; }
+    return null;
+  }
+  return { grant, choosesColor };
 }
 
 /* ------------------------------------------------------------------ *
@@ -764,6 +835,15 @@ export function parseValueExpr(input: string): ValueExpr | null {
   const direct = parseCount(s);
   if (direct !== null) return direct;
 
+  /* "~s power" — the SOURCE's own power, after `normalizeParagraph` has turned
+   * "this creature's" into "~s". This is the one P/T phrase whose subject can
+   * be named without guessing, which is exactly the line the comment above
+   * draws: "its power" is refused because "it" was bound by a sentence this
+   * function cannot see; "~" is bound by the card. Esper Sentinel's "{X}, where
+   * X is this creature's power" is the shape, at rank 78. */
+  const ownStat = s.match(/^~s (power|toughness)$/);
+  if (ownStat) return { v: ownStat[1] as 'power' | 'toughness', of: { sel: 'self' } };
+
   // "The number of creatures that died this turn" is history, not board state.
   const history = parseWatchValue(s.replace(/^the number of /, ''));
   if (history) return history;
@@ -1030,6 +1110,23 @@ export function parseCondition(input: string): Condition | null {
   if (!s) return null;
 
   if (/^(its|it is) your turn$/.test(s)) return { if: 'your-turn' };
+  /* "If it's not your turn" — the Force cycle's gate (Force of Negation, rank
+     265). The positive form was already read; the negation is the same fact
+     wrapped once, and `{if:'not'}` is exactly the wrapper. */
+  if (/^(its|it is) not your turn$/.test(s)) return { if: 'not', of: { if: 'your-turn' } };
+
+  /* "You control a commander" — the free-spell cycle's gate.
+     ------------------------------------------------------------------
+     `parseObject` has no head noun for "commander": it is not a card type, and
+     teaching the workhorse a pseudo-type would make "commander creatures you
+     control" (Bastion Protector) and "target commander" parse through a loop
+     that has never seen the word as an adjective. The condition is one fixed
+     sentence, so it is read here as one fixed sentence. The filter it lands on
+     is `{is:'commander'}`, which the runtime already answers from
+     `card.isCommander` (`context.ts`). */
+  if (/^you control a commander$/.test(s)) {
+    return { if: 'controls', who: YOU_PLAYER, what: { is: 'commander' }, cmp: 'gte', value: 1 };
+  }
 
   /* "you have 25 or more life". */
   const life = s.match(new RegExp(`^you have (${NUM}) or (more|greater|fewer|less) life$`));

@@ -167,7 +167,17 @@ const json = (body: unknown, status = 200) =>
  * longer a subtype the card cares about (Prosper, Tome-Bound was Mystic
  * tribal); and the eight compiler rules from the 2 Sep workflow.
  */
-const COMPILER_VERSION = 14;
+/*
+ * 14 -> 15, 3 Sep 2026. Seven shapes from the second workflow round:
+ * `eff:bounce-own` (returning your OWN creature is not Cyclonic Rift),
+ * `eff:impulse` (exile the top and play it), a pump sized by a creature's
+ * power with `cares:power`, protection from a colour chosen on resolution,
+ * the wheel read by the compiler rather than only by the Tagger, "unless
+ * that player pays", and "cast without paying its mana cost". Plus
+ * `trig:cast:targeting` from the previous batch, which the facet layer
+ * emitted and the pool never saw.
+ */
+const COMPILER_VERSION = 15;
 
 /**
  * Cards read per call.

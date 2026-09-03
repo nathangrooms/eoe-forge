@@ -29,6 +29,7 @@ import type {
   CardAbilities,
   Effect,
   ReplacementAbility,
+  SpellAbility,
   StaticAbility,
   TriggeredAbility,
 } from './dsl.ts';
@@ -476,6 +477,184 @@ test('E4: unless-pays is not an inverted "may" — the polarity is asserted', ()
   assert.notDeepEqual(outer.who, { who: 'you' }, 'the payer is never the controller');
 });
 
+/* ------------------------------------------------------------------ *
+ * E4, widened: the payer is named by the record, not by the rule.
+ *
+ * "Unless its controller pays" was on the named-manual list for a year while
+ * `{do:'unless-pays'}` sat one rule above it, because the payer is the
+ * controller of the TARGET and the target does not exist until the inner
+ * phrase has registered it. Oracle text below is verbatim from `cards_unique`.
+ * ------------------------------------------------------------------ */
+
+test('E4: Mana Leak — "its controller" is the controller of the target, and nobody else', () => {
+  const record = compile('Mana Leak', 'Instant', 'Counter target spell unless its controller pays {3}.');
+  assert.equal(record.coverage, 'full');
+  const spell = only<SpellAbility>(record, 'spell');
+  assert.deepEqual(spell.effects, [
+    {
+      do: 'unless-pays',
+      who: { who: 'controller-of', of: { sel: 'target', ref: 0 } },
+      cost: [{ pay: 'mana', cost: '{3}' }],
+      effects: [{ do: 'counter', what: { sel: 'target', ref: 0 } }],
+    },
+  ]);
+  assert.equal(spell.targets?.length, 1, 'one target, announced once, shared by the tax and the counter');
+  assert.equal(spell.targets?.[0].zone, 'stack');
+});
+
+test('E4: Force Spike and Spell Pierce — the filter rides on the target, the tax on the wrapper', () => {
+  const spike = compile('Force Spike', 'Instant', 'Counter target spell unless its controller pays {1}.');
+  assert.equal(spike.coverage, 'full');
+  assert.deepEqual(only<SpellAbility>(spike, 'spell').effects[0].do, 'unless-pays');
+
+  const pierce = compile('Spell Pierce', 'Instant', 'Counter target noncreature spell unless its controller pays {2}.');
+  assert.equal(pierce.coverage, 'full');
+  const spell = only<SpellAbility>(pierce, 'spell');
+  assert.deepEqual(spell.targets?.[0].filter, {
+    is: 'and',
+    of: [{ is: 'any' }, { is: 'not', of: { is: 'type', value: 'creature' } }],
+  });
+  const outer = spell.effects[0] as Extract<Effect, { do: 'unless-pays' }>;
+  assert.deepEqual(outer.cost, [{ pay: 'mana', cost: '{2}' }]);
+});
+
+test('E4: Syncopate — an UNBOUND {X} is the announced X and stays a mana string', () => {
+  // The X in "pays {X}" is the X in Syncopate's own mana cost. No where-clause
+  // binds it, so it is the number the caster announced, exactly as printed.
+  // The second sentence is a replacement the compiler does not read, so the
+  // card is partial and the counter still stands.
+  const record = compile(
+    'Syncopate',
+    'Instant',
+    "Counter target spell unless its controller pays {X}. If that spell is countered this way, exile it instead of putting it into its owner's graveyard.",
+  );
+  assert.equal(record.coverage, 'partial');
+  const spell = only<SpellAbility>(record, 'spell');
+  const outer = spell.effects[0] as Extract<Effect, { do: 'unless-pays' }>;
+  assert.equal(outer.do, 'unless-pays');
+  assert.deepEqual(outer.cost, [{ pay: 'mana', cost: '{X}' }]);
+});
+
+test('E4: Esper Sentinel — a BOUND {X} is a computed generic cost, and "their first" is a condition', () => {
+  const record = compile(
+    'Esper Sentinel',
+    'Artifact Creature — Human Soldier',
+    "Whenever an opponent casts their first noncreature spell each turn, draw a card unless that player pays {X}, where X is this creature's power.",
+  );
+  assert.equal(record.coverage, 'full');
+  const trigger = only<TriggeredAbility>(record, 'triggered');
+
+  const noncreature = { is: 'and', of: [{ is: 'any' }, { is: 'not', of: { is: 'type', value: 'creature' } }] };
+  // The event is the same cast event Mystic Remora carries. The ordinal is
+  // not folded into it.
+  assert.deepEqual(trigger.event, {
+    on: 'cast',
+    what: { sel: 'all', where: noncreature, zone: 'stack' },
+    by: { who: 'each-opponent' },
+  });
+  // "Their first ... each turn": at the moment this is checked, that player
+  // has cast exactly one noncreature spell this turn, the one that fired it.
+  assert.deepEqual(trigger.condition, {
+    if: 'value',
+    a: {
+      v: 'watch',
+      query: {
+        event: { saw: 'spell-cast', what: noncreature, by: { who: 'trigger-player' } },
+        window: 'this-turn',
+        measure: 'events',
+      },
+    },
+    cmp: 'eq',
+    b: 1,
+  });
+  assert.deepEqual(trigger.effects, [
+    {
+      do: 'unless-pays',
+      who: { who: 'trigger-player' },
+      // NOT `{pay:'mana', cost:'{X}'}`: that X would be the payer's own
+      // announcement, and this one is read off the Sentinel.
+      cost: [{ pay: 'generic-mana', amount: { v: 'power', of: { sel: 'self' } } }],
+      effects: [{ do: 'draw', who: { who: 'you' }, count: 1 }],
+    },
+  ]);
+});
+
+test('E4: Mausoleum Wanderer — the computed X reaches an activated ability too', () => {
+  const record = compile(
+    'Mausoleum Wanderer',
+    'Creature — Spirit',
+    "Flying\nWhenever another Spirit you control enters, this creature gets +1/+1 until end of turn.\nSacrifice this creature: Counter target instant or sorcery spell unless its controller pays {X}, where X is this creature's power.",
+  );
+  assert.equal(record.coverage, 'full');
+  const activated = only<ActivatedAbility>(record, 'activated');
+  const outer = activated.effects[0] as Extract<Effect, { do: 'unless-pays' }>;
+  assert.equal(outer.do, 'unless-pays');
+  assert.deepEqual(outer.who, { who: 'controller-of', of: { sel: 'target', ref: 0 } });
+  assert.deepEqual(outer.cost, [{ pay: 'generic-mana', amount: { v: 'power', of: { sel: 'self' } } }]);
+});
+
+test('E4: "~s power" is the source, and "its power" is still nobody', () => {
+  assert.deepEqual(parseValueExpr('~s power'), { v: 'power', of: { sel: 'self' } });
+  assert.deepEqual(parseValueExpr('~s toughness'), { v: 'toughness', of: { sel: 'self' } });
+  // Bound by a sentence this function cannot see. Guessing the source here is
+  // how "deals damage equal to its power" hits with the wrong number.
+  assert.equal(parseValueExpr('its power'), null);
+});
+
+test('E4: a tax the cost grammar cannot spell is REFUSED, not rounded', () => {
+  // "{2} plus an additional {1} for each Faerie you control" is not a mana
+  // string, and reading it as {2} would let every opponent buy out of Spell
+  // Stutter for two. The whole spell stays unread rather than half-priced.
+  const stutter = compile(
+    'Spell Stutter',
+    'Instant',
+    'Counter target spell unless its controller pays {2} plus an additional {1} for each Faerie you control.',
+  );
+  assert.equal(stutter.abilities.filter(ability => ability.kind === 'spell').length, 0);
+  assert.equal(stutter.coverage, 'manual');
+
+  // "Mana equal to the greatest power among creatures you control" likewise.
+  // The first sentence reads; the tax does not, and lands as a marker.
+  const mutation = compile(
+    'Repulsive Mutation',
+    'Instant',
+    'Put X +1/+1 counters on target creature you control. Then counter up to one target spell unless its controller pays mana equal to the greatest power among creatures you control.',
+  );
+  assert.equal(mutation.coverage, 'partial');
+  const spell = only<SpellAbility>(mutation, 'spell');
+  assert.ok(spell.effects.every(effect => effect.do !== 'unless-pays'), 'no tax was invented');
+  assert.ok(spell.effects.some(effect => effect.do === 'manual'), 'and the clause is marked, not dropped');
+});
+
+test('E4: Lotho — the ordinal counts spells, "second" is two, and "a player" is that player', () => {
+  const record = compile(
+    'Lotho, Corrupt Shirriff',
+    'Legendary Creature — Halfling Advisor',
+    'Whenever a player casts their second spell each turn, you lose 1 life and create a Treasure token. (It\'s an artifact with "{T}, Sacrifice this token: Add one mana of any color.")',
+  );
+  assert.equal(record.coverage, 'full');
+  const trigger = only<TriggeredAbility>(record, 'triggered');
+  assert.deepEqual(trigger.event.on, 'cast');
+  assert.deepEqual(trigger.condition, {
+    if: 'value',
+    a: { v: 'watch', query: { event: { saw: 'spell-cast', by: { who: 'trigger-player' } }, window: 'this-turn', measure: 'events' } },
+    cmp: 'eq',
+    b: 2,
+  });
+});
+
+test('E4: Trouble in Pairs — a compound trigger with an ordinal inside it is still refused whole', () => {
+  // Three events joined by "or", one of them ordinal. Reading the cast half
+  // alone would fire on second spells and never on the attack or the draw,
+  // which is a different card. Nothing is produced.
+  const record = compile(
+    'Trouble in Pairs',
+    'Enchantment',
+    'If an opponent would begin an extra turn, that player skips that turn instead.\nWhenever an opponent attacks you with two or more creatures, draws their second card each turn, or casts their second spell each turn, you draw a card.',
+  );
+  assert.equal(record.abilities.filter(ability => ability.kind === 'triggered').length, 0);
+});
+
 /* ================================================================== *
  * E8 — conditional mana
  * ================================================================== */
@@ -718,4 +897,141 @@ test('a LITERAL number of targets is still read, and read faithfully', () => {
   assert.equal(spell.targets?.[0].min, 0, '"up to" means zero is legal');
   assert.equal(spell.targets?.[0].max, 2);
   assert.equal(spell.targets?.[0].distinct, true);
+});
+
+/* ================================================================== *
+ * E9 — a pump sized by the pumped creature's own power
+ *
+ * "gets +X/+X until end of turn, where X is that creature's power". The
+ * generic ", where X is …" binding cannot reach it because `parseValueExpr`
+ * refuses "its power" on principle — a subject bound by an earlier sentence is
+ * a guess. In THIS shape the phrase that binds X is the phrase that names the
+ * creature, so the pump's own selector is the value's subject and nothing is
+ * guessed. Oracle text below is Scryfall's, verbatim.
+ * ================================================================== */
+
+test('pump-by-own-stat: Xenagos doubles the creature he points at, and X is that target', () => {
+  const record = compile(
+    'Xenagos, God of Revels',
+    'Legendary Enchantment Creature — God',
+    "Indestructible\nAs long as your devotion to red and green is less than seven, Xenagos isn't a creature.\nAt the beginning of combat on your turn, another target creature you control gains haste and gets +X/+X until end of turn, where X is that creature's power.",
+  );
+  const trigger = only<TriggeredAbility>(record, 'triggered');
+  const target = { sel: 'target', ref: 0 } as const;
+  assert.deepEqual(trigger.effects, [
+    {
+      do: 'pump',
+      what: target,
+      power: { v: 'power', of: target },
+      toughness: { v: 'power', of: target },
+      grant: ['haste'],
+      duration: 'end-of-turn',
+    },
+  ]);
+  assert.equal(trigger.targets?.length, 1);
+  // The devotion clause is a different shape and is still refused. Only the
+  // ability this rule is for is claimed, and the card says so.
+  assert.equal(record.coverage, 'partial');
+  assert.equal(record.unparsed?.length, 1);
+});
+
+test('pump-by-own-stat: "its power" on a target is the target; "+X/+0" leaves toughness alone', () => {
+  const record = compile(
+    'Berserk',
+    'Instant',
+    "Cast this spell only before the combat damage step.\nTarget creature gains trample and gets +X/+0 until end of turn, where X is its power. At the beginning of the next end step, destroy that creature if it attacked this turn.",
+  );
+  const spell = only<Ability & { effects: Effect[] }>(record, 'spell');
+  assert.deepEqual(spell.effects[0], {
+    do: 'pump',
+    what: { sel: 'target', ref: 0 },
+    power: { v: 'power', of: { sel: 'target', ref: 0 } },
+    toughness: 0,
+    grant: ['trample'],
+    duration: 'end-of-turn',
+  });
+  // The delayed destroy is not this rule's to claim.
+  assert.ok(spell.effects.some(e => e.do === 'manual'), JSON.stringify(spell.effects));
+});
+
+test('pump-by-own-stat: "its power" on the source is the source, and "that creature\'s" on a target is the target', () => {
+  const colossus = compile(
+    'Chameleon Colossus',
+    'Creature — Shapeshifter',
+    'Changeling (This card is every creature type.)\nProtection from black\n{2}{G}{G}: This creature gets +X/+X until end of turn, where X is its power.',
+  );
+  const activated = only<ActivatedAbility>(colossus, 'activated');
+  assert.deepEqual(activated.effects, [
+    {
+      do: 'pump',
+      what: { sel: 'self' },
+      power: { v: 'power', of: { sel: 'self' } },
+      toughness: { v: 'power', of: { sel: 'self' } },
+      duration: 'end-of-turn',
+    },
+  ]);
+  assert.equal(colossus.coverage, 'full');
+
+  const mentor = compile(
+    'Nantuko Mentor',
+    'Creature — Insect Druid',
+    "{2}{G}, {T}: Target creature gets +X/+X until end of turn, where X is that creature's power.",
+  );
+  const tap = only<ActivatedAbility>(mentor, 'activated');
+  assert.deepEqual((tap.effects[0] as Extract<Effect, { do: 'pump' }>).power, { v: 'power', of: { sel: 'target', ref: 0 } });
+  assert.equal(mentor.coverage, 'full');
+});
+
+test('pump-by-own-stat: "this creature\'s power" is the source whatever the subject, and toughness is read as toughness', () => {
+  // Wild Beastmaster pumps EVERY other creature by HIS power. The subject is
+  // plural, which would be refused for "its", but the value names the source.
+  const beastmaster = compile(
+    'Wild Beastmaster',
+    'Creature — Human Shaman',
+    "Whenever this creature attacks, each other creature you control gets +X/+X until end of turn, where X is this creature's power.",
+  );
+  const trigger = only<TriggeredAbility>(beastmaster, 'triggered');
+  const pump = trigger.effects[0] as Extract<Effect, { do: 'pump' }>;
+  assert.equal(pump.what.sel, 'all');
+  assert.deepEqual(pump.power, { v: 'power', of: { sel: 'self' } });
+  assert.equal(beastmaster.coverage, 'full');
+
+  const armadillo = compile(
+    'Armored Armadillo',
+    'Creature — Armadillo',
+    'Ward {1} (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays {1}.)\n{3}{W}: This creature gets +X/+0 until end of turn, where X is its toughness.',
+  );
+  const activated = only<ActivatedAbility>(armadillo, 'activated');
+  assert.deepEqual(activated.effects, [
+    {
+      do: 'pump',
+      what: { sel: 'self' },
+      power: { v: 'toughness', of: { sel: 'self' } },
+      toughness: 0,
+      duration: 'end-of-turn',
+    },
+  ]);
+});
+
+test('pump-by-own-stat: a power bound by an EARLIER sentence is still refused', () => {
+  // Dina's X is the power of the creature her cost ate, which this phrase does
+  // not name. Reading it as Dina's own power would be a wrong ability wearing
+  // the clothes of a right one, so the ability stays unparsed.
+  const dina = compile(
+    'Dina, Soul Steeper',
+    'Legendary Creature — Dryad Druid',
+    "Whenever you gain life, each opponent loses 1 life.\n{1}, Sacrifice another creature: Dina gets +X/+0 until end of turn, where X is the sacrificed creature's power.",
+  );
+  assert.equal(dina.abilities.filter(a => a.kind === 'activated').length, 0);
+  assert.equal(dina.coverage, 'partial');
+
+  // Sigardian Zealot's subject is "each of them", a set the player chose a
+  // sentence earlier. No selector can name it, so no pump is built.
+  const zealot = compile(
+    'Sigardian Zealot',
+    'Creature — Human Soldier',
+    "At the beginning of combat on your turn, choose any number of creatures with different powers. Each of them gets +X/+X and gains vigilance until end of turn, where X is this creature's power.",
+  );
+  const trigger = only<TriggeredAbility>(zealot, 'triggered');
+  assert.ok(trigger.effects.every(e => e.do === 'manual'), JSON.stringify(trigger.effects));
 });

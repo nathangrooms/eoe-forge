@@ -169,7 +169,20 @@ export type PlayerChoiceDo =
  */
 export type ForeignBodyDo = 'xmage-body';
 
-type Uncovered = Exclude<AnyEffectDo, HandledDo | AlreadyGoodDo | PlayerChoiceDo | ForeignBodyDo>;
+/**
+ * Verbs the runtime has no STATE for yet, whose deferral is the only honest
+ * option and is NOT waiting on a decision protocol.
+ *
+ * `impulse` is "exile the top card of your library; until end of turn you may
+ * play it". No decision is involved; the game simply has nowhere to remember
+ * that a particular exiled card may be played, or when that stops. A primitive
+ * for it is real future work, unlike `may`, and it goes here rather than in
+ * `PlayerChoiceDo` so nobody reads it as settled. `to-actions.ts` defers the
+ * whole effect rather than exiling without granting, and the case says why.
+ */
+export type AwaitingRuntimeDo = 'impulse';
+
+type Uncovered = Exclude<AnyEffectDo, HandledDo | AlreadyGoodDo | PlayerChoiceDo | ForeignBodyDo | AwaitingRuntimeDo>;
 
 /** Resolves to `true` only when `T` is `never`. Anything else is uninhabited. */
 type AssertNever<T> = [T] extends [never] ? true : { ERROR_unhandled_effect_verb: T };

@@ -57,6 +57,7 @@ type Step = 'untap'|'upkeep'|'draw'|'precombat_main'|'begin_combat'|'declare_att
           |'declare_blockers'|'combat_damage'|'end_combat'|'postcombat_main'|'end'|'cleanup';
 type Cmp = 'lt'|'lte'|'eq'|'gte'|'gt'|'ne';
 type Duration = 'end-of-turn'|'your-next-turn'|'while-source-on-battlefield'|'permanent';
+type ImpulseUntil = 'end-of-turn'|'end-of-your-next-turn';   // "until the END of your next turn" is not 'your-next-turn', which ends when that turn begins
 
 interface TokenSpec { name: string; typeLine?: string; power?: string; toughness?: string;
                       colorIdentity?: ManaColor[]; keywords?: string[]; oracleText?: string }
@@ -127,7 +128,7 @@ type Effect =
   | { do:'poison'; who:PlayerSelector; amount:ValueExpr }
   | { do:'draw'; who:PlayerSelector; count:ValueExpr; revealed?:boolean }   // revealed: "reveal the top card of your library and put it into your hand"
   | { do:'mill'; who:PlayerSelector; count:ValueExpr }
-  | { do:'discard'; who:PlayerSelector; count:ValueExpr; random?:boolean }
+  | { do:'discard'; who:PlayerSelector; count:ValueExpr|'hand'; random?:boolean }
   | { do:'move-zone'; what:Selector; to:Zone; position?:'top'|'bottom'|number; tapped?:boolean }
   | { do:'destroy'; what:Selector }
   | { do:'sacrifice'; who:PlayerSelector; what:Selector; count:ValueExpr }
@@ -150,6 +151,7 @@ type Effect =
   | { do:'surveil'; who:PlayerSelector; count:ValueExpr }     // CR 701.44, top N, any number to the GRAVEYARD
   | { do:'look-and-pick'; who:PlayerSelector; look:ValueExpr; pick:ValueExpr; upTo:boolean;
       what?:CardFilter; pickedTo:CardDestination; restTo:CardDestination }   // look at the top N, take some, the rest go where it says
+  | { do:'impulse'; who:PlayerSelector; count:ValueExpr; until:ImpulseUntil; permission:'play'|'cast' }   // exile the top N of who's library; the controller may play (or only cast) them from exile until the window closes. Never for "without paying its mana cost" or "for as long as it remains exiled"
   | { do:'unless-pays'; who:PlayerSelector; cost:Cost[]; effects:Effect[] }   // somebody ELSE is offered the cost; effects run if they decline
   | { do:'do-if-cost-paid'; who:PlayerSelector; cost:Cost[]; optional:boolean; then:Effect[]; else?:Effect[] }   // "you may pay {2}. If you do, ..."; then runs if they PAY
   | { do:'if'; condition:Condition; then:Effect[]; else?:Effect[] }
@@ -165,6 +167,7 @@ type Cost =
   | { pay:'discard'; what?:Selector; count:ValueExpr; random?:boolean }
   | { pay:'exile'; from:Zone; what:Selector; count:ValueExpr }
   | { pay:'life'; amount:ValueExpr }
+  | { pay:'generic-mana'; amount:ValueExpr }
   | { pay:'remove-counters'; counter:string; count:ValueExpr; from?:Selector }
   | { pay:'add-counters'; counter:string; count:ValueExpr; to?:Selector }
   | { pay:'return-to-hand'; what:Selector; count:ValueExpr }

@@ -40,7 +40,8 @@ import type {
   TokenSpec,
   ValueExpr,
 } from './dsl.ts';
-import { manual } from './dsl.ts';
+import { manual, PROTECTION_FROM_CHOSEN_COLOR } from './dsl.ts';
+import type { GrantList } from './grammar.ts';
 import {
   CHOICE_SUBJECT_WORDS,
   NUM,
@@ -49,6 +50,7 @@ import {
   parseChoiceSubject,
   parseCount,
   parseForEachValue,
+  parseGrantList,
   parseKeywordList,
   parseManaSpendRestriction,
   parseObject,
@@ -328,6 +330,26 @@ function manaRecipient(subject: string | undefined, ctx: BuildCtx): PlayerSelect
 }
 
 /**
+ * A pump that grants what `parseGrantList` read, with the colour choice it
+ * owes put IN FRONT of it.
+ *
+ * "Gains protection from the color of your choice" is two things happening in
+ * order: the player picks a colour, then the creature has protection from it.
+ * The pump alone cannot say the first half, and saying only the second half
+ * with a colour filled in is the wrong-ability failure this file exists to
+ * prevent. `{do:'choose', what:'color'}` is the member the DSL already has for
+ * an open choice, and "of your choice" names the chooser: you.
+ *
+ * "The chosen color" (Brave the Elements, Glory) sets no `choosesColor`, so
+ * no second choice is emitted; the "Choose a color." sentence before it
+ * compiles to the `choose` on its own.
+ */
+function granting(list: GrantList, pump: Effect): Effect[] {
+  if (!list.choosesColor) return [pump];
+  return [{ do: 'choose', who: { who: 'you' }, what: 'color' }, pump];
+}
+
+/**
  * Who the first half of a split sentence was about, if it was about anybody.
  *
  * The RESOLVED selector, not the words. That distinction is the whole point:
@@ -341,6 +363,29 @@ function subjectOf(effects: readonly Effect[]): PlayerSelector | null {
     if (who) return who;
   }
   return null;
+}
+
+/**
+ * Whose library "exile the top card of X library" reads from, for the impulse
+ * rule. `null` refuses.
+ *
+ * "That player" is accepted only while no target has been announced, the
+ * same gate `boundIt` applies to a bare "it": inside Ragavan's combat-damage
+ * trigger it is the damaged player and `{who:'trigger-player'}` is the only
+ * selector that says so, but after "target player ..." in the same ability it
+ * would be that target, and binding it to the trigger would read the card
+ * wrong rather than not at all.
+ */
+function libraryOwner(phrase: string, ctx: BuildCtx): PlayerSelector | null {
+  switch (phrase) {
+    case 'your': return { who: 'you' };
+    case 'that players':
+      if ((ctx.targetsSoFar ?? 0) > 0) return null;
+      return { who: 'trigger-player' };
+    case 'target opponents': return parsePlayer('target opponent', (spec) => ctx.addTarget(spec));
+    case 'target players': return parsePlayer('target player', (spec) => ctx.addTarget(spec));
+    default: return null;
+  }
 }
 
 /** Damage and similar effects take either an object or a player. */
@@ -443,6 +488,9 @@ function scaleEffect(effect: Effect, factor: ValueExpr): Effect | null {
     case 'mill':
       return { ...effect, count: scaleValue(effect.count, factor) };
     case 'discard':
+      // "Discards their hand for each …" is not a card, and a whole hand has no
+      // number to multiply. Refused rather than multiplied by a literal.
+      if (effect.count === 'hand') return null;
       return { ...effect, count: scaleValue(effect.count, factor) };
     case 'create-token':
       return { ...effect, count: scaleValue(effect.count, factor) };
@@ -720,10 +768,65 @@ export const EFFECT_RULES: EffectRule[] = [
     },
   },
   {
+    /*
+     * THE WHEEL. "Each player discards their hand, then draws seven cards" is
+     * Wheel of Fortune (rank 569), Reforge the Soul, Magus of the Wheel, Wheel
+     * of Fate, Dragon Mage and Runehorn Hellkite, and every one of them produced
+     * no record at all: this rule used to refuse, on the grounds that the DSL
+     * had no way to bind "the size of THAT player's hand" inside a loop over
+     * players. That was true and the refusal was still the wrong answer,
+     * because `{v:'cards-in'}` sums over the players it resolves to and the
+     * only alternative was silence, which every consumer reads as "does
+     * nothing".
+     *
+     * `count: 'hand'` is the honest spelling: all of it, counted per player by
+     * whatever runs the effect. The three printed forms are one rule because
+     * they are one effect — "discards their hand", "discards all the cards in
+     * their hand" (Dark Deal, Collective Defiance, Incendiary Command) and
+     * "discard your hand" as an effect rather than a cost.
+     *
+     * The subject is optional for the same reason it is on `draw`: the second
+     * half of "target player draws three cards, then discards their hand"
+     * has none, and `playerOr` carries the first half's over.
+     */
     id: 'discard-hand',
-    re: new RegExp(`^(?:(${P}) )?discards? (?:their|his or her) hand$`),
-    note: 'Refused: the count is the hand size, and the DSL has no "cards-in hand of that player" bound to a per-player loop here.',
-    build: () => null,
+    re: new RegExp(
+      `^(?:(${P}) )?discards? (?:(?:their|his or her|your) hand|all (?:the )?cards (?:in|from) (?:their|his or her|your) hand)$`,
+    ),
+    note: '"each player discards their hand", "discards all the cards in their hand". The count is the hand, per player.',
+    build(m, ctx) {
+      const who = playerOr(m[1], ctx);
+      if (!who) return null;
+      return [{ do: 'discard', who, count: 'hand' }];
+    },
+  },
+  {
+    /*
+     * THE OTHER HALF OF WINDFALL, said out loud rather than swallowed.
+     *
+     * "…then draws cards equal to the greatest number of cards a player
+     * discarded this way" (Windfall, rank 157; Jace's Archivist; Whispering
+     * Madness) and "…then draws that many cards" (Dark Deal, Collective
+     * Defiance, Incendiary Command) both name a PER-PLAYER quantity from a
+     * moment that has passed: how many cards this player, or the player who
+     * discarded most, just put in the graveyard. `ValueExpr` has no per-player
+     * binding and no maximum over players, and inventing the number with
+     * `{v:'cards-in'}` after the hands are already empty would draw zero.
+     *
+     * So this is the first rule in the table whose product is a `manual`
+     * marker. It exists because the connective split above accepts a sentence
+     * ONLY when both halves compile, and without it the discard half — which
+     * IS read — was thrown away with the draw half, leaving the whole card
+     * blind. A marker keeps coverage at `partial`, keeps `needsManual` on the
+     * stack item, and lets the facet reader see a wheel that empties every
+     * hand. It is deliberately narrow: two exact wordings, not "draws (.+)".
+     */
+    id: 'draw-that-many',
+    re: /^draws? (?:cards equal to the greatest number of cards a player discarded this way|that many cards(?: (?:plus|minus) one)?)$/,
+    note: 'Windfall and Dark Deal. A per-player count from the discard that just happened, which the value vocabulary cannot name.',
+    build(m) {
+      return [manual(m[0], 'draw-that-many: how many cards each player (or the player who discarded most) just discarded is a per-player quantity the value vocabulary cannot express')];
+    },
   },
   {
     id: 'shuffle',
@@ -844,6 +947,56 @@ export const EFFECT_RULES: EffectRule[] = [
   },
   {
     /*
+     * IMPULSE DRAW. "Exile the top card of your library. Until end of turn,
+     * you may play that card."
+     *
+     * TWO SENTENCES READ AS ONE EFFECT, which no other rule in this table
+     * does, and the reason is in the `{do:'impulse'}` note in `dsl.ts`: the
+     * exile half alone is Mystic Forge, a card that throws the top card away,
+     * and the permission half alone has nothing to permit. Neither sentence
+     * may compile without the other, so the regex carries the full stop and
+     * `compileEffectBody` joins the two sentences back together before it
+     * asks, guarded by `IMPULSE_EXILE_TAIL` and `IMPULSE_GRANT` so no other
+     * pair of sentences is ever glued.
+     *
+     * 107 commander-legal cards say it in one of exactly two orders: the
+     * window first ("Until the end of your next turn, you may play those
+     * cards", Light Up the Stage, Reckless Impulse, Prosper) or last ("You
+     * may play that card this turn", Laelia, Faldorn, Act on Impulse). Both
+     * are read. A permission with NO window is refused on purpose: Chandra,
+     * Torch of Defiance's "You may cast that card" is a cast during
+     * resolution, and the ruling on her says so.
+     *
+     * "Until your next end step" (Haste Magic, Inti, Opera Love Song) is the
+     * declared `duration` gap and stays refused here for the same reason
+     * `parseDuration` refuses it: it ends at the beginning of the end step,
+     * not at cleanup, and an instant is castable in the gap between.
+     *
+     * IT MUST SIT ABOVE `exile`, like the blink rule below it, because that
+     * rule anchors on `^exile (.+)$`. It cannot actually misread this shape
+     * today, since `parseObject` refuses "the top card of your library", but
+     * a rule that is correct only because another rule happens to refuse is
+     * one that stops being correct the day that refusal is relaxed.
+     */
+    id: 'impulse',
+    re: new RegExp(
+      `^exile the top (card|(${N}) cards) of (your|that players|target opponents|target players) library\\. ` +
+      `(?:until (end of turn|the end of your next turn), you may (play|cast) (?:that card|those cards|them|it)` +
+      `|you may (play|cast) (?:that card|those cards|them|it) this turn)$`,
+    ),
+    note: 'Exile from the top of a library plus a windowed permission to play the exiled cards. Refuses free casts, mana-as-any-colour riders, "choose one of them" and "for as long as it remains exiled".',
+    build(m, ctx) {
+      const count = m[2] ? countOf(m[2], ctx) : 1;
+      if (count === null) return null;
+      const who = libraryOwner(m[3], ctx);
+      if (!who) return null;
+      const until = m[4] === 'the end of your next turn' ? 'end-of-your-next-turn' : 'end-of-turn';
+      const permission = (m[5] ?? m[6]) === 'cast' ? 'cast' : 'play';
+      return [{ do: 'impulse', who, count, until, permission }];
+    },
+  },
+  {
+    /*
      * BLINK. "Exile target creature you control, then return it to the
      * battlefield under its owner's control."
      *
@@ -955,7 +1108,7 @@ export const EFFECT_RULES: EffectRule[] = [
   {
     id: 'counter-spell',
     re: /^counter target (.+)$/,
-    note: 'Uses the PROPOSED {do:"counter"} member. "unless its controller pays" fails the anchor.',
+    note: 'Uses the PROPOSED {do:"counter"} member. "unless its controller pays" fails the anchor here and is read by the unless-pays rule, which wraps this one.',
     build(m, ctx) {
       const phrase = m[1].trim();
       if (phrase === 'spell') {
@@ -1398,9 +1551,9 @@ export const EFFECT_RULES: EffectRule[] = [
     re: /^(.+?) gets? ([+-]\d+)\/([+-]\d+) and gains? ([a-z, ]+?) until end of turn$/,
     build(m, ctx) {
       const what = phraseSelector(m[1], ctx, 'Choose a creature');
-      const grant = parseKeywordList(m[4]);
+      const grant = parseGrantList(m[4]);
       if (!what || !grant) return null;
-      return [{ do: 'pump', what, power: Number(m[2]), toughness: Number(m[3]), grant, duration: 'end-of-turn' }];
+      return granting(grant, { do: 'pump', what, power: Number(m[2]), toughness: Number(m[3]), grant: grant.grant, duration: 'end-of-turn' });
     },
   },
   {
@@ -1412,14 +1565,62 @@ export const EFFECT_RULES: EffectRule[] = [
       return [{ do: 'pump', what, power: Number(m[2]), toughness: Number(m[3]), duration: 'end-of-turn' }];
     },
   },
+  /*
+   * "Protection from artifacts or from the color of your choice" — Giver of
+   * Runes (rank 1387), Apostle's Blessing, Angelic Intervention, Razor Barrier.
+   *
+   * The "or" is a player DECISION on resolution (CR 608.2c), and the DSL has
+   * exactly one member for a decision between printed options, the same one
+   * the dual lands use for "Add {R} or {G}". One mode grants the printed
+   * quality verbatim; the other is the colour-choice shape below, choose and
+   * then grant. The target is registered ONCE, above both modes, because the
+   * card announces one target and both modes act on it.
+   *
+   * "From artifacts" and "from colorless" are admitted HERE and not in
+   * `parseGrantList`, because here they are one half of a choice the record
+   * spells out mode by mode, and a reader sees the two options side by side.
+   * The runtime files both as a quality it does not classify and hands the
+   * player the colour and the combat question alike, which is what it does
+   * for every printed protection it cannot read; nothing is guessed.
+   *
+   * Sits before `grant-keyword` because that regex also matches this sentence
+   * and would refuse it, and a refused build does fall through, but reading
+   * the specific shape first is what the ordering of this table means.
+   */
+  {
+    id: 'protection-of-choice-or',
+    re: /^(.+?) gains? protection from (artifacts|colorless) or from the color of your choice until end of turn$/,
+    build(m, ctx) {
+      const what = phraseSelector(m[1], ctx, 'Choose a permanent');
+      if (!what) return null;
+      const pump = (grant: string[]): Effect => ({ do: 'pump', what, power: 0, toughness: 0, grant, duration: 'end-of-turn' });
+      return [{
+        do: 'choose-mode', min: 1, max: 1,
+        modes: [
+          { text: `Protection from ${m[2]}`, effects: [pump([`protection from ${m[2]}`])] },
+          {
+            text: 'Protection from the color of your choice',
+            effects: granting({ grant: [PROTECTION_FROM_CHOSEN_COLOR], choosesColor: true }, pump([PROTECTION_FROM_CHOSEN_COLOR])),
+          },
+        ],
+      }];
+    },
+  },
   {
     id: 'grant-keyword',
     re: /^(.+?) gains? ([a-z, ]+?) until end of turn$/,
+    note:
+      '"Target creature you control gains protection from the color of your choice ' +
+      'until end of turn" is Mother of Runes, Gods Willing, Shelter and twenty-six ' +
+      'more, and every one produced no record because the grant list wanted a bare ' +
+      'keyword. The colour is not in the text and is never guessed: `granting` ' +
+      'puts a colour CHOICE in front of the pump and the pump grants ' +
+      '`PROTECTION_FROM_CHOSEN_COLOR`.',
     build(m, ctx) {
       const what = phraseSelector(m[1], ctx, 'Choose a creature');
-      const grant = parseKeywordList(m[2]);
+      const grant = parseGrantList(m[2]);
       if (!what || !grant) return null;
-      return [{ do: 'pump', what, power: 0, toughness: 0, grant, duration: 'end-of-turn' }];
+      return granting(grant, { do: 'pump', what, power: 0, toughness: 0, grant: grant.grant, duration: 'end-of-turn' });
     },
   },
   {
@@ -1689,6 +1890,71 @@ export const EFFECT_RULES: EffectRule[] = [
     },
   },
 
+  /* ---------------- pump by the creature's own power ----------------
+   *
+   * "Another target creature you control gains haste and gets +X/+X until end
+   * of turn, where X is that creature's power" — Xenagos, God of Revels, and
+   * 34 more cards in the catalogue with the same trailing clause. The generic
+   * ", where X is …" path two screens down cannot reach them, because
+   * `parseValueExpr` refuses "its power" and "that creature's power" on
+   * principle: a subject bound by an earlier sentence is a guess. Here it is
+   * not a guess. The phrase that binds X is the phrase that names the
+   * creature, so the pump's own selector IS the thing whose power X is, and
+   * `{v:'power', of:<that selector>}` is the value the DSL already had.
+   *
+   * Three spellings, resolved three ways, and the third is the one to keep
+   * strict:
+   *   `~s power`            "this creature's" / the card's name — the source.
+   *                         Any subject may take it: Wild Beastmaster pumps
+   *                         each other creature by HIS power.
+   *   `its power`           the one object this phrase named, whether that is
+   *                         a target (Berserk), the source (Chameleon Colossus)
+   *                         or the trigger's subject (Arahbo's "it").
+   *   `that creatures power` a target announced in this very phrase, and
+   *                         nothing else. A card that meant the source would
+   *                         have said "its"; a card whose "that creature" was
+   *                         bound by an earlier sentence — Dina, Soul Steeper's
+   *                         "the sacrificed creature's power" — does not match
+   *                         and stays refused.
+   * Either bound spelling on a plural subject is refused too: `{v:'power', of:
+   * {sel:'all'}}` SUMS, so "each creature gets +X/+X where X is its power" would
+   * hand every creature the total.
+   *
+   * The evaluator reads the value ONCE, on resolution (`ptModifyPart`), which is
+   * CR 608.2h: X is locked in as the ability resolves. A continuous re-read
+   * would compound and Xenagos would quadruple rather than double. */
+  {
+    id: 'pump-by-own-stat',
+    re: /^(.+?) (?:gains? ([a-z, ]+?) and )?gets? \+x\/\+(x|0)(?: and gains? ([a-z, ]+?))? until end of turn,? where x is (~s|its|that creatures|that permanents) (power|toughness)$/,
+    note: 'Xenagos, God of Revels. The pumped creature is the creature whose power X is, so the binding needs no earlier sentence.',
+    build(m, ctx) {
+      const what = phraseSelector(m[1], ctx, 'Choose a creature');
+      if (!what) return null;
+      const grantText = m[2] ?? m[4];
+      const grant = grantText ? parseKeywordList(grantText) : undefined;
+      if (grantText && !grant) return null;
+
+      let of: Selector;
+      if (m[5] === '~s') {
+        of = { sel: 'self' };
+      } else {
+        const single = what.sel === 'self' || what.sel === 'target' || what.sel === 'trigger-subject' || what.sel === 'attached';
+        if (!single) return null;
+        if (m[5] !== 'its' && what.sel !== 'target') return null;
+        of = what;
+      }
+      const stat: ValueExpr = { v: m[6] as 'power' | 'toughness', of };
+      return [{
+        do: 'pump',
+        what,
+        power: stat,
+        toughness: m[3] === 'x' ? stat : 0,
+        ...(grant ? { grant } : {}),
+        duration: 'end-of-turn',
+      }];
+    },
+  },
+
   /* ---------------- E4: an opponent-facing optional cost ----------------
    *
    * Both spellings of one rule. The player being offered the cost is the one
@@ -1696,18 +1962,43 @@ export const EFFECT_RULES: EffectRule[] = [
    * that says so — `{who:'each-opponent'}` would tax the whole table for one
    * opponent's draw. */
   {
-    id: 'unless-that-player-pays',
-    re: /^(.+?) unless that player pays ((?:\{[^}]+\})+)$/,
-    note: 'Rhystic Study. The "you may" stays INSIDE, because the opponent decides first and the controller decides second.',
+    id: 'unless-pays',
+    re: /^(.+?) unless (that player|its controller) pays ((?:\{[^}]+\})+)$/,
+    note: 'Rhystic Study, Mana Leak, Esper Sentinel. The "you may" stays INSIDE, because the opponent decides first and the controller decides second.',
     build(m, ctx, depth) {
+      /*
+       * Two spellings of who is offered the cost, and they are NOT one
+       * selector.
+       *
+       *   "that player"     the player the trigger was about. Rhystic Study.
+       *   "its controller"  whoever controls the thing the effect acts on.
+       *                     "Counter target spell unless its controller pays
+       *                     {3}" — 60 cards in the census, Mana Leak and
+       *                     Force Spike among them, and the single largest
+       *                     unread shape in the interaction role.
+       *
+       * "Its controller" was the one that stopped this rule reading a
+       * counterspell for a year: the payer is the controller of the TARGET,
+       * and the target does not exist until the inner phrase has registered
+       * it. So the inner phrase is read first and the payer is derived from
+       * what it produced, and if that derivation fails the whole clause is
+       * refused rather than taxed at the wrong seat. `{who:'each-opponent'}`
+       * is never guessed for either; a counterspell that taxed every
+       * opponent would be a wrong ability, and a wrong ability is the failure
+       * this file exists to refuse.
+       *
+       * "Unless THEY pay" is not here. Every card that prints it ("each
+       * opponent sacrifices a permanent of their choice unless they pay {1}",
+       * "that player loses 2 life unless they pay {2}") has an inner clause
+       * this compiler already refuses, so a "they" branch would be code no
+       * real card reaches and no test could exercise. It joins when a card
+       * does.
+       */
       const inner = compileEffectPhrase(m[1], ctx, depth + 1);
       if (!inner) return null;
-      return [{
-        do: 'unless-pays',
-        who: { who: 'trigger-player' },
-        cost: [{ pay: 'mana', cost: m[2].toUpperCase() } as Cost],
-        effects: inner,
-      }];
+      const who = unlessPayer(m[2], inner);
+      if (!who) return null;
+      return [{ do: 'unless-pays', who, cost: [unlessManaCost(m[3], ctx)], effects: inner }];
     },
   },
   {
@@ -1727,6 +2018,38 @@ export const EFFECT_RULES: EffectRule[] = [
   },
 ];
 
+/**
+ * Who "unless <payer> pays" is asking, derived from the effect the payment
+ * buys out of. `null` refuses: an unless clause whose payer cannot be named
+ * from the record is a tax at the wrong seat, so the clause goes to manual.
+ */
+function unlessPayer(payer: string, inner: readonly Effect[]): PlayerSelector | null {
+  if (payer === 'that player') return { who: 'trigger-player' };
+
+  // The thing being countered, bounced or destroyed. One effect, one object:
+  // "counter target spell and draw a card unless its controller pays" would
+  // leave "its" pointing at nothing this rule can name.
+  const object = inner.length === 1 ? (inner[0] as { what?: Selector }).what : undefined;
+  const objectIsSelector = object !== undefined && typeof object === 'object' && 'sel' in object;
+  return objectIsSelector ? { who: 'controller-of', of: object } : null;
+}
+
+/**
+ * The mana half of "unless … pays {…}".
+ *
+ * "{X}" means two different things and the context says which. With a
+ * ", where X is …" clause bound (Esper Sentinel: "pays {X}, where X is this
+ * creature's power") the amount is COMPUTED, and `{pay:'generic-mana'}` carries
+ * the expression. Unbound (Syncopate: "pays {X}" on a spell with {X} in its
+ * cost) it is the announced X, and the mana string carries it exactly as the
+ * card prints it.
+ */
+function unlessManaCost(symbols: string, ctx: BuildCtx): Cost {
+  const cost = symbols.toUpperCase();
+  if (cost === '{X}' && ctx.xValue !== undefined) return { pay: 'generic-mana', amount: ctx.xValue };
+  return { pay: 'mana', cost };
+}
+
 /* ------------------------------------------------------------------ *
  * Effects the vocabulary has no member for, named so they are counted
  * rather than absorbed. Each becomes a `{do:'manual'}` with a hint, and
@@ -1734,21 +2057,109 @@ export const EFFECT_RULES: EffectRule[] = [
  * vocabulary grow next" becomes a number instead of an opinion.
  * ------------------------------------------------------------------ */
 
-export const NAMED_MANUAL_EFFECTS: Array<{ id: string; re: RegExp; hint: string }> = [
+export const NAMED_MANUAL_EFFECTS: Array<{
+  id: string;
+  re: RegExp;
+  hint: string;
+  /** A second look at the match, for a shape a regex alone cannot vouch for. */
+  accept?: (m: RegExpMatchArray) => boolean;
+}> = [
   { id: 'explore', re: /^it explores$|^~ explores$/, hint: 'explore: compound reveal + branch, not modelled' },
+  {
+    /*
+     * OWN-BOUNCE, the untargeted kind: "return a creature you control to its
+     * owner's hand". Whitemane Lion, Shrieking Drake, Kor Skyfisher, Dream
+     * Stalker, Roaring Primadox, Cloudstone Curio, Temur Sabertooth.
+     *
+     * The `bounce` rule above refuses the phrase, and it is RIGHT to: "a
+     * creature you control" is one creature its controller picks on
+     * resolution, and the only untargeted selector is `{sel:'all'}`, which
+     * means every match. Compiling it would turn Whitemane Lion into a
+     * one-sided board wipe, and `compiler.test.ts` pins that refusal.
+     *
+     * But a refusal that says NOTHING costs the deck builder the whole card.
+     * The manual marker used to carry only the raw text, so the facet layer
+     * could not tell Shrieking Drake from an unread paragraph, and a Chulane
+     * or Animar plan asking for creatures that come back to hand found none
+     * of the cards the archetype is built on. Naming the marker is the same
+     * move as `proliferate`: the choice is still the player's, coverage stays
+     * `partial`, and `MANUAL_IDS` in the facet layer reads the id.
+     *
+     * WHAT IS REFUSED, still. The middle of the phrase must be a plain
+     * description of the thing: no second controller, no target, no player.
+     * "Return a creature you control or an opponent controls" would otherwise
+     * sneak through on the substring. And a LAND is not this shape at all:
+     * "return a land you control to its owner's hand" is the karoo clause,
+     * thirty-six cards led by Simic Growth Chamber at rank 308, and none of
+     * them is a card a bounce-your-creatures deck wants. They keep the plain
+     * marker they had.
+     *
+     * "That shares a permanent type with it" is Cloudstone Curio alone, and
+     * it is THE card of the archetype, so the tail is allowed by name rather
+     * than parsed.
+     */
+    id: 'bounce-own',
+    re: new RegExp(
+      '^(?:you may )?return (?:a|an|another|one|two|three|up to (?:one|two|three)) ' +
+        '([a-z0-9 /+-]+?) you control' +
+        '(?: that shares a (?:permanent|card) type with it)?' +
+        ' to (?:its|their) owners hands?$'
+    ),
+    hint: 'bounce-own: which of your own permanents comes back is a choice made on resolution',
+    accept: (m) => {
+      const middle = m[1];
+      if (/\b(control|controls|opponent|target|player|owner|each|all)\b/.test(middle)) return false;
+      const head = middle.split(' ').pop() ?? '';
+      return !/^(land|lands|forest|forests|island|islands|plains|swamp|swamps|mountain|mountains)$/.test(head);
+    },
+  },
   { id: 'investigate', re: /^investigate$/, hint: 'investigate: Clue token plus its own ability' },
   { id: 'proliferate', re: /^proliferate$/, hint: 'proliferate: needs a player-directed multi-permanent choice' },
   { id: 'mana-combination', re: /^add (two|three|four|five) mana in any combination of colors$/, hint: 'mana in any combination: N independent colour choices, not one' },
   { id: 'regenerate', re: /^regenerate (.+)$/, hint: 'regenerate: a replacement shield the DSL has no result for' },
   { id: 'reveal', re: /^reveal (.+)$/, hint: 'reveal: no reveal effect in the vocabulary' },
   { id: 'look-at-top', re: /^look at the top (.+)$/, hint: 'library peeking: no look/reorder effect in the vocabulary' },
-  { id: 'counter-unless-pay', re: /^counter target (.+) unless (.+)$/, hint: 'counter-unless-pay: an opponent-facing optional cost' },
+  /* Only the taxes the unless-pays rule refuses reach this: "pays {2} plus an
+     additional {1} for each Faerie you control" (Spell Stutter), "pays mana
+     equal to the greatest power among creatures you control" (Repulsive
+     Mutation). A plain "{N}" is read now. */
+  { id: 'counter-unless-pay', re: /^counter target (.+) unless (.+)$/, hint: 'counter-unless-pay: a tax the cost grammar cannot spell' },
+  /*
+   * "You may cast a spell with mana value 5 or less from your hand without
+   * paying its mana cost" (Rishkar's Expertise, 243), "then you may cast any
+   * number of spells from among those cards without paying their mana costs"
+   * (Etali, Primal Storm, 266), "copy it, and you may cast the copy without
+   * paying its mana cost" (Mizzix's Mastery, 805).
+   *
+   * Casting is a player ACTION — which spell, whether at all, what it targets
+   * — and the resolver has no way to take one, so this is a marker and not a
+   * verb. What the marker buys is the NAME: `eff:cast-free` has been in the
+   * engine's vocabulary since the facet layer was written and the compiler
+   * had never once produced it, so every card that cheats a spell into play
+   * was invisible to a plan asking for exactly that, and the deck builder was
+   * told about them only by Tagger. The id is read by `MANUAL_IDS` in the
+   * facet producer, the same route proliferate and extra-turn take.
+   *
+   * The sentence may carry a prefix, because the free cast is almost always
+   * the second half of one: "exile the top card ..., then you may cast". A
+   * prefix has to END in a connective so that "you can't cast ... without
+   * paying" is never claimed — the verb must follow "then ", "and ", "you may
+   * " or the start of the sentence, and nothing else. `(?!~ )` keeps the
+   * spell's own alternative cost out, which is a cost and lives on the
+   * ability (`SpellAbility.alternativeCosts`), not in its effects.
+   */
+  {
+    id: 'cast-free',
+    re: /^(?:.+?\b(?:then|and) |if you do, )?(?:you may )?cast (?!~ )(.+?) without paying (?:its|their) mana costs?$/,
+    hint: 'cast-free: which spell to cast, and whether to, is a player action the resolver cannot take',
+  },
 ];
 
 /** `null` if the phrase is not a named-but-unmodelled effect. */
 export function namedManual(phrase: string): Effect | null {
-  for (const { re, hint } of NAMED_MANUAL_EFFECTS) {
-    if (re.test(phrase)) return manual(phrase, hint);
+  for (const { re, hint, accept } of NAMED_MANUAL_EFFECTS) {
+    const m = phrase.match(re);
+    if (m && (!accept || accept(m))) return manual(phrase, hint);
   }
   return null;
 }
@@ -1756,6 +2167,19 @@ export function namedManual(phrase: string): Effect | null {
 /* ------------------------------------------------------------------ *
  * The phrase compiler
  * ------------------------------------------------------------------ */
+
+/**
+ * The two halves of an impulse draw, as `compileEffectBody` recognises them
+ * before joining the sentences the ". " split pulled apart. They are the SAME
+ * two halves the `impulse` rule's regex is built from, kept as two anchors
+ * here because the body compiler sees them one sentence at a time. Widen the
+ * rule and widen these together, or the rule can never be reached.
+ */
+const IMPULSE_EXILE_TAIL = new RegExp(
+  `exile the top (?:card|${N} cards) of (?:your|that players|target opponents|target players) library$`,
+);
+const IMPULSE_GRANT =
+  /^(?:until (?:end of turn|the end of your next turn), you may (?:play|cast) (?:that card|those cards|them|it)|you may (?:play|cast) (?:that card|those cards|them|it) this turn)$/;
 
 /** Connectives worth splitting on, longest first so ", then" beats ", ". */
 const CONNECTIVES = [', then ', ' then ', ', and then ', ', and ', ' and ', ', '];
@@ -1970,9 +2394,33 @@ export function compileEffectBody(body: string, ctx: BuildCtx): Effect[] {
   if (whole) return whole;
 
   const out: Effect[] = [];
-  for (const sentence of cleaned.split(/\.\s+/)) {
-    const s = sentence.trim().replace(/[.]+$/, '');
+  const sentences = cleaned.split(/\.\s+/);
+  for (let i = 0; i < sentences.length; i++) {
+    const s = sentences[i].trim().replace(/[.]+$/, '');
     if (!s) continue;
+
+    /* IMPULSE DRAW is one effect printed as two sentences, and the split on
+     * ". " just above has separated them. Joined back together, the pair is
+     * handed to the phrase compiler, which reaches the `impulse` rule either
+     * directly or through a connective split when the first sentence has an
+     * effect in front of the exile: "create a Treasure token and exile the top
+     * card of that player's library. Until end of turn, you may cast that
+     * card" is Ragavan, and the left half of the " and " is the Treasure.
+     *
+     * Two guards, both cheap, so no other pair of sentences is ever glued: the
+     * first must END with the exile-from-the-top phrase and the second must BE
+     * a windowed permission. A pair that passes both and still refuses (an
+     * unreadable library owner, say) falls through to being read one sentence
+     * at a time, exactly as before, and lands in manual. */
+    const next = i + 1 < sentences.length ? sentences[i + 1].trim().replace(/[.]+$/, '') : '';
+    if (next && IMPULSE_EXILE_TAIL.test(s) && IMPULSE_GRANT.test(next)) {
+      const pair = compileEffectPhrase(`${s}. ${next}`, ctx);
+      if (pair) {
+        out.push(...pair);
+        i += 1;
+        continue;
+      }
+    }
 
     /* T2 — "If you do, <effect>" belongs INSIDE the "you may" before it.
      *

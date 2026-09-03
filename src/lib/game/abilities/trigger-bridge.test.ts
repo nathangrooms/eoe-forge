@@ -503,3 +503,32 @@ test('the refusal is on the EFFECTS, not just the event — a self-ETB history c
   assert.equal(gameEventKindFor(triggeredAbilitiesOf(state.cards.sneaky)[0].event), 'enters');
   assert.equal(abilityEngineOwns(state.cards.sneaky), false, 'and it is still refused');
 });
+
+test('a watch inside a trigger CONDITION is refused, never evaluated as zero', () => {
+  resetAbilityCache();
+  /*
+   * Esper Sentinel: "Whenever an opponent casts their first noncreature spell
+   * each turn" compiles to a cast trigger with a condition counting that
+   * player's noncreature spells this turn. Nothing supplies the fold, so an
+   * unsupplied watch answers 0, and 0 is not 1 is a trigger that never fires.
+   * Owned, the card would be switched off in silence; refused, the table is
+   * told.
+   */
+  const state = game([
+    {
+      id: 'sentinel',
+      name: 'Esper Sentinel',
+      typeLine: 'Artifact Creature — Human Soldier',
+      oracleText:
+        "Whenever an opponent casts their first noncreature spell each turn, draw a card unless that player pays {X}, where X is this creature's power.",
+    },
+  ]);
+
+  assert.equal(abilitiesFor(state.cards.sentinel).coverage, 'full');
+  const [ability] = triggeredAbilitiesOf(state.cards.sentinel);
+  assert.ok(ability.condition, 'the ordinal compiled to a condition');
+  const reason = unrunnableReason(ability);
+  assert.ok(typeof reason === 'string', 'a reason, not ownership');
+  assert.match(reason as string, /history/i);
+  assert.equal(abilityEngineOwns(state.cards.sentinel), false);
+});

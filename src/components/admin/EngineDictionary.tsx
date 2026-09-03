@@ -101,6 +101,7 @@ const PREFIX_GLOSS: Array<{ prefix: string; title: string; blurb: string }> = [
   { prefix: 'cares:type:', title: 'Card types it is about', blurb: 'An anthem for creatures cares about creatures. Different from being one.' },
   { prefix: 'cares:sub:', title: 'Subtypes it is about', blurb: 'A Goblin lord cares about Goblins. This is how tribal is found.' },
   { prefix: 'cares:zone:', title: 'Zones it is about', blurb: 'Graveyard, library, exile. How recursion and tutors are told apart.' },
+  { prefix: 'cares:power', title: 'Wants big creatures', blurb: 'Xenagos doubling what he points at, Berserk, "power 4 or greater" payoffs. Worth more the bigger the creature already is.' },
   { prefix: 'scope:', title: 'How wide it reaches', blurb: 'Everything on the battlefield, or each player, rather than one target.' },
   { prefix: 'rec:', title: 'How much we read', blurb: 'Whether the compiler consumed every line of the card, or only some of it.' },
 ];
@@ -158,6 +159,11 @@ const OUR_WORDS: Array<{ facet: string; means: string; why: string }> = [
     why: 'Reading it as `eff:exile` made every piece of graveyard hate count as REMOVAL, which is worse than not reading it. The generator put Soul-Guide Lantern in a graveyard deck.',
   },
   {
+    facet: 'eff:wheel',
+    means: 'Everyone throws their hand away and draws a new one. Wheel of Fortune, Windfall.',
+    why: 'Magic calls the discard and the draw two separate things. A wheel deck is built on them happening together, to every player, and the community tags already used the word before the engine could read the cards.',
+  },
+  {
     facet: 'eff:extra-land-drop',
     means: 'More lands per turn. Exploration, Azusa, and every "put a land card from your hand onto the battlefield".',
     why: 'Not mana, but it is what a player means by ramp, and no Magic keyword covers it. Chulane and Uro carry it for the land they put down off a trigger.',
@@ -166,6 +172,11 @@ const OUR_WORDS: Array<{ facet: string; means: string; why: string }> = [
     facet: 'eff:put-onto-battlefield',
     means: 'A card goes from your hand straight onto the battlefield without being cast. Elvish Piper, Sneak Attack.',
     why: 'The compiler reads it with the same verb as recursion, and recursion is filed as card advantage. Sakura-Tribe Scout is not a Regrowth, so it needed its own word.',
+  },
+  {
+    facet: 'eff:impulse',
+    means: 'Exile cards off the top of a library and play them from exile for a turn or two. Light Up the Stage, Reckless Impulse, Prosper.',
+    why: 'The exile and the permission are two sentences and neither means anything alone, so these cards carried no facet at all. Kept apart from exile, which is the removal role, because a draw spell is not an answer.',
   },
   {
     facet: 'eff:choose',

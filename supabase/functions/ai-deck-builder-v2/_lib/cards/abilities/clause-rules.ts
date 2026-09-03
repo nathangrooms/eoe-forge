@@ -13,6 +13,7 @@
  */
 
 import type {
+  AlternativeCost,
   CardFilter,
   Condition,
   Cost,
@@ -27,7 +28,7 @@ import type {
   TriggerEvent,
   ValueExpr,
 } from './dsl.ts';
-import { andF, notF, orF } from './dsl.ts';
+import { andF, isWatchableFilter, notF, orF } from './dsl.ts';
 import type { BuildCtx } from './effect-rules.ts';
 import { phraseSelector } from './effect-rules.ts';
 import {
@@ -123,6 +124,66 @@ function targetedSubject(phrase: string): Selector | null {
  * to one ability firing on either, because the two events never occur
  * simultaneously — so the split is exact, not an approximation.
  */
+/**
+ * "Whenever an opponent casts their first noncreature spell each turn" —
+ * a cast trigger with a per-player, per-turn ordinal on it.
+ *
+ * The event is the ordinary cast event, read by `parseTriggerEvent` from the
+ * same words with the ordinal removed, so Esper Sentinel and Mystic Remora
+ * carry the identical `{on:'cast'}`. The ordinal is a CONDITION over turn
+ * history: at the moment the trigger is checked, that player has cast exactly
+ * N spells of that kind this turn, the one that fired the trigger included —
+ * which is what "their first" means in CR 603.2. It compiles to `{v:'watch'}`
+ * because the count is a fold over the action log, not something the board
+ * can answer, and the trigger bridge refuses to own a condition carrying one
+ * (`needsHistory`), so the card is REPRESENTED exactly and RUN by nobody
+ * rather than fired on every spell.
+ *
+ * Not `limit: {per:'turn', count:1}`. That caps the ABILITY at once a turn,
+ * and three opponents each casting their first spell are three triggers.
+ *
+ * `null` when the ordinal is absent, or when the spell filter is one a past
+ * snapshot could not answer, in which case the whole trigger is refused
+ * rather than counted against a filter that would under-count.
+ */
+export function parseNthCastTrigger(
+  phrase: string,
+  ctx: BuildCtx,
+): { events: TriggerEvent[]; condition: Condition } | null {
+  const p = phrase.trim().replace(/[.,]+$/, '');
+  const m = p.match(/^(you|an opponent|a player|each opponent) casts? (?:your|their) (first|second|third) (?:(.+?) )?spell each turn$/);
+  if (!m) return null;
+  const nth = { first: 1, second: 2, third: 3 }[m[2]];
+  if (nth === undefined) return null;
+
+  const events = parseTriggerEvent(m[3] ? `${m[1]} casts a ${m[3]} spell` : `${m[1]} casts a spell`, ctx);
+  if (!events || events.length !== 1 || events[0].on !== 'cast') return null;
+
+  // "You" cast your own spells; anybody else is "the player this triggered
+  // on", the same binding `{who:'trigger-player'}` gives Rhystic Study.
+  const by: PlayerSelector = m[1] === 'you' ? { who: 'you' } : { who: 'trigger-player' };
+  const filter = m[3] ? parseObject(m[3])?.filter : undefined;
+  if (m[3] && !filter) return null;
+  if (filter && !isWatchableFilter(filter)) return null;
+
+  return {
+    events,
+    condition: {
+      if: 'value',
+      a: {
+        v: 'watch',
+        query: {
+          event: filter ? { saw: 'spell-cast', what: filter, by } : { saw: 'spell-cast', by },
+          window: 'this-turn',
+          measure: 'events',
+        },
+      },
+      cmp: 'eq',
+      b: nth,
+    },
+  };
+}
+
 export function parseTriggerEvent(phrase: string, ctx: BuildCtx): TriggerEvent[] | null {
   const p = phrase.trim().replace(/[.,]+$/, '');
 
@@ -430,18 +491,43 @@ export function parseCosts(costText: string): Cost[] | null {
       continue;
     }
 
-    const exile = atom.match(new RegExp(`^exile (?:(${N}) )?(.+?) from your graveyard$`));
+    const exile = atom.match(new RegExp(`^exile (?:(${N}) )?(.+?) from your (graveyard|hand)$`));
     if (exile) {
+      /* "Exile a blue card from your hand" is the Force cycle's alternative
+         cost (Force of Will, rank 192; Force of Negation, 265) and was refused
+         here because only the graveyard was a zone a cost could exile from.
+         `activate.ts` already pays an exile cost from whatever zone `from`
+         names, offering the choice of card, so the hand costs nothing new. */
+      const zone = exile[3] === 'hand' ? 'hand' : 'graveyard';
       const ref = parseObject(exile[2]);
       if (!ref || ref.targeted || ref.upTo) return null;
       const count = exile[1] ? parseCount(exile[1]) : ref.count;
       if (count === null) return null;
-      out.push({ pay: 'exile', from: 'graveyard', what: objectSelector({ ...ref, zone: 'graveyard' }), count });
+      out.push({ pay: 'exile', from: zone, what: objectSelector({ ...ref, zone }), count });
       continue;
     }
 
     if (/^return ~ to (?:its|your) owners hand$/.test(atom)) {
       out.push({ pay: 'return-to-hand', what: { sel: 'self' }, count: 1 });
+      continue;
+    }
+
+    /*
+     * "Return an Elf you control to its owner's hand: Untap target creature."
+     * Wirewood Symbiote, and twenty other cards that pay by bouncing one of
+     * their own. The same shape as the sacrifice cost above and read the same
+     * way: a cost names WHAT is paid and the player picks WHICH on activation,
+     * which is exactly the choice `{sel:'all'} + count` already means for
+     * "sacrifice a creature". The controller has to be YOU, by the phrase
+     * rather than by assumption: nobody else's permanent can be paid as a cost.
+     */
+    const bounce = atom.match(new RegExp(`^return (?:(${N}) )?(.+?) to (?:its|their) owners hands?$`));
+    if (bounce) {
+      const ref = parseObject(bounce[2]);
+      if (!ref || ref.targeted || ref.upTo || ref.controller?.who !== 'you') return null;
+      const count = bounce[1] ? parseCount(bounce[1]) : ref.count;
+      if (count === null) return null;
+      out.push({ pay: 'return-to-hand', what: objectSelector(ref), count });
       continue;
     }
 
@@ -458,6 +544,78 @@ export function parseCosts(costText: string): Cost[] | null {
     return null; // an unread cost atom refuses the ability
   }
   return out;
+}
+
+/* ------------------------------------------------------------------ *
+ * Alternative costs (CR 118.9)
+ * ------------------------------------------------------------------ */
+
+/**
+ * A paragraph that offers a different way to pay for the spell -> the
+ * `AlternativeCost`, or `null`.
+ *
+ * Two printed shapes, and the compiler holds either for the spell ability
+ * printed under it the way it already holds "As an additional cost":
+ *
+ *   "If you control a commander, you may cast ~ without paying its mana cost."
+ *        the free-spell cycle: a condition, and NOTHING paid instead
+ *   "You may pay 1 life and exile a blue card from your hand rather than pay
+ *    ~s mana cost."
+ *        Force of Will: real costs, read by `parseCosts`, and no condition
+ *   "If you control a Swamp, you may pay 4 life rather than pay ~s mana cost."
+ *   "You may pay {B} rather than pay ~s mana cost if there are thirteen or
+ *    more creatures on the battlefield."
+ *        both at once, the condition on either end
+ *
+ * A condition that is printed and cannot be read REFUSES the paragraph. The
+ * option is only on offer when the condition holds, and an alternative cost
+ * recorded without its gate is a spell the record says is free when it is
+ * not. Mindbreak Trap's "if an opponent cast three or more spells this turn"
+ * is therefore still a gap, correctly: that is history, and `parseCondition`
+ * has no member for it.
+ *
+ * NOT READ, deliberately:
+ *   "rather than pay the mana cost for Zombie creature spells you cast"
+ *        Rooftop Storm, As Foretold, Darksteel Monolith — an alternative cost
+ *        for OTHER spells is a static permission, not a cost of this one.
+ *   "you may pay {0} rather than pay the equip cost"
+ *        an alternative to an activation cost, and this is the spell's.
+ * Both are refused by the anchor: the clause has to end in THIS spell's mana
+ * cost.
+ */
+export function parseAlternativeCost(paragraph: string): AlternativeCost | null {
+  const s = paragraph.trim().replace(/\.$/, '');
+
+  /* Free. "If <condition>, you may cast ~ without paying its mana cost." */
+  const free = s.match(/^(?:if (.+?), )?you may cast ~ without paying its mana cost$/);
+  if (free) {
+    const condition = free[1] ? parseCondition(free[1]) : undefined;
+    if (free[1] && !condition) return null;
+    return condition ? { costs: [], condition, text: paragraph } : { costs: [], text: paragraph };
+  }
+
+  /* Paid. "[If <condition>, ]you may <costs> rather than pay ~s mana cost[ if <condition>]." */
+  const paid = s.match(/^(?:if (.+?), )?you may (.+?) rather than pay ~s mana cost(?: if (.+))?$/);
+  if (!paid) return null;
+  const said = paid[1] ?? paid[3];
+  const condition = said ? parseCondition(said) : undefined;
+  if (said && !condition) return null;
+
+  /*
+   * The costs are printed as prose, "pay 1 life and exile a blue card from
+   * your hand", where an activation cost is printed as a list, "Pay 1 life,
+   * Exile a blue card from your hand". Same atoms, different glue, so the glue
+   * is rewritten and `parseCosts` reads the list it already knows. "pay {1}{B}"
+   * loses its verb because a mana atom in a cost list is the bare symbols; "pay
+   * 4 life" keeps it because that atom is spelled with the verb.
+   */
+  const list = paid[2]
+    .split(/,? and |, /)
+    .map(atom => atom.trim().replace(/^pay (\{)/, '$1'))
+    .join(', ');
+  const costs = parseCosts(list);
+  if (!costs || !costs.length) return null;
+  return condition ? { costs, condition, text: paragraph } : { costs, text: paragraph };
 }
 
 /** Loyalty costs: `+1`, `0`, `-7` (the U+2212 minus is flattened upstream). */

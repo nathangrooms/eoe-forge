@@ -82,6 +82,16 @@ test('an invented effect verb names itself in the error, so the failure histogra
   assert.match(result.errors[0].message, /unknown effect "fight"/);
 });
 
+test('a discard may say "hand" for the whole hand, and no other word', () => {
+  // The one literal a discard count accepts. "Discards their hand" is a
+  // different amount for every player, which no expression can state.
+  assert.equal(validateEffects([{ do: 'discard', who: { who: 'each-player' }, count: 'hand' }]).ok, true);
+  const wrong = validateEffects([{ do: 'discard', who: { who: 'you' }, count: 'library' }]);
+  assert.equal(wrong.ok, false);
+  // A draw has no such literal: "draws their hand" is not a thing a card says.
+  assert.equal(validateEffects([{ do: 'draw', who: { who: 'you' }, count: 'hand' }]).ok, false);
+});
+
 test("{do:'manual'} cannot enter from outside — it is the other compiler's marker", () => {
   const result = validateEffects([{ do: 'manual', text: 'do something by hand' }]);
   assert.equal(result.ok, false, 'a model must never be able to spell "a human resolves this"');

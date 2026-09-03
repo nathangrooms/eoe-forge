@@ -746,3 +746,80 @@ test('E8: zero copies of mana adds nothing and says nothing', () => {
   assert.deepEqual(deferred, []);
   assert.deepEqual(actions, [], 'no creatures, so no mana, not one');
 });
+
+/* ------------------------------------------------------------------ *
+ * The whole hand
+ * ------------------------------------------------------------------ */
+
+test('"discards their hand" empties every hand, each by its own size', () => {
+  // `count: 'hand'` is per player. P1 holds two cards and P2 holds one; a
+  // count evaluated once for the table would be wrong for at least one of
+  // them, so the loop counts each hand where it stands.
+  const state = game([
+    { id: 's', name: 'Source' },
+    { id: 'a1', name: 'A1', zone: 'hand', owner: 'p1' },
+    { id: 'a2', name: 'A2', zone: 'hand', owner: 'p1' },
+    { id: 'b1', name: 'B1', zone: 'hand', owner: 'p2' },
+  ]);
+  const result = run([{ do: 'discard', who: { who: 'each-player' }, count: 'hand' }], state);
+
+  assert.deepEqual(result.deferred, [], 'the whole hand is forced, so nothing is deferred');
+  const moved = result.actions
+    .filter((a): a is Extract<GameAction, { type: 'MOVE_ZONE' }> => a.type === 'MOVE_ZONE')
+    .map((a) => a.instanceId)
+    .sort();
+  assert.deepEqual(moved, ['a1', 'a2', 'b1']);
+  assert.ok(result.actions.every((a) => a.type === 'MOVE_ZONE' && a.to === 'graveyard'));
+});
+
+test('"discards their hand" with an empty hand does nothing and defers nothing', () => {
+  const state = game([{ id: 's', name: 'Source' }]);
+  const result = run([{ do: 'discard', who: { who: 'you' }, count: 'hand' }], state);
+});
+
+/* ------------------------------------------------------------------ *
+ * Impulse draw: deferred whole, never half-run
+ * ------------------------------------------------------------------ */
+
+test('impulse exiles NOTHING, because the game cannot grant the permission that goes with it', () => {
+  const state = game([
+    { id: 's', name: 'Source' },
+    { id: 'l1', name: 'L1', zone: 'library' },
+    { id: 'l2', name: 'L2', zone: 'library' },
+    { id: 'l3', name: 'L3', zone: 'library' },
+  ]);
+  const result = run(
+    [{ do: 'impulse', who: { who: 'you' }, count: 2, until: 'end-of-turn', permission: 'play' }],
+    state
+  );
+  // Exiling without the permission would be Mystic Forge resolving where Light
+  // Up the Stage was cast: the player's cards gone and nothing given back.
+  assert.deepEqual(result.actions, [], 'no MOVE_ZONE: half of this effect is worse than none of it');
+  assert.equal(result.deferred.length, 1);
+  assert.match(result.deferred[0], /exile the top 2 cards of P1's library/);
+  assert.match(result.deferred[0], /until end of turn they may be played from exile/);
+});
+
+test('impulse says "cast" when the card says cast, and counts against the real library', () => {
+  const state = game([
+    { id: 's', name: 'Source' },
+    { id: 'l1', name: 'L1', zone: 'library' },
+  ]);
+  const result = run(
+    [{ do: 'impulse', who: { who: 'you' }, count: 3, until: 'end-of-your-next-turn', permission: 'cast' }],
+    state
+  );
+  assert.deepEqual(result.actions, []);
+  assert.match(result.deferred[0], /exile the top 1 card of P1's library \(3 asked for, 1 in library\)/);
+  assert.match(result.deferred[0], /until the end of your next turn they may be cast from exile/);
+});
+
+test('impulse on an empty library defers nothing, the same as every other top-of-library effect', () => {
+  const state = game([{ id: 's', name: 'Source' }]);
+  const result = run(
+    [{ do: 'impulse', who: { who: 'you' }, count: 1, until: 'end-of-turn', permission: 'play' }],
+    state
+  );
+  assert.deepEqual(result.actions, []);
+  assert.deepEqual(result.deferred, []);
+});

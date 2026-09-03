@@ -2960,3 +2960,139 @@ on it; the function is a GROUP BY and answers in 0.42 s.
   popularity decay is `1 - ln(rank)/ln(25000)`, so rank 12 scores only twice rank
   500 while appearing in an order of magnitude more decks — but that curve is
   shared with the optimiser and must not be changed on a hunch.
+
+---
+
+## 3 Sep 2026 — the deck reviews itself, and twenty commanders are the yardstick
+
+Owner: *"The decks being built still are nowhere near good enough for a
+published app… compare against at least 1 strategy deck for each colour -
+roughly 20… I'm not confident we are utilising the dictionary properly during
+generation. It doesn't seem like the system is even reviewing the deck as it
+spurts all cards out at once."* And later: *"sol ring should be in every deck -
+its a staple no deck can live without."*
+
+### The instruments, so nobody re-derives them
+
+    scripts/probe/commander-benchmark.json   20 commanders, one per strategy and colour,
+                                             each with 3-4 JOBS a human list does and a floor
+    LOCAL=1 node --experimental-strip-types scripts/probe/commander-bench.mjs
+                                             "jobs done" and "groups the deck cannot do AT ALL"
+    SHOW=1 node --experimental-strip-types scripts/generator-synergy-audit.mjs
+                                             the 7-deck roster: keyed %, staples, past-15k
+    node --experimental-strip-types scripts/deployed-deck-sweep.mjs
+                                             14 decks against the DEPLOYED function
+    scratch/_plan1.mjs "<name>" …            every want of a commander with its weight and why
+    scratch/_trace.mjs "<card>" …            coverage, abilities, unparsed clauses, facets
+
+**`npx tsc -p tsconfig.json` has never type-checked anything.** It has
+`files: []` and only references. `tsconfig.app.json` is the one that checks
+`src/`, and it found two real errors the day this was noticed. Use it.
+
+**A job group at zero is measured by the benchmark's own card lists**, which
+are typed from knowledge, not scraped. Moxfield and EDHREC remain off-limits
+as data sources.
+
+### Where the numbers stand
+
+    twenty commanders    jobs done 15/71 -> 18/71    groups at zero 28 -> 20
+    seven-deck roster    staples 40/61 -> 46/61      keyed 72% -> 68%
+    Sol Ring             in 7 of 7                   Boots/Greaves in 6 of 7
+    fourteen deployed    14/14 build, 77/94 staples, 2 cards past 15k, Najeela 5.2 s
+
+The keyed drop is the price of the staples: a themed card at fit 0.5 used to
+beat Swiftfoot Boots at fit 0 every time, and now it does not always.
+
+### What was wrong, in the order it was found
+
+**Two of three zero groups were discovery, not reading.** Llanowar Elves,
+Viscera Seer, Windfall and Curiosity were all read correctly at v13; the
+generator could not reach them. So most of the day was the generator.
+
+**A counter the card puts on ITSELF read as a counters deck.** Korvold and
+Animar both "put a +1/+1 counter on ~" and both planned as Hardened Scales
+decks. `eff:add-counters-self` / `ctr:+1/+1-self` are separate words, on the
+precedent of `cost:sacrifice-self`. A counter on the PLAYER (experience,
+energy) is quietened the same way: Meren's experience counters were her only
+loud wants, so every shell was judged against them.
+
+**Whose trigger, which spell.** `trig:cast:creature` and
+`trig:cast:targeting` name what a cast trigger listens for. The day the
+compiler read Chulane whole, the English rule that gave him his creature
+want was skipped (correctly: English must not talk over a parsed record) and
+the parsed record had no rule keyed on it. **Reading a commander whole can
+make its plan worse if the facet rules lag the intent rules.** Every intent
+rule that matters should have a facet-keyed twin.
+
+**Size and cost are facets now.** `mv:cheap` (≤2, nonland), `mv:big` (≥6),
+`pt:big` (power ≥5), read off the row. Yuriko's "cheap evasive creature",
+Xenagos's "body worth doubling" and Kinnan's "big non-Human" were not
+sayable before.
+
+**A shell must serve what the commander shouts for.** The cosine ranks shells
+and was being used to admit them. A shell is admissible only when one of the
+commander's loud wants (≥0.8, else the three loudest) is a facet the shell
+wants. Giada's Counters shell at 0.68 was filling an Angel deck with
+Stonecoil Serpent; no score floor separated the cases, this does. A tribe is
+a shell before it is a score: the Tribal shell goes first and the tribe
+itself is a package the caller states (`extraPackages`), FIRST in the pass.
+A -1/-1 commander never gets the Counters shell.
+
+**The review rounds must know what the deck already has.** `planFit` is
+deck-blind: a want at 0.9 scores 0.9 on the thirty-fifth rock. Kinnan's
+review rounds swapped Craterhoof and Avenger of Zendikar OUT for Bobbleheads,
+each swap explained by the commander wanting mana. The rounds and the flex
+pass now score against `withUrgency(plan, picked)`: each want scaled by its
+shortfall against weight × 30, floored at 0.35. **Thirty, not the reserve's
+ten** — at ten, Krenko's eleventh Goblin went out for Sol Ring and keyed fell
+to 64%. A role may run to twice its target plus four in the flex pass, and a
+swap may not take a role below its floor.
+
+**Sol Ring and Arcane Signet are preferred by name** in every Commander
+build: taken first, never cut, and the deck says so. Chulane's used to arrive
+in review round three.
+
+**Every creature commander wants to survive.** `grants:hexproof` 0.5,
+`grants:shroud` 0.45, `grants:indestructible` 0.4, `grants:haste` 0.3 on
+every creature commander's plan. No rules text says "and I would like to
+live", so no plan ever asked for Boots.
+
+**A package may ask for creatures.** `type:creature` is in `PLAN_IGNORED`,
+and the exception for creature-dominated packages was tested AFTER the ignore
+check, so it never ran. Found with a four-creature synthetic package.
+
+**Prosper was Mystic tribal.** "Mystic Arcanum —" is an ability word. The
+word scans skip a subtype that is the start of one.
+
+### The eight compiler rules, and how they were merged
+
+A workflow wrote eight rules in eight worktrees; every adversarial verifier
+died on the spend limit, so the diffs were applied by hand with `git apply
+--3way`, vendored copies and the census excluded. Four tests then disagreed
+only because pairs of rules both fire on the same card (Edgar's eminence line
+reads, so his attack trigger is no longer the first ability; "Edgar" folds to
+`~`; Kinnan is whole; "mana value X or less" is the cast X). The merged
+truth won each time. `scripts/_fixdiff.mjs` recounts a hunk header a JSON
+round trip corrupted. Census after: read whole card 10,469 → 10,785.
+
+### Facet memo is on COMPILER_VERSION 14
+
+Migration `20260903181623_facet_compiler_version_fourteen`. Version 13
+deleted after the pool was verified. `eff:wheel` reaches the pool through the
+Tagger map (`wheel-symmetrical`, `wheel-symmetrical-optional`); the compiler
+does not read "each player discards their hand, then draws seven" yet.
+`trig:cast:targeting` is emitted by the facet layer and reaches the pool at
+the NEXT version.
+
+### Still wrong, measured
+
+- ~~Najeela (five colours) failed `WORKER_RESOURCE_LIMIT` on the deployed
+  function.~~ The review rounds ranked the whole 1,500-card shortlist four
+  times: 1,451 of 1,513 ms. They re-score the first five hundred now (248 ms,
+  the same eleven swaps) and stop past 900 ms. **Any pass added to the
+  generator must be timed on a five-colour build before it is deployed**; the
+  build log carries `review rounds took N ms` for exactly this.
+- Twenty job groups at zero; most are compiler shapes (own-bounce, impulse
+  draw, pump-by-power, protection of your choice, wheels, "unless that player
+  pays", "without paying its mana cost") — the second workflow round.
+- Keyed synergy 67% against 72% before the staples came in.

@@ -826,6 +826,42 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
 
   const roleFill = {} as Record<Role, { picked: number; target: number }>;
   for (const role of ROLES) roleFill[role] = { picked: 0, target: role === 'land' ? landTarget : targets[role] };
+
+  /*
+   * NO ROLE RUNS PAST TWICE ITS TARGET PLUS FOUR, in any pass.
+   *
+   * The first version of this guarded the flex pass only, and Kinnan's deck
+   * still came out with 41 ramp pieces against the 10 the shape asked for -
+   * the Consistency line on the generator page said so in plain words. The
+   * creature floor had filled with mana dorks, because a dork carries the
+   * loudest want AND the creature role, and nothing counted it as ramp. So
+   * the count is of cards that CARRY the role, whatever slot they were taken
+   * for, and the check runs wherever a card is chosen by score. A human
+   * Kinnan list runs eighteen to twenty mana sources; twenty is the cap here.
+   *
+   * The commander's tribe is exempt: in an Elf deck the Elves are the deck,
+   * and thirty of them tapping for mana is the plan rather than a flood.
+   */
+  const roleCeiling = (role: Role) => (roleFill[role]?.target ?? 0) * 2 + 4;
+  const tribeFacet = commanderPlan.tribe ? `sub:${commanderPlan.tribe}` : null;
+  let carriedAt = -1;
+  const carried: Partial<Record<Role, number>> = {};
+  const carriedCount = (role: Role): number => {
+    if (carriedAt !== picked.length) {
+      for (const r of ROLES) carried[r] = 0;
+      for (const e of picked) for (const r of rolesOf(e.card)) carried[r] = (carried[r] ?? 0) + 1;
+      carriedAt = picked.length;
+    }
+    return carried[role] ?? 0;
+  };
+  const overRoleCeiling = (card: BuildCard): boolean => {
+    if (tribeFacet && (card.facets ?? []).includes(tribeFacet)) return false;
+    for (const r of rolesOf(card)) {
+      if (r === 'land' || r === 'creature') continue;
+      if (carriedCount(r) >= roleCeiling(r)) return true;
+    }
+    return false;
+  };
   roleFill.land.picked = chosenLands.length;
 
   /* ---------------------------------------------------------------- *
@@ -1087,6 +1123,7 @@ const PACKAGE_MATCH = 0.6;
     const card = rec.card as BuildCard;
     if (takenOracleIds.has(card.oracleId)) continue;
     if (overColourlessCap(card)) continue;
+    if (!preferred.has(card.oracleId) && overRoleCeiling(card)) continue;
     const role = neediestRole(card, quota, rolesOf(card));
     if (!role) continue;
     if (!hasColour(card)) colourlessPicked += 1;
@@ -1838,11 +1875,6 @@ const PACKAGE_MATCH = 0.6;
      * pass reported nothing to `roleFill`, so the review rounds could not
      * see what it had done.
      */
-    const roleCeiling = (role: Role) => (roleFill[role]?.target ?? 0) * 2 + 4;
-    const overCeiling = (card: BuildCard) => {
-      const rs = [...rolesOf(card)].filter(r => r !== 'land');
-      return rs.length > 0 && rs.every(r => roleFill[r] && roleFill[r].picked >= roleCeiling(r));
-    };
     const takeFlex = (wanted: (card: BuildCard) => boolean) => {
       for (const rec of orderPreferredFirst(rerank, preferred)) {
         if (picked.length - chosenLands.length >= spellSlots) break;
@@ -1850,7 +1882,7 @@ const PACKAGE_MATCH = 0.6;
         if (takenOracleIds.has(card.oracleId)) continue;
         if (overColourlessCap(card)) continue;
         if (!wanted(card)) continue;
-        if (!preferred.has(card.oracleId) && overCeiling(card)) continue;
+        if (!preferred.has(card.oracleId) && overRoleCeiling(card)) continue;
         takenOracleIds.add(card.oracleId);
         for (const r of rolesOf(card)) if (roleFill[r]) roleFill[r].picked += 1;
         if (cardRole(card, 'creature')) creaturesPicked += 1;

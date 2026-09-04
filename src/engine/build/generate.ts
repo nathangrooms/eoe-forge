@@ -59,7 +59,7 @@ import { worksAgainstPlan } from '../knowledge/behaviour.ts';
    reaches this module, so re-testing it here would be a second opinion about
    something already decided. */
 import { withinIdentity } from '../advise/query.ts';
-import { planFit } from '../knowledge/behaviour.ts';
+import { planFit, packagesForCommander } from '../knowledge/behaviour.ts';
 import { TYPE_TAGS, LOW_INFORMATION_TAGS } from '../knowledge/tag-signal.ts';
 import { deriveDeckShape, roleCeilingFor, type DeckShape } from './shape.ts';
 import { normalizeIdentity } from '../advise/query.ts';
@@ -1223,7 +1223,7 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
    * serves no role or because the role it serves is full. The pass below is
    * that pass, and `COMMANDER_FIT_RESERVE` is the whole of what it may spend.
    */
-  const COMMANDER_FIT_RESERVE = 8;
+  const COMMANDER_FIT_RESERVE = 14;
 
 /**
  * Slots per package of the chosen shell(s).
@@ -1286,7 +1286,7 @@ const PACKAGE_MATCH = 0.6;
   const loudWants = commanderPlan.wants.filter(w => w.weight >= 0.7).length;
   const fitReserve =
     commanderPlan.wants.length > 0
-      ? Math.min(16, COMMANDER_FIT_RESERVE + Math.max(0, loudWants - 3))
+      ? Math.min(22, COMMANDER_FIT_RESERVE + Math.max(0, loudWants - 3))
       : 0;
   /*
    * THE ARCHETYPE'S PACKAGES NEED THEIR SLOTS HELD BACK TOO, and the first
@@ -1646,7 +1646,20 @@ const PACKAGE_MATCH = 0.6;
    * the shell's. A shell that names four blink spells and four things to blink
    * is saying those matter equally, and nothing else in the data disagrees.
    */
-  const shellPackages = archetypePlan?.packages ?? [];
+  /*
+   * THE SHELL'S PACKAGES AND THE COMMANDER'S OWN.
+   *
+   * A shell names its packages with card lists; the commander's come from
+   * pairing the loud wants its own record produced. Both are conjunctions with
+   * a slot count, which is the thing a weighted want list cannot express, and
+   * both compete for the same budget - so a commander with a shell gets the
+   * shell's jobs first and its own after, and a commander with no shell still
+   * gets a shopping list instead of a mood.
+   */
+  const shellPackages = [
+    ...(archetypePlan?.packages ?? []),
+    ...packagesForCommander(commanderPlan),
+  ];
   if (shellPackages.length > 0) {
     /*
      * Twelve, against 55-odd nonland slots. Enough that each of three packages

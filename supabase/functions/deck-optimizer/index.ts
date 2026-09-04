@@ -1247,8 +1247,54 @@ function buildSections(args: {
   const pairCount =
     missingCards === 0 && excessCards === 0 ? Math.min(10, swapTargets.length) : 0;
   const incoming = chooseCards(candidates, args.profile, pairCount);
-  const replacements = incoming.map((r, i) => {
-    const t = swapTargets[i];
+
+  /*
+   * A SWAP MAY NOT HAND THE PLAYER A CARD NOBODY PLAYS FOR ONE THEY DO.
+   *
+   * `incoming` is paired with `swapTargets` BY INDEX - the best candidate
+   * against the weakest card - and nothing checked that what arrives is better
+   * than what leaves. Measured 4 Sep 2026 with
+   * `scripts/probe/optimiser-suggestions.mjs`, over five decks the generator
+   * had just built, three were handed cards LESS PLAYED than the ones they
+   * lost, and the Krenko deck was told to make five swaps into cards past rank
+   * 12,000:
+   *
+   *     Kiki-Jiki, Mirror Breaker (1,240) -> Akki Scrapchomper    (14,431)
+   *     Zealous Conscripts        (2,363) -> Greasewrench Goblin  (17,642)
+   *     Flare of Fortitude          (739) -> Angel's Herald       (27,779)
+   *
+   * The first two are BOTH HALVES OF THE COMBO the generator deliberately put
+   * in that deck, and the optimiser cannot see a combo at all: it reads them as
+   * cards filling no role it is short of.
+   *
+   * `PLAYED_ENOUGH_RANK` is the same 12,000 line the generator's floors use, so
+   * this is the existing rule about what "a card people play" means rather than
+   * a new threshold. It only refuses the crossing: a swap between two played
+   * cards, or between two unplayed ones, is still offered, and a deck whose
+   * pairs are all refused simply gets fewer suggestions, which is the honest
+   * outcome when the engine has nothing better to offer.
+   */
+  const PLAYED_ENOUGH_RANK = 12_000;
+  const rankOfDeckCard = new Map<string, number | null>();
+  for (const entry of args.deckEntries) {
+    const rank = entry.card?.edhrecRank;
+    rankOfDeckCard.set(normalizeName(entry.name), typeof rank === 'number' ? rank : null);
+  }
+
+  const pairs = incoming
+    .map((r, i) => ({ r, t: swapTargets[i] }))
+    .filter(({ r, t }) => {
+      if (!t) return false;
+      const out = rankOfDeckCard.get(normalizeName(t.name));
+      const arriving = (r.card as { edhrecRank?: number | null }).edhrecRank;
+      /* Unknown stays unknown. A card with no rank is not evidence either way,
+         and refusing on missing data would silently stop suggesting anything
+         for a pool the popularity column does not cover. */
+      if (typeof out !== 'number' || typeof arriving !== 'number') return true;
+      return !(out <= PLAYED_ENOUGH_RANK && arriving > PLAYED_ENOUGH_RANK);
+    });
+
+  const replacements = pairs.map(({ r, t }) => {
     touched.add(t.name);
     touched.add(r.card.name);
     return {
@@ -1660,6 +1706,41 @@ function measureImpact(args: {
   for (const r of sections.replacements) stamp(r, String(r.remove), String(r.add));
   for (const a of sections.additions) stamp(a, null, String(a.name));
   for (const r of sections.removals) stamp(r, String(r.name), null);
+
+  /*
+   * A SWAP MEASURED TO MAKE THE DECK WORSE IS NOT OFFERED.
+   *
+   * The loop above already re-evaluated the deck with each replacement applied
+   * and wrote the delta onto the row. Nothing read it, so the optimiser would
+   * hand a player a change it had ITSELF measured as a downgrade, with a
+   * confident sentence beside it.
+   *
+   * This is the engine's own number rather than a rule about rank, which
+   * matters because a less played card genuinely IS the right answer for some
+   * commanders - the owner's point that a card past rank 15,000 "may just be
+   * unpopular, doesnt mean bad". A measured score change cannot make that
+   * mistake in either direction.
+   *
+   * NULL IS NOT NEGATIVE. The delta is null when it is too small to print, when
+   * the change could not be applied, or when the row fell past `IMPACT_BUDGET`.
+   * Unknown stays unknown, as everywhere else here, so this only drops a row
+   * the engine actively scored below where the deck started.
+   *
+   * IT HAPPENS HERE, BEFORE THE PROJECTION BELOW, because that number is "the
+   * whole answer applied at once" and it has to describe the answer the player
+   * is actually shown.
+   */
+  const beforeFilter = sections.replacements.length;
+  sections.replacements = sections.replacements.filter(r => {
+    const delta = r.edhImpact;
+    return !(typeof delta === 'number' && delta < 0);
+  });
+  const refused = beforeFilter - sections.replacements.length;
+  if (refused > 0) {
+    console.log(
+      `replacements: ${refused} of ${beforeFilter} refused, measured to lower the deck's score`
+    );
+  }
 
   /*
    * The whole answer applied at once.

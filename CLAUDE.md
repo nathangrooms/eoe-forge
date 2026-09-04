@@ -4400,3 +4400,90 @@ need the service role, it was a bug wearing one's clothes.
     fourteen deployed decks   14/14, 82/94 staples
     seven-deck roster         keyed 69%, staples 51/61
     tests                     3,357 passing, tsc clean
+
+## Two readers, and I moved one (4 Sep 2026)
+
+An adversarial review of the `cards_pool` rebuild found a defect I introduced
+and did not notice. There are TWO readers of the facet memo:
+
+    cards_pool                     the matview's own join
+    public.facets(c cards_unique)  the computed column behind cards_unique.facets
+
+The rebuild moved the first to compiler_version 17 and left the second on 16, so
+the same card answered "what do you do" two different ways depending on which
+object was asked. **Nothing errors in that state.** The generator reads
+`cards_pool` and was correct throughout; anything reading `cards_unique.facets`
+was a version behind and would have stayed behind indefinitely.
+
+**THE ORDER, and step three is PLURAL:**
+
+    1. bump the WRITER          facet-memo-fill's COMPILER_VERSION
+    2. refill                   both versions coexist, the key is
+                                (oracle_id, compiler_version)
+    3. move EVERY reader        the matview join AND the function
+    4. only then delete the old
+
+Missing one reader is not an error, it is two answers.
+
+**And measure what the PIN MOVE does, separately from the change you meant.**
+The `-self` precision rule changes 429 cards; the 16 to 17 move changes a
+further 397; and 133 of those flip which branch of the gated/any CASE they take,
+because the new version gives them a verb they did not have. That was shipped
+inside a migration titled a precision fix, and it was not measured until a
+reviewer did it.
+
+Two more findings from the same review, both already covered but worth the note:
+
+- **A rebuilt matview has ZERO column statistics** and the planner will choose
+  badly until it is analysed. `analyze public.cards_pool` ran in the same
+  statement as the swap; verified afterwards as 15 columns in `pg_stats`. A
+  trailing `-- then run analyze` comment would not have been enough.
+- **`where not (... = any(...) and not (... = any(...)))` drops a NULL element**,
+  where a plain concatenation keeps it. Inert today - measured zero NULL
+  elements in `tag_facet_map.facets` - and left as is deliberately.
+
+## Where the engine actually stands, measured on RANDOM commanders
+
+Every other instrument builds the same fourteen, twenty or seven commanders:
+the ones whose faults have already been fixed, which is the population least
+likely to show a new one. `scripts/probe/random-commander-sweep.mjs` samples the
+whole space with a seeded generator and builds against the DEPLOYED function.
+
+Forty random commanders, seed 1:
+
+    built             40/40, none failed
+    99 + commander    40/40
+    ramp >= 11        40/40, median 19
+    lands >= 35       39/40, median 40
+    every staple      40/40
+    build time        median 1.9 s, slowest 2.8 s
+
+    keyed synergy     median 63%
+      under 30%  11      30-59%   8
+      60-79%     10      80%+    11
+
+**The spread is the finding, not the median.** Eleven of forty come back under
+30% keyed: a competent pile of good cards in the commander's colours that is not
+that commander's deck. Melira 6%, Gonti 7%, The Tenth Doctor 10%.
+
+### Strategies per commander, over all 3,363
+
+    offered      7.8   the panel fills its slots
+    EARNED       3.2   the ones the commander's own record justifies
+
+    0 earned    59   1.8%        4 earned   405  12.0%
+    1 earned   420  12.5%        5 earned   294   8.7%
+    2 earned  1011  30.1%        6 earned   206   6.1%
+    3 earned   706  21.0%        7+         262   7.7%
+
+**34.7% earn four or more.** The owner's target is 4-10, so two thirds fall
+short. `Aggro` is earned by 57% of commanders and `Value engine` by 54%, which
+is why "offered" is nearly eight and means much less than it sounds.
+
+### The one constraint upstream of all three shortfalls
+
+The compiler reads **33.3% of cards whole**, and commander reading is the
+binding limit at 3.2 loud wants. That single number is why strategies stop at
+three, why 28% of decks come back generic, and why 17 benchmark job groups sit
+at zero. Every tuning lever tried on 4 Sep moved those by a point or two;
+reading more of each commander is the only thing that moves all three at once.

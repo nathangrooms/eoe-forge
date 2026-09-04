@@ -87,6 +87,91 @@ async function deckFor(entry) {
  * Checked every run, because the catalogue changes and a benchmark that quietly
  * stops resolving is worse than no benchmark at all.
  */
+/*
+ * WHAT EACH GROUP'S EXAMPLES HAVE IN COMMON, so a job can be scored by
+ * CAPABILITY and not only by which of a dozen named cards turned up.
+ *
+ * This file's own header says it scores "whether the deck can DO each job"
+ * rather than overlap, and the implementation checked a NAME LIST, which is
+ * overlap at the group level. Measured: Prosper, Tome-Bound was reported
+ * "impulse draw 0/8" - a job it cannot do at all - while holding TEN cards
+ * carrying `eff:impulse`. Xenagos was reported 0/6 on "huge creatures worth
+ * doubling" while holding six creatures with `pt:big`.
+ *
+ * The conjunction is DERIVED from the group's own example cards rather than
+ * typed, which is the same move `planForArchetype` makes for a shell package:
+ * the examples are the definition, so what they agree on IS the job.
+ */
+const exampleFacets = new Map();
+
+/* Words too common to define a job. `type:creature` is on a third of the pool,
+   so "creatures that do X" must be scored on the X. */
+const TOO_COMMON = new Set([
+  'type:creature', 'type:artifact', 'type:enchantment', 'type:instant',
+  'type:sorcery', 'type:legendary', 'cares:type:creature', 'rec:full',
+  'rec:partial', 'rec:none', 'mv:cheap',
+]);
+
+/**
+ * How many cards in the deck do what this group's EXAMPLES agree on.
+ *
+ * Returns null when the examples agree on nothing specific, in which case the
+ * name list stays the only measure - which is right: a job whose examples share
+ * no facet is a job this engine cannot express, and pretending otherwise would
+ * hide exactly the gap worth knowing about.
+ */
+function groupCapability(group, deckFacets, spells) {
+  const names = group.cards ?? [];
+  const sets = names.map(n => exampleFacets.get(n)).filter(Boolean);
+  if (sets.length < 3) return null;
+
+  const count = new Map();
+  for (const facets of sets) {
+    for (const f of new Set(facets)) {
+      if (TOO_COMMON.has(f)) continue;
+      if (f.startsWith('rec:')) continue;
+      count.set(f, (count.get(f) ?? 0) + 1);
+    }
+  }
+  /* Agreed by most of the examples. Two thirds, so one odd card in a list of
+     twelve cannot define the job and a genuine shared verb still survives a
+     couple of exceptions. */
+  const need = Math.ceil(sets.length * 0.66);
+  const shared = [...count].filter(([, n]) => n >= need).map(([f]) => f);
+  if (shared.length === 0) return null;
+
+  const out = [];
+  for (const [name, facets] of deckFacets) {
+    if (shared.every(f => facets.includes(f))) out.push(name);
+  }
+  /*
+   * A CONJUNCTION THAT MATCHES A QUARTER OF THE DECK IS NOT A JOB.
+   *
+   * Without this the measure is far too kind: a group of twelve draw spells
+   * agrees on `eff:draw` alone, and then every draw spell in the deck counts as
+   * doing that specific job. Measured, the unguarded version took jobs done
+   * from 19 of 71 to 47 and zero groups from 22 to 14, which is not a product
+   * improvement, it is an instrument that stopped discriminating.
+   *
+   * `planForArchetype` solves the same problem with LIFT against the pool. This
+   * is the cheap version of the same idea and it is measured against the DECK,
+   * which is the population the answer is about.
+   */
+  /*
+   * Measured against the SPELLS, not the whole deck. With lands in the
+   * denominator a job could claim 21 of 92 and still pass at a quarter, which
+   * is how "Curiosity effects on Niv" came back with Urza's Command and
+   * Archmage of Runes - cards that draw, which is all their examples agreed on.
+   *
+   * A fifth of the spells, not a quarter: read as a player, the rescues at 25%
+   * of the whole deck included "cheap cantrips that target your own creature"
+   * claiming Wheel of Fortune.
+   */
+  const spellCount = spells || 1;
+  if (out.length > spellCount * 0.2) return null;
+  return out;
+}
+
 {
   const REST = `${BASE}/rest/v1`;
   const H = { apikey: K, Authorization: `Bearer ${K}` };
@@ -98,7 +183,7 @@ async function deckFor(entry) {
   for (let i = 0; i < allNames.length; i += 40) {
     const list = allNames.slice(i, i + 40).map(n => `"${n.replace(/"/g, '')}"`).join(',');
     const res = await fetch(
-      `${REST}/cards_pool?select=name&name=in.(${encodeURIComponent(list)})`, { headers: H }
+      `${REST}/cards_pool?select=name,facets&name=in.(${encodeURIComponent(list)})`, { headers: H }
     );
     /*
      * A FAILED CHUNK IS NOT SIXTY MISSING CARDS, and the first version of this
@@ -109,7 +194,10 @@ async function deckFor(entry) {
     if (!res.ok) { failedChunks++; continue; }
     const rows = await res.json();
     if (!Array.isArray(rows)) { failedChunks++; continue; }
-    for (const r of rows) found.add(r.name);
+    for (const r of rows) {
+      found.add(r.name);
+      exampleFacets.set(r.name, r.facets ?? []);
+    }
   }
   if (failedChunks) {
     console.log(`\n  NOTE: ${failedChunks} name-check request(s) failed, so the check below is incomplete.`);
@@ -129,6 +217,7 @@ console.log(
 
 let jobsDone = 0;
 let jobsTotal = 0;
+let rescued = 0;
 let zeroes = 0;
 const rows = [];
 
@@ -138,6 +227,12 @@ for (const entry of bench.commanders) {
   if (!deck) { console.log(`  ${entry.name.padEnd(30)} BUILD FAILED`); continue; }
 
   const have = new Set(deck.map(c => norm(c.name ?? '')));
+  /* Facets for the built deck, from the POOL. A response card carries none, and
+     reading `card.facets ?? []` is how two sibling probes ended up classifying
+     by tags instead. */
+  const deckFacets = LOCAL && catalog
+    ? await catalog.poolFacetsByName(deck.map(c => c.name))
+    : new Map();
   const nonland = deck.filter(c => !String(c.type_line ?? '').toLowerCase().includes('land'));
   const ranks = nonland.map(c => c.edhrec_rank).filter(r => typeof r === 'number').sort((a, b) => a - b);
 
@@ -155,13 +250,40 @@ for (const entry of bench.commanders) {
      * A name list stays right for a job with a few canonical answers: there are
      * not two hundred sacrifice outlets worth running.
      */
-    const hit = g.typeMatch
+    const named = g.typeMatch
       ? deck.filter(c => new RegExp(g.typeMatch, 'i').test(String(c.type_line ?? ''))).map(c => c.name)
       : g.cards.filter(c => have.has(norm(c)));
+
+    /*
+     * CAN THE DECK DO THE JOB, asked of the deck rather than of the list.
+     *
+     * The facets the group's examples AGREE on are the job. A card in the deck
+     * carrying all of them does that job, whether or not anybody typed its
+     * name. Only counted when the agreement is specific enough to mean
+     * something: at least one facet, and none of them a word most of the pool
+     * carries.
+     *
+     * The two numbers are reported side by side and a job is done if EITHER
+     * clears the floor, so this can only turn a false negative into a pass. It
+     * has to be checked that it does not turn everything green, which would
+     * make the instrument useless in the other direction - see the summary
+     * line, which counts both.
+     */
+    const able = groupCapability(g, deckFacets, nonland.length);
+    const hit = able && able.length > named.length ? able : named;
+
     jobsTotal++;
     if (hit.length >= g.floor) { done++; jobsDone++; }
     if (hit.length === 0) zeroes++;
-    parts.push({ job: g.job, hit, floor: g.floor, of: g.typeMatch ? hit.length : g.cards.length });
+    if (named.length < g.floor && able && able.length >= g.floor) rescued++;
+    parts.push({
+      job: g.job,
+      hit,
+      named,
+      able,
+      floor: g.floor,
+      of: g.typeMatch ? hit.length : g.cards.length,
+    });
   }
 
   rows.push({ name: entry.name, done, of: entry.groups.length, parts,
@@ -173,11 +295,24 @@ for (const entry of bench.commanders) {
     `${ranks.filter(r => r > 15000).length} past 15k`);
   for (const p of parts) {
     const mark = p.hit.length === 0 ? 'NONE' : p.hit.length >= p.floor ? ' ok ' : 'thin';
-    console.log(`      [${mark}] ${p.job.padEnd(26)} ${p.hit.length}/${p.floor} needed` +
+    /* When the two disagree, say so: a job passing on capability while the
+       named cards are absent is a different fact from both of them passing. */
+    const both =
+      p.able && p.able.length !== p.named.length
+        ? `  [named ${p.named.length}, able ${p.able.length}]`
+        : '';
+    console.log(`      [${mark}] ${p.job.padEnd(26)} ${p.hit.length}/${p.floor} needed${both}` +
       (p.hit.length ? `   ${p.hit.slice(0, 5).join(', ')}` : ''));
   }
 }
 
 console.log(`\n  ${jobsDone}/${jobsTotal} jobs done across ${rows.length} decks. ` +
   `${zeroes} groups the deck cannot do AT ALL.`);
+if (rescued) {
+  console.log(
+    `  ${rescued} of those jobs are done by CAPABILITY and not by name: the deck holds
+` +
+      `  enough cards that do what the group's examples agree on, just not those cards.`
+  );
+}
 console.log(`  A group at zero is the failure worth fixing: the deck has no way to do that job.`);

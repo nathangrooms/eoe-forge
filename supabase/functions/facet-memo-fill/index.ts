@@ -202,7 +202,7 @@ const json = (body: unknown, status = 200) =>
  * cannot disturb anything reading 16. Bump the writer, refill, THEN move the
  * readers, and delete 16 only afterwards.
  */
-const COMPILER_VERSION = 17;
+const COMPILER_VERSION = 18;
 
 /**
  * Cards read per call.

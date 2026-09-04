@@ -4595,3 +4595,166 @@ doing before the probe could see it.
 > list, ask what would make its top entry a false positive.** Derived wants,
 > second paths to the same outcome, and the back faces of double-faced cards
 > have each put a worthless item at the top of a list in this project.
+
+---
+
+## 4 Sep 2026, later — a chosen strategy was a garnish, and half the commanders had no plan
+
+Owner, on a Syr Vondam Blink deck built in the live UI: *"This is one of the
+worst blink decks I have ever seen"*, and *"I gave you 2 reference syr vondom
+decks before which are soooo good why do none of those cards appear"*, and then
+the one that set the direction: *"We cannot be manually changing things for
+every commander, that will never work. We need a universal system that can apply
+a strategy to 3500 commanders."*
+
+They were right on all three.
+
+### Picking a strategy reached six cards of fifty-nine
+
+`PACKAGE_BUDGET_PER_PACKAGE` is 2 and it was applied to a shell the player
+picked BY NAME as well as to a commander's own derived pairs. Three Blink
+packages therefore got two cards each, and Syr Vondam's own plan filled the
+other fifty-three, so asking for Blink and not asking for it built nearly the
+same deck. True for all eighteen shells and every commander.
+
+**`ARCHETYPE_SHARE` was swept 0.6, 0.9, 1.2, 1.5 first and moved the deck by ONE
+CARD.** That is the measurement proving the WEIGHT was never the constraint, and
+it is the general lesson: if a sweep barely moves the number, the knob is not the
+cause. A chosen shell now takes `ARCHETYPE_SLOT_SHARE` (0.35) of the spell slots,
+split between its packages by exemplar count, so the Blink shell's own blurb -
+*"the deck is made of arrivals"* - buys about eight arrivals instead of two.
+
+    named, the shell's own cards a deck holds, 18 strategies    29 -> 42
+    Syr Vondam against two human decks                          20/92 -> 28/92
+
+A package card that fills a role the deck still needs is FREE; one that fills no
+needed role spends from a flex budget sized as what is left once the role floors
+are paid for. That is also what a good archetype deck IS rather than a
+concession: the cards a blink deck wants are Mulldrifter, Wall of Omens and
+Skyclave Apparition, and an arrival worth repeating nearly always draws, ramps
+or removes something.
+
+### `trig:dies` asked for the card that KEEPS an aristocrats deck going, not the one that starts it
+
+Syr Vondam's plan came out `eff:add-counters` 0.90, `eff:proliferate` 0.80,
+`eff:gain-life` 0.70 - **a +1/+1 counters deck assembled from the CONSEQUENCES of
+his trigger, with nothing asking for the trigger itself.** Village Rites, a
+one-mana sacrifice outlet, scored **0.000** against him, and so did Cloudshift,
+Eerie Interlude, Panharmonicon and Wall of Omens: 45 of the 72 cards in the two
+human decks scored zero.
+
+The rule produced `eff:recur-self` and nothing else. It now asks for the OUTLET
+first, then payoffs, then fodder and recursion - the order `trig:sacrificed`
+already measured. Read across the 30 most played `trig:dies` commanders, not a
+sample: Teysa, Meren, Syr Konrad, Elas il-Kor, Elenda, Wilhelt, The Scarab God,
+Yahenni, Kokusho and the Ojer cycle. Every one wants a sacrifice outlet,
+including the "when THIS dies" commanders, which want one so they can die on
+purpose.
+
+### Ramp had two floors and both could answer eight
+
+`solveRampFloor` and the hypergeometric presence floor are both questions about
+THIS deck, and for Talrand and Sheoldred both answered eight. Real Commander
+decks run **eleven at the tenth percentile** of the 192 in `meta_decks`. Ramp now
+takes the largest of THREE floors and the third is that measured one.
+
+**Only ramp gets a p10 clamp.** A clamp on every role would put back the tutors
+and win conditions the p90 clamp exists to keep out - real medians for both are
+ZERO. Ramp is different because its absence stops the game rather than losing it.
+
+    decks below the real ramp floor, 18 strategies    2 -> 0
+
+### `scripts/probe/silent-facets.mjs`: half the catalogue had nothing to say
+
+**1,627 of 3,363 commanders (48%) reach a plan with two or fewer loud wants**, and
+for many the entire top of the plan is the protection floor every creature
+commander gets so that Swiftfoot Boots can be chosen. That floor was never meant
+to BE the plan. When it is, the deck is built around keeping the commander alive
+rather than around what the commander does, and that is what "the deck doesn't
+feel like mine" actually is.
+
+Quake, Agent of S.H.I.E.L.D. and Sidar Jabari are **`rec:full`** - every clause
+read - and still produce five wants, all of them floor. **So this is NOT the
+reading gap `commander-read-audit` measures.** Reading a card and representing
+what it WANTS are two different jobs and only the first had ever been counted.
+
+The probe ranks facets a commander carries that produce no want, by how many
+THIN commanders carry them. Each row is a candidate plan rule and the count is
+how many commanders it would give something to say.
+
+**Two top rows are traps.** `sub:human` (599) - being a Human does not make the
+deck Human tribal, the same shape as `sub:vehicle` being the back face of a
+double-faced card. `cares:type:creature` (562) - nearly every commander cares
+about creatures and the creature floor already answers it.
+
+`trig:attacks` (216) was the first row taken, and it is unambiguous: Etali,
+Aurelia, Goreclaw, Karlach, Drakuseth, Isshin, Alesha, Moraug. Every one paid for
+attacking, every one wanting another combat, a way through, haste and an untap.
+`eff:pump` is deliberately excluded from it - on 4,344 cards, a fifth of the
+pool, so asking for it says nothing about a deck.
+
+### The trigger carried WHOSE and WHICH STEP all along
+
+`trig:enters` (263 thin), `trig:cast` (131) and `trig:step` (208) were the next
+three rows and all three were refused as plan rules, because one flattened word
+names two opposite decks:
+
+    trig:enters   Ghalta triggers on HERSELF, so the deck wants to blink her.
+                  Tatyova and Purphoros trigger on OTHER permanents arriving.
+    trig:cast     Birgi and K'rrik are paid when YOU cast - spellslinger.
+                  Lotho, Mangara and Kambal when an OPPONENT casts - stax.
+    trig:step     upkeep, end step and beginning of combat are three cards.
+
+The DSL has carried `{on:'cast',what,by}`, `{on:'enters',who}` and
+`{on:'step',step,whose}` since it was written. **This is the `effect.who` finding
+of 1 Sep repeated on triggers: a mandatory field, present on every emission,
+read by nothing.**
+
+A SEPARATE WORD, NOT A QUALIFIER, for the reason `eff:exile-own` is one: a plan
+rule asks whether ONE facet is present. Base facets are still always emitted, and
+unknown stays unknown - an absent `by` adds no word rather than guessing, which
+is what produced the 574 misfiled cards the `effect.who` split had to undo.
+
+    trig:enters-self       4,425 cards    trig:cast-own          645
+    trig:enters-other        775          trig:cast-opponent      83
+    trig:step:end            165          trig:step:begin-combat 113
+
+Four plan rules sit on the split words. `trig:cast-opponent` deliberately has
+none yet: 13 commanders, and a stax plan is a different piece of work.
+
+### Where it stands, measured against production on compiler 18
+
+    forty RANDOM commanders (seed 1, deployed function)
+      keyed synergy median        57% -> 66% -> 70%    (63% before the session)
+      under 30% keyed             12 -> 8
+      80%+ keyed                  12 -> 15
+      built / staples / lands     40/40, 40/40, 40/40
+      ramp >= 11                  39/40   Hama, the Bloodbender lands on 10
+
+    fourteen deployed decks       14/14, staples 82 -> 83/94
+    eighteen strategies           named 29 -> 42, decks under the ramp floor 2 -> 0
+    thin plans                    48% -> 45% (trig:attacks alone, stored facets)
+                                  64% -> 60% (all four rules, compiled locally)
+    tests                         3,357 passing, tsc clean
+
+### Still wrong, measured
+
+- **Hama, the Bloodbender finishes on 10 ramp against the floor of 11.** The
+  build log says "Fills a ramp gap (9 of 11)", so the engine knows and ran out of
+  room rather than out of candidates. Not a regression - before the third floor
+  existed it would have asked for 8 and nobody would have looked - but it is the
+  one rule that does not negotiate.
+- **`eff:exile-own` is on 102 pool cards and 29 of 100 blink-shaped cards lack
+  it**, Ghostly Flicker at rank 587 among them. Several carry `eff:protect` and
+  `eff:return-from` instead, so the compiler reads them as a protection trick.
+- Cards past EDHREC rank 15,000 across the 14 deployed decks went 7 -> 9.
+- `trig:step:end` (165 commanders) and `trig:step:upkeep` (78) have no plan rule.
+
+### The overlap trap, again
+
+`scratch/_blink.mjs` scores Syr Vondam against two human decks and reported
+"worth blinking 3 of 30", which reads as a deck with no ETB creatures in it.
+Counted on its own terms the same deck holds **18 arrivals worth repeating and 10
+ways to blink**. Overlap rewards copying and punishes a different-but-correct
+card, which `commander-bench` already says in its own header. Both numbers are in
+that probe now; read the second one first.

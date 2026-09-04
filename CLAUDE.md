@@ -3412,3 +3412,84 @@ the genuinely empty jobs means running it earlier or reserving for it.
     twenty commanders         18/71 jobs -> 21/71, zero groups 28 -> 21
     seven-deck roster         keyed 65%, staples 51/61
     tests                     3,338 passing
+
+---
+
+## 4 Sep 2026 — the packages pick first, and three instruments were lying
+
+### The single biggest deck-quality change of the session
+
+The package pass ran AFTER the quota loop. Its slots were held back correctly
+(`quotaSlots` subtracts `packageBudget`) and the comment on that subtraction
+makes the argument that was never finished: **a reserved slot is only reserved
+if it is taken out of the budget before the loop that would otherwise spend
+it, and the same is true of the CARDS.** Running last, the quota loop had
+already taken the very cards a package wanted, so a package reported "0 of 2"
+while the job was done and its slots went to leftovers.
+
+Most specific first is also right on its own terms: a package is a conjunction
+("creatures that make mana"), the quota loop asks only for a role, the reserve
+only for fit. The broadest pass picking first is how the narrow ones starve.
+
+    Control     2/12 -> 10/12      Aristocrats  11/14 -> 14/14
+    Blink       6/12 -> 12/12      Big mana       4/6 -> 6/6
+    Lands       3/6  -> 6/6        Value        12/14 -> 14/14
+    Aggro       2/4  -> 4/4        Enchantress  11/14 -> 14/14
+
+Sixteen of seventeen strategies now fill every job. Everything else held.
+
+### `scripts/probe/strategy-decks.mjs` — a deck in every strategy
+
+Asks for each of the eighteen shells BY NAME on the commander that wants it
+most, and reports the shell's own cards held, jobs filled, commander synergy
+and ramp. All eighteen build; **ramp is 11 to 32 in every one and never below
+the real floor of 11**, which is the "game unplayable otherwise" concern
+answered across the whole strategy space rather than on one deck.
+
+### THREE INSTRUMENTS WERE WRONG BEFORE THE PRODUCT WAS
+
+Every one of these looked like a deck fault and was not.
+
+**A response card carries no `facets` and no `oracle_text`.** So
+`c.facets ?? facetsForCard(c)` had nothing to compile and scored almost every
+card at zero commander fit. It reported the Aristocrats deck at "keyed 20%" -
+a deck holding eight sacrifice outlets, Blood Artist, Zulaport Cutthroat,
+Ayara and the Meathook Massacre for a commander paid when creatures die. Read
+facets from `cards_pool` by name.
+
+**A shell's example cards are strongly coloured** - Reanimator is ten of
+twelve black, Aggro seven of seven red - so a mono-red commander can play none
+of Reanimator's and "named" came out 0/12. That looked like the panel offering
+unbuildable strategies and I was one edit from gating offers on shell colour.
+**That would have been wrong**: a shell's cards exist to derive its WANTS,
+which are colour-agnostic, and the pool is filtered by identity separately. A
+mono-red Reanimator deck is Underworld Breach and Faithless Looting.
+
+**Picking the most PLAYED commander that earns a shell** gave Blink to Ragavan
+and Superfriends to Braids. Take the highest SCORE.
+
+### The combo lookup could not serve an ordered LIMIT
+
+    Index Scan using combo_pool_popularity_idx, Filter: identity <@ '{R}'
+    Rows Removed by Filter: 5,875   Buffers: 6,287   3,328 ms
+
+against a 3 s timeout, so combos threw INSIDE a build. Same shape as the
+archetype strip: a narrower identity is MORE expensive because the plan reads
+further down for the same 400 rows, and a GIN index on an array cannot serve
+an ordered LIMIT. `combo_pool.identity_key` is the colours as one sorted
+string, so the query is `identity_key IN (subsets of my identity)` - at most
+32, each an index range on `(identity_key, popularity DESC)`.
+**3,328 ms -> 217 ms, buffers 6,287 -> 709.**
+
+### Strategy detection, measured over all 3,363 commanders
+
+`scripts/probe/strategy-coverage.mjs`. Five facets commanders want that NO
+shell claimed: `eff:damage` (261), `cares:zone:exile` (129), `tok:treasure`
+(93), `eff:impulse` (41), `eff:discard` (40). And `STRATEGY_SLOTS` was 6, so a
+commander could not earn a seventh however well it was read - the owner's
+"4-10" was unreachable by construction. Commanders earning nothing: 81 -> 49.
+
+**3.3 loud wants per commander is the real ceiling on this.** Raising the
+reserve budget 8 -> 20 and the per-want target 10 -> 16, four combinations,
+moved jobs done NOT AT ALL. More strategies per commander needs the compiler
+to read more of each commander, not more tuning.

@@ -47,6 +47,7 @@
 
 import { deriveCardTags } from '../../engine/knowledge/tagger.ts';
 import { planForCommander } from '../../engine/knowledge/behaviour.ts';
+import { facetsForCard } from './recommend/behaviour.ts';
 import { DECK_ARCHETYPES, type DeckArchetype } from './archetypeShells.ts';
 
 /** Everything read off the commander. A Scryfall card satisfies this as it is. */
@@ -182,7 +183,11 @@ const SHELL_SIGNALS: Record<string, ShellSignal> = {
     fallback: 'This commander is paid for playing lands',
   },
   enchantress: {
-    facets: ['cares:type:enchantment', 'type:enchantment', 'cares:sub:saga'],
+    /* `type:enchantment` was here and it reads the commander's OWN type line.
+       Xenagos, God of Revels is an enchantment creature, so he was offered
+       Enchantress; so is every God, Theros or otherwise. The same has-versus-
+       cares distinction the facet vocabulary already draws for keywords. */
+    facets: ['cares:type:enchantment', 'cares:sub:saga'],
     tags: ['enchantments-matter'],
     fallback: 'This commander is paid for casting enchantments',
   },
@@ -202,7 +207,12 @@ const SHELL_SIGNALS: Record<string, ShellSignal> = {
     fallback: 'This commander works with planeswalkers',
   },
   tribal: {
-    facets: ['cares:type:creature', 'kw:changeling'],
+    /* `cares:type:creature` was here and it is not tribal: Feather, the
+       Redeemed cares about creatures because her spells target them, and she
+       was offered Tribal while KRENKO, MOB BOSS and YURIKO, THE TIGER'S SHADOW
+       were not - the Goblin commander and the Ninja commander. The tribe is
+       on the plan, not in this list, and `TRIBE_OFFER` below reads it. */
+    facets: ['kw:changeling'],
     tags: ['tribal-payoff'],
     fallback: 'This commander cares about one creature type',
   },
@@ -272,10 +282,29 @@ export function strategiesFor(commander: StrategyCommander | null | undefined): 
           })
     );
 
+    /*
+     * WITH FACETS, and without them this call was answering a different
+     * question. `tribeOf` requires the commander's own creature type to appear
+     * in its own RULES TEXT, which it checks against the facets; handed none,
+     * it returns null for everybody. So `plan.tribe` was always empty here and
+     * Krenko, Mob Boss - the Goblin commander - was not offered Goblin tribal,
+     * nor Yuriko, the Tiger's Shadow Ninjas. Every other consumer of
+     * `planForCommander` passes facets; this one was written without them and
+     * nothing noticed, because a plan with no tribe still returns wants.
+     */
     const plan = planForCommander({
       name: commander.name,
       typeLine: commander.type_line,
       tags: [...tags],
+      facets: commander.facets ?? facetsForCard({
+        name: commander.name,
+        type_line: commander.type_line,
+        oracle_text: commander.oracle_text,
+        keywords: commander.keywords,
+        mana_cost: commander.mana_cost,
+        cmc: commander.cmc,
+        faces: commander.faces ?? commander.card_faces,
+      }).facets,
       oracleText: commander.oracle_text,
       faces: commander.faces ?? commander.card_faces,
     });
@@ -294,6 +323,23 @@ export function strategiesFor(commander: StrategyCommander | null | undefined): 
     }
 
     const scored: Array<{ shell: DeckArchetype; score: number; synergy: string }> = [];
+
+    /*
+     * THE TRIBE IS A STRATEGY, and it is the one the tag and facet lists
+     * cannot see. `plan.tribe` is set when the commander's own creature type
+     * appears inside its own rules text - Krenko counting Goblins, Yuriko
+     * counting Ninjas, Edgar counting Vampires - and it is the defining way
+     * those commanders are built. Offered at the tribe want's own weight, so
+     * it leads the list for a commander who is genuinely tribal.
+     */
+    const tribalShell = shellById.get('tribal');
+    if (plan.tribe && tribalShell) {
+      scored.push({
+        shell: tribalShell,
+        score: wantWeight.get(`sub:${plan.tribe}`)?.weight ?? 1,
+        synergy: `${commander.name} counts ${plan.tribe}s, so the deck can be built as ${plan.tribe} tribal`,
+      });
+    }
     for (const [id, signal] of Object.entries(SHELL_SIGNALS)) {
       const shell = shellById.get(id);
       if (!shell) continue;

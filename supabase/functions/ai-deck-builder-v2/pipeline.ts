@@ -69,7 +69,6 @@ const COLOR_TO_BASIC: Record<string, string> = {
 };
 
 /** How many ranked candidates the planner is allowed to choose between. */
-const PLANNER_SHORTLIST = 140;
 
 /** Output budget for the planner. It returns a short list of ids and a sentence. */
 const MAX_OUTPUT_TOKENS = 4000;
@@ -506,7 +505,11 @@ const hasPersistableId = (c: { id?: unknown }): boolean =>
 export interface BuildInput {
   catalog: Catalog;
   request: BuildRequest;
-  apiKey: string | null;
+  /**
+   * Kept on the input and read by nothing, so a caller that still passes one
+   * is not an error. There is no model in this function: see step 4.
+   */
+  apiKey?: string | null;
   startedAt: number;
 }
 
@@ -1124,50 +1127,31 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
     ...buildOptions,
   });
 
-  /* --- 4. Ground the model in that shortlist ------------------------ */
-  let plan: DeckPlan | null = null;
-  if (request.useAIPlanning !== false && input.apiKey) {
-    plan = await planFromShortlist({
-      apiKey: input.apiKey,
-      model: config.aiValidationModel,
-      commander: commanderRow,
-      archetype: request.archetype ?? '',
-      powerLevel: request.powerLevel ?? 6,
-      customPrompt: request.customPrompt ?? '',
-      shortlist: shortlistFor(baseline, pool, PLANNER_SHORTLIST),
-    });
-  }
+  /* --- 4. There is no step 4 any more ------------------------------- *
+   *
+   * Owner, 3 Sep 2026: *"we dont use AI for any of the app, all the engine so
+   * the options shouldnt call llms it should use engine always."*
+   *
+   * What stood here was a language model re-ranking the engine's own
+   * shortlist. It could only return oracle ids the engine had already chosen -
+   * an id off the shortlist was dropped and counted in `rejected` - so at its
+   * very best it reordered a list the engine produced, and at its worst it
+   * spent a network round trip to agree.
+   *
+   * It had also been dead in production for some time: the gateway is out of
+   * credits, so every request already fell through to the baseline deck. The
+   * only thing the model still did was make the response non-deterministic and
+   * make `powerLevel` and `customPrompt` look wired when they reached nothing
+   * else. Both of those are engine inputs now.
+   */
 
-  /* --- 5. Build again, with the planner's choices as a prior -------- */
-  const deck: GeneratedDeck =
-    plan && (plan.preferOracleIds.length > 0 || plan.avoidOracleIds.length > 0)
-      ? generateDeck({
-          format,
-          commander,
-          pool,
-          basics,
-          slots: DECK_SLOTS,
-          landTarget,
-          roleTargets: roleOverrides,
-          budgetUsd: targetBudget,
-          style,
-          archetype: archetypeInput,
-          ...buildOptions,
-          preferOracleIds: plan.preferOracleIds,
-          avoidOracleIds: plan.avoidOracleIds,
-        })
-      : baseline;
+  /* --- 5. The deck IS the engine's deck --------------------------- */
+  const deck: GeneratedDeck = baseline;
 
   console.log(
     `  built: ${deck.totalCopies} cards, ${deck.landCopies} lands, ` +
       `provisional power ${deck.evaluation.power.score} (rescored below)`
   );
-  if (plan) {
-    console.log(
-      `  planner: ${plan.preferOracleIds.length} picks accepted, ` +
-        `${plan.rejected.length} rejected (not on the shortlist)`
-    );
-  }
 
   /* --- 6. Dress the chosen cards. THIS IS THE ART. ------------------ */
   /*
@@ -1356,7 +1340,9 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
           manaCurve,
           avgCmc,
           totalValue: deck.totalUsd,
-          strategy: plan?.strategy ?? null,
+          /* The model used to name the strategy. The archetype does now,
+             and it is the shell the engine actually built to. */
+          strategy: archetypeInput?.name ?? null,
           edhMetrics: null,
           cardAnalysis: null,
           landAnalysis: null,
@@ -1384,14 +1370,8 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
               ]
             : []),
           ...deck.notes,
-          ...(plan
-            ? [
-                `The planner chose ${plan.preferOracleIds.length} of ${PLANNER_SHORTLIST} shortlisted cards` +
-                  (plan.rejected.length
-                    ? `, and ${plan.rejected.length} of its answers were not on the shortlist and were dropped`
-                    : ''),
-              ]
-            : ['Built without a planner: the ranking alone chose every card']),
+          /* No planner line: there is no planner. The engine chose every card
+             and every note above says which pass chose it and why. */
           ...deck.shortfalls,
           ...(missingBasics.length
             ? [`Basics not in the card database: ${missingBasics.join(', ')}`]
@@ -1400,14 +1380,10 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
         ],
         validation,
       },
-      plan: plan
-        ? {
-            strategy: plan.strategy,
-            winConditions: plan.winConditions,
-            warnings: plan.warnings,
-            rejected: plan.rejected,
-          }
-        : null,
+      /* There is no planner, so there is nothing here. Kept as an explicit
+         null rather than removed, because the client reads the field and a
+         missing key and a null are different things to a consumer. */
+      plan: null,
       /** Never scraped here. The client cross-references separately. */
       edhPowerLevel: null,
       edhPowerUrl: edhUrl,
@@ -1686,148 +1662,9 @@ interface ShortlistEntry {
   reason: string;
 }
 
-interface DeckPlan {
-  strategy: string | null;
-  winConditions: string[];
-  warnings: string[];
-  preferOracleIds: string[];
-  avoidOracleIds: string[];
-  /** Ids the model returned that were not on the shortlist. Counted, not used. */
-  rejected: string[];
-}
 
-/**
- * The ranked shortlist the planner is allowed to choose between.
- *
- * The baseline build's own picks first, then the pool behind them, so the model
- * sees both what the engine chose and the near misses it might legitimately
- * prefer for this archetype. Lands are excluded: the mana base is a maths
- * question, not a taste question, and it is already settled by the time this
- * runs.
- */
-function shortlistFor(
-  baseline: GeneratedDeck,
-  pool: readonly BuildCard[],
-  limit: number
-): ShortlistEntry[] {
-  const out: ShortlistEntry[] = [];
-  const seen = new Set<string>();
-  const push = (card: BuildCard, reason: string) => {
-    if (out.length >= limit) return;
-    if (seen.has(card.oracleId)) return;
-    if (/\bland\b/i.test((card.typeLine ?? '').split('//')[0])) return;
-    seen.add(card.oracleId);
-    out.push({
-      oracleId: card.oracleId,
-      name: card.name,
-      typeLine: card.typeLine,
-      cmc: card.cmc,
-      manaCost: card.manaCost,
-      tags: card.tags.slice(0, 6),
-      usd: card.usd,
-      reason,
-    });
-  };
-  for (const entry of baseline.entries) {
-    if (entry.bucket === 'basic' || entry.bucket === 'land') continue;
-    push(entry.card, entry.reason);
-  }
-  for (const card of pool) push(card, 'Not picked by the ranking; offered as an alternative.');
-  return out;
-}
 
-interface PlanInput {
-  apiKey: string;
-  model: string;
-  commander: CatalogRow;
-  archetype: string;
-  powerLevel: number;
-  customPrompt: string;
-  shortlist: ShortlistEntry[];
-}
 
-/**
- * Ask the model which of these cards belong in this deck.
- *
- * Note what it CANNOT do. It returns ids, and an id that is not on the
- * shortlist is dropped here and counted in `rejected`. It cannot name a card,
- * cannot award a score, and cannot reach a card the ranking excluded — so a
- * hallucination costs a slot in its own answer and nothing else. Its entire
- * influence is choosing between cards the engine already rates as eligible.
- *
- * The build never depends on it. A missing key, an unreachable gateway, a
- * refusal or unparseable output all leave the baseline deck standing, and the
- * change log says which of the two the player is looking at.
- */
-async function planFromShortlist(input: PlanInput): Promise<DeckPlan | null> {
-  const prompt = AI_PROMPTS.groundedPlan(
-    input.commander,
-    input.archetype,
-    input.powerLevel,
-    input.customPrompt,
-    input.shortlist
-  );
-
-  let response: Response;
-  try {
-    response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${input.apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: input.model,
-        messages: [
-          { role: 'system', content: AI_PROMPTS.plannerSystem },
-          { role: 'user', content: prompt },
-        ],
-        temperature: 0.3,
-        max_tokens: MAX_OUTPUT_TOKENS,
-      }),
-    });
-  } catch (e) {
-    console.warn('planner gateway unreachable, building without it:', String(e).slice(0, 200));
-    return null;
-  }
-
-  if (!response.ok) {
-    console.warn(`planner returned ${response.status}, building without it`);
-    return null;
-  }
-
-  let parsed: Record<string, unknown>;
-  try {
-    const payload = await response.json();
-    const text = String(payload.choices?.[0]?.message?.content ?? '');
-    parsed = parseJson(text);
-  } catch (e) {
-    console.warn('planner output unparseable, building without it:', String(e).slice(0, 200));
-    return null;
-  }
-
-  const allowed = new Set(input.shortlist.map(c => c.oracleId));
-  const rejected: string[] = [];
-  const take = (value: unknown): string[] => {
-    if (!Array.isArray(value)) return [];
-    const out: string[] = [];
-    for (const raw of value) {
-      const id = String(raw ?? '').trim();
-      if (!id) continue;
-      if (allowed.has(id)) out.push(id);
-      else rejected.push(id);
-    }
-    return out;
-  };
-
-  return {
-    strategy: typeof parsed.strategy === 'string' ? parsed.strategy : null,
-    winConditions: Array.isArray(parsed.winConditions)
-      ? parsed.winConditions.map(String).slice(0, 5)
-      : [],
-    warnings: Array.isArray(parsed.warnings) ? parsed.warnings.map(String).slice(0, 5) : [],
-    preferOracleIds: take(parsed.include),
-    avoidOracleIds: take(parsed.exclude),
-    rejected,
-  };
-}
 
 function parseJson(text: string): Record<string, unknown> {
   const clean = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();

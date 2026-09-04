@@ -100,10 +100,17 @@ serve(async req => {
       authorization: req.headers.get('Authorization'),
     });
 
+    /*
+     * No API key, because there is no model. Owner, 3 Sep 2026: *"we dont use
+     * AI for any of the app, all the engine so the options shouldnt call llms
+     * it should use engine always."* The planner that read `LOVABLE_API_KEY`
+     * re-ranked a shortlist the engine had already chosen and could only
+     * return ids from it, and the gateway had been out of credits for long
+     * enough that production was shipping the engine's deck regardless.
+     */
     const result = await build({
       catalog,
       request: buildRequest,
-      apiKey: Deno.env.get('LOVABLE_API_KEY') ?? null,
       startedAt,
     });
 

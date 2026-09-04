@@ -3493,3 +3493,34 @@ commander could not earn a seventh however well it was read - the owner's
 reserve budget 8 -> 20 and the per-want target 10 -> 16, four combinations,
 moved jobs done NOT AT ALL. More strategies per commander needs the compiler
 to read more of each commander, not more tuning.
+
+### `meta_card_pairs` is NOT usable as a synergy signal, and here is the measurement
+
+24,165 co-occurrence rows with a `lift` column, unread by anything, and the
+obvious next step after the combos. It does not work, and the reason is not
+sample size alone.
+
+Strongest pairs in the commander scope with support of eight decks or more:
+
+    Inspiring Call + Hardened Scales      lift 15.5   genuine
+    Thriving Isle + Thriving Heath        lift 13.1   two white-blue lands
+    Rampaging Baloths + Seer's Sundial    lift 12.8   genuine
+    Thriving Isle + Thriving Moor         lift 12.8   two lands
+    Talisman of Resilience + Temple of Malady  12.8   two Golgari sources
+    Overflowing Basin + Flooded Grove     lift 12.7   two lands
+    Foreboding Ruins + Bedevil            lift 10.7   both Rakdos
+    Mossfire Valley + Kessig Wolf Run     lift 10.7   two lands
+
+**Six of the eight are colour identity wearing synergy's clothes.** Two Golgari
+lands co-occur because both appear in Golgari decks, and the pool is already
+filtered by identity, so the signal would tell the ranker something it is
+guaranteed anyway - while spending real weight doing it.
+
+Controlling for colour needs per-identity scopes, and 192 commander decks
+across 32 identities is about six decks each, which is not a base you can
+compute lift on. The pair table stays unread until there are far more decks
+AND a colour-controlled scope.
+
+**Commander Spellbook is the right source for "these cards work together" and
+is already wired**: 61,130 curated combos, each a stated interaction rather
+than an inferred one.

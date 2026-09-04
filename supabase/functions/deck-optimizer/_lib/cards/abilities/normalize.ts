@@ -387,6 +387,27 @@ export function normalizeParagraph(raw: string, names: readonly string[]): strin
   // 6. Dashes: em, en and the U+2212 MINUS SIGN that loyalty costs use.
   s = s.replace(/[—–−]/g, '-');
 
+  /*
+   * 6b. "AND/OR" IS "OR". Wizards writes both and the grammar knew only one.
+   *
+   * Measured: `parseObject` reads "target artifacts and enchantments" and
+   * "target artifacts or enchantments" and returns NULL for "target artifacts
+   * and/or enchantments", which is the same set of cards said a third way. A
+   * null selector fails the whole rule, so the card compiles to nothing at all.
+   *
+   * Ghostly Flicker, rank 587 and one of the most played blink spells in the
+   * format, produced ZERO abilities for this reason alone; so did Force of
+   * Vigor (1,024) and Pest Infestation. 62 of the 4,000 most played cards carry
+   * an unparsed clause containing the token.
+   *
+   * The rewrite is exact rather than convenient. "Destroy up to two target
+   * artifacts and/or enchantments" allows one of each, two artifacts, or two
+   * enchantments, which is precisely what the `or` filter already means: the
+   * union is over what may be CHOSEN, and the count is carried separately. It
+   * is done here rather than in one rule so every rule gains it at once.
+   */
+  s = s.replace(/\band\/or\b/g, 'or');
+
   // 7. Whitespace.
   return s.replace(/[ \t]+/g, ' ').trim();
 }

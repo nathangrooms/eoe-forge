@@ -1,26 +1,26 @@
 {
   "cards": 33032,
   "withText": 32685,
-  "anyRecord": 26327,
-  "full": 10988,
+  "anyRecord": 26341,
+  "full": 11003,
   "coverage": {
-    "partial": 15339,
-    "full": 10988,
-    "manual": 6351,
+    "partial": 15338,
+    "full": 11003,
+    "manual": 6337,
     "none": 7
   },
-  "charsRead": 1850930,
-  "charsTotal": 3335645,
+  "charsRead": 1852498,
+  "charsTotal": 3334109,
   "charBuckets": {
-    "100%": 17283,
-    "75-99%": 615,
-    "50-74%": 1786,
-    "25-49%": 2560,
-    "1-24%": 4067,
-    "0%": 6351
+    "100%": 17294,
+    "75-99%": 617,
+    "50-74%": 1792,
+    "25-49%": 2564,
+    "1-24%": 4058,
+    "0%": 6337
   },
-  "unreadClauses": 20799,
-  "distinctShapes": 10290,
+  "unreadClauses": 20776,
+  "distinctShapes": 10276,
   "topShapes": [
     {
       "shape": "as an additional cost to cast this spell",
@@ -138,11 +138,6 @@
       "example": "Krosan Tusker"
     },
     {
-      "shape": "this spell costs {mana} less to cast for",
-      "cards": 48,
-      "example": "Deadly Alliance"
-    },
-    {
       "shape": "this land enters tapped",
       "cards": 48,
       "example": "Skyclave Cleric // Skyclave Basilica"
@@ -161,6 +156,11 @@
       "shape": "as this land enters",
       "cards": 48,
       "example": "Auntie's Hovel"
+    },
+    {
+      "shape": "this spell costs {mana} less to cast for",
+      "cards": 47,
+      "example": "Deadly Alliance"
     },
     {
       "shape": "you may look at the top card of",

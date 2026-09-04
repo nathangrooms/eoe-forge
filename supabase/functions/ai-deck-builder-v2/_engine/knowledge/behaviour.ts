@@ -2984,6 +2984,41 @@ export const PLAN_RULES: readonly {
     ],
   },
   {
+    /*
+     * A COMMANDER WHOSE CARD SCALES WITH CREATURE POWER WANTS BIG CREATURES.
+     *
+     * Scryfall Tagger has named this shape on 405 cards for months and it was
+     * mapped to nothing, so Ghalta, Primal Hunger (rank 460) - a 12/12 whose
+     * whole card is "costs {X} less, where X is the total power of creatures
+     * you control" - sat in `knowledge_band = 'looks-at-only'` with NO VERB.
+     * So did Selvala, Heart of the Wilds (413) and Marwyn, the Nurturer.
+     *
+     * `cares:power` is a CARES word rather than a verb, which is what the tag
+     * actually says: read across its most played members it covers cards that
+     * DRAW off power (Return of the Wildspeaker, Rishkar's Expertise, Greater
+     * Good), make MANA off power (Selvala, Marwyn, Kami of Whispered Hopes),
+     * deal DAMAGE off power (Terror of the Peaks, Warstorm Surge) and cost less
+     * for power (Ghalta, The Great Henge). One verb could not cover those and
+     * would have been a lie about most of them; what they share is the thing
+     * they LOOK AT.
+     *
+     * The want is `pt:big` and not `mv:big`, because power is the axis the tag
+     * names - a cheap enormous creature is exactly what these decks want and an
+     * expensive small one is not. `mv:big` follows quietly behind it, since
+     * most big bodies cost something.
+     *
+     * A CARES word does nothing on a non-commander: `planFit` matches a card's
+     * facets against the commander's WANTS, and no want is `cares:power`. It
+     * acts only through this rule, on the commander, which is the population it
+     * was read against.
+     */
+    when: 'cares:power',
+    wants: [
+      { facet: 'pt:big', weight: 0.7 },
+      { facet: 'mv:big', weight: 0.4 },
+    ],
+  },
+  {
     when: 'eff:add-counters',
     wants: [
       { facet: 'eff:add-counters', weight: 0.9 },

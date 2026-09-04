@@ -214,6 +214,16 @@ const OUR_WORDS: Array<{ facet: string; means: string; why: string }> = [
     why: 'Magic names Treasure and +1/+1 counters but has no vocabulary for "this card is about them", which is what a token or counters deck is built on.',
   },
   {
+    facet: 'cares:power',
+    means: 'Its effect scales with how big your creatures are. Ghalta, Selvala, The Great Henge.',
+    why: 'A CARES word rather than a verb, on purpose. These cards draw off power, make mana off power, deal damage off power and cost less for power, so one verb would be a lie about most of them; what they share is the thing they LOOK AT. A commander carrying it asks for big creatures, which is how Ghalta stopped being a 12/12 in a deck of two-drops.',
+  },
+  {
+    facet: 'eff:copy',
+    means: 'Copies a spell or a permanent. Reverberate, Dualcaster Mage, Thousand-Year Storm.',
+    why: 'The engine has no way to compile a copy at all, so this word comes entirely from the community tags. Eight of the nine best known copy spells carried only cares:zone:stack - the engine knew they looked at the stack and not that they copied anything.',
+  },
+  {
     facet: 'trig:enters-self',
     means: 'It triggers on ITS OWN arrival. Ghalta, Urza, Emry, Loran.',
     why: 'Magic calls this and "whenever another creature enters" the same trigger, and they are opposite decks: Ghalta wants ways to blink herself, Tatyova wants lands to keep arriving. One word could serve neither, so the plan for 4,425 cards had nothing to say.',

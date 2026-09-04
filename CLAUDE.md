@@ -5326,3 +5326,59 @@ No compiler bump: the merge lives in the `cards_pool` view, so a
 > sides are UUID and the cast belongs on the `scryfall_card_tags` side, or on
 > neither. Two queries failed on `operator does not exist: uuid = text` before
 > this was noticed.
+
+---
+
+## `scales-with-power` had no mapping, so Ghalta was a 12/12 in a deck of two-drops
+
+Scryfall Tagger has named this shape on **405 cards** for months and it mapped to
+nothing, so Ghalta, Primal Hunger (rank 460) sat in `looks-at-only` with NO VERB.
+Her entire card is *"this spell costs {X} less to cast, where X is the total
+power of creatures you control"*. So did Selvala, Heart of the Wilds (413) and
+Marwyn, the Nurturer.
+
+**A CARES WORD, NOT A VERB, and that is the whole judgement.** Read across the 16
+most played members they DRAW off power (Return of the Wildspeaker, Rishkar's
+Expertise, Greater Good), make MANA off power (Selvala, Marwyn, Kami of Whispered
+Hopes), deal DAMAGE off power (Terror of the Peaks, Warstorm Surge) and COST LESS
+for power (Ghalta, The Great Henge). One verb would be a lie about most of them.
+What they share is the thing they LOOK AT.
+
+    PLAN_RULES   cares:power -> pt:big 0.7, mv:big 0.4
+
+`pt:big` first because power is the axis the tag names: a cheap enormous creature
+is what these decks want and an expensive small one is not. The word does nothing
+on a non-commander, which is correct - `planFit` matches a card's facets against
+the COMMANDER'S WANTS and no want is `cares:power`.
+
+    cares:power in the pool   0 -> 573       Ghalta's loudest want is now pt:big
+    Ghalta's deck             9 cards at mv6+, 8 of them creatures
+
+### 75 played cards are blocked by ", where X is …", and there is no big win in it
+
+`scratch/_wherex.mjs`. The trailing clause defines a count used earlier and the
+rules refuse the whole phrase. The head shapes are heterogeneous - the largest is
+"this spell costs {X} less to cast" at EIGHT cards, then "{T}: add X mana of any
+one color" at four. 400+ cards say the words and only 75 are blocked by them,
+because most say it inside a clause the compiler already handles.
+
+Ghalta and The Great Henge were two of the eight, and the TAG route reached them
+without a compiler rule at all.
+
+> **CORRECTION.** CLAUDE.md said `eff:reduce-cost` was added because *"Ghalta
+> (461) carried NO facet at all, her whole card being a cost reduction"*. The
+> facet was added and **Ghalta never got it**: her own wording,
+> "This spell costs {X} less to cast, where X is …", is still unread by the
+> compiler today. Whatever `eff:reduce-cost` was measured on, it was not her.
+> Read the card, not the note.
+
+### The bench and the tag maps disagreed, and the bench is the weaker witness here
+
+The two tag mappings moved the twenty-commander bench from 34 jobs to 32 while
+taking groups at zero from 14 to 13. The `cares:power` PLAN RULE measured
+NEUTRAL there - and it must, because none of those twenty commanders scales with
+power, so the bench cannot see it. Neutral on an instrument that cannot observe
+the change is not evidence.
+
+Measured where it can be seen: Ghalta's deck went to 9 cards at mana value 6+
+with 8 creatures, and her plan's loudest want is `pt:big`.

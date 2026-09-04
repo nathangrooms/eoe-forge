@@ -107,7 +107,9 @@ const SHELL_SIGNALS: Record<string, ShellSignal> = {
     fallback: 'This commander is already interacting with the table',
   },
   'big-mana': {
-    facets: ['eff:add-mana', 'cares:zone:library-land', 'eff:untap'],
+    /* And a Treasure is also mana, which is the other half of why a Treasure
+       commander has two honest strategies rather than none. */
+    facets: ['eff:add-mana', 'cares:zone:library-land', 'eff:untap', 'tok:treasure'],
     tags: ['ramp', 'x-spell'],
     fallback: 'This commander turns extra mana into something',
   },
@@ -117,7 +119,11 @@ const SHELL_SIGNALS: Record<string, ShellSignal> = {
     fallback: 'This commander can find the pieces it needs',
   },
   aggro: {
-    facets: ['trig:attacks', 'kw:haste', 'eff:extra-combat', 'eff:pump'],
+    /* `eff:damage` joins because 261 commanders want it at 0.6 or above and
+       not one shell claimed it - measured over all 3,363 on 3 Sep 2026. A
+       commander that points damage at things is playing a deck that kills
+       you, whether by combat or by burn, and this is the shell for that. */
+    facets: ['trig:attacks', 'kw:haste', 'eff:extra-combat', 'eff:pump', 'eff:damage'],
     tags: ['extra-combat', 'haste-enabler', 'evasion'],
     fallback: 'This commander wants to attack every turn',
   },
@@ -132,8 +138,13 @@ const SHELL_SIGNALS: Record<string, ShellSignal> = {
     fallback: 'This commander works with counters',
   },
   value: {
-    facets: ['eff:draw', 'trig:enters', 'eff:return-from'],
-    tags: ['card-draw', 'etb'],
+    /* Impulse draw and the exile zone were wanted by 129 and 41 commanders
+       respectively and claimed by no shell at all. Prosper, Tome-Bound and
+       Laelia, the Blade Reforged are exile decks and were offered nothing
+       that named it; playing cards you exiled IS card advantage, which is
+       what this shell is. */
+    facets: ['eff:draw', 'trig:enters', 'eff:return-from', 'eff:impulse', 'cares:zone:exile'],
+    tags: ['card-draw', 'etb', 'impulse'],
     fallback: 'This commander draws you cards',
   },
   blink: {
@@ -192,7 +203,10 @@ const SHELL_SIGNALS: Record<string, ShellSignal> = {
     fallback: 'This commander is paid for casting enchantments',
   },
   artifacts: {
-    facets: ['cares:type:artifact', 'type:artifact', 'cares:sub:treasure'],
+    /* `tok:treasure`, wanted by 93 commanders and claimed by nothing: a
+       Treasure IS an artifact, and the commander that makes them is playing
+       an artifact deck whether or not its text says the word. */
+    facets: ['cares:type:artifact', 'type:artifact', 'cares:sub:treasure', 'tok:treasure'],
     tags: ['artifacts-matter', 'treasure'],
     fallback: 'This commander is paid for casting artifacts',
   },
@@ -229,7 +243,18 @@ const ALWAYS_OFFERED: ReadonlyArray<{ id: string; synergy: string }> = [
   { id: 'tokens', synergy: 'Works with any commander: go wide' },
   { id: 'aristocrats', synergy: 'Works with any commander: drain the table a point at a time' },
   { id: 'compact-combo', synergy: 'Works with any commander: assemble two cards and win' },
+  { id: 'aggro', synergy: 'Works with any commander: turn creatures sideways' },
 ];
+
+/*
+ * SEVEN, and the panel has EIGHT slots, which is deliberate rather than an
+ * oversight. These are the shells that work whatever the commander is, and
+ * there are seven of them: Voltron needs a creature in the command zone,
+ * Spellslinger needs blue or red, Tribal needs a tribe. Padding the eighth
+ * with a shell that does not fit would be the panel inventing a strategy,
+ * which is the one thing it must never do. A commander with nothing read gets
+ * seven honest offers and no eighth.
+ */
 
 /**
  * A tag is worth more than a want.
@@ -241,7 +266,23 @@ const ALWAYS_OFFERED: ReadonlyArray<{ id: string; synergy: string }> = [
 const TAG_WEIGHT = 1.1;
 
 /** How many to offer. Two columns, three rows, no scrolling on a phone. */
-export const STRATEGY_SLOTS = 6;
+/*
+ * EIGHT, and six was a ceiling on the answer rather than a choice about the
+ * panel.
+ *
+ * The owner: *"each commander has 4-10 different strategies it can be selected
+ * and played by."* Measured over all 3,363 commanders on 3 Sep 2026, the panel
+ * offered 6.0 and the commander had EARNED 3.0 of them - the rest are the
+ * shells shown to everybody. A commander cannot earn a seventh strategy while
+ * the loop stops at six, so the measurement could never have reached the
+ * owner's range whatever the signals did.
+ *
+ * Eight rather than ten: the earned count is bounded by how many loud wants a
+ * plan carries, measured at 3.3, so slots past the wants only add more generic
+ * filler to the end of the list. Eight leaves room for the widened signals
+ * above and stops well short of padding.
+ */
+export const STRATEGY_SLOTS = 8;
 
 const offerFrom = (shell: DeckArchetype, synergy: string, score: number): StrategyOffer => ({
   value: shell.id,

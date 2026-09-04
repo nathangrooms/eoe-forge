@@ -95,9 +95,22 @@ test('a commander whose card says nothing readable still gets a full list', () =
 });
 
 test('nothing at all still answers, rather than throwing', () => {
-  assert.equal(strategiesFor(null).length, STRATEGY_SLOTS);
-  assert.equal(strategiesFor(undefined).length, STRATEGY_SLOTS);
-  assert.equal(strategiesFor({}).length, STRATEGY_SLOTS);
+  /*
+   * The UNIVERSAL shells, not the slot count. The panel has eight slots and
+   * seven shells work whatever the commander is - Voltron needs a creature in
+   * the command zone, Spellslinger needs blue or red, Tribal needs a tribe -
+   * so a commander with nothing read gets seven honest offers and no eighth.
+   * Asserting the slot count instead would force the panel to pad, which is
+   * the one thing it must never do.
+   */
+  for (const nothing of [null, undefined, {}]) {
+    const offers = strategiesFor(nothing);
+    assert.ok(offers.length > 0 && offers.length <= STRATEGY_SLOTS, `${offers.length} offers`);
+    assert.ok(
+      offers.every(o => o.score === 0),
+      'nothing was read, so nothing can have been earned'
+    );
+  }
 });
 
 test('the list is stable, so the same commander never reshuffles between visits', () => {

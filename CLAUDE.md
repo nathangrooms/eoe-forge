@@ -3524,3 +3524,194 @@ AND a colour-controlled scope.
 **Commander Spellbook is the right source for "these cards work together" and
 is already wired**: 61,130 curated combos, each a stated interaction rather
 than an inferred one.
+
+---
+
+## 4 Sep 2026 — the instruments were not running, and two of them were lying
+
+### `npx tsc` had never type-checked anything
+
+`node_modules/.bin` DID NOT EXIST although packages were installed, so
+`npx tsc` resolved to a different package entirely and printed *"This is
+not the tsc command you are looking for"* on every run. That was read as a
+pass. `npm rebuild` restored 84 bin entries and the first real check found
+three errors written that day, including a **duplicate `wheel` key** in an
+object literal where the later silently won.
+
+`supabase/functions/deno.d.ts` declares the one global the edge files read,
+so the check is CLEAN rather than permanently one error deep. A check that
+always prints one error is one people learn to scroll past.
+`tsconfig.app.json` names it explicitly: nothing imports it, and
+`supabase/functions` is reached only because the tests under `src/engine`
+import the optimiser's catalog and the generator's pipeline.
+
+**Use `npx --no-install tsc --noEmit -p tsconfig.app.json`.** The
+`--no-install` is what makes a missing binary fail loudly instead of
+fetching a stranger.
+
+### The pool budget was passed and silently ignored
+
+`pipeline.ts` sent `limit: poolBudgetFor(colours)`; `poolFor` declared only
+`{withOracleText, maxRank}`. An excess property on an object literal is a
+type error, and nothing was checking.
+
+    five-colour pool   18,363 ms / 31,829 rows  ->  883 ms / 5,000
+
+**This falsifies a recorded negative.** The note reading *"4,000 measured no
+better than 5,000, so the pool size is not the cost"* was measured with both
+arms fetching the whole walk. The variable was never varied. Re-run with the
+option actually implemented, pool size is decisive: Najeela is **5/5 at
+2,500 and 3/4 at 3,500**, and `poolBudgetFor(5)` is 2,500 now.
+
+> A negative result recorded in this file is only as good as the instrument.
+> When one contradicts a fresh measurement, check whether the knob was
+> connected before believing the note.
+
+### "CPU Time exceeded" is spent across the WHOLE request
+
+Najeela reached `built: 99 cards` and died **ten milliseconds later** in the
+rescore. The rescore was not the problem; it was what the build had left. So
+the fix for a resource limit is anything that costs less ANYWHERE in the
+request, not necessarily the thing it died in.
+
+`WORKER_RESOURCE_LIMIT` is all the client sees. The cause is in the function
+logs: `select event_message from logs where source = 'function_logs'`. Read
+it before theorising.
+
+### Every land was compiled from rules text on every request
+
+`landPoolFor` selected `oracle_text` and not `facets`, and the pipeline
+treats a MISSING `facets` field as a card the memo has not reached. So 695
+cards were compiled per request against a memo gap of **exactly zero**,
+every one of them a land.
+
+    facets  compiler 399, no record 42  ->  compiler 0, cached 6000
+
+The rows still come from `cards_unique`: this is the one caller that
+genuinely needs the rules text, which is why the note on `RANK_POOL_TABLE`
+names it as the standing example. Only the FACETS come from `cards_pool`, in
+a second narrow read. **Selecting `facets` from `cards_unique` returns 401**
+- there it is a computed column over `card_facet_memo`, which `anon` holds
+no grant on.
+
+### A GRANT is protection whatever the card is
+
+`facetRoleQualifies` allowed `protection` only on an instant, sorcery, aura
+or equipment, so every CREATURE that grants it was refused. Measured:
+mono-white Isamaru reported **"5 of 5 protection slots could not be filled"**
+in the colour that holds the most protection, and spent the released slots
+on Shell Skulkin at rank 18,823.
+
+The type test was standing in for "is this a grant", which the `grants:`
+prefix already answers. Purphoros carries a BARE `kw:indestructible` and no
+`grants:` facet, so he is still refused - checked, not assumed.
+
+    59 cards rescued under rank 4,000; 39 independently tagged
+    `protection` by the tagger. Three wrong: Paradise Druid, Shimmer
+    Dragon and Syr Ginger say "~ has hexproof" about THEMSELVES.
+
+Those three want a `grants:*-self` word, on the precedent of
+`cost:sacrifice-self` and `eff:exile-self`. Not done: it is a compiler
+change and therefore a version bump, refill and reader move.
+
+### REFUSED, with the measurement: a `graveyard-hate` tag door
+
+`ATTACKS` holds one entry and this file says a second needs a measurement
+rather than a guess. Abyssal Harvester reached a Sheoldred deck, so the
+obvious candidate was "tagged `graveyard-hate` AND carrying
+`cares:zone:graveyard` attacks a graveyard plan". 202 cards carry the tag,
+62 also carry the facet, 47 are already caught by `eff:exile-graveyard`, so
+it would newly claim **15**. Read as a player, at least six are wrong:
+
+    Mnemonic Betrayal, Hedonist's Trove, Nautiloid Ship   hit OPPONENTS'
+      graveyards, which this file already says belongs in a graveyard deck
+    Canoptek Tomb Sentinel                                triggers FROM a graveyard
+    Kaya, Spirits' Justice, Lazav, Wearer of Faces        payoffs
+
+~50-60% precision against the 85% bar these role-affecting rules are held
+to. **Do not add it.** The narrow fix is a compiler rule so that "exile
+target creature card from a graveyard **that was put there this turn**"
+emits `eff:exile-graveyard`; the plain wording already does.
+
+### The floor fills in four tiers, not two
+
+    1. played (rank <= 12,000), other roles under the p90 ceiling
+    2. played,                  over p90 but under the largest count
+                                the 192 real decks actually hold
+    3. not played, under p90
+    4. not played, over p90
+
+There were only 1 and 3: a card over the ceiling was skipped outright, so
+the creature floor jumped from "the best creatures that do nothing else"
+straight past every good creature whose SECOND role was full. Played-enough
+is the OUTER key, because a role slightly past p90 is a thing real decks do
+and playing a card nobody plays is not. `roleFloorCeilingFor` uses the
+measured `max`, so the mana-dork overrun the guard was added for is still
+refused.
+
+    Isamaru   past 15k 4 -> 1, creatures 30 -> 22 against a floor of 20
+
+### Where production stands
+
+    fourteen deployed decks   13/14 -> 14/14 build
+    format staples            75/85 -> 82/94
+    past rank 15,000          9 -> 7   (Kozilek is colourless: a small
+                                        pool makes an unpopular card the
+                                        right answer, not a bad one)
+    Najeela                   WORKER_RESOURCE_LIMIT -> 1.3 s warm
+    Uril 9.1s, Brago 7.5s, Talrand 7.4s -> about 2 s each
+    tests                     3,356 passing, tsc clean
+
+## The "Anything else?" box does something now
+
+`customPrompt` was declared and READ BY NOTHING once the model was removed.
+`src/engine/build/requestNotes.ts` reads two shapes that cannot be mistaken
+for anything else, keep a named card out and a mana value ceiling, and
+**reports everything else as unread in the deck's own notes**. No model.
+
+Three rules worth keeping:
+
+1. **The POOL is the authority on what a card is called.** "no
+   counterspells" reads as UNREAD rather than banning `Counterspell`;
+   plurals are deliberately not stripped, because a category is not a card.
+2. **Cards come out of the POOL, not the deck.** Every later pass chooses
+   from that array, so nothing can put them back. Filtering the finished
+   deck would leave a hole the next pass refills with the same card.
+3. **A ceiling never touches lands.** "Nothing over 4 mana" is about spells;
+   applied to the mana base it removes the expensive utility lands and
+   leaves a deck that cannot cast what is left.
+
+The apostrophe is DELETED in the fold, not spaced, so "gaeas cradle" reaches
+`Gaea's Cradle`. Same trap `normalize.ts` records.
+
+Verified against the deployed function: `"no Sol Ring, nothing over 5 mana,
+more counterspells"` gives 99 cards, no Sol Ring, no spell over 5, and says
+it could not act on "more counterspells". An explicit exclusion BEATS the
+named-staple pass, which is right when the player asked for it by name.
+
+## 🔴 `npm run build` EXITS 1. The live site cannot be redeployed
+
+    The homepage snapshot is 15.8 days old and the limit is 14 days.
+
+`src/data/homepage-snapshot.json` carries `generatedAt`
+**2026-08-19T11:48:06Z** and has never been refreshed since it was created,
+so the guard began failing around 2 Sep. **The guard is correct and must not
+be weakened** - it exists so the homepage cannot state card counts from
+three weeks ago as if they were current.
+
+Refreshing it needs `SUPABASE_SERVICE_ROLE_KEY`, which is not in `.env`
+(only the publishable key is) and which nobody working on this holds. The
+"Homepage snapshot" job in `.github/workflows/prices-daily.yml` still exists
+and evidently has never refreshed the file. **This is an owner action:** set
+that repository secret, or run
+`node --experimental-strip-types scripts/homepage-snapshot.mjs` with the key
+set locally, and commit the result.
+
+## `lovable-tagger` is gone
+
+`npm run dev` died on `failed to load config from vite.config.ts`, because
+`lovable-tagger` imports `@babel/parser` and `node_modules` was broken in
+the same way that hid `tsc`. `npm install` repaired the tree; the plugin was
+REMOVED rather than repaired. It tags components for Lovable's visual
+editor, this project moved to Vercel on 29 Aug, and its import is top-level,
+so a dead integration took the entire dev server down.

@@ -64,9 +64,16 @@ console.log('finding a commander that earns each strategy ...');
 const commanders = (
   await page(
     'cards_pool?select=name,type_line,mana_cost,cmc,tags,facets,edhrec_rank,color_identity' +
-      '&commander_legal=eq.legal&type_line=like.*Legendary*Creature*&edhrec_rank=lte.3000'
+      /* NO RANK FILTER IN THE QUERY. Adding `edhrec_rank=lte.3000` alongside
+         the leading-wildcard type match changed the plan and page two came
+         back 57014, a statement timeout - the same trap CLAUDE.md records for
+         `role-coverage`. The type match already costs a scan; narrowing it
+         afterwards in JS costs nothing. */
+      '&commander_legal=eq.legal&type_line=like.*Legendary*Creature*'
   )
-).sort((a, b) => (a.edhrec_rank ?? 1e9) - (b.edhrec_rank ?? 1e9));
+)
+  .filter(c => typeof c.edhrec_rank === 'number' && c.edhrec_rank <= 3000)
+  .sort((a, b) => (a.edhrec_rank ?? 1e9) - (b.edhrec_rank ?? 1e9));
 
 /*
  * THE COMMANDER WHO WANTS THIS SHELL MOST, not the most played one who wants
@@ -154,10 +161,22 @@ for (const shell of shells) {
     tags: champ.tags ?? [],
   });
   const nonland = deck.filter(c => !/\bLand\b/i.test(String(c.type_line ?? '')));
-  const keyed = nonland.filter(c => {
-    const f = c.facets ?? facetsForCard(c).facets;
-    return planFit(plan, { facets: f }).fit >= 0.45;
-  }).length;
+  /*
+   * FACETS FROM THE POOL, because the response does not carry them.
+   *
+   * A response card holds id, name, type_line, cmc, tags, rank and the reason
+   * it was picked - no `facets` and no `oracle_text`. This read
+   * `c.facets ?? facetsForCard(c)`, and with neither present `facetsForCard`
+   * had nothing to compile, so almost every card scored a fit of zero. It
+   * reported the Aristocrats deck at "keyed 20%" - a deck holding eight
+   * sacrifice outlets, Blood Artist, Zulaport Cutthroat, Ayara and the
+   * Meathook Massacre for a commander paid when creatures die. The deck was
+   * right and the instrument was reading an empty card.
+   */
+  const poolFacets = await catalog.poolFacetsByName(nonland.map(c => c.name));
+  const keyed = nonland.filter(
+    c => planFit(plan, { facets: poolFacets.get(c.name) ?? [] }).fit >= 0.45
+  ).length;
 
   const ramp = deck.filter(c =>
     cardRole(

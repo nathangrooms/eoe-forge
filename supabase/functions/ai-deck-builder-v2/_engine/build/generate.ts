@@ -59,7 +59,7 @@ import { worksAgainstPlan } from '../knowledge/behaviour.ts';
    reaches this module, so re-testing it here would be a second opinion about
    something already decided. */
 import { withinIdentity } from '../advise/query.ts';
-import { planFit } from '../knowledge/behaviour.ts';
+import { planFit, packagesForCommander } from '../knowledge/behaviour.ts';
 import { TYPE_TAGS, LOW_INFORMATION_TAGS } from '../knowledge/tag-signal.ts';
 import { deriveDeckShape, roleCeilingFor, type DeckShape } from './shape.ts';
 import { normalizeIdentity } from '../advise/query.ts';
@@ -1223,7 +1223,7 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
    * serves no role or because the role it serves is full. The pass below is
    * that pass, and `COMMANDER_FIT_RESERVE` is the whole of what it may spend.
    */
-  const COMMANDER_FIT_RESERVE = 8;
+  const COMMANDER_FIT_RESERVE = 14;
 
 /**
  * Slots per package of the chosen shell(s).
@@ -1286,7 +1286,7 @@ const PACKAGE_MATCH = 0.6;
   const loudWants = commanderPlan.wants.filter(w => w.weight >= 0.7).length;
   const fitReserve =
     commanderPlan.wants.length > 0
-      ? Math.min(16, COMMANDER_FIT_RESERVE + Math.max(0, loudWants - 3))
+      ? Math.min(22, COMMANDER_FIT_RESERVE + Math.max(0, loudWants - 3))
       : 0;
   /*
    * THE ARCHETYPE'S PACKAGES NEED THEIR SLOTS HELD BACK TOO, and the first
@@ -1646,7 +1646,20 @@ const PACKAGE_MATCH = 0.6;
    * the shell's. A shell that names four blink spells and four things to blink
    * is saying those matter equally, and nothing else in the data disagrees.
    */
-  const shellPackages = archetypePlan?.packages ?? [];
+  /*
+   * THE SHELL'S PACKAGES AND THE COMMANDER'S OWN.
+   *
+   * A shell names its packages with card lists; the commander's come from
+   * pairing the loud wants its own record produced. Both are conjunctions with
+   * a slot count, which is the thing a weighted want list cannot express, and
+   * both compete for the same budget - so a commander with a shell gets the
+   * shell's jobs first and its own after, and a commander with no shell still
+   * gets a shopping list instead of a mood.
+   */
+  const shellPackages = [
+    ...(archetypePlan?.packages ?? []),
+    ...packagesForCommander(commanderPlan),
+  ];
   if (shellPackages.length > 0) {
     /*
      * Twelve, against 55-odd nonland slots. Enough that each of three packages
@@ -2193,7 +2206,19 @@ const PACKAGE_MATCH = 0.6;
    * 4. Basics, allocated by the pips the chosen spells actually ask for.
    * ---------------------------------------------------------------- */
 
-  const basicSlots = slots - picked.reduce((n, e) => n + e.quantity, 0);
+  /*
+   * NO BASICS EITHER, when the player asked for the spells only.
+   *
+   * The page's "Include manabase" toggle. Without this the deck still came
+   * back full of Islands, because this pass fills whatever the spell passes
+   * left in order to reach 99 - which is right for every other build and is
+   * the exact opposite of what was asked for here. A deck that cannot find 99
+   * spells now says so in `shortfalls` rather than quietly becoming a mana
+   * base, which is the same rule the rest of this file follows: report the
+   * shortfall, never invent a card to hide it.
+   */
+  const wantsManaBase = input.includeLands !== false;
+  const basicSlots = wantsManaBase ? slots - picked.reduce((n, e) => n + e.quantity, 0) : 0;
   const basicEntries = allocateBasics({
     identity,
     basics: input.basics,
@@ -2205,6 +2230,14 @@ const PACKAGE_MATCH = 0.6;
     ]).sourcesByColour,
   });
   picked.push(...basicEntries);
+  if (!wantsManaBase) {
+    const short = slots - picked.reduce((n, e) => n + e.quantity, 0);
+    if (short > 0) {
+      shortfalls.push(
+        `${short} slots left empty: you asked for the spells only and the pool ran out of them`
+      );
+    }
+  }
   // Basics are lands. Reporting the nonbasic count as the land count is how a
   // 36-land deck comes to say "27 of 35 lands" beside its own manabase.
   roleFill.land.picked += basicEntries.reduce((n, e) => n + e.quantity, 0);

@@ -3921,6 +3921,124 @@ const ARCHETYPE_SHARE = 0.6;
  * shell its own axis instead of merging it into his wants: see
  * {@link withArchetype}. Both changes were needed and neither was sufficient.
  */
+/**
+ * The commander's plan as a SHOPPING LIST, not a weighting.
+ *
+ * ## The gap this closes
+ *
+ * A plan is a flat list of weighted facets and `planFit` is a noisy-OR over
+ * it, so the plan can say *"this card is on theme"* and can never say *"I need
+ * six of these and I have two."* Only the ten generic roles carry counts.
+ *
+ * That mismatch is measurable and it is why nine job groups on the
+ * twenty-commander benchmark sat at zero while the compiler read every card in
+ * them perfectly well. Measured 3 Sep 2026: raising the commander reserve's
+ * budget from 8 to 20 and its per-want target from 10 to 16 - four
+ * combinations - moved jobs done not at all, 21 of 71 every time. The reserve
+ * was never the constraint.
+ *
+ * The constraint is that **the jobs are conjunctions and a want is one facet**.
+ * Kinnan, Bonder Prodigy's job is "creatures that tap for mana"; his plan wants
+ * `eff:add-mana` at 0.90, and a Signet satisfies that completely, so the want
+ * reads as served and the mana dorks never come. Same for Yuriko's "cheap
+ * evasive creatures", Animar's "big colourless creatures" and Chulane's "cheap
+ * creatures that make mana".
+ *
+ * ## What it does
+ *
+ * Pairs each loud DOING want with each loud SHAPE want and asks for a few
+ * cards that do both. `eff:add-mana` x `type:creature` is "creatures that make
+ * mana". `mv:cheap` x `eff:cant-be-blocked` is "cheap evasive creatures".
+ * Nothing is invented: both halves are already in the plan, put there by the
+ * same rules that read the commander, and this only says that a card doing
+ * BOTH is worth a slot in a way that a card doing either is not.
+ *
+ * It returns packages, so the existing package pass fills them: a package is
+ * already a conjunction with a slot count and a name, and reusing it means
+ * these compete for the same budget the shells do rather than adding a pass.
+ *
+ * ## Why the two lists are closed
+ *
+ * A SHAPE facet says what a card IS - its type, its size, its cost - and a
+ * DOING facet says what it does. Pairing two doing facets asks for a card that
+ * does two unrelated things, which is a much rarer card and usually the wrong
+ * one; pairing two shapes asks for nothing at all. The lists are short on
+ * purpose and each entry is a facet a plan can genuinely carry.
+ */
+const JOB_SHAPES: readonly Facet[] = [
+  'type:creature',
+  'type:instant',
+  'type:artifact',
+  'type:enchantment',
+  'mv:cheap',
+  'mv:big',
+  'pt:big',
+];
+
+/** A shape, as a player would name it. `describeWant` says "carry pt:big". */
+function jobShapeName(facet: Facet): string {
+  switch (facet) {
+    case 'type:creature': return 'creatures';
+    case 'type:instant': return 'instants';
+    case 'type:artifact': return 'artifacts';
+    case 'type:enchantment': return 'enchantments';
+    case 'mv:cheap': return 'cheap cards';
+    case 'mv:big': return 'expensive cards';
+    case 'pt:big': return 'big creatures';
+    default: return facet;
+  }
+}
+
+/** A doing facet is anything the plan can want that is not a shape or a tribe. */
+function isDoingWant(facet: Facet): boolean {
+  if (JOB_SHAPES.includes(facet)) return false;
+  return facet.startsWith('eff:') || facet.startsWith('trig:') || facet.startsWith('cost:');
+}
+
+export function packagesForCommander(plan: CommanderPlan): ArchetypePackagePlan[] {
+  /* Loud enough that the commander genuinely asked. Below this the pairings
+     multiply and start describing cards nobody would call the deck's plan. */
+  const LOUD = 0.6;
+  const doing = plan.wants.filter(w => w.weight >= LOUD && isDoingWant(w.facet)).slice(0, 4);
+  /*
+   * SHAPES ARE ADMITTED LOWER THAN DOING WANTS, at 0.4, and the reason is
+   * measured. Kinnan, Bonder Prodigy's plan carries `type:creature` at 0.50
+   * against `pt:big` at 0.75, because his own text is about the mana a
+   * permanent makes rather than about creatures; at a shared floor of 0.6 the
+   * only shapes left were `pt:big` and `mv:big`, so his packages came out as
+   * "big things that add mana" - a card that barely exists - and his real job,
+   * creatures that tap for mana, was never asked for.
+   *
+   * A shape is a weaker claim by nature: it says what a card IS, and almost
+   * every plan that mentions a type at all means it. The DOING half is what
+   * makes the pair specific, so that is where the bar belongs.
+   */
+  const shapes = plan.wants.filter(w => w.weight >= 0.4 && JOB_SHAPES.includes(w.facet)).slice(0, 3);
+  if (!doing.length || !shapes.length) return [];
+
+  const out: ArchetypePackagePlan[] = [];
+  for (const d of doing) {
+    for (const sh of shapes) {
+      out.push({
+        name: `${jobShapeName(sh.facet)} that ${describeWant(d.facet)}`,
+        /* Both at full weight: the point of the package is that BOTH must
+           hold, and `packageFit` is a weighted share, so an uneven pair would
+           let a card carrying only the heavier half clear the floor. */
+        wants: [
+          { facet: d.facet, weight: 1, because: d.because },
+          { facet: sh.facet, weight: 1, because: sh.because },
+        ],
+        read: 0,
+        /* An even split of whatever budget the caller gives the packages. The
+           shells' shares are exemplar counts and there are no exemplars here,
+           so the honest share is equal. */
+        share: 1 / (doing.length * shapes.length),
+      });
+    }
+  }
+  return out;
+}
+
 export function planForArchetype(
   input: ArchetypeInput,
   background?: FacetBackground | null

@@ -794,10 +794,29 @@ export class Catalog {
    * here: this does not know what the pool holds.
    */
   async combosFor(identity: readonly string[], limit = 400): Promise<ComboRow[]> {
-    const inside = `identity=cd.{${[...identity].map(c => c.toUpperCase()).join(',')}}`;
+    /*
+     * BY SUBSET KEY, not by array containment, and the difference is the whole
+     * query. `identity <@ '{R}'` cannot serve an ordered LIMIT: measured 3 Sep
+     * 2026 the planner walked the popularity index and threw away 5,875 rows
+     * to find 400, taking 3,328 ms against a 3 s statement timeout - so combos
+     * failed INSIDE a build, and a narrower identity was worse because it read
+     * further down for the same 400.
+     *
+     * `identity_key` is the colours as one sorted string, so the question
+     * becomes "any of the subsets of my identity", at most 32 of them, each an
+     * index range on (identity_key, popularity DESC). 3,328 ms -> 217 ms,
+     * buffers 6,287 -> 709.
+     */
+    const colours = [...new Set(identity.map(c => c.toUpperCase()))].sort();
+    const keys: string[] = [];
+    for (let mask = 0; mask < 1 << colours.length; mask++) {
+      keys.push(colours.filter((_, i) => mask & (1 << i)).join(''));
+    }
+    const list = keys.map(k => (k === '' ? '""' : k)).join(',');
     const rows = await this.fetchAll<ComboRow>(
       `combo_pool?select=id,popularity,card_count,bracket_tag,produces,oracle_ids,card_names,needs_commander` +
-        `&${inside}&order=popularity.desc.nullslast&limit=${limit}`
+        `&identity_key=in.${encodeURIComponent(`(${list})`)}` +
+        `&order=popularity.desc.nullslast&limit=${limit}`
     );
     return rows.slice(0, limit);
   }

@@ -3303,3 +3303,112 @@ decision and wants measuring first.
 3. **The yardstick is global.** 192 decks pooled together give ranges wide
    enough that only faults true of every commander show up. Per-strategy
    expectations need the decks bucketed by archetype first.
+
+---
+
+## 3 Sep 2026, later — the combos, and four controls that did nothing
+
+Owner: *"this card works, because the deck contains other cards that combo
+with it, including win condition combos, also important."* And: *"we dont use
+AI for any of the app, all the engine so the options shouldnt call llms it
+should use engine always."* And: *"the deck generator UI - there are a few
+additional options, do they actually do anything or are there filters we are
+missing?"*
+
+### Four of the generator's controls reached nothing
+
+Measured against the deployed function, not read off the page:
+
+    prioritizeSynergy   ZERO mentions in the whole edge function
+    includeLands        ZERO mentions
+    powerLevel          reached ONE place: the language model's prompt
+    customPrompt        the same
+
+The page's toggles read "Prioritise synergy - Weight cards that talk to the
+commander" and "Include manabase - Build the lands as well as the spells", and
+neither promise was kept. The power slider changed nothing about the deck at
+any setting, because the only thing downstream of it was a model whose gateway
+is out of credits.
+
+All three now reach the engine. `prioritizeSynergy` off drops the
+commander-fit weight to the ranker's own default. `includeLands` off sets the
+land target to zero AND stops `allocateBasics` padding to 99 with Islands -
+which is what it did before, so the toggle built a mana base either way. A
+pool that cannot find 99 spells reports a shortfall instead.
+
+### There is no language model in the deck generator
+
+Removed: `planFromShortlist` and its gateway call, `shortlistFor`, the second
+`generateDeck` that re-ran the build with the model's picks, the
+`DeckPlan`/`PlanInput` types, and the `LOVABLE_API_KEY` read in `index.ts`.
+
+What it did was re-rank the engine's own shortlist and it could only return
+oracle ids already on that list, so at its best it reordered the engine's
+answer. It had been dead in production for long enough that every request
+already fell through to the baseline deck.
+
+> ⚠️ **A `plan` reference survived in the response object and 3,337 TESTS DID
+> NOT SEE IT.** The function was deployed and answered every live request with
+> `ReferenceError: plan is not defined`. Every test under `src/engine`
+> exercises the pure engine; `build()` lives in `supabase/functions` and
+> nothing had ever called it. `src/engine/build/pipeline-smoke.test.ts` calls
+> it now against a fake catalogue. It asserts only that the thing returns and
+> carries the fields the client destructures - deck QUALITY is a claim about
+> 33,000 real cards and belongs in `scripts/probe/`.
+
+### The engine knows which cards combo
+
+`meta_combos` had held 61,130 commander-legal Commander Spellbook combos since
+19 August and **nothing had ever read them**. `public.combo_pool` aggregates
+them one row per combo with the pieces as an array - status OK, no templates,
+two to four cards - giving 56,240 rows indexed on colour identity.
+
+    catalog.combosFor(identity)   one containment test, top 400 by popularity
+    BuildInput.combos             the engine is pure, so the caller fetches
+
+The pieces go in as PREFERRED, which already means taken first, never cut by a
+review round, exempt from the role ceiling. A combo half is a dead card, so
+the unit has to survive every later pass, and that is exactly the treatment
+Sol Ring gets.
+
+**CHOSEN BY FIT, THEN POPULARITY.** Ordering on popularity alone gave Meren of
+Clan Nel Toth - a sacrifice commander - Sanguine Bond + Exquisite Blood,
+because that is the most played combo in black and green. Legal, wins the
+game, nothing to do with her, and both halves are blanks until both are drawn.
+
+    Meren     Cauldron of Essence + Warren Soultrader + Chatterfang
+    Krenko    Kiki-Jiki, Mirror Breaker + Zealous Conscripts
+    Talrand   Twinning Staff + Narset's Reversal
+
+**Gated on power**, which is what finally gives that slider something to do:
+below 7 the deck is built without one. Verified against the deployed function.
+
+### The plan is a shopping list now, and the obvious fix was wrong
+
+A plan is weighted facets and `planFit` is a noisy-OR, so it can say "this
+card is on theme" and never "I need six and I have two".
+
+**Raising the commander reserve's budget from 8 to 20 and its per-want target
+from 10 to 16, four combinations, moved jobs done NOT AT ALL** - 21 of 71
+every time. The reserve was never the constraint. The constraint is that the
+jobs are CONJUNCTIONS and a want is one facet: Kinnan's job is "creatures that
+tap for mana", his plan wants `eff:add-mana` at 0.90, and a Signet satisfies
+that completely.
+
+`packagesForCommander` pairs each loud DOING want with each SHAPE want and
+asks for cards that do both, returning packages so the existing package pass
+fills them. Shapes are admitted at 0.4 against 0.6 for doing wants, measured:
+Kinnan carries `type:creature` at 0.50 against `pt:big` at 0.75, so a shared
+floor gave him "big things that add mana" and never asked for his real job.
+
+**It moved shape and not jobs**, and the reason is worth keeping: the package
+pass runs after the quota loop, so where a job is already half-served the
+cards are taken and the package reports zero while the job is done. Reaching
+the genuinely empty jobs means running it earlier or reserving for it.
+
+### Where it stands
+
+    shape (200 role checks)   81/200 -> 142/200    41% -> 71%
+    twenty commanders         18/71 jobs -> 21/71, zero groups 28 -> 21
+    seven-deck roster         keyed 65%, staples 51/61
+    tests                     3,338 passing

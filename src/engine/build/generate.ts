@@ -1321,6 +1321,163 @@ const PACKAGE_MATCH = 0.6;
   const quotaSlots = Math.max(0, spellSlots - commanderReserve - packageBudget);
 
   const quota = { ...targets, land: 0, creature: 0 } as Record<Role, number>;
+  /*
+   * THE PACKAGES GO FIRST, BEFORE THE QUOTA LOOP.
+   *
+   * Their SLOTS were already held back - `quotaSlots` subtracts
+   * `packageBudget` - and the comment on that subtraction makes the argument
+   * this move completes: a reserved slot is only reserved if it is taken out
+   * of the budget before the loop that would otherwise spend it. The same is
+   * true of the CARDS. Running afterwards, the quota loop had already taken
+   * the very cards a package wanted, so a package reported "0 of 2" while
+   * the job was in fact done, and the reserved slots went to whatever was
+   * left over.
+   *
+   * Measured 3 Sep 2026 on the eighteen-strategy audit, with the pass
+   * running last: Control filled 2 of 12 and Blink 6 of 12.
+   *
+   * Most specific first is also right on its own terms. A package is a
+   * conjunction - "creatures that make mana" - the quota loop asks only for
+   * a role, and the commander reserve only for fit. Letting the broadest
+   * pass pick first is how the narrow ones end up with nothing left that
+   * satisfies them.
+   */
+  /*
+   * THE SHELL'S PACKAGES AND THE COMMANDER'S OWN.
+   *
+   * A shell names its packages with card lists; the commander's come from
+   * pairing the loud wants its own record produced. Both are conjunctions with
+   * a slot count, which is the thing a weighted want list cannot express, and
+   * both compete for the same budget - so a commander with a shell gets the
+   * shell's jobs first and its own after, and a commander with no shell still
+   * gets a shopping list instead of a mood.
+   */
+  const shellPackages = [
+    ...(archetypePlan?.packages ?? []),
+    ...packagesForCommander(commanderPlan),
+  ];
+  if (shellPackages.length > 0) {
+    /*
+     * Twelve, against 55-odd nonland slots. Enough that each of three packages
+     * gets four cards, which is what the shell itself names, and small enough
+     * that the role floors keep a working majority: a deck that is all theme
+     * loses to one that draws cards and removes things.
+     */
+    /* declared at module scope */
+    /*
+     * How much of a package a card has to do. The wants of a package are
+     * normalised, so 1.0 is a card carrying every facet the package's own
+     * exemplars agreed on, and the loudest single facet alone is usually
+     * around 0.55. Above that floor means the card does more than the one
+     * broad thing, which is exactly the conjunction this pass exists for.
+     */
+    /* declared at module scope */
+
+    const packageFit = (card: BuildCard, wants: readonly { facet: string; weight: number }[]) => {
+      const facets = card.facets;
+      if (!facets || facets.length === 0) return 0;
+      const has = new Set(facets as readonly string[]);
+      let hit = 0;
+      let total = 0;
+      for (const w of wants) {
+        total += w.weight;
+        if (has.has(w.facet)) hit += w.weight;
+      }
+      return total > 0 ? hit / total : 0;
+    };
+
+    const filledBy: string[] = [];
+    for (const pkg of shellPackages) {
+      const slots = Math.max(1, Math.round(packageBudget * pkg.share));
+      let taken = 0;
+      const tookNames: string[] = [];
+      /*
+       * Ordered by how much of the package the card does, then by how played it
+       * is. Within one package every candidate does the same job, so what
+       * separates them is how good a card it is — the same reasoning the
+       * commander reserve uses, and the reason a rank-10,744 card does not take
+       * a slot from a rank-12 one.
+       */
+      /*
+       * THE PACKAGE SAYS WHAT JOB. THE COMMANDER SAYS WHOSE DECK.
+       *
+       * Ordering by package fit alone put KRENKO, MOB BOSS in an Edgar Markov
+       * deck. Edgar is a Vampire commander whose whole card is "make a Vampire
+       * token whenever you cast a Vampire spell", he reads as the Tokens shell
+       * because he does make tokens, and the Tokens shell's "Token makers"
+       * package then took the two best token makers in the pool — both Goblins.
+       * Every step was locally correct and the deck was wrong.
+       *
+       * So the package's job stays PRIMARY and the commander breaks its ties.
+       * Between two cards that make tokens equally well, Edgar gets the Vampire
+       * that makes Vampires rather than the Goblin that makes Goblins; rank
+       * breaks what is left, so a card people actually play wins between two
+       * equal answers.
+       *
+       * ORDERING BY COMMANDER FIT FIRST WAS TRIED AND IS WRONG, measured: jobs
+       * done fell 12/24 to 10/24 and the groups a deck could not do at all rose
+       * 4 to 7. `planFit` is a noisy-OR and saturates, so a card matching a
+       * handful of the commander's wants scores 1.0 and beats the card that
+       * actually does the package's job. The whole reason this pass exists is
+       * to fill a job the quota loop cannot reach, and a card that half-does
+       * the job for a commander who loves it is still not doing the job.
+       */
+      const candidates = rankedSpells
+        .filter(rec => !takenOracleIds.has((rec.card as BuildCard).oracleId))
+        .map(rec => {
+          const card = rec.card as BuildCard;
+          const hit = fitOf(card);
+          return { rec, fit: packageFit(card, pkg.wants), commander: hit.fit };
+        })
+        .filter(entry => entry.fit >= PACKAGE_MATCH)
+        .sort(
+          (a, b) =>
+            b.fit - a.fit ||
+            ((a.rec.card as BuildCard).edhrecRank ?? Number.MAX_SAFE_INTEGER) -
+              ((b.rec.card as BuildCard).edhrecRank ?? Number.MAX_SAFE_INTEGER)
+        );
+
+      for (const { rec } of candidates) {
+        if (taken >= slots) break;
+        if (picked.length - chosenLands.length >= spellSlots) break;
+        const card = rec.card as BuildCard;
+        if (takenOracleIds.has(card.oracleId)) continue;
+        if (overColourlessCap(card)) continue;
+        /* Nothing that works against the commander's own plan, for the same
+           reason the commander reserve refuses it: this pass ignores `score`,
+           so the ranker's anti-synergy penalty cannot reach it. */
+        if (worksAgainstPlan(commanderPlan, card)) continue;
+        /* A package fills a JOB, and a job is not a licence to run a role past
+           what any real deck holds. Same rule as the reserve above. */
+        if (overRoleCeiling(card)) continue;
+        if (!hasColour(card)) colourlessPicked += 1;
+        takenOracleIds.add(card.oracleId);
+        taken += 1;
+        tookNames.push(card.name);
+        carriedStamp += 1;
+        picked.push({
+          card,
+          quantity: 1,
+          reason: rec.reason,
+          score: rec.score,
+          bucket: 'commander',
+          preferred: preferred.has(card.oracleId),
+        });
+        const filled = ROLES.find(role => role !== 'land' && quota[role] > 0 && rolesOf(card).has(role));
+        if (filled) {
+          quota[filled] -= 1;
+          roleFill[filled].picked += 1;
+        }
+      }
+      /* NAMED, not counted. "Sacrifice outlets 2/2" reads as a success and can
+         still be two cards nobody would call a sacrifice outlet; the names are
+         how that is caught without running a probe. */
+      filledBy.push(`${pkg.name} ${taken}/${slots}${tookNames.length ? ` (${tookNames.join(", ")})` : ""}`);
+    }
+    if (filledBy.length) {
+      notes.push(`${archetypePlan?.name} packages filled: ${filledBy.join(', ')}`);
+    }
+  }
   for (const rec of orderPreferredFirst(playedFirst(rankedSpells), preferred)) {
     if (picked.length - chosenLands.length >= quotaSlots) break;
     const card = rec.card as BuildCard;
@@ -1646,142 +1803,6 @@ const PACKAGE_MATCH = 0.6;
    * the shell's. A shell that names four blink spells and four things to blink
    * is saying those matter equally, and nothing else in the data disagrees.
    */
-  /*
-   * THE SHELL'S PACKAGES AND THE COMMANDER'S OWN.
-   *
-   * A shell names its packages with card lists; the commander's come from
-   * pairing the loud wants its own record produced. Both are conjunctions with
-   * a slot count, which is the thing a weighted want list cannot express, and
-   * both compete for the same budget - so a commander with a shell gets the
-   * shell's jobs first and its own after, and a commander with no shell still
-   * gets a shopping list instead of a mood.
-   */
-  const shellPackages = [
-    ...(archetypePlan?.packages ?? []),
-    ...packagesForCommander(commanderPlan),
-  ];
-  if (shellPackages.length > 0) {
-    /*
-     * Twelve, against 55-odd nonland slots. Enough that each of three packages
-     * gets four cards, which is what the shell itself names, and small enough
-     * that the role floors keep a working majority: a deck that is all theme
-     * loses to one that draws cards and removes things.
-     */
-    /* declared at module scope */
-    /*
-     * How much of a package a card has to do. The wants of a package are
-     * normalised, so 1.0 is a card carrying every facet the package's own
-     * exemplars agreed on, and the loudest single facet alone is usually
-     * around 0.55. Above that floor means the card does more than the one
-     * broad thing, which is exactly the conjunction this pass exists for.
-     */
-    /* declared at module scope */
-
-    const packageFit = (card: BuildCard, wants: readonly { facet: string; weight: number }[]) => {
-      const facets = card.facets;
-      if (!facets || facets.length === 0) return 0;
-      const has = new Set(facets as readonly string[]);
-      let hit = 0;
-      let total = 0;
-      for (const w of wants) {
-        total += w.weight;
-        if (has.has(w.facet)) hit += w.weight;
-      }
-      return total > 0 ? hit / total : 0;
-    };
-
-    const filledBy: string[] = [];
-    for (const pkg of shellPackages) {
-      const slots = Math.max(1, Math.round(packageBudget * pkg.share));
-      let taken = 0;
-      const tookNames: string[] = [];
-      /*
-       * Ordered by how much of the package the card does, then by how played it
-       * is. Within one package every candidate does the same job, so what
-       * separates them is how good a card it is — the same reasoning the
-       * commander reserve uses, and the reason a rank-10,744 card does not take
-       * a slot from a rank-12 one.
-       */
-      /*
-       * THE PACKAGE SAYS WHAT JOB. THE COMMANDER SAYS WHOSE DECK.
-       *
-       * Ordering by package fit alone put KRENKO, MOB BOSS in an Edgar Markov
-       * deck. Edgar is a Vampire commander whose whole card is "make a Vampire
-       * token whenever you cast a Vampire spell", he reads as the Tokens shell
-       * because he does make tokens, and the Tokens shell's "Token makers"
-       * package then took the two best token makers in the pool — both Goblins.
-       * Every step was locally correct and the deck was wrong.
-       *
-       * So the package's job stays PRIMARY and the commander breaks its ties.
-       * Between two cards that make tokens equally well, Edgar gets the Vampire
-       * that makes Vampires rather than the Goblin that makes Goblins; rank
-       * breaks what is left, so a card people actually play wins between two
-       * equal answers.
-       *
-       * ORDERING BY COMMANDER FIT FIRST WAS TRIED AND IS WRONG, measured: jobs
-       * done fell 12/24 to 10/24 and the groups a deck could not do at all rose
-       * 4 to 7. `planFit` is a noisy-OR and saturates, so a card matching a
-       * handful of the commander's wants scores 1.0 and beats the card that
-       * actually does the package's job. The whole reason this pass exists is
-       * to fill a job the quota loop cannot reach, and a card that half-does
-       * the job for a commander who loves it is still not doing the job.
-       */
-      const candidates = rankedSpells
-        .filter(rec => !takenOracleIds.has((rec.card as BuildCard).oracleId))
-        .map(rec => {
-          const card = rec.card as BuildCard;
-          const hit = fitOf(card);
-          return { rec, fit: packageFit(card, pkg.wants), commander: hit.fit };
-        })
-        .filter(entry => entry.fit >= PACKAGE_MATCH)
-        .sort(
-          (a, b) =>
-            b.fit - a.fit ||
-            ((a.rec.card as BuildCard).edhrecRank ?? Number.MAX_SAFE_INTEGER) -
-              ((b.rec.card as BuildCard).edhrecRank ?? Number.MAX_SAFE_INTEGER)
-        );
-
-      for (const { rec } of candidates) {
-        if (taken >= slots) break;
-        if (picked.length - chosenLands.length >= spellSlots) break;
-        const card = rec.card as BuildCard;
-        if (takenOracleIds.has(card.oracleId)) continue;
-        if (overColourlessCap(card)) continue;
-        /* Nothing that works against the commander's own plan, for the same
-           reason the commander reserve refuses it: this pass ignores `score`,
-           so the ranker's anti-synergy penalty cannot reach it. */
-        if (worksAgainstPlan(commanderPlan, card)) continue;
-        /* A package fills a JOB, and a job is not a licence to run a role past
-           what any real deck holds. Same rule as the reserve above. */
-        if (overRoleCeiling(card)) continue;
-        if (!hasColour(card)) colourlessPicked += 1;
-        takenOracleIds.add(card.oracleId);
-        taken += 1;
-        tookNames.push(card.name);
-        carriedStamp += 1;
-        picked.push({
-          card,
-          quantity: 1,
-          reason: rec.reason,
-          score: rec.score,
-          bucket: 'commander',
-          preferred: preferred.has(card.oracleId),
-        });
-        const filled = ROLES.find(role => role !== 'land' && quota[role] > 0 && rolesOf(card).has(role));
-        if (filled) {
-          quota[filled] -= 1;
-          roleFill[filled].picked += 1;
-        }
-      }
-      /* NAMED, not counted. "Sacrifice outlets 2/2" reads as a success and can
-         still be two cards nobody would call a sacrifice outlet; the names are
-         how that is caught without running a probe. */
-      filledBy.push(`${pkg.name} ${taken}/${slots}${tookNames.length ? ` (${tookNames.join(", ")})` : ""}`);
-    }
-    if (filledBy.length) {
-      notes.push(`${archetypePlan?.name} packages filled: ${filledBy.join(', ')}`);
-    }
-  }
 
   /* ---------------------------------------------------------------- *
    * 2a+. Roles the first pass left short, filled directly.

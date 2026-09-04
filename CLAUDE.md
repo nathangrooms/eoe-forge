@@ -4238,3 +4238,63 @@ minutes). Two things worth knowing:
   it records the request and returns; at or above 900 s it does the rebuild;
   BETWEEN THOSE IT RAISES. The MCP SQL session sits at 120 s, right in the gap,
   so `set local statement_timeout = '30s';` first and then call it.
+
+## `eff:neutralise`: Darksteel Mutation is removal and the engine knew nothing about it
+
+`engine_knowledge()` is the right place to start a work list, and the interesting
+row is not the blind one:
+
+    knows nothing about what it does          401   1.2%
+    knows what it LOOKS AT, not what it does  496   1.5%
+
+The second is worse than it sounds. A card with `cares:` words and no verb
+cannot be offered for ANY job, and the most played of them cluster hard:
+
+    Darksteel Mutation        582        Song of the Dryads      1,816
+    Kenrith's Transformation  726        Witness Protection      1,954
+    Imprisoned in the Moon    761        Lignify                 2,288
+
+Every one turns a permanent into something harmless without destroying it, which
+is REMOVAL. Worse, **Imprisoned in the Moon was reaching decks as RAMP** - turning
+a permanent into a land that taps for mana reads as `eff:add-mana` to anything
+looking only at the outcome, and it was in a Kinnan deck as a mana source.
+
+Tagger names it: `humble`, 136 cards, mapped to `cares:type:creature` alone.
+Fifteen of the sixteen most played are this shape. Now `eff:neutralise`, gated,
+and `ROLE_FACETS.removal` reads it so the word has a consumer the moment it
+lands.
+
+**Not folded into `eff:shrink`**, which removal already reads: two thirds of these
+set base power and toughness and the rest only strip abilities, so one word would
+have been a lie about a third of them.
+
+### Three vocabulary gaps in one day, all named by Tagger, none needing a version bump
+
+`eff:recur-self`, `eff:reduce-cost`'s plan rule, `eff:neutralise`. The pattern is
+now established well enough to state as a method:
+
+1. `engine_knowledge()` for the population, then the most PLAYED members of
+   `knowledge_band in ('nothing','looks-at-only')`.
+2. Read them and look for a shape rather than fixing cards.
+3. Ask whether Tagger already names it - the join needs a cast, because
+   `scryfall_card_tags.oracle_id` is TEXT and `cards_unique.oracle_id` is UUID.
+4. Read the tag's most played members before mapping. Not a sample of eight:
+   this file already records that eight samples make a reader systematically too
+   harsh.
+5. **Give the word a consumer in the same commit** - a role, a plan rule, or a
+   package - because a word with none is decoration, and this project has shipped
+   five of those.
+
+### What is waiting on a rebuild
+
+Both of today's tag corrections and `eff:neutralise` reach `cards_pool` only on
+the next `cards-unique-refresh`. The request is recorded, so the job will not
+skip. `eff:recur-self` already landed in the 12:00 run and Yawgmoth's recursion
+group went 0/4 to 2/4.
+
+### Still to apply, and it needs a supervised window
+
+`supabase/migrations/20260904130000_tag_merge_may_not_overwrite_precision.sql`.
+Verified by SELECT, not applied: DROP and CREATE of a materialized view takes
+`cards_pool` away for about eight minutes and the generator errors while it is
+gone. See the file's own header.

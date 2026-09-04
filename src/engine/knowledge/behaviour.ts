@@ -2783,6 +2783,80 @@ export const PLAN_RULES: readonly {
     ],
   },
   {
+    /*
+     * ITS OWN ARRIVAL DOES SOMETHING, SO THE DECK WANTS IT TO ARRIVE AGAIN.
+     *
+     * 448 legendary creatures carry `trig:enters-self`: Ghalta, Urza, Emry,
+     * Loran, Etali. The deck those cards want is one that can replay them, and
+     * blinking a commander is the cheapest way to do it because the commander
+     * is the one card the deck is guaranteed to have.
+     *
+     * This rule could not be written until the trigger was split. Bare
+     * `trig:enters` names two opposite decks - Ghalta triggering on herself and
+     * Tatyova triggering on a land - and it was refused twice for that reason
+     * before `readTriggerDirection` separated them.
+     */
+    when: 'trig:enters-self',
+    wants: [
+      { facet: 'eff:exile-own', weight: 0.8 },
+      { facet: 'eff:bounce-own', weight: 0.65 },
+      { facet: 'eff:return-from', weight: 0.5 },
+    ],
+  },
+  {
+    /*
+     * PAID WHEN SOMETHING ELSE ARRIVES, SO THE DECK WANTS MORE ARRIVALS.
+     *
+     * The other half of the split, 147 commanders: Purphoros, Elas il-Kor and
+     * Ayara are paid when a CREATURE arrives, Tatyova and Aesi when a LAND
+     * does. Both halves want the same thing said two ways - more permanents
+     * entering - so tokens and extra land drops serve the whole population
+     * rather than half of it.
+     */
+    when: 'trig:enters-other',
+    wants: [
+      { facet: 'eff:create-token', weight: 0.8 },
+      { facet: 'eff:extra-land-drop', weight: 0.5 },
+    ],
+  },
+  {
+    /*
+     * PAID WHEN YOU CAST, SO THE DECK WANTS TO CAST MORE.
+     *
+     * 156 commanders, Birgi, Sai, Talrand, K'rrik and Sythis among them. A
+     * commander whose trigger names a TYPE already gets `trig:cast:artifact` or
+     * `trig:cast:enchantment` and a better rule than this one; what is left
+     * here is "whenever you cast a spell", which wants cheap spells, more of
+     * them, and copies of the ones that matter.
+     *
+     * Weighted below the other three deliberately: this is the muddiest of the
+     * four populations, and a wrong want here spends slots a commander with a
+     * clearer plan would have spent better.
+     */
+    when: 'trig:cast-own',
+    wants: [
+      { facet: 'eff:copy', weight: 0.7 },
+      { facet: 'mv:cheap', weight: 0.6 },
+      { facet: 'eff:reduce-cost', weight: 0.5 },
+    ],
+  },
+  {
+    /*
+     * A TRIGGER AT THE BEGINNING OF COMBAT IS AN ATTACK TRIGGER SAID DIFFERENTLY.
+     *
+     * Xenagos, Zopandrel, Odric, Ardenn, Brudiclad: 113 commanders that do
+     * something as combat starts, which is worth nothing unless the deck then
+     * attacks. Same wants as `trig:attacks`, one step earlier in the turn.
+     */
+    when: 'trig:step:begin-combat',
+    wants: [
+      { facet: 'eff:extra-combat', weight: 0.8 },
+      { facet: 'grants:haste', weight: 0.65 },
+      { facet: 'grants:trample', weight: 0.6 },
+      { facet: 'grants:flying', weight: 0.55 },
+    ],
+  },
+  {
     when: 'trig:attacks',
     /*
      * A TRIGGER ON ATTACKING WANTS THE ATTACK TO HAPPEN, AND TO HAPPEN AGAIN.

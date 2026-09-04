@@ -947,6 +947,7 @@ function readAbility(ability: Ability, out: Set<Facet>): void {
          the spell is the whole of Feather and every heroic commander. */
       if (namesTargets(where)) out.add('trig:cast:targeting');
     }
+    readTriggerDirection(ability.event, out);
     readTriggerEvent(ability.event, out);
     readEffects(ability.effects, out, (ability as { targets?: readonly TargetSpec[] }).targets);
     for (const t of ability.targets ?? []) if (t.filter) readFilter(t.filter, out, 'cares');
@@ -1208,6 +1209,62 @@ function readActivationCost(costs: readonly Cost[] | undefined, out: Set<Facet>)
   }
   if (!sawMana && (costs ?? []).length === 0) return;
   out.add(`acost:${Math.min(mana, 3)}`);
+}
+
+/**
+ * WHOSE TRIGGER, AND WHICH STEP. Three words the record already held and the
+ * facet layer threw away.
+ *
+ * `scripts/probe/silent-facets.mjs` ranks the facets a commander carries that
+ * produce no want. After `trig:attacks` the next three rows were `trig:enters`
+ * (263 thin commanders), `trig:cast` (131) and `trig:step` (208), and every one
+ * of them was REFUSED as a plan rule for the same reason: the word names two
+ * opposite decks at once.
+ *
+ *   trig:enters   Ghalta triggers on ITSELF arriving, so the deck wants ways to
+ *                 blink it. Tatyova and Purphoros trigger on OTHER permanents
+ *                 arriving, so the deck wants lands and creatures instead.
+ *   trig:cast     Birgi and K'rrik are paid when YOU cast, which is a
+ *                 spellslinger deck. Lotho, Mangara, Kambal and Nezahal are
+ *                 paid when an OPPONENT casts, which is a stax deck.
+ *   trig:step     an upkeep trigger, an end step trigger and a beginning of
+ *                 combat trigger are three different cards.
+ *
+ * The DSL has carried the distinction all along - `{on:'cast', what, by}`,
+ * `{on:'enters', who}`, `{on:'step', step, whose}` - and only the flattening to
+ * one word lost it. This is the `effect.who` finding of 1 Sep 2026 repeated on
+ * triggers: a mandatory field, present on every emission, read by nothing.
+ *
+ * A SEPARATE WORD, NOT A QUALIFIER, for the reason `eff:exile-own` is one: a
+ * plan rule and a role check both ask whether ONE facet is present, so a
+ * `by:opponent` facet sitting beside `trig:cast` would change nothing because
+ * nothing would consult it.
+ *
+ * THE BASE FACET IS ALWAYS STILL EMITTED, so nothing that reads `trig:cast`
+ * today loses anything, and UNKNOWN STAYS UNKNOWN - an absent `by` adds no
+ * word rather than guessing "you". Guessing is what produced the 574 misfiled
+ * cards the `effect.who` split had to undo.
+ */
+function readTriggerDirection(
+  event: { on: string } & Record<string, unknown>,
+  out: Set<Facet>
+): void {
+  if (event.on === 'cast') {
+    const by = (event as { by?: { who?: string } }).by?.who;
+    if (by === 'each-opponent') out.add('trig:cast-opponent');
+    else if (by === 'you') out.add('trig:cast-own');
+    return;
+  }
+  if (event.on === 'enters') {
+    const who = (event as { who?: { sel?: string } }).who?.sel;
+    if (who === 'self') out.add('trig:enters-self');
+    else if (who) out.add('trig:enters-other');
+    return;
+  }
+  if (event.on === 'step') {
+    const step = (event as { step?: string }).step;
+    if (typeof step === 'string' && step) out.add(`trig:step:${step.replace(/_/g, '-')}`);
+  }
 }
 
 function readTriggerEvent(event: { on: string } & Record<string, unknown>, out: Set<Facet>): void {

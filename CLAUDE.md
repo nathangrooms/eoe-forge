@@ -5500,3 +5500,59 @@ payoffs"; Woe Strider and Cauldron Familiar for "creatures that come back after
 dying"; Consecrated Sphinx for Yuriko's high-cost cards. The two loose ones are
 Brotherhood Regalia counted as a cheap evasive CREATURE, and Great Train Heist
 as a protection trick.
+
+---
+
+## A blink deck was offered damage doublers instead of Panharmonicon (5 Sep 2026)
+
+Brago, King Eternal's job "doubling the arrival" needs ONE card and his deck held
+nothing. The plan DID ask for doublers - through the generic `eff:multiply` at
+0.5 - and about half that population doubles DAMAGE rather than triggers: Fiery
+Emancipation, Torbran, Gisela, Gratuitous Violence, plus a draw doubler in
+Alhammarret's Archive. A blink deck was being offered damage doublers at the same
+weight as the card it actually wanted.
+
+**Scryfall Tagger has had the precise word all along** and the map flattened it
+into the generic - the same shape as the `eff:add-counters-self` flattening found
+the same morning. Read the WHOLE `trigger-doubler` tag, 39 resolved cards:
+Panharmonicon, Roaming Throne, Yarok, Elesh Norn Mother of Machines, Teysa
+Karlov, Veyran, Delney, Naban, Harmonic Prodigy, Ancient Greenwarden, Wulfgar,
+Virtue of Knowledge. **39 of 39 correct, no damage doublers at all.**
+
+Two changes to the blink plan rule, both toward precision:
+
+    eff:multiply 0.5   ->  eff:multiply-triggers 0.7
+    trig:enters 0.75   ->  trig:enters-self 0.75
+
+The second because a blinker wants a creature whose OWN arrival does something;
+the base word is emitted alongside `trig:enters-other` too, which is Tatyova's
+"whenever a LAND enters" - a fine card a blink deck cannot use.
+
+    Brago   0 trigger doublers -> Roaming Throne (rank 132)
+
+### REFUSED, measured: `copy-ability` -> `eff:multiply-triggers`
+
+It would have CLOSED the benchmark row, because two of that job's four named
+examples are Strionic Resonator and Lithoform Engine. But half of that tag's 50
+cards copy ACTIVATED abilities rather than triggers - Rings of Brighthearth,
+Illusionist's Bracers, Battlemage's Bracers - about 50% precision against the 85%
+bar these role-affecting words are held to.
+
+So the benchmark still reads "doubling the arrival 0/1" on a deck that HOLDS
+Roaming Throne: only 2 of its 4 examples carry the word and a four-card group
+needs 3 to agree. **The deck does the job and the measure cannot see it.** Left
+alone rather than loosening the threshold for small groups, which would buy this
+one row and cost precision everywhere.
+
+### The two Animar zeroes are a known vocabulary limit, not a bug
+
+Animar holds SEVEN creatures at mana value 5+ and ZERO colourless ones, against a
+job asking for four. His whole card is "creature spells cost {1} less for each
+counter", which makes COLOURLESS creatures free because their entire cost is
+generic - and nothing in the facet vocabulary records that a card is colourless.
+The colourless CAP was checked and is not the cause: 17 of his 59 spells are
+colourless against a ceiling of about 29.
+
+This file already records the general form: *"a cost reducer's value depends on
+the deck and the role system is deck-independent"*, and *"the facet vocabulary
+does not record WHICH colour or type a reducer reduces"*.

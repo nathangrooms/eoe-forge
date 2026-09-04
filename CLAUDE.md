@@ -3689,6 +3689,13 @@ more counterspells"` gives 99 cards, no Sol Ring, no spell over 5, and says
 it could not act on "more counterspells". An explicit exclusion BEATS the
 named-staple pass, which is right when the player asked for it by name.
 
+## ~~🔴 `npm run build` EXITS 1. The live site cannot be redeployed~~ FIXED 4 Sep 2026
+
+> ✅ **Closed.** `npm run build` exits 0. The snapshot was regenerated and
+> `homepage-snapshot.mjs` no longer needs a service-role key: see "the service
+> role was never the reason" at the end of this file. The paragraphs below are
+> kept because the reasoning about the guard still holds; the alarm does not.
+
 ## 🔴 `npm run build` EXITS 1. The live site cannot be redeployed
 
     The homepage snapshot is 15.8 days old and the limit is 14 days.
@@ -4298,3 +4305,98 @@ group went 0/4 to 2/4.
 Verified by SELECT, not applied: DROP and CREATE of a materialized view takes
 `cards_pool` away for about eight minutes and the generator errors while it is
 gone. See the file's own header.
+
+## Rebuilding a materialized view on a live product: alongside, then swap
+
+`cards_pool` was rebuilt on 4 Sep 2026 with no outage. The migration file as
+originally written would have caused one, and the method matters more than the
+change did.
+
+**Never `drop` then `create` a matview the product reads.** The CREATE populates
+while holding ACCESS EXCLUSIVE on the name, so every reader blocks and then dies
+on its own `statement_timeout`. Build the replacement under a second name and
+swap:
+
+    create materialized view cards_pool_next as (...) WITH NO DATA;  -- instant
+    create the five indexes; grant select;                           -- instant
+    refresh materialized view cards_pool_next;                       -- populates
+    begin; drop cards_pool;
+           alter materialized view cards_pool_next rename to cards_pool;
+           alter index ... rename to ...   x5
+    commit;                                                          -- ms
+    analyze public.cards_pool;
+
+Everything before the `begin` is invisible to the product and undone by
+`drop materialized view cards_pool_next`.
+
+### Three things that were wrong in what this file used to say
+
+**THE EIGHT MINUTE FIGURE WAS WRONG.** `last_duration_ms` of 501,867 is
+`cards_unique` AND `cards_pool` refreshed CONCURRENTLY, which builds a temp
+table and diffs a live view. A PLAIN refresh of one matview finished inside a
+120 s session. The pg_cron route planned for the long step was never needed.
+
+**GRANTS DO NOT SURVIVE A DROP, AND NOTHING WOULD HAVE SAID SO.** `cards_pool`
+carries explicit grants to anon, authenticated and service_role. Recreated
+without them it is owner-only, and PostgREST returns permission denied for every
+generator request - silently, until somebody notices the product is broken.
+Measured: that ACL matches the default privilege for `postgres` creating a table
+in `public` EXACTLY, and an MCP SQL session IS `postgres`, so a new matview
+inherits them. Grant explicitly anyway, and COMPARE BOTH ACLs before swapping:
+
+    select relname, array_to_string(relacl, ' | ') from pg_class
+     where relname in ('cards_pool','cards_pool_next');
+
+**THE INDEX LIST WAS WRONG IN THREE OF FIVE WAYS.** The first draft guessed
+four, invented one on `name`, missed the GIN index on `color_identity` and the
+rank index entirely, and misnamed the band index. Each of those is a silently
+slower or broken pool query rather than an error. Copy them from `pg_indexes`.
+
+### What to verify BEFORE the swap, not after
+
+    rows            both sides equal
+    columns         name, ORDER and type - a reordered column silently breaks
+                    PostgREST callers that select by name
+    indexes         count and definition
+    grants          identical ACL
+    the change      the specific facets that were supposed to move, and the
+                    ones that were supposed to stay
+
+## `npm run build` passes again, and the service role was never the reason
+
+The homepage snapshot was 16 days stale, the guard was failing the build, and
+the file could not be refreshed without a service-role key. **It needed that key
+for ONE number**, and the other failure was a bug.
+
+`PRIVILEGED` gates exactly one thing: `count(*)` over `cards`, 98,048 rows
+against the 3 s cap the anon role carries. `SUPABASE_PRINTINGS_COUNT` supplies
+it when the service role is absent - validated as a positive integer rather than
+trusted, since a wrong count becomes a sentence on the homepage - and is ignored
+when CI has the real key.
+
+The second failure was `type_line: 'ilike.%Creature%'` in three places: a count
+over the 33,035 row `cards_unique` matview that returned HTTP 500 on anon. This
+file already measured that swap at **2,007 ms against 172 ms**, and Scryfall
+CASES its type lines so `like` matches identically. That was not a reason to
+need the service role, it was a bug wearing one's clothes.
+
+    src/data/homepage-snapshot.json   19 Aug -> 4 Sep, 225.5 kB
+    33,035 cards over 98,048 printings
+    npm run build                     exit 1 -> exit 0
+
+> **The guard was right the whole time and must stay.** It exists so the
+> homepage cannot state card counts from three weeks ago as if they were
+> current, and the fix was to make the snapshot refreshable rather than to
+> weaken the check.
+
+## Where the engine stands after the rebuild
+
+    the app knows what it does          97.3% -> 97.9%   32,350 cards
+    knows nothing about what it does      401 -> 324
+    knows what it looks at, not what it does  496 -> 361
+    eff:create-token                    2,863 -> 3,138
+    add-counters generic AND -self      1,161 -> 748
+
+    fourteen deployed decks   14/14, 82/94 staples
+    seven-deck roster         keyed 69%, staples 51/61
+    tests                     3,357 passing, tsc clean

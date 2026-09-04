@@ -126,6 +126,30 @@ for (const c of rows) {
     if (wantFacets.has(f)) continue;
     const from = derives.get(f);
     if (from && [...from].some(w => wantFacets.has(w))) continue;
+    /*
+     * A MORE SPECIFIC WORD FROM THE SAME CLAUSE COUNTS AS THIS ONE SPEAKING.
+     *
+     * `trig:enters` is emitted alongside `trig:enters-self`, and the rule sits
+     * on the specific word. Counting the base as silent put it near the top of
+     * this list with 146 commanders, every one of which already had a plan from
+     * the split - and a probe that ranks work by redundancy sends the next
+     * session to write a rule that changes nothing. `unclaimed-wants.mjs`
+     * records being wrong in exactly this way twice.
+     *
+     * Verified: ZERO commanders carry `trig:enters` without one of the split
+     * words, so the base is never the only thing said.
+     */
+    let refined = false;
+    for (const w of wantFacets) {
+      if (w !== f && (w.startsWith(`${f}-`) || w.startsWith(`${f}:`))) { refined = true; break; }
+    }
+    if (refined) continue;
+    let refinedBySource = false;
+    for (const [src, produced] of derives) {
+      if (src !== f && (src.startsWith(`${f}-`) || src.startsWith(`${f}:`)) && facets.includes(src)
+          && [...produced].some(w => wantFacets.has(w))) { refinedBySource = true; break; }
+    }
+    if (refinedBySource) continue;
     silentAll.set(f, (silentAll.get(f) ?? 0) + 1);
     if (isThin) silentThin.set(f, (silentThin.get(f) ?? 0) + 1);
   }

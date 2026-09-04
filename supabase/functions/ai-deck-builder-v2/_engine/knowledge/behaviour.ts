@@ -2857,6 +2857,33 @@ export const PLAN_RULES: readonly {
     ],
   },
   {
+    /*
+     * PAID WHEN THE DAMAGE CONNECTS, SO THE DECK WANTS IT TO CONNECT.
+     *
+     * 128 thin commanders, and the most played are uniform: Toski, Kutzil,
+     * Rankle, Grenzo, Grazilaxx, Nashi, Tinybones, Fynn, Ink-Eyes, Basim,
+     * Gimli, Edric. Every one is paid when a creature deals combat damage to a
+     * PLAYER, so every one is paid nothing at all if the creature is blocked.
+     *
+     * EVASION IS THE WANT, and it is a different want from `trig:attacks`:
+     * declaring an attack is free, landing the damage is not. Extra combats sit
+     * lower here than they do there for the same reason - a second combat with
+     * a blocked creature is a second nothing.
+     *
+     * `grants:unblockable` is on only 9 cards in the pool, which is why it is
+     * loudest and still barely moves a deck; menace and flying do the work.
+     */
+    when: 'trig:deals-damage',
+    wants: [
+      { facet: 'grants:unblockable', weight: 0.8 },
+      { facet: 'grants:menace', weight: 0.75 },
+      { facet: 'grants:flying', weight: 0.7 },
+      { facet: 'eff:extra-combat', weight: 0.6 },
+      { facet: 'grants:trample', weight: 0.55 },
+      { facet: 'grants:haste', weight: 0.5 },
+    ],
+  },
+  {
     when: 'trig:attacks',
     /*
      * A TRIGGER ON ATTACKING WANTS THE ATTACK TO HAPPEN, AND TO HAPPEN AGAIN.

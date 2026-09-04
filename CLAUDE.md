@@ -5108,3 +5108,94 @@ package reordering above then recovered a job and three unplayed cards anyway.
 > COMMANDER; `_vondam.mjs` scores against two real decks and measures the
 > ARCHETYPE. When they disagree, say which question each is asking before
 > picking a number.
+
+---
+
+## Every deck had no top end, and the benchmark was scoring overlap
+
+### `commander-bench` said it scored capability and checked a name list
+
+Its own header says it scores *"whether the deck can DO each job"* rather than
+overlap, *"because overlap rewards copying and punishes a different-but-correct
+card"*. The implementation checked a typed list of a dozen card NAMES, which is
+overlap at the group level, and it was wrong in the way overlap is always wrong:
+
+    Prosper, Tome-Bound    "impulse draw 0/8"      the deck held TEN cards
+                                                   carrying eff:impulse
+    Xenagos                "huge creatures 0/6"    it held six with pt:big
+
+A group is now ALSO scored by what its own examples AGREE on - the same move
+`planForArchetype` makes for a shell package, so nothing is typed. Both numbers
+print side by side and a job passes if either clears the floor, so it can only
+turn a false negative into a pass.
+
+    jobs done       19/71 -> 32/71        groups at zero   22 -> 17
+
+**THE DECKS DID NOT CHANGE. The old number was wrong, not the product.**
+
+Two guards, both measured, because the first version turned everything green -
+47/71 and 14 zeroes, which is not an improvement, it is an instrument that
+stopped discriminating:
+
+- the shared facets must be agreed by TWO THIRDS of the examples, and words most
+  of the pool carries (`type:creature` and friends) cannot define a job;
+- **a conjunction matching more than a FIFTH OF THE SPELLS is not a job.**
+  Measured against the whole deck at a quarter it let "Curiosity effects on Niv"
+  claim 21 cards including Urza's Command and Archmage of Runes - cards that
+  draw, which is all its examples agreed on, and lands in the denominator made
+  that pass. At 25% of the deck, "cheap cantrips that target your own creature"
+  claimed Wheel of Fortune.
+
+Read as a player at the shipped setting the rescues are right: Woe Strider and
+Cauldron Familiar for "creatures that come back after dying", Seedborn Muse and
+Teferi for "untappers that make infinite mana", Rancor for "things that come
+back after being sacrificed".
+
+### ALL TWENTY decks had no top end
+
+Measured with `scratch/_topsweep.mjs`: every one held fewer than four cards at
+mana value 6 or more, the median was ONE, and eight held NONE. Brago, Yuriko,
+Prosper, Feather, Chulane and Edgar Markov all came back with a deck whose most
+expensive spell cost five. Real decks run four at the tenth percentile and NINE
+at the median.
+
+Two faults, both inside machinery written to prevent exactly this.
+
+**THE BAND WAS SCALED TWICE.** `REAL_DECK_TOP_END` is measured over all 99 cards
+of 192 real decks, and every card at mana value 6+ is a SPELL, because a land's
+mana value is zero. `topEndTargetFor` multiplied it by `slots / 99`, turning the
+documented floor of four into TWO and the median of nine into five. The doc
+comment directly above says *"a commander who says nothing about size still gets
+four"* - the code contradicted its own stated intent.
+
+**THE PROTECTION COVERED THE INCREMENT, NOT THE FLOOR.** The loop marking
+top-end picks `preferred` - so the review rounds cannot swap them out for cheaper
+cards, a fault this file already records and fixed once - started at
+`beforeTopEnd` and covered only what THAT fill added. A deck already holding
+three of its four got ONE protected and three left fair game, and the later
+passes cut those three:
+
+    Brago   [topend] floor 4, have 3, after: 4      finished deck held ONE
+
+Which cards the fill happens to add is an accident of what came before it; the
+floor is a statement about the FINISHED deck. The protection walks the whole
+list now.
+
+    decks below the real top-end floor   20/20 -> 0/20
+      Kinnan    2 at mv6+ -> 9   (4 creatures)
+      Animar    2 -> 9           (8 creatures)
+      Xenagos   3 -> 8           (8 creatures, and his job is "huge creatures
+                                  worth doubling")
+
+    twenty commanders   jobs 32 -> 34, groups at zero 17 -> 14
+    deck shape          89% of role checks in range, unchanged
+    forty random        40/40 nothing flagged, keyed 73%, unchanged
+
+The cost, measured and small: shell cards held across the eighteen strategies
+40 -> 37, deployed staples 83 -> 82, cards past rank 15,000 on the fourteen
+deployed decks 6 -> 8.
+
+> **The lens that found it.** Not a probe - a job group at zero on three
+> different commanders that all named the same thing, "big creatures". Three
+> zero groups sharing a noun is a question about the deck, not about three
+> commanders.

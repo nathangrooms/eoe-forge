@@ -1,26 +1,26 @@
 {
   "cards": 33032,
   "withText": 32685,
-  "anyRecord": 26397,
-  "full": 11069,
+  "anyRecord": 26427,
+  "full": 11089,
   "coverage": {
-    "partial": 15328,
-    "full": 11069,
-    "manual": 6281,
+    "partial": 15338,
+    "full": 11089,
+    "manual": 6251,
     "none": 7
   },
-  "charsRead": 1857613,
+  "charsRead": 1864598,
   "charsTotal": 3334109,
   "charBuckets": {
-    "100%": 17356,
-    "75-99%": 619,
-    "50-74%": 1794,
-    "25-49%": 2566,
-    "1-24%": 4046,
-    "0%": 6281
+    "100%": 17394,
+    "75-99%": 624,
+    "50-74%": 1792,
+    "25-49%": 2563,
+    "1-24%": 4038,
+    "0%": 6251
   },
-  "unreadClauses": 20681,
-  "distinctShapes": 10237,
+  "unreadClauses": 20556,
+  "distinctShapes": 10196,
   "topShapes": [
     {
       "shape": "as an additional cost to cast this spell",
@@ -83,11 +83,6 @@
       "example": "Noggle Robber"
     },
     {
-      "shape": "choose one",
-      "cards": 82,
-      "example": "Academic Probation"
-    },
-    {
       "shape": "when you cast this spell",
       "cards": 78,
       "example": "Kozilek, the Broken Reality"
@@ -106,6 +101,11 @@
       "shape": "i",
       "cards": 65,
       "example": "Summon: Choco/Mog"
+    },
+    {
+      "shape": "choose one",
+      "cards": 65,
+      "example": "Academic Probation"
     },
     {
       "shape": "as this creature enters",
@@ -223,11 +223,6 @@
       "example": "Reassembling Skeleton"
     },
     {
-      "shape": "create a token that's a copy of target",
-      "cards": 36,
-      "example": "Rite of Replication"
-    },
-    {
       "shape": "if this creature was kicked",
       "cards": 36,
       "example": "Pixie Illusionist"
@@ -236,6 +231,11 @@
       "shape": "nightbound",
       "cards": 35,
       "example": "Infestation Expert // Infested Werewolf"
+    },
+    {
+      "shape": "create a token that's a copy of target",
+      "cards": 34,
+      "example": "Rite of Replication"
     },
     {
       "shape": "whenever this creature blocks or becomes blocked by",

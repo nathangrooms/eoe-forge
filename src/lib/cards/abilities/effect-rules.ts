@@ -1507,21 +1507,35 @@ export const EFFECT_RULES: EffectRule[] = [
     },
   },
   {
+    /*
+     * "CREATE THIRTEEN TAPPED 2/2 BLACK ZOMBIE CREATURE TOKENS" refused, because
+     * the count had to sit immediately against the power and toughness.
+     *
+     * `tapped` is a field the DSL has always carried on `create-token`, so
+     * reading it is exact rather than an approximation. Army of the Damned
+     * (rank 1,800) produced no token facet at all for want of one word.
+     *
+     * "tapped AND ATTACKING" is deliberately still refused: there is no
+     * `attacking` field, so emitting the tapped half alone would publish a
+     * token that arrives tapped and does not attack - a card that reads as done
+     * and plays wrong, which the shockland note in this repo argues is worse
+     * than leaving it manual.
+     */
     id: 'create-token',
     re: new RegExp(
-      `^(?:(${P}) )?creates? (${N}) ((?:\\d+|x)/(?:\\d+|x)) ([a-z ]+?) tokens?` +
+      `^(?:(${P}) )?creates? (${N}) (tapped )?((?:\\d+|x)/(?:\\d+|x)) ([a-z ]+?) tokens?` +
       '(?: with ([a-z, ]+))?$',
     ),
     build(m, ctx) {
       const who = playerOr(m[1], ctx);
       const count = countOf(m[2], ctx);
       if (!who || count === null) return null;
-      const [power, toughness] = m[3].split('/');
-      const keywords = m[5] ? parseKeywordList(m[5]) : null;
-      if (m[5] && !keywords) return null; // "with flying" yes, "with haste that attacks" no
-      const token = buildToken(power, toughness, m[4], keywords);
+      const [power, toughness] = m[4].split('/');
+      const keywords = m[6] ? parseKeywordList(m[6]) : null;
+      if (m[6] && !keywords) return null; // "with flying" yes, "with haste that attacks" no
+      const token = buildToken(power, toughness, m[5], keywords);
       if (!token) return null;
-      return [{ do: 'create-token', who, token, count }];
+      return [{ do: 'create-token', who, token, count, ...(m[3] ? { tapped: true } : {}) }];
     },
   },
   {

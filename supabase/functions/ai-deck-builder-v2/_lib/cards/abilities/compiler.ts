@@ -231,10 +231,34 @@ interface ModalRun {
  * an unparsed clause with extra steps, and is reported as one.
  */
 function readModal(paragraphs: readonly Paragraph[], i: number, build: AbilityBuild): ModalRun | null {
-  const head = paragraphs[i].norm.match(/^(.*?)choose (one|two|three|one or both|one or more|any number) -$/);
+  /*
+   * TWO WORDINGS, and the second one is the Commander "Will" cycle.
+   *
+   * The classic form ends the head with an em-dash: "Choose one -". The cycle
+   * printed in Commander 2021 writes a FULL STOP and then a sentence:
+   *
+   *   "Choose one. If you control a commander as you cast this spell, you may
+   *    choose both instead."
+   *
+   * Requiring the dash refused the whole card, so Jeska's Will (rank 104) and
+   * Akroma's Will (rank 189) compiled to NOTHING - no facets at all, on two
+   * cards in the top two hundred. 17 cards use this wording.
+   *
+   * The trailing sentence is kept out of the prefix deliberately: it is a
+   * condition on HOW MANY modes may be chosen, read just below, not an effect.
+   */
+  const head = paragraphs[i].norm.match(
+    /^(.*?)choose (one|two|three|one or both|one or more|any number)(?: -| ?\.(.*))?$/
+  );
   if (!head) return null;
   const spec = MODE_COUNTS[head[2]];
   if (!spec) return null;
+  /*
+   * "You may choose both instead" is always true in Commander - the condition
+   * is controlling a commander - so the ceiling is two rather than one. Read
+   * from the card rather than assumed, and only when the card says it.
+   */
+  const bothAllowed = /you may choose both/.test(head[3] ?? '');
 
   const modes: Array<{ text: string; effects: Effect[] }> = [];
   const rawParts: string[] = [paragraphs[i].raw];
@@ -250,7 +274,8 @@ function readModal(paragraphs: readonly Paragraph[], i: number, build: AbilityBu
   if (modes.length < 2) return null;
   if (!modes.some((m) => anyAutomated(m.effects))) return null;
 
-  const [min, max] = spec === 'all' ? [1, modes.length] : spec;
+  const [min, rawMax] = spec === 'all' ? [1, modes.length] : spec;
+  const max = bothAllowed ? Math.min(modes.length, Math.max(rawMax, 2)) : rawMax;
   return {
     prefix: head[1],
     effect: { do: 'choose-mode', min, max, modes },

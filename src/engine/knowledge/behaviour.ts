@@ -3904,8 +3904,37 @@ function describeFacet(facet: Facet): string {
   if (facet === 'eff:extra-land-drop') return 'plays extra lands';
   if (facet === 'eff:put-onto-battlefield') return 'cheats cards straight onto the battlefield';
   if (facet === 'eff:attach') return 'attaches things to creatures';
-  if (facet.startsWith('eff:')) return `uses ${facet.slice(4)}`;
-  return `carries ${facet}`;
+  /*
+   * THE TRIGGER WORDS. These reach a PLAYER, on the strategy card that says why
+   * a shell was picked, so they are sentences rather than facet names.
+   *
+   * Ghalta's card read "Ghalta, Stampede Tyrant carries trig:enters-self" in
+   * the live interface until these existed, which is exactly the jargon
+   * CLAUDE.md's copy rules forbid: engine vocabulary is not something a
+   * Commander player has ever seen.
+   */
+  if (facet === 'trig:enters-self') return 'does something the moment it arrives';
+  if (facet === 'trig:enters-other') return 'is paid whenever another permanent arrives';
+  if (facet === 'trig:enters') return 'is paid when permanents arrive';
+  if (facet === 'trig:cast-own') return 'is paid whenever you cast a spell';
+  if (facet === 'trig:cast-opponent') return 'is paid whenever an opponent casts a spell';
+  if (facet === 'trig:dies') return 'is paid when your creatures die';
+  if (facet === 'trig:attacks') return 'is paid when you attack';
+  if (facet === 'trig:deals-damage') return 'is paid when it deals damage';
+  if (facet === 'trig:step:begin-combat') return 'does something as combat begins';
+  if (facet === 'trig:step:end') return 'does something at the end of the turn';
+  if (facet === 'trig:step:upkeep') return 'does something at the start of your turn';
+  if (facet === 'trig:step:draw') return 'does something when you draw for the turn';
+  if (facet.startsWith('grants:')) return `gives your creatures ${facet.slice(7)}`;
+  if (facet.startsWith('eff:')) return `uses ${facet.slice(4).replace(/-/g, ' ')}`;
+  /*
+   * THE FALLBACK MAY NOT PRINT A FACET. A word with a prefix and a colon is an
+   * engine word, and this string is read by a player. Say the readable half and
+   * nothing else: "trig:step:postcombat-main" becomes "postcombat main", which
+   * is at worst vague where the old fallback was at best meaningless.
+   */
+  const plain = facet.slice(facet.lastIndexOf(':') + 1).replace(/-/g, ' ');
+  return `works with ${plain}`;
 }
 
 /* ------------------------------------------------------------------ *
@@ -4675,7 +4704,12 @@ function describeWant(facet: Facet): string {
   if (facet.startsWith('cares:type:')) return `are about ${facet.slice('cares:type:'.length)}s`;
   if (facet.startsWith('cares:sub:')) return `are about ${facet.slice('cares:sub:'.length)}s`;
   if (facet.startsWith('cares:zone:')) return `use the ${facet.slice('cares:zone:'.length)}`;
-  return `carry ${facet}`;
+  /* NEVER PRINT A FACET. This sentence lands in the build log a player reads,
+     and a word with a prefix and a colon is engine vocabulary. Say the readable
+     half: `cost:sacrifice-self` becomes "do sacrifice self", which is vague
+     where the raw word was meaningless. */
+  const plain = facet.slice(facet.lastIndexOf(':') + 1).replace(/-/g, ' ');
+  return `do ${plain}`;
 }
 
 /**
@@ -4704,6 +4738,21 @@ const TRIGGER_PHRASES: Readonly<Record<string, string>> = {
   'draws-card': 'trigger on a card being drawn',
   'gains-life': 'trigger on life being gained',
   'loses-life': 'trigger on life being lost',
+  /* The direction split. Same rule as the rest of this table: a phrase a
+     player would say, never the facet's own name. */
+  'enters-self': 'trigger when they arrive themselves',
+  'enters-other': 'trigger on something else arriving',
+  'cast-own': 'trigger when you cast a spell',
+  'cast-opponent': 'trigger when an opponent casts a spell',
+  'step:upkeep': 'trigger at the start of your turn',
+  'step:draw': 'trigger when you draw for the turn',
+  'step:precombat-main': 'trigger in your first main phase',
+  'step:begin-combat': 'trigger as combat begins',
+  'step:declare-attackers': 'trigger when attackers are declared',
+  'step:declare-blockers': 'trigger when blockers are declared',
+  'step:combat-damage': 'trigger when combat damage is dealt',
+  'step:postcombat-main': 'trigger in your second main phase',
+  'step:end': 'trigger at the end of the turn',
 };
 
 /**

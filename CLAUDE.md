@@ -5199,3 +5199,83 @@ deployed decks 6 -> 8.
 > different commanders that all named the same thing, "big creatures". Three
 > zero groups sharing a noun is a question about the deck, not about three
 > commanders.
+
+---
+
+## Compiler 20, and the swap that needs a VACUUM in the same session
+
+Two words the compiler tripped on, both found by the same method.
+
+    "Choose one."   the Commander "Will" cycle writes its modal head with a
+                    FULL STOP and a following sentence instead of the classic
+                    em-dash. The head regex required the dash, so the whole card
+                    was refused: JESKA'S WILL (rank 104) and AKROMA'S WILL (rank
+                    189) compiled to NOTHING. 17 cards use this wording.
+
+    "tapped"        "Create thirteen TAPPED 2/2 black Zombie creature tokens"
+                    refused because the count had to sit immediately against the
+                    power and toughness. `tapped` is a field the DSL has always
+                    carried on `create-token`, so reading it is exact.
+                    "tapped AND ATTACKING" is still refused - there is no
+                    `attacking` field and half of that fix is worse than none.
+
+    read the whole card   11,069 -> 11,090     unread clauses  20,681 -> 20,556
+    forty random          40/40 clean, keyed 73% -> 76%
+
+### VACUUM IMMEDIATELY AFTER A MATVIEW SWAP, NOT JUST ANALYZE
+
+A rebuilt materialized view has no visibility map, so every index-only scan
+falls back to the heap. `analyze` ran inside the swap statement and **was not
+enough**: the very next commander query - `cards_pool` filtered on
+`commander_legal` and walked by rank - returned **57014, a statement timeout**,
+against the 3 s cap the anon role carries.
+
+**That is the generator's own pool query.** Between the swap and the scheduled
+`cards-pool-vacuum` at 07:05, a real player's build would have failed. Three
+swaps were done today and this is the first time the timeout appeared, so it is
+a race rather than a certainty, which makes it worse rather than better.
+
+`vacuum (analyze) public.cards_pool;` as its OWN statement fixed it at once. It
+cannot be folded into the swap: VACUUM refuses to run inside a transaction block
+and a multi-statement command IS one.
+
+### How the compiler work was found, and the method is worth keeping
+
+`commander-bench` said Prosper could not do "impulse draw" AT ALL. The deck held
+TEN impulse cards. The real failure was that only **6 of the 13 canonical impulse
+cards** in the group carry the facet, so the group's examples could not agree on
+anything and the capability measure went silent.
+
+> **A job scoring zero on BOTH measures at once is a question about the
+> COMPILER, not the generator.** Zero by name and zero by capability means the
+> engine cannot see the archetype's own defining cards.
+
+Then, two population reads:
+
+- **`knowledge_band = 'nothing'` is spent.** Only 24 commander-legal cards are
+  in it and the most played is rank 1,052 - Platinum Angel, No Mercy, Paradox
+  Haze, Fist of Suns. All static or replacement effects, genuinely hard, and
+  worth little to deck building.
+- **`looks-at-only` is where the work is** - knows what a card LOOKS AT and not
+  what it DOES. Read as a player it showed two clusters: COPY SPELLS (Narset's
+  Reversal 728, Reverberate 1,406, Reiterate, Cackling Counterpart, Increasing
+  Vengeance, See Double, Clone Legion) and TOKEN MAKERS (Army of the Damned,
+  Storm Herd, Call the Coppercoats).
+
+The copy cluster is still open: "Copy target instant or sorcery spell" has no
+rule at all, and `Cackling Counterpart` is refused as `copy-layer`, which is a
+deliberate refusal rather than a gap.
+
+### The modal cluster, sized
+
+65 of the 4,000 most played cards are modal with at least one unread clause,
+53 after this change. The remainder are not one rule:
+
+- the SIEGE cycle ("As this enchantment enters, choose Khans or Dragons") has
+  bullets that are whole TRIGGERED ABILITIES rather than effect phrases, so the
+  modal reader's `compileEffectBody` cannot take them;
+- Pyroblast, Sheoldred's Edict and Mystic Confluence each fail on their own mode
+  bodies.
+
+CLAUDE.md's older note is right that each mode body is a different hard problem.
+What was NOT true is that the wrapper always worked - it did not for 17 cards.

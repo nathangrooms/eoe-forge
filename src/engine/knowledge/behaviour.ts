@@ -497,18 +497,48 @@ export const ROLE_FACETS: Readonly<Record<Role, readonly Facet[]>> = {
      in play every turn, which is what a player means by ramp. Derived from the
      `max-lands-per-turn` restriction, so only a card that actually grants one
      carries it. */
-  /* `eff:reduce-cost` and `eff:play-from-graveyard` join for the reason the
-     comment above gives `eff:extra-land-drop`: paying less and playing more
-     lands are both "this deck does more per turn than its mana says it should".
-     Ghalta at rank 461 and Crucible of Worlds at 597 could serve no role at all
-     before this. */
-  /* `eff:put-onto-battlefield` is Elvish Piper and Sneak Attack, and it sits
-     here for the reason `eff:reduce-cost` does: a permanent that arrives
-     without being paid for is the deck doing more per turn than its mana says
-     it should. */
+  /* `eff:play-from-graveyard` joins for the reason the comment above gives
+     `eff:extra-land-drop`: playing more lands and playing cards a second time
+     are both "this deck does more per turn than its mana says it should".
+     Crucible of Worlds at rank 597 could serve no role at all before this. */
+  /* `eff:put-onto-battlefield` is Elvish Piper and Sneak Attack: a permanent
+     that arrives without being paid for is the deck doing more per turn than
+     its mana says it should. */
+  /*
+   * `eff:reduce-cost` WAS HERE AND IS NOT ANY MORE. A COST REDUCER IS NOT A
+   * MANA SOURCE, and this is the SECOND DOOR of a decision already taken.
+   *
+   * On 3 Sep 2026 `cost-reduction` was removed from `ROLE_TAGS.ramp` because
+   * it claimed 156 cards as ramp of which 156 had no other ramp tag, and
+   * Animar came back with 29 ramp pieces including Dragonlord's Servant,
+   * Dragonspeaker Shaman and Goblin Warchief - reducers for tribes the deck
+   * does not play, which are blank cards. `eff:reduce-cost` had been added
+   * HERE the day before, so closing the tag door left the facet door open and
+   * nothing connected them. This file already records that trap for
+   * `eff:poison`: a role has TWO doors and closing one is not the fix.
+   *
+   * Measured 4 Sep 2026: 239 of the 241 cards carrying `eff:reduce-cost` have
+   * no other ramp facet, and a fresh Animar build came back with 21 ramp of
+   * which TEN were reducers - THE SAME THREE CARDS by name, plus Bontu's
+   * Monument and Oketra's Monument, which reduce black and white spells in a
+   * blue-red-green deck and are simply dead.
+   *
+   * The tempting narrower rule - keep the reducer when it is conditioned only
+   * on COLOUR, since the pool is already filtered by identity - does not hold
+   * either. Jet Medallion is a colourless artifact with an EMPTY colour
+   * identity, so it is legal in that same Animar deck and equally blank there,
+   * and the facet vocabulary does not record which colour or type a reducer
+   * reduces. Until it does, the honest answer is the one the tag door already
+   * reached: a cost reducer's value depends on the deck, the role system is
+   * deck-independent, so claiming it as ramp is wrong in general.
+   *
+   * It is still a real word and still reaches decks: `planFit` reads it
+   * through the commander's own plan, so a commander who genuinely wants
+   * cheaper spells still asks for these by name.
+   */
   ramp: [
     'eff:add-mana', 'cares:zone:library-land', 'eff:extra-land-drop',
-    'eff:reduce-cost', 'eff:play-from-graveyard', 'eff:put-onto-battlefield',
+    'eff:play-from-graveyard', 'eff:put-onto-battlefield',
   ],
   /*
    * Drawing a card, AND buying one back out of the graveyard, which is the same

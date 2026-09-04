@@ -483,7 +483,7 @@ export function parseObject(input: string): ObjectRef | null {
   // graveyard" (Teshar) and Lurrus's "permanent spell with mana value 2 or
   // less" both refused on the word "mana". Read BEFORE the keyword branch:
   // "mana value x or less" is all letters and would reach `parseKeywordList`.
-  const mvMatch = s.match(/ with (mana value .+)$/);
+  const mvMatch = s.match(/ with ((?:mana value|power|toughness) .+)$/);
   if (mvMatch) {
     const bound = parseManaValueBound(mvMatch[1]);
     if (!bound) return null;
@@ -499,6 +499,39 @@ export function parseObject(input: string): ObjectRef | null {
     s = s.slice(0, withMatch.index);
     const f = orF(...kws.map((k) => ({ is: 'keyword', value: k } as CardFilter)));
     extra.push(withMatch[1] === 'with' ? f : notF(f));
+  }
+
+  /*
+   * "ONE OR MORE CREATURES" IS A LOWER BOUND, and it used to refuse the phrase.
+   *
+   * Wizards writes a trigger's subject as "one or more" whenever the event can
+   * happen to several things at once, and the grammar read the count and then
+   * choked on the "or more". A null selector fails the whole rule, so the card
+   * compiled to nothing:
+   *
+   *   Garruk's Uprising          #90    "whenever a creature with power 4 or
+   *                                      greater enters"
+   *   Professional Face-Breaker  #209   "whenever one or more creatures you
+   *                                      control deal combat damage to a player"
+   *   Welcoming Vampire          #424   "whenever one or more other creatures
+   *                                      with power 2 or less enter"
+   *
+   * 166 of the 4,000 most played cards carry an unparsed trigger whose event
+   * contains " or ", and this is the largest group of them by some distance.
+   *
+   * The bound is read as the count and NOT marked `countBounded`, because that
+   * flag means "exactly this many and no more" - the thing that stops "two
+   * creatures you control" collapsing into every creature. A minimum is the
+   * opposite claim, so it must not borrow that flag. `each` is cleared for a
+   * plural minimum for the same reason a stated number clears it.
+   */
+  const atLeastMatch = s.match(new RegExp(`^(${NUM}) or more `));
+  if (atLeastMatch) {
+    const n = parseCount(atLeastMatch[1]);
+    if (n === null) return null;
+    count = n;
+    if (typeof n === 'number' && n > 1) each = false;
+    s = s.slice(atLeastMatch[0].length);
   }
 
   // Quantifier.
@@ -807,11 +840,33 @@ const LIFE_TOTALS: Array<[RegExp, PlayerSelector]> = [
  * is a bound on a SUM, which no filter on one card can say.
  */
 export function parseManaValueBound(input: string): CardFilter | null {
-  const m = input.trim().toLowerCase().match(/^mana value (.+?) or (less|greater)$/);
+  /*
+   * POWER AND TOUGHNESS TAKE THE SAME SHAPE AS MANA VALUE, and the DSL member
+   * has always covered all three: `{is:'power'|'toughness'|'mana-value'}`.
+   * Only this parser was narrower than the type it builds, so "creature with
+   * power 4 or greater" refused on the word "power" while "card with mana value
+   * 4 or greater" read fine.
+   *
+   * That refusal is expensive because it is usually a TRIGGER's subject, and a
+   * null selector fails the whole rule rather than dropping one clause:
+   *
+   *   Garruk's Uprising    #90    "whenever a creature with power 4 or greater
+   *                                enters, draw a card"
+   *   Welcoming Vampire   #424    "whenever one or more other creatures with
+   *                                power 2 or less enter"
+   *
+   * "power greater than its power" stays refused, as the note above says: that
+   * is a comparison against a computed value, not a bound.
+   */
+  const m = input
+    .trim()
+    .toLowerCase()
+    .match(/^(mana value|power|toughness) (.+?) or (less|greater)$/);
   if (!m) return null;
-  const value = parseValueExpr(m[1]);
+  const value = parseValueExpr(m[2]);
   if (value === null) return null;
-  return { is: 'mana-value', cmp: m[2] === 'less' ? 'lte' : 'gte', value };
+  const stat = m[1] === 'mana value' ? 'mana-value' : (m[1] as 'power' | 'toughness');
+  return { is: stat, cmp: m[3] === 'less' ? 'lte' : 'gte', value };
 }
 
 /**

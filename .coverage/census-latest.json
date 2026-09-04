@@ -1,30 +1,30 @@
 {
   "cards": 33032,
   "withText": 32685,
-  "anyRecord": 26341,
-  "full": 11003,
+  "anyRecord": 26397,
+  "full": 11069,
   "coverage": {
-    "partial": 15338,
-    "full": 11003,
-    "manual": 6337,
+    "partial": 15328,
+    "full": 11069,
+    "manual": 6281,
     "none": 7
   },
-  "charsRead": 1852498,
+  "charsRead": 1857613,
   "charsTotal": 3334109,
   "charBuckets": {
-    "100%": 17294,
-    "75-99%": 617,
-    "50-74%": 1792,
-    "25-49%": 2564,
-    "1-24%": 4058,
-    "0%": 6337
+    "100%": 17356,
+    "75-99%": 619,
+    "50-74%": 1794,
+    "25-49%": 2566,
+    "1-24%": 4046,
+    "0%": 6281
   },
-  "unreadClauses": 20776,
-  "distinctShapes": 10276,
+  "unreadClauses": 20681,
+  "distinctShapes": 10237,
   "topShapes": [
     {
       "shape": "as an additional cost to cast this spell",
-      "cards": 206,
+      "cards": 205,
       "example": "Wild Unraveling"
     },
     {
@@ -34,12 +34,12 @@
     },
     {
       "shape": "until end of turn",
-      "cards": 139,
+      "cards": 138,
       "example": "Humble"
     },
     {
       "shape": "ACTIVATED: draw a card",
-      "cards": 117,
+      "cards": 116,
       "example": "Conqueror's Galleon // Conqueror's Foothold"
     },
     {
@@ -73,11 +73,6 @@
       "example": "Coveted Falcon"
     },
     {
-      "shape": "choose one",
-      "cards": 88,
-      "example": "Academic Probation"
-    },
-    {
       "shape": "this spell can't be countered",
       "cards": 88,
       "example": "Fry"
@@ -86,6 +81,11 @@
       "shape": "ACTIVATED: add one mana of any color",
       "cards": 86,
       "example": "Noggle Robber"
+    },
+    {
+      "shape": "choose one",
+      "cards": 82,
+      "example": "Academic Probation"
     },
     {
       "shape": "when you cast this spell",

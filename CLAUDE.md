@@ -4183,3 +4183,58 @@ card above six mana in any of the three.
 
 Animar is in `generator-roster.mjs` now, as a standing failure with the whole
 chain in his entry, the way Syr Vondam is.
+
+## `eff:recur-self`: a creature that brings itself back is infinite fodder
+
+Three of the eighteen benchmark job groups at zero were ONE shape and no facet
+named it: Yawgmoth wants *"creatures that come back after dying, so Yawgmoth can
+sacrifice them again"* and *"a steady supply of bodies to feed the commander"*,
+Muldrotha wants recursion.
+
+Measured on the seven obvious cards, they share only `cares:zone:graveyard` and
+`type:creature`, which every graveyard card carries. Three of seven have
+`eff:return-from`; the rest recur through a CAST PERMISSION (Gravecrawler) or an
+ACTIVATED COST (Reassembling Skeleton), and the compiler reads neither as a
+self-return.
+
+**Scryfall Tagger already had the word.** `reanimate-self`, 273 cards, mapped to
+`cares:zone:graveyard` ALONE. The twenty most played are uniformly a permanent
+that brings itself back: unearth, escape, disturb, blitz, cast-from-graveyard,
+or an activated self-return. Now `eff:recur-self`, gated.
+
+Its own verb rather than a qualifier on `cast-from-graveyard`, for the reason
+`eff:exile-graveyard` is: a role check asks whether ONE facet is present, so a
+shared verb would make Gravecrawler and Karador the same card.
+
+**AND IT HAS A CONSUMER**, because a word without one is decoration.
+`cost:sacrifice` wants it at 0.8 and `trig:dies` at 0.75. Verified firing:
+Yawgmoth's plan asks for it as his third loudest want.
+
+### The tag catalogue is a place to look before writing a compiler rule
+
+Both of today's vocabulary fixes came from `scryfall_tags` rather than from the
+compiler, and neither needed a version bump, a refill or a reader move. When a
+job group sits at zero, check whether Tagger already names the shape:
+
+    select t.slug, count(distinct i.name) as on_these
+    from ids i
+    join public.scryfall_card_tags s on s.oracle_id::text = i.oid
+    join public.scryfall_tags t on t.tag_id = s.tag_id
+    group by t.slug, t.tag_id having count(distinct i.name) >= 3;
+
+`scryfall_card_tags.oracle_id` is TEXT and `cards_unique.oracle_id` is UUID, so
+that join needs a cast.
+
+### The refresh, and how to make it happen
+
+The tag merge is in the `cards_pool` VIEW, so a `tag_facet_map` change reaches
+the app only on the next `cards-unique-refresh` (06:00 and 12:00 UTC, about 8
+minutes). Two things worth knowing:
+
+- **The skip is `requested_at is null`.** A change to `tag_facet_map` does not
+  touch `cards.updated_at`, so the job WOULD skip it - except that a recorded
+  request defeats the skip and is cleared afterwards.
+- **`refresh_cards_unique` picks its branch on the CALLER's timeout.** Under 60 s
+  it records the request and returns; at or above 900 s it does the rebuild;
+  BETWEEN THOSE IT RAISES. The MCP SQL session sits at 120 s, right in the gap,
+  so `set local statement_timeout = '30s';` first and then call it.

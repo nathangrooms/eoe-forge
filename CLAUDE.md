@@ -5009,3 +5009,102 @@ Swept against the two human decks. `ARCHETYPE_SLOT_SHARE_CHOSEN = 0.45`:
 The forty-random-commander sweep is UNCHANGED at 40/40 clean and keyed 75%,
 which is the right outcome and worth stating: that sweep names no strategy, so
 this constant cannot reach it. A change that moved it would have been a bug.
+
+---
+
+## Nature's Lore was blocking Llanowar Elves, and the shape check was reading tags
+
+### `deck-shape-check` measured one side with facets and the other with tags
+
+It builds a deck and classifies it with `cardRole`, passing
+`facets: card.facets ?? []`. **A RESPONSE CARD CARRIES NO FACETS**, so that was
+always an empty array and `cardRole` fell through to the TAG door. The yardstick
+side, `real-deck-roles.mjs`, reads facets out of `cards_pool`. Two vocabularies,
+one subtraction, and the difference reported as a fault - the exact bug this
+file already records being fixed once: *"the ramp TAG has a median of 9 and the
+ramp ROLE has a median of 16."*
+
+    role checks inside the real range    154/200 (77%)  ->  177/200 (89%)
+
+**RAMP CAME OFF THE LIST ENTIRELY.** It was the worst row at eleven of twenty
+decks outside 11-21, and Prosper, Tome-Bound was reported at 43 against a real
+maximum of 31. Classified by ROLE the same deck holds 21, which is exactly the
+p90 ceiling working. I was one edit from loosening a ceiling that was correct.
+
+The new worst row is `tutor`, 9 decks at 3 against a real p90 of 2, and it is
+**not a fault**: all three are FETCH LANDS carrying `eff:search-library`. The 192
+real decks are precons and precons do not run fetches, so being above that band
+is being better than the yardstick. Not fixed by narrowing `cardRole` so a land
+serves no spell role - defensible, and both probes would move together, but
+`REAL_DECK_ROLES` feeds the engine's floors and ceilings, so the blast radius is
+every deck for a payoff of one cosmetic row.
+
+### THE ORDER OF THE PACKAGE PASSES, and a severe failure it hid
+
+Kinnan, Bonder Prodigy's entire card is *"whenever you tap a nonland permanent
+for mana, add one more"*. His deck held **three** creatures that tap for mana and
+not one was a mana dork.
+
+The package existed and asked for exactly the right thing. The build log reads:
+
+    Big mana Acceleration 10/10   Nature's Lore, Three Visits, Skyshroud Claim,
+                                  Wood Elves, Ranger's Path ...
+    creatures that add mana 0/2   nothing
+
+The shell's packages ran FIRST and its ramp SPELLS filled the ramp role to its
+p90 ceiling of 21; `overRoleCeiling` then refused every dork behind them. Every
+step was locally correct and the ORDER was the whole fault.
+
+**The commander's own packages pick first now.** This file already argues that
+the most specific pass must go first, because a broader one takes the cards a
+narrow one needs - it made that argument for packages against the quota loop and
+stopped one level short. A commander's package is a conjunction about THIS
+commander; a shell's is about a generic archetype eighteen commanders share.
+
+    Kinnan, creatures that tap for mana   3 -> 10
+      Birds of Paradise, Llanowar Elves, Arbor Elf, Heritage Druid, Fanatic of
+      Rhonas, Hulking Raptor ...
+
+**And PLAYED CARDS FIRST inside a package**, two sweeps, the same shape `fillTo`
+uses. Fit was the only key, which was tolerable while the shell picked first and
+left little behind it, and stopped being tolerable the moment the commander's
+packages began picking from a full pool: the reorder ALONE took cards past rank
+15,000 from 8 to 11. A rank tie-break was already there and did not help, because
+the cards being reached for do not TIE on fit, they win on it.
+
+    twenty commanders   jobs 18 -> 19, groups at zero 24 -> 22, past 15k 8 -> 6
+    fourteen deployed   past 15k 9 -> 6
+    eighteen strategies named 39 -> 40, Blink 2 -> 3
+    forty random        40/40 clean, keyed 73%
+
+### REFUSED, measured: a proportional budget for the commander's own packages
+
+The hypothesis was that the shell was starving them by BUDGET - it takes 45% of
+the spells when the player names it, while the commander's own packages stayed
+on a flat two per package. Neutral at 0.10 and 0.15 and worse at 0.20, because
+`2 * count` was already the larger of the two for these commanders. It was
+starving them by ORDER, not by budget.
+
+### The archetype share is a genuine trade-off, and here is the table
+
+Raising what a NAMED shell gets buys archetype fidelity and pays in the
+commander's own jobs. Measured across both yardsticks, monotonic, no knee:
+
+    chosen share   bench jobs   past 15k   Syr Vondam vs two human decks
+       0.35            21           5              23/92
+       0.38            21           5              23/92
+       0.40            19           7              27/92
+       0.42            19           7              27/92
+       0.45            18           8              31/92     <- shipped
+
+Groups at zero were FLAT at 24 across the whole sweep, so the share was never
+creating "cannot do it at all" failures, only moving jobs from just-met to
+just-short. 0.45 is shipped because the owner complained twice, specifically,
+that a named strategy was not honoured, and never about the job benchmark. The
+package reordering above then recovered a job and three unplayed cards anyway.
+
+> **Two yardsticks disagreeing is information, not a problem to tune away.**
+> `commander-bench` job lists are typed from knowledge and measure the
+> COMMANDER; `_vondam.mjs` scores against two real decks and measures the
+> ARCHETYPE. When they disagree, say which question each is asking before
+> picking a number.

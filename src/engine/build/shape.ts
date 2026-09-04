@@ -258,6 +258,56 @@ const WHEN_IT_MATTERS: Readonly<Partial<Record<Role, number>>> = {
  */
 const SEEN_CONFIDENCE = 0.5;
 
+/**
+ * WHAT A REAL COMMANDER DECK ACTUALLY HOLDS, per role.
+ *
+ * Measured 3 Sep 2026 over the 192 real Commander decklists in `meta_decks`
+ * (MTGJSON, MIT, already ingested) by running THIS FILE'S OWN `cardRole` over
+ * their cards, so both sides of every comparison are the same question asked
+ * the same way. Regenerate with `scripts/probe/real-deck-roles.mjs`, which
+ * writes `scripts/probe/real-deck-roles.json`; these numbers are that file,
+ * copied in because the engine is pure and may not read a database.
+ *
+ * IT IS EVIDENCE, NOT A TARGET. The floors above are still derived - how many
+ * copies does a 99-card deck need to have drawn one by the turn it matters -
+ * and that derivation is right about the SHAPE of the question. What it cannot
+ * know is that real decks decline to pay for the answer: the hypergeometric
+ * says four tutors and a real deck runs none, because a tutor you have not
+ * drawn costs nothing and a tutor slot costs a card. So the derived floor is
+ * clamped to what nine decks in ten actually hold, and the clamp is a fact
+ * about decks rather than a number somebody liked.
+ *
+ * Measured before the clamp existed, our twenty benchmark decks sat inside the
+ * real range on 81 of 200 role checks. `scripts/probe/deck-shape-check.mjs`.
+ */
+export const REAL_DECK_ROLES: Readonly<Record<Role, { p10: number; p50: number; p90: number; max: number }>> = {
+  ramp:        { p10: 11, p50: 16, p90: 21, max: 31 },
+  draw:        { p10: 11, p50: 17, p90: 24, max: 43 },
+  removal:     { p10: 9,  p50: 13, p90: 20, max: 33 },
+  interaction: { p10: 1,  p50: 4,  p90: 8,  max: 13 },
+  tutor:       { p10: 0,  p50: 0,  p90: 2,  max: 12 },
+  enhance:     { p10: 1,  p50: 5,  p90: 12, max: 32 },
+  protection:  { p10: 0,  p50: 1,  p90: 5,  max: 10 },
+  wincon:      { p10: 0,  p50: 0,  p90: 2,  max: 16 },
+  land:        { p10: 37, p50: 38, p90: 40, max: 44 },
+  creature:    { p10: 22, p50: 29, p90: 37, max: 45 },
+};
+
+/**
+ * The most of one role any deck should hold.
+ *
+ * The p90 of what real decks run, scaled to this deck's size, and it replaces
+ * a formula (`target * 2 + 4`) that let Prosper, Tome-Bound come back with 40
+ * ramp pieces against a real p90 of 21. A ceiling is an absurdity guard, so it
+ * sits at the top of normal rather than at the middle: a deck genuinely built
+ * on mana may run 21 and none should run 40.
+ */
+export function roleCeilingFor(role: Role, slots: number): number {
+  const band = REAL_DECK_ROLES[role];
+  if (!band) return slots;
+  return Math.max(1, Math.round((band.p90 * slots) / 99));
+}
+
 /** Cards in hand on the given turn, on the play: seven, then one a turn. */
 function cardsSeenBy(turn: number): number {
   return 7 + Math.max(0, turn - 1);
@@ -491,7 +541,16 @@ export function deriveDeckShape(input: ShapeInput): DeckShape {
     const turn = WHEN_IT_MATTERS[role];
     if (turn === undefined) continue;
     const seen = cardsSeenBy(turn);
-    const n = copiesToSeeOne(library, seen, SEEN_CONFIDENCE);
+    const derived = copiesToSeeOne(library, seen, SEEN_CONFIDENCE);
+    /* Clamped to what nine real decks in ten hold. The derivation answers "how
+       many to have drawn one by then" and real decks decline to pay that for
+       the narrow roles: it asks for four tutors and four win conditions where
+       the 192-deck median for both is ZERO. Measured before this clamp, tutor
+       was outside the real range on 12 of 20 benchmark decks and wincon on
+       11. The wide roles (ramp, draw, removal) are unaffected - their derived
+       floors already sit below p90 - so this only bites where the arithmetic
+       was asking for something no deck runs. */
+    const n = Math.min(derived, roleCeilingFor(role, library));
     roleFloors[role] = n;
     if (role === 'ramp') continue; // reported below, beside the magnitude half
     because.push(
@@ -773,7 +832,23 @@ function solveLandTarget(input: LandSolveInput): { lands: number; pct: number; s
    * pool so short of castable cards that another land keeps paying past the
    * point where the deck is no longer a deck.
    */
-  const ceiling = Math.min(input.slots, Math.max(input.floor, Math.floor(input.slots / 2)));
+  /*
+   * THE MOST LANDS ANY REAL DECK RUNS, scaled to this deck's size, and it was
+   * half the deck. Half is an arithmetic convenience and it is not an
+   * absurdity guard: Xenagos, God of Revels walked all the way to 49 lands in
+   * a 99-card deck and the note said "a bound rather than a best", which is
+   * true and is not a deck anybody would play. Four of the twenty benchmark
+   * commanders were over 44.
+   *
+   * 44 is the largest land count among 192 real Commander decks (p90 is 40).
+   * A deck whose castability is still climbing at 44 has a pool problem the
+   * mana base cannot fix, and buying the 45th land makes the deck worse in the
+   * way a player would notice first.
+   */
+  const ceiling = Math.min(
+    input.slots,
+    Math.max(input.floor, roleCeilingFor('land', input.slots), REAL_DECK_ROLES.land.max)
+  );
 
   let best = Math.max(0, input.floor);
   let bestPct = measure(best);

@@ -61,7 +61,7 @@ import { worksAgainstPlan } from '../knowledge/behaviour.ts';
 import { withinIdentity } from '../advise/query.ts';
 import { planFit } from '../knowledge/behaviour.ts';
 import { TYPE_TAGS, LOW_INFORMATION_TAGS } from '../knowledge/tag-signal.ts';
-import { deriveDeckShape, type DeckShape } from './shape.ts';
+import { deriveDeckShape, roleCeilingFor, type DeckShape } from './shape.ts';
 import { normalizeIdentity } from '../advise/query.ts';
 import {
   facetBackground,
@@ -873,22 +873,32 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
    * The commander's tribe is exempt: in an Elf deck the Elves are the deck,
    * and thirty of them tapping for mana is the plan rather than a flood.
    */
-  const roleCeiling = (role: Role) => (roleFill[role]?.target ?? 0) * 2 + 4;
+  /* THE P90 OF WHAT REAL DECKS HOLD, not twice our own target plus four. The
+     formula let a role whose target was already generous run to absurdity:
+     Prosper, Tome-Bound came back with 40 ramp pieces and Feather, the
+     Redeemed with 22 interaction, against real ninetieth percentiles of 21
+     and 8. `roleCeilingFor` is measured over 192 real decks. */
+  const roleCeiling = (role: Role) => roleCeilingFor(role, slots);
   const tribeFacet = commanderPlan.tribe ? `sub:${commanderPlan.tribe}` : null;
+  /* The cache key is a STAMP, not `picked.length`. The review rounds replace
+     a card in place - `picked[i] = ...` - so the length never moves and a
+     length-keyed cache keeps answering with the roles of a card that is no
+     longer in the deck. Every mutation bumps this. */
+  let carriedStamp = 0;
   let carriedAt = -1;
   const carried: Partial<Record<Role, number>> = {};
   const carriedCount = (role: Role): number => {
-    if (carriedAt !== picked.length) {
+    if (carriedAt !== carriedStamp) {
       for (const r of ROLES) carried[r] = 0;
       for (const e of picked) for (const r of rolesOf(e.card)) carried[r] = (carried[r] ?? 0) + 1;
-      carriedAt = picked.length;
+      carriedAt = carriedStamp;
     }
     return carried[role] ?? 0;
   };
-  const overRoleCeiling = (card: BuildCard): boolean => {
+  const overRoleCeiling = (card: BuildCard, exempt?: Role): boolean => {
     if (tribeFacet && (card.facets ?? []).includes(tribeFacet)) return false;
     for (const r of rolesOf(card)) {
-      if (r === 'land' || r === 'creature') continue;
+      if (r === 'land' || r === 'creature' || r === exempt) continue;
       if (carriedCount(r) >= roleCeiling(r)) return true;
     }
     return false;
@@ -977,6 +987,7 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
       .slice(0, count);
 
     for (const card of best) {
+      carriedStamp += 1;
       picked.push({
         card,
         quantity: 1,
@@ -1161,6 +1172,7 @@ const PACKAGE_MATCH = 0.6;
     quota[role] -= 1;
     roleFill[role].picked += 1;
     takenOracleIds.add(card.oracleId);
+    carriedStamp += 1;
     picked.push({
       card,
       quantity: 1,
@@ -1378,6 +1390,12 @@ const PACKAGE_MATCH = 0.6;
       if (!best) break;
 
       const card = best.rec.card as BuildCard;
+      /* A RESERVED SLOT MAY IGNORE THE QUOTA, NOT THE CEILING. Spending on
+         theme regardless of role is the whole point of this pass; running a
+         role past what any real deck holds is not. Prosper, Tome-Bound is
+         every Treasure maker on theme AND classified ramp, and came back with
+         47 ramp pieces against a real p90 of 21. */
+      if (overRoleCeiling(card)) { remaining.splice(remaining.indexOf(best), 1); continue; }
       if (!hasColour(card)) colourlessPicked += 1;
       takenOracleIds.add(card.oracleId);
       reserved += 1;
@@ -1388,6 +1406,7 @@ const PACKAGE_MATCH = 0.6;
       for (const f of card.facets ?? []) {
         if (wantWeightOf.has(f)) servedCount.set(f, (servedCount.get(f) ?? 0) + 1);
       }
+      carriedStamp += 1;
       picked.push({
         card,
         quantity: 1,
@@ -1558,10 +1577,14 @@ const PACKAGE_MATCH = 0.6;
            reason the commander reserve refuses it: this pass ignores `score`,
            so the ranker's anti-synergy penalty cannot reach it. */
         if (worksAgainstPlan(commanderPlan, card)) continue;
+        /* A package fills a JOB, and a job is not a licence to run a role past
+           what any real deck holds. Same rule as the reserve above. */
+        if (overRoleCeiling(card)) continue;
         if (!hasColour(card)) colourlessPicked += 1;
         takenOracleIds.add(card.oracleId);
         taken += 1;
         tookNames.push(card.name);
+        carriedStamp += 1;
         picked.push({
           card,
           quantity: 1,
@@ -1627,6 +1650,11 @@ const PACKAGE_MATCH = 0.6;
         if (takenOracleIds.has(candidate.oracleId)) continue;
         if (overColourlessCap(candidate)) continue;
         if (!rolesOf(candidate).has(role)) continue;
+        /* Filling a SHORT role must not overfill a FULL one. A card that
+           protects the commander and also makes mana is how a deck reaches
+           the protection floor and 32 ramp at the same time; the role being
+           filled is exempt because that is the point of this pass. */
+        if (overRoleCeiling(candidate, role)) continue;
         found = i;
         break;
       }
@@ -1638,6 +1666,7 @@ const PACKAGE_MATCH = 0.6;
       quota[role] -= 1;
       roleFill[role].picked += 1;
       takenOracleIds.add(card.oracleId);
+      carriedStamp += 1;
       picked.push({
         card,
         quantity: 1,
@@ -1708,10 +1737,15 @@ const PACKAGE_MATCH = 0.6;
       if (takenOracleIds.has(card.oracleId)) continue;
       if (!wanted(card)) continue;
       if (overColourlessCap(card)) continue;
+      /* The creature floor filling with mana dorks is how a deck reaches 35
+         ramp against a real ninetieth percentile of 21: a dork carries the
+         floor's role AND the role that is already full. */
+      if (!preferred.has(card.oracleId) && overRoleCeiling(card)) continue;
       takenOracleIds.add(card.oracleId);
       if (cardRole(card, 'creature')) creaturesPicked += 1;
       if (hasColour(card)) colouredPicked += 1;
       else colourlessPicked += 1;
+      carriedStamp += 1;
       picked.push({
         card,
         quantity: 1,
@@ -1919,6 +1953,7 @@ const PACKAGE_MATCH = 0.6;
         if (cardRole(card, 'creature')) creaturesPicked += 1;
         if (hasColour(card)) colouredPicked += 1;
         else colourlessPicked += 1;
+        carriedStamp += 1;
         picked.push({
           card,
           quantity: 1,
@@ -2191,6 +2226,10 @@ const PACKAGE_MATCH = 0.6;
           r => roleFill[r] && !inRoles.has(r) && roleFill[r].picked - 1 < roleFill[r].target
         );
         if (breaksAFloor) return false;
+        /* And never past a ceiling either. A swap is chosen on score, and the
+           highest-scoring card left is usually one more of whatever the deck
+           already has most of. */
+        if (overRoleCeiling(card)) return false;
         return keepsShape;
       });
       if (!replacement) continue;
@@ -2202,6 +2241,7 @@ const PACKAGE_MATCH = 0.6;
       if (!hasColour(inCard)) colourlessPicked += 1;
       for (const r of outRoles) if (roleFill[r]) roleFill[r].picked -= 1;
       for (const r of rolesOf(inCard)) if (roleFill[r]) roleFill[r].picked += 1;
+      carriedStamp += 1;
       picked[outIdx] = {
         card: inCard,
         quantity: 1,

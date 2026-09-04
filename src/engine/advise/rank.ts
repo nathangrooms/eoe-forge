@@ -153,6 +153,35 @@ function commanderFitWeight(options: RecommendOptions): number {
   return Math.min(asked, WEIGHTS.playability * 1.6);
 }
 
+/**
+ * The SHELL is worth less than the COMMANDER, because it is a guess.
+ *
+ * Both signals shared `commanderFitWeight` until 4 Sep 2026, which is 3.6 on an
+ * empty deck. The commander is CERTAIN - it is in the deck and its plan is what
+ * the deck does. The shell is INFERRED, one of eighteen picked by a cosine, and
+ * the same card could score both and reach 7.2 while the whole popularity term
+ * spans 2.4.
+ *
+ * That is the arithmetic behind a correct shell making a deck worse. Measured
+ * on Sythis, Harvest's Hand built with the Enchantress shell against the same
+ * build without it: the shell did its own job better, "other enchantresses"
+ * going 3 to 5, and the deck lost a benchmark job because the role gaps then
+ * filled with Charitable Levy (rank 7,032) and Altar of the Pantheon (6,181)
+ * while Commander's Sphere (51) and Garruk's Uprising (90) left. The
+ * popularity difference between rank 51 and rank 7,032 is about 1.17 and the
+ * shell was handing out up to 3.6.
+ *
+ * `ARCHETYPE_FIT_SHARE` is what a guess is worth against a certainty. It is
+ * still the largest single term after the role gap, so an on-theme card still
+ * beats an off-theme one of similar standing; what it can no longer do is beat
+ * a format staple by four points.
+ */
+const ARCHETYPE_FIT_SHARE = 0.6;
+
+function archetypeFitWeight(options: RecommendOptions): number {
+  return commanderFitWeight(options) * ARCHETYPE_FIT_SHARE;
+}
+
 function popularityWeight(options: RecommendOptions): number {
   const asked = options.popularityWeight;
   if (typeof asked !== 'number' || !Number.isFinite(asked) || asked < 0) {
@@ -490,7 +519,7 @@ export function scoreCandidate(
     const best = archFit.matched[0];
     signals.push({
       kind: 'archetype-fit',
-      score: commanderFitWeight(options) * archFit.fit,
+      score: archetypeFitWeight(options) * archFit.fit,
       detail:
         archFit.matched.length === 1
           ? best.because

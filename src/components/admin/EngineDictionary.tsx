@@ -213,6 +213,36 @@ const OUR_WORDS: Array<{ facet: string; means: string; why: string }> = [
     means: 'The tokens it makes and the counters it uses, by name.',
     why: 'Magic names Treasure and +1/+1 counters but has no vocabulary for "this card is about them", which is what a token or counters deck is built on.',
   },
+  {
+    facet: 'trig:enters-self',
+    means: 'It triggers on ITS OWN arrival. Ghalta, Urza, Emry, Loran.',
+    why: 'Magic calls this and "whenever another creature enters" the same trigger, and they are opposite decks: Ghalta wants ways to blink herself, Tatyova wants lands to keep arriving. One word could serve neither, so the plan for 4,425 cards had nothing to say.',
+  },
+  {
+    facet: 'trig:enters-other',
+    means: 'It triggers when something ELSE arrives. Tatyova, Purphoros, Aesi, Ayara.',
+    why: 'The other half of the same split. These decks want more permanents entering, which is tokens and extra land drops, not a way to flicker the commander.',
+  },
+  {
+    facet: 'trig:cast-own',
+    means: 'Paid when YOU cast a spell. Talrand, Birgi, Sai, K’rrik.',
+    why: 'A spellslinger deck.',
+  },
+  {
+    facet: 'trig:cast-opponent',
+    means: 'Paid when an OPPONENT casts a spell. Mangara, Kambal, Nezahal.',
+    why: 'A stax deck, and the exact opposite of the one above. Both used to say only "trig:cast", so neither could be planned for.',
+  },
+  {
+    facet: 'trig:step:begin-combat',
+    means: 'It happens as combat starts. Xenagos, Odric, Brudiclad.',
+    why: 'An upkeep trigger, an end step trigger and a beginning of combat trigger are three different cards, and the engine used to call all of them "trig:step". A beginning of combat trigger is worth nothing unless the deck then attacks.',
+  },
+  {
+    facet: 'grants:hexproof',
+    means: 'This card GIVES hexproof to something else, rather than having it.',
+    why: 'Darksteel Citadel has indestructible; Swiftfoot Boots grants it. A protection slot wants the second and the type line cannot tell them apart, which is why every creature that grants protection used to be refused the role.',
+  },
 ];
 
 const nf = new Intl.NumberFormat();

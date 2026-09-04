@@ -104,6 +104,47 @@ async function deckFor(entry) {
  */
 const exampleFacets = new Map();
 
+/*
+ * HOW COMMON EACH FACET IS IN THE POOL, fetched once.
+ *
+ * The specificity guard used to measure a conjunction's breadth against the
+ * DECK, and that punishes success: Muldrotha, the Gravetide holds TWELVE cards
+ * carrying `eff:mill` against a job asking for five, and the guard threw the
+ * conjunction away for matching a fifth of his spells. A deck built around a
+ * job looks exactly like a job that is too broad, from inside the deck.
+ *
+ * From the POOL the two separate cleanly. `eff:mill` is on about 3% of it and
+ * `eff:draw` - which is what the "Curiosity effects on Niv" examples agreed on,
+ * and which let that job claim Urza's Command - is on about 20%. That is the
+ * same lift-against-a-background idea `planForArchetype` uses, and it is the
+ * right axis.
+ */
+const poolFacetFrequency = new Map();
+let poolSize = 0;
+{
+  const REST = `${BASE}/rest/v1`;
+  const H = { apikey: K, Authorization: `Bearer ${K}` };
+  let from = 0;
+  for (let i = 0; i < 6; i++) {
+    const res = await fetch(
+      `${REST}/cards_pool?select=facets&commander_legal=eq.legal` +
+        `&edhrec_rank=gte.${from}&order=edhrec_rank.asc&limit=1000`,
+      { headers: H }
+    );
+    if (!res.ok) break;
+    const rows = await res.json();
+    if (!Array.isArray(rows) || !rows.length) break;
+    for (const r of rows) {
+      poolSize += 1;
+      for (const f of new Set(r.facets ?? [])) {
+        poolFacetFrequency.set(f, (poolFacetFrequency.get(f) ?? 0) + 1);
+      }
+    }
+    if (rows.length < 1000) break;
+    from += 1000;
+  }
+}
+
 /* Words too common to define a job. `type:creature` is on a third of the pool,
    so "creatures that do X" must be scored on the X. */
 const TOO_COMMON = new Set([
@@ -130,6 +171,25 @@ function groupCapability(group, deckFacets, spells) {
     for (const f of new Set(facets)) {
       if (TOO_COMMON.has(f)) continue;
       if (f.startsWith('rec:')) continue;
+      /*
+       * REFUSED, MEASURED: excluding `sub:` and `cares:sub:` from the
+       * conjunction.
+       *
+       * The reasoning looked sound. "big colourless creatures that cost nothing
+       * once Animar is large" is exemplified by eleven cards that all happen to
+       * be ELDRAZI, so the derived conjunction is `mv:big pt:big sub:eldrazi`
+       * and demands a deck card be an Eldrazi, which the job text never asks
+       * for. Tribal jobs are scored by `typeMatch` anyway.
+       *
+       * It did NOT fix the target - "big colourless creatures" stayed at zero -
+       * and it broke Chulane's "cheap creatures that make mana", which went
+       * from 1 of 6 to ZERO. Jobs 35 -> 36, groups at zero 9 -> 10, and groups
+       * at zero is the number that matters.
+       *
+       * The over-narrow case is real and still unsolved. It cannot be DETECTED
+       * the way the over-broad case can, because an over-narrow conjunction
+       * matches nothing and that is indistinguishable from the deck failing.
+       */
       count.set(f, (count.get(f) ?? 0) + 1);
     }
   }
@@ -184,8 +244,28 @@ function groupCapability(group, deckFacets, spells) {
    * of the whole deck included "cheap cantrips that target your own creature"
    * claiming Wheel of Fortune.
    */
-  const spellCount = spells || 1;
-  if (out.length > spellCount * 0.2) return null;
+  /*
+   * THE CONJUNCTION MUST NAME SOMETHING RARE. Its breadth is bounded by its
+   * RAREST facet, so one facet on a tenth of the pool or less is enough to make
+   * the whole conjunction specific.
+   *
+   * Measured against the DECK this guard punished success - see the note on
+   * `poolFacetFrequency`. Against the POOL it separates the two cases it has to:
+   * `eff:mill` is on about 3% and `eff:draw` on about 20%, and it was `eff:draw`
+   * alone that let "Curiosity effects on Niv" claim Urza's Command and Archmage
+   * of Runes.
+   *
+   * When the pool fetch failed there is no frequency to read, and the guard
+   * falls back to the old deck-share test rather than passing everything.
+   */
+  if (poolSize > 0) {
+    const rarest = Math.min(
+      ...shared.map(f => (poolFacetFrequency.get(f) ?? 0) / poolSize)
+    );
+    if (rarest > 0.1) return null;
+  } else if (out.length > (spells || 1) * 0.2) {
+    return null;
+  }
   return out;
 }
 

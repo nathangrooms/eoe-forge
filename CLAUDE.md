@@ -5279,3 +5279,50 @@ deliberate refusal rather than a gap.
 
 CLAUDE.md's older note is right that each mode body is a different hard problem.
 What was NOT true is that the wrapper always worked - it did not for 17 cards.
+
+---
+
+## The copy-spell tag mapped the "looks at" word and never the verb (5 Sep 2026)
+
+Eight of the nine best-known copy spells sat in `knowledge_band =
+'looks-at-only'` with NO VERB AT ALL: Narset's Reversal (728), Reverberate
+(1,406), Reiterate, Increasing Vengeance, See Double, Clone Legion, Twincast,
+Fork. They carried `cares:type:instant`, `cares:type:sorcery` and
+`cares:zone:stack`, so the engine knew what they LOOKED AT and not what they DID,
+and no role or plan rule could reach them.
+
+**The DSL has no `copy` effect member**, so the oracle-text compiler cannot
+produce one and the tag is the only source. The `clone` tag has mapped to
+`eff:copy` for clone CREATURES all along; `copy-spell` is the spell half of the
+same idea and got only the zone word.
+
+    eff:copy in the pool          468 -> 585 cards
+    knows what it LOOKS AT only   361 -> 345
+    eighteen strategies           shell cards held 37 -> 40
+    Talrand + Spellslinger        12 copy cards
+
+No compiler bump: the merge lives in the `cards_pool` view, so a
+`tag_facet_map` change reaches the app on a refresh - followed by
+`vacuum (analyze)` as its own statement.
+
+### The method that found it, now three for three
+
+1. `knowledge_band = 'nothing'` is SPENT. Only 24 commander-legal cards are in
+   it and the most played is rank 1,052 - Platinum Angel, No Mercy, Paradox
+   Haze, Fist of Suns. Static and replacement effects, genuinely hard, and worth
+   little to deck building.
+2. **`looks-at-only` is where the work is.** Read its most played members as a
+   player and look for a SHAPE. It gave `eff:neutralise` on 4 Sep and the copy
+   cluster today.
+3. Ask whether the Tagger already names the shape before writing a compiler
+   rule. Three of the last four vocabulary gains needed no version bump at all.
+4. Read the whole tag, not eight samples - 24 of 24 correct here, which is what
+   justified `gated`.
+5. Give the word a consumer in the same commit. `eff:copy` had TWO and no
+   producer for these cards, the fifth instance of that shape.
+
+> ⚠️ **`scryfall_card_tags.oracle_id` is UUID now, not TEXT.** CLAUDE.md said the
+> join needs `oracle_id::text = cards_unique.oracle_id` and that is stale - both
+> sides are UUID and the cast belongs on the `scryfall_card_tags` side, or on
+> neither. Two queries failed on `operator does not exist: uuid = text` before
+> this was noticed.

@@ -97,6 +97,36 @@ const URL_BASE = process.env.SUPABASE_URL?.replace(/\/+$/, '');
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 const PRIVILEGED = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
 
+/*
+ * THE ONE NUMBER THE ANON ROLE CANNOT COUNT, supplied directly.
+ *
+ * `PRIVILEGED` gates exactly one thing: `count(PRINTINGS)`, a `count(*)` over
+ * `cards`, which is 98,048 rows and measured 7.6 s against the 3 s cap the anon
+ * role carries. Everything else in this file works perfectly with the
+ * publishable key.
+ *
+ * So the service role was never needed for the SNAPSHOT, only for that count,
+ * and requiring it made the whole file unrunnable by anyone without repository
+ * secrets. That is why `src/data/homepage-snapshot.json` went unrefreshed from
+ * 19 Aug 2026 until the staleness guard began failing the build on 2 Sep.
+ *
+ * `SUPABASE_PRINTINGS_COUNT` lets a caller who can count it another way - the
+ * SQL editor, psql, an admin session - hand the number in. It is used ONLY when
+ * the service role is absent, so CI is unaffected, and it is validated as a
+ * positive integer rather than trusted, because a wrong count here becomes a
+ * sentence on the homepage.
+ */
+const SUPPLIED_PRINTINGS = (() => {
+  const raw = process.env.SUPABASE_PRINTINGS_COUNT;
+  if (raw === undefined || raw === '') return null;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n <= 0) {
+    warn(`SUPABASE_PRINTINGS_COUNT is "${raw}", which is not a positive whole number. Ignoring it.`);
+    return null;
+  }
+  return n;
+})();
+
 function scrub(text) {
   let out = String(text);
   if (KEY) out = out.split(KEY).join('[service role key redacted]');
@@ -424,11 +454,23 @@ async function counts() {
 
   const [cards, printings, legendaryCreatures, mythics] = await Promise.all([
     count(UNIQUE),
-    PRIVILEGED ? count(PRINTINGS).catch(() => null) : Promise.resolve(null),
-    count(UNIQUE, { is_legendary: 'eq.true', type_line: 'ilike.%Creature%' }),
+    PRIVILEGED ? count(PRINTINGS).catch(() => null) : Promise.resolve(SUPPLIED_PRINTINGS),
+    /* `like`, NOT `ilike`. Scryfall CASES its type lines, so `%Creature%`
+       matches exactly what `ilike` would, and CLAUDE.md measures the same swap
+       on a matview scan at 2,007 ms against 172 ms. This count is over
+       `cards_unique`, a materialized view of 33,035 rows, and with `ilike` it
+       exceeded the 3 s cap the anon role carries and returned HTTP 500 - which
+       is the second reason this file could not be run without a service role
+       key, and it is not a reason, it is a bug. */
+    count(UNIQUE, { is_legendary: 'eq.true', type_line: 'like.%Creature%' }),
     count(UNIQUE, { rarity: 'eq.mythic' }),
   ]);
-  if (printings === null) warn('No printings total: it needs the service role. Stored as null, not guessed.');
+  if (printings === null) {
+    warn('No printings total: it needs the service role, or SUPABASE_PRINTINGS_COUNT.');
+    warn('Stored as null, not guessed.');
+  } else if (!PRIVILEGED) {
+    say(`Printings total ${printings} supplied by SUPABASE_PRINTINGS_COUNT.`);
+  }
 
   const formatLegal = {};
   for (const f of FORMATS) {
@@ -517,7 +559,7 @@ async function storage() {
       select: COL_STORAGE,
       is_legendary: 'eq.true',
       rarity: 'eq.mythic',
-      type_line: 'ilike.%Creature%',
+      type_line: 'like.%Creature%',
       image_uris: 'not.is.null',
       limit: '150',
     }),
@@ -611,7 +653,7 @@ async function newSets() {
     select: COL_NEW_SET_COMMANDERS,
     set_code: `in.(${FEATURED_SETS.map(s => s.code).join(',')})`,
     is_legendary: 'eq.true',
-    type_line: 'ilike.%Creature%',
+    type_line: 'like.%Creature%',
     image_uris: 'not.is.null',
     limit: '60',
   });
@@ -860,9 +902,12 @@ async function tutor() {
 
 async function generate() {
   if (!URL_BASE || !KEY) {
-    warn('Missing SUPABASE_URL and/or SUPABASE_SERVICE_ROLE_KEY.');
+    warn('Missing SUPABASE_URL, and/or both SUPABASE_SERVICE_ROLE_KEY and SUPABASE_ANON_KEY.');
     warn('Set them as GitHub repository secrets: Settings, Secrets and variables, Actions.');
-    warn('The service role is required: the printings count takes 7.6 s and the anon role is capped at 3 s.');
+    warn('EITHER key works. The service role is needed for ONE number, the printings');
+    warn('count, which is a count(*) over 98,048 rows against a 3 s cap on anon. With');
+    warn('the publishable key, pass SUPABASE_PRINTINGS_COUNT=<n> to supply it, or leave');
+    warn('it out and the snapshot stores null rather than guessing.');
     process.exit(78); // EX_CONFIG
   }
 

@@ -1224,7 +1224,28 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
    */
   const COLOURLESS_FIT_RESERVE = 2;
   let colourlessLimit = Math.max(0, colourlessCap - COLOURLESS_FIT_RESERVE);
-  const overColourlessCap = (card: BuildCard) => !hasColour(card) && colourlessPicked >= colourlessLimit;
+  /*
+   * THE COLOURLESS CAP DOES NOT APPLY TO A CARD THAT GOES IN EVERY DECK.
+   *
+   * The cap stops a deck becoming a pile of artifacts in the commander's
+   * colours, which is a real failure and worth keeping. But all four named
+   * staples are COLOURLESS - Sol Ring, Arcane Signet, Swiftfoot Boots,
+   * Lightning Greaves - and so are most combo pieces, so the cap could refuse
+   * the exact cards the owner's rule says every deck must have.
+   *
+   * Measured: Spider-Punk came back with Sol Ring, Arcane Signet and Swiftfoot
+   * Boots and no Lightning Greaves, while the build log reported all four
+   * "go in every Commander deck" - because that pass only marks them preferred
+   * and the placement it relies on was refusing one. The deck was four short of
+   * its coloured-card floor at the time, so the cap was doing its job; it was
+   * simply aimed at the wrong card.
+   *
+   * The role ceiling already exempts preferred for the same reason. At most a
+   * handful of cards are preferred, so the cap keeps its meaning for the other
+   * fifty-odd slots.
+   */
+  const overColourlessCap = (card: BuildCard) =>
+    !hasColour(card) && colourlessPicked >= colourlessLimit && !preferred.has(card.oracleId);
 
   /* ---------------------------------------------------------------- *
    * 2a. What the commander asked for and the quotas cannot reach.
@@ -1457,6 +1478,65 @@ const PACKAGE_MATCH = 0.6;
      commander's own pair takes a couple of cards. `share` is still each
      package's exemplar count within ITS OWN group, so the split inside a group
      is unchanged. */
+  /* ---------------------------------------------------------------- *
+   * 2z. THE CARDS THE ENGINE HAS ALREADY DECIDED ARE IN. Placed, not ranked.
+   * ---------------------------------------------------------------- *
+   *
+   * `preferred` holds the named staples and the combo pieces, and until now it
+   * only affected ORDER: `orderPreferredFirst` puts these first inside each
+   * pass, and a pass whose budget runs out before it reaches them simply never
+   * takes them. Ordering is not a guarantee.
+   *
+   * Measured on Spider-Punk, mono-red: the build log said "Sol Ring, Arcane
+   * Signet, Swiftfoot Boots, Lightning Greaves go in every Commander deck" and
+   * the deck came back with three of the four. Boots got in through the
+   * commander-fit reserve because it grants hexproof, which the survival floor
+   * asks for; Greaves grants shroud, scored a fraction lower, and fell through
+   * every pass. Two nearly identical cards, both rank 12 and 13, both named by
+   * the same sentence, and one of them missing.
+   *
+   * The same risk applies to a combo, and there it is worse: half a combo is a
+   * dead card, which is exactly why those ids were made preferred.
+   *
+   * So they are PLACED here, before anything else spends a slot, which is the
+   * argument this file already makes about reserved budgets - a slot is only
+   * reserved if it leaves the budget before the loop that would otherwise spend
+   * it, and the same is true of the CARDS. The set is small and bounded: four
+   * staples plus at most a few combo pieces.
+   */
+  {
+    let placed = 0;
+    for (const rec of rankedSpells) {
+      if (picked.length - chosenLands.length >= spellSlots) break;
+      const card = rec.card as BuildCard;
+      if (!preferred.has(card.oracleId)) continue;
+      if (takenOracleIds.has(card.oracleId)) continue;
+      takenOracleIds.add(card.oracleId);
+      /* `creaturesPicked`, `topEndPicked` and `colouredPicked` are counted FROM
+         `picked` further down, so they see these without being told. Only the
+         colourless tally is running at this point. */
+      if (!hasColour(card)) colourlessPicked += 1;
+      carriedStamp += 1;
+      picked.push({
+        card,
+        quantity: 1,
+        reason: rec.reason,
+        score: rec.score,
+        bucket: 'commander',
+        preferred: true,
+      });
+      const filled = ROLES.find(
+        role => role !== 'land' && quota[role] > 0 && rolesOf(card).has(role)
+      );
+      if (filled) {
+        quota[filled] -= 1;
+        roleFill[filled].picked += 1;
+      }
+      placed += 1;
+    }
+    if (placed > 0) carriedStamp += 1;
+  }
+
   const shellPackages = [
     ...archetypePackages.map(pkg => ({ ...pkg, budget: archetypeBudget })),
     ...ownPackages.map(pkg => ({ ...pkg, budget: ownBudget })),

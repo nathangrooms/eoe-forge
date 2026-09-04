@@ -30,6 +30,7 @@ import {
 import { popularityCoverage } from './_engine/advise/rank.ts';
 import {
   planForArchetype,
+  COMMANDER_SURVIVAL_FLOOR,
   planForCommander,
   type ArchetypeExemplar,
   type ArchetypeInput,
@@ -309,6 +310,10 @@ function facetsForPoolRows(
  * right one: an arbitrary shell would shape the deck toward something the
  * commander never asked for.
  */
+const SURVIVAL_FLOOR_FACETS = new Set<string>(
+  COMMANDER_SURVIVAL_FLOOR.map(([facet]) => facet)
+);
+
 function shellsForCommander(
   commanderWants: ReadonlyMap<string, number>,
   candidates: readonly { shell: DeckArchetype; input: ArchetypeInput }[],
@@ -335,11 +340,31 @@ function shellsForCommander(
    * which is stated as a package separately. A commander whose loud wants no
    * shell serves is built from its own plan, which is honest.
    */
-  const loudWants = [...commanderWants].filter(([, w]) => w >= 0.8).map(([f]) => f);
+  /*
+   * THE SURVIVAL FLOOR MAY NOT ADMIT A SHELL.
+   *
+   * Every creature commander is given `grants:hexproof` 0.5, `grants:shroud`
+   * 0.45, `grants:indestructible` 0.4 and `grants:haste` 0.3 so that Swiftfoot
+   * Boots can be chosen. That is a fact about Commander, not about this
+   * commander, and the fallback below - the three loudest wants when nothing
+   * reaches 0.8 - is exactly where a quiet plan is nothing BUT the floor.
+   *
+   * The Voltron shell's own "Keeping it alive" package is Swiftfoot Boots and
+   * Lightning Greaves, so Voltron wants those four facets, so Voltron was
+   * admissible for nearly every creature commander in the catalogue. Sephara,
+   * Sky's Blade - an Angel who gives your whole team lifelink and whose only
+   * real want is `eff:gain-life` - read as VOLTRON at 0.52 and was built around
+   * Sram, Kor Spiritdancer and Hero of Iroas.
+   *
+   * A commander left with no loud want of its own gets no shell, which the
+   * comment above already calls the honest outcome.
+   */
+  const own = [...commanderWants].filter(([f]) => !SURVIVAL_FLOOR_FACETS.has(f));
+  const loudWants = own.filter(([, w]) => w >= 0.8).map(([f]) => f);
   const loud = new Set(
     loudWants.length > 0
       ? loudWants
-      : [...commanderWants].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([f]) => f)
+      : own.sort((a, b) => b[1] - a[1]).slice(0, 3).map(([f]) => f)
   );
   const scored = candidates.map(({ shell, input }) => {
     /* Scored WITHOUT a pool background, deliberately. The background turns a
@@ -680,14 +705,42 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
     );
   }
   /*
-   * The commander is read FIRST and read the same way every other card is.
+   * The commander is read FIRST and read THE SAME WAY EVERY OTHER CARD IS,
+   * which until now it was not.
    *
    * `planForCommander` derives the whole build's wants from these facets, so a
    * commander handed in with `facets: null` produces an empty plan no matter
    * how good the rest of the wiring is. `cardsByName` already selects
-   * `oracle_text`, so this costs one card's compile.
+   * `oracle_text`, so the compile below costs one card.
+   *
+   * BUT THE COMPILER ALONE IS A WEAKER READER THAN THE POOL. Every other card
+   * in the build is read from `cards_pool`, which is `compiler_facets ||
+   * tag_facets` - the community's reading merged in where our compiler is
+   * silent. The single most important card in the deck was getting the weaker
+   * half, and the consequences are not subtle:
+   *
+   *   Sephara, Sky's Blade compiles to two KEYWORD abilities and two clauses
+   *   the compiler refuses, so she carried no `eff:gain-life` and her plan came
+   *   out EMPTY. An empty plan reaches the "has combat keywords and no other
+   *   ability we can read, so the deck is built around getting it through"
+   *   fallback, and an Angel who gives your whole team lifelink was built as
+   *   VOLTRON, around Sram, Kor Spiritdancer and Hero of Iroas.
+   *
+   * That fallback is correct where it applies - a genuinely vanilla commander
+   * does want to be suited up - and its own sentence says "we can read", which
+   * is honest about being an inference from silence. The fix is to stop the
+   * silence being ours.
+   *
+   * `cards_unique.facets` cannot be selected: it is a computed column over
+   * `card_facet_memo`, which `anon` holds no grant on, and asking for it
+   * returns 401. So the facets come from `cards_pool` in a second narrow read,
+   * the same shape `landPoolFor` uses for the same reason.
    */
-  const commanderFacets = facetsForCard(commanderRow);
+  const compiled = facetsForCard(commanderRow);
+  const poolFacets = await catalog.poolFacetsByName([commanderRow.name]);
+  const fromPool = poolFacets.get(commanderRow.name);
+  const commanderFacets =
+    fromPool && fromPool.length > 0 ? { ...compiled, facets: [...fromPool] } : compiled;
   const commander = toBuildCard(commanderRow, format, commanderFacets.facets);
   // The commander's own row is the authority on colour identity.
   const commanderIdentity = commander.colorIdentity;

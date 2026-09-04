@@ -3379,6 +3379,27 @@ export const PLAN_IGNORED: ReadonlySet<Facet> = new Set([
  * her plan comes through the facet rules for `eff:cast-from-graveyard` and
  * `cares:zone:graveyard` instead.
  */
+/**
+ * THE FLOOR EVERY CREATURE COMMANDER GETS, so that Swiftfoot Boots can be
+ * chosen. Exported because a caller has to be able to tell it apart from what
+ * the commander itself asked for.
+ *
+ * It is NOT a statement about this commander. Using it as one is how Sephara,
+ * Sky's Blade - an Angel who gives your whole team lifelink - read as VOLTRON
+ * at 0.52: the shell admissibility test falls back to a commander's three
+ * loudest wants when nothing reaches 0.8, and for a commander with a quiet plan
+ * two of those three are this floor. The Voltron shell's own "Keeping it alive"
+ * package is Swiftfoot Boots and Lightning Greaves, so it wants exactly these
+ * facets, and it was therefore admissible for nearly every creature commander
+ * in the catalogue.
+ */
+export const COMMANDER_SURVIVAL_FLOOR: ReadonlyArray<readonly [Facet, number]> = [
+  ['grants:hexproof', 0.5],
+  ['grants:shroud', 0.45],
+  ['grants:indestructible', 0.4],
+  ['grants:haste', 0.3],
+];
+
 export function planForCommander(commander: {
   name: string;
   typeLine?: string | null;
@@ -3774,10 +3795,7 @@ export function planForCommander(commander: {
    */
   if (/\bCreature\b/.test(commander.typeLine ?? '')) {
     const because = `${commander.name} is the one card the deck is guaranteed, so keeping it on the table is worth a slot`;
-    add('grants:hexproof', 0.5, because);
-    add('grants:shroud', 0.45, because);
-    add('grants:indestructible', 0.4, because);
-    add('grants:haste', 0.3, because);
+    for (const [facet, weight] of COMMANDER_SURVIVAL_FLOOR) add(facet, weight, because);
   }
 
   if (minusOnly) {

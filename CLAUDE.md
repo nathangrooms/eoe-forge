@@ -4758,3 +4758,179 @@ Counted on its own terms the same deck holds **18 arrivals worth repeating and 1
 ways to blink**. Overlap rewards copying and punishes a different-but-correct
 card, which `commander-bench` already says in its own header. Both numbers are in
 that probe now; read the second one first.
+
+---
+
+## 4 Sep 2026, later still — the commander was read worse than every other card
+
+### Where it stands, against the DEPLOYED function
+
+    forty RANDOM commanders (seed 1)          start of day     now
+      keyed synergy, median                        63%          75%
+      decks that come back generic (<30%)       12 of 40      3 of 40
+      strongly on-theme (80%+)                        12           15
+      built / 99 cards / lands >= 35             40/40        40/40
+      ramp >= 11                                 40/40        40/40
+      every named staple                         40/40        40/40
+      NOTHING flagged                            39/40        40/40
+
+    fourteen deployed decks    14/14, 83/94 staples, 9 past rank 15,000
+    eighteen strategies        ramp 12 to 27, none below the real floor
+    thin commander plans       48% -> 38%
+    tests                      3,357 passing, tsc clean
+
+### THE COMMANDER WAS READ BY THE COMPILER ALONE
+
+Every card in a build is read from `cards_pool`, which is
+`compiler_facets || tag_facets` - the community's reading merged in wherever our
+compiler is silent. **The commander was read by `facetsForCard` alone**, the
+compiler half, and the commander is the card the entire plan is derived from.
+
+Sephara, Sky's Blade compiles to two KEYWORD abilities and two clauses the
+compiler refuses, so she carried no `eff:gain-life` and her plan came out
+**EMPTY**. An empty plan reaches the "has combat keywords and no other ability we
+can read, so the deck is built around getting it through" fallback, and an Angel
+who gives your whole team lifelink was built as **VOLTRON**, around Sram, Kor
+Spiritdancer and Hero of Iroas. She reads as Lifegain now.
+
+The fallback is right where it applies, and its own sentence says *"we can
+read"*, which is honest about being an inference from silence. The fix was to
+stop the silence being ours.
+
+> `cards_unique.facets` CANNOT BE SELECTED - it is computed over
+> `card_facet_memo`, which `anon` holds no grant on, and asking returns 401. The
+> commander's facets come from `cards_pool` in a second narrow read, the same
+> shape `landPoolFor` uses for the same reason.
+
+### `preferred` guaranteed ORDER and never guaranteed PLACEMENT
+
+Spider-Punk's build log said *"Sol Ring, Arcane Signet, Swiftfoot Boots,
+Lightning Greaves go in every Commander deck"* and the deck held three of them.
+Boots got in through the commander-fit reserve because it grants hexproof, which
+the survival floor asks for; Greaves grants shroud, scored a fraction lower, and
+fell through every pass. Two nearly identical cards, ranks 12 and 13, named by
+the same sentence, one missing.
+
+`orderPreferredFirst` puts these first INSIDE each pass, and a pass whose budget
+runs out before reaching them simply never takes them. A combo piece carried the
+same risk, and half a combo is a dead card - which is why those ids were made
+preferred in the first place.
+
+They are **PLACED** now, before anything else spends a slot. Same argument the
+file already makes about reserved budgets: a slot is only reserved if it leaves
+the budget before the loop that would otherwise spend it, and **the same is true
+of the CARDS**. The colourless cap also had no exemption for them though the role
+ceiling already did, and all four staples are colourless.
+
+### THE MANA GUARANTEE, and a message that had lied three times
+
+`fillTo` only ever ADDS and breaks on `picked.length >= spellSlots`, so a deck
+that reaches 99 cards short of its ramp floor could never be rescued. Ramp below
+its floor now SWAPS: the worst card that is not preferred, not a land, and not
+the last of some other job.
+
+**The first version gave up TOXIC DELUGE** for The Warring Triad, because the
+pass picks the lowest SCORE and this file already records that the score's blind
+spots are exactly where the format's staples live. Popularity is the second
+opinion it does not have, so a swap may never hand over a card people play for
+one they do not - the same rule `deck-optimizer` uses.
+
+**"could not be filled from the legal pool" was printed for two different
+causes** and had misled three investigations. An empty pool is a colour with few
+answers and nothing can be done; a full deck is this engine's own budget and can
+be. Hama reported "11 of 11 ramp slots could not be filled" while holding ten, in
+mono-blue-black. It also ran MID-BUILD, counting only what the quota loop placed
+and missing every staple, combo piece and reserved pick, so it reported
+interaction, enhance and wincon short on a deck that had them. Computed at the
+END now, counted by ROLE, and it says which of the two happened.
+
+### `scripts/probe/silent-facets.mjs`, and the plan-rule route running out
+
+Ranks the facets a commander carries that produce NO want, by how many THIN
+commanders (two or fewer loud wants) carry them. Each row is a candidate plan
+rule and the count is what it would buy.
+
+Two rules taken from it, both read across the whole population as a player:
+
+    trig:attacks        216   Etali, Aurelia, Goreclaw, Isshin, Alesha, Moraug.
+                              Wants another combat, a way through, haste, untap.
+    trig:deals-damage   128   Toski, Rankle, Edric, Grenzo, Tinybones, Fynn.
+                              Paid only when the damage LANDS, so evasion is the
+                              want and extra combats sit lower - a second combat
+                              with a blocked creature is a second nothing.
+
+`eff:pump` is excluded from both: on 4,344 cards, a fifth of the pool.
+
+**REFUSED, with the reason, so nobody retries them:**
+
+    sub:human 517          being a Human does not make it Human tribal, and
+                           plan.tribe already earns Tribal where it is real
+    cares:type:creature    nearly every commander cares about creatures
+    kw:indestructible 75   mixes Avacyn, whose deck wants board wipes, with
+                           Toski, a go-wide deck where a wipe is a disaster
+    mv:big / pt:big        Purphoros, Aesi, Gitrog and Old Gnawbone are big
+                           value engines that never attack
+    mv:cheap 203           being cheap names no deck either
+    acost:1 / acost:3      an activated ability is not a strategy
+    the tribal sub: rows   a sub: facet on a legendary creature can be the
+                           other FACE, and the tribe path already covers it
+
+That is most of what is left, so **the plan-rule route through silent facets is
+close to exhausted.** What remains needs the compiler to read more of each
+commander, not more rules over the same words.
+
+> **The probe counted redundancy as opportunity, twice.** `trig:enters` sat near
+> the top with 146 commanders and every one already had a plan, because the base
+> facet is emitted alongside `trig:enters-self` and the rule sits on the split
+> word. Verified ZERO commanders carry the base without a split. It now treats a
+> more specific word from the same clause as that facet speaking.
+> `unclaimed-wants.mjs` records being wrong this way twice; this was the third.
+
+### "and/or" is "or", and Ghostly Flicker compiles
+
+`parseObject` reads "target artifacts **and** enchantments" and "target artifacts
+**or** enchantments" and returned NULL for "target artifacts **and/or**
+enchantments" - the same set of cards said a third way. A null selector fails the
+whole rule, so the card compiled to nothing at all.
+
+    Ghostly Flicker   #587    manual -> FULL, and it carries eff:exile-own
+    Force of Vigor    #1024   nothing -> eff:destroy
+    Mondrak           #426    nothing -> cost:sacrifice, a real outlet
+
+Done in `normalizeParagraph` so every rule gains it at once. The rewrite is exact:
+"up to two target artifacts and/or enchantments" allows one of each or two of
+either, which is what the `or` filter already means with the count carried
+separately.
+
+    read the whole card   10,988 -> 11,003     unread clauses  20,799 -> 20,776
+
+> ⚠️ **A LITERAL BACKSPACE BYTE went into the word boundary**, which is the second
+> time this repo has recorded that exact bug - CLAUDE.md has it from 1 Sep, where
+> it made a probe print 100% coverage. The regex matched nothing, the
+> normalisation silently did not happen, and the trace still showed zero
+> abilities, so it looked like the fix being WRONG rather than ABSENT. Write a
+> regex from character codes when a shell and a heredoc are both in the path.
+
+**NOT LIVE.** These facets reach the app only after a compiler version bump, a
+refill and both readers moving. Held until more compiler shapes are worth one
+bump; the unparsed tail beyond this is mostly LANDS, which the mana solver
+handles without facets.
+
+### The instruments lied five more times
+
+Each cost real time and every one is the same class this file keeps recording.
+
+1. **`cards_pool` has no `oracle_text`** by design, so a query selecting it
+   returns an error object rather than an array.
+2. **`FacetResult` has no `unparsed` field.** A probe reading it counted 0 cards
+   with an "and/or" clause when the real answer was 62. `compileWithTrace` is the
+   call that carries unparsed spans.
+3. **Grepping the BUILD LOG for a card name reports success on a deck that does
+   not hold it.** "Sol Ring, Arcane Signet, Swiftfoot Boots, Lightning Greaves go
+   in every Commander deck" is what the pass INTENDED. `scratch/_one.mjs` checks
+   all four against the DECK now.
+4. **`_one.mjs` had no SHOW block**, so a grep for the deck list matched nothing
+   and read as "the card is missing" rather than "nothing was printed".
+5. **A wide scan of `cards_unique` with the fat columns returns 57014.** Take
+   names from `cards_pool`, which is thin and indexed, then fetch the text by
+   name in chunks.

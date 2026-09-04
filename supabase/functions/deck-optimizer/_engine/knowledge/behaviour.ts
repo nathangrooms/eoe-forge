@@ -2783,9 +2783,44 @@ export const PLAN_RULES: readonly {
     ],
   },
   {
-    /* Paid when creatures die, which is the other half of the same deck. */
+    /*
+     * PAID WHEN CREATURES DIE. THE DECK NEEDS SOMETHING THAT KILLS THEM.
+     *
+     * This rule used to ask for `eff:recur-self` and nothing else, which is the
+     * card that keeps an aristocrats deck going and not the card that starts
+     * it. Syr Vondam, Sunstar Exemplar is the case that exposed it: his whole
+     * card is "whenever another creature you control dies or is put into exile"
+     * and his plan came out `eff:add-counters` 0.90, `eff:proliferate` 0.80,
+     * `eff:gain-life` 0.70 - a +1/+1 counters deck, assembled from the
+     * CONSEQUENCES of his trigger with nothing asking for the trigger itself.
+     * Village Rites, a sacrifice outlet costing one mana, scored 0.000 against
+     * him. CLAUDE.md records the same fault on Meren of Clan Nel Toth, whose
+     * deck held seven death payoffs and nothing that could sacrifice a creature
+     * on demand.
+     *
+     * The shape is `trig:sacrificed`'s, because it is the same deck seen from
+     * the other end, and the weights follow the order that rule already
+     * measured: the OUTLET first, because a deck that cannot kill its own
+     * creatures never starts; then the payoffs, because Blood Artist is why an
+     * aristocrats deck wins; then the fodder and the recursion that keep it
+     * going.
+     *
+     * READ ACROSS THE WHOLE POPULATION, not a sample - the 30 most played
+     * commanders carrying `trig:dies` are Syr Konrad, Teysa Karlov, Meren,
+     * Elas il-Kor, Elenda, Wilhelt, The Scarab God, Yahenni, Kokusho and the
+     * Ojer cycle. Every one of them wants a sacrifice outlet, including the
+     * "when THIS dies" commanders, which want one so they can die on purpose.
+     * There is no `trig:dies-self` facet to separate the two cases and this
+     * measurement says one is not needed here.
+     */
     when: 'trig:dies',
-    wants: [{ facet: 'eff:recur-self', weight: 0.6 }],
+    wants: [
+      { facet: 'cost:sacrifice', weight: 0.85 },
+      { facet: 'trig:dies', weight: 0.7 },
+      { facet: 'eff:create-token', weight: 0.65 },
+      { facet: 'eff:recur-self', weight: 0.6 },
+      { facet: 'cost:cast-sacrifice', weight: 0.5 },
+    ],
   },
   {
     /*

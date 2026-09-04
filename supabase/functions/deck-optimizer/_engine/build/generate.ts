@@ -1266,6 +1266,17 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
  * what was asked for.
  */
 const PACKAGE_BUDGET_PER_PACKAGE = 2;
+
+/**
+ * What share of a deck's SPELL slots an archetype the player chose gets.
+ *
+ * Swept against the two human Syr Vondam decks; see the note on the budget in
+ * `generateDeck`. The role floors keep the rest, which is correct: half a
+ * Commander deck is the ramp, draw, removal and interaction every deck runs
+ * whatever it is trying to do, and a deck that is all theme loses to one that
+ * can cast its spells and answer things.
+ */
+const ARCHETYPE_SLOT_SHARE = 0.35;
 /**
  * How much of a package a card has to do to fill one of its slots.
  *
@@ -1337,8 +1348,35 @@ const PACKAGE_MATCH = 0.6;
    * 6) and gives a two-shell commander the twelve it needs. Capped so a shell
    * that grows a fourth package cannot quietly take the deck over.
    */
-  const packageCount = archetypePlan?.packages?.length ?? 0;
-  const packageBudget = packageCount > 0 ? Math.min(14, PACKAGE_BUDGET_PER_PACKAGE * packageCount) : 0;
+  /*
+   * A CHOSEN ARCHETYPE IS THE DECK. IT IS NOT TWO CARDS PER PACKAGE.
+   *
+   * `PACKAGE_BUDGET_PER_PACKAGE` was measured for a commander's OWN packages,
+   * which are pairs derived from its wants and are genuinely a few cards each.
+   * Applying the same number to a shell the player picked by name gave the
+   * Blink shell SIX of Syr Vondam's fifty-nine spell slots, and the other
+   * fifty-three went to the commander's own plan - so asking for Blink and not
+   * asking for it produced nearly the same deck. Measured across
+   * ARCHETYPE_SHARE 0.6 to 1.5, the weight moved the result by ONE CARD,
+   * which is what proves the budget rather than the weight is the constraint.
+   *
+   * A real archetype deck is roughly half its spells. The other half is the
+   * ramp, draw, removal and interaction every deck runs whatever it is doing,
+   * and those are the role floors, which keep their own slots. So the shell
+   * takes a SHARE OF THE SPELLS, split between its packages by exemplar count,
+   * and the shell's own blurb is finally true: "the deck is made of arrivals"
+   * buys about eight arrivals rather than two.
+   *
+   * This is one rule for all eighteen shells and therefore for every commander
+   * that earns one. Nothing here is per-commander.
+   */
+  const archetypePackages = archetypePlan?.packages ?? [];
+  const ownPackages = packagesForCommander(commanderPlan);
+  const archetypeBudget =
+    archetypePackages.length > 0 ? Math.round(spellSlots * ARCHETYPE_SLOT_SHARE) : 0;
+  const ownBudget = Math.min(14, PACKAGE_BUDGET_PER_PACKAGE * ownPackages.length);
+  const packageBudget = archetypeBudget + ownBudget;
+
   const commanderReserve = packageBudget > 0 ? Math.min(fitReserve, 6) : fitReserve;
 
   /*
@@ -1357,6 +1395,25 @@ const PACKAGE_MATCH = 0.6;
     w => (w.facet === 'mv:big' || w.facet === 'pt:big') && w.weight >= 0.5
   );
   const topEndBudget = topEndTargetFor(spellSlots, wantsBigSpells);
+  /*
+   * WHAT THE DECK HAS LEFT ONCE THE FLOORS ARE PAID FOR.
+   *
+   * The role floors are derived from 192 real Commander decks and they want
+   * most of the spells. Whatever an archetype takes that does NOT serve one of
+   * them comes straight out of the deck's ability to make mana, draw cards and
+   * remove things. `land` is excluded because lands are chosen separately, and
+   * `creature` because it is a floor taken over the whole deck rather than a
+   * bucket, so counting it here would subtract the same cards twice.
+   */
+  const floorTotal = ROLES.reduce(
+    (n, role) => (role === 'land' || role === 'creature' ? n : n + (targets[role] ?? 0)),
+    0
+  );
+  const packageFlexBudget = Math.max(
+    0,
+    spellSlots - floorTotal - commanderReserve - topEndBudget
+  );
+  let packageFlexSpent = 0;
 
   const quotaSlots = Math.max(
     0,
@@ -1395,9 +1452,14 @@ const PACKAGE_MATCH = 0.6;
    * shell's jobs first and its own after, and a commander with no shell still
    * gets a shopping list instead of a mood.
    */
+  /* Each package carries the budget it draws from, because the two groups are
+     sized by different rules: a chosen shell takes a share of the deck, a
+     commander's own pair takes a couple of cards. `share` is still each
+     package's exemplar count within ITS OWN group, so the split inside a group
+     is unchanged. */
   const shellPackages = [
-    ...(archetypePlan?.packages ?? []),
-    ...packagesForCommander(commanderPlan),
+    ...archetypePackages.map(pkg => ({ ...pkg, budget: archetypeBudget })),
+    ...ownPackages.map(pkg => ({ ...pkg, budget: ownBudget })),
   ];
   if (shellPackages.length > 0) {
     /*
@@ -1431,7 +1493,7 @@ const PACKAGE_MATCH = 0.6;
 
     const filledBy: string[] = [];
     for (const pkg of shellPackages) {
-      const slots = Math.max(1, Math.round(packageBudget * pkg.share));
+      const slots = Math.max(1, Math.round(pkg.budget * pkg.share));
       let taken = 0;
       const tookNames: string[] = [];
       /*
@@ -1493,6 +1555,58 @@ const PACKAGE_MATCH = 0.6;
         /* A package fills a JOB, and a job is not a licence to run a role past
            what any real deck holds. Same rule as the reserve above. */
         if (overRoleCeiling(card)) continue;
+        /*
+         * A THEME CARD THAT ALSO DOES A JOB IS FREE. ONE THAT DOES NOT PAYS.
+         *
+         * The deck is 99 cards and the role floors want most of them, so an
+         * archetype spending its whole budget on cards that do nothing else
+         * starves the floors. Measured: Talrand's Spellslinger build came back
+         * with NINE ramp against a real-deck tenth percentile of eleven, and
+         * the engine reported "6 of 8 ramp slots could not be filled from the
+         * legal pool" - which was not true. Mono-blue is full of rocks. The
+         * deck was FULL, and `fillTo` breaks on `picked.length >= spellSlots`.
+         *
+         * So a package card that fills a role the deck still needs costs
+         * nothing: it is doing the quota loop's job and the archetype's at the
+         * same time. A card that fills no needed role spends from FLEX, which
+         * is what the deck has left once the floors are paid for.
+         *
+         * This is also what a good archetype deck IS, rather than a
+         * concession. The cards a blink deck wants are Mulldrifter, Solemn
+         * Simulacrum, Wall of Omens, Skyclave Apparition and Ravenous
+         * Chupacabra - an arrival worth repeating is nearly always a card that
+         * draws, ramps or removes something. Preferring them over a flicker
+         * effect that only enables other cards is the correct bias, not a tax.
+         */
+        const needed = ROLES.find(
+          role => role !== 'land' && quota[role] > 0 && rolesOf(card).has(role)
+        );
+        if (!needed) {
+          if (packageFlexSpent >= packageFlexBudget) continue;
+          packageFlexSpent += 1;
+        }
+        /*
+         * ROOM FOR THE MANA, KEPT BACK BEFORE ANYTHING ELSE SPENDS IT.
+         *
+         * The owner's standing rule: "decks need way to make mana - this is
+         * really important as game unplayable otherwise." Every other role can
+         * come up short and the deck is worse; a deck that cannot make mana
+         * cannot be played at all, so ramp is the one floor that does not
+         * negotiate.
+         *
+         * The flex guard above is not enough on its own, measured: Talrand's
+         * packages all filled roles the deck genuinely needed, so none of them
+         * spent flex, and ramp still finished at nine because the quota loop
+         * fills roles in SCORE order and a Sol Ring scores low for a
+         * spellslinger. Nothing was wrong with any single decision.
+         *
+         * So the last N spell slots are held for ramp until the ramp floor is
+         * met, N being how short it still is. A ramp card is always welcome;
+         * anything else waits.
+         */
+        const rampShort = Math.max(0, (targets.ramp ?? 0) - roleFill.ramp.picked);
+        const roomLeft = spellSlots - (picked.length - chosenLands.length);
+        if (roomLeft <= rampShort && !rolesOf(card).has('ramp')) continue;
         if (!hasColour(card)) colourlessPicked += 1;
         takenOracleIds.add(card.oracleId);
         taken += 1;

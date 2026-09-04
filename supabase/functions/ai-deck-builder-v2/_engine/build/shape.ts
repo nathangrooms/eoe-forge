@@ -652,8 +652,32 @@ export function deriveDeckShape(input: ShapeInput): DeckShape {
     usefulLands,
     topCmc: impliedTopCmc,
   });
-  roleFloors.ramp = Math.max(rampPresence, ramp.count);
-  because.push(`${roleFloors.ramp} ramp, the larger of two floors. ${ramp.because}`);
+  /*
+   * RAMP HAS A THIRD FLOOR AND IT IS THE ONLY ONE MEASURED ON REAL DECKS.
+   *
+   * The two floors above are derived: one hypergeometric ("how many to have
+   * drawn one by the turn it matters"), one from this deck's own curve ("how
+   * many accelerants make the top end castable"). Both answer a question about
+   * THIS deck and both can answer eight, which is what they did for Talrand,
+   * Sky Summoner and for Sheoldred, the Apocalypse. Real Commander decks do not
+   * run eight. The tenth percentile of 192 of them is ELEVEN.
+   *
+   * Owner: "decks need way to make mana (ramp) - this is really important as
+   * game unplayable otherwise." Every other role may come up short and leave a
+   * worse deck; a deck that cannot make mana cannot be played, so this is the
+   * one floor allowed to override the arithmetic.
+   *
+   * ONLY RAMP GETS THIS. A p10 clamp applied to every role would put tutors and
+   * win conditions back in, and the note above records why they are clamped the
+   * other way: the real median for both is ZERO, and real decks decline to pay
+   * for a card they have not drawn. Ramp is different because it is the one
+   * role whose absence stops the game rather than losing it.
+   */
+  roleFloors.ramp = Math.max(rampPresence, ramp.count, REAL_DECK_ROLES.ramp.p10);
+  because.push(
+    `${roleFloors.ramp} ramp, the largest of three floors. ${ramp.because} Real decks ` +
+      `run at least ${REAL_DECK_ROLES.ramp.p10}.`
+  );
 
   /*
    * SECOND PASS, and only when the answer moved.

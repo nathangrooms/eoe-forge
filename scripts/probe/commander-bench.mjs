@@ -214,8 +214,31 @@ function groupCapability(group, deckFacets, spells) {
    * it, so a loose majority cannot quietly pass.
    */
   const need = Math.max(2, Math.floor(sets.length * 0.5) + 1);
-  const shared = [...count].filter(([, n]) => n >= need).map(([f]) => f);
+  let shared = [...count].filter(([, n]) => n >= need).map(([f]) => f);
   if (shared.length === 0) return null;
+  /*
+   * AT MOST THE TWO RAREST FACETS. A third is nearly always an accident of the
+   * example list rather than part of the job.
+   *
+   * "big colourless creatures that cost nothing once Animar is large" is
+   * exemplified by eleven cards that all happen to be ELDRAZI, so every facet
+   * they share includes `sub:eldrazi` and the conjunction demanded one.
+   * Korvold's "things that come back after being sacrificed" picked up
+   * `cares:type:land`, because its examples are mostly lands.
+   *
+   * Rarest first, because the rare facets are the ones that say what the job
+   * IS - `eff:recur-self` is the job and `cares:type:land` is what its
+   * exemplars happen to be printed on.
+   */
+  if (poolSize > 0 && shared.length > 2) {
+    shared = shared
+      .slice()
+      .sort(
+        (a, b) =>
+          (poolFacetFrequency.get(a) ?? 0) - (poolFacetFrequency.get(b) ?? 0)
+      )
+      .slice(0, 2);
+  }
 
   const out = [];
   for (const [name, facets] of deckFacets) {

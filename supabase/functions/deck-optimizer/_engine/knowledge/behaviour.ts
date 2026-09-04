@@ -387,6 +387,25 @@ export const EFFECT_VERBS: readonly string[] = [
    * abilities, so one word would have been a lie about a third of them.
    */
   'neutralise',
+  /*
+   * CHANGING WHAT A SPELL IS POINTED AT, or taking the spell outright.
+   * Deflecting Swat, Untimely Malfunction, Bolt Bend, Imp's Mischief,
+   * Spellskite, Misdirection, Commandeer.
+   *
+   * `ROLE_FACETS.interaction` reads it, which is where it belongs: pointing a
+   * removal spell somewhere else stops it doing what it was going to do, the
+   * same job `eff:counter` does by a different route.
+   *
+   * Distinct from `eff:redirect-damage`, which is Pariah moving DAMAGE that has
+   * already been dealt. This one acts on a spell while it is still on the
+   * stack.
+   *
+   * Measured 4 Sep 2026: the tag is 47 cards, NINE of them in the top 2,000 and
+   * headed by Deflecting Swat at rank 75, and every one carried `cares:` words
+   * and no verb. The most played card in the cluster is the 75th most played
+   * card in the format and the engine could not offer it for anything.
+   */
+  'redirect-spell',
   /* Coin flips and dice. Roughly 200 cards across roll-d6, roll-d20 and
      coin-flip, and every existing verb would have been a lie about them. */
   'random',
@@ -636,6 +655,9 @@ export const ROLE_FACETS: Readonly<Record<Role, readonly Facet[]>> = {
   interaction: [
     'eff:counter', 'eff:tap', 'eff:unless-pays', 'eff:discard', 'eff:move-zone',
     'eff:cant-cast', 'eff:cant-activate', 'eff:increase-cost',
+    /* Pointing a spell somewhere else stops it doing what it was going to do,
+       which is the job `eff:counter` does by another route. */
+    'eff:redirect-spell',
   ],
   /*
    * Searching a library, EXCEPT for the land case, which is ramp and is
@@ -5065,6 +5087,7 @@ const EFFECT_PHRASES: Readonly<Record<string, string>> = {
   'cast-from-graveyard': 'casts spells from the graveyard',
   'recur-self': 'brings itself back from the graveyard',
   neutralise: 'turns a permanent into something harmless without destroying it',
+  'redirect-spell': 'points a spell somewhere else, or takes it',
   random: 'flips a coin or rolls a die',
   goad: 'forces creatures to attack elsewhere',
   'cant-attack-self': 'cannot attack itself',

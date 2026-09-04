@@ -40,6 +40,12 @@
 --   429 cards change, of 25,790 carrying tags
 --   facets dropped: ctr:+1/+1, eff:add-counters, eff:damage, eff:discard, eff:exile
 --
+-- A SECOND, SEPARATE CORRECTION RIDES THIS REBUILD, because a materialized view
+-- can only be replaced whole and there is no sense paying for two outages:
+-- `knowledge_band` did not count `grants:` as knowing what a card does, so 156
+-- cards whose entire job is giving an ability were filed under "knows nothing".
+-- Leyline of Anticipation, Shimmer Myr and Vedalken Orrery are three of them.
+--
 -- Those five are exactly the pairs this codebase created `-self` variants for. Both
 -- named cases are fixed: Animar and Korvold keep `eff:add-counters-self` and lose
 -- the generic.
@@ -122,7 +128,24 @@ select id, oracle_id, name, type_line, cmc, color_identity, tags, mana_cost,
          when coverage = 'full' then 'whole-card'
          when exists (
            select 1 from unnest(coalesce(merged.compiler_facets, '{}'::text[]) || merged.tag_facets) f(f)
-            where f.f ~ '^(eff|trig|cost|acost|scope|mana|ctr|tok):'
+            /*
+             * `grants:` COUNTS AS KNOWING WHAT A CARD DOES, and it did not.
+             *
+             * A card whose whole job is giving something an ability was
+             * reported as "knows nothing about what it does". Measured 4 Sep
+             * 2026, 156 cards, including Leyline of Anticipation (rank 734),
+             * Shimmer Myr (1,321) and Vedalken Orrery (1,461), whose entire
+             * text is "you may cast spells as though they had flash". The
+             * engine knew exactly what they do - `grants:flash` - and the
+             * work list said otherwise.
+             *
+             * ONLY THIS LABEL. The identical regex appears in the `merged`
+             * CTE above, where it decides whether a card takes only GATED tag
+             * words or any of them. Adding `grants` THERE would change which
+             * facets 156 cards carry, which is a behaviour change wearing a
+             * reporting fix's clothes.
+             */
+            where f.f ~ '^(eff|trig|cost|acost|scope|mana|ctr|tok|grants):'
          ) then 'knows-job'
          when exists (
            select 1 from unnest(coalesce(merged.compiler_facets, '{}'::text[]) || merged.tag_facets) f(f)

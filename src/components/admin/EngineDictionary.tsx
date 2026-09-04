@@ -214,6 +214,11 @@ const OUR_WORDS: Array<{ facet: string; means: string; why: string }> = [
     why: 'Magic names Treasure and +1/+1 counters but has no vocabulary for "this card is about them", which is what a token or counters deck is built on.',
   },
   {
+    facet: 'eff:multiply-triggers',
+    means: 'Your triggered abilities happen twice. Panharmonicon, Yarok, Elesh Norn, Teysa Karlov.',
+    why: 'The generic eff:multiply also covers DAMAGE doublers like Fiery Emancipation and Torbran, and a draw doubler in Alhammarret’s Archive - about half its population. A blink deck asking for it was being offered damage doublers at the same weight as Panharmonicon, so Brago’s deck held no trigger doubler at all.',
+  },
+  {
     facet: 'cares:power',
     means: 'Its effect scales with how big your creatures are. Ghalta, Selvala, The Great Henge.',
     why: 'A CARES word rather than a verb, on purpose. These cards draw off power, make mana off power, deal damage off power and cost less for power, so one verb would be a lie about most of them; what they share is the thing they LOOK AT. A commander carrying it asks for big creatures, which is how Ghalta stopped being a 12/12 in a deck of two-drops.',

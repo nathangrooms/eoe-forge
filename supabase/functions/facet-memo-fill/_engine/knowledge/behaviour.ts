@@ -368,6 +368,25 @@ export const EFFECT_VERBS: readonly string[] = [
    * facet to name it.
    */
   'recur-self',
+  /*
+   * A PERMANENT THAT STOPS BEING WHAT IT WAS, without leaving the battlefield.
+   * Darksteel Mutation, Lignify, Witness Protection, Song of the Dryads,
+   * Imprisoned in the Moon, Oko's Elk, and the symmetric ones like Dress Down
+   * and Sudden Spoiling.
+   *
+   * It answers a threat, so `ROLE_FACETS.removal` reads it, and that is the
+   * whole reason it exists: measured 4 Sep 2026 these were among the most
+   * played cards the engine knew NOTHING about. Darksteel Mutation at rank 582
+   * and Imprisoned in the Moon at 761 carried `cares:` words and no verb, so
+   * neither could be offered for a job - and Imprisoned in the Moon was
+   * reaching decks as RAMP, because turning a permanent into a land that taps
+   * for mana reads as `eff:add-mana` to anything looking only at the outcome.
+   *
+   * Not folded into `eff:shrink`, which the removal role already reads: two
+   * thirds of these set base power and toughness and the rest only strip
+   * abilities, so one word would have been a lie about a third of them.
+   */
+  'neutralise',
   /* Coin flips and dice. Roughly 200 cards across roll-d6, roll-d20 and
      coin-flip, and every existing verb would have been a lie about them. */
   'random',
@@ -595,6 +614,9 @@ export const ROLE_FACETS: Readonly<Record<Role, readonly Facet[]>> = {
   removal: [
     'eff:destroy', 'eff:exile', 'eff:damage', 'eff:gain-control', 'eff:shrink',
     'eff:cant-block', 'eff:cant-attack',
+    /* Answering a threat without destroying it. See the verb's own note: these
+       were among the most played cards the engine knew nothing about. */
+    'eff:neutralise',
   ],
   /*
    * `eff:move-zone` is bounce, and bounce at INSTANT speed is interaction.
@@ -5042,6 +5064,7 @@ const EFFECT_PHRASES: Readonly<Record<string, string>> = {
   'put-onto-battlefield': 'puts a card from your hand straight onto the battlefield',
   'cast-from-graveyard': 'casts spells from the graveyard',
   'recur-self': 'brings itself back from the graveyard',
+  neutralise: 'turns a permanent into something harmless without destroying it',
   random: 'flips a coin or rolls a die',
   goad: 'forces creatures to attack elsewhere',
   'cant-attack-self': 'cannot attack itself',

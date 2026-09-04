@@ -840,15 +840,17 @@ function solveLandTarget(input: LandSolveInput): { lands: number; pct: number; s
    * true and is not a deck anybody would play. Four of the twenty benchmark
    * commanders were over 44.
    *
-   * 44 is the largest land count among 192 real Commander decks (p90 is 40).
+   * 40 is the ninetieth percentile of 192 real Commander decks (the largest
+   * runs 44). The guard sits at p90 rather than at the maximum because the
+   * decks it catches are exactly the ones whose castability never peaked -
+   * they have a pool problem the mana base cannot fix, and the 41st land makes
+   * them worse. A deck that genuinely wants 41 reaches it through the peak,
+   * not through the guard.
    * A deck whose castability is still climbing at 44 has a pool problem the
    * mana base cannot fix, and buying the 45th land makes the deck worse in the
    * way a player would notice first.
    */
-  const ceiling = Math.min(
-    input.slots,
-    Math.max(input.floor, roleCeilingFor('land', input.slots), REAL_DECK_ROLES.land.max)
-  );
+  const ceiling = Math.min(input.slots, Math.max(input.floor, roleCeilingFor('land', input.slots)));
 
   let best = Math.max(0, input.floor);
   let bestPct = measure(best);

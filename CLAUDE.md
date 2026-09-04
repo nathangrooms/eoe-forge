@@ -4122,3 +4122,64 @@ suggestions went unmeasured until the day it became deployable.
 
 `scratch/_swapscore.mjs` names which SUBSCORE moves for one swap, which is how a
 disagreement stops being an opinion.
+
+## The Tagger merge was undoing the compiler's self/other split
+
+On 3 Sep the compiler was taught `eff:add-counters-self` and `ctr:+1/+1-self`,
+because "a counter the card puts on ITSELF read as a counters deck" and Korvold
+and Animar both planned as Hardened Scales decks. That fix was correct and it
+was being reversed downstream every night.
+
+`tag_facet_map` mapped Scryfall Tagger's **`gains-pp-counters`** to the GENERIC
+`eff:add-counters`, and the mapping's own note says what the tag means:
+
+    slug   gains-pp-counters      gated   true
+    why    "Puts +1/+1 counters on itself."
+
+Which is precisely what `eff:add-counters-self` exists to say. Measured 4 Sep
+2026: **484 cards carried `eff:add-counters-self` from the compiler and the
+generic verb ONLY from this merge.** Animar therefore read as a counters
+commander again - `ctr:+1/+1` and `eff:add-counters` were his two LOUDEST wants
+at 0.90 - and his deck came back with 33 creatures, none of them big, against a
+card whose entire text makes big creatures cheap.
+
+Corrected to `eff:add-counters-self`. `eff:add-counters` is read only as a WANT,
+by intent rules and `PLAN_RULES`, and by no entry in `ROLE_FACETS`, so no card
+changes role.
+
+> **A gated mapping overrides nothing and adds everything.** It is applied to
+> every card carrying the tag, on top of whatever the compiler produced, so a
+> mapping to a BROADER word than the compiler's silently widens the record. When
+> a compiler rule draws a distinction, check `tag_facet_map` for a tag that
+> flattens it again: the two sources are merged in `cards_pool` and neither knows
+> what the other said.
+
+**The merge lives in the VIEW**, so the correction reaches the app only on the
+next `cards-unique-refresh`. `refresh_cards_unique` is well built for this: a
+caller with under 60 s of `statement_timeout` RECORDS the request and returns,
+and the scheduled job performs it. The MCP session allows 120 s, which falls
+between that branch and the 900 s the rebuild needs, so it raises instead - `set
+local statement_timeout = '30s'` first, then call it.
+
+## A commander that makes spells cheaper wants expensive spells
+
+Animar carries `eff:reduce-cost` and NO PLAN RULE READ IT, so his plan asked for
+`mv:cheap`. `PLAN_RULES` now maps `eff:reduce-cost` to `mv:big` 0.7 and `pt:big`
+0.5 - a costly spell is what a reducer is FOR, and a big body is what makes the
+discount matter in a creature deck. Both sit below the loud wants a commander
+states about its own mechanic, so it tilts the curve rather than turning every
+cost reducer into a big-creature deck.
+
+Three of the eighteen zero job groups are this shape: Xenagos's "huge creatures
+worth doubling", Kinnan's "big non-Human creatures", Animar's "big colourless
+creatures". Measured before: Animar 33 creatures with ZERO `pt:big` and a curve
+topping out at FOUR mana; Xenagos topping out at five; Kinnan at six, with no
+card above six mana in any of the three.
+
+> **`_plan1.mjs` reads facets from a different source than the generator.** It
+> showed Animar WITHOUT `eff:reduce-cost` while `cards_pool` has it, because the
+> tag merge is in the view. Read the plan from POOL facets when asking why the
+> GENERATOR did something: `scratch/_planpool.mjs`.
+
+Animar is in `generator-roster.mjs` now, as a standing failure with the whole
+chain in his entry, the way Syr Vondam is.

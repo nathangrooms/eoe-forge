@@ -1940,8 +1940,45 @@ const PACKAGE_MATCH = 0.6;
      * pass reported nothing to `roleFill`, so the review rounds could not
      * see what it had done.
      */
+    /*
+     * A CARD EARNS ITS SLOT BY DOING SOMETHING FOR THIS DECK, and being played
+     * a lot is not the same claim.
+     *
+     * The owner, on the rank floor: *"cards past rank 15000 may be ok if they
+     * are best for that commander may just be unpopular, doesnt mean bad?"*
+     * Exactly right, and the inverse is the fault this fixes. Kozilek, the
+     * Great Distortion came back holding Ivory Cup, Crystal Rod, Wooden
+     * Sphere, Iron Star and Throne of Bone - the cycle that gains a life when
+     * somebody casts a white, blue, green, red or black spell - in a
+     * COLOURLESS deck. Their role is `(none)` and their commander fit is zero,
+     * so no quota pass could have taken them; this one did, because it takes
+     * the best remaining by SCORE and a one-mana artifact scores well on curve
+     * and castability while doing nothing at all.
+     *
+     * So the test is not how played the card is. It is whether the card fills
+     * a role or serves a want. A rank-25,000 card that does either is a fine
+     * pick for a commander nobody builds; a rank-500 card that does neither is
+     * filler whatever its rank.
+     *
+     * AN ORDERING, NOT A FILTER, on the `playedFirst` precedent: the deck must
+     * still reach 99, so a pool that genuinely runs out of cards that do
+     * something falls through to the ones that do not, rather than coming back
+     * short. The note below says when that happened.
+     */
+    const doesSomething = (card: BuildCard): boolean =>
+      rolesOf(card).size > 0 || fitOf(card).fit > 0;
+    const flexOrder = (() => {
+      const ordered = orderPreferredFirst(rerank, preferred);
+      const useful: typeof ordered = [];
+      const idle: typeof ordered = [];
+      for (const rec of ordered) {
+        (doesSomething(rec.card as BuildCard) ? useful : idle).push(rec);
+      }
+      return [...useful, ...idle];
+    })();
+
     const takeFlex = (wanted: (card: BuildCard) => boolean) => {
-      for (const rec of orderPreferredFirst(rerank, preferred)) {
+      for (const rec of flexOrder) {
         if (picked.length - chosenLands.length >= spellSlots) break;
         const card = rec.card as BuildCard;
         if (takenOracleIds.has(card.oracleId)) continue;
@@ -1968,6 +2005,15 @@ const PACKAGE_MATCH = 0.6;
     takeFlex(card => !cardRole(card, 'creature') || creaturesPicked < creatureFloor);
     const beforeOverflow = creaturesPicked;
     takeFlex(() => true);
+    /* Said out loud, because a deck holding cards that do nothing is a fact
+       about the POOL and the player deserves to know which it is. */
+    const idle = picked.filter(e => e.bucket === 'flex' && !doesSomething(e.card)).length;
+    if (idle > 0) {
+      notes.push(
+        `${idle} card${idle === 1 ? '' : 's'} fill no role and serve none of this commander's ` +
+          `wants, because the pool had nothing left that does`
+      );
+    }
     if (creaturesPicked > beforeOverflow) {
       notes.push(
         `${creaturesPicked - beforeOverflow} creature${creaturesPicked - beforeOverflow === 1 ? '' : 's'} ` +

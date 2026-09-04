@@ -2783,6 +2783,39 @@ export const PLAN_RULES: readonly {
     ],
   },
   {
+    when: 'trig:attacks',
+    /*
+     * A TRIGGER ON ATTACKING WANTS THE ATTACK TO HAPPEN, AND TO HAPPEN AGAIN.
+     *
+     * 216 commanders carry `trig:attacks` and reach a plan with two or fewer
+     * loud wants, so for all of them the loudest thing in the plan was the
+     * protection floor every creature commander gets - and a deck built around
+     * keeping the commander alive is not a deck built around attacking with it.
+     *
+     * Read across the whole population, most played first: Etali Primal Storm,
+     * Goreclaw, Aurelia, Karlach, Drakuseth, Ulamog, Isshin, Phelia, Delina,
+     * Alesha, Varragoth, Klauth, Arabella. Every one of them is paid for
+     * attacking, so every one wants the same four things: another combat, a way
+     * through, haste so it happens a turn sooner, and an untap to do it again.
+     *
+     * `eff:pump` is deliberately NOT here. It is on 4,344 cards, which is a
+     * fifth of the pool, so asking for it says nothing about a deck.
+     *
+     * Isshin and Aurelia are the two ends of this population - one is paid when
+     * ANY of your creatures attacks, the other when it attacks itself - and
+     * these wants serve both, because extra combats, haste and evasion grants
+     * are good whether the deck attacks with one creature or ten.
+     */
+    wants: [
+      { facet: 'eff:extra-combat', weight: 0.85 },
+      { facet: 'grants:haste', weight: 0.7 },
+      { facet: 'grants:trample', weight: 0.65 },
+      { facet: 'grants:flying', weight: 0.6 },
+      { facet: 'grants:menace', weight: 0.55 },
+      { facet: 'eff:untap', weight: 0.5 },
+    ],
+  },
+  {
     /*
      * PAID WHEN CREATURES DIE. THE DECK NEEDS SOMETHING THAT KILLS THEM.
      *
@@ -3213,7 +3246,7 @@ const TRIBE_PAYOFF_WEIGHT = 1.0;
  * commanders in the format, so they carry no information about which one this
  * is; that is the test for entry here, and it is the only test.
  */
-const PLAN_IGNORED: ReadonlySet<Facet> = new Set([
+export const PLAN_IGNORED: ReadonlySet<Facet> = new Set([
   'kw:flying',
   'kw:vigilance',
   'kw:deathtouch',

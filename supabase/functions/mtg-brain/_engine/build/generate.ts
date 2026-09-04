@@ -2030,14 +2030,6 @@ const PACKAGE_MATCH = 0.6;
     }
   }
 
-  for (const role of ROLES) {
-    if (role === 'land' || role === 'creature') continue;
-    if (quota[role] > 0) {
-      shortfalls.push(
-        `${quota[role]} of ${targets[role]} ${role} slots could not be filled from the legal pool`
-      );
-    }
-  }
 
   /* ---------------------------------------------------------------- *
    * 2b. The creature count the commander asked for.
@@ -2826,6 +2818,170 @@ const PACKAGE_MATCH = 0.6;
           `Nothing cheaper was left that the deck could still use.`
       );
     }
+  }
+
+  /* ---------------------------------------------------------------- *
+   * 5c. THE MANA GUARANTEE. The last thing that happens to a deck.
+   * ---------------------------------------------------------------- *
+   *
+   * Owner, standing: "decks need way to make mana (ramp) - this is really
+   * important as game unplayable otherwise." Every other role may finish short
+   * and leave a worse deck; a deck that cannot make mana cannot be played.
+   *
+   * The floor fills cannot rescue it, because they ADD and by this point the
+   * deck holds ninety-nine cards - `fillTo` breaks on exactly that. Hama, the
+   * Bloodbender finished on ten ramp against a floor of eleven with the engine
+   * reporting the pool as empty, in mono-blue-black, which is full of rocks.
+   * The pool was never the problem. So this SWAPS rather than adds.
+   *
+   * WHAT IT IS ALLOWED TO TAKE, and each condition is load-bearing:
+   *
+   *   not preferred      a staple, a combo piece or a named card is never cut.
+   *                      Half a combo is a dead card and Sol Ring is in every
+   *                      deck by name.
+   *   not a land         lands are solved separately and a land is not a spell
+   *                      slot to trade.
+   *   no role it is the  taking a card whose role is already short trades one
+   *   last of            missing floor for another, which is not a fix.
+   *   worst score first  the deck gives up the least it can.
+   *
+   * If nothing qualifies the deck stays as it is and the shortfall below says
+   * so. A guarantee that lies is worse than a shortfall that is honest.
+   */
+  {
+    const rampFloor = targets.ramp ?? 0;
+    const rampHeld = () =>
+      picked.reduce((n, e) => (rolesOf(e.card as BuildCard).has('ramp') ? n + 1 : n), 0);
+    let held = rampHeld();
+    if (held < rampFloor) {
+      /* How many of each role the deck holds, so a swap cannot take the last
+         card doing some other job. Counted once and adjusted as we go. */
+      const heldByRole = {} as Record<Role, number>;
+      for (const role of ROLES) heldByRole[role] = 0;
+      for (const e of picked) for (const r of rolesOf(e.card as BuildCard)) heldByRole[r] += 1;
+
+      const rampCandidates = rankedSpells.filter(rec => {
+        const card = rec.card as BuildCard;
+        return (
+          !takenOracleIds.has(card.oracleId) &&
+          rolesOf(card).has('ramp') &&
+          !isLandCandidate(card) &&
+          !overColourlessCap(card) &&
+          !worksAgainstPlan(commanderPlan, card)
+        );
+      });
+
+      let swapped = 0;
+      for (const rec of rampCandidates) {
+        if (held >= rampFloor) break;
+        const incoming = rec.card as BuildCard;
+        /* Worst first among what may be given up. */
+        let worstAt = -1;
+        let worstScore = Infinity;
+        for (let i = 0; i < picked.length; i++) {
+          const entry = picked[i];
+          const card = entry.card as BuildCard;
+          if (entry.preferred || preferred.has(card.oracleId)) continue;
+          if (isLandCandidate(card)) continue;
+          const roles = rolesOf(card);
+          if (roles.has('ramp')) continue;
+          let lastOfSomething = false;
+          for (const r of roles) {
+            if (r === 'land') continue;
+            if (heldByRole[r] - 1 < (targets[r] ?? 0)) { lastOfSomething = true; break; }
+          }
+          if (lastOfSomething) continue;
+          /*
+           * NEVER TRADE A CARD PEOPLE PLAY FOR ONE THEY DO NOT.
+           *
+           * The first version of this pass gave up TOXIC DELUGE, one of the
+           * best sweepers in black, for The Warring Triad - because the power
+           * score does not value a card like Toxic Deluge at anything near what
+           * a player would, and this pass picks the lowest score. CLAUDE.md
+           * already records that blind spot: the score's weak points are
+           * exactly where the format's staples live, so any pass choosing what
+           * to CUT by score alone will reach for a staple.
+           *
+           * Popularity is the second opinion the score does not have, and it is
+           * the same rule `deck-optimizer` uses to refuse a downgrade. An
+           * unranked outgoing card is treated as unplayed, which is the
+           * conservative reading in the direction that protects the deck.
+           */
+          const outRank = (card as { edhrecRank?: number | null }).edhrecRank ?? Number.MAX_SAFE_INTEGER;
+          const inRank = (incoming as { edhrecRank?: number | null }).edhrecRank ?? Number.MAX_SAFE_INTEGER;
+          if (outRank < inRank) continue;
+          const score = entry.score ?? 0;
+          if (score < worstScore) { worstScore = score; worstAt = i; }
+        }
+        if (worstAt < 0) break;
+
+        const outgoing = picked[worstAt].card as BuildCard;
+        for (const r of rolesOf(outgoing)) heldByRole[r] -= 1;
+        for (const r of rolesOf(incoming)) heldByRole[r] += 1;
+        takenOracleIds.delete(outgoing.oracleId);
+        takenOracleIds.add(incoming.oracleId);
+        if (!hasColour(incoming) && hasColour(outgoing)) colourlessPicked += 1;
+        if (hasColour(incoming) && !hasColour(outgoing)) colourlessPicked -= 1;
+        picked[worstAt] = {
+          card: incoming,
+          quantity: 1,
+          reason: rec.reason,
+          score: rec.score,
+          bucket: 'ramp',
+          preferred: false,
+        };
+        carriedStamp += 1;
+        swapped += 1;
+        held = rampHeld();
+        notes.push(
+          `${outgoing.name} out for ${incoming.name}: this deck needs ${rampFloor} ways to ` +
+            `make mana and had ${held - 1}. A deck that cannot make mana cannot be played.`
+        );
+      }
+      if (swapped === 0 && held < rampFloor) {
+        notes.push(
+          `This deck makes mana ${held} ways and wants ${rampFloor}. Nothing could be given ` +
+            `up for another without leaving a different job short.`
+        );
+      }
+    }
+  }
+
+  /*
+   * A SHORT ROLE HAS TWO CAUSES AND THEY WANT OPPOSITE FIXES.
+   *
+   * "could not be filled from the legal pool" was printed for both, and it has
+   * now misled three separate investigations. Hama, the Bloodbender reported
+   * "11 of 11 ramp slots could not be filled from the legal pool" while holding
+   * ten ramp cards, in mono-blue-black, which is full of rocks. The pool was
+   * fine. The DECK WAS FULL - `fillTo` breaks on
+   * `picked.length - chosenLands.length >= spellSlots` - and every other role
+   * had already spent the ninety-nine.
+   *
+   * The two readings need different work: an empty pool is a colour with
+   * genuinely few answers and nothing can be done about it, while a full deck is
+   * this engine's own budget decision and can be. Saying which is which is the
+   * difference between a note somebody can act on and one they learn to ignore.
+   *
+   * Counted by ROLE rather than by quota, because the quota only records what
+   * the quota loop itself placed: a staple, a combo piece and a reserved pick
+   * all enter outside it, and Sol Ring is ramp however it arrived.
+   */
+  const deckFull = picked.length - chosenLands.length >= spellSlots;
+  for (const role of ROLES) {
+    if (role === 'land' || role === 'creature') continue;
+    if (quota[role] <= 0) continue;
+    const held = picked.reduce(
+      (n, entry) => (rolesOf(entry.card as BuildCard).has(role) ? n + 1 : n),
+      0
+    );
+    if (held >= targets[role]) continue;
+    shortfalls.push(
+      `${role}: ${held} of the ${targets[role]} this deck wants` +
+        (deckFull
+          ? `, and the other ninety-nine slots were already spoken for`
+          : `, which is all the legal pool holds`)
+    );
   }
 
   /* ---------------------------------------------------------------- *

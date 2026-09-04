@@ -4545,3 +4545,53 @@ Getting earned to four or more for most commanders is not a tuning job. It needs
 either shells that are genuinely narrower - so earning one says more - or more
 distinct things read off each commander. Widening signals until everyone earns
 everything would move the number and mean nothing.
+
+## The strategy-signal route is EXHAUSTED. Do not spend another session on it
+
+`scripts/probe/unclaimed-wants.mjs` asks which facets commanders want that no
+shell hears. It was wrong twice in the same way, and once fixed it says the work
+is done.
+
+**It counted redundancy as opportunity, through two paths.**
+
+1. **Derived wants.** `PLAN_RULES` hands a commander `eff:recur-self` BECAUSE it
+   already holds `cost:sacrifice` or `trig:dies`. Aristocrats and Reanimator
+   claimed both, so those commanders earned the shell anyway. `eff:recur-self`
+   ranked FIRST at 329 commanders and teaching two shells to hear it moved the
+   earned count 3.2 to 3.3. `PLAN_RULES` is exported now and the probe marks
+   such a want REDUNDANT, naming its sources.
+2. **The tribe path.** `strategiesFor` earns Tribal from `plan.tribe`, not from
+   a signal facet: the Tribal signal is `kw:changeling` alone, because no fixed
+   list can name every tribe. A Spider commander wanting `sub:spider` ALREADY
+   earns Tribal. Verified on both real Spider commanders - `plan.tribe = spider`
+   and `tribal` among their strategies.
+
+**With both modelled the list is nearly empty:**
+
+    commanders under the target of four     2,123 of 3,358
+    largest single remaining opportunity       20 commanders
+
+**And the top entries are not opportunities at all.** Every `sub:vehicle`
+commander is a DOUBLE-FACED CARD WHOSE BACK IS A VEHICLE - Optimus Prime,
+Starscream, Cosima, Slicer, Blitzwing - so a Vehicles shell would be wrong for
+every one of them. `sub:saga` is the same shape. A `sub:` facet on a legendary
+creature does not mean the deck is that tribe; it can mean the other face is.
+
+### What this leaves
+
+2,123 commanders sit under four strategies because they genuinely do two or
+three things, or because eighteen shells have no shell for what they do. A
+marginal shell is worth about twenty commanders. That is a SHELL VOCABULARY
+question, not a signal question and not tuning, and the honest framing is:
+
+    offered  7.9 per commander   what a player may pick from
+    earned   3.3 per commander   what the card itself argues for
+
+Both are true. Widening signals until everyone earns everything would move the
+second number and mean nothing, which is exactly what the redundancy above was
+doing before the probe could see it.
+
+> The general lesson, now three for three: **before acting on a ranked work
+> list, ask what would make its top entry a false positive.** Derived wants,
+> second paths to the same outcome, and the back faces of double-faced cards
+> have each put a worthless item at the top of a list in this project.

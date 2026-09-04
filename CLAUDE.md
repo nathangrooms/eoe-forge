@@ -4934,3 +4934,78 @@ Each cost real time and every one is the same class this file keeps recording.
 5. **A wide scan of `cards_unique` with the fat columns returns 57014.** Take
    names from `cards_pool`, which is thin and indexed, then fetch the text by
    name in chunks.
+
+---
+
+## Compiler 19, and a strategy you NAME is not a strategy we guessed
+
+### Three grammar gaps, all of the same shape
+
+A null selector fails the WHOLE rule it appears in, so each of these made a card
+compile to nothing rather than lose one clause. That is why a card at rank 90 can
+be completely invisible to the engine over one token.
+
+    "and/or" is "or"        parseObject read "target artifacts and enchantments"
+                            and "target artifacts or enchantments" and returned
+                            null for the third way of saying the same set.
+                            Ghostly Flicker #587 manual -> FULL with
+                            eff:exile-own; Force of Vigor #1024 -> eff:destroy;
+                            Mondrak #426 -> cost:sacrifice, a real outlet.
+
+    "one or more X"         a LOWER BOUND, refused by the quantifier parser.
+                            Wizards writes a trigger's subject this way whenever
+                            the event can happen to several things at once.
+                            Deliberately NOT marked `countBounded`: that flag
+                            means "exactly this many and no more", which is the
+                            opposite claim and is what stops "two creatures you
+                            control" collapsing into every creature.
+
+    "with power N or less"  `CardFilter` has always been
+                            {is:'power'|'toughness'|'mana-value'} and only the
+                            PARSER was narrower than the type it builds, so
+                            "creature with power 4 or greater" refused on the
+                            word "power" while "card with mana value 4 or
+                            greater" read fine. Garruk's Uprising #90 went from
+                            nothing to trig:enters, eff:draw, grants:trample.
+
+    read the whole card   10,988 -> 11,070      unread clauses  20,799 -> 20,681
+
+**166 of the 4,000 most played cards carry an unparsed trigger whose event
+contains " or ", and most of them are NOT dual events** - they are comparisons
+wearing the same word. `scratch/_dualtrig.mjs` ranks them; the genuine
+two-event triggers ("when this enters or dies") are about ten cards.
+
+### A CHOSEN strategy and a DETECTED one are different claims
+
+Both were getting 35% of the spell slots. The engine's guess is one of eighteen
+picked by a cosine and belongs in proportion behind what the commander's own
+record says. A name the player typed is the whole reason they are on the page.
+
+`BuildInput.archetypeChosen` carries the distinction, set from
+`archetype != null` in the pipeline - `archetype` is the request,
+`derived` is the engine's reading.
+
+**This only became visible once the commander was read properly.** Syr Vondam is
+paid for creatures dying AND for creatures being exiled, so the moment his own
+aristocrats plan was read it competed for every blink slot: correct for the
+commander, wrong for somebody who asked for Blink by name.
+
+Swept against the two human decks. `ARCHETYPE_SLOT_SHARE_CHOSEN = 0.45`:
+
+    share   total   arrivals   ways to blink
+    0.35    23/92      15            8
+    0.45    31/92      20           10        <- shipped
+    0.50    29/92      19           10
+    0.60    29/92      20           11        drifts to obscure cards that
+                                              happen to blink (Vault 13)
+
+    Syr Vondam + Blink, DEPLOYED, against two human decks
+      total                  20/92 -> 31/92
+      things worth blinking    2/30 -> 6/30    Wall of Omens, Spirited
+                                               Companion, Solemn Simulacrum
+      ways to blink            4/17 -> 7/17    Conjurer's Closet, Felidar
+                                               Guardian, Eldrazi Displacer
+
+The forty-random-commander sweep is UNCHANGED at 40/40 clean and keyed 75%,
+which is the right outcome and worth stating: that sweep names no strategy, so
+this constant cannot reach it. A change that moved it would have been a bug.

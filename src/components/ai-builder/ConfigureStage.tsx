@@ -441,7 +441,13 @@ export function ConfigureStage({
               </Label>
               <Textarea
                 id="ai-builder-prompt"
-                placeholder="e.g. more counterspells, nothing over 4 mana, keep Cyclonic Rift out"
+                /* The example has to be something this ACTUALLY DOES. It used
+                   to lead with "more counterspells", which the engine cannot
+                   act on: it keeps named cards out and caps mana value, and it
+                   tells you in the deck's notes when it could not act on
+                   something. Promising the one thing it does not do, in the
+                   placeholder, is how a working control reads as broken. */
+                placeholder="e.g. keep Cyclonic Rift out, nothing over 4 mana"
                 value={config.customPrompt}
                 onChange={e => patch({ customPrompt: e.target.value })}
                 rows={2}

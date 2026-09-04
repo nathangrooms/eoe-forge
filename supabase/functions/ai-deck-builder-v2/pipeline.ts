@@ -23,6 +23,10 @@ import {
   type CandidateQuery,
 } from './_engine/advise/index.ts';
 import { generateDeck, type BuildCard, type GeneratedDeck } from './_engine/build/generate.ts';
+import {
+  readRequestNotes,
+  describeRequestNotes,
+} from './_engine/build/requestNotes.ts';
 import { popularityCoverage } from './_engine/advise/rank.ts';
 import {
   planForArchetype,
@@ -960,9 +964,51 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
       `${ranked.length - FACET_BUDGET} carry tags only`
     );
   }
-  const pool: BuildCard[] = ranked.map(row =>
+  const wholePool: BuildCard[] = ranked.map(row =>
     toBuildCard(row, format, facets.byOracleId.get(row.oracle_id ?? '') ?? null)
   );
+
+  /*
+   * WHAT THE PLAYER TYPED INTO "ANYTHING ELSE?", APPLIED HERE.
+   *
+   * `customPrompt` had been declared on the request type and read by NOTHING
+   * since the language model was removed on 3 Sep 2026. The box on the page
+   * says "e.g. more counterspells, nothing over 4 mana, keep Cyclonic Rift
+   * out" and did none of it.
+   *
+   * Taking cards out of the POOL rather than out of the deck is the whole
+   * implementation: every later pass - the quota loop, the staples, the
+   * packages, the reserve, the floors, the review rounds - chooses from this
+   * array, so a card that is not in it cannot come back through any of them.
+   * Filtering the finished deck instead would have left a 98-card deck and a
+   * hole for the next pass to fill with the same card.
+   *
+   * The POOL is also the authority on what a card is called, so a name that
+   * does not match anything is reported to the player rather than guessed at.
+   * A mana ceiling never touches lands: "nothing over 4 mana" is about spells,
+   * and applying it to the mana base would take out every expensive utility
+   * land and leave a deck that cannot cast what is left.
+   */
+  const notes = readRequestNotes(
+    request.customPrompt,
+    wholePool.map(c => c.name)
+  );
+  const excluded = new Set(notes.excludeNames);
+  const pool: BuildCard[] =
+    excluded.size === 0 && notes.maxManaValue === null
+      ? wholePool
+      : wholePool.filter(card => {
+          if (excluded.has(card.name)) return false;
+          if (notes.maxManaValue === null) return true;
+          if (/Land/i.test(String(card.typeLine ?? ''))) return true;
+          return (card.cmc ?? 0) <= notes.maxManaValue;
+        });
+  const notesSaid = describeRequestNotes(notes);
+  if (notesSaid) {
+    console.log(
+      `  request: ${notesSaid} (pool ${wholePool.length} -> ${pool.length})`
+    );
+  }
 
   /*
    * HOW MUCH OF THIS POOL THE POPULARITY PRIOR CAN ACTUALLY SEE.
@@ -1355,6 +1401,11 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
         },
         changeLog: [
           `${validation.totalCards}/99 cards (+ commander = ${validation.totalCards + 1})`,
+          /* What the player asked for in their own words, and honestly what
+             could not be acted on. Placed second so it is read early rather
+             than under the counts. `filter(Boolean)` below drops it when the
+             box was empty. */
+          ...(notesSaid ? [notesSaid] : []),
           `Colours: ${commanderIdentity.join('') || 'colourless'}`,
           `Lands: ${typeBreakdown.lands} (${sumBy(c => c.isBasicLand)} basic)`,
           /*

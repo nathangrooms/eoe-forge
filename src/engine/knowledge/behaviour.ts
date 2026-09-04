@@ -3332,6 +3332,28 @@ export const PLAN_RULES: readonly {
          pump 0.8 / instant 0.75 Feather read as Voltron (0.53) and got an
          Equipment package. She is a spellslinger whose spells happen to pump. */
       { facet: 'type:instant', weight: 0.8 },
+      /*
+       * AND THE CREATURES THAT REWARD BEING TARGETED, which is the other half
+       * of the deck and was missing entirely.
+       *
+       * Feather, the Redeemed's whole card is "whenever you cast an instant or
+       * sorcery that TARGETS A CREATURE YOU CONTROL", and her deck held ZERO
+       * heroic creatures. The rule asked for the spells and never for the
+       * things to point them at.
+       *
+       * `kw:heroic` is on only EIGHT cards in the pool and the most played is
+       * rank 7,115, so nothing reaches them by score - `playedFirst` and the
+       * rank floors are built to keep cards that unplayed out. An explicit want
+       * is the only door, and it is the right one: heroic IS this archetype's
+       * payoff, and the twelve commanders carrying `trig:cast:targeting` are
+       * uniform - Zada, Feather, Brigone, Legolas, Rosnakht, Anax and Cymede.
+       *
+       * `trig:cast:targeting` self-referentially alongside it, the shape
+       * `trig:dies` uses: a creature that triggers when it is targeted does the
+       * same job whether or not Wizards printed the keyword on it.
+       */
+      { facet: 'kw:heroic', weight: 0.8 },
+      { facet: 'trig:cast:targeting', weight: 0.7 },
       { facet: 'eff:pump', weight: 0.75 },
       { facet: 'grants:hexproof', weight: 0.7 },
       { facet: 'eff:protect', weight: 0.6 },

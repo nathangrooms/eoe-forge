@@ -3987,3 +3987,79 @@ empty-deck 2.4, so the role gap at 3.0 dominates and a cheap card that
 technically fills a role can beat a better one. That is the same shape as the
 archetype-weight fault fixed above and wants the same treatment: a measurement
 across many decks before touching a weight.
+
+## REFUSED TWICE: folding `type:X` onto `cares:type:X` to choose a shell
+
+Re-tested 4 Sep 2026 against the CORRECTED archetype weight, because the first
+refusal was measured while `archetype-fit` still carried the commander's 3.6 and
+the stated reason for the failure was that a partly-right shell's packages take
+slots. That reason is now gone and **the result did not change**:
+
+    baseline (no fold)   23/71 jobs, 18 groups at zero
+    fallback + floor     22/71 jobs, 18 groups at zero
+
+    Sythis    2/3 jobs -> 1/3          gains the Enchantress shell
+    Feather   median rank 414 -> 1,139, and a card past 15,000
+    Niv-Mizzet median 613 -> 845       gains Spellslinger
+
+So the three commanders it gives a CORRECT shell name are the three whose decks
+get worse, twice, under two different weightings. **Do not try this a third time
+without first fixing why a shell's packages cost a deck quality.** The package
+budget is spent on narrow conjunctions while what those commanders wanted was
+breadth: Sythis gains enchantresses, 3 to 5, and loses both "cheap enchantments"
+and "enchantment payoffs".
+
+The underlying mismatch is still real and still worth fixing eventually: eight of
+twenty benchmark commanders get NO shell because a commander wants
+`type:enchantment` while the shell wants `cares:type:enchantment`.
+
+## The optimiser was proposing swaps it had itself measured as downgrades
+
+It became deployable on 4 Sep, so this is the first time its suggestions have
+been measured at all. `scripts/probe/optimiser-suggestions.mjs` builds a deck
+with the generator, hands it straight to the optimiser, and reads how played the
+cards it wants to add are.
+
+    Kiki-Jiki, Mirror Breaker (1,240) -> Akki Scrapchomper    (14,431)
+    Zealous Conscripts        (2,363) -> Greasewrench Goblin  (17,642)
+    Flare of Fortitude          (739) -> Angel's Herald       (27,779)
+    Solemn Simulacrum            (38) -> Clown Car             (3,937)
+
+The first two are BOTH HALVES OF THE COMBO the generator deliberately put in
+that deck. **The optimiser cannot see a combo at all** - it reads the pieces as
+cards filling no role it is short of. That is the sharpest example of the two
+halves of the engine disagreeing, and it is not fixed here: the optimiser
+receives a card list and nothing tells it which cards were placed as a unit.
+
+**A swap may not hand a card nobody plays for one they do.** `incoming` is
+paired with `swapTargets` BY INDEX and nothing checked that what arrives is
+better than what leaves. `PLAYED_ENOUGH_RANK` is the same 12,000 line the
+generator's floors use. It refuses only the crossing.
+
+**A swap measured to make the deck worse is not offered.** `measureImpact`
+already re-evaluated the deck with each replacement applied and wrote the delta
+onto the row, and NOTHING READ IT. It runs before the projection, because that
+number is "the whole answer applied at once" and has to describe the answer
+actually shown. NULL IS NOT NEGATIVE: the delta is null when it is too small to
+print, unmeasurable, or past `IMPACT_BUDGET`, and unknown stays unknown.
+
+Using the engine's own number rather than a rank rule matters, because a less
+played card genuinely is the right answer for some commanders.
+
+    additions past rank 12,000, five decks   8 -> 0
+    Krenko    10 swaps -> 5, combo intact
+    Teysa     10 swaps -> 6
+
+### Still wrong, measured, and it is the SCORE
+
+Smothering Tithe (65) out for Halo Fountain (1,908) survives, because the power
+score MEASURES that swap as an improvement. The score is a castability, role and
+fit roll-up and does not value a card like Smothering Tithe at anything near
+what a player would. That is a limitation of the score itself rather than of the
+filter, and the filter is now the thing that would show it up: anything the
+score gets wrong now reaches the player as a confident recommendation.
+
+> The optimiser's request shape is `{ deckContext: { commander, cards, format },
+> useCollection, collectionCards }`, and a replacement's reasons live on
+> `removeReason` / `addBenefit`, NOT on `reason`. A probe reading `reason` prints
+> blank swaps and looks like a feature with no explanations.

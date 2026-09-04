@@ -3180,3 +3180,126 @@ Nine groups still at zero are the same shape: the compiler reads the cards
 and the generator does not reach them. Yuriko's cheap evasive creatures,
 Feather's cantrips, Kinnan's untappers, Animar's colourless fatties. That is
 ranking and slot policy, not vocabulary, and it is the next piece of work.
+
+---
+
+## The yardstick was in the database all along (3 Sep 2026)
+
+Owner: *"We should be getting similar results to them."* Nothing measured
+that, because we had no THEM. Every instrument in this repo scored a deck
+against something we wrote: role floors we chose, a benchmark whose job lists
+were typed from knowledge.
+
+**`meta_decks` holds 192 real Commander decklists** (MTGJSON, MIT, ingested
+19 Aug and never read by anything). They are precons, so matching them is a
+FLOOR rather than a ceiling: it says our decks are shaped like real decks, not
+that they are good ones. It is still the only external evidence in the repo.
+
+### Two instruments, and the trap between them
+
+    scripts/probe/real-deck-roles.mjs    runs OUR cardRole over THEIR decklists,
+                                         writes real-deck-roles.json (p10/p50/p90)
+    scripts/probe/deck-shape-check.mjs   builds the 20 benchmark commanders and
+                                         reports every role outside the real range
+
+**ROLES, NOT TAGS.** The first version of the checker compared our role fill
+against their TAG counts and reported ramp as wrong on 16 of 20 decks, because
+the ramp TAG has a median of 9 and the ramp ROLE has a median of 16. Two
+vocabularies, one subtraction, and the difference called a fault. Both sides
+must be the same question asked the same way.
+
+**And filter to Commander.** `meta_deck_cards` holds all 873 ingested decks,
+681 of them 60-card lists. The unfiltered read reported a median of 3 ramp and
+a tenth percentile of 18 lands: the shape of a Standard deck, used as the
+yardstick for a Commander one.
+
+### What a real Commander deck holds, in our own role vocabulary
+
+    role          p10   p50   p90   max
+    ramp           11    16    21    31
+    draw           11    17    24    43
+    removal         9    13    20    33
+    interaction     1     4     8    13
+    tutor           0     0     2    12
+    enhance         1     5    12    32
+    protection      0     1     5    10
+    wincon          0     0     2    16
+    land           37    38    40    44
+    creature       22    29    37    45
+
+Roles overlap - a mana dork is ramp AND creature - so these sum past 99. Both
+sides of every comparison carry the same overlap.
+
+### 41% -> 70% of role checks inside the real range
+
+Four faults, none of them commander variance:
+
+**Xenagos took 49 lands in a 99-card deck.** The land solver maximises
+castability against an absurdity guard that was HALF THE DECK. It is the real
+p90 (40) now: the decks the guard catches are the ones whose castability curve
+never peaked, which have a pool problem the mana base cannot fix, and the 41st
+land makes them worse. A deck that genuinely wants 41 reaches it through the
+peak rather than through the guard. Decks outside the real land range: 11 -> 2.
+
+**The derived floors asked for four tutors and four win conditions**, where
+the real median for both is ZERO. A hypergeometric answers "how many copies to
+have drawn one by the turn it matters" and real decks decline to pay it: a
+tutor you have not drawn costs nothing and a tutor slot costs a card. Floors
+are clamped to p90 now. The wide roles are untouched - their derived floors
+already sit below p90 - so the clamp only bites where the arithmetic asked for
+something no deck runs.
+
+**The role ceiling was `target * 2 + 4`**, which let Prosper reach 47 ramp
+against a real p90 of 21. It is p90 now (`roleCeilingFor`), and it is checked
+in EVERY pass that picks a card by score rather than in two of them: the
+commander-fit reserve, the package fill, the floor fills, the short-role
+backfill and the review swap all consult it. A reserved slot may ignore the
+QUOTA - that is its purpose - but not an absurdity ceiling.
+
+**The role-count cache was keyed on `picked.length`**, and the review rounds
+replace a card IN PLACE, so the length never moved and the cache answered with
+the roles of a card no longer in the deck. It is keyed on a mutation stamp.
+
+### A cost reducer is not a mana source
+
+`ROLE_TAGS.ramp` held `cost-reduction`, which claimed 156 cards as ramp; 156
+of the 157 had no other ramp tag. Animar came back with 29 ramp pieces of
+which eleven were **Dragonlord's Servant, Dragonspeaker Shaman and Goblin
+Warchief** - cost reducers for tribes the deck does not play, which are blank
+cards. A cost reducer's value depends on the deck and the role system is
+deck-independent, so claiming it as ramp is wrong in general. Animar's ramp is
+16 real mana sources now.
+
+**The shape metric barely saw this fix (65% -> 66%) and the deck got much
+better.** A metric that counts cards cannot see that eleven of them were
+blank. Read the list.
+
+### Where it stands
+
+    shape (200 role checks)   81/200 -> 139/200   41% -> 70%
+    twenty commanders         18/71 jobs -> 21/71
+    seven-deck roster         keyed 67%, staples 51/61
+    tests                     3,337 passing
+
+**Regression, measured and NOT fixed.** Kozilek went from 3 cards past EDHREC
+rank 15,000 to 8. Freed land slots in a narrow pool are filled by unplayed
+cards, because `playedFirst` is a two-pass fill whose own comment says it must
+"degrade to take it anyway rather than to a deck that is short". His pool is
+not exhausted - 1,063 colourless cards rank under 12,000 - so the fringe cards
+are filling NARROW ROLES (protection, wincon) that the played pool cannot
+serve. Fixing it means letting a role go short, which reverses a deliberate
+decision and wants measuring first.
+
+### What is still structurally missing
+
+1. **The plan is a mood, not a shopping list.** A commander's plan is a flat
+   list of weighted facets and `planFit` is a noisy-OR over it, so it can say
+   "this card is on-theme" and can never say "I need six of these and I have
+   two". Only the ten generic roles have counts. That mismatch is why nine job
+   groups sit at zero while the compiler reads every card in them perfectly.
+2. **Cards are scored one at a time**, so "Wall of Omens is good BECAUSE this
+   deck runs Conjurer's Closet" cannot be expressed. `meta_card_pairs` holds
+   24,165 measured co-occurrences and nothing reads it.
+3. **The yardstick is global.** 192 decks pooled together give ranges wide
+   enough that only faults true of every commander show up. Per-strategy
+   expectations need the decks bucketed by archetype first.

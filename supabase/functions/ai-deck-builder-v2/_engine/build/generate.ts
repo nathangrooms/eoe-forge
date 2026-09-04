@@ -61,7 +61,7 @@ import { worksAgainstPlan } from '../knowledge/behaviour.ts';
 import { withinIdentity } from '../advise/query.ts';
 import { planFit } from '../knowledge/behaviour.ts';
 import { TYPE_TAGS, LOW_INFORMATION_TAGS } from '../knowledge/tag-signal.ts';
-import { deriveDeckShape, type DeckShape } from './shape.ts';
+import { deriveDeckShape, roleCeilingFor, type DeckShape } from './shape.ts';
 import { normalizeIdentity } from '../advise/query.ts';
 import {
   facetBackground,
@@ -223,6 +223,61 @@ export interface GenerateDeckInput {
    */
   preferOracleIds?: readonly string[];
   avoidOracleIds?: readonly string[];
+  /**
+   * What the player asked the deck to be, 1 to 10.
+   *
+   * THE PAGE HAS SENT THIS SINCE THE SLIDER EXISTED AND THE ENGINE NEVER SAW
+   * IT. Measured 3 Sep 2026: `powerLevel` reached exactly one place in the
+   * edge function, the prompt handed to the language model, and the model is
+   * out of credits, so production has shipped the same deck at every setting.
+   * A control that changes nothing is worse than no control, because the
+   * player believes it.
+   *
+   * What it decides here is what a deck is ALLOWED to do, not how hard it
+   * tries: the two-card infinite combos below are the difference between a
+   * kitchen-table deck and a cEDH one, and nothing else in the build should
+   * be reading a number the player set by feel.
+   */
+  powerLevel?: number | null;
+  /**
+   * Build the mana base too, or leave the deck as spells alone.
+   *
+   * The page's "Include manabase - Build the lands as well as the spells".
+   * Also never read: `includeLands` had ZERO mentions in the edge function.
+   */
+  includeLands?: boolean | null;
+  /**
+   * The page's "Prioritise synergy - Weight cards that talk to the commander",
+   * and the third control that reached nothing.
+   *
+   * On, which is the default, the commander-fit weight is what every
+   * measurement in this file was taken against. Off, it drops to the ranker's
+   * own default, so a card is chosen for being good rather than for being on
+   * theme - which is what a player turning this off is asking for.
+   */
+  prioritizeSynergy?: boolean | null;
+  /**
+   * Combos this commander's colours could build, most played first.
+   *
+   * From `combo_pool`, which aggregates Commander Spellbook's 61,130
+   * commander-legal combos. The engine is pure and cannot read a database, so
+   * the caller fetches them; a caller that does not is unchanged.
+   */
+  combos?: readonly ComboSpec[];
+}
+
+/** One combo: the cards it needs, and what it does when they are together. */
+export interface ComboSpec {
+  id: string;
+  /** Every piece, by oracle id. The deck needs all of them. */
+  oracleIds: readonly string[];
+  cardNames: readonly string[];
+  /** How many real decks play it, from Commander Spellbook. */
+  popularity: number | null;
+  /** "Infinite lifegain", "Infinite creature ETB". Spellbook's own words. */
+  produces: readonly string[];
+  /** True when one piece must be the commander, which we cannot arrange. */
+  needsCommander: boolean;
 }
 
 /**
@@ -609,6 +664,7 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
     pool: input.pool,
     style: input.style ?? null,
     landTarget: input.landTarget ?? null,
+    includeLands: input.includeLands ?? null,
     roleTargets: input.roleTargets ?? null,
   });
 
@@ -647,12 +703,117 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
    * a full point for being cheap to every card in the pool, which on a $500
    * budget that a $53 deck never approaches is a pure bias toward junk.
    */
+  /*
+   * "Prioritise synergy", which the page has offered since the panel was
+   * written and which reached nothing. On - the default, and what every
+   * measurement in this file was taken against - the commander's own record
+   * outweighs how played a card is. Off, the ranker falls back to its own
+   * weight, so the deck is built from good cards rather than themed ones,
+   * which is what a player turning it off is asking for.
+   */
+  const synergyFirst = input.prioritizeSynergy !== false;
   const rankOptions = {
     popularityWeight: EMPTY_DECK_POPULARITY,
-    commanderFitWeight: EMPTY_DECK_COMMANDER_FIT,
+    ...(synergyFirst ? { commanderFitWeight: EMPTY_DECK_COMMANDER_FIT } : {}),
   };
 
   const pool = input.pool.filter(c => !avoided.has(c.oracleId) && c.oracleId !== input.commander.oracleId);
+
+  /* ---------------------------------------------------------------- *
+   * 0b. The combos this deck can actually build.
+   * ---------------------------------------------------------------- *
+   *
+   * The owner: *"this card works, because the deck contains other cards that
+   * combo with it, including win condition combos, also important."*
+   *
+   * The ranker scores one card at a time, so it can never say that; the whole
+   * point of a combo is that each half is worth little alone. Nothing else in
+   * this file can express it either. So the pieces arrive as a UNIT and are
+   * taken as a unit, which is also how a player thinks about them.
+   *
+   * PREFERRED, not a new pass. `preferred` already means "the caller asked for
+   * this card by name": taken first, never cut by a review round, exempt from
+   * the role ceiling. A combo's pieces want exactly that treatment, and reusing
+   * it means the combo cannot be quietly undone three passes later. Sol Ring
+   * arrives the same way.
+   *
+   * WHAT IS REFUSED, and each refusal is the difference between a deck and a
+   * curiosity:
+   *   - a piece the pool does not hold, or that is outside the identity. The
+   *     combo is not buildable and half a combo is two dead cards.
+   *   - `needsCommander`, because we cannot make Spellbook's chosen card the
+   *     commander; the player already chose one.
+   *   - more pieces than the budget below. A four-card combo is a deck plan.
+   *
+   * AND IT IS GATED ON POWER. A two-card infinite is the difference between a
+   * kitchen-table deck and a cEDH one, and the player says which they want with
+   * the slider that until today reached nothing at all. Seven is where the
+   * bracket notes in CLAUDE.md put "late-game combos"; below it the deck is
+   * built without one and says so by saying nothing.
+   */
+  const COMBO_PIECE_BUDGET = 3;
+  const COMBO_MIN_POWER = 7;
+  if (input.combos?.length && (input.powerLevel ?? 0) >= COMBO_MIN_POWER) {
+    const inPool = new Set(pool.map(c => c.oracleId));
+    const buildable = input.combos
+      .filter(
+        combo =>
+          !combo.needsCommander &&
+          combo.oracleIds.length <= COMBO_PIECE_BUDGET &&
+          combo.oracleIds.every(id => inPool.has(id) || preferred.has(id))
+      )
+      .sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
+
+    /*
+     * THE DECK'S COMBO, NOT THE FORMAT'S.
+     *
+     * Ordering by popularity alone gave Meren of Clan Nel Toth - a sacrifice
+     * and recursion commander - Sanguine Bond + Exquisite Blood, because that
+     * is the most played combo in black and green. It is legal, it wins the
+     * game, and it has nothing to do with her: both halves are dead cards
+     * until they are both drawn, so a combo the rest of the deck does not
+     * support is two blanks and a coincidence.
+     *
+     * So popularity picks between combos the commander wants, rather than
+     * choosing on its own. The fit of a piece is the fit the ranker would give
+     * it, so a combo made of cards this deck would have wanted anyway wins
+     * over one that merely happens to be famous. `Math.max` rather than a mean
+     * because a two-card combo where ONE half is a card the deck wants is
+     * still a card the deck wants plus a finisher.
+     */
+    const comboFit = (combo: ComboSpec): number => {
+      let best = 0;
+      for (const id of combo.oracleIds) {
+        const card = pool.find(c => c.oracleId === id);
+        /* `planFit` directly, not the memoised `fitOf`: that is declared two
+           hundred lines below this and reading it here is a temporal dead
+           zone the tests would not have caught, because no test passes
+           combos. */
+        if (card) best = Math.max(best, planFit(commanderPlan, card).fit);
+      }
+      return best;
+    };
+    for (const combo of buildable) (combo as { fit?: number }).fit = comboFit(combo);
+    buildable.sort(
+      (a, b) =>
+        ((b as { fit?: number }).fit ?? 0) - ((a as { fit?: number }).fit ?? 0) ||
+        (b.popularity ?? 0) - (a.popularity ?? 0)
+    );
+
+    const best = buildable[0];
+    if (best) {
+      for (const id of best.oracleIds) preferred.add(id);
+      notes.push(
+        `${best.cardNames.join(' + ')} go in together: ` +
+          `${best.produces.slice(0, 2).join(' and ') || 'they combo'}` +
+          (best.popularity ? ` (${best.popularity.toLocaleString()} decks play it)` : '')
+      );
+    } else if (input.combos.length) {
+      notes.push(
+        `none of the ${input.combos.length} combos in these colours can be built from this pool`
+      );
+    }
+  }
 
   /* ---------------------------------------------------------------- *
    * 1. The mana base, before anything that has to be cast off it.
@@ -873,22 +1034,32 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
    * The commander's tribe is exempt: in an Elf deck the Elves are the deck,
    * and thirty of them tapping for mana is the plan rather than a flood.
    */
-  const roleCeiling = (role: Role) => (roleFill[role]?.target ?? 0) * 2 + 4;
+  /* THE P90 OF WHAT REAL DECKS HOLD, not twice our own target plus four. The
+     formula let a role whose target was already generous run to absurdity:
+     Prosper, Tome-Bound came back with 40 ramp pieces and Feather, the
+     Redeemed with 22 interaction, against real ninetieth percentiles of 21
+     and 8. `roleCeilingFor` is measured over 192 real decks. */
+  const roleCeiling = (role: Role) => roleCeilingFor(role, slots);
   const tribeFacet = commanderPlan.tribe ? `sub:${commanderPlan.tribe}` : null;
+  /* The cache key is a STAMP, not `picked.length`. The review rounds replace
+     a card in place - `picked[i] = ...` - so the length never moves and a
+     length-keyed cache keeps answering with the roles of a card that is no
+     longer in the deck. Every mutation bumps this. */
+  let carriedStamp = 0;
   let carriedAt = -1;
   const carried: Partial<Record<Role, number>> = {};
   const carriedCount = (role: Role): number => {
-    if (carriedAt !== picked.length) {
+    if (carriedAt !== carriedStamp) {
       for (const r of ROLES) carried[r] = 0;
       for (const e of picked) for (const r of rolesOf(e.card)) carried[r] = (carried[r] ?? 0) + 1;
-      carriedAt = picked.length;
+      carriedAt = carriedStamp;
     }
     return carried[role] ?? 0;
   };
-  const overRoleCeiling = (card: BuildCard): boolean => {
+  const overRoleCeiling = (card: BuildCard, exempt?: Role): boolean => {
     if (tribeFacet && (card.facets ?? []).includes(tribeFacet)) return false;
     for (const r of rolesOf(card)) {
-      if (r === 'land' || r === 'creature') continue;
+      if (r === 'land' || r === 'creature' || r === exempt) continue;
       if (carriedCount(r) >= roleCeiling(r)) return true;
     }
     return false;
@@ -977,6 +1148,7 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
       .slice(0, count);
 
     for (const card of best) {
+      carriedStamp += 1;
       picked.push({
         card,
         quantity: 1,
@@ -1161,6 +1333,7 @@ const PACKAGE_MATCH = 0.6;
     quota[role] -= 1;
     roleFill[role].picked += 1;
     takenOracleIds.add(card.oracleId);
+    carriedStamp += 1;
     picked.push({
       card,
       quantity: 1,
@@ -1378,6 +1551,12 @@ const PACKAGE_MATCH = 0.6;
       if (!best) break;
 
       const card = best.rec.card as BuildCard;
+      /* A RESERVED SLOT MAY IGNORE THE QUOTA, NOT THE CEILING. Spending on
+         theme regardless of role is the whole point of this pass; running a
+         role past what any real deck holds is not. Prosper, Tome-Bound is
+         every Treasure maker on theme AND classified ramp, and came back with
+         47 ramp pieces against a real p90 of 21. */
+      if (overRoleCeiling(card)) { remaining.splice(remaining.indexOf(best), 1); continue; }
       if (!hasColour(card)) colourlessPicked += 1;
       takenOracleIds.add(card.oracleId);
       reserved += 1;
@@ -1388,6 +1567,7 @@ const PACKAGE_MATCH = 0.6;
       for (const f of card.facets ?? []) {
         if (wantWeightOf.has(f)) servedCount.set(f, (servedCount.get(f) ?? 0) + 1);
       }
+      carriedStamp += 1;
       picked.push({
         card,
         quantity: 1,
@@ -1558,10 +1738,14 @@ const PACKAGE_MATCH = 0.6;
            reason the commander reserve refuses it: this pass ignores `score`,
            so the ranker's anti-synergy penalty cannot reach it. */
         if (worksAgainstPlan(commanderPlan, card)) continue;
+        /* A package fills a JOB, and a job is not a licence to run a role past
+           what any real deck holds. Same rule as the reserve above. */
+        if (overRoleCeiling(card)) continue;
         if (!hasColour(card)) colourlessPicked += 1;
         takenOracleIds.add(card.oracleId);
         taken += 1;
         tookNames.push(card.name);
+        carriedStamp += 1;
         picked.push({
           card,
           quantity: 1,
@@ -1627,6 +1811,11 @@ const PACKAGE_MATCH = 0.6;
         if (takenOracleIds.has(candidate.oracleId)) continue;
         if (overColourlessCap(candidate)) continue;
         if (!rolesOf(candidate).has(role)) continue;
+        /* Filling a SHORT role must not overfill a FULL one. A card that
+           protects the commander and also makes mana is how a deck reaches
+           the protection floor and 32 ramp at the same time; the role being
+           filled is exempt because that is the point of this pass. */
+        if (overRoleCeiling(candidate, role)) continue;
         found = i;
         break;
       }
@@ -1638,6 +1827,7 @@ const PACKAGE_MATCH = 0.6;
       quota[role] -= 1;
       roleFill[role].picked += 1;
       takenOracleIds.add(card.oracleId);
+      carriedStamp += 1;
       picked.push({
         card,
         quantity: 1,
@@ -1708,10 +1898,15 @@ const PACKAGE_MATCH = 0.6;
       if (takenOracleIds.has(card.oracleId)) continue;
       if (!wanted(card)) continue;
       if (overColourlessCap(card)) continue;
+      /* The creature floor filling with mana dorks is how a deck reaches 35
+         ramp against a real ninetieth percentile of 21: a dork carries the
+         floor's role AND the role that is already full. */
+      if (!preferred.has(card.oracleId) && overRoleCeiling(card)) continue;
       takenOracleIds.add(card.oracleId);
       if (cardRole(card, 'creature')) creaturesPicked += 1;
       if (hasColour(card)) colouredPicked += 1;
       else colourlessPicked += 1;
+      carriedStamp += 1;
       picked.push({
         card,
         quantity: 1,
@@ -1906,8 +2101,45 @@ const PACKAGE_MATCH = 0.6;
      * pass reported nothing to `roleFill`, so the review rounds could not
      * see what it had done.
      */
+    /*
+     * A CARD EARNS ITS SLOT BY DOING SOMETHING FOR THIS DECK, and being played
+     * a lot is not the same claim.
+     *
+     * The owner, on the rank floor: *"cards past rank 15000 may be ok if they
+     * are best for that commander may just be unpopular, doesnt mean bad?"*
+     * Exactly right, and the inverse is the fault this fixes. Kozilek, the
+     * Great Distortion came back holding Ivory Cup, Crystal Rod, Wooden
+     * Sphere, Iron Star and Throne of Bone - the cycle that gains a life when
+     * somebody casts a white, blue, green, red or black spell - in a
+     * COLOURLESS deck. Their role is `(none)` and their commander fit is zero,
+     * so no quota pass could have taken them; this one did, because it takes
+     * the best remaining by SCORE and a one-mana artifact scores well on curve
+     * and castability while doing nothing at all.
+     *
+     * So the test is not how played the card is. It is whether the card fills
+     * a role or serves a want. A rank-25,000 card that does either is a fine
+     * pick for a commander nobody builds; a rank-500 card that does neither is
+     * filler whatever its rank.
+     *
+     * AN ORDERING, NOT A FILTER, on the `playedFirst` precedent: the deck must
+     * still reach 99, so a pool that genuinely runs out of cards that do
+     * something falls through to the ones that do not, rather than coming back
+     * short. The note below says when that happened.
+     */
+    const doesSomething = (card: BuildCard): boolean =>
+      rolesOf(card).size > 0 || fitOf(card).fit > 0;
+    const flexOrder = (() => {
+      const ordered = orderPreferredFirst(rerank, preferred);
+      const useful: typeof ordered = [];
+      const idle: typeof ordered = [];
+      for (const rec of ordered) {
+        (doesSomething(rec.card as BuildCard) ? useful : idle).push(rec);
+      }
+      return [...useful, ...idle];
+    })();
+
     const takeFlex = (wanted: (card: BuildCard) => boolean) => {
-      for (const rec of orderPreferredFirst(rerank, preferred)) {
+      for (const rec of flexOrder) {
         if (picked.length - chosenLands.length >= spellSlots) break;
         const card = rec.card as BuildCard;
         if (takenOracleIds.has(card.oracleId)) continue;
@@ -1919,6 +2151,7 @@ const PACKAGE_MATCH = 0.6;
         if (cardRole(card, 'creature')) creaturesPicked += 1;
         if (hasColour(card)) colouredPicked += 1;
         else colourlessPicked += 1;
+        carriedStamp += 1;
         picked.push({
           card,
           quantity: 1,
@@ -1933,6 +2166,15 @@ const PACKAGE_MATCH = 0.6;
     takeFlex(card => !cardRole(card, 'creature') || creaturesPicked < creatureFloor);
     const beforeOverflow = creaturesPicked;
     takeFlex(() => true);
+    /* Said out loud, because a deck holding cards that do nothing is a fact
+       about the POOL and the player deserves to know which it is. */
+    const idle = picked.filter(e => e.bucket === 'flex' && !doesSomething(e.card)).length;
+    if (idle > 0) {
+      notes.push(
+        `${idle} card${idle === 1 ? '' : 's'} fill no role and serve none of this commander's ` +
+          `wants, because the pool had nothing left that does`
+      );
+    }
     if (creaturesPicked > beforeOverflow) {
       notes.push(
         `${creaturesPicked - beforeOverflow} creature${creaturesPicked - beforeOverflow === 1 ? '' : 's'} ` +
@@ -2191,6 +2433,10 @@ const PACKAGE_MATCH = 0.6;
           r => roleFill[r] && !inRoles.has(r) && roleFill[r].picked - 1 < roleFill[r].target
         );
         if (breaksAFloor) return false;
+        /* And never past a ceiling either. A swap is chosen on score, and the
+           highest-scoring card left is usually one more of whatever the deck
+           already has most of. */
+        if (overRoleCeiling(card)) return false;
         return keepsShape;
       });
       if (!replacement) continue;
@@ -2202,6 +2448,7 @@ const PACKAGE_MATCH = 0.6;
       if (!hasColour(inCard)) colourlessPicked += 1;
       for (const r of outRoles) if (roleFill[r]) roleFill[r].picked -= 1;
       for (const r of rolesOf(inCard)) if (roleFill[r]) roleFill[r].picked += 1;
+      carriedStamp += 1;
       picked[outIdx] = {
         card: inCard,
         quantity: 1,

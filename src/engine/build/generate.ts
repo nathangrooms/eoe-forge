@@ -223,6 +223,61 @@ export interface GenerateDeckInput {
    */
   preferOracleIds?: readonly string[];
   avoidOracleIds?: readonly string[];
+  /**
+   * What the player asked the deck to be, 1 to 10.
+   *
+   * THE PAGE HAS SENT THIS SINCE THE SLIDER EXISTED AND THE ENGINE NEVER SAW
+   * IT. Measured 3 Sep 2026: `powerLevel` reached exactly one place in the
+   * edge function, the prompt handed to the language model, and the model is
+   * out of credits, so production has shipped the same deck at every setting.
+   * A control that changes nothing is worse than no control, because the
+   * player believes it.
+   *
+   * What it decides here is what a deck is ALLOWED to do, not how hard it
+   * tries: the two-card infinite combos below are the difference between a
+   * kitchen-table deck and a cEDH one, and nothing else in the build should
+   * be reading a number the player set by feel.
+   */
+  powerLevel?: number | null;
+  /**
+   * Build the mana base too, or leave the deck as spells alone.
+   *
+   * The page's "Include manabase - Build the lands as well as the spells".
+   * Also never read: `includeLands` had ZERO mentions in the edge function.
+   */
+  includeLands?: boolean | null;
+  /**
+   * The page's "Prioritise synergy - Weight cards that talk to the commander",
+   * and the third control that reached nothing.
+   *
+   * On, which is the default, the commander-fit weight is what every
+   * measurement in this file was taken against. Off, it drops to the ranker's
+   * own default, so a card is chosen for being good rather than for being on
+   * theme - which is what a player turning this off is asking for.
+   */
+  prioritizeSynergy?: boolean | null;
+  /**
+   * Combos this commander's colours could build, most played first.
+   *
+   * From `combo_pool`, which aggregates Commander Spellbook's 61,130
+   * commander-legal combos. The engine is pure and cannot read a database, so
+   * the caller fetches them; a caller that does not is unchanged.
+   */
+  combos?: readonly ComboSpec[];
+}
+
+/** One combo: the cards it needs, and what it does when they are together. */
+export interface ComboSpec {
+  id: string;
+  /** Every piece, by oracle id. The deck needs all of them. */
+  oracleIds: readonly string[];
+  cardNames: readonly string[];
+  /** How many real decks play it, from Commander Spellbook. */
+  popularity: number | null;
+  /** "Infinite lifegain", "Infinite creature ETB". Spellbook's own words. */
+  produces: readonly string[];
+  /** True when one piece must be the commander, which we cannot arrange. */
+  needsCommander: boolean;
 }
 
 /**
@@ -609,6 +664,7 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
     pool: input.pool,
     style: input.style ?? null,
     landTarget: input.landTarget ?? null,
+    includeLands: input.includeLands ?? null,
     roleTargets: input.roleTargets ?? null,
   });
 
@@ -647,12 +703,117 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
    * a full point for being cheap to every card in the pool, which on a $500
    * budget that a $53 deck never approaches is a pure bias toward junk.
    */
+  /*
+   * "Prioritise synergy", which the page has offered since the panel was
+   * written and which reached nothing. On - the default, and what every
+   * measurement in this file was taken against - the commander's own record
+   * outweighs how played a card is. Off, the ranker falls back to its own
+   * weight, so the deck is built from good cards rather than themed ones,
+   * which is what a player turning it off is asking for.
+   */
+  const synergyFirst = input.prioritizeSynergy !== false;
   const rankOptions = {
     popularityWeight: EMPTY_DECK_POPULARITY,
-    commanderFitWeight: EMPTY_DECK_COMMANDER_FIT,
+    ...(synergyFirst ? { commanderFitWeight: EMPTY_DECK_COMMANDER_FIT } : {}),
   };
 
   const pool = input.pool.filter(c => !avoided.has(c.oracleId) && c.oracleId !== input.commander.oracleId);
+
+  /* ---------------------------------------------------------------- *
+   * 0b. The combos this deck can actually build.
+   * ---------------------------------------------------------------- *
+   *
+   * The owner: *"this card works, because the deck contains other cards that
+   * combo with it, including win condition combos, also important."*
+   *
+   * The ranker scores one card at a time, so it can never say that; the whole
+   * point of a combo is that each half is worth little alone. Nothing else in
+   * this file can express it either. So the pieces arrive as a UNIT and are
+   * taken as a unit, which is also how a player thinks about them.
+   *
+   * PREFERRED, not a new pass. `preferred` already means "the caller asked for
+   * this card by name": taken first, never cut by a review round, exempt from
+   * the role ceiling. A combo's pieces want exactly that treatment, and reusing
+   * it means the combo cannot be quietly undone three passes later. Sol Ring
+   * arrives the same way.
+   *
+   * WHAT IS REFUSED, and each refusal is the difference between a deck and a
+   * curiosity:
+   *   - a piece the pool does not hold, or that is outside the identity. The
+   *     combo is not buildable and half a combo is two dead cards.
+   *   - `needsCommander`, because we cannot make Spellbook's chosen card the
+   *     commander; the player already chose one.
+   *   - more pieces than the budget below. A four-card combo is a deck plan.
+   *
+   * AND IT IS GATED ON POWER. A two-card infinite is the difference between a
+   * kitchen-table deck and a cEDH one, and the player says which they want with
+   * the slider that until today reached nothing at all. Seven is where the
+   * bracket notes in CLAUDE.md put "late-game combos"; below it the deck is
+   * built without one and says so by saying nothing.
+   */
+  const COMBO_PIECE_BUDGET = 3;
+  const COMBO_MIN_POWER = 7;
+  if (input.combos?.length && (input.powerLevel ?? 0) >= COMBO_MIN_POWER) {
+    const inPool = new Set(pool.map(c => c.oracleId));
+    const buildable = input.combos
+      .filter(
+        combo =>
+          !combo.needsCommander &&
+          combo.oracleIds.length <= COMBO_PIECE_BUDGET &&
+          combo.oracleIds.every(id => inPool.has(id) || preferred.has(id))
+      )
+      .sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
+
+    /*
+     * THE DECK'S COMBO, NOT THE FORMAT'S.
+     *
+     * Ordering by popularity alone gave Meren of Clan Nel Toth - a sacrifice
+     * and recursion commander - Sanguine Bond + Exquisite Blood, because that
+     * is the most played combo in black and green. It is legal, it wins the
+     * game, and it has nothing to do with her: both halves are dead cards
+     * until they are both drawn, so a combo the rest of the deck does not
+     * support is two blanks and a coincidence.
+     *
+     * So popularity picks between combos the commander wants, rather than
+     * choosing on its own. The fit of a piece is the fit the ranker would give
+     * it, so a combo made of cards this deck would have wanted anyway wins
+     * over one that merely happens to be famous. `Math.max` rather than a mean
+     * because a two-card combo where ONE half is a card the deck wants is
+     * still a card the deck wants plus a finisher.
+     */
+    const comboFit = (combo: ComboSpec): number => {
+      let best = 0;
+      for (const id of combo.oracleIds) {
+        const card = pool.find(c => c.oracleId === id);
+        /* `planFit` directly, not the memoised `fitOf`: that is declared two
+           hundred lines below this and reading it here is a temporal dead
+           zone the tests would not have caught, because no test passes
+           combos. */
+        if (card) best = Math.max(best, planFit(commanderPlan, card).fit);
+      }
+      return best;
+    };
+    for (const combo of buildable) (combo as { fit?: number }).fit = comboFit(combo);
+    buildable.sort(
+      (a, b) =>
+        ((b as { fit?: number }).fit ?? 0) - ((a as { fit?: number }).fit ?? 0) ||
+        (b.popularity ?? 0) - (a.popularity ?? 0)
+    );
+
+    const best = buildable[0];
+    if (best) {
+      for (const id of best.oracleIds) preferred.add(id);
+      notes.push(
+        `${best.cardNames.join(' + ')} go in together: ` +
+          `${best.produces.slice(0, 2).join(' and ') || 'they combo'}` +
+          (best.popularity ? ` (${best.popularity.toLocaleString()} decks play it)` : '')
+      );
+    } else if (input.combos.length) {
+      notes.push(
+        `none of the ${input.combos.length} combos in these colours can be built from this pool`
+      );
+    }
+  }
 
   /* ---------------------------------------------------------------- *
    * 1. The mana base, before anything that has to be cast off it.

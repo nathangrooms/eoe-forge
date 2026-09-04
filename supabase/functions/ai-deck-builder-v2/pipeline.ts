@@ -117,6 +117,11 @@ export interface BuildRequest {
   budget?: number;
   customPrompt?: string;
   useAIPlanning?: boolean;
+  /* The page has sent these two since the panel was written and this type did
+     not declare them, so nothing could read them and nothing did. The toggles
+     read "Prioritise synergy" and "Include manabase" and both were inert. */
+  prioritizeSynergy?: boolean;
+  includeLands?: boolean;
 }
 
 /* ------------------------------------------------------------------ *
@@ -688,7 +693,7 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
   const query: CandidateQuery = buildCandidateQuery(profileForQuery);
 
   const poolStarted = Date.now();
-  const [spellRows, landRows, basicRows, shellRows, shellFacets] = await Promise.all([
+  const [spellRows, landRows, comboRows, basicRows, shellRows, shellFacets] = await Promise.all([
     // WITH oracle text. The generator compiles it into behaviour facets, and
     // without them every card in the pool reaches the ranker claiming to do
     // nothing. The optimiser's own call is unchanged and still pays nothing.
@@ -719,6 +724,15 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
       limit: poolBudgetFor(commanderIdentity.length),
     }),
     catalog.landPoolFor(query),
+    /*
+     * The combos these colours could build, most played first.
+     *
+     * One indexed containment test against `combo_pool`, in the same
+     * `Promise.all` as the pool so it costs no extra wall clock. The engine is
+     * pure and cannot read a database, which is why this is fetched here and
+     * handed over rather than looked up where it is used.
+     */
+    catalog.combosFor(commanderIdentity),
     catalog.cardsByName([...BASIC_LANDS], format),
     /*
      * The archetype shell's own cards, by name.
@@ -1057,6 +1071,34 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
   // A first build with no planner input. Its top entries are the shortlist the
   // model is shown; producing them by actually building means the shortlist IS
   // the ranking, rather than a separate approximation of it.
+  /* `ComboRow` is the database's shape and `ComboSpec` is the engine's. The
+     translation is here rather than in the catalog because the engine owns the
+     name of everything it reads. */
+  const combos = comboRows.map(row => ({
+    id: row.id,
+    oracleIds: row.oracle_ids ?? [],
+    cardNames: row.card_names ?? [],
+    popularity: row.popularity ?? null,
+    produces: row.produces ?? [],
+    needsCommander: row.needs_commander === true,
+  }));
+  console.log(
+    `  combos: ${combos.length} in ${commanderIdentity.join('') || 'colourless'} identity` +
+      (combos[0] ? `, best is ${combos[0].cardNames.join(' + ')}` : '')
+  );
+
+  const buildOptions = {
+    /* THE THREE CONTROLS THE PAGE HAS ALWAYS SENT AND NOTHING HAS EVER READ.
+       Measured 3 Sep 2026: `prioritizeSynergy` and `includeLands` had zero
+       mentions in this whole function, and `powerLevel` reached only the
+       language model's prompt - and the gateway is out of credits, so
+       production shipped the same deck at every setting of the slider. */
+    powerLevel: request.powerLevel ?? null,
+    includeLands: request.includeLands ?? null,
+    prioritizeSynergy: request.prioritizeSynergy ?? null,
+    combos,
+  };
+
   const baseline = generateDeck({
     format,
     commander,
@@ -1079,6 +1121,7 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
     // baseline IS the deck. Passing the raw shell here meant the shells derived
     // from the commander reached only the second build, which never runs.
     archetype: archetypeInput,
+    ...buildOptions,
   });
 
   /* --- 4. Ground the model in that shortlist ------------------------ */
@@ -1109,6 +1152,7 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
           budgetUsd: targetBudget,
           style,
           archetype: archetypeInput,
+          ...buildOptions,
           preferOracleIds: plan.preferOracleIds,
           avoidOracleIds: plan.avoidOracleIds,
         })

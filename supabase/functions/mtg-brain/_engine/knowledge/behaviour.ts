@@ -1626,7 +1626,25 @@ const INTENT_RULES: readonly IntentRule[] = [
     reads: "counters spells",
     wants: [
       ['eff:counter', 0.85],
-      ['cares:zone:stack', 0.75],
+      /*
+       * `cares:zone:stack` IS TOO BROAD TO BE A WANT, and it was the second
+       * loudest thing this rule asked for.
+       *
+       * The facet means "this card's ability watches the stack", which is true
+       * of every cast trigger. Measured 3 Sep 2026: 1,366 commander-legal cards
+       * carry it and only 385 are counterspells, so 981 cards matched Kozilek,
+       * the Great Distortion at fit 0.75 while doing nothing for him. His deck
+       * came back holding Ivory Cup, Crystal Rod, Wooden Sphere, Iron Star and
+       * Throne of Bone - the cycle that gains a life when somebody casts a
+       * white, blue, green, red or black spell - in a COLOURLESS deck, each
+       * scoring HIGHER than Sol Ring, Wurmcoil Engine and Ugin, none of which
+       * matched a want at all.
+       *
+       * `eff:counter` and `type:instant` already name the useful half. Kept at
+       * a whisper rather than deleted: a card that watches the stack is weak
+       * evidence, not none.
+       */
+      ['cares:zone:stack', 0.25],
       ['type:instant', 0.6],
       ['eff:draw', 0.4],
     ],
@@ -1646,7 +1664,9 @@ const INTENT_RULES: readonly IntentRule[] = [
     reads: "taxes and slows down what your opponents can do",
     wants: [
       ['eff:counter', 0.75],
-      ['cares:zone:stack', 0.65],
+      /* Same reason as the counter rule above: a fact true of every cast
+         trigger cannot select the cards that tax an opponent. */
+      ['cares:zone:stack', 0.25],
       ['type:instant', 0.55],
       ['eff:add-mana', 0.5],
     ],

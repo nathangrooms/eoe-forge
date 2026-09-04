@@ -22,7 +22,7 @@ import { cardServesRole, type RoleSubject } from '../knowledge/behaviour.ts';
  * a Sol Ring is ramp, and a sweeper is removal.
  */
 export const ROLE_TAGS: Readonly<Record<Role, readonly string[]>> = {
-  ramp: ['ramp', 'mana-rock', 'mana-dork', 'fast-mana', 'cost-reduction', 'treasure'],
+  ramp: ['ramp', 'mana-rock', 'mana-dork', 'fast-mana', 'treasure'],
   draw: ['card-draw', 'draw'],
   removal: [
     'targeted-removal',

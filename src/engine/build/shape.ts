@@ -113,6 +113,15 @@ export interface ShapeInput {
   style?: string | null;
   /** An explicit caller number wins over the derivation. See `DeckShape`. */
   landTarget?: number | null;
+  /**
+   * Build the mana base, or hand back 99 spells.
+   *
+   * The page's "Include manabase" toggle, which had ZERO mentions in the edge
+   * function until 3 Sep 2026 and so has always built lands whatever the
+   * player chose. `landTarget: 0` is the honest expression of "off": every
+   * slot is a spell and the castability solver has nothing to solve.
+   */
+  includeLands?: boolean | null;
   roleTargets?: Partial<Record<Role, number>> | null;
 }
 
@@ -506,10 +515,12 @@ export function deriveDeckShape(input: ShapeInput): DeckShape {
   };
   let solved = solveLandTarget({ ...landArgs, rocks: rampSeed });
 
-  let landTarget = explicitLand ?? solved.lands;
+  let landTarget = input.includeLands === false ? 0 : (explicitLand ?? solved.lands);
   let spellSlots = Math.max(0, slots - landTarget);
 
-  if (explicitLand !== null) {
+  if (input.includeLands === false) {
+    because.push('no lands, because you asked for the spells only');
+  } else if (explicitLand !== null) {
     because.push(
       `${landTarget} lands because the caller asked for that many; the curve this ` +
         `commander implies would have taken ${solved.lands}`

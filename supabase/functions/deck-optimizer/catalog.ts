@@ -178,6 +178,18 @@ export interface CatalogOptions {
   authorization?: string | null;
 }
 
+/** One row of `combo_pool`: a Commander Spellbook combo with its pieces. */
+export interface ComboRow {
+  id: string;
+  popularity: number | null;
+  card_count: number;
+  bracket_tag: string | null;
+  produces: string[] | null;
+  oracle_ids: string[];
+  card_names: string[];
+  needs_commander: boolean | null;
+}
+
 export class Catalog {
   readonly #url: string;
   readonly #anonKey: string;
@@ -760,6 +772,34 @@ export class Catalog {
       }
     }
     return byName;
+  }
+
+  /**
+   * The combos this commander's colours could build, most played first.
+   *
+   * Owner, 3 Sep 2026: *"this card works, because the deck contains other cards
+   * that combo with it, including win condition combos, also important."* The
+   * ranker scores cards one at a time and can never say that, so the pieces
+   * have to arrive as a unit the builder can reason about.
+   *
+   * `combo_pool` is the aggregate of Commander Spellbook's 61,130
+   * commander-legal combos (ingested 19 Aug, read by nothing until now), one
+   * row per combo with its pieces as an array. Filtered by CONTAINMENT against
+   * the commander's identity, which is one indexed test rather than a check per
+   * piece, and capped: the top few hundred by how many real decks play them is
+   * every combo anybody would build, and the tail is 56,000 rows of
+   * three-card curiosities.
+   *
+   * A combo whose pieces are not all in the pool is dropped by the caller, not
+   * here: this does not know what the pool holds.
+   */
+  async combosFor(identity: readonly string[], limit = 400): Promise<ComboRow[]> {
+    const inside = `identity=cd.{${[...identity].map(c => c.toUpperCase()).join(',')}}`;
+    const rows = await this.fetchAll<ComboRow>(
+      `combo_pool?select=id,popularity,card_count,bracket_tag,produces,oracle_ids,card_names,needs_commander` +
+        `&${inside}&order=popularity.desc.nullslast&limit=${limit}`
+    );
+    return rows.slice(0, limit);
   }
 
   /**

@@ -4487,3 +4487,61 @@ binding limit at 3.2 loud wants. That single number is why strategies stop at
 three, why 28% of decks come back generic, and why 17 benchmark job groups sit
 at zero. Every tuning lever tried on 4 Sep moved those by a point or two;
 reading more of each commander is the only thing that moves all three at once.
+
+## CORRECTION: commander READING is not the bottleneck. Signal coverage is
+
+The section above says *"the compiler reads 33.3% of cards whole, and commander
+reading is the binding limit at 3.2 loud wants"* and names it as the cause of
+all three shortfalls. Re-measured 4 Sep 2026 with `commander-read-audit.mjs`
+under `FRESH=1`, because this project's own rule is never to measure the engine
+against a cache:
+
+    commanders                     3,542
+    mean wants per plan             12.1
+    ability lines producing NOTHING  534   7.9%
+    commanders with ANY unread line  376  10.6%
+
+**Nearly nine in ten commanders have every line read.** The plan holds 12.1
+wants and only about three are loud enough to earn a strategy, so the gap is
+between what a commander SAYS and what the shells are LISTENING for - a
+weighting and vocabulary-coverage problem, not an unread-text one.
+
+`33.3% read whole` is still true and still the right number for the CATALOGUE.
+It is the wrong number to explain the strategy count, and quoting it that way
+was the "two numbers that are not the same, ever" mistake in a new outfit.
+
+### `scripts/probe/unclaimed-wants.mjs`, and how it overstates
+
+It ranks the facets commanders want that no shell signal claims. That is the
+right question and it found five real gaps. It also has a flaw worth knowing
+before trusting its ranking:
+
+**IT COUNTS A DERIVED WANT AS UNCLAIMED.** `eff:recur-self` topped the list at
+329 commanders holding it loudly, and widening two shells to hear it moved the
+earned count by almost nothing - because `PLAN_RULES` hands that want to a
+commander BECAUSE it already has `cost:sacrifice` or `trig:dies`, and both
+shells already claimed those. The commanders were earning the shell anyway.
+
+A want that is downstream of a claimed want is not a gap. Fix the probe to walk
+`PLAN_RULES` and discount derived wants before using its ranking again.
+
+### Offered versus earned, and which one the owner's "4 to 10" means
+
+    offered   7.9 per commander      the panel fills its slots
+    earned    3.3 per commander      justified by the commander's own record
+
+    0 earned    39   1.2%       4 earned   427  12.7%
+    1 earned   396  11.8%       5 earned   307   9.1%
+    2 earned   993  29.5%       6 earned   229   6.8%
+    3 earned   696  20.7%       7+         276   8.2%
+
+**36.8% earn four or more.** The two numbers answer different questions and both
+are honest: a player CAN pick from about eight, and about three of those are
+ones the card itself argues for. `Aggro` is earned by 57% of commanders and
+`Value engine` by 54%, which is why the offered figure is nearly eight and means
+less than it sounds.
+
+Getting earned to four or more for most commanders is not a tuning job. It needs
+either shells that are genuinely narrower - so earning one says more - or more
+distinct things read off each commander. Widening signals until everyone earns
+everything would move the number and mean nothing.

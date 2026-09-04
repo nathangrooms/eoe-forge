@@ -176,6 +176,23 @@ export const ROSTER = [
     style: 'balanced',
     why: 'Colourless. No colour identity at all, so the whole pool is artifacts, wastes and Eldrazi, and it is the one deck where a colourless count of ninety-nine is correct.',
   },
+  {
+    key: 'animar',
+    name: 'Animar, Soul of Elements',
+    id: '5f8287d1-4e5f-4b0b-8b1a-3b6f2d1d4a1e',
+    type_line: 'Legendary Creature — Elemental',
+    color_identity: ['G', 'R', 'U'],
+    colors: ['G', 'R', 'U'],
+    archetype: 'big-mana',
+    style: 'creatures',
+    why:
+      'A STANDING FAILURE, here so it is measured rather than remembered. His whole card ' +
+      'is "creature spells you cast cost {1} less for each +1/+1 counter on Animar", so the ' +
+      'deck he wants is expensive creatures cheated out early. The compiler does not read ' +
+      'that clause, so his plan asks for `mv:cheap` instead and every build tops out at ' +
+      'four mana with ZERO cards carrying `pt:big`. Measured 4 Sep 2026: 33 creatures, ' +
+      'none of them big, and all four of his benchmark jobs at zero.',
+  },
 ];
 
 /** The eleventh call, and it is a bug probe rather than a deck review. */

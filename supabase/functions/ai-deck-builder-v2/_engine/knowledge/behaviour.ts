@@ -2686,6 +2686,33 @@ const PLAN_RULES: readonly {
     ],
   },
   {
+    /*
+     * A COMMANDER THAT MAKES SPELLS CHEAPER WANTS EXPENSIVE SPELLS.
+     *
+     * Animar, Soul of Elements is the case that made this necessary and it is
+     * general: his whole card is "creature spells you cast cost {1} less for
+     * each +1/+1 counter on Animar", so the deck he wants is big creatures
+     * cheated out early. He carries `eff:reduce-cost`, no rule read it, and his
+     * plan asked for `mv:cheap` instead - the exact opposite of the card.
+     *
+     * Measured 4 Sep 2026, before this rule: 33 creatures, ZERO carrying
+     * `pt:big`, a curve topping out at four mana, and all four of his benchmark
+     * jobs at zero including "big colourless creatures that cost nothing once
+     * Animar is large".
+     *
+     * `mv:big` and `pt:big` rather than one of them, because the two say
+     * different things: a costly spell is what a reducer is FOR, and a big body
+     * is what makes the discount matter in a creature deck. Weighted below the
+     * loud wants a commander states about its own mechanic, so it tilts the
+     * curve up rather than turning every cost reducer into a big-creature deck.
+     */
+    when: 'eff:reduce-cost',
+    wants: [
+      { facet: 'mv:big', weight: 0.7 },
+      { facet: 'pt:big', weight: 0.5 },
+    ],
+  },
+  {
     when: 'eff:add-counters',
     wants: [
       { facet: 'eff:add-counters', weight: 0.9 },

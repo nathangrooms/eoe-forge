@@ -193,10 +193,18 @@ const FACET_SOURCES = [
  * contributed EXACTLY ZERO to every suggestion the optimiser has ever made.
  * The engine was wired in and never fed.
  *
- * It costs 3.68 MB of source in the optimiser's bundle, of which 3.16 MB is
- * `xmage/lowered.generated.ts`. The generator already pays it for the same
- * reason: that table speaks for the cards the oracle-text compiler cannot
- * fully read, and dropping it would take removal staples out of the answer.
+ * It cost 3.68 MB of source in the optimiser's bundle, of which 3.16 MB was
+ * `xmage/lowered.generated.ts`, and on 4 Sep 2026 that put all four vendored
+ * functions against the platform's 5 MB deploy ceiling with `deck-optimizer`
+ * OVER it and returning HTTP 413. The table is 868 KB now:
+ * `scripts/xmage/prune-lowered.mjs` drops every record the precedence rule can
+ * never consult, which is a card the compiler already reads completely, and
+ * `prune-verify.mjs` proved the facets of all 7,392 affected cards are
+ * byte-identical afterwards. It still speaks for the cards the compiler cannot
+ * fully read, which is why dropping it wholesale would take removal staples out
+ * of the answer and pruning it takes nothing at all.
+ *
+ * RUN THE PRUNE AFTER `emit-lowered.mjs`, which rebuilds the full table.
  *
  * TUTOR IS THE THIRD, and it is not a pool ranker. It reads a handful of cards
  * per question, which is why the compute cost is nothing like the generator's:

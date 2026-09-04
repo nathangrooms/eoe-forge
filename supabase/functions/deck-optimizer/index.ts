@@ -497,7 +497,13 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
     ? planForCommander({
         name: commanderRow.name,
         typeLine: commanderRow.type_line ?? null,
-        facets: facetsForCard(commanderRow).facets,
+        /* The stored column when the row carries it, for the reason the pool
+           loop above gives. The commander is one card, so this is about
+           reading the SAME record the generator reads rather than about
+           cost. */
+        facets: Array.isArray((commanderRow as { facets?: unknown }).facets)
+          ? ((commanderRow as { facets?: readonly string[] }).facets as readonly string[])
+          : facetsForCard(commanderRow).facets,
         tags: commanderRow.tags ?? null,
         oracleText: commanderRow.oracle_text ?? null,
         /* NULL on every multi-face layout, where the words live in the faces.
@@ -596,14 +602,47 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
      because the rows now always carry the text. See the longer note on the
      generator's `facetsForPoolRows`, which explains what goes wrong when a
      text-less pool writes into the same memo. */
+  /*
+   * THE STORED FACETS FIRST, exactly as the generator does it.
+   *
+   * `poolFor(..., { withOracleText: true })` already SELECTS the `facets`
+   * column, and on a commander pool that is `cards_pool`, where it is an
+   * ordinary stored column written by `facet-memo-fill`. This loop was
+   * recompiling every one of them from oracle text on every single request:
+   * about 24,000 cards of compiler work to reproduce an answer the row was
+   * already carrying, and the same answer, because the memo was written by
+   * this same compiler.
+   *
+   * An EMPTY array is a real answer and must not be treated as a miss - a
+   * meaningful share of the catalogue genuinely compiles to no facets, and
+   * recompiling those every request puts the cost straight back for exactly
+   * the cards the compiler cannot read anyway. `null` and `undefined` are the
+   * miss, which is a card the filler has not reached.
+   *
+   * This also makes the optimiser and the generator read the SAME facets for
+   * the same card rather than two computations that are only equal while the
+   * two vendored compilers stay in step.
+   */
   const facetStarted = Date.now();
   const facetMemo = new Map<string, readonly string[]>();
+  let facetsCompiled = 0;
+  let facetsStored = 0;
   for (const row of poolRows) {
     const id = row.oracle_id;
     if (!id || facetMemo.has(id)) continue;
+    const stored = (row as { facets?: unknown }).facets;
+    if (Array.isArray(stored)) {
+      facetMemo.set(id, stored as readonly string[]);
+      facetsStored += 1;
+      continue;
+    }
     facetMemo.set(id, facetsForCard(row).facets);
+    facetsCompiled += 1;
   }
   const facetMs = Date.now() - facetStarted;
+  console.log(
+    `facets: ${facetsStored} stored, ${facetsCompiled} compiled in ${facetMs} ms`
+  );
 
   const pool: CandidateCard[] = poolRows.map(r => ({
     ...normalizeRow(r, legalityKey),

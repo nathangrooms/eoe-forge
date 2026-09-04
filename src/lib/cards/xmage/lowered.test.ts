@@ -48,13 +48,64 @@ test('the compiler wins on a card it fully understands, even though a record exi
     oracle_text: 'Lightning Bolt deals 3 damage to any target.',
   });
 
-  // The premise: there IS a record for this card, so the test is about
-  // precedence and not about an empty table.
-  assert.equal(hasXmageRecord(bolt.oracle_id!), true);
-
+  /*
+   * THIS USED TO ASSERT THAT A RECORD EXISTS FOR LIGHTNING BOLT, and that was
+   * the right premise until 4 Sep 2026: the test was about precedence rather
+   * than about an empty table.
+   *
+   * `scripts/xmage/prune-lowered.mjs` then dropped every record the rule can
+   * never consult - 5,688 of 7,392, taking the shipped table from 3,157 KB to
+   * 868 KB so the vendored edge functions fit under the platform's 5 MB deploy
+   * ceiling again. A card the compiler fully reads is exactly what it drops, so
+   * Lightning Bolt no longer HAS a record and the old premise became
+   * unsatisfiable by construction rather than by accident.
+   *
+   * The rule it guards is still load-bearing, because `emit-lowered.mjs`
+   * rebuilds the FULL table from the XMage clone and the prune runs afterwards.
+   * So both halves are asserted: the compiler still wins here, and the test
+   * below states the structural property the prune created.
+   */
   const { result } = compileWithTrace(bolt);
   assert.equal(result.coverage, 'full');
   assert.equal(result.source, 'compiler', 'a card the compiler finished must never be swapped');
+  assert.equal(
+    hasXmageRecord(bolt.oracle_id!),
+    false,
+    'the pruned table holds no record for a card the compiler reads completely'
+  );
+});
+
+test('the shipped table holds no record the precedence rule could refuse', () => {
+  /*
+   * The invariant `prune-lowered.mjs` creates, asserted on the two cards this
+   * file already reasons about rather than over the whole table, which would
+   * need the catalogue and a network round trip.
+   *
+   * It is worth stating because a regeneration that forgets to prune is
+   * SILENT: nothing breaks, every answer stays the same, and the four edge
+   * functions quietly stop being deployable again.
+   */
+  const bolt = card({
+    name: 'Lightning Bolt',
+    oracle_id: '4457ed35-7c10-48c8-9776-456485fdf070',
+    type_line: 'Instant',
+    oracle_text: 'Lightning Bolt deals 3 damage to any target.',
+  });
+  const grasp = card({
+    name: 'Spidery Grasp',
+    oracle_id: '021ce403-cbfa-4d69-a6e9-473d58bd477a',
+    type_line: 'Instant',
+    oracle_text:
+      'Untap target creature. It gets +2/+4 and gains reach until end of turn. (It can block creatures with flying.)',
+  });
+
+  // The compiler finishes Bolt, so its record would be unreachable: dropped.
+  assert.equal(compileWithTrace(bolt).result.coverage, 'full');
+  assert.equal(hasXmageRecord(bolt.oracle_id!), false);
+
+  // It cannot finish Spidery Grasp, so that record still speaks: kept.
+  assert.equal(hasXmageRecord(grasp.oracle_id!), true);
+  assert.equal(compileWithTrace(grasp).result.source, 'xmage');
 });
 
 test('a card the compiler cannot finish is swapped whole', () => {

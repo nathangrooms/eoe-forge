@@ -59,6 +59,16 @@ export interface StrategyCommander {
   mana_cost?: string | null;
   cmc?: number | string | null;
   tags?: string[] | null;
+  /**
+   * The behaviour facets, when the caller already has them.
+   *
+   * A `cards_pool` row carries these and a Scryfall card does not, so this is
+   * optional and `strategiesFor` compiles them when they are absent. It was
+   * read without being declared until 3 Sep 2026, which type-checked as an
+   * error nobody saw: `npx tsc` had been resolving to a different package
+   * entirely because `node_modules/.bin` was missing.
+   */
+  facets?: string[] | null;
   card_faces?: Array<{ name?: string | null; type_line?: string | null; oracle_text?: string | null }> | null;
   faces?: Array<{ name?: string | null; type_line?: string | null; oracle_text?: string | null }> | null;
 }

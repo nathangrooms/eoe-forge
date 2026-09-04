@@ -613,6 +613,11 @@ export const ROLE_FACETS: Readonly<Record<Role, readonly Facet[]>> = {
      * Purphoros being counted as protection.
      */
     'eff:protect', 'eff:prevent-damage', 'grants:protection',
+    /* The other four grants, for the same reason `grants:protection` is here.
+       Selfless Spirit carries `grants:indestructible` and reached this list
+       only through the bare `kw:indestructible` it also carries, which the
+       type gate below then refused. */
+    'grants:hexproof', 'grants:shroud', 'grants:indestructible', 'grants:ward',
     /* Pariah does not stop the damage, it moves it, and the deck runs it for
        exactly that reason. Still protection: you do not take it. */
     'eff:redirect-damage',
@@ -669,6 +674,12 @@ export const ROLE_FACETS: Readonly<Record<Role, readonly Facet[]>> = {
 };
 
 /** Extra conditions a facet role has to meet, beyond carrying the facet. */
+/** Protection GIVEN to something else, which no bare keyword can claim. */
+const GRANTED_PROTECTION: ReadonlySet<string> = new Set([
+  'grants:protection', 'grants:hexproof', 'grants:shroud',
+  'grants:indestructible', 'grants:ward',
+]);
+
 function facetRoleQualifies(role: Role, facets: readonly Facet[]): boolean {
   // A land taps for mana; that is not ramp, it is a land, and crediting it
   // would re-open the land quota inside the spell passes.
@@ -700,6 +711,25 @@ function facetRoleQualifies(role: Role, facets: readonly Facet[]): boolean {
   }
 
   if (role === 'protection') {
+    /*
+     * A GRANT QUALIFIES WHATEVER THE CARD IS. The `grants:` prefix already
+     * says the protection is given to something else, which is the entire
+     * distinction the type test was standing in for.
+     *
+     * Measured 4 Sep 2026, mono-white Isamaru reported "5 of 5 protection
+     * slots could not be filled from the legal pool" - in the colour that
+     * holds more protection than any other. Mother of Runes, Giver of Runes
+     * and Selfless Spirit were all refused for being creatures, and the deck
+     * spent those released slots on Shell Skulkin at rank 18,823.
+     *
+     * The type test stays for a BARE keyword, and that is what it was always
+     * for: an instant, sorcery, aura or equipment exists to be applied to
+     * something else, so a protective keyword on one is a grant, while on a
+     * creature it is usually the creature describing itself. Purphoros carries
+     * `kw:indestructible` and no `grants:` facet at all, so he is still
+     * refused - checked, not assumed.
+     */
+    if (facets.some(f => GRANTED_PROTECTION.has(f))) return true;
     return (
       facets.includes('type:instant') ||
       facets.includes('type:sorcery') ||
@@ -4889,7 +4919,6 @@ const EFFECT_PHRASES: Readonly<Record<string, string>> = {
   'create-token': 'makes tokens',
   'add-counters': 'puts counters on things',
   'add-counters-self': 'grows itself with counters',
-  wheel: 'makes every player throw away their hand and draw a new one',
   'cant-block': 'stops a creature blocking',
   'cant-attack': 'stops a creature attacking',
   'cant-be-blocked': 'makes a creature unblockable',

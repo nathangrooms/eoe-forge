@@ -343,7 +343,11 @@ export class Catalog {
    *   14,984 matching rows and sort them, 4,078 ms a page against a 3 s
    *   statement timeout. See `withRankKeyset`.
    */
-  async fetchAll<T>(pathAndQuery: string, by: 'id' | 'rank' = 'id'): Promise<T[]> {
+  async fetchAll<T>(
+    pathAndQuery: string,
+    by: 'id' | 'rank' = 'id',
+    cap?: number
+  ): Promise<T[]> {
     const rows: T[] = [];
     let after: string | null = null;
     let rankAfter: RankCursor | null = null;
@@ -359,6 +363,10 @@ export class Catalog {
         'Range-Unit': 'items',
       });
       rows.push(...result.rows);
+      /* STOP AT THE CAP. The walk is ordered, so the first N rows ARE the top
+         N - taking them here is the same rows the caller would have sliced,
+         without the round trips that fetched the rest. */
+      if (cap !== undefined && rows.length >= cap) return rows.slice(0, cap);
       if (result.rows.length < PAGE_SIZE) return rows;
 
       const last = result.rows[result.rows.length - 1] as { id?: unknown; edhrec_rank?: unknown };
@@ -433,7 +441,7 @@ export class Catalog {
    */
   async poolFor(
     query: CandidateQuery,
-    opts?: { withOracleText?: boolean; maxRank?: number }
+    opts?: { withOracleText?: boolean; maxRank?: number; limit?: number }
   ): Promise<CatalogRow[]> {
     const fmt = query.legalityFilter.key;
     const identity = `{${query.colorIdentityFilter.containedBy.join(',')}}`;
@@ -589,8 +597,21 @@ export class Catalog {
        colours and up it exists for MEMORY rather than for speed. */
     const ranked = await this.fetchAll<CatalogRow>(
       `${base}&edhrec_rank=not.is.null${rankCeiling}`,
-      'rank'
+      'rank',
+      opts?.limit
     );
+
+    /* THE BUDGET IS SPENT. A caller that asked for N rows has them, and every
+       row past N is worse by the only order this walk has.
+
+       This option was PASSED BY THE GENERATOR AND SILENTLY IGNORED between 31
+       Aug and 3 Sep 2026: `pipeline.ts` sent `limit: poolBudgetFor(colours)`
+       and the parameter list here declared only `withOracleText` and
+       `maxRank`, so an excess property on an object literal was the only trace
+       and `npx tsc` was resolving to a different package entirely. Every
+       five-colour build fetched the whole walk and kept 5,000 of it, which is
+       what the budget existed to stop. */
+    if (opts?.limit !== undefined && ranked.length >= opts.limit) return ranked;
 
     /* THE UNRANKED TAIL, one page, and only when the caller set no ceiling.
        67 of the 31,829 commander-legal cards carry no `edhrec_rank`, and the
@@ -639,16 +660,77 @@ export class Catalog {
       'mana_cost',
       'edhrec_rank',
       'oracle_text',
+      /*
+       * THE STORED FACETS, for the same reason the spell pool reads them.
+       *
+       * Without this column every land in the pool is compiled from its rules
+       * text on every single request, because the attach loop treats a missing
+       * `facets` field as a card the memo has not reached. Measured 4 Sep 2026
+       * on the deployed Najeela, the Blade-Blossom build, which is five
+       * colours and therefore has the largest land pool there is:
+       *
+       *     facets: 45790 on 5000 cards (compiler 560, xmage 65,
+       *                                  no record 70, cached 4305)
+       *
+       * 695 cards compiled at request time against a memo whose gap was
+       * exactly zero, and all of them lands. That build reached "built: 99
+       * cards" and was then killed by "CPU Time exceeded" ten milliseconds
+       * later, during the rescore - the CPU budget is spent across the whole
+       * request, so work done here is what the rescore did not have left.
+       */
       'usd:prices->>usd',
       `legal_in_format:legalities->>${fmt}`,
     ].join(',');
 
-    return this.fetchAll<CatalogRow>(
+    const lands = await this.fetchAll<CatalogRow>(
       `${POOL_TABLE}?select=${encodeURIComponent(select)}` +
         `&legalities->>${encodeURIComponent(fmt)}=eq.${query.legalityFilter.equals}` +
         `&color_identity=cd.${encodeURIComponent(identity)}` +
         `&type_line=ilike.${encodeURIComponent('*Land*')}`
     );
+
+    /*
+     * THE FACETS COME FROM `cards_pool`, IN A SECOND READ.
+     *
+     * The rows themselves have to come from `POOL_TABLE`, because this is the
+     * one caller that genuinely needs `oracle_text` - it is how the mana base
+     * knows what a land taps for - and that is why the note on
+     * `RANK_POOL_TABLE` names this function as its standing example. But a row
+     * with no `facets` field is treated by the pipeline as a card the memo has
+     * not reached, so it gets COMPILED FROM ITS RULES TEXT ON EVERY REQUEST.
+     *
+     * Measured 4 Sep 2026 on the deployed five-colour build, which has the
+     * largest land pool there is: 695 cards compiled per request against a
+     * memo gap of exactly zero, every one of them a land. That request reached
+     * "built: 99 cards" and was killed by "CPU Time exceeded" ten milliseconds
+     * later in the rescore, because the CPU budget is spent across the whole
+     * request.
+     *
+     * Two narrow columns for a few hundred rows is far cheaper than compiling
+     * them, and it cannot put a fat column on `cards_pool`. Selecting `facets`
+     * from `cards_unique` instead is not an option: there it is a COMPUTED
+     * column over `card_facet_memo`, which `anon` holds no grant on, and the
+     * request comes back 401.
+     */
+    if (fmt !== 'commander' || lands.length === 0) return lands;
+
+    const facets = await this.fetchAll<{ id: string; facets: string[] | null }>(
+      `${RANK_POOL_TABLE}?select=id,facets` +
+        `&commander_legal=eq.${query.legalityFilter.equals}` +
+        `&color_identity=cd.${encodeURIComponent(identity)}` +
+        /* `like`, not `ilike`: Scryfall cases its type lines, and CLAUDE.md
+           records that swap measuring 2,007 ms against 172 ms on a matview. */
+        `&type_line=like.${encodeURIComponent('*Land*')}`
+    );
+    const byId = new Map(facets.map(r => [r.id, r.facets]));
+    for (const land of lands) {
+      const f = byId.get((land as { id: string }).id);
+      /* Only when the pool HAS an answer. Writing an empty array for a land the
+         pool does not carry would claim the compiler read it and found nothing,
+         which is a different statement from "not looked up yet". */
+      if (Array.isArray(f)) (land as { facets?: readonly string[] }).facets = f;
+    }
+    return lands;
   }
 
   /** Basic lands matching a colour identity, for the land section. */

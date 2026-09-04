@@ -317,6 +317,35 @@ export function roleCeilingFor(role: Role, slots: number): number {
   return Math.max(1, Math.round((band.p90 * slots) / 99));
 }
 
+/**
+ * The most of one role a FLOOR may push it to, which is higher than the ceiling.
+ *
+ * `roleCeilingFor` is the p90 and is the right answer for a pass that is
+ * choosing freely. A floor is not choosing freely: the creature floor has to
+ * find 19 creatures whatever else is true, and refusing every creature whose
+ * SECOND role is full does not leave it the good creatures, it leaves it the
+ * ones that do nothing at all.
+ *
+ * Measured 4 Sep 2026 on the deployed Isamaru, Hound of Konda deck. Every
+ * creature-only white card worth playing was in it - Mother of Runes, Giver of
+ * Runes, Selfless Savior, Loyal Warhound - and then it fell off a cliff to
+ * Jawbone Skulkin (16,577), Patriot, Shield Wielder (18,561), Shell Skulkin
+ * (18,823) and Cathar's Companion (23,291). Not because those are the next
+ * best white creatures; because they were the next creatures carrying NO other
+ * role, and everything better was blocked by a full one.
+ *
+ * So the floor gets a second, higher ceiling: the largest count actually
+ * observed in the 192 real decks. A deck running 20 removal spells because six
+ * of them are also its creatures is a real deck. One running 33 is not, and
+ * that is where this stops. It is the measured maximum rather than a slack
+ * constant so it cannot drift into being a number somebody picked.
+ */
+export function roleFloorCeilingFor(role: Role, slots: number): number {
+  const band = REAL_DECK_ROLES[role];
+  if (!band) return slots;
+  return Math.max(1, Math.round((band.max * slots) / 99));
+}
+
 /** Cards in hand on the given turn, on the play: seven, then one a turn. */
 function cardsSeenBy(turn: number): number {
   return 7 + Math.max(0, turn - 1);

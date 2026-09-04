@@ -61,7 +61,12 @@ import { worksAgainstPlan } from '../knowledge/behaviour.ts';
 import { withinIdentity } from '../advise/query.ts';
 import { planFit, packagesForCommander } from '../knowledge/behaviour.ts';
 import { TYPE_TAGS, LOW_INFORMATION_TAGS } from '../knowledge/tag-signal.ts';
-import { deriveDeckShape, roleCeilingFor, type DeckShape } from './shape.ts';
+import {
+  deriveDeckShape,
+  roleCeilingFor,
+  roleFloorCeilingFor,
+  type DeckShape,
+} from './shape.ts';
 import { normalizeIdentity } from '../advise/query.ts';
 import {
   facetBackground,
@@ -1064,6 +1069,21 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
     }
     return false;
   };
+
+  /*
+   * The same test at the FLOOR's higher ceiling, the largest count the 192 real
+   * decks actually hold. See `roleFloorCeilingFor` for the Isamaru measurement
+   * that made this necessary: the p90 ceiling left the creature floor nothing
+   * to take but cards carrying no role at all.
+   */
+  const overRoleFloorCeiling = (card: BuildCard, exempt?: Role): boolean => {
+    if (tribeFacet && (card.facets ?? []).includes(tribeFacet)) return false;
+    for (const r of rolesOf(card)) {
+      if (r === 'land' || r === 'creature' || r === exempt) continue;
+      if (carriedCount(r) >= roleFloorCeilingFor(r, slots)) return true;
+    }
+    return false;
+  };
   roleFill.land.picked = chosenLands.length;
 
   /* ---------------------------------------------------------------- *
@@ -1925,6 +1945,34 @@ const PACKAGE_MATCH = 0.6;
     bucket: Bucket
   ) => {
     if (enough()) return;
+    /*
+     * FOUR SWEEPS, and the ORDER OF THE TWO KEYS is the whole point.
+     *
+     *   1. a card people play, whose other roles are under the p90 ceiling
+     *   2. a card people play, whose other roles are over it but under the
+     *      largest count real decks hold
+     *   3. a card people do not play, under the p90 ceiling
+     *   4. a card people do not play, over it
+     *
+     * There used to be sweeps 1 and 3 only, because a card over the ceiling
+     * was skipped outright - so the floor jumped from "the best creatures that
+     * do nothing else" straight past every good creature whose second role was
+     * full, and landed on Shell Skulkin at rank 18,823.
+     *
+     * Played-enough is the OUTER key because a role sitting slightly past p90
+     * is a thing real decks do and playing a card nobody plays is not. The
+     * ceiling still binds: sweep 4 cannot pass the measured maximum, so the
+     * mana-dork overrun this guard was added for - 35 ramp against a p90 of
+     * 21 - is still refused.
+     */
+    const sweeps: ReadonlyArray<{ played: boolean; slack: boolean }> = [
+      { played: true, slack: false },
+      { played: true, slack: true },
+      { played: false, slack: false },
+      { played: false, slack: true },
+    ];
+    for (const sweep of sweeps) {
+    if (enough()) break;
     for (const rec of orderPreferredFirst(playedFirst(rankedSpells), preferred)) {
       if (enough()) break;
       if (picked.length - chosenLands.length >= spellSlots) break;
@@ -1932,10 +1980,16 @@ const PACKAGE_MATCH = 0.6;
       if (takenOracleIds.has(card.oracleId)) continue;
       if (!wanted(card)) continue;
       if (overColourlessCap(card)) continue;
+      const rank = (card as { edhrecRank?: number | null }).edhrecRank;
+      const played = typeof rank === 'number' && rank <= PLAYED_ENOUGH_RANK;
+      if (played !== sweep.played) continue;
       /* The creature floor filling with mana dorks is how a deck reaches 35
          ramp against a real ninetieth percentile of 21: a dork carries the
          floor's role AND the role that is already full. */
-      if (!preferred.has(card.oracleId) && overRoleCeiling(card)) continue;
+      if (!preferred.has(card.oracleId)) {
+        if (!sweep.slack && overRoleCeiling(card)) continue;
+        if (sweep.slack && overRoleFloorCeiling(card)) continue;
+      }
       takenOracleIds.add(card.oracleId);
       if (cardRole(card, 'creature')) creaturesPicked += 1;
       if (hasColour(card)) colouredPicked += 1;
@@ -1949,6 +2003,7 @@ const PACKAGE_MATCH = 0.6;
         bucket,
         preferred: preferred.has(card.oracleId),
       });
+    }
     }
   };
 

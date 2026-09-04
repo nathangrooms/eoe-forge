@@ -26,5 +26,9 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src"]
+  /* `supabase/functions` is not listed and is still checked: the tests under
+     `src/engine` import the optimiser's catalog and the generator's pipeline
+     directly, so tsc follows them in. `deno.d.ts` is named explicitly because
+     nothing imports it - it declares the one global those files read. */
+  "include": ["src", "supabase/functions/deno.d.ts"]
 }

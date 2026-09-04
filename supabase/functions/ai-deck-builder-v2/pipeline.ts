@@ -591,7 +591,13 @@ function rankCeilingFor(colours: number): number | undefined {
 
 /** How many of those rows are dressed and ranked in memory. */
 function poolBudgetFor(colours: number): number {
-  if (colours >= 5) return 5000;
+  /* FIVE COLOURS IS BOUNDED BY THE WORKER, NOT BY DECK QUALITY.
+     CLAUDE.md records "4,000 measured no better than 5,000, so the pool size is
+     not the cost". That test was INVALID: `poolFor` did not accept a `limit` at
+     all, so both arms fetched the whole 31,829-row walk and kept 5,000, and the
+     variable being changed was never applied. Re-measured 4 Sep 2026 with the
+     option actually implemented. */
+  if (colours >= 5) return 2500;
   if (colours === 4) return 8000;
   return 12000;
 }

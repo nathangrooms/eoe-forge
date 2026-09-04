@@ -74,6 +74,28 @@ for (const entry of commanders) {
     continue;
   }
 
+  /*
+   * FACETS FROM THE POOL, NEVER FROM THE RESPONSE.
+   *
+   * A response card carries NO `facets`, so `card.facets ?? []` handed
+   * `cardRole` an empty array and it fell through to the TAG door - a different
+   * classifier answering a different question. The YARDSTICK side of this
+   * comparison (`real-deck-roles.mjs`) reads facets out of `cards_pool`, so the
+   * two halves were measuring two different things and the difference was being
+   * reported as a fault.
+   *
+   * Measured: Prosper, Tome-Bound was reported at 43 ramp against a real
+   * maximum of 31, and the same deck classified by ROLE holds 21 - exactly the
+   * p90 ceiling, working as designed. Ramp was the worst row in this report and
+   * eleven of twenty decks were "outside the range" on it.
+   *
+   * CLAUDE.md already records this exact fault being found and fixed once:
+   * "the ramp TAG has a median of 9 and the ramp ROLE has a median of 16. Two
+   * vocabularies, one subtraction, and the difference called a fault."
+   */
+  const deckFacets = await catalog.poolFacetsByName(
+    result.body.result.deck.map(c => c.name)
+  );
   const counts = {};
   for (const card of result.body.result.deck) {
     const qty = Math.max(1, Number(card.quantity) || 1);
@@ -82,7 +104,7 @@ for (const entry of commanders) {
       typeLine: card.type_line,
       type_line: card.type_line,
       cmc: card.cmc,
-      facets: card.facets ?? [],
+      facets: deckFacets.get(card.name) ?? [],
       tags: card.tags ?? [],
     };
     for (const role of ROLES) {

@@ -2799,6 +2799,20 @@ export const PLAN_RULES: readonly {
     when: 'trig:enters-self',
     wants: [
       { facet: 'eff:exile-own', weight: 0.8 },
+      /*
+       * AND THINGS THAT DOUBLE THE TRIGGER, which is the other way to get an
+       * arrival twice: blink it again, or have it count twice when it lands.
+       *
+       * Brago, King Eternal's benchmark job "doubling the arrival" sat at 0 of
+       * 1 and his deck held NOTHING - not Panharmonicon, not Yarok, not Elesh
+       * Norn. Nothing asked for them, because the only word for it was
+       * `eff:multiply`, which the tag map also gives to DAMAGE doublers like
+       * Fiery Emancipation and Torbran. About half that population is not a
+       * trigger doubler, so asking for it would have put damage doublers in a
+       * blink deck. `eff:multiply-triggers` is the precise word, read off a tag
+       * whose 39 members are 39 trigger doublers.
+       */
+      { facet: 'eff:multiply-triggers', weight: 0.7 },
       { facet: 'eff:bounce-own', weight: 0.65 },
       { facet: 'eff:return-from', weight: 0.5 },
     ],
@@ -3150,9 +3164,28 @@ export const PLAN_RULES: readonly {
     wants: [
       { facet: 'eff:exile-own', weight: 0.9 },
       { facet: 'eff:return-from', weight: 0.8 },
-      { facet: 'trig:enters', weight: 0.75 },
+      /*
+       * `trig:enters-self`, not the base word. A blinker wants a creature whose
+       * OWN arrival does something; the base is emitted alongside
+       * `trig:enters-other` too, which is Tatyova's "whenever a LAND enters" -
+       * a fine card and not something a blink deck can use.
+       */
+      { facet: 'trig:enters-self', weight: 0.75 },
       { facet: 'cares:zone:exile', weight: 0.6 },
-      { facet: 'eff:multiply', weight: 0.5 },
+      /*
+       * THE PRECISE DOUBLER, not the generic one.
+       *
+       * This asked for `eff:multiply` at 0.5, and about half that population
+       * doubles DAMAGE rather than triggers - Fiery Emancipation, Torbran,
+       * Gisela, Gratuitous Violence. So a blink deck was being offered damage
+       * doublers at the same weight as Panharmonicon, and Brago, King Eternal's
+       * job "doubling the arrival" sat at 0 of 1 with his deck holding neither.
+       *
+       * `eff:multiply-triggers` comes from the `trigger-doubler` tag, whose 39
+       * members are 39 trigger doublers: Panharmonicon, Yarok, Elesh Norn
+       * Mother of Machines, Roaming Throne, Naban, Harmonic Prodigy.
+       */
+      { facet: 'eff:multiply-triggers', weight: 0.7 },
     ],
   },
   {

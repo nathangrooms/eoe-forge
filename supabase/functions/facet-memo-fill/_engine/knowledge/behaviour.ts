@@ -2714,19 +2714,24 @@ const PLAN_RULES: readonly {
      * named the shape. A sacrifice outlet plus a creature that returns itself
      * is an engine rather than two cards.
      *
-     * Weighted just under `cost:sacrifice` itself: the outlet is what the deck
-     * cannot function without, the fodder is what makes it repeatable.
+     * WEIGHTED BELOW THE PAYOFF, and that is measured rather than chosen. At
+     * 0.8 it outranked `trig:dies` at 0.75, and Yawgmoth traded one zero group
+     * for another: "creatures that come back after dying" went 0/4 to 2/4 and
+     * "payoffs when creatures die: drain, draw, or make opponents sacrifice"
+     * fell from filled to 0/4. Read as a player that is the wrong way round.
+     * Blood Artist is why an aristocrats deck wins; Reassembling Skeleton is
+     * why it keeps going. The payoff outranks the fodder.
      */
     when: 'cost:sacrifice',
     wants: [
-      { facet: 'eff:recur-self', weight: 0.8 },
+      { facet: 'eff:recur-self', weight: 0.65 },
       { facet: 'cost:cast-sacrifice', weight: 0.5 },
     ],
   },
   {
     /* Paid when creatures die, which is the other half of the same deck. */
     when: 'trig:dies',
-    wants: [{ facet: 'eff:recur-self', weight: 0.75 }],
+    wants: [{ facet: 'eff:recur-self', weight: 0.6 }],
   },
   {
     /*

@@ -4063,3 +4063,62 @@ score gets wrong now reaches the player as a confident recommendation.
 > useCollection, collectionCards }`, and a replacement's reasons live on
 > `removeReason` / `addBenefit`, NOT on `reason`. A probe reading `reason` prints
 > blank swaps and looks like a feature with no explanations.
+
+## CORRECTION: the power score does not rate that swap as an improvement
+
+The section above says *"Smothering Tithe (65) out for Halo Fountain (1,908)
+survives, because the power score MEASURES that swap as an improvement"*. **That
+is wrong.** Measured 4 Sep 2026 with `scratch/_swapscore.mjs`:
+
+    Teysa, remove Smothering Tithe, add Halo Fountain
+      score 6.4 -> 6.4
+      card_advantage  88 -> 85    (-3.0)
+      consistency   90.8 -> 97.5  (+6.7)
+
+It rates the swap as NOTHING. The score is not broken, it is NARROW, and it
+catches what it does model:
+
+    Teysa, remove Sol Ring, add Ornithopter
+      score 6.4 -> 6.1     speed 76.4 -> 62.6  (-13.8)
+
+### So a swap must measure as a GAIN, not merely as no loss
+
+A swap worth no measurable points is churn that costs the player a card the
+score cannot value, and **the score's blind spots are exactly where the
+format's staples live**. `deck-optimizer` now refuses a replacement whose
+measured delta is not positive.
+
+**`edhImpact` could not be used for this.** It is null for TWO different things:
+a change that could not be measured at all, and one measured below
+`IMPACT_FLOOR`, which is only about what is worth PRINTING. Reading it would
+have turned "we never got to that row" into a refusal. The raw delta lives in a
+WeakMap keyed on the row, so the response body is unchanged and no client can
+begin depending on it. UNMEASURED STAYS OFFERED.
+
+    swaps across five generated decks   50 -> 26
+    Krenko 10 -> 1 · Teysa 10 -> 2 · Meren 10 -> 6 · Sythis 10 -> 7
+    additions past rank 12,000          8 -> 0
+
+### What survives is arguable rather than absurd
+
+Sythis is still told to trade Sylvan Library (259) for Sterling Grove (1,206),
+and the score's reason is legible: **tutors 0 -> 4.8, resilience 31 -> 37**, in
+an enchantress deck holding no tutor at all. Sterling Grove really is an
+enchantment tutor that really does grant shroud. A player may well disagree, and
+the engine is not being stupid.
+
+That is the honest state of the optimiser: the egregious suggestions are gone,
+what remains is a difference of opinion about card quality, and closing THAT
+needs the score to learn what a staple is worth rather than another guard
+bolted on top.
+
+### The instrument
+
+`scripts/probe/optimiser-suggestions.mjs` builds a deck with the generator,
+hands it straight to the optimiser, and reports how played the cards it wants to
+add are against the ones it wants to remove. It is the only instrument in this
+repo that scores the OPTIMISER rather than the generator, which is why its
+suggestions went unmeasured until the day it became deployable.
+
+`scratch/_swapscore.mjs` names which SUBSCORE moves for one swap, which is how a
+disagreement stops being an opinion.

@@ -3914,3 +3914,76 @@ stored facets quietly compiles differently in one function than another.
 `engine-parity.test.ts` asserts the vendored copies are byte-identical, so it
 has to learn about a deliberate per-function exclusion rather than be switched
 off.
+
+## The XMage table was two thirds of every edge function, and 77% of it was unreachable
+
+`deck-optimizer` COULD NOT BE DEPLOYED, so every engine fix was live in the
+generator and not in it. That is "pushing is not deploying" in a new form: it
+could not be deployed at all, and nothing said so except a 413 nobody had asked
+for.
+
+    before                          after the prune
+    mtg-brain           4,965 KB    2,677 KB
+    deck-optimizer      4,753 KB    2,465 KB   (was HTTP 413)
+    ai-deck-builder-v2  4,689 KB    2,401 KB
+    facet-memo-fill     4,557 KB    2,269 KB
+
+`xmage/lowered.generated.ts` was 3,157 KB of each. `xmageSwapFor` opens with one
+line:
+
+    if (compiled.compilerCoverage === 'full') return { refused: ... }
+
+so a record for a card the oracle-text compiler already reads completely can
+NEVER be returned. Not rarely used - unreachable. **5,688 of the 7,392 records
+were that**, and the table is 868 KB now.
+
+### It was proved, not argued
+
+`scripts/xmage/prune-verify.mjs snapshot` records the facets of every card that
+HAS a record, then `compare` re-reads them after. **Only a card with a record can
+be affected by dropping records**, so those 7,392 are the whole population rather
+than a sample. NOTHING MOVED, and the deployed sweep is identical afterwards:
+14/14, 82/94 staples.
+
+The compiler's own verdict is read with `DM_XMAGE_OFF=1`, the switch
+`lowered.ts` already carries, so the prune asks the same question the rule asks
+rather than a lookalike. A record whose card is not in the catalogue is KEPT:
+absence is not evidence, and a wrong drop is silent.
+
+**`emit-lowered.mjs` rebuilds the FULL table, so run `prune-lowered.mjs`
+afterwards.** A regeneration that forgets is silent: nothing breaks, every
+answer stays the same, and all four functions quietly stop being deployable.
+`lowered.test.ts` states that invariant now, because its old premise - that
+Lightning Bolt HAS a record - became unsatisfiable by construction.
+
+## The optimiser was compiling the whole pool on every request
+
+`poolFor(..., { withOracleText: true })` already SELECTS the stored `facets`
+column, and on a commander pool that is `cards_pool`. `deck-optimizer/index.ts`
+ignored it and recompiled every row from oracle text:
+
+    facets: 12531 stored, 0 compiled in 7 ms
+
+Twelve and a half thousand cards of compiler work per request, reproducing an
+answer the row was already carrying - and the same answer, because the memo was
+written by this same compiler. It also means the optimiser and the generator now
+read the SAME facets for a card, rather than two computations that agree only
+while the vendored copies do.
+
+Verified end to end on a real generated Meren deck: HTTP 200, power 5.5 -> 6.3
+projected, ten replacements, each carrying `removeReason` and `addBenefit` that
+cite the commander's plan, the tags shared with the deck and the castability
+figure. The commander-fit signal genuinely reaches it.
+
+> The request shape is `{ deckContext: { commander, cards, format }, ... }` and
+> the reasons live on `removeReason` / `addBenefit`, NOT on `reason`. A probe
+> reading `reason` prints blank swaps and looks like a feature with no
+> explanations.
+
+**Left open, measured but not chased:** the swaps are mixed. Chatterfang,
+Squirrel General out for Black Sun's Twilight is a downgrade. The optimiser
+scores against a NON-empty deck, where `popularityWeight` is 0.8 rather than the
+empty-deck 2.4, so the role gap at 3.0 dominates and a cheap card that
+technically fills a role can beat a better one. That is the same shape as the
+archetype-weight fault fixed above and wants the same treatment: a measurement
+across many decks before touching a weight.

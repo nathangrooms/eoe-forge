@@ -386,7 +386,27 @@ export const TOP_END_MV = 6;
  */
 export function topEndTargetFor(slots: number, wantsBig: boolean): number {
   const band = wantsBig ? REAL_DECK_TOP_END.p50 : REAL_DECK_TOP_END.p10;
-  return Math.max(1, Math.round((band * slots) / 99));
+  /*
+   * THE BAND IS ALREADY A WHOLE-DECK COUNT. It used to be scaled by
+   * `slots / 99` and that divided it a second time.
+   *
+   * `REAL_DECK_TOP_END` is measured over all 99 cards of 192 real decks, and
+   * every card at mana value 6 or more is a SPELL - a land's mana value is
+   * zero. So the band and the spell count are already the same population, and
+   * multiplying by sixty ninety-ninths turned the documented floor of four into
+   * TWO, and the median of nine into five.
+   *
+   * The comment above says "a commander who says nothing about size still gets
+   * four", so the code contradicted its own stated intent. Measured before the
+   * fix: ALL TWENTY benchmark decks held fewer than four cards at mana value
+   * 6+, the median was ONE, and eight of them held NONE - against a real median
+   * of nine. Brago, Yuriko, Prosper, Feather, Chulane and Edgar Markov all came
+   * back with a deck whose most expensive spell cost five.
+   *
+   * Clamped to the slots available, which only binds on a deck with almost no
+   * spell slots left.
+   */
+  return Math.max(1, Math.min(band, slots));
 }
 
 /** Cards in hand on the given turn, on the play: seven, then one a turn. */

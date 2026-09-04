@@ -2340,11 +2340,29 @@ const PACKAGE_MATCH = 0.6;
    * preferred entry is refused by the swap test and by the flex cut. It is what
    * keeps Sol Ring and both halves of a combo in the deck.
    */
-  for (let i = beforeTopEnd; i < picked.length; i++) {
-    const entry = picked[i];
+  /*
+   * THE FLOOR IS PROTECTED, NOT THE INCREMENT. This loop used to start at
+   * `beforeTopEnd`, so it covered only the cards THIS fill added.
+   *
+   * A deck that already held three of its four before the fill got one card
+   * protected and three left fair game, and the later passes then cut those
+   * three - so the fill reported reaching its floor and the finished deck was
+   * below it again. Measured on Brago, King Eternal: `[topend] floor 4, have 3,
+   * after: 4` and a finished deck holding ONE. Sixteen of the twenty benchmark
+   * decks were short for this reason after the scaling bug above was fixed.
+   *
+   * Walking the whole list also keeps the protection stable: which cards the
+   * fill happened to add is an accident of what came before it, and the floor
+   * is a statement about the finished deck.
+   */
+  let protectedTopEnd = 0;
+  for (const entry of picked) {
+    if (protectedTopEnd >= topEndFloor) break;
     if (((entry.card as BuildCard).cmc ?? 0) < TOP_END_MV) continue;
+    if (isLandCandidate(entry.card as BuildCard)) continue;
     entry.preferred = true;
     preferred.add(entry.card.oracleId);
+    protectedTopEnd += 1;
   }
 
   if (process?.env?.DM_TOPEND_DEBUG === '1') {

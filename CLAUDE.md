@@ -3810,3 +3810,107 @@ It also exonerated the four-tier floor fill, which was the obvious suspect: with
 the slack disabled the three decks measured 30, 29 and 24 - THE SAME THREE
 NUMBERS. Confirm a finding with a second, differently-shaped measurement before
 acting on it.
+
+## The shell is a guess, so it is worth less than the commander
+
+This is the answer to why a CORRECT shell was making a deck worse, which the
+previous session recorded as an open question.
+
+`archetype-fit` and `commander-fit` shared `commanderFitWeight`, 3.6 on an empty
+deck. The commander is CERTAIN: it is in the deck and its plan is what the deck
+does. The shell is INFERRED, one of eighteen picked by a cosine. The same card
+could score both and reach 7.2 while the whole popularity term spans 2.4, so
+on-theme did not merely outrank card quality, it buried it.
+
+Measured on Sythis, Harvest's Hand with the Enchantress shell against the same
+build without it. The shell did its OWN job better - "other enchantresses" 3 to
+5 - and the deck LOST a benchmark job, because the role gaps then filled with
+Charitable Levy (rank 7,032) and Altar of the Pantheon (6,181) while
+Commander's Sphere (51), Garruk's Uprising (90) and Kenrith's Transformation
+(726) left. The popularity gap between rank 51 and rank 7,032 is about 1.17 and
+the shell was handing out 3.6.
+
+`ARCHETYPE_FIT_SHARE = 0.6` in `rank.ts`. Still the largest single term after
+the role gap, so an on-theme card still beats an off-theme one of similar
+standing; what it can no longer do is beat a format staple by four points.
+
+    seven-deck roster    keyed 66% -> 70%, staples 49/61 -> 51/61
+    twenty commanders    jobs 23/71 unchanged, groups at zero 21 -> 18
+    eighteen strategies  keyed up on nine and down on none
+                         packages still 16 of 18 filled, ramp 13 to 24
+
+**Keyed synergy and format staples both rose**, and they normally trade against
+each other. That is the sign this was a weight fighting itself rather than a
+real tension between theme and quality.
+
+### Two things tried on the way, measured, and REVERTED
+
+**Ordering package fills by how played a card is.** `PACKAGE_MATCH` is already
+the gate for "does this card do the job", so preferring played cards above it
+looked obviously right. Neutral on jobs and zero groups, minus three points of
+keyed on two of eighteen strategies. No measured benefit, so it is churn.
+
+**Folding `type:X` onto `cares:type:X` to choose a shell.** The generator scores
+shells by cosine and EIGHT of the twenty benchmark commanders get no shell at
+all, which means no packages - the only machinery that can say "this card does
+BOTH of these things". The cause is exact and is a vocabulary mismatch:
+
+    Sythis, Harvest's Hand   loud want  type:enchantment
+    the Enchantress shell    wants      cares:type:enchantment
+    Niv-Mizzet, Parun        wants      type:instant / type:sorcery
+    the Spellslinger shell   wants      cares:type:instant / :sorcery
+
+Different strings, zero overlap, shell dropped. Fixed three ways and every
+version measured worse: applied to everybody, zero groups 21 -> 24; as a
+fallback with a 0.75 floor, jobs 23 -> 22. Sythis gained the right shell and
+went 2/3 jobs to 1/3; Feather gained Spellslinger and her median rank went 414
+to 1,586.
+
+**The mismatch is still a real bug and worth fixing** once a correct shell stops
+costing a deck quality. Note that the weight change above is exactly that fix,
+so THIS IS WORTH RE-TRYING - it was measured against the old weight.
+
+Two things to keep either way:
+
+1. Shells help on average and those three were the exception. The twelve
+   commanders that get a shell do 17 of 41 jobs (41%); the eight that do not do
+   6 of 30 (20%).
+2. **`strategiesFor` is NOT a drop-in replacement for the cosine.** It offers a
+   MENU and `ALWAYS_OFFERED` puts aggro near the top for most commanders, so its
+   top two would make half the field an aggro deck. It gets the benchmark
+   archetype into its top three for 17 of 20, which is a different question from
+   "which one shell should build this deck".
+
+## 🔴 THE VENDORED FUNCTIONS ARE AT THE 5 MB DEPLOY LIMIT
+
+`deck-optimizer` CANNOT BE DEPLOYED. Measured 4 Sep 2026:
+
+    mtg-brain           4,965 KB     35 KB from the limit
+    deck-optimizer      4,753 KB     deploy returns HTTP 413
+    ai-deck-builder-v2  4,689 KB     still deploys, barely
+    facet-memo-fill     4,557 KB
+
+    supabase functions deploy deck-optimizer
+    -> 413 "Function source code exceeds the maximum deployment size (5 MB)"
+
+So every engine fix is live in the GENERATOR and NOT in the OPTIMISER, and this
+is the "pushing is not deploying" trap in a new form: it cannot be deployed at
+all. Whatever the optimiser is serving predates this.
+
+**Two thirds of each function is one file:**
+`_lib/cards/xmage/lowered.generated.ts`, **3,157 KB**. It is already trimmed to
+records that lower - 7,392 entries, ZERO empty - so there is nothing to prune
+inside it.
+
+**The fix is not to vendor it where it is never read.** XMage is consulted only
+for a card the oracle-text compiler does not fully understand, and the facet
+memo now covers the catalogue, so at runtime the generator reports
+`facets: ... (compiler 0, xmage 0, no record 0, cached 6000)` on every build.
+`facet-memo-fill` genuinely needs it, because it is the thing that WRITES the
+memo. The other three almost certainly do not.
+
+Care is needed: absence must not become a SILENT divergence where a card with no
+stored facets quietly compiles differently in one function than another.
+`engine-parity.test.ts` asserts the vendored copies are byte-identical, so it
+has to learn about a deliberate per-function exclusion rather than be switched
+off.

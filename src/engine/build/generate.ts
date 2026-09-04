@@ -2193,7 +2193,19 @@ const PACKAGE_MATCH = 0.6;
    * 4. Basics, allocated by the pips the chosen spells actually ask for.
    * ---------------------------------------------------------------- */
 
-  const basicSlots = slots - picked.reduce((n, e) => n + e.quantity, 0);
+  /*
+   * NO BASICS EITHER, when the player asked for the spells only.
+   *
+   * The page's "Include manabase" toggle. Without this the deck still came
+   * back full of Islands, because this pass fills whatever the spell passes
+   * left in order to reach 99 - which is right for every other build and is
+   * the exact opposite of what was asked for here. A deck that cannot find 99
+   * spells now says so in `shortfalls` rather than quietly becoming a mana
+   * base, which is the same rule the rest of this file follows: report the
+   * shortfall, never invent a card to hide it.
+   */
+  const wantsManaBase = input.includeLands !== false;
+  const basicSlots = wantsManaBase ? slots - picked.reduce((n, e) => n + e.quantity, 0) : 0;
   const basicEntries = allocateBasics({
     identity,
     basics: input.basics,
@@ -2205,6 +2217,14 @@ const PACKAGE_MATCH = 0.6;
     ]).sourcesByColour,
   });
   picked.push(...basicEntries);
+  if (!wantsManaBase) {
+    const short = slots - picked.reduce((n, e) => n + e.quantity, 0);
+    if (short > 0) {
+      shortfalls.push(
+        `${short} slots left empty: you asked for the spells only and the pool ran out of them`
+      );
+    }
+  }
   // Basics are lands. Reporting the nonbasic count as the land count is how a
   // 36-land deck comes to say "27 of 35 lands" beside its own manabase.
   roleFill.land.picked += basicEntries.reduce((n, e) => n + e.quantity, 0);

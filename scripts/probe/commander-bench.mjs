@@ -285,7 +285,28 @@ function groupCapability(group, deckFacets, spells) {
     const rarest = Math.min(
       ...shared.map(f => (poolFacetFrequency.get(f) ?? 0) / poolSize)
     );
-    if (rarest > 0.1) return null;
+    /*
+     * A BROAD FACET MAY STILL BE THE JOB, if NEARLY ALL the examples carry it.
+     *
+     * The rarity test alone refused "High mana value cards to reveal off the
+     * top for a big Yuriko drain": its shared facet is `mv:big`, which is broad
+     * by construction, and it is EXACTLY what the job means. Yuriko's deck
+     * holds five such cards against a floor of five and scored zero.
+     *
+     * What separates that from the false positive this guard exists for is how
+     * many examples agree. `mv:big` is on ELEVEN OF TWELVE of Yuriko's - it is
+     * the definition. `eff:draw`, which let "Curiosity effects on Niv" claim
+     * Urza's Command, was on a bare majority of its examples and is incidental
+     * to a job about drawing INTO DAMAGE.
+     *
+     * So: a rare facet passes on a majority, a broad one has to be nearly
+     * unanimous. Verified after the change that the Niv job still gets NO
+     * capability rescue.
+     */
+    if (rarest > 0.1) {
+      const strongest = Math.max(...shared.map(f => (count.get(f) ?? 0) / sets.length));
+      if (strongest < 0.85) return null;
+    }
   } else if (out.length > (spells || 1) * 0.2) {
     return null;
   }

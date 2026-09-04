@@ -105,9 +105,24 @@ interface ShellSignal {
  * signal because it means the commander IS this deck rather than merely
  * benefiting from it.
  */
-const SHELL_SIGNALS: Record<string, ShellSignal> = {
+/*
+ * Exported so an instrument can ask WHICH FACETS COMMANDERS WANT THAT NO SHELL
+ * CLAIMS. That question is the work list for strategy coverage: five facets
+ * found that way on 4 Sep 2026 took the commanders earning nothing from 81 to
+ * 49. Reading it is not the same as re-typing it, and a copy in a probe would
+ * drift the day a signal changes.
+ */
+export const SHELL_SIGNALS: Record<string, ShellSignal> = {
   aristocrats: {
-    facets: ['cost:sacrifice', 'eff:sacrifice', 'trig:dies', 'eff:lose-life'],
+    /* `eff:recur-self` is the single largest unheard want in the catalogue:
+       329 commanders hold it LOUDLY and, until this line, no shell listened.
+       A creature that brings itself back from the graveyard is what an
+       aristocrats deck sacrifices - the outlet is the engine and the fodder is
+       what makes it repeatable. */
+    facets: [
+      'cost:sacrifice', 'eff:sacrifice', 'trig:dies', 'eff:lose-life',
+      'eff:recur-self',
+    ],
     tags: ['aristocrats', 'sacrifice-outlet'],
     fallback: 'This commander is paid when your own creatures die',
   },
@@ -119,7 +134,13 @@ const SHELL_SIGNALS: Record<string, ShellSignal> = {
   'big-mana': {
     /* And a Treasure is also mana, which is the other half of why a Treasure
        commander has two honest strategies rather than none. */
-    facets: ['eff:add-mana', 'cares:zone:library-land', 'eff:untap', 'tok:treasure'],
+    /* `mv:big` is what the mana is FOR. 74 commanders want an expensive spell
+       loudly and nothing offered them the shell whose whole point is casting
+       one. */
+    facets: [
+      'eff:add-mana', 'cares:zone:library-land', 'eff:untap', 'tok:treasure',
+      'mv:big',
+    ],
     tags: ['ramp', 'x-spell'],
     fallback: 'This commander turns extra mana into something',
   },
@@ -138,7 +159,11 @@ const SHELL_SIGNALS: Record<string, ShellSignal> = {
     fallback: 'This commander wants to attack every turn',
   },
   tokens: {
-    facets: ['eff:create-token'],
+    /* MAKING a token and CARING about tokens are different claims, and this
+       shell listened for only the first. 88 commanders want `type:token` or
+       `cares:type:token` loudly - a commander paid when a token enters, or one
+       that is itself token-shaped - and earned nothing from it. */
+    facets: ['eff:create-token', 'type:token', 'cares:type:token'],
     tags: ['token-maker', 'mass-pump'],
     fallback: 'This commander makes or rewards tokens',
   },
@@ -184,7 +209,15 @@ const SHELL_SIGNALS: Record<string, ShellSignal> = {
     fallback: 'This commander is paid when creatures leave and come back',
   },
   reanimator: {
-    facets: ['cares:zone:graveyard', 'eff:return-from', 'eff:mill', 'eff:discard'],
+    /* And the other half of the same word: bringing ITSELF back is graveyard
+       recursion, which is what this shell is. Both shells claiming it is
+       correct rather than duplication - a self-recurring creature genuinely
+       belongs in either deck, and `strategiesFor` already refuses to print the
+       same sentence twice. */
+    facets: [
+      'cares:zone:graveyard', 'eff:return-from', 'eff:mill', 'eff:discard',
+      'eff:recur-self',
+    ],
     tags: ['reanimator', 'graveyard-recursion', 'self-mill', 'discard-outlet'],
     fallback: 'This commander plays out of the graveyard',
   },
@@ -208,7 +241,15 @@ const SHELL_SIGNALS: Record<string, ShellSignal> = {
        Xenagos, God of Revels is an enchantment creature, so he was offered
        Enchantress; so is every God, Theros or otherwise. The same has-versus-
        cares distinction the facet vocabulary already draws for keywords. */
-    facets: ['cares:type:enchantment', 'cares:sub:saga'],
+    /* `type:enchantment` beside `cares:type:enchantment`, the way Spellslinger
+       already carries both `type:instant` and `cares:type:instant`. A commander
+       whose card says "whenever you cast an enchantment spell" wants
+       ENCHANTMENTS; one derived from enchantment cards cares ABOUT them. 59
+       commanders held the first loudly and this shell heard only the second.
+       Named explicitly rather than folded: the generator's shell picker was
+       measured TWICE with a blanket `cares:type:X` -> `type:X` rule and it made
+       decks worse both times. */
+    facets: ['cares:type:enchantment', 'type:enchantment', 'cares:sub:saga'],
     tags: ['enchantments-matter'],
     fallback: 'This commander is paid for casting enchantments',
   },

@@ -182,7 +182,27 @@ const json = (body: unknown, status = 200) =>
  * returning itself: Rancor, Batterskull and Spine of Ish Sah were taking the
  * slots Chulane's "bounce your own creatures" job wanted.
  */
-const COMPILER_VERSION = 16;
+/*
+ * 16 -> 17. A KEYWORD ACTION THAT MAKES A TOKEN IS A TOKEN MAKER.
+ *
+ * `investigate`, `living weapon`, `amass`, `incubate`, `afterlife`,
+ * `fabricate`, `manifest`, `embalm`, `eternalize`, `myriad` and `squad` now
+ * emit `eff:create-token`, and the six with a fixed token type also emit it
+ * (`tok:clue`, `tok:germ`, `tok:army`, `tok:incubator`, `tok:spirit`,
+ * `tok:servo`).
+ *
+ * Measured 4 Sep 2026: 1,052 cards say "create ... token" in their oracle text
+ * and carry no `eff:create-token`, and these keywords account for 275 of them.
+ * Tireless Tracker (rank 653) knew only about counters, Batterskull only about
+ * equip, Urza's Saga only about searching, and none of the three was a token
+ * maker to the engine.
+ *
+ * READERS STAY ON 16 UNTIL THE `cards_pool` MIGRATION RUNS. The memo holds both
+ * versions - the primary key is (oracle_id, compiler_version) - so filling 17
+ * cannot disturb anything reading 16. Bump the writer, refill, THEN move the
+ * readers, and delete 16 only afterwards.
+ */
+const COMPILER_VERSION = 17;
 
 /**
  * Cards read per call.

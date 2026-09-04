@@ -113,7 +113,7 @@ with tag_words as (
          ) as tag_facets
     from cards_unique c
     left join card_facet_memo m
-      on m.oracle_id = c.oracle_id and m.compiler_version = 16
+      on m.oracle_id = c.oracle_id and m.compiler_version = 17
     left join tag_words tw on tw.oracle_id = (c.oracle_id)::uuid
 )
 select id, oracle_id, name, type_line, cmc, color_identity, tags, mana_cost,

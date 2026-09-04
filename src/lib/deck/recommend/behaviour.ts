@@ -96,6 +96,27 @@ export interface FacetInput extends AbilityCard {
 }
 
 /**
+ * Keyword actions that always create a token, and the token they create.
+ *
+ * An empty value means the keyword makes a token whose type the keyword itself
+ * does not fix: `manifest` is a face-down 2/2, and `embalm`, `eternalize`,
+ * `myriad` and `squad` all make copies of something.
+ */
+const TOKEN_KEYWORDS: Readonly<Record<string, string>> = {
+  investigate: 'clue',
+  'living weapon': 'germ',
+  amass: 'army',
+  incubate: 'incubator',
+  afterlife: 'spirit',
+  fabricate: 'servo',
+  manifest: '',
+  embalm: '',
+  eternalize: '',
+  myriad: '',
+  squad: '',
+};
+
+/**
  * Read one card.
  *
  * Facets are sorted and deduped so two cards with the same behaviour produce
@@ -204,7 +225,32 @@ export function facetsForCard(row: FacetInput): FacetResult {
    */
   for (const kw of (row as { keywords?: string[] | null }).keywords ?? []) {
     const word = String(kw).toLowerCase().replace(/’/g, "'").trim();
-    if (word) out.add(`kw:${word}`);
+    if (!word) continue;
+    out.add(`kw:${word}`);
+    /*
+     * A KEYWORD ACTION THAT MAKES A TOKEN IS A TOKEN MAKER.
+     *
+     * The same route `infect` takes to `eff:poison` below: the same fact said a
+     * different way, not a new judgement. "Investigate" MEANS "create a Clue
+     * token" - the rules define it that way and the reminder text says so - so
+     * a card carrying the keyword creates a token whether or not the compiler
+     * read the sentence.
+     *
+     * Measured 4 Sep 2026: 1,052 cards say "create ... token" in their oracle
+     * text and carry no `eff:create-token`, and these keywords account for 275.
+     * Tireless Tracker (rank 653) knew only about counters, Batterskull only
+     * about equip, Urza's Saga only about searching. None of the three was a
+     * token maker to the engine.
+     *
+     * Deliberately only the keywords that ALWAYS create one. `populate` copies
+     * a token you already control and creates nothing on its own; `undying` and
+     * `persist` return the card itself rather than a token.
+     */
+    const token = TOKEN_KEYWORDS[word];
+    if (token !== undefined) {
+      out.add('eff:create-token');
+      if (token) out.add(`tok:${token}`);
+    }
   }
 
   /*

@@ -1562,9 +1562,32 @@ const PACKAGE_MATCH = 0.6;
     if (placed > 0) carriedStamp += 1;
   }
 
+  /*
+   * THE COMMANDER'S OWN PACKAGES PICK FIRST, and the shell's after.
+   *
+   * Both are conjunctions and this file already argues that the most specific
+   * pass must go first, because a broader one takes the very cards a narrow one
+   * needs. A commander's package is a conjunction about THIS commander -
+   * "creatures that add mana", derived from Kinnan's own record. A shell's is a
+   * conjunction about a generic archetype that eighteen commanders share. The
+   * commander is the more specific claim.
+   *
+   * Measured on Kinnan, Bonder Prodigy, whose entire card is "whenever you tap
+   * a nonland permanent for mana, add one more", with the Big mana shell:
+   *
+   *   Big mana Acceleration 10/10   Nature's Lore, Three Visits, Skyshroud
+   *                                 Claim, Wood Elves, Ranger's Path ...
+   *   creatures that add mana 0/2   nothing
+   *
+   * The shell's ramp SPELLS filled the ramp role to its p90 ceiling of 21, and
+   * `overRoleCeiling` then refused every mana DORK - the cards Kinnan doubles.
+   * The deck held three creatures that tap for mana and none of them was a dork.
+   * Every step was locally correct: the ceiling is real, the shell's package is
+   * a fair reading of "big mana", and the order was the whole fault.
+   */
   const shellPackages = [
-    ...archetypePackages.map(pkg => ({ ...pkg, budget: archetypeBudget })),
     ...ownPackages.map(pkg => ({ ...pkg, budget: ownBudget })),
+    ...archetypePackages.map(pkg => ({ ...pkg, budget: archetypeBudget })),
   ];
   if (shellPackages.length > 0) {
     /*
@@ -1640,12 +1663,29 @@ const PACKAGE_MATCH = 0.6;
           return { rec, fit: packageFit(card, pkg.wants), commander: hit.fit };
         })
         .filter(entry => entry.fit >= PACKAGE_MATCH)
-        .sort(
-          (a, b) =>
-            b.fit - a.fit ||
-            ((a.rec.card as BuildCard).edhrecRank ?? Number.MAX_SAFE_INTEGER) -
-              ((b.rec.card as BuildCard).edhrecRank ?? Number.MAX_SAFE_INTEGER)
-        );
+        /*
+         * PLAYED CARDS FIRST, THEN THE REST - two sweeps, the same shape
+         * `fillTo` uses and for the same reason.
+         *
+         * Fit was the only key, so a card nobody plays that does the job
+         * slightly better beat one everybody plays that does it. That was
+         * tolerable while the shell picked first and left little for these; it
+         * stopped being tolerable when the commander's own packages moved to
+         * the front, because they now pick from a full pool and reach further
+         * into it. Measured: cards past rank 15,000 across the twenty
+         * benchmark decks went 8 to 11 on the reorder alone.
+         *
+         * A SWEEP, not a tie-break. Sorting by rank inside a fit tie was
+         * already happening and did not help: the cards being reached for do
+         * not TIE on fit, they win on it.
+         */
+        .sort((a, b) => {
+          const ra = (a.rec.card as BuildCard).edhrecRank ?? Number.MAX_SAFE_INTEGER;
+          const rb = (b.rec.card as BuildCard).edhrecRank ?? Number.MAX_SAFE_INTEGER;
+          const pa = ra <= PLAYED_ENOUGH_RANK ? 0 : 1;
+          const pb = rb <= PLAYED_ENOUGH_RANK ? 0 : 1;
+          return pa - pb || b.fit - a.fit || ra - rb;
+        });
 
       for (const { rec } of candidates) {
         if (taken >= slots) break;

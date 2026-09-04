@@ -2696,7 +2696,17 @@ function joinKeywords(words: readonly string[]): string {
  */
 const GENERIC_TOKEN_WHEN_SPECIFIC = 0.3;
 
-const PLAN_RULES: readonly {
+/*
+ * Exported so an instrument can tell a DERIVED want from a genuine gap.
+ *
+ * `unclaimed-wants.mjs` ranked `eff:recur-self` as the largest unheard want in
+ * the catalogue at 329 commanders, and widening two shells to hear it moved
+ * almost nothing - because this table hands that want to a commander BECAUSE it
+ * already has `cost:sacrifice` or `trig:dies`, and both shells claimed those
+ * already. A want downstream of a claimed want is not a gap, and a probe that
+ * cannot see the difference ranks redundancy at the top of the work list.
+ */
+export const PLAN_RULES: readonly {
   when: Facet;
   wants: readonly { facet: Facet; weight: number }[];
 }[] = [

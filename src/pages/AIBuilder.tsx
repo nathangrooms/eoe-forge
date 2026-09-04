@@ -259,7 +259,11 @@ export default function AIBuilder() {
    * removes a network round trip, a spinner, and a 502 retry path from the step
    * between choosing a commander and configuring the deck.
    */
-  const localArchetypesFor = (selected: any): ArchetypeOption[] =>
+  const localArchetypesFor = (
+    selected: any,
+    facets?: string[] | null,
+    tags?: string[] | null
+  ): ArchetypeOption[] =>
     strategiesFor({
       name: selected?.name,
       type_line: selected?.type_line,
@@ -268,6 +272,24 @@ export default function AIBuilder() {
       mana_cost: selected?.mana_cost,
       cmc: selected?.cmc,
       card_faces: selected?.card_faces,
+      /*
+       * READ THE COMMANDER THE WAY THE BUILDER DOES.
+       *
+       * The picker searches SCRYFALL, so a selected commander arrives with
+       * printed text and no facets, and `strategiesFor` then compiles it with
+       * our own compiler alone. The builder reads it from `cards_pool`, which
+       * is `compiler_facets || tag_facets` - the community's reading merged in
+       * wherever the compiler is silent - so the menu and the deck were two
+       * readings that could disagree, which is the one thing the note above
+       * says this function exists to prevent.
+       *
+       * Sephara, Sky's Blade is the case: her lifelink clause is one the
+       * compiler refuses, so the menu saw an empty plan, fell through to "has
+       * flying and lifelink and no other ability we can read", and offered
+       * VOLTRON for an Angel who gives your whole team lifelink.
+       */
+      facets: facets ?? undefined,
+      tags: tags ?? undefined,
     }).map(offer => ({
       value: offer.value,
       label: offer.label,
@@ -285,9 +307,26 @@ export default function AIBuilder() {
    * they have just resolved and neither of them cares that it stopped being a
    * network call.
    */
-  const analyzeCommander = (selectedCommander: any) => {
+  const analyzeCommander = async (selectedCommander: any) => {
     if (!selectedCommander) return;
-    const offers = localArchetypesFor(selectedCommander);
+    /* One row, by name, for the words the builder will use. A failure here is
+       not worth blocking on: the menu falls back to compiling the printed text,
+       which is what it did before this existed. */
+    let facets: string[] | null = null;
+    let tags: string[] | null = null;
+    try {
+      const { data } = await supabase
+        .from('cards_pool' as never)
+        .select('facets,tags')
+        .eq('name', selectedCommander.name)
+        .limit(1)
+        .maybeSingle();
+      facets = (data as { facets?: string[] } | null)?.facets ?? null;
+      tags = (data as { tags?: string[] } | null)?.tags ?? null;
+    } catch {
+      /* keep the printed-text reading */
+    }
+    const offers = localArchetypesFor(selectedCommander, facets, tags);
     setSuggestedArchetypes(offers);
     applyRequestedArchetype(offers);
     setStage('configure');
@@ -316,7 +355,7 @@ export default function AIBuilder() {
           const card = await response.json();
           setCommander(card);
           setPendingCommander(card);
-          analyzeCommander(card);
+          void analyzeCommander(card);
           return;
         }
       } catch (e) {
@@ -326,7 +365,7 @@ export default function AIBuilder() {
       }
     }
     setCommander(cmdr);
-    analyzeCommander(cmdr);
+    void analyzeCommander(cmdr);
   };
 
   /* ---------------------------------------------------------------- *

@@ -5436,3 +5436,67 @@ the third time this session that "the knob is not the cause" held.
 > the measure see them (`scratch/_shared.mjs`), and only then is it the
 > generator. Three of the last four "generator failures" were one of the first
 > two.
+
+---
+
+## The job benchmark went from 19 to 45 on the same decks (5 Sep 2026)
+
+Four corrections to `commander-bench.mjs` in one session. **The decks did not
+change in any of them.** The instrument was measuring the wrong thing, and it
+had been the loudest number in every report for days.
+
+    jobs done      19/71 -> 32 -> 35 -> 38 -> 40 -> 45/71
+    groups at zero    22 -> 17 -> 13 ->  9 ->  8 ->  7
+
+1. **It scored OVERLAP while its own header claimed capability.** A job was a
+   typed list of a dozen card NAMES. Prosper was "impulse draw 0 of 8, cannot do
+   it at all" while holding TEN cards carrying `eff:impulse`. Jobs are now also
+   scored by what a group's own examples AGREE on - nothing typed, the same move
+   `planForArchetype` makes for a shell package.
+
+2. **Two thirds of the examples had to agree, and that measured OUR READING.**
+   Only 6 of 13 canonical impulse cards carry the facet; only 6 of 11 bounce
+   cards do. The missing ones are cards the COMPILER cannot read, not cards that
+   do something else. A majority now.
+
+3. **The specificity guard punished success.** It measured a conjunction's
+   breadth against the DECK, and from inside a deck a job it is built around
+   looks exactly like a job that is too broad: Muldrotha holds TWELVE cards
+   carrying `eff:mill` against a floor of five and scored zero. Measured against
+   the POOL the cases separate - `eff:mill` is on 3% of it, `eff:draw` on 20%.
+
+4. **A broad facet can still be the job, if nearly every example carries it.**
+   `mv:big` is broad by construction and is EXACTLY what "High mana value cards
+   to reveal off the top for a big Yuriko drain" means; it is on 11 of her 12
+   examples. `eff:draw` was on a bare majority of the Niv examples and is
+   incidental to a job about drawing INTO DAMAGE. Rare facets pass on a
+   majority; broad ones must be near-unanimous.
+
+**The check that survived every change**: "Curiosity effects on Niv" still gets
+NO capability rescue. The false positive the guards exist for is still refused
+after all four.
+
+Also capped the conjunction at the TWO RAREST shared facets, because past two it
+is mostly what the exemplars happen to be printed on - Korvold's "things that
+come back after being sacrificed" had picked up `cares:type:land`.
+
+### REFUSED, measured: excluding `sub:` from the conjunction
+
+"big colourless creatures that cost nothing once Animar is large" is exemplified
+by eleven cards that ALL HAPPEN TO BE ELDRAZI, so the conjunction demanded
+`sub:eldrazi`, a property the job text never mentions, and tribal jobs use
+`typeMatch` anyway. It did not fix the target and it broke Chulane's "cheap
+creatures that make mana", 1 of 6 to ZERO. Jobs 35 -> 36 and groups at zero
+9 -> 10.
+
+**The over-narrow case is real and still unsolved**, and it cannot be DETECTED
+the way over-broad can: an over-narrow conjunction matches nothing, which is
+indistinguishable from the deck failing. Note left in the file.
+
+### Read as a player, ten of twelve capability passes are right
+
+Reanimate and Takenuma for "recursion"; Storm-Kiln Artist for "Treasure
+payoffs"; Woe Strider and Cauldron Familiar for "creatures that come back after
+dying"; Consecrated Sphinx for Yuriko's high-cost cards. The two loose ones are
+Brotherhood Regalia counted as a cheap evasive CREATURE, and Great Train Heist
+as a protection trick.

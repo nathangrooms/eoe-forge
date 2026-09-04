@@ -349,6 +349,25 @@ export const EFFECT_VERBS: readonly string[] = [
      whether one facet is present, and one verb for both halves would have put
      Karador in ramp. */
   'cast-from-graveyard',
+  /*
+   * A PERMANENT THAT BRINGS ITSELF BACK, which is a different card from one
+   * that brings something else back. Unearth, escape, disturb, blitz, "you may
+   * cast this from your graveyard", and the activated self-returns like
+   * Reassembling Skeleton and Cauldron Familiar.
+   *
+   * Its own verb rather than a qualifier on `cast-from-graveyard`, for the
+   * reason `eff:exile-graveyard` is: a role check asks whether ONE facet is
+   * present, so a shared verb would make Gravecrawler and Karador the same
+   * card. It comes from Scryfall Tagger's `reanimate-self`, 273 cards, whose
+   * twenty most played are uniformly this shape; the compiler does not read
+   * unearth or escape as a self-return yet.
+   *
+   * The point of it is that such a creature is INFINITE FODDER: a sacrifice
+   * outlet plus a creature that comes back is an engine, and three of the
+   * eighteen benchmark job groups sitting at zero were this shape with no
+   * facet to name it.
+   */
+  'recur-self',
   /* Coin flips and dice. Roughly 200 cards across roll-d6, roll-d20 and
      coin-flip, and every existing verb would have been a lie about them. */
   'random',
@@ -2687,6 +2706,30 @@ const PLAN_RULES: readonly {
   },
   {
     /*
+     * A COMMANDER THAT EATS CREATURES WANTS ONES THAT COME BACK.
+     *
+     * Yawgmoth, Thran Physician's benchmark jobs are "creatures that come back
+     * after dying, so Yawgmoth can sacrifice them again" and "a steady supply
+     * of bodies to feed the commander", and both sat at zero because nothing
+     * named the shape. A sacrifice outlet plus a creature that returns itself
+     * is an engine rather than two cards.
+     *
+     * Weighted just under `cost:sacrifice` itself: the outlet is what the deck
+     * cannot function without, the fodder is what makes it repeatable.
+     */
+    when: 'cost:sacrifice',
+    wants: [
+      { facet: 'eff:recur-self', weight: 0.8 },
+      { facet: 'cost:cast-sacrifice', weight: 0.5 },
+    ],
+  },
+  {
+    /* Paid when creatures die, which is the other half of the same deck. */
+    when: 'trig:dies',
+    wants: [{ facet: 'eff:recur-self', weight: 0.75 }],
+  },
+  {
+    /*
      * A COMMANDER THAT MAKES SPELLS CHEAPER WANTS EXPENSIVE SPELLS.
      *
      * Animar, Soul of Elements is the case that made this necessary and it is
@@ -4993,6 +5036,7 @@ const EFFECT_PHRASES: Readonly<Record<string, string>> = {
   'play-from-graveyard': 'plays lands from the graveyard',
   'put-onto-battlefield': 'puts a card from your hand straight onto the battlefield',
   'cast-from-graveyard': 'casts spells from the graveyard',
+  'recur-self': 'brings itself back from the graveyard',
   random: 'flips a coin or rolls a die',
   goad: 'forces creatures to attack elsewhere',
   'cant-attack-self': 'cannot attack itself',

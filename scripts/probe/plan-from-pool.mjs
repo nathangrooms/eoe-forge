@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { Catalog } from '../supabase/functions/deck-optimizer/catalog.ts';
-import { planForCommander } from '../src/engine/knowledge/behaviour.ts';
+import { Catalog } from '../../supabase/functions/deck-optimizer/catalog.ts';
+import { planForCommander } from '../../src/engine/knowledge/behaviour.ts';
 const K=readFileSync('scratch/anon.txt','utf8').trim();
 const c=new Catalog({url:'https://udnaflcohfyljrsgqggy.supabase.co',anonKey:K,authorization:null});
 for(const name of process.argv.slice(2)){

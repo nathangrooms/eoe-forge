@@ -136,7 +136,24 @@ function groupCapability(group, deckFacets, spells) {
   /* Agreed by most of the examples. Two thirds, so one odd card in a list of
      twelve cannot define the job and a genuine shared verb still survives a
      couple of exceptions. */
-  const need = Math.ceil(sets.length * 0.66);
+  /*
+   * A MAJORITY, not two thirds. Measured twice, and both times the strict
+   * threshold hid a job the deck was doing:
+   *
+   *   Prosper "impulse draw"    6 of 13 examples carry eff:impulse
+   *   Chulane "bounce your own" 6 of 11 examples carry eff:bounce-own
+   *
+   * In both the missing examples are cards the COMPILER cannot read, not cards
+   * that do something else, so the threshold was measuring our reading rather
+   * than the group's coherence. Chulane's deck holds FIVE bounce cards - Kogla,
+   * Dour Port-Mage, Cid, Whitemane Lion, Jeskai Barricade - and the job scored
+   * 1 of 3.
+   *
+   * The specificity guard below is what keeps this honest: a conjunction
+   * matching more than a fifth of the spells is thrown away whatever agreed on
+   * it, so a loose majority cannot quietly pass.
+   */
+  const need = Math.max(2, Math.floor(sets.length * 0.5) + 1);
   const shared = [...count].filter(([, n]) => n >= need).map(([f]) => f);
   if (shared.length === 0) return null;
 

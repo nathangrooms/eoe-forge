@@ -3012,6 +3012,49 @@ export const PLAN_RULES: readonly {
      * acts only through this rule, on the commander, which is the population it
      * was read against.
      */
+    /*
+     * A COMMANDER THAT CAN RETURN YOUR OWN CREATURES TO HAND WANTS CREATURES
+     * WORTH RECASTING.
+     *
+     * Chulane, Teller of Tales carries `eff:bounce-own` from his own activated
+     * ability - "{3}{G}{U}: Return target creature you control to its owner's
+     * hand" - and NO RULE READ IT, so his plan wanted `type:creature`,
+     * `eff:copy`, `eff:draw` and nothing about the thing the ability is for.
+     * His deck held ZERO cards worth bouncing and the benchmark job "bounce
+     * your own creatures to cast them again" sat at 0 of 3.
+     *
+     * The mirror of `trig:enters-self`: that rule is for a commander whose OWN
+     * arrival matters and wants ways to blink it, this one is for a commander
+     * who can DO the returning and wants arrivals to spend it on.
+     *
+     * Read across the whole population - only 16 commanders carry it and they
+     * are uniform: Kogla, the Titan Ape; Chulane; Cid, Freeflier Pilot;
+     * Arcanis the Omnipotent; Satsuki; Drafna. Every one returns your own
+     * permanent to your hand, and every one wants the return to be worth making.
+     *
+     * `mv:cheap` alongside it, because a recast has to be affordable: bouncing
+     * a seven-drop is a cost, bouncing Mulldrifter is an engine.
+     */
+    when: 'eff:bounce-own',
+    wants: [
+      { facet: 'trig:enters-self', weight: 0.75 },
+      /*
+       * AND MORE WAYS TO BOUNCE, self-referentially, the same shape
+       * `trig:dies` uses to ask for other death payoffs.
+       *
+       * The two are not the same want and the deck needs both: an arrival is
+       * what makes a bounce worth making, and a second outlet is what makes it
+       * repeatable. Chulane's own ability costs {3}{G}{U}; Cloudstone Curio
+       * makes it free. With only the arrival want his benchmark job "bounce
+       * your own creatures to cast them again" stayed at 0 of 3 while his plan
+       * asked for arrivals at 0.75 - the deck was full of things worth bouncing
+       * and had nothing to bounce them with.
+       */
+      { facet: 'eff:bounce-own', weight: 0.7 },
+      { facet: 'mv:cheap', weight: 0.5 },
+    ],
+  },
+  {
     when: 'cares:power',
     wants: [
       { facet: 'pt:big', weight: 0.7 },

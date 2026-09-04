@@ -5382,3 +5382,57 @@ the change is not evidence.
 
 Measured where it can be seen: Ghalta's deck went to 9 cards at mana value 6+
 with 8 creatures, and her plan's loudest want is `pt:big`.
+
+---
+
+## A commander that can bounce wants things worth bouncing (5 Sep 2026)
+
+Chulane, Teller of Tales carries `eff:bounce-own` from his own activated ability
+- *"{3}{G}{U}: Return target creature you control to its owner's hand"* - and NO
+RULE READ IT. His plan wanted `type:creature`, `eff:copy` and `eff:draw`, and
+nothing about the thing the ability is for. His deck held ZERO cards worth
+bouncing and the benchmark job has sat at 0 of 3 since 3 Sep.
+
+**TWO WANTS, and it needed both.** Arrivals worth repeating
+(`trig:enters-self`) are what makes a bounce worth making; more bounce outlets
+(`eff:bounce-own`, self-referentially, the shape `trig:dies` already uses) are
+what makes it repeatable. With only the first the job stayed at ZERO while the
+plan asked for arrivals at 0.75 - the deck was full of things worth bouncing and
+had nothing to bounce them with.
+
+Only 16 commanders carry the facet and they are uniform: Kogla, Chulane, Cid
+Freeflier Pilot, Arcanis, Satsuki, Drafna.
+
+    Chulane   jobs 2/4 -> 3/4
+              "bounce your own creatures" 0/3 -> 3/3: Kogla, Whitemane Lion,
+              Jeskai Barricade
+
+### The benchmark could not see it, for the second time
+
+The deck held FIVE bounce cards and the job scored 1 of 3, because only 6 of the
+11 named examples carry `eff:bounce-own` and the capability measure needed two
+thirds of them to agree. **The missing five are cards the COMPILER cannot read,
+not cards that do something else**, so the threshold was measuring OUR READING
+rather than the group's coherence. Prosper's impulse draw was the same at 6 of 13.
+
+A MAJORITY now. The specificity guard is what keeps that honest: a conjunction
+matching more than a fifth of the spells is thrown away whatever agreed on it.
+Read as a player the rescues are right - Meathook Massacre and Blood Artist for
+"payoffs when creatures die", Ramunap Excavator for "lands back", Consecrated
+Sphinx for "high mana value cards to reveal off the top".
+
+    twenty commanders   jobs 32 -> 35, groups at zero 13 -> 9
+
+### REFUSED, measured: raising the commander's own package budget
+
+14, 18 and 22 gave IDENTICAL results on every number - jobs, zero groups, cards
+past rank 15,000, shell cards held, ramp breaches. The pass was never
+slot-limited: all EIGHT of Chulane's packages filled 2/2. That is the second
+time today a budget was blamed for something ORDER or MEASUREMENT was doing, and
+the third time this session that "the knob is not the cause" held.
+
+> **The pattern to carry forward.** When a job reads zero, ask three questions in
+> this order: does the deck actually hold the cards (`scratch/_conj.mjs`), can
+> the measure see them (`scratch/_shared.mjs`), and only then is it the
+> generator. Three of the last four "generator failures" were one of the first
+> two.

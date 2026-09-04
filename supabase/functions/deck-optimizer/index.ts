@@ -1694,12 +1694,27 @@ function measureImpact(args: {
     }
   };
 
+  /*
+   * THE RAW DELTA, kept apart from `edhImpact`.
+   *
+   * `edhImpact` is null for TWO different things: a change that could not be
+   * applied or measured at all, and one measured at less than `IMPACT_FLOOR`,
+   * which is only about what is worth PRINTING. A filter reading `edhImpact`
+   * cannot tell "we do not know" from "we measured it and it does nothing",
+   * and those deserve opposite answers.
+   *
+   * A WeakMap rather than a field on the row, so nothing about the response
+   * body changes and no client can start depending on it.
+   */
+  const measuredDelta = new WeakMap<object, number>();
+
   const stamp = (row: Record<string, unknown>, removeName: string | null, addName: string | null) => {
     if (measured >= IMPACT_BUDGET) return;
     measured++;
     const after = withChange(removeName, addName);
     if (after === null) return;
     const delta = after - current;
+    measuredDelta.set(row, delta);
     row.edhImpact = Math.abs(delta) < IMPACT_FLOOR ? null : Number(delta.toFixed(1));
   };
 
@@ -1708,7 +1723,7 @@ function measureImpact(args: {
   for (const r of sections.removals) stamp(r, String(r.name), null);
 
   /*
-   * A SWAP MEASURED TO MAKE THE DECK WORSE IS NOT OFFERED.
+   * A SWAP THE ENGINE CANNOT MEASURE AS AN IMPROVEMENT IS NOT OFFERED.
    *
    * The loop above already re-evaluated the deck with each replacement applied
    * and wrote the delta onto the row. Nothing read it, so the optimiser would
@@ -1721,10 +1736,21 @@ function measureImpact(args: {
    * unpopular, doesnt mean bad". A measured score change cannot make that
    * mistake in either direction.
    *
-   * NULL IS NOT NEGATIVE. The delta is null when it is too small to print, when
-   * the change could not be applied, or when the row fell past `IMPACT_BUDGET`.
-   * Unknown stays unknown, as everywhere else here, so this only drops a row
-   * the engine actively scored below where the deck started.
+   * IT ASKS FOR A GAIN, NOT MERELY FOR NO LOSS, and that is the change measured
+   * on 4 Sep 2026. The optimiser wanted Smothering Tithe (rank 65) out for Halo
+   * Fountain (1,908) in a Teysa deck, and the score does NOT call that an
+   * improvement - it calls it nothing at all, 6.4 to 6.4, card advantage down 3
+   * and consistency up 6.7. A swap worth no measurable points is churn that
+   * costs the player a card the score cannot value, and the score's blind spots
+   * are exactly where its own staples live.
+   *
+   * It still catches what it models: Sol Ring out for Ornithopter is 6.4 to 6.1
+   * on a 13.8 point fall in speed.
+   *
+   * UNMEASURED STAYS OFFERED. `edhImpact` is null both for a change that could
+   * not be measured and for one measured below `IMPACT_FLOOR`, which is only
+   * about what is worth printing, so the raw delta is kept separately. Reading
+   * `edhImpact` here would have turned "we never got to it" into a refusal.
    *
    * IT HAPPENS HERE, BEFORE THE PROJECTION BELOW, because that number is "the
    * whole answer applied at once" and it has to describe the answer the player
@@ -1732,13 +1758,17 @@ function measureImpact(args: {
    */
   const beforeFilter = sections.replacements.length;
   sections.replacements = sections.replacements.filter(r => {
-    const delta = r.edhImpact;
-    return !(typeof delta === 'number' && delta < 0);
+    const delta = measuredDelta.get(r);
+    /* UNMEASURED STAYS OFFERED. A row past `IMPACT_BUDGET`, or one whose change
+       could not be applied to a deck list, has no verdict either way and this
+       must not quietly become "refuse everything we did not get to". */
+    if (typeof delta !== 'number') return true;
+    return delta > 0;
   });
   const refused = beforeFilter - sections.replacements.length;
   if (refused > 0) {
     console.log(
-      `replacements: ${refused} of ${beforeFilter} refused, measured to lower the deck's score`
+      `replacements: ${refused} of ${beforeFilter} refused, measured to not improve the deck`
     );
   }
 

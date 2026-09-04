@@ -178,9 +178,33 @@ for (const shell of shells) {
     c => planFit(plan, { facets: poolFacets.get(c.name) ?? [] }).fit >= 0.45
   ).length;
 
+  /*
+   * RAMP FROM THE POOL'S FACETS, not from `c.facets ?? []`.
+   *
+   * A response card carries no `facets`, so that fallback handed `cardRole` an
+   * empty array and it fell through to the TAG door - which is a different
+   * classifier answering a different question. CLAUDE.md already records an
+   * instrument that compared roles against tags and reported ramp wrong on 16
+   * of 20 decks, and the keyed count three lines below had already been fixed
+   * for exactly this. The ramp count had not, and ramp is the one number the
+   * owner singled out: *"decks need way to make mana (ramp) - this is really
+   * important as game unplayable otherwise."*
+   *
+   * Measured 4 Sep 2026: reading tags gave Magda 30 ramp and Ragavan 29,
+   * against a real-deck ninetieth percentile of 21, and both were flagged
+   * "ramp high" by an instrument that was not measuring ramp.
+   */
+  const deckFacets = await catalog.poolFacetsByName(deck.map(c => c.name));
   const ramp = deck.filter(c =>
     cardRole(
-      { name: c.name, typeLine: c.type_line, type_line: c.type_line, cmc: c.cmc, facets: c.facets ?? [], tags: c.tags ?? [] },
+      {
+        name: c.name,
+        typeLine: c.type_line,
+        type_line: c.type_line,
+        cmc: c.cmc,
+        facets: deckFacets.get(c.name) ?? [],
+        tags: c.tags ?? [],
+      },
       'ramp'
     )
   ).reduce((n, c) => n + Math.max(1, Number(c.quantity) || 1), 0);

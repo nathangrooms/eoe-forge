@@ -1229,6 +1229,9 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
     // baseline IS the deck. Passing the raw shell here meant the shells derived
     // from the commander reached only the second build, which never runs.
     archetype: archetypeInput,
+    /* `archetype` is what the player asked for by name; `derived` is the
+       engine's own reading. Only the first one is the player speaking. */
+    archetypeChosen: archetype != null,
     ...buildOptions,
   });
 

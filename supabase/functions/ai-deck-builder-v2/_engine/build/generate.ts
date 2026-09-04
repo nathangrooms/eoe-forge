@@ -219,6 +219,19 @@ export interface GenerateDeckInput {
    * is shaped by the commander alone exactly as before.
    */
   archetype?: ArchetypeInput | null;
+  /**
+   * The player NAMED this strategy, rather than the engine inferring it.
+   *
+   * A chosen shell and a detected one are different claims and deserve
+   * different shares of the deck. The engine's guess is one of eighteen picked
+   * by a cosine and should stay in proportion behind what the commander's own
+   * record says; a name the player typed is the whole reason they are here.
+   * Syr Vondam is paid for creatures dying AND for creatures being exiled, so
+   * once his own plan was read properly the aristocrats half competed for every
+   * blink slot - correct for the commander, wrong for somebody who asked for
+   * Blink by name.
+   */
+  archetypeChosen?: boolean;
   /** Whole-deck price ceiling in USD, or null for no ceiling. */
   budgetUsd?: number | null;
   /**
@@ -1298,6 +1311,13 @@ const PACKAGE_BUDGET_PER_PACKAGE = 2;
  * can cast its spells and answer things.
  */
 const ARCHETYPE_SLOT_SHARE = 0.35;
+
+/**
+ * The same share when the player NAMED the strategy. Swept against the two
+ * human Syr Vondam decks and the eighteen-strategy audit; see the note on
+ * `archetypeChosen`.
+ */
+const ARCHETYPE_SLOT_SHARE_CHOSEN = 0.45;
 /**
  * How much of a package a card has to do to fill one of its slots.
  *
@@ -1394,7 +1414,12 @@ const PACKAGE_MATCH = 0.6;
   const archetypePackages = archetypePlan?.packages ?? [];
   const ownPackages = packagesForCommander(commanderPlan);
   const archetypeBudget =
-    archetypePackages.length > 0 ? Math.round(spellSlots * ARCHETYPE_SLOT_SHARE) : 0;
+    archetypePackages.length > 0
+      ? Math.round(
+          spellSlots *
+            (input.archetypeChosen ? ARCHETYPE_SLOT_SHARE_CHOSEN : ARCHETYPE_SLOT_SHARE)
+        )
+      : 0;
   const ownBudget = Math.min(14, PACKAGE_BUDGET_PER_PACKAGE * ownPackages.length);
   const packageBudget = archetypeBudget + ownBudget;
 

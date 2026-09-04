@@ -65,6 +65,8 @@ import {
   deriveDeckShape,
   roleCeilingFor,
   roleFloorCeilingFor,
+  topEndTargetFor,
+  TOP_END_MV,
   type DeckShape,
 } from './shape.ts';
 import { normalizeIdentity } from '../advise/query.ts';
@@ -1338,7 +1340,28 @@ const PACKAGE_MATCH = 0.6;
   const packageCount = archetypePlan?.packages?.length ?? 0;
   const packageBudget = packageCount > 0 ? Math.min(14, PACKAGE_BUDGET_PER_PACKAGE * packageCount) : 0;
   const commanderReserve = packageBudget > 0 ? Math.min(fitReserve, 6) : fitReserve;
-  const quotaSlots = Math.max(0, spellSlots - commanderReserve - packageBudget);
+
+  /*
+   * SLOTS FOR THE TOP END, taken out here for the same reason the package
+   * budget is: a reserved slot is only reserved if it leaves the budget BEFORE
+   * the loop that would otherwise spend it.
+   *
+   * The floor was written first without this and added NOTHING. Instrumented,
+   * it reported `floor 5, have 1, free slots 0, pool has 453 at mv>=6`: the
+   * pool was full of the cards, the fill was correct, and by the time it ran
+   * the quota loop and the reserve had spent every slot. Every deck this
+   * generator has ever built held ZERO cards at mana value six or more against
+   * a real-deck median of NINE.
+   */
+  const wantsBigSpells = commanderPlan.wants.some(
+    w => (w.facet === 'mv:big' || w.facet === 'pt:big') && w.weight >= 0.5
+  );
+  const topEndBudget = topEndTargetFor(spellSlots, wantsBigSpells);
+
+  const quotaSlots = Math.max(
+    0,
+    spellSlots - commanderReserve - packageBudget - topEndBudget
+  );
 
   const quota = { ...targets, land: 0, creature: 0 } as Record<Role, number>;
   /*
@@ -1930,6 +1953,9 @@ const PACKAGE_MATCH = 0.6;
   const creatureFloor = targets.creature;
   const colourFloor = colouredFloorFor(identity, spellSlots);
   let creaturesPicked = picked.filter(e => cardRole(e.card, 'creature')).length;
+  /* Counted from what is already picked, because the staples, combo pieces and
+     package fills all run before the floors and some of them are expensive. */
+  let topEndPicked = picked.filter(e => ((e.card as BuildCard).cmc ?? 0) >= TOP_END_MV).length;
   let colouredPicked = picked.filter(e => !cardRole(e.card, 'land') && hasColour(e.card)).length;
 
   /**
@@ -1939,6 +1965,8 @@ const PACKAGE_MATCH = 0.6;
    * one is counted by the other. `wanted` is the test a card has to pass;
    * `bucket` is only a label for the entry.
    */
+  const fillReject = { colourless: 0, sweep: 0, ceiling: 0, floorCeiling: 0 };
+
   const fillTo = (
     enough: () => boolean,
     wanted: (card: BuildCard) => boolean,
@@ -1979,19 +2007,20 @@ const PACKAGE_MATCH = 0.6;
       const card = rec.card as BuildCard;
       if (takenOracleIds.has(card.oracleId)) continue;
       if (!wanted(card)) continue;
-      if (overColourlessCap(card)) continue;
+      if (overColourlessCap(card)) { fillReject.colourless += 1; continue; }
       const rank = (card as { edhrecRank?: number | null }).edhrecRank;
       const played = typeof rank === 'number' && rank <= PLAYED_ENOUGH_RANK;
-      if (played !== sweep.played) continue;
+      if (played !== sweep.played) { fillReject.sweep += 1; continue; }
       /* The creature floor filling with mana dorks is how a deck reaches 35
          ramp against a real ninetieth percentile of 21: a dork carries the
          floor's role AND the role that is already full. */
       if (!preferred.has(card.oracleId)) {
-        if (!sweep.slack && overRoleCeiling(card)) continue;
-        if (sweep.slack && overRoleFloorCeiling(card)) continue;
+        if (!sweep.slack && overRoleCeiling(card)) { fillReject.ceiling += 1; continue; }
+        if (sweep.slack && overRoleFloorCeiling(card)) { fillReject.floorCeiling += 1; continue; }
       }
       takenOracleIds.add(card.oracleId);
       if (cardRole(card, 'creature')) creaturesPicked += 1;
+      if ((card.cmc ?? 0) >= TOP_END_MV) topEndPicked += 1;
       if (hasColour(card)) colouredPicked += 1;
       else colourlessPicked += 1;
       carriedStamp += 1;
@@ -2006,6 +2035,76 @@ const PACKAGE_MATCH = 0.6;
     }
     }
   };
+
+  /*
+   * THE TOP END, and it is a floor for the same reason the others are.
+   *
+   * Measured over the 192 real commander decklists, a real deck holds a median
+   * of NINE nonland cards at mana value six or more and even the tenth
+   * percentile holds four. Every deck this generator built held ZERO - not few,
+   * none, including Ghalta, Primal Hunger, whose whole card is about casting a
+   * huge creature, and Gonti, Canny Acquisitor, who wanted `mv:big` at 0.70
+   * with 400+ such cards in his colours.
+   *
+   * Nothing caps mana value anywhere. It is emergent: castability is the
+   * heaviest subscore, it falls with mana value, and out of a pool of thousands
+   * the best sixty spells by score are all cheap. Every step is locally right
+   * and the deck has no top end.
+   *
+   * IT RUNS BEFORE THE CREATURE AND COLOUR FLOORS, and that is the whole fix.
+   * Placed after them it added NOTHING, because a floor only ever ADDS and by
+   * then the earlier floors had taken every remaining slot: `fillTo` breaks on
+   * `picked.length - chosenLands.length >= spellSlots`. A reserved slot is only
+   * reserved if it is taken out before the pass that would otherwise spend it,
+   * which is the same argument the package budget's own comment makes.
+   *
+   * Running first costs the creature floor much less than it looks, because
+   * most top-end cards ARE creatures - Craterhoof Behemoth, Terastodon,
+   * Consecrated Sphinx - and `fillTo` counts them toward `creaturesPicked` as
+   * it takes them.
+   */
+  const topEndFloor = topEndBudget;
+  if (process?.env?.DM_TOPEND_DEBUG === '1') {
+    const bigInPool = rankedSpells.filter(r => ((r.card as BuildCard).cmc ?? 0) >= TOP_END_MV).length;
+    const free = spellSlots - (picked.length - chosenLands.length);
+    console.log(
+      `  [topend] floor ${topEndFloor}, have ${topEndPicked}, free slots ${free}, ` +
+        `pool has ${bigInPool} at mv>=${TOP_END_MV}`
+    );
+  }
+  const beforeTopEnd = picked.length;
+  fillTo(() => topEndPicked >= topEndFloor, card => (card.cmc ?? 0) >= TOP_END_MV, 'flex');
+
+  /*
+   * AND THEY ARE PROTECTED, or the fill is undone three passes later.
+   *
+   * Measured: the fill reached its floor exactly - `after: 5` for Ghalta,
+   * `after: 2` for Gonti - and the finished decks held ONE and ZERO. The review
+   * rounds and the flex pass had swapped them back out, because those rank on a
+   * score that falls with mana value, which is the same force that left the
+   * deck with no top end in the first place. Reserving a slot and then letting
+   * a later pass spend it is not reserving it.
+   *
+   * `preferred` is the existing mechanism and it already means exactly this: a
+   * preferred entry is refused by the swap test and by the flex cut. It is what
+   * keeps Sol Ring and both halves of a combo in the deck.
+   */
+  for (let i = beforeTopEnd; i < picked.length; i++) {
+    const entry = picked[i];
+    if (((entry.card as BuildCard).cmc ?? 0) < TOP_END_MV) continue;
+    entry.preferred = true;
+    preferred.add(entry.card.oracleId);
+  }
+
+  if (process?.env?.DM_TOPEND_DEBUG === '1') {
+    console.log(`  [topend] after: ${topEndPicked}; rejects ${JSON.stringify(fillReject)}`);
+  }
+  if (topEndPicked < topEndFloor) {
+    notes.push(
+      `${topEndPicked} of ${topEndFloor} cards at mana value ${TOP_END_MV} or more; ` +
+        `the legal pool had nothing better to offer`
+    );
+  }
 
   /*
    * COLOURED CREATURES FIRST, and this sweep is the whole reason the two floors

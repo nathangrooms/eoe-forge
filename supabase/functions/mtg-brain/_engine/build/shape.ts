@@ -346,6 +346,49 @@ export function roleFloorCeilingFor(role: Role, slots: number): number {
   return Math.max(1, Math.round((band.max * slots) / 99));
 }
 
+/**
+ * How many cards at mana value six or more a real Commander deck holds.
+ *
+ * Measured 4 Sep 2026 over the 192 real commander decklists in `meta_decks`,
+ * counting nonland cards with `cmc >= 6`:
+ *
+ *     p10  4      p50  9      p90  15      max 24
+ *
+ * **Every generated deck held ZERO.** Not few - none, across every commander
+ * tried, including Ghalta, Primal Hunger, whose entire card is about casting a
+ * huge creature and who passes all of her benchmark jobs. Gonti, Canny
+ * Acquisitor wanted `mv:big` at 0.70 with 400+ such cards in his colours and
+ * took none of them.
+ *
+ * There is no cap anywhere. The candidate query filters on legality and colour
+ * identity only, and the pool genuinely contains Craterhoof Behemoth at rank
+ * 306. It is emergent: castability is the heaviest subscore, it falls with mana
+ * value, and with a pool of thousands the best sixty spells by score are all
+ * cheap. Every step is locally reasonable and the deck has no top end.
+ *
+ * A floor is the right shape of fix rather than a re-weighting, for the reason
+ * the role floors exist: a deck that wants none of something should not be
+ * forced, but "none at all, ever" is not a curve any real deck has. The p10 is
+ * the floor because a genuinely low deck runs four, and the plan raises it.
+ */
+export const REAL_DECK_TOP_END = { p10: 4, p50: 9, p90: 15, max: 24 } as const;
+
+/** Mana value at which a card counts as this deck's top end. */
+export const TOP_END_MV = 6;
+
+/**
+ * How many top-end cards this deck should hold.
+ *
+ * The floor for everybody, raised toward the real median when the commander's
+ * own plan asks for expensive cards - `mv:big` is exactly that request, and
+ * `pt:big` is its creature-shaped sibling. A commander who says nothing about
+ * size still gets four, because no real deck runs none.
+ */
+export function topEndTargetFor(slots: number, wantsBig: boolean): number {
+  const band = wantsBig ? REAL_DECK_TOP_END.p50 : REAL_DECK_TOP_END.p10;
+  return Math.max(1, Math.round((band * slots) / 99));
+}
+
 /** Cards in hand on the given turn, on the play: seven, then one a turn. */
 function cardsSeenBy(turn: number): number {
   return 7 + Math.max(0, turn - 1);

@@ -3715,3 +3715,98 @@ the same way that hid `tsc`. `npm install` repaired the tree; the plugin was
 REMOVED rather than repaired. It tags components for Lovable's visual
 editor, this project moved to Vercel on 29 Aug, and its import is top-level,
 so a dead integration took the entire dev server down.
+
+## A cost reducer is not a mana source, and that was the SECOND door
+
+On 3 Sep `cost-reduction` was removed from `ROLE_TAGS.ramp` because it claimed
+156 cards as ramp of which 156 had no other ramp tag. `eff:reduce-cost` had
+been added to `ROLE_FACETS.ramp` THE DAY BEFORE, so closing the tag door left
+the facet door open and nothing connected them. This file already records that
+trap for `eff:poison`: **a role has TWO doors and closing one is not the fix.**
+
+Measured 4 Sep: 239 of the 241 cards carrying `eff:reduce-cost` have no other
+ramp facet, 165 under rank 12,000. A fresh Animar build came back with 21 ramp
+of which TEN were reducers, and THE SAME THREE CARDS by name as 3 Sep, plus
+Bontu's Monument and Oketra's Monument, which reduce black and white spells in
+a blue-red-green deck and are simply dead.
+
+    before  Bontu's Monument, Oketra's Monument, Dragonspeaker Shaman,
+            Dragonlord's Servant, Goblin Warchief, Rhonas's Monument,
+            Biomancer's Familiar, Forensic Gadgeteer, Blossoming Tortoise
+    after   Sol Ring, Arcane Signet, Fellwar Stone, Thought Vessel, Birds of
+            Paradise, Incubation Druid, Gyre Sage, Rishkar, Cultivate,
+            Farseek, Rampant Growth, Nature's Lore
+
+**The narrower rule does not hold either.** Keeping a reducer conditioned only
+on COLOUR, since the pool is already filtered by identity, still admits Jet
+Medallion: a colourless artifact with an EMPTY colour identity, legal in that
+same Animar deck and equally blank there. The facet vocabulary does not record
+WHICH colour or type a reducer reduces. The word still reaches decks through
+`planFit`, so a commander who genuinely wants cheaper spells asks for these by
+name.
+
+## REFUSED, measured: folding `type:X` onto `cares:type:X` to choose a shell
+
+The generator picks a shell by cosine against the commander's plan when the
+player asks for none. Scored against the twenty benchmark commanders, it gets
+10 right and **EIGHT GET NO SHELL AT ALL** - and a commander with no shell gets
+no packages, which is the only machinery in the engine that can express "this
+card does BOTH of these things".
+
+The cause is exact and is a vocabulary mismatch, not a scoring one:
+
+    Sythis, Harvest's Hand   loud want  type:enchantment
+    the Enchantress shell    wants      cares:type:enchantment
+    Niv-Mizzet, Parun        wants      type:instant / type:sorcery
+    the Spellslinger shell   wants      cares:type:instant / cares:type:sorcery
+
+Different strings, zero overlap, shell dropped. A COMMANDER whose card says
+"whenever you cast an enchantment spell" wants enchantments in the deck; a
+SHELL derived from enchantment cards wants cards that care about enchantments.
+For choosing a shell those are the same claim.
+
+**Folding them fixes the naming and measures WORSE as a deck, three ways:**
+
+    applied to every commander     jobs 23/71 unchanged, zero groups 21 -> 24
+    as a fallback, strict pass
+      unchanged, floor 0.75        jobs 23 -> 22, zero groups 21
+
+Sythis gained the Enchantress shell and went 2/3 jobs to 1/3. Feather gained
+Spellslinger and her median EDHREC rank went 414 to 1,586. The shell's packages
+take slots the commander's own plan would have spent better, so a shell that is
+right BY NAME can still be wrong for the deck. Reverted, on this project's own
+standard that a rule which measures worse is the wrong rule - the same verdict
+the `tokens` role got.
+
+Two things worth keeping from it:
+
+1. **Shells help on average and these three are the exception.** Baseline: the
+   twelve commanders that get a shell do 17 of 41 jobs (41%); the eight that do
+   not do 6 of 30 (20%). The mismatch above is still a real bug.
+2. **`strategiesFor` is NOT a drop-in replacement.** It offers a MENU and
+   `ALWAYS_OFFERED` puts aggro near the top for most commanders, so its top two
+   would make half the field an aggro deck. It gets the benchmark archetype into
+   its top three for 17 of 20, but that is a different question from "which one
+   shell should build this deck".
+
+The next attempt should fix why a correct shell costs a job, not the naming.
+
+## The ramp instrument was reading tags
+
+`strategy-decks.mjs` passed `facets: c.facets ?? []` into `cardRole`, and a
+RESPONSE card carries no facets, so the array was always empty and the role
+check fell through to the TAG door. The keyed count beside it had already been
+fixed for exactly this; the ramp count had not, and ramp is the number the owner
+singled out.
+
+    tags   Magda 30, Ragavan 29, Kutzil 24, five decks "ramp high"
+    roles  Magda 24, Ragavan 21, Kutzil 21, two decks "ramp high"
+
+Measured properly, all eighteen strategies sit between 13 and 25 against a real
+p10 of 11 and p90 of 21, and MOST LAND EXACTLY ON 21, which is the ceiling doing
+its job.
+
+It also exonerated the four-tier floor fill, which was the obvious suspect: with
+the slack disabled the three decks measured 30, 29 and 24 - THE SAME THREE
+NUMBERS. Confirm a finding with a second, differently-shaped measurement before
+acting on it.

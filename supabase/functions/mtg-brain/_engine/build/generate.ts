@@ -1786,6 +1786,22 @@ const PACKAGE_MATCH = 0.6;
     if (takenOracleIds.has(card.oracleId)) continue;
     if (overColourlessCap(card)) continue;
     if (!preferred.has(card.oracleId) && overRoleCeiling(card)) continue;
+    /*
+     * A CARD THAT WORKS AGAINST THE PLAN MAY NOT TAKE A ROLE SLOT EITHER.
+     *
+     * The ranker already subtracts a full commander-fit weight for one and the
+     * reserved slots already refuse it outright, and for the graveyard-hate
+     * case that was enough - those cards score low anyway. It is NOT enough for
+     * a board wipe: Blasphemous Act is rank 22, so it out-scores its own
+     * penalty and walked into Edgar Markov's deck through the REMOVAL quota,
+     * alongside Toxic Deluge, on a Vampire tribal commander whose plan is a
+     * board full of Vampires.
+     *
+     * Filling a role with a card that beats your own deck is not filling the
+     * role. Same judgement the reserve already makes, applied where the card
+     * actually got in.
+     */
+    if (!preferred.has(card.oracleId) && worksAgainstPlan(commanderPlan, card)) continue;
     const role = neediestRole(card, quota, rolesOf(card));
     if (!role) continue;
     if (!hasColour(card)) colourlessPicked += 1;
@@ -2268,6 +2284,13 @@ const PACKAGE_MATCH = 0.6;
       if (!preferred.has(card.oracleId)) {
         if (!sweep.slack && overRoleCeiling(card)) { fillReject.ceiling += 1; continue; }
         if (sweep.slack && overRoleFloorCeiling(card)) { fillReject.floorCeiling += 1; continue; }
+        /* The last pass that could take a card working against the plan. The
+           ranker penalises one, the reserve refuses one and the quota loop now
+           refuses one; a floor fill reaching for it anyway is the same mistake
+           one step later. Blasphemous Act is rank 22 and got into Edgar
+           Markov's Vampire deck this way after the quota loop stopped taking
+           it. */
+        if (worksAgainstPlan(commanderPlan, card)) continue;
       }
       takenOracleIds.add(card.oracleId);
       if (cardRole(card, 'creature')) creaturesPicked += 1;

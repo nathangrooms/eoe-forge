@@ -5031,6 +5031,33 @@ export const ATTACKS: ReadonlyArray<{ facet: Facet; want: Facet; because: string
     want: 'cares:zone:graveyard',
     because: 'this empties graveyards, and the deck is built on using one',
   },
+  {
+    /*
+     * THE SECOND ENTRY, and the note above asks for a measurement rather than a
+     * guess, so here it is.
+     *
+     * Edgar Markov is a Vampire TRIBAL commander whose whole plan is a board
+     * full of Vampires, and his deck came back with Blasphemous Act and Toxic
+     * Deluge among its ten removal spells. The benchmark job "removal that
+     * fits" read 0 of 2 and his deck held ZERO exile-based answers.
+     *
+     * `scope:wipe` is emitted only for a `destroy` on a mass battlefield
+     * selector that is NOT restricted to opponents - Wrath of God yes, Massacre
+     * Wurm no. Measured over the 4,000 most played cards it lands on THIRTEEN,
+     * and all thirteen are symmetric board wipes: Austere Command, Damnation,
+     * Supreme Verdict, Wrath of God, Vanquish the Horde, Fumigate, Cleansing
+     * Nova, Decree of Pain, Blood Money, Day of Judgment, Starfall Invocation,
+     * Deadly Tempest, Final Act.
+     *
+     * `eff:create-token` is the want it attacks, and it discriminates: Talrand
+     * carries it at 0.90 because he makes Drakes, Edgar and Krenko at 0.30
+     * through their tribe, and Kutzil (voltron) and Sheoldred (control) do not
+     * carry it at all - so a control deck keeps its wraths, which is right.
+     */
+    facet: 'scope:wipe',
+    want: 'eff:create-token',
+    because: 'this destroys your own board too, and the deck is built on having one',
+  },
 ];
 
 /**

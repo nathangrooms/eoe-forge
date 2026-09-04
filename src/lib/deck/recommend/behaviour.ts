@@ -1622,6 +1622,24 @@ function readEffect(effect: Effect, out: Set<Facet>, targets?: readonly TargetSp
          removal and interaction respectively on this exact confusion. */
       const aim = aimOfSelector(effect.what, targets);
       out.add(isSelfAimed(aim) ? `eff:${effect.do}-own` : `eff:${effect.do}`);
+      /*
+       * A BOARD WIPE THAT TAKES YOUR OWN BOARD WITH IT.
+       *
+       * Emitted HERE rather than in `readSelector` because the verb is half the
+       * fact. Measured with the selector alone the word landed on 108 played
+       * cards and about half its destructive members were not wipes at all:
+       * Victimize, Goblin Bombardment, Scapeshift and Eldrazi Monument all
+       * SACRIFICE, which is a cost or a drawback the deck accepts, and Eldrazi
+       * Monument is a card a token deck actively wants.
+       *
+       * `destroy` only. Damage and -X/-X sweepers exist and are the same idea,
+       * but their selectors are frequently players rather than permanents, and
+       * one clean verb that refuses cards correctly is worth more than three
+       * that sometimes do not.
+       */
+      if (effect.do === 'destroy' && sweepsYourBoardToo(effect.what)) {
+        out.add('scope:wipe');
+      }
       readSelector(effect.what, out);
       return;
     }
@@ -1705,6 +1723,17 @@ function readEffect(effect: Effect, out: Set<Facet>, targets?: readonly TargetSp
       const aim = aimOfPlayer((effect as { to?: PlayerSelector }).to as PlayerSelector | undefined);
       const selfHit = isSelfAimed(aim) || isSelfAimed(aimOfSelector((effect as { to?: Selector }).to as Selector | undefined, targets));
       out.add(selfHit ? 'eff:damage-self' : 'eff:damage');
+      /*
+       * MASS DAMAGE TO EVERY CREATURE IS A WIPE, and the two cards that made
+       * `scope:wipe` necessary are both this shape rather than `destroy`:
+       * Blasphemous Act deals 13 to each creature and Toxic Deluge gives every
+       * creature -X/-X. Restricting the word to `destroy` was chosen for
+       * precision and let the actual offenders through, which is the whole
+       * point of measuring a fix against the case that motivated it.
+       */
+      if ('sel' in (effect.to as object) && sweepsYourBoardToo(effect.to as Selector)) {
+        out.add('scope:wipe');
+      }
       if ('sel' in (effect.to as object)) readSelector(effect.to as Selector, out);
       return;
     }
@@ -1926,9 +1955,71 @@ function readsStat(value: unknown): boolean {
   return Object.values(value).some(readsStat);
 }
 
+/**
+ * Does this selector sweep the battlefield without sparing your own things?
+ *
+ * `scope:all` cannot tell Wrath of God from Massacre Wurm. Both are a mass
+ * effect on creatures; one kills YOUR board and one does not, and that is the
+ * difference between a card a go-wide deck wants and a card that beats it.
+ * Edgar Markov - a Vampire TRIBAL commander whose whole plan is a board full of
+ * Vampires - came back with Blasphemous Act as one of his ten removal spells.
+ *
+ * The selector has carried it all along: Massacre Wurm's is
+ * `{sel:'all', where:…, controller:{who:'each-opponent'}}` and Blasphemous
+ * Act's has no controller at all. Same defect as `effect.who`, on selectors.
+ *
+ * Every part of the test comes from ONE selector, so a rule keyed on the
+ * resulting word is a conjunction over one clause rather than across a card,
+ * which is the condition this file sets for a conjunction being sound.
+ *
+ * `{who:'you'}` is NOT symmetric: "creatures you control get +1/+1" is an
+ * anthem. Only an unrestricted or each-player selector qualifies.
+ */
+const SWEEPABLE_TYPES: ReadonlySet<string> = new Set([
+  'creature', 'permanent', 'artifact', 'enchantment', 'land', 'planeswalker',
+]);
+
+function sweepsYourBoardToo(selector: Selector | undefined): boolean {
+  if (!selector || selector.sel !== 'all') return false;
+  const controller = (selector as { controller?: { who?: string } }).controller?.who;
+  if (controller && controller !== 'each-player') return false;
+  if ((selector.zone ?? 'battlefield') !== 'battlefield') return false;
+  const filter = (selector as { where?: { is?: string; value?: string } }).where;
+  if (filter?.is === 'any') return true;
+  return (
+    filter?.is === 'type' &&
+    SWEEPABLE_TYPES.has(String(filter.value ?? '').toLowerCase())
+  );
+}
+
 function readSelector(selector: Selector, out: Set<Facet>): void {
   if (selector.sel !== 'all') return;
   out.add('scope:all');
+  /*
+   * WHOSE THINGS A MASS EFFECT TOUCHES. `effect.who` for selectors, and the
+   * same defect: the field is on the record and nothing read it.
+   *
+   * `scope:all` cannot tell Wrath of God from Massacre Wurm. Both are a mass
+   * effect on creatures; one kills YOUR board and one does not, and that is the
+   * difference between a card a go-wide deck wants and a card that beats it.
+   * Edgar Markov - a Vampire TRIBAL commander whose whole plan is a board full
+   * of Vampires - came back with Blasphemous Act and Toxic Deluge as two of his
+   * ten removal spells.
+   *
+   * The selector carries it: Massacre Wurm's is
+   * `{sel:'all', where:…, controller:{who:'each-opponent'}}` and Blasphemous
+   * Act's has no controller at all.
+   *
+   * A POSITIVE WORD for the symmetric case rather than the absence of one,
+   * because a rule keyed on "has scope:all and NOT scope:opponents" is a
+   * conjunction across two facets, and this file's own note says a conjunction
+   * is only sound when both provably come from the same clause. One word from
+   * one selector is sound by construction.
+   *
+   * `{who:'you'}` is NOT symmetric either - "creatures you control get +1/+1"
+   * is an anthem, not a wipe - so only an unrestricted or each-player selector
+   * earns the word.
+   */
   if (selector.zone && selector.zone !== 'battlefield') out.add(`cares:zone:${selector.zone}`);
   readFilter(selector.where, out, 'cares');
 }

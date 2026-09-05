@@ -7560,3 +7560,77 @@ is a defect in the shell's card list, not in the rule**, and is worth fixing.
 > 0 of 18 shells, keyed 1181 both times. Checked because a -24 reading was about
 > to be acted on, and this file records four separate occasions where the
 > instrument was the fault.
+
+## THREE YARDSTICKS SCORED DECKS AGAINST A PLAN WITH NO ORACLE TEXT (5 Sep 2026)
+
+`planForCommander` runs the 113 English intent rules ONLY when it is handed the
+text, and **`cards_pool` carries no `oracle_text`** - it is a thin projection by
+design, and this file says so in four other places. Every probe that reads a
+commander from the pool and passes it straight to `planForCommander` therefore
+scored its decks against a plan missing the intent-rule half.
+
+**The GENERATOR is correct.** It builds its commander through
+`toBuildCard(commanderRow)` and that row selects `oracle_text`. So this was the
+instrument in all three cases, and **no deck changed** - only the number did.
+
+    random-commander-sweep    keyed median      71%  ->  79%
+                              decks under 30%     7  ->   3
+                              strongly on-theme  13  ->  19
+                              every gate 40/40 both ways, build times unchanged
+
+    strategy-decks, 18 shells keyed total     1202  -> 1304  (+102)
+                              nine shells moved; Value engine 51 -> 80,
+                              Reanimator 68 -> 83, Superfriends 75 -> 88,
+                              Blink 66 -> 76, +1/+1 counters 37 -> 45
+                              packages and ramp IDENTICAL by construction
+
+    silent-facets             plans made ONLY of the protection floor 26 -> 3
+                              thin plans 1185 (35%) -> 1153 (34%)
+
+The intent rules add MID-WEIGHT wants: below the 0.7 "loud" bar, well above the
+0.45 that `keyed` counts. That is why keyed was badly understated while the
+thin-plan count was about right, and it is why the two numbers moved so
+differently.
+
+### What this corrects
+
+- **"Eleven of forty come back under 30% keyed: a competent pile of good cards
+  that is not that commander's deck."** It is three of forty, and for at least
+  two of those the characterisation is wrong. **Isamaru, Hound of Konda** scored
+  18% holding Sram, Kor Spiritdancer, Hero of Iroas, All That Glitters, Eidolon
+  of Countless Battles, Sage's Reverie, Skullclamp and Sword of the Animist -
+  a good voltron deck for a VANILLA 2/2, which is the only deck he has.
+  **Anzrag, the Quake-Mole** scored 5% holding Lightning Runner and Combat
+  Celebrant, the two extra-combat payoffs in his colours.
+- **Work list item (d)**, "Blink on Nezahal keyed 38%, Control 42%, +1/+1
+  counters 49% - low", is closed by measurement rather than by changing
+  anything: 76%, 66% and 45%.
+
+The three still under 30% are structurally hard and two cannot be fixed by any
+plan rule. Isamaru is vanilla. **Melira, Sylvok Outcast**'s abilities are
+PROHIBITIONS - "can't get poison counters", "creatures you control can't have
+-1/-1 counters put on them" - which name no deck. Shizuko is group hug.
+
+> **Every before/after taken earlier in the session used the same instrument on
+> both arms, so those relative comparisons stand.** An absolute keyed figure
+> quoted anywhere in this file from before today is understated.
+
+### The check that finds the next one
+
+    for f in $(grep -rln planForCommander scripts/ scratch/); do
+      grep -q oracleText "$f" || echo "$f"
+    done
+
+`scripts/probe/unclaimed-wants.mjs`, `shell-signal-reach.mjs`,
+`commander-plan-coverage.mjs` and `voltron-fallback-audit.mjs` are still on the
+list. They rank work rather than score decks, so the effect is different, but
+the same correction applies.
+
+### And `eff:extra-combat` is NOT the lever it looks like
+
+Anzrag carries `eff:extra-combat`, `trig:becomes-blocked`, `eff:untap` and
+`pt:big` in the pool and gets no want from any of them, which reads as a clear
+missing plan rule. **Only 14 commander-legal legendary creatures carry
+`eff:extra-combat`** (`trig:becomes-blocked` 18, `cares:lifegain` 10). That is
+fixing one commander. Three plan rules already WANT the facet; none is keyed on
+it, and that asymmetry is correct.

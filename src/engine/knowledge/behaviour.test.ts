@@ -1271,3 +1271,44 @@ describe('impulse draw: the role it serves and the plan it feeds', () => {
     assert.equal(plan.wants.some(w => w.facet === 'eff:impulse'), false, plan.wants.map(w => w.facet).join(' '));
   });
 });
+
+  describe('a card that names every permanent type', () => {
+    it('is saying "permanent", so it is not an enchantment commander', () => {
+    /*
+     * Braids, Arisen Nightmare says "sacrifice an artifact, creature,
+     * enchantment, land, or planeswalker", and the word scan behind `cares:type:`
+     * read that as five separate statements. Her plan asked for enchantments,
+     * artifacts AND planeswalkers, and because `strategiesFor` scores shells
+     * against the plan's wants she came out as the highest-scoring ENCHANTRESS
+     * and SUPERFRIENDS commander in a field of 3,000 - in mono-black.
+     */
+    const braids = planForCommander({
+      name: 'Braids, Arisen Nightmare',
+      typeLine: 'Legendary Creature — Nightmare',
+      facets: [
+        'cares:type:artifact', 'cares:type:creature', 'cares:type:enchantment',
+        'cares:type:land', 'cares:type:planeswalker',
+        'eff:sacrifice', 'type:creature', 'type:legendary',
+      ],
+      tags: [],
+    });
+    for (const type of ['enchantment', 'artifact', 'planeswalker']) {
+      assert.equal(
+        braids.wants.some(w => w.facet === `type:${type}`), false,
+        `Braids should not ask for ${type}s: she names every permanent type, which means "permanent"`
+      );
+    }
+
+    // And a commander that names ONE type still asks for it.
+    const sythis = planForCommander({
+      name: 'Sythis, Harvest\'s Hand',
+      typeLine: 'Legendary Creature — Nymph',
+      facets: ['cares:type:enchantment', 'trig:cast-own', 'type:creature', 'type:legendary'],
+      tags: [],
+    });
+    assert.ok(
+      sythis.wants.some(w => w.facet === 'type:enchantment'),
+      'a commander naming only enchantments still asks for enchantments'
+    );
+  });
+});

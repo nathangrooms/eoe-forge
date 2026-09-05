@@ -5768,3 +5768,72 @@ The one number that moved the wrong way is the count of decks at 80%+ keyed,
 at 3. A ceiling that binds takes its cards from the roles that were overshooting,
 which on a tribal deck are the themed ones, so a little top-end theme is exactly
 what it should cost. The four named yardsticks all improved or held.
+
+## A card that names every permanent type is saying "permanent" (5 Sep 2026)
+
+The worst row on the eighteen-shell probe was **Enchantress at 13 of 35 jobs
+filled**, and the commander it was built on was **Braids, Arisen Nightmare** —
+mono-black, a colour with almost no enchantment-matters cards. She also took
+Superfriends. The probe picks the HIGHEST-SCORING commander of 3,000, so that
+was the engine claiming Braids is the format's best Enchantress commander.
+
+Her card says *"sacrifice an artifact, creature, enchantment, land, or
+planeswalker"*, and the word scan behind `cares:type:` read it as five separate
+statements:
+
+    cares:type:artifact  cares:type:creature  cares:type:enchantment
+    cares:type:land      cares:type:planeswalker
+
+`planForCommander` turns each into a `type:` want, and `strategiesFor` scores
+shells against the plan's wants, so one clause made her an enchantment deck, an
+artifact deck AND a superfriends deck.
+
+**The facets are not FALSE.** Casualties of War really does destroy an
+enchantment. What is false is the inference *"therefore build a deck around that
+type"*, and it is only wrong when the card names them all — which is why the fix
+is in the reading and not in the facet, and therefore needs **no compiler bump,
+no refill and no matview rebuild**.
+
+### The whole population, not eight samples
+
+44 cards carry four or more of the six permanent types. Every one means "any
+permanent" or offers a choice across types: Braids, Muldrotha (*"a permanent
+spell of each permanent type"*), Casualties of War, Merciless Eviction, Show and
+Tell, Scourglass (*"all permanents"*), Lurrus (*"each permanent card"*), Terror
+Tide, Decimate, Chaotic Transformation. **Zero of the 44 genuinely care about
+one type.**
+
+Four, not three: at three the population is 238 cards and includes *"destroy
+target artifact, creature, or enchantment"*, which is a removal spell rather
+than an enumeration.
+
+> ⚠️ **BATTLE IS A PERMANENT TYPE and leaving it out is not a small omission.**
+> With the other five collapsed and battle left standing, Muldrotha's LOUDEST
+> want became `type:battle` at 0.90 and the engine read the format's best
+> graveyard commander as a Battles deck. The nine cards that reach four only
+> through battle are "any target" damage spells — Galvanic Blast, Spire Barrage,
+> Seismic Assault, Molten Vortex — where the collapse is equally right. A
+> genuine battles card names battle alone and is untouched.
+
+### What moved
+
+    eighteen shells
+      Enchantress    Braids 13/35 jobs  ->  Loran of the Third Path 24/43, keyed 91%
+      Superfriends   Braids 24/35       ->  Tekuthal, Inquiry Dominus 20/27
+      Value engine   Braids 28/35       ->  Braids 24/27, and her plan is now
+                                            sacrifice and tokens, which is what
+                                            her card actually does
+    shape vs 192 real decks     181/200 -> 182/200
+    twenty commanders           47/71 jobs, 6 zero groups, both unchanged
+    seven-deck roster           keyed 63%, staples 46/61, both unchanged
+    strategies EARNED           3.9 -> 3.9 per commander, measured before and
+                                after rather than against the stale 3.3 in this
+                                file; entirely-generic lists 36 -> 37, which is
+                                Braids losing a claim that was wrong
+
+> **Value engine's keyed fell 85% to 51% and the deck did not get worse.** This
+> file already records that a keyed percentage rises whenever a plan gains
+> wants; the inverse is just as true. Braids' plan shed three bogus type wants,
+> so fewer cards count as "keyed", while the jobs she can actually do went 80%
+> to 89%. **Read the package fill, not the keyed percentage, after a change that
+> narrows a plan.**

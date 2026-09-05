@@ -3533,6 +3533,27 @@ export const COMMANDER_SURVIVAL_FLOOR: ReadonlyArray<readonly [Facet, number]> =
   ['grants:haste', 0.3],
 ];
 
+/**
+ * The five permanent types, and how many a card must name before it is read as
+ * saying "permanent" rather than naming a type. See the comment inside
+ * {@link planForCommander} for the population this was measured over.
+ */
+const PERMANENT_TYPES = new Set([
+  'artifact', 'creature', 'enchantment', 'land', 'planeswalker',
+  /* BATTLE IS A PERMANENT TYPE, and leaving it out is not a small omission.
+     Muldrotha, the Gravetide says "a permanent spell of each permanent type";
+     with the other five collapsed and battle left standing, his LOUDEST want
+     became `type:battle` at 0.90 and the engine read the format's best
+     graveyard commander as a Battles deck. Measured with it included, the
+     population at four or more is 44 cards and the nine that only reach four
+     through battle are "any target" damage spells - Galvanic Blast, Spire
+     Barrage, Seismic Assault, Molten Vortex - where the collapse is equally
+     right. A genuine battles card names battle alone and is untouched. */
+  'battle',
+]);
+const PERMANENT_TYPE_CARES: readonly string[] = [...PERMANENT_TYPES].map(t => `cares:type:${t}`);
+const ENUMERATES_EVERY_PERMANENT = 4;
+
 export function planForCommander(commander: {
   name: string;
   typeLine?: string | null;
@@ -3586,10 +3607,45 @@ export function planForCommander(commander: {
     }
   }
 
+  /*
+   * A CARD THAT NAMES EVERY PERMANENT TYPE IS SAYING "PERMANENT".
+   *
+   * Braids, Arisen Nightmare says "sacrifice an artifact, creature,
+   * enchantment, land, or planeswalker", and the word scan that produces
+   * `cares:type:` reads that as five separate statements. Her plan therefore
+   * asked for enchantments, artifacts AND planeswalkers, and because
+   * `strategiesFor` scores shells against the plan's wants, she came out as the
+   * highest-scoring ENCHANTRESS and SUPERFRIENDS commander in a field of 3,000
+   * - in mono-black, a colour with almost no enchantment-matters cards. The
+   * Enchantress deck built on her filled 13 of 35 of the shell's jobs, the
+   * worst row on the eighteen-shell probe by a distance.
+   *
+   * The facets are not FALSE - Casualties of War really does destroy an
+   * enchantment. What is false is the inference "therefore build a deck around
+   * that type", and that inference is only wrong when the card names them all.
+   *
+   * READ THE WHOLE POPULATION, 5 Sep 2026: 23 cards carry four of the five
+   * permanent types and 12 carry all five, and every one of the 35 means "any
+   * permanent" or offers a choice across types - Braids, Muldrotha ("a
+   * permanent spell of each permanent type"), Casualties of War, Merciless
+   * Eviction, Show and Tell, Scourglass ("all permanents"), Lurrus ("each
+   * permanent card"), Terror Tide ("permanent cards in your graveyard").
+   * ZERO of the 35 genuinely care about one type. That is why the threshold is
+   * four rather than three: at three the population is 206 cards and includes
+   * "destroy target artifact, creature, or enchantment", which is a removal
+   * spell rather than an enumeration.
+   *
+   * `permanent` is already in the skip list below, so this collapses to a case
+   * the vocabulary anticipated rather than inventing one.
+   */
+  const permanentTypeCares = PERMANENT_TYPE_CARES.filter(f => facets.includes(f)).length;
+  const namesEveryPermanent = permanentTypeCares >= ENUMERATES_EVERY_PERMANENT;
+
   // Card types the commander's own filters name.
   for (const f of facets) {
     if (!f.startsWith('cares:type:')) continue;
     const type = f.slice('cares:type:'.length);
+    if (namesEveryPermanent && PERMANENT_TYPES.has(type)) continue;
     /* `land` is skipped as a MEMBER want: lands are chosen by the mana base,
        never from the spell pool, and "triggers on land spells" is not a
        sentence. The echo below stays, because a commander whose filters name

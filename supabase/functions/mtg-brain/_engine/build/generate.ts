@@ -1694,8 +1694,36 @@ const PACKAGE_MATCH = 0.6;
     };
 
     const filledBy: string[] = [];
+    /*
+     * FLEX IS SHARED PER PACKAGE, NOT FIRST COME FIRST SERVED.
+     *
+     * `packageFlexBudget` is what the deck has left once the role floors,
+     * the commander reserve and the top end are paid for - five spells on a
+     * typical build. Every package drew from that ONE pool in order, so the
+     * package that happened to run first could spend all of it and the rest
+     * got nothing. This file already makes that argument about reserved
+     * slots: a budget spent by whoever reaches it first is not a budget.
+     *
+     * It matters because a card filling no role is exactly what some packages
+     * are FOR. "Things worth blinking" should prefer Mulldrifter and Skyclave
+     * Apparition, which draw and remove - the comment on the guard below is
+     * right about that. But "The blinks" is about the enablers, and Conjurer's
+     * Closet (#472), Teleportation Circle (#992) and Panharmonicon (#264)
+     * carry NO role at all, so they can only enter through flex. On a Syr
+     * Vondam blink deck all three were missing while the deck held Icewind
+     * Stalwart (#11,229).
+     *
+     * Rounded UP so a three-package shell on a budget of five gives 2/2/2
+     * rather than 1/1/1 and a remainder nobody can spend; the shared cap below
+     * still holds the total at five.
+     */
+    const flexPerPackage = Math.max(
+      1,
+      Math.ceil(packageFlexBudget / Math.max(1, shellPackages.length))
+    );
     for (const pkg of shellPackages) {
       const slots = Math.max(1, Math.round(pkg.budget * pkg.share));
+      let pkgFlexSpent = 0;
       let taken = 0;
       const tookNames: string[] = [];
       /*
@@ -1812,7 +1840,11 @@ const PACKAGE_MATCH = 0.6;
           role => role !== 'land' && quota[role] > 0 && rolesOf(card).has(role)
         );
         if (!needed) {
+          /* This package's own share, AND the shared total. Either exhausted
+             and the card waits for a pass that can place it on merit. */
+          if (pkgFlexSpent >= flexPerPackage) continue;
           if (packageFlexSpent >= packageFlexBudget) continue;
+          pkgFlexSpent += 1;
           packageFlexSpent += 1;
         }
         /*

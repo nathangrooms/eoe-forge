@@ -541,9 +541,37 @@ export function scoreCandidate(
   }
 
   /* --- Curve fit ---------------------------------------------------- */
+  /*
+   * AN X SPELL HAS NO KNOWN PLACE ON A CURVE, so it gets no curve signal.
+   *
+   * Mana value is 0 for a cost of `{X}` or `{X}{X}` - correct by the rules,
+   * since X is zero anywhere but the stack - so Walking Ballista and Hangarback
+   * Walker read to this signal as FREE CARDS and collect the full bonus for
+   * being below the deck's curve. They are not free; they are whatever you pay.
+   *
+   * Measured 5 Sep 2026 on Syr Vondam asked for Blink, where this was the term
+   * that decided the swap and nothing else was close:
+   *
+   *     Felidar Guardian   commander-fit 1.20  archetype-fit 1.30  curve -0.45
+   *     Hangarback Walker  commander-fit 2.29  archetype-fit 0.15  curve +0.89
+   *
+   * Archetype fit had already nearly cancelled commander fit. The curve term
+   * swung 1.34 of the 1.55 gap, on a mana value that is an artefact.
+   *
+   * NO INVENTED NUMBER. Treating X as 1, or 2, or the deck's mean would each be
+   * a guess about how much the player intends to pay, and this project's rule
+   * is that unknown stays unknown: the card is neither rewarded nor penalised
+   * on a curve it cannot be placed on. Every other signal still applies.
+   *
+   * Only 19 commander-legal cards are affected - those whose cost is X alone,
+   * so mana value collapses to zero. The 520 X spells with a coloured pip
+   * (`{X}{B}{B}` is mana value 2) already carry a real number and are untouched.
+   */
+  const costIsAllX = (card.manaCost ?? '').includes('{X}') && card.cmc === 0;
+
   // Positive delta = cheaper than the deck's own average.
   const delta = profile.meanCmc - card.cmc;
-  if (profile.spellCount >= CURVE_MIN_SPELLS && Math.abs(delta) >= CURVE_MIN_REPORTABLE) {
+  if (!costIsAllX && profile.spellCount >= CURVE_MIN_SPELLS && Math.abs(delta) >= CURVE_MIN_REPORTABLE) {
     const clamped = Math.max(-1, Math.min(1, delta / CURVE_SPAN));
     signals.push({
       kind: 'curve-fit',

@@ -6049,3 +6049,48 @@ fit is worth. **A real fix has to change what the rounds are ALLOWED to cut, and
 the three guards above are the shapes that do not work.** Anything new should be
 measured on the bench's zero groups first, because that is what every version
 tried so far has paid with.
+
+## An X spell is not a free card, and the curve signal thought it was
+
+Chasing why the review rounds cut a Blink deck's own engines, the score
+breakdown named a term nobody had suspected. Syr Vondam asked for Blink, round
+four, the swap that decided it:
+
+    Felidar Guardian   commander-fit 1.20  archetype-fit 1.30  curve -0.45
+    Hangarback Walker  commander-fit 2.29  archetype-fit 0.15  curve +0.89
+
+Archetype fit had ALREADY nearly cancelled commander fit. **The curve term swung
+1.34 of the 1.55 gap**, and it did so on an artefact: Hangarback Walker's cost is
+`{X}{X}`, so its mana value is **0**. That is correct by the rules - X is zero
+anywhere but the stack - and it means the curve signal read one of the most
+played creatures in the format as a FREE CARD and gave it the full bonus for
+sitting below the deck's curve.
+
+`scoreCandidate` now emits no curve signal at all for a card whose cost is X
+alone. **No invented number:** treating X as 1, or 2, or the deck's mean would
+each be a guess about how much the player intends to pay, and the rule here is
+that unknown stays unknown. Every other signal still applies.
+
+**19 commander-legal cards**, all of them cards whose whole cost is X, so mana
+value collapses to zero: Walking Ballista (430), Astral Cornucopia (1,319),
+Stonecoil Serpent (1,517), Hangarback Walker (1,531), Chalice of the Void,
+Engineered Explosives. The 520 X spells carrying a coloured pip already have a
+real mana value (`{X}{B}{B}` is 2) and are untouched.
+
+    eighteen shells     named and packages IDENTICAL; keyed +2 on two shells
+                        (+1/+1 counters 35% -> 37%, Value engine 51% -> 53%)
+                        and lower on NONE
+    twenty commanders   47/71 jobs, 6 zero groups, both unchanged
+    shape               182/200, unchanged
+    seven-deck roster   keyed 63%, staples 46/61, both unchanged
+
+### Still wrong, measured, and waiting for a compiler bump
+
+**All 19 also carry `mv:cheap`**, from the same zero. Astral Cornucopia costs
+`{X}{X}{X}` and reads as a cheap card; so does Chalice of the Void. `mv:cheap`
+is a real want - Yuriko asks for "cheap evasive creatures" - so those decks are
+being offered cards that are only cheap if you pay nothing for them.
+
+That is a facet, so fixing it means bumping the compiler, refilling and moving
+both readers. **19 cards do not justify a bump on their own; ride it along with
+the next one.**

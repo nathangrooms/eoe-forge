@@ -3,6 +3,28 @@
 > **Read this first, every session.** It is the durable memory for this project.
 > Live progress lives in the **Dev Console** (`/admin` → Dev tab), backed by the `dev_*` tables.
 
+## How to read this file
+
+It is **7,800 lines and growing**, written in layers over many sessions, and
+**it is not all true**. Four claims in it were measured false on 5 Sep 2026
+alone, one of them written the previous day. So:
+
+1. **Later beats earlier.** Sections are appended in date order and a later one
+   silently supersedes an earlier one. Where a correction exists it is now
+   marked inline at the ORIGINAL claim, not only at the end.
+2. **Re-measure before building on a number.** Especially anything about deck
+   quality: several headline figures were produced by broken instruments rather
+   than by the product, and this file records the instrument being at fault more
+   often than the generator.
+3. **Any absolute `keyed` percentage written before 5 Sep 2026 is understated.**
+   Three probes built the commander's plan without `oracle_text`, so the 113
+   English intent rules never ran. Before/after comparisons from those sessions
+   still hold - both arms used the same instrument - but the absolute values do
+   not.
+4. **A negative result here is only as good as the instrument that produced
+   it.** "4,000 measured no better than 5,000" was recorded as settled and later
+   proved to have been measured with the knob disconnected.
+
 ---
 
 ## 1. What this is

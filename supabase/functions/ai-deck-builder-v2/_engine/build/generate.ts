@@ -1178,6 +1178,22 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
          planFit test above. Both routes into the synergy pass have to be
          closed or this one takes a card whose real reason it cannot state. */
       .filter(c => !(c.tags ?? []).some(tag => commanderThemes.has(tag)))
+      /*
+       * AND NOTHING THAT WORKS AGAINST THE PLAN. This pass says "the commander
+       * has no opinion about this card", and a card that beats the deck is one
+       * the commander has a very strong opinion about.
+       *
+       * It is the LAST of the six passes to get this check and the one that was
+       * actually taking the card. Blasphemous Act is rank 22, so it is near the
+       * top of "the cards Commander plays most for removal", and it walked into
+       * Edgar Markov's Vampire deck here after the ranker penalty, the reserve,
+       * the quota loop, the packages and the floor fills had all been closed.
+       *
+       * `fitOf(c).fit <= 0` above does not catch it: an anti-synergy card has no
+       * positive fit BY DEFINITION, so the filter that selects for "no opinion"
+       * selects anti-synergy IN.
+       */
+      .filter(c => !worksAgainstPlan(commanderPlan, c))
       .filter(c => typeof c.edhrecRank === 'number' && c.edhrecRank > 0)
       .sort((a, b) => (a.edhrecRank as number) - (b.edhrecRank as number))
       .slice(0, count);

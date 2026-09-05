@@ -5556,3 +5556,43 @@ colourless against a ceiling of about 29.
 This file already records the general form: *"a cost reducer's value depends on
 the deck and the role system is deck-independent"*, and *"the facet vocabulary
 does not record WHICH colour or type a reducer reduces"*.
+
+## "No opinion about this card" selects anti-synergy IN (5 Sep 2026)
+
+Blasphemous Act kept reaching Edgar Markov's Vampire deck after `scope:wipe`
+shipped and after `worksAgainstPlan` was added to the ranker penalty, the
+commander-fit reserve, the quota loop, the packages, `fillTo` and the review
+swap. Six passes guarded, card still there.
+
+It came in through the seventh: the pass that fills a short role with **"one of
+the cards Commander plays most for removal (rank 22)"**. That pass exists for
+cards that belong in a deck for reasons synergy cannot express, so it selects
+on:
+
+    .filter(c => fitOf(c).fit <= 0)          // the commander has no opinion
+    .filter(c => !(c.tags ?? []).some(t => commanderThemes.has(t)))
+
+**An anti-synergy card has no positive fit BY DEFINITION.** So the filter
+written to find "cards the commander is neutral about" is precisely the filter
+that finds cards the commander is hostile to, and the two are indistinguishable
+by sign. Every other pass sorts by fit and a hostile card sinks; this one sorts
+by EDHREC rank, and Blasphemous Act is rank 22.
+
+The check is on it now. Measured: neutral on all eighteen shells (named,
+packages and keyed identical, ramp jitter 18→16, 24→23, 27→28, all above the
+floor of 11), 46/71 jobs and 6 zero groups unchanged, 177/200 shape checks
+unchanged, 3,357 tests passing.
+
+> **The lens worth keeping.** I had been asking "which guard is missing" and
+> answering it by reading the guarded passes. The card's own `reason` string
+> named the pass in one line. **A deck entry says which pass claimed it — read
+> that before instrumenting anything.** A `DM_TRACE_CARD` block in the quota
+> loop printed nothing, which was correct and told me only where it was NOT.
+
+### And the shape generalises to any future ATTACKS entry
+
+`ATTACKS` holds two entries and this file says a third needs a measurement
+rather than a guess. It now also needs a check in SEVEN passes, and the one
+that will be forgotten is the popularity filler, because it is the only pass
+that does not consult fit at all. Anything added to `ATTACKS` should be
+verified against a deck by building one, not by reading the guards.

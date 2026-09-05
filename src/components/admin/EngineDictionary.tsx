@@ -204,6 +204,14 @@ const OUR_WORDS: Array<{ facet: string; means: string; why: string }> = [
     why: 'A board wipe and a removal spell share every other word.',
   },
   {
+    facet: 'scope:wipe',
+    means: 'It destroys or kills every creature, including your own.',
+    why: 'Narrower than scope:all, which also covers a spell that hits everything '
+      + 'harmlessly. This one is the reason a deck built on having a board should '
+      + 'not play it, and it is the only thing that keeps Blasphemous Act out of a '
+      + 'Vampire tribal deck.',
+  },
+  {
     facet: 'acost:0',
     means: 'The ability is free to activate.',
     why: 'Free is different in kind, not in degree. It is what makes a combo piece.',

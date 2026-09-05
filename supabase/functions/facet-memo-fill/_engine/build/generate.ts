@@ -75,6 +75,7 @@ import {
   facetCoverage,
   planForArchetype,
   planForCommander,
+  ROLE_FACETS,
   withArchetype,
   type ArchetypeInfluence,
   type ArchetypeInput,
@@ -1717,6 +1718,30 @@ const PACKAGE_MATCH = 0.6;
      * rather than 1/1/1 and a remainder nobody can spend; the shared cap below
      * still holds the total at five.
      */
+    /*
+     * Which single role each package's own wants ARE, when the player named the
+     * archetype. Read off the loudest want that appears in a role's facet list,
+     * so it is the shell's own statement rather than a judgement.
+     */
+    const archetypeChosenExempt = new Map<string, Role>();
+    if (input.archetypeChosen) {
+      for (const pkg of shellPackages) {
+        const wants = [...pkg.wants].sort((a, b) => b.weight - a.weight);
+        let found: Role | undefined;
+        for (const w of wants) {
+          for (const role of ROLES) {
+            if (role === 'land' || role === 'creature') continue;
+            if ((ROLE_FACETS[role] as readonly string[]).includes(w.facet)) {
+              found = role;
+              break;
+            }
+          }
+          if (found) break;
+        }
+        if (found) archetypeChosenExempt.set(pkg.name, found);
+      }
+    }
+
     const flexPerPackage = Math.max(
       1,
       Math.ceil(packageFlexBudget / Math.max(1, shellPackages.length))
@@ -1812,7 +1837,36 @@ const PACKAGE_MATCH = 0.6;
         if (worksAgainstPlan(commanderPlan, card)) continue;
         /* A package fills a JOB, and a job is not a licence to run a role past
            what any real deck holds. Same rule as the reserve above. */
-        if (overRoleCeiling(card)) continue;
+        /*
+         * A NAMED ARCHETYPE IS NOT CAPPED BY THE ROLE IT IS MADE OF.
+         *
+         * `REAL_DECK_ROLES` is derived from 192 MTGJSON decks and they are all
+         * PRECONS. As FLOORS that is sound - any deck needs its mana - but as
+         * CEILINGS it caps every archetype at what a preconstructed product
+         * happens to run, and no precon is a blink deck.
+         *
+         * `eff:exile-own` is in ROLE_FACETS.protection, so blinking your own
+         * creature IS protection, and the ceiling is 5. Swiftfoot Boots and
+         * Lightning Greaves take two of those before any blink spell is
+         * considered, so a Syr Vondam blink deck could hold THREE ways to blink
+         * against the thirteen two human builders ran. The engine reported
+         * protection FULL (5 carried) and SHORT (3 assigned) at the same
+         * instant.
+         *
+         * So when the player NAMED the archetype, the one role that package's
+         * own wants definitionally ARE is exempt from the p90 - and only from
+         * the p90. `overRoleFloorCeiling` still applies, which is the largest
+         * count the 192 real decks actually hold, so it cannot run away.
+         *
+         * CHOSEN ONLY. A derived shell is one of eighteen picked by a cosine
+         * and this file records repeatedly that a guess is worth less than a
+         * certainty; a name the player typed is the whole reason they are on
+         * the page.
+         */
+        const exempt = archetypeChosenExempt.get(pkg.name);
+        if (exempt) {
+          if (overRoleFloorCeiling(card, exempt)) continue;
+        } else if (overRoleCeiling(card)) continue;
         /*
          * A THEME CARD THAT ALSO DOES A JOB IS FREE. ONE THAT DOES NOT PAYS.
          *

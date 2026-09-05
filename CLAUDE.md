@@ -7359,3 +7359,44 @@ Nahiri's Resolve, Abuelo, Cosmic Intervention. **16 of 16 correct.**
 > intent the code did not implement, and each was worth real cards: the Lands
 > echo, sixteen dead shell signals, and this. **When a comment explains why
 > something is handled elsewhere, check that it is.**
+
+## CLOSED: Scrollshift is refused by the protection ceiling, and that ceiling caps the blink half
+
+The open item said Scrollshift scores 1.000 on "The blinks" and is still not
+taken, and asked what the second constraint is. It is the ROLE CEILING, working
+as designed:
+
+    Scrollshift            roles draw, protection      fit 1.000, rank 5,191
+    Syr Vondam's deck      protection 5 of a p90 of 5
+
+    Swiftfoot Boots · Lightning Greaves · Ephemerate · Cloudshift · Eerie Interlude
+
+**Three of those five ARE the blink spells.** `eff:exile-own` is in
+`ROLE_FACETS.protection` deliberately — blinking your own creature in response
+to removal IS protection — so a blink deck reaches the protection ceiling after
+three blink spells, and every blink spell after that is refused however well it
+fits.
+
+That is why `_blink.mjs` reports **blink spells 3 of 13** while the two human
+decks run thirteen. It is not the gate, the order, the compiler or the plan. It
+is a role ceiling.
+
+### The ceiling is right in general and wrong for an archetype deck
+
+`REAL_DECK_ROLES.protection` is p10 0, p50 2, p90 5, and those numbers come from
+**192 MTGJSON precons**, which contain no blink deck at all. A precon runs
+Swiftfoot Boots and a Fog; a blink deck runs thirteen ways to flicker. The band
+is a fair description of a generic deck and a poor one of an archetype, and this
+is the first case where that distinction has cost real cards.
+
+> **DO NOT fix this by exempting the archetype from the ceiling.** The tribe
+> exemption was exactly that shape and was measured and REMOVED earlier the same
+> day: shape against real decks went 177/200 to 181/200 the moment tribal decks
+> stopped being allowed past their role ceilings. An archetype exemption would
+> re-open it under a different name.
+>
+> The honest options, neither measured yet: derive the bands PER ARCHETYPE
+> rather than pooled, which needs real decks bucketed by archetype and the
+> repo has 192 precons; or stop `eff:exile-own` conferring `protection` when the
+> card is a blink SPELL rather than a grant, which is a `facetRoleQualifies`
+> question and would change what 102 cards count as.

@@ -7963,6 +7963,54 @@ rewriting it is editorial rather than measured.
 > is 5 of 53. **Two of the three "verbless" packages in the first run were an
 > artefact of the missing normaliser.**
 
+## A package may leave a slot empty rather than take a card with no case
+
+A package fills its slots whatever the candidates look like, and in a NARROW
+pool there may be nothing good left. Zhulodok, Void Gorger is COLOURLESS, and
+his "Two-card combo: Protection" package filled 4/4 with Conqueror's Flail,
+Hope of Ghirapur, Steel Golem and **CITY IN A BOTTLE** - an Arabian Nights
+hoser at EDHREC rank 29,881, past `POPULARITY_HORIZON` entirely, commander fit
+0.00. Gandalf held Warden of Geometries (#13,376, fit 0.00) the same way.
+
+    NO_CASE_FIT = 0.25   AND   NO_CASE_RANK = 10,000
+
+**Both together, never either alone.** An unpopular card is often the RIGHT
+answer in a narrow colour identity - that is why Kozilek's deep colourless picks
+are correct - and a low-fit card is often a format staple. Across six random
+commanders the population is 3 cards of 366.
+
+The slot is not lost: it falls through to the quota loop, the floors and the
+popularity filler, each of which has its own two-sweep fallback.
+
+    eighteen shells    keyed 1306 -> 1310, packages 464 -> 460, named 42
+                       unchanged, ramp 0 under the floor 0 over the p90
+    deck shape         184/200 unchanged
+    twenty commanders  48/71 jobs, 6 dead groups, unchanged
+    Zhulodok           "Protection 4/4" -> "3/4", City in a Bottle gone
+    DEPLOYED, verified Zhulodok 88 cards 2.0 s, Vondam 92 cards 4.0 s, no
+                       no-case cards in either
+
+**The four lost package slots ARE the change working** - a package declining a
+card with no argument for itself rather than filling to look full.
+
+### The honest dominance numbers, on a FULL pool
+
+The 45% and 56% quoted earlier were measured against a pool truncated to a sixth
+by the 1000-row cap. Re-derived over six random commanders with the paging
+fixed:
+
+    same-role beaten (role cannot be the excuse)   197 of 329   60%
+    no case on either axis                           3 of 366
+
+> **Most of the 60% is the engine doing what it was tuned to do**, and this is
+> worth stating because it was twice reported here as a defect. The ranker
+> weighs `commanderFit` 3.6 against `popularity` 2.4 on an empty deck, and that
+> trade was swept and chosen: every value below 3.6 buys staples and pays in
+> theme. A rank-7,634 card with fit 0.92 genuinely matches a loud want -
+> `EXTRA_WANT_DECAY` is 0.20, so extra wants lift 0.90 to about 0.96 at most and
+> the noisy-OR is not inflating it. The subset that IS a defect is the 3 of 366
+> with no case on either axis, and that is what this change removes.
+
 ## VALIDATED: probe mode makes the universal test cost 30 seconds
 
 `DM_CATALOG_CACHE=1` plus the superset path in `Catalog.poolFor`, exercised on

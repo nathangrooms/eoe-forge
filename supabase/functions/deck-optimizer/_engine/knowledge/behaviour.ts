@@ -3646,13 +3646,28 @@ export function planForCommander(commander: {
     if (!f.startsWith('cares:type:')) continue;
     const type = f.slice('cares:type:'.length);
     if (namesEveryPermanent && PERMANENT_TYPES.has(type)) continue;
-    /* `land` is skipped as a MEMBER want: lands are chosen by the mana base,
-       never from the spell pool, and "triggers on land spells" is not a
-       sentence. The echo below stays, because a commander whose filters name
-       lands (Chulane putting them onto the battlefield, Muldrotha playing
-       them from the graveyard) does want the cards that care about lands. */
-    if (type === 'creature' || type === 'permanent' || type === 'land') continue;
-    add(`type:${type}`, TYPE_WANT_WEIGHT, `${commander.name} triggers on ${type} spells`);
+    if (type === 'creature' || type === 'permanent') continue;
+    /*
+     * `land` IS SKIPPED AS A MEMBER WANT AND KEEPS ITS ECHO, which is what the
+     * comment here has always said and what the code did not do.
+     *
+     * A `continue` skipped BOTH lines, so `cares:type:land` never became a want
+     * for any commander — and `SHELL_SIGNALS.lands` scores the Lands matter
+     * shell against the plan's WANTS. The shell was therefore unreachable
+     * through the one facet that names it. Measured 5 Sep 2026: Tatyova,
+     * Benthic Druid, who draws a card whenever a land enters, read as "Tokens
+     * (0.55) and Aristocrats (0.45)".
+     *
+     * The member want stays out for the reason given all along: lands are
+     * chosen by the mana base, never from the spell pool, and "triggers on land
+     * spells" is not a sentence. The echo is a different claim — a commander
+     * whose filters name lands wants the cards that CARE about lands, which is
+     * Chulane putting them onto the battlefield and Muldrotha playing them from
+     * the graveyard.
+     */
+    if (type !== 'land') {
+      add(`type:${type}`, TYPE_WANT_WEIGHT, `${commander.name} triggers on ${type} spells`);
+    }
     add(f, TYPE_ECHO_WEIGHT, `${commander.name} triggers on ${type} spells`);
   }
 

@@ -6318,3 +6318,48 @@ The ramp the engine takes is GOOD. Lathril's 21: Sol Ring, Arcane Signet,
 Fellwar Stone, Mind Stone, Commander's Sphere, Llanowar Elves, Elvish Mystic,
 Joraga Treespeaker, Fyndhorn Elves, Priest of Titania, Elvish Archdruid,
 Heritage Druid, Deathrite Shaman. That is what an Elf deck's mana looks like.
+
+## The Lands matter shell was unreachable through the one facet that names it
+
+`planForCommander`'s type loop carried this comment, and had carried it for
+weeks:
+
+    `land` is skipped as a MEMBER want: lands are chosen by the mana base,
+    never from the spell pool ... THE ECHO BELOW STAYS, because a commander
+    whose filters name lands does want the cards that care about lands.
+
+The `continue` under it skipped BOTH lines. So `cares:type:land` never became a
+want for any commander — and `SHELL_SIGNALS.lands` scores the Lands matter shell
+against the plan's WANTS. **The shell could only ever be earned through
+`cares:zone:library-land`**, never through the facet that actually names the
+strategy.
+
+Measured 5 Sep 2026, before: **Tatyova, Benthic Druid — who draws a card
+whenever a land enters — read as "Tokens (0.55) and Aristocrats (0.45)".**
+After: **"Lands matter (0.72)"**.
+
+The member want stays out, for the reason given all along. The echo is a
+different claim and it is the one the comment argued for.
+
+    eighteen shells      Lands matter keyed 80% -> 90%. Named, packages and ramp
+                         IDENTICAL, and no other shell moved at all
+    shape vs real decks  182/200 -> 183/200
+    strategies EARNED    3.9 -> 4.0 per commander; entirely-generic lists 37 -> 35
+    Lands matter earned  85 commanders (2.5%) -> 172 (5.1%)
+    seven-deck roster    keyed 63%, staples 46/61, both unchanged
+    twenty commanders    47/71 jobs unchanged, groups at zero 6 -> 7
+
+**The whole population read as a player**, the 22 most played commanders
+carrying the facet: Azusa, Tatyova, Ashaya, Aesi, The Gitrog Monster, Loot,
+Bristly Bill, Omnath Locus of Rage, Moraug, Muldrotha, Lumra, Titania, Uro,
+Shigeki, Tannuk, Beledros, Zacama and Vorinclex are all genuinely about lands.
+Braids, Arisen Nightmare is correctly excluded by the permanent-type collapse
+above. **One clear false positive: Thalia, Heretic Cathar**, whose land clause
+is *"nonbasic lands your opponents control enter tapped"* — stax, not lands
+matter. About 85%, which is the bar this project holds these rules to, and this
+one only decides which strategies a player is OFFERED rather than what a role is.
+
+**The cost, stated:** Chulane, Teller of Tales loses a job group to zero. He
+genuinely does put lands onto the battlefield, so the new want is correct for
+him; it competes with his creature-draw want and dilutes it. Four measures
+improved and one worsened by a single job.

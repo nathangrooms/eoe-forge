@@ -7963,6 +7963,40 @@ rewriting it is editorial rather than measured.
 > is 5 of 53. **Two of the three "verbless" packages in the first run were an
 > artefact of the missing normaliser.**
 
+## 🔴 THE GATE NEVER GATED. Production went down a THIRD time (5 Sep 2026)
+
+The health check written after the first two outages was an inline `node -e`
+that PRINTED a verdict and exited 0. Every `gate && probe` chain therefore ran
+the probe regardless. It read like a guard in the transcript and guarded
+nothing.
+
+It was caught the only way it could be: a run whose own output began
+
+    warm median 24.21s  GATE FAIL
+
+and which then went on to build eight decks. Production returned HTTP 500 after
+150 s a few minutes later.
+
+**`scripts/probe/db-gate.mjs` is a real gate**: six single-row reads, the first
+discarded because a cold connection measures the connection, and
+`process.exit(1)` when the warm median is over 0.30 s.
+
+    node --experimental-strip-types scripts/probe/db-gate.mjs && <one probe>
+
+> **The lesson is not about databases.** A check that reports rather than
+> refuses is not a check. This file already records the same shape twice: an
+> unconditional `echo "(clean)"` printed beside a `git status` whose output was
+> the thing being verified, and a probe that printed "read 1000 cards, most
+> played first" while silently reading half that. **If a guard cannot fail the
+> command that follows it, it is documentation.**
+
+### The measurement pass is the load, and it needs rationing on purpose
+
+Three outages in one day, all from probe runs rather than from players. A full
+pass is about sixty deck builds and every build refetches its own pool. The
+standing rule is now: gate, then ONE probe, then gate again. `DM_CATALOG_CACHE=1`
+helps within a process and does not rescue an already-saturated instance.
+
 ## Where the bad cards actually come from, and a flex fix that measured neutral
 
 `scratch/_worst.mjs` prints a built deck's worst cards by rank with the ROLE

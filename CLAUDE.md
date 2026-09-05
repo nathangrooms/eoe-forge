@@ -7963,6 +7963,52 @@ rewriting it is editorial rather than measured.
 > is 5 of 53. **Two of the three "verbless" packages in the first run were an
 > artefact of the missing normaliser.**
 
+## The package flex budget was spent by whoever ran first (5 Sep 2026)
+
+`packageFlexBudget = spellSlots - floorTotal - commanderReserve - topEndBudget`,
+which is **59 - 44 - 6 - 4 = FIVE spells** on a typical build. A package card
+that fills no needed role spends from it - and every package drew from that ONE
+pool in order, so whichever ran first could spend the lot.
+
+**Filling no role is exactly what some packages are FOR.** The guard's own
+comment is right that "Things worth blinking" should prefer Mulldrifter and
+Skyclave Apparition, because an arrival worth repeating is usually a card that
+draws or removes. But "The blinks" is about the ENABLERS, and **Conjurer's
+Closet (#472), Teleportation Circle (#992) and Panharmonicon (#264) carry no
+role at all**, so flex is their only way in. Syr Vondam's deck held none of the
+three and did hold Icewind Stalwart (#11,229).
+
+Each package gets `ceil(budget / packages)` now, with the shared total still
+capping it: a three-package shell splits five as 2/2/2 instead of 5/0/0.
+
+    deck shape, 192 real decks   183/200 -> 184/200
+    twenty commanders            47/71 -> 48/71 jobs, dead groups 7 -> 6
+    eighteen shells              keyed 1303 -> 1306, named 41 -> 42,
+                                 packages 466 -> 464, ramp clean both ends
+    Syr Vondam                   engines 6/17 -> 7/17, theme 16/63 -> 17/63
+    DEPLOYED, verified           Conjurer's Closet, Teleportation Circle,
+                                 Wall of Omens, Ephemerate, Cloudshift,
+                                 Eerie Interlude
+
+**Three yardsticks up, one down by two package jobs against one more shell
+card.** The first change of the day to move shape, the bench and Vondam in the
+same direction - the two before it each bought Vondam and cost the real-deck
+shape.
+
+### THE OPEN NUMBER, and it is the one to work on
+
+Not the 56% "strictly beaten" figure, which includes pairs where the better card
+fills a DIFFERENT role and taking the worse one is therefore correct. The number
+with no excuse is same-role dominance:
+
+    123 of 273 taken cards (45%) are beaten by a card LEFT OUT that fills the
+    SAME role, with both a better commander fit and a better play rate.
+
+`scratch/_dom2.mjs` measures it. The zero-fit tail of that population is closed
+- cards with fit under 0.25 AND rank past 10,000 went 1 to 0 across eight random
+decks once `eff:put-onto-battlefield` stopped conferring ramp - but the 45% is
+untouched and is the fundamental one.
+
 ## REFUSED, measured twice: charging a preferred card only for its assigned role
 
 Two independent workflow agents converged on this and it is still wrong.

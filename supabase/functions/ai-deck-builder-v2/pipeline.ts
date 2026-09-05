@@ -317,28 +317,7 @@ const SURVIVAL_FLOOR_FACETS = new Set<string>(
 function shellsForCommander(
   commanderWants: ReadonlyMap<string, number>,
   candidates: readonly { shell: DeckArchetype; input: ArchetypeInput }[],
-  take: number,
-  /**
-   * What the commander DOES, as opposed to what its plan WANTS.
-   *
-   * A shell signal is one of two different claims and admission only ever read
-   * one. `cares:type:instant` is a WANT: the commander wants instants in the
-   * deck. `eff:counter` is not a want at all — it says the COMMANDER counters
-   * spells, which is the whole of why it belongs to Control. Measured over
-   * 3,358 commanders with `shell-signal-reach.mjs`: sixteen shell signals are
-   * carried by commanders and wanted by none, and CONTROL'S ARE ALL FOUR OF ITS
-   * OWN, so Baral, Chief of Compliance — the archetypal Control commander in
-   * Magic — got no shell at all, and no shell means no packages.
-   *
-   * THIS ROUTE, NOT A LOUDER WANT. Raising `TYPE_ECHO_WEIGHT` so the echo
-   * reaches the admission bar was measured four times and refused every time:
-   * it changes the commander's OWN plan, so `cares:type:X` becomes loud on 700
-   * commanders and reorders their own packages, and job groups printing [NONE]
-   * went 6 to 10. Admitting on a carried facet touches no weight — only whether
-   * a shell is allowed to be scored at all. `strategiesFor` already works this
-   * way.
-   */
-  commanderFacets: ReadonlySet<string>
+  take: number
 ): { shell: DeckArchetype; input: ArchetypeInput; score: number }[] {
   /*
    * A SHELL MUST SERVE WHAT THE COMMANDER SHOUTS FOR.
@@ -430,9 +409,7 @@ function shellsForCommander(
      * top want is often a broad facet the commander expresses differently.
      */
     const score = shellMagnitude > 0 ? overlap / Math.sqrt(shellMagnitude) : 0;
-    const serves =
-      plan.wants.some(w => loud.has(w.facet)) ||
-      plan.wants.some(w => commanderFacets.has(w.facet));
+    const serves = plan.wants.some(w => loud.has(w.facet));
     return { shell, input, score, packages: plan.packages.length, serves };
   });
   return scored
@@ -891,7 +868,7 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
       shell: one,
       input: archetypeFor(one, shellRows, shellFacets),
     }));
-    const scored = shellsForCommander(commanderWants, candidates, 2, new Set(commanderFacets.facets));
+    const scored = shellsForCommander(commanderWants, candidates, 2);
     /*
      * A TRIBE IS A SHELL BEFORE IT IS A SCORE.
      *

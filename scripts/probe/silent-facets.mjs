@@ -100,6 +100,44 @@ const FLOOR = new Set([
 ]);
 
 const rows = await commanders();
+
+/*
+ * THE ORACLE TEXT, because the generator reads the commander WITH it.
+ *
+ * `commanders()` reads `cards_pool`, which carries no `oracle_text` by design,
+ * so every plan here was built without the 113 English intent rules and the
+ * "thin plan" headline counted commanders the engine actually has plenty to
+ * say about. Measured the same day on `random-commander-sweep`: fixing this
+ * moved the production keyed median 71% -> 79% with the decks unchanged.
+ */
+{
+  const names = rows.map(r => r.name);
+  const byName = new Map();
+  for (let i = 0; i < names.length; i += 40) {
+    const chunk = names
+      .slice(i, i + 40)
+      .map(n => `"${String(n).replace(/"/g, '')}"`)
+      .join(',');
+    const res = await fetch(
+      `${BASE}/rest/v1/cards_unique?select=name,oracle_text,faces&name=in.(${encodeURIComponent(chunk).replace(/%2C/g, ',')})`,
+      { headers: H }
+    );
+    if (!res.ok) continue;
+    const got = await res.json();
+    if (Array.isArray(got)) for (const g of got) byName.set(g.name, g);
+  }
+  let n = 0;
+  for (const r of rows) {
+    const g = byName.get(r.name);
+    if (g) {
+      r.oracle_text = g.oracle_text ?? null;
+      r.faces = g.faces ?? null;
+      if (g.oracle_text != null) n += 1;
+    }
+  }
+  console.log(`oracle text read for ${n} of ${rows.length} commanders
+`);
+}
 const silentThin = new Map();
 const silentAll = new Map();
 let thin = 0;
@@ -112,6 +150,8 @@ for (const c of rows) {
     typeLine: c.type_line,
     facets,
     tags: c.tags ?? [],
+    oracleText: c.oracle_text ?? null,
+    faces: c.faces ?? null,
   });
   const wantFacets = new Set(plan.wants.map(w => w.facet));
   const loud = plan.wants.filter(w => w.weight >= LOUD).length;

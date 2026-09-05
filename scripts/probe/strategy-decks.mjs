@@ -154,11 +154,32 @@ for (const shell of shells) {
   const filled = pkgs.reduce((n, m) => n + Number(m[1]), 0);
   const asked = pkgs.reduce((n, m) => n + Number(m[2]), 0);
 
+  /*
+   * THE ORACLE TEXT, because the generator reads the commander WITH it.
+   *
+   * `champ` is a `cards_pool` row and that view carries no `oracle_text` by
+   * design, so `planForCommander` ran without the 113 English intent rules and
+   * every `keyed` figure on this probe was understated. The same fault was
+   * found in `random-commander-sweep` the same day: fixing it there moved the
+   * production median from 71% to 79% WITHOUT the decks changing.
+   */
+  let champText = null;
+  try {
+    const r = await fetch(
+      `${SUPABASE_URL}/rest/v1/cards_unique?select=oracle_text,faces&name=eq.${encodeURIComponent(champ.name)}`,
+      { headers: { apikey: ANON, Authorization: `Bearer ${ANON}` } }
+    );
+    if (r.ok) champText = (await r.json())[0] ?? null;
+  } catch {
+    /* the plan is still built, just without the intent rules */
+  }
   const plan = planForCommander({
     ...champ,
     typeLine: champ.type_line,
     facets: champ.facets ?? [],
     tags: champ.tags ?? [],
+    oracleText: champText?.oracle_text ?? null,
+    faces: champText?.faces ?? null,
   });
   const nonland = deck.filter(c => !/\bLand\b/i.test(String(c.type_line ?? '')));
   /*

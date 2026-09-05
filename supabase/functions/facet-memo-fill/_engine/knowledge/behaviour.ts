@@ -4744,9 +4744,26 @@ export function planForArchetype(
     }
     const pkgWants: Want[] = [];
     for (const [facet, n] of seen) {
-      /* Half the package, so one card of four cannot define the job. With four
-         exemplars that is two, which is the same floor the flat list uses. */
-      if (n * 2 < cards.length) continue;
+      /*
+       * A STRICT MAJORITY. Half is not agreement when the package has an even
+       * number of cards: two of four is a TIE, and a tie between two unrelated
+       * pairs is exactly how a coincidence becomes a requirement.
+       *
+       * Measured 5 Sep 2026 on the Enchantress shell's "The payoff", whose
+       * exemplars are Sigil of the Empty Throne, Starfield of Nyx, Eidolon of
+       * Blossoms and Mirri's Guile. Starfield and Mirri's Guile both happen to
+       * have an upkeep trigger, for entirely unrelated reasons, so the package
+       * asked for `trig:step:upkeep` at 2 of 4 alongside `scope:all` at 2 of 4.
+       * Almost nothing satisfies that conjunction and the package filled
+       * 1 of 9 - on Sythis, Harvest's Hand, in the shell's own colours, with
+       * "The enchantresses" filling 9 of 9 beside it. So it was the derivation
+       * and not the pool.
+       *
+       * This is the same correction `commander-bench.mjs` already went through
+       * for scoring a job, and it lands on the same side: a rare facet needs a
+       * majority, and a bare half admits noise.
+       */
+      if (n * 2 <= cards.length) continue;
       pkgWants.push({
         facet,
         weight: n / cards.length,

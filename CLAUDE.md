@@ -5837,3 +5837,63 @@ than an enumeration.
 > so fewer cards count as "keyed", while the jobs she can actually do went 80%
 > to 89%. **Read the package fill, not the keyed percentage, after a change that
 > narrows a plan.**
+
+## Two of four is a tie, not agreement (5 Sep 2026)
+
+The worst row on the eighteen-shell probe was Enchantress at **24 of 43 jobs**,
+and inside it one package was doing almost all of the damage: **"The payoff",
+1 of 9**. Its exemplars are Sigil of the Empty Throne, Starfield of Nyx, Eidolon
+of Blossoms and Mirri's Guile, and what they AGREE on is:
+
+    cares:type:enchantment  3/4        scope:all         2/4
+    trig:step               2/4        trig:step:upkeep  2/4
+
+Starfield of Nyx and Mirri's Guile both happen to have an upkeep trigger, for
+entirely unrelated reasons. `planForArchetype` kept a package want at `n * 2 >=
+cards.length`, so that coincidence became a REQUIREMENT and almost nothing in
+the catalogue satisfied the conjunction.
+
+**The decisive test was colour, because this file records nearly making the
+opposite mistake once.** Rebuilding the same shell on Sythis, Harvest's Hand -
+green-white, the shell's own colours, a card literally in its enchantresses
+package - gave "The enchantresses" **9 of 9** and left "The payoff" at **1 of
+9**. So it was the derivation and not the pool.
+
+A strict majority (`n * 2 > cards.length`) fixes it. Half is not agreement when
+a package has an even number of cards: two of four is a tie between two
+unrelated pairs. This is the same correction `commander-bench.mjs` already went
+through for scoring a job, landing on the same side.
+
+    twenty commanders    47/71 -> 49/71 jobs, and groups the deck cannot do
+                         AT ALL 6 -> 4
+    seven-deck roster    format staples 46/61 -> 53/61, keyed 63% -> 62%
+    shape vs real decks  182/200 -> 181/200
+    eighteen shells      package slots 520 -> 484, filled 449 -> 454
+                         Voltron keyed 46% -> 68%, Tribal 53% -> 61%,
+                         Reanimator 68% -> 75%; Lands matter 80% -> 64%
+
+> ⚠️ **A PACKAGE WITH NO SURVIVING WANT IS DROPPED, AND A DELETED PACKAGE
+> CANNOT FAIL.** Superfriends reads 20/27 before and 9/9 after, which is not a
+> package filling, it is eighteen slots of jobs disappearing. Never read a
+> package fill RATIO across a threshold change; read the numerator and the
+> denominator separately. Across all eighteen shells the shells ask for 36
+> fewer slots and place 5 more cards.
+>
+> The evidence this is a real gain rather than an easier metric is that the two
+> yardsticks that moved most - bench jobs and format staples - are computed
+> WITHOUT reference to shell packages at all.
+
+### Still wrong, and it is the exemplar list rather than the threshold
+
+With the want reduced to bare `cares:type:enchantment`, "The payoff" now fills
+9 of 9 with **Enlightened Tutor, Austere Command, Farewell, Grand Abolisher,
+Reclamation Sage, Loran of the Third Path, Archdruid's Charm, All That
+Glitters** - and Austere Command and Farewell DESTROY ENCHANTMENTS, which is
+anti-synergy in an enchantress deck. Every card that answers an enchantment
+carries `cares:type:enchantment`, so the facet cannot separate a payoff from an
+answer.
+
+The root cause is that the four exemplars share nothing else meaningful, and
+Mirri's Guile is not an enchantress payoff at all. **Fixing it means editing the
+exemplar list, which is editorial rather than measured**, so it is written down
+here rather than guessed at.

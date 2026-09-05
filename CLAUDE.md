@@ -1201,6 +1201,18 @@ cards keyed off the commander, the same as before.
 on the format; anything else reads `cards_unique`. Reading `commander_legal` for
 a Standard deck would not error, it would quietly build the wrong pool.
 
+> ⚠️ **`commander_legal` is TEXT, not boolean.** `commander_legal=is.true`
+> fails with `42804: argument of IS TRUE must be type boolean, not type text`,
+> and in a paging loop that returns an ERROR OBJECT rather than an array, so the
+> next line dies on `rows.map is not a function` several steps away from the
+> cause. Use `commander_legal=eq.legal`. Cost a probe run on 5 Sep 2026.
+>
+> The three column traps in one place, because each has cost a run:
+>
+>     commander_legal            TEXT, compare =eq.legal
+>     cards_pool.oracle_id       TEXT   (scryfall_card_tags.oracle_id is UUID)
+>     cards_pool.oracle_text     DOES NOT EXIST - fetch text from cards_unique
+
 **It is pinned to facet `compiler_version = 1`,** in three places:
 `facet-memo-fill`, `public.facets(cards_unique)`, and the view's own definition.
 A reader on one version and a writer on another is SILENT: every card reads as
@@ -4458,13 +4470,33 @@ Forty random commanders, seed 1:
     every staple      40/40
     build time        median 1.9 s, slowest 2.8 s
 
-    keyed synergy     median 63%
+    keyed synergy     median 63%      <-- WRONG, see below
       under 30%  11      30-59%   8
       60-79%     10      80%+    11
 
-**The spread is the finding, not the median.** Eleven of forty come back under
-30% keyed: a competent pile of good cards in the commander's colours that is not
-that commander's deck. Melira 6%, Gonti 7%, The Tenth Doctor 10%.
+> 🔴 **THESE KEYED FIGURES ARE AN INSTRUMENT FAULT AND WERE CORRECTED 5 Sep
+> 2026.** The sweep built its plan with `name, typeLine, facets, tags` and NO
+> `oracle_text`, so `planForCommander` never ran the 113 English intent rules.
+> `cards_pool` carries no `oracle_text` - it is a thin projection by design.
+> The GENERATOR reads its commander correctly, so no deck was ever affected.
+> Re-measured with the text:
+>
+>     keyed median      63% / 71%  ->  79%
+>     under 30%             11 / 7  ->  3
+>     80%+                 11 / 13  ->  19
+>
+> **And the reading below is wrong as well.** "A competent pile of good cards
+> that is not that commander's deck" does not describe them. **Isamaru, Hound
+> of Konda** scored 18% holding Sram, Kor Spiritdancer, Hero of Iroas, All That
+> Glitters, Eidolon of Countless Battles, Sage's Reverie, Skullclamp and Sword
+> of the Animist - a good voltron deck, and the only deck a VANILLA 2/2 has.
+> **Anzrag** scored 5% holding Lightning Runner and Combat Celebrant, the two
+> extra-combat payoffs in his colours. The three genuinely thin ones are
+> structural: Isamaru is vanilla, Melira's abilities are PROHIBITIONS that name
+> no deck, Shizuko is group hug.
+
+**The spread is the finding, not the median.** ~~Eleven~~ THREE of forty come
+back under 30% keyed.
 
 ### Strategies per commander, over all 3,363
 
@@ -4667,6 +4699,14 @@ ZERO. Ramp is different because its absence stops the game rather than losing it
 ### `scripts/probe/silent-facets.mjs`: half the catalogue had nothing to say
 
 **1,627 of 3,363 commanders (48%) reach a plan with two or fewer loud wants**, and
+
+> ⚠️ **48% was measured without `oracle_text` and is too high.** `silent-facets`
+> read commanders from `cards_pool`, which carries none, so the intent rules
+> never ran. With the text: **34% thin, and plans made ONLY of the protection
+> floor are 3, not 26.** The paragraph below is still right about WHAT a
+> floor-only plan does to a deck; it is wrong about how often it happens.
+
+
 for many the entire top of the plan is the protection floor every creature
 commander gets so that Swiftfoot Boots can be chosen. That floor was never meant
 to BE the plan. When it is, the deck is built around keeping the commander alive
@@ -5321,11 +5361,16 @@ No compiler bump: the merge lives in the `cards_pool` view, so a
 5. Give the word a consumer in the same commit. `eff:copy` had TWO and no
    producer for these cards, the fifth instance of that shape.
 
-> ⚠️ **`scryfall_card_tags.oracle_id` is UUID now, not TEXT.** CLAUDE.md said the
-> join needs `oracle_id::text = cards_unique.oracle_id` and that is stale - both
-> sides are UUID and the cast belongs on the `scryfall_card_tags` side, or on
-> neither. Two queries failed on `operator does not exist: uuid = text` before
-> this was noticed.
+> ⚠️ **THE CAST, measured again 5 Sep 2026 because this note was wrong twice.**
+> `scryfall_card_tags.oracle_id` is **UUID**. `cards_pool.oracle_id` is
+> **TEXT**. So joining the tag table to the POOL needs the cast on the pool
+> side:
+>
+>     join public.scryfall_card_tags s on s.oracle_id = c.oracle_id::uuid
+>
+> An earlier note said the cast belongs on the `scryfall_card_tags` side "or on
+> neither", which fails with `operator does not exist: text = uuid`. Check the
+> column types rather than trusting either version of this note.
 
 ---
 

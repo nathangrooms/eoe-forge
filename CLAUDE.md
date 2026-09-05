@@ -6575,3 +6575,47 @@ target than the previous two attempts left.
 > commander's own job when they compete, then flip this one constant. The
 > beneficiaries are already counted: 700 commanders carry a `cares:type:*` want
 > and not one of them can currently reach a shell with it.
+
+## A derived shell now yields to the commander's own packages
+
+The next step recorded above, taken. The budget said the opposite of what the
+weight said:
+
+    a DERIVED shell   0.35 of all 59 spell slots   about 21
+    the commander's own packages                   capped at 14
+
+This file already argues the principle for the fit weight — *the commander is
+CERTAIN, the shell is INFERRED, one of eighteen picked by a cosine* — and the
+budget had never been brought into line. A derived shell now takes its share of
+what the commander's own packages have NOT claimed. A CHOSEN shell is untouched:
+a name the player typed is the whole reason they are on the page.
+
+    twenty commanders, DERIVED mode   48/71 -> 49/71 jobs, zero groups 6, unchanged
+    eighteen shells                   BYTE-IDENTICAL
+    shape vs 192 real decks           183/200, identical
+    seven-deck roster                 keyed 62%, staples 46/61, identical
+    twenty commanders, ARCHETYPE=1    47/71, 7 zero groups, identical
+
+Identical everywhere it does not apply, because both the shell probe and the
+benchmark's `ARCHETYPE=1` mode NAME the shell, which makes this a no-op by
+construction. **It was invisible until the benchmark was run the other way.**
+
+> **`LOCAL=1` without `ARCHETYPE=1` is the only instrument that sees a derived
+> shell.** Every headline number in this file is taken with the archetype named,
+> so a change that only touches the engine's own guess measures as nothing.
+
+### ⚠️ A BASELINE CAPTURED BEFORE A `cards_pool` REFRESH IS NOT A BASELINE
+
+Chasing this, the eighteen-shell probe appeared to move a row the change could
+not touch: Big mana went `24/28 keyed 73%` to `28/28 keyed 68%` on a NAMED
+shell, where the code path is provably identical.
+
+It was not the change. **`cards-unique-refresh` runs at 06:00 and 12:00 UTC**,
+and a refresh landed between the baseline capture and the comparison. Three
+consecutive runs on the unmodified baseline all produced `28/28, 68%` — the
+"after" value. The stored baseline described the pool as it was before the
+refresh.
+
+**Capture the before and the after in the same session, back to back**, the way
+`git stash push` was used before it became unsafe here. Any comparison spanning
+06:00 or 12:00 UTC is suspect, and one of today's own measurements was.

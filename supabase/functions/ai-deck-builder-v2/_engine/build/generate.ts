@@ -1462,14 +1462,39 @@ const PACKAGE_MATCH = 0.6;
    */
   const archetypePackages = archetypePlan?.packages ?? [];
   const ownPackages = packagesForCommander(commanderPlan);
+  const ownBudget = Math.min(14, PACKAGE_BUDGET_PER_PACKAGE * ownPackages.length);
+  /*
+   * A DERIVED SHELL TAKES ITS SHARE OF WHAT THE COMMANDER'S OWN PLAN HAS NOT
+   * CLAIMED. A CHOSEN ONE TAKES ITS SHARE OF EVERYTHING.
+   *
+   * The distinction this file already draws for the fit weight, applied to the
+   * budget where it was missing: *the commander is CERTAIN, the shell is
+   * INFERRED, one of eighteen picked by a cosine.* A derived shell took 0.35 of
+   * all 59 spell slots, about 21, while the commander's own packages — which
+   * come from the commander's actual card — were capped at 14. The guess
+   * outranked the certainty.
+   *
+   * Measured 5 Sep 2026 on the twenty benchmark commanders in DERIVED mode,
+   * which is the only mode this can be seen in: 48/71 jobs -> 49/71, groups at
+   * zero unchanged at 6. Everything else is byte-identical - the eighteen
+   * shells, the shape check, the roster, and the benchmark's own ARCHETYPE=1
+   * mode - because both of those probes NAME the shell, and with the archetype
+   * chosen this is a no-op by construction. That is why it was invisible until
+   * the benchmark was run the other way.
+   *
+   * A CHOSEN shell is untouched. A name the player typed is the whole reason
+   * they are on the page, and `ARCHETYPE_SLOT_SHARE_CHOSEN` exists to say so.
+   */
+  const archetypeSlots = input.archetypeChosen
+    ? spellSlots
+    : Math.max(0, spellSlots - ownBudget);
   const archetypeBudget =
     archetypePackages.length > 0
       ? Math.round(
-          spellSlots *
+          archetypeSlots *
             (input.archetypeChosen ? ARCHETYPE_SLOT_SHARE_CHOSEN : ARCHETYPE_SLOT_SHARE)
         )
       : 0;
-  const ownBudget = Math.min(14, PACKAGE_BUDGET_PER_PACKAGE * ownPackages.length);
   const packageBudget = archetypeBudget + ownBudget;
 
   const commanderReserve = packageBudget > 0 ? Math.min(fitReserve, 6) : fitReserve;

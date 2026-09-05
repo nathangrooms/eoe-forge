@@ -6884,3 +6884,54 @@ shell.
 > Two habits, both cheap: never `git add -A` in the same command as a
 > measurement, and never print a reassuring string next to a command whose
 > output is the thing being checked.
+
+## SEVENTH attempt, and the best version found: a carried facet may LEAD but not follow
+
+The sixth refusal closed the mechanism as it stood. It was not quite closed: the
+cost was measured with carried-facet admission applied to BOTH shell slots, and
+`shellsForCommander` takes two. Reading what it actually admitted shows the
+first is right every time and the second is the problem:
+
+    Baral        Spellslinger 0.87  and  Control 0.31
+    Isperia      Superfriends 0.51  and  Control 0.31
+    Niv-Mizzet   Spellslinger 0.95  and  Aggro 0.70
+
+Niv-Mizzet is not an aggro deck. This file already records the measurement
+behind that instinct: *"every second shell under 0.5 was wrong"*.
+
+So the weaker evidence buys the weaker slot only — a shell the commander's LOUD
+WANTS serve may be either of the two, a shell admitted only because the
+commander CARRIES one of its facets has to be the best on the list. Measured on
+the deployed function with a same-session baseline and a verified revert:
+
+    state                         keyed median   80%+ decks
+    baseline                          71%            13
+    carried facet, BOTH slots         66%             9
+    carried facet, LEAD only          69%            11
+    after reverting                   71%            13
+
+    and locally, lead-only against baseline:
+      derived archetype   7/10 -> 10/10   Sythis's own cards 1/12 -> 5/12
+      shape vs real decks 183/200 -> 183/200   UNCHANGED (both slots cost 2)
+      derived benchmark   49/71 jobs, unchanged; groups at zero 6 -> 7
+      named benchmark, roster, staples   all unchanged
+
+**Halving the cost and keeping the whole benefit.** Shape — the real-deck
+yardstick the standing rule names — is untouched, where the both-slots version
+cost two checks.
+
+### NOT SHIPPED, and this is the judgement rather than a measurement
+
+What remains is 2 points of commander synergy and two decks off the 80%+ band,
+against three of ten commanders building as the archetype they plainly are.
+`keyed` is measured against the commander's plan, which is our own construct
+like the benchmark; `deck-shape-check` is the real-deck one and it does not
+move. So the honest framing is that this trades a little of *"does the deck
+serve the commander"* for a lot of *"is the deck the archetype it should be"*,
+and both are things the owner has asked for in different sessions.
+
+> **Seven attempts, and this is the one to reach for.** The five before it were
+> worse on every axis; the sixth was this one applied too widely. If the answer
+> is that three correct archetypes are worth two points, the change is nine
+> lines and the measurements are here. Nothing else in this area is untried
+> except rewriting the shells themselves.

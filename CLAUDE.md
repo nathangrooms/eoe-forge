@@ -7400,3 +7400,55 @@ is the first case where that distinction has cost real cards.
 > repo has 192 precons; or stop `eff:exile-own` conferring `protection` when the
 > card is a blink SPELL rather than a grant, which is a `facetRoleQualifies`
 > question and would change what 102 cards count as.
+
+## REFUSED TWICE, measured: both fixes for the blink protection ceiling
+
+A blink deck reaches its protection ceiling after three blink spells, because
+`eff:exile-own` is in `ROLE_FACETS.protection` deliberately and the p90 of 5 is
+measured over 192 precons that contain no blink deck. Vondam holds Swiftfoot
+Boots, Lightning Greaves, Ephemerate, Cloudshift and Eerie Interlude, and three
+of those five ARE the blink spells. The previous session recorded two options
+and said neither was measured. Both are measured now and both are refused.
+
+**Option 2: stop `eff:exile-own` conferring `protection`.** 108 cards carry it,
+28 instants and sorceries, 80 permanents, and exactly ONE also grants a
+protective keyword - so this is not the `grants:` question it looked like.
+
+    Syr Vondam against two human decks   28/92 -> 22/92
+    blink spells                          3/13 -> 1/13
+    Ephemerate, Cloudshift, Eerie Interlude   all three GONE
+
+**The role is what lets blink spells into the deck at all.** Strip it and they
+carry no role, so the quota loop cannot place them and only the package can. The
+ceiling that caps them is the same mechanism that admits them, which is why this
+looked like a clean separation and is not one.
+
+**Option 3: let the package pass use the floor's ceiling** - `roleFloorCeilingFor`,
+the largest count the 192 real decks actually hold, rather than p90. This is not
+an archetype exemption and the four-tier floor fill already makes the argument
+that a role slightly past p90 is a thing real decks do.
+
+It does exactly what it was meant to do on the blink deck:
+
+    blink spells    3/13 -> 6/13   Ghostway, Another Round, Scrollshift
+    ways to blink      11 -> 13
+    TOTAL           28/92 -> 29/92
+
+and it fails the universal test:
+
+    eighteen shells, jobs filled       +27   Voltron 19/30 -> 27/30
+    eighteen shells, keyed synergy    1202 -> 1175   (-27)
+      Reanimator 68 -> 58 · Big mana 68 -> 60 · Value engine 51 -> 44
+      Artifacts 58 -> 53 · Control 58 -> 54
+    ramp warnings                        0 -> 1      Big mana 20 -> 22, ramp high
+
+More jobs filled and less of the commander in the deck, which is the trade the
+p90 ceiling exists to refuse - CLAUDE.md's own Prosper measurement, 47 ramp
+against a real p90 of 21, is the same shape. A package filling its conjunction
+is not evidence the deck got better.
+
+**So the ceiling stands and the limitation is known.** What is NOT refused is
+deriving the bands PER ARCHETYPE rather than pooling 192 precons, which needs
+real decks bucketed by archetype and the repo has none. Do not fix it by
+exempting the archetype from the ceiling: the tribe exemption was that shape and
+was measured and removed (shape 177 -> 181).

@@ -6536,3 +6536,42 @@ spent on narrow conjunctions while those commanders wanted breadth: Sythis
 gains enchantresses 3 -> 5 and loses both "cheap enchantments" and "enchantment
 payoffs". Fix that, and this becomes a one-line change with three named
 beneficiaries.
+
+### The THIRD measurement, and the landscape has moved
+
+Taken because the condition attached to the second refusal — *"fix why a
+shell's packages cost a deck quality"* — was partly met after it: the
+commander's own packages pick FIRST now, which landed later the same day.
+Expressed as one constant, `TYPE_ECHO_WEIGHT` 0.7 -> 0.8, so the echo reaches
+the admission bar.
+
+All three named commanders get the right shell:
+
+    Baral, Chief of Compliance   -> Spellslinger (0.97)
+    Niv-Mizzet, Parun            -> Spellslinger (1.05)
+    Sythis, Harvest's Hand       -> Enchantress (0.73)
+
+    eighteen shells   named IDENTICAL everywhere
+                      Big mana packages    24/28 -> 28/28,  keyed 73% -> 68%
+                      Enchantress packages 24/43 -> 27/43,  keyed 91% -> 92%
+                      Lands matter         24/27 -> 23/27,  keyed 90% -> 92%
+                      Superfriends keyed   78% -> 80%
+    twenty commanders 47/71 -> 48/71 jobs, groups at zero 7 -> 8
+    shape             183/200, unchanged
+    seven-deck roster keyed 63% -> 62%, staples 46/61 -> 47/61
+
+**Nothing like the first two attempts**, which lost jobs outright and sent
+Feather's median rank from 414 to 1,139. This is mixed and leans positive.
+
+**REVERTED ANYWAY, because the stated condition is still not met.** The single
+new group at zero is *"Curiosity effects on Niv and other draw-into-damage
+payoffs"* — on Niv-Mizzet, the commander who just gained the correct shell. That
+is precisely the recorded failure mode: a correct shell's packages take slots
+the commander's own plan would have spent better. The cost is now ONE named job
+on ONE named commander instead of a broad regression, which is a much sharper
+target than the previous two attempts left.
+
+> **What to do next, concretely.** Make a derived shell's packages yield to a
+> commander's own job when they compete, then flip this one constant. The
+> beneficiaries are already counted: 700 commanders carry a `cares:type:*` want
+> and not one of them can currently reach a shell with it.

@@ -7963,6 +7963,63 @@ rewriting it is editorial rather than measured.
 > is 5 of 53. **Two of the three "verbless" packages in the first run were an
 > artefact of the missing normaliser.**
 
+## REFUSED, measured twice: charging a preferred card only for its assigned role
+
+Two independent workflow agents converged on this and it is still wrong.
+
+**The defect is real.** `preferred` cards - Sol Ring, Arcane Signet, Swiftfoot
+Boots, Lightning Greaves, combo pieces, top-end picks - are PLACED before any
+scoring pass runs and they SKIP `overRoleCeiling` at generate.ts:1873, 2369 and
+2740. `carriedCount` counted every role they CARRY, so they spent ceiling they
+were exempt from and never competed for. Boots and Greaves each carry
+`[enhance, protection]`, the placement loop assigns them to `enhance`, and they
+took two of protection's five ceiling slots regardless. On a Syr Vondam blink
+deck the engine said protection was **FULL (5 carried) and 2 SHORT (3
+assigned)** at the same instant, and refused Ghostway, Another Round and
+Scrollshift at package fit 1.000.
+
+**Two versions, both refused:**
+
+    exempt from carriedCount ENTIRELY
+      eighteen shells   keyed +21, packages +3
+      ramp              SIX shells over the p90 of 21, one at 27
+      -> Sol Ring IS ramp and should spend a ramp slot
+
+    charged only for the ASSIGNED role
+      eighteen shells   keyed 1303 -> 1309 (+6), packages +2, named 41 -> 40
+      ramp              0 under the floor, 0 over the p90   <- overshoot fixed
+      Syr Vondam        blink spells 3/13 -> 5/13
+      deck shape        183/200 -> 165/200                  <- REFUSED ON THIS
+
+**The shape number was measured twice, and the second time settles it.** The
+first reading was taken while the database was recovering from an IO outage and
+was rightly distrusted. Re-measured on a healthy instance - baseline 183/200,
+with the fix 165/200, both runs clean with no timeouts - it reproduces exactly.
+Eighteen more decks fall outside the ranges the 192 real decks occupy, and the
+real-deck yardstick outranks six points of commander synergy.
+
+The mechanism is not mysterious: the change hands every deck up to two extra
+ceiling slots in whichever roles its named staples happen to carry, and
+`enhance` and `protection` are the ones Boots and Greaves carry. It buys blink
+spells on one archetype by letting every deck overshoot two roles.
+
+> **What is still unsolved.** The engine genuinely does contradict itself - a
+> role that is FULL by ceiling and SHORT by quota at the same moment - and that
+> is worth fixing on its own terms. The fix is NOT to stop charging the
+> ceiling. It is either to make the two counts agree, or to let a package
+> exempt the one role its own wants definitionally are, which is the agents'
+> other suggestion and is untried. Bound anything like that at
+> `roleFloorCeilingFor`, never at "no ceiling".
+
+## The measurement pass itself must be rationed
+
+Two consecutive `deck-shape-check` runs re-degraded the database on 5 Sep even
+after it had recovered and passed the health gate. A run is twenty builds; the
+gate passing means ONE probe is safe, not a full pass.
+
+    gate    six single-row reads, discard the first, warm median under 0.30 s
+    then    ONE probe, then re-gate
+
 ## `npm run vendor` SILENTLY REVERTS AN EDIT TO A GENERATED COPY
 
 `catalog.ts` cannot live under `src/engine/` - nothing in that tree may open a

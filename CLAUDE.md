@@ -6478,3 +6478,61 @@ generator picks its own shell by cosine. This file already records that
 > statement about READING THE CARD, not a detail of building a plan.** Anything
 > that reads `cares:type:*` as "this commander cares about X" needs it. With it
 > applied the eighteen shells are byte-identical again.
+
+## The twice-refused shell fold is really TWO CONSTANTS THAT CANNOT MEET
+
+This file records the `type:X` / `cares:type:X` fold being tried and measured
+worse **twice**, and both times the diagnosis was a vocabulary mismatch:
+
+    Sythis, Harvest's Hand   loud want  type:enchantment
+    the Enchantress shell    wants      cares:type:enchantment
+
+That is the symptom. The mechanism is arithmetic, and nobody had measured it:
+
+    TYPE_WANT_WEIGHT   0.9    the member want, `type:enchantment`
+    TYPE_ECHO_WEIGHT   0.7    the echo,        `cares:type:enchantment`
+    admission bar      0.8    `shellsForCommander`, `w >= 0.8`
+
+**The echo is BELOW the bar by construction, so it can never admit a shell.**
+Measured over all 3,358 commanders, 5 Sep 2026:
+
+    commanders with any `cares:type:*` want          700
+    ...of those, reaching the 0.8 admission bar        0
+    highest `cares:type:*` weight seen anywhere      0.70
+
+Exactly `TYPE_ECHO_WEIGHT`. No plan rule ever lifts one over the line.
+
+So the fold was a WORKAROUND for a constant, not a fix for a naming problem,
+and renaming was the only way anyone had to express "let this shell hear this
+commander". That is why it kept looking like the obvious answer and kept
+measuring worse.
+
+### What it costs, named
+
+Three well-known Control commanders get **no shell at all**, which means no
+packages — the only machinery in the engine that can say "this card does BOTH
+of these things":
+
+    Baral, Chief of Compliance     loud: type:instant 0.90, type:sorcery 0.90
+                                   echo: cares:type:instant 0.70  <- the shell's
+    Isperia, Supreme Judge         loud: type:planeswalker 0.90
+    Niv-Mizzet, Parun              loud: type:instant 0.90, eff:wheel 0.80
+
+Baral is the archetypal Control commander in Magic and the engine cannot build
+his archetype.
+
+### STILL NOT ATTEMPTED, and deliberately
+
+This file's own instruction stands: *"Do not try this a third time without
+first fixing why a shell's packages cost a deck quality."* Raising the echo to
+the bar, or lowering the bar to the echo, produces the SAME outcome the fold
+produced — Sythis gains Enchantress, Niv-Mizzet gains Spellslinger — and that
+outcome measured worse on both previous attempts (jobs 23 -> 22, Sythis 2/3
+jobs -> 1/3, Feather's median rank 414 -> 1,139).
+
+**The next attempt should start from the packages, not the constants.** The
+recorded reason a correct shell costs quality is that its package budget is
+spent on narrow conjunctions while those commanders wanted breadth: Sythis
+gains enchantresses 3 -> 5 and loses both "cheap enchantments" and "enchantment
+payoffs". Fix that, and this becomes a one-line change with three named
+beneficiaries.

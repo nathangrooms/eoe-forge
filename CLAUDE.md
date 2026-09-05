@@ -6683,3 +6683,48 @@ The shell budget was never the mechanism.
 > rather than a louder want. `strategiesFor` already has one: it matches a facet
 > the commander CARRIES, at a weight below a tag. `shellsForCommander` is where
 > that idea belongs next, and it is untried.
+
+## FIFTH refusal, and the reason all five look the same
+
+The route recorded as untried — admit a shell on a facet the commander CARRIES,
+the way `strategiesFor` does, touching no want weight — was built and measured.
+It works as designed:
+
+    Baral, Chief of Compliance   no shell  ->  Spellslinger (0.87), Control (0.31)
+    Isperia, Supreme Judge       no shell  ->  Superfriends (0.51), Control (0.31)
+    Niv-Mizzet, Parun            no shell  ->  Spellslinger (0.95), Aggro (0.70)
+
+    derived benchmark   49/71 jobs -> 48/71, [NONE] groups 6 -> 7
+
+Reverted, and the revert restores 49/71 and 6 exactly, so the attribution is
+sound.
+
+### The instrument can only see the COST of admitting a shell
+
+Five attempts, three mechanisms — the naming fold, the want weight, the carried
+facet — and every one costs benchmark jobs:
+
+    the fold           jobs 23 -> 22, Sythis 2/3 -> 1/3
+    the fold again     Feather median rank 414 -> 1,139
+    the constant       +1 job, +1 zero group
+    constant + yield   +1 job, [NONE] 6 -> 10
+    carried facet      -1 job, [NONE] 6 -> 7
+
+**That is not five coincidences. `commander-benchmark.json`'s job groups are the
+COMMANDER'S OWN jobs**, typed for that commander — "Curiosity effects on Niv",
+"payoff for going wide". A shell's packages spend slots on the ARCHETYPE'S jobs.
+So admitting a shell always trades the one for the other, and the benchmark
+scores only the side that loses.
+
+**The benefit is invisible to every instrument in this repo.** A Control deck
+being recognisably a Control deck is not a commander job, and the eighteen-shell
+probe cannot see it either, because that probe NAMES the shell — the case where
+admission is not in question.
+
+> **What is actually needed before a sixth attempt: an instrument that scores a
+> DERIVED build for archetype coherence.** `strategy-decks.mjs` measures the
+> right thing (the shell's own cards and packages held) on the wrong input (a
+> named shell). The same measurement on a build that names nothing, over
+> commanders whose archetype is not in doubt — Baral, Isperia, Talrand, Sythis —
+> would show what these five attempts bought, and every one of them was
+> abandoned on a number that could only show what they cost.

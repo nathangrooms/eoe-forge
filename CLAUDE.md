@@ -5897,3 +5897,78 @@ The root cause is that the four exemplars share nothing else meaningful, and
 Mirri's Guile is not an enchantress payoff at all. **Fixing it means editing the
 exemplar list, which is editorial rather than measured**, so it is written down
 here rather than guessed at.
+
+## REVERTED: the strict majority. Two of four is signal in one package and noise in another
+
+The section above ships `n * 2 > cards.length` for a package want and reports
+bench jobs 47 -> 49, zero groups 6 -> 4 and staples 46/61 -> 53/61. **It is
+reverted.** Measured against the one EXTERNAL yardstick in this repo - Syr
+Vondam built as Blink, scored against two human-built decks the owner linked:
+
+    half              26/92   blink engines 5/17   worth blinking 4/30
+    strict majority   17/92   blink engines 1/17   worth blinking 2/30
+
+It loses Conjurer's Closet, Restoration Angel, Icewind Stalwart and
+Distinguished Conjurer - the cards that ARE the archetype.
+
+### Why the count cannot settle it
+
+    "The payoff"            Sigil of the Empty Throne, Starfield of Nyx,
+    (Enchantress)           Eidolon of Blossoms, Mirri's Guile.
+                            Starfield and Mirri's Guile both happen to trigger
+                            on upkeep, for unrelated reasons. `trig:step:upkeep`
+                            at 2/4 became a requirement. Filled 1 of 9.
+
+    "Doubling the arrival"  Panharmonicon, Brago, Charming Prince, Felidar
+    (Blink)                 Guardian. `eff:exile-own`, `eff:return-from` and
+                            `cares:zone:exile` are ALL 2/4, all from Brago and
+                            Felidar Guardian, and together they ARE blinking.
+
+Same threshold, opposite truth. Raising the bar leaves the blink package with
+only `type:creature` at 3/4, so it asks for "a creature" and fills 9 of 9 with
+**Blood Artist, Zulaport Cutthroat and Mirkwood Bats**.
+
+### The disagreement is the finding, not a problem to tune away
+
+The internal yardsticks all IMPROVED under the change: bench jobs +2, zero
+groups -2, staples +7. That is not a contradiction, it is the mechanism stated
+in numbers. **A broader package want matches more cards, so "jobs done by
+capability" and "format staples" both rise while the deck fills with generic
+good cards** — which is the owner's original complaint, measured.
+
+> **When an internal metric and the human decks disagree, the human decks win.**
+> `commander-bench` job lists and `REAL_DECK_ROLES` are ours; the two Vondam
+> decks are not. A change that makes our own scoreboard easier and the external
+> comparison worse is a change that made the deck worse.
+
+Like for like across this session, at the pre-session commit `f4d9a12`:
+
+    Syr Vondam + Blink   23/92 -> 26/92, blink engines 3/17 -> 5/17
+
+The 31/92 recorded on 4 Sep does not reproduce at this probe and was not chased;
+23 -> 26 is the measurement taken today, both arms in the same run.
+
+**"The payoff" filling 1 of 9 stands.** Its exemplar list is the fault -
+Mirri's Guile is not an enchantress payoff - and an honest 1 of 9 beats filling
+it with Austere Command and Farewell, which destroy the deck's own enchantments.
+
+## REFUSED, measured: a guard against a deck holding the answer to its own type
+
+The obvious follow-on. Every card that ANSWERS a type carries the same
+`cares:type:X` as every card PAID for it, so an Enchantress package pulled in
+Austere Command and Farewell. The signal is clean - `cares:type:X` plus
+`eff:destroy`/`eff:exile` plus `scope:all` and NOT `type:X` - and the population
+is 465 cards: creature 246, artifact 85, enchantment 58, land 57, planeswalker
+19.
+
+**It is not worth a guard, because it barely happens.** Built four decks on the
+four type shells and counted mass answers to their own type:
+
+    Sythis + Enchantress      2   Austere Command, Farewell
+    Ragavan + Artifacts       0
+    Tatyova + Lands matter    0
+    Tekuthal + Superfriends   0
+
+Two cards in one of four decks, and both arrived through the strict-majority
+change that is now reverted. A third `ATTACKS` entry needs a check in SEVEN
+passes; this does not earn it. Revisit only if a probe shows it reaching decks.

@@ -2972,6 +2972,41 @@ export const PLAN_RULES: readonly {
   },
   {
     /*
+     * A COMMANDER PAID WHEN ANOTHER OF YOUR CREATURES LEAVES THE BATTLEFIELD
+     * WANTS TO SEND THEM AWAY ON PURPOSE. That is blink.
+     *
+     * `trig:leaves-other` exists because the compiler learned to read a genuine
+     * two-event trigger — "whenever another creature you control DIES OR IS PUT
+     * INTO EXILE" — which refused to parse at all until 5 Sep 2026 and took the
+     * whole ability down with it. Syr Vondam, Sunstar Exemplar compiled to two
+     * keywords and nothing else.
+     *
+     * THE WHOLE POINT IS THAT THIS IS A FACET AND NOT ENGLISH. An intent rule
+     * for his exile half already existed, written for him by name, and it could
+     * never win: intent wants are scaled to 0.65 when the rest of the plan is
+     * thick, so `eff:exile-own` asked for 0.85 and arrived at 0.55, under the
+     * aristocrats half's 0.90 and 0.85. Raising that scale was measured and
+     * moved his deck by ZERO cards. A want has to be a facet want to compete
+     * with facet wants.
+     *
+     * `trig:leaves-OTHER`, never the bare facet: God-Eternal Oketra's "when ~
+     * dies or is put into exile, put it into its owner's library third from the
+     * top" is a card protecting ITSELF and says nothing about the deck. The
+     * direction split is the same one `trig:enters-self`/`-other` already makes.
+     *
+     * Narrow by design — one card in the 4,000 most played carries it, and
+     * Vondam is at 4,650. It is correct rather than broad, which is the same
+     * ground `eff:bounce-own` stands on at sixteen commanders.
+     */
+    when: 'trig:leaves-other',
+    wants: [
+      { facet: 'eff:exile-own', weight: 0.85 },
+      { facet: 'trig:enters-self', weight: 0.75 },
+      { facet: 'eff:return-from', weight: 0.6 },
+    ],
+  },
+  {
+    /*
      * A COMMANDER THAT MAKES SPELLS CHEAPER WANTS EXPENSIVE SPELLS.
      *
      * Animar, Soul of Elements is the case that made this necessary and it is
@@ -4186,6 +4221,13 @@ const TAG_TO_FACET: Readonly<Record<string, Facet>> = {
 /** Turn a commander facet into a clause. Built from the facet, never invented. */
 function describeFacet(facet: Facet): string {
   if (facet === 'trig:tapped-for-mana') return 'is paid every time you tap something for mana';
+  /* Naming the exile is the whole point: it is the half of the card the
+     compiler could not read until the two-event trigger rule, and it is why a
+     blink deck is a correct reading of this commander at all. A sentence that
+     said only "leaves the battlefield" would be true and would not explain
+     itself, and `commanderStrategies.test.ts` asserts on exactly that word. */
+  if (facet === 'trig:leaves-other')
+    return 'is paid when another creature you control leaves the battlefield, including when it is exiled';
   if (facet === 'eff:proliferate') return 'proliferates';
   if (facet === 'eff:add-counters') return 'puts counters on things';
   if (facet === 'eff:create-token') return 'makes tokens';

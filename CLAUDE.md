@@ -7095,3 +7095,82 @@ Reverted, and the revert restores 51/71 with 8 zero groups and 182/200 exactly.
 > exile" — 198 cards carry a genuine dual-event trigger, 38 of them in the top
 > 4,000, and the DSL already has `{on:'leaves'}` and returns two events for
 > "enters or attacks". That is a grammar rule, not a weight.
+
+## Compiler 23: a genuine two-event trigger, and Syr Vondam's blink half became a FACET
+
+The owner: *"deck quality is nowhere near where it needs to be on syr vondom,
+meaning its likely the same issues with every other commander too."*
+
+His card reads *"whenever another creature you control **dies or is put into
+exile**"*. That head did not parse, and **a trigger head that does not parse
+fails the WHOLE ability**, so the most played half of his card compiled to
+nothing and he arrived with two keywords and no abilities at all.
+
+### It was never a missing verb. The machinery was all there
+
+    the DSL already had     { on: 'leaves', who, from: 'battlefield' }
+    the parser already returned TWO events for "enters or attacks"
+    `~ leaves the battlefield` already compiled to exactly that event
+
+Only this WORDING could reach neither. One rule, mirroring the existing subject
+handling exactly, and 35 of the 39 cards carrying the phrasing now compile a
+two-event trigger — Stitcher's Supplier, Kaya's Ghostform, Daxos, Ashen Rider,
+Mogg War Marshal, the God-Eternal cycle, Ilharg. Read as a player, all correct.
+
+**198 cards in the catalogue carry a genuine dual-event trigger, 38 in the top
+4,000.** The rest of the 166 that `_dualtrig.mjs` counts are comparisons wearing
+the same word — "power 4 or greater" — and are untouched.
+
+### `trig:leaves` splits by direction, like `trig:enters` already did
+
+    God-Eternal Oketra   "when ~ dies or is put into exile, put it into its
+                          owner's library third from the top"   -> leaves-SELF
+    Syr Vondam           "whenever ANOTHER creature you control ..."  -> leaves-OTHER
+
+A plan rule on the bare facet would hand the God-Eternal cycle a blink deck.
+144 cards carry `trig:leaves-self`, **2 carry `trig:leaves-other`** — narrow by
+design, correct rather than broad, the same ground `eff:bounce-own` stands on.
+
+### Why a facet and not the English rule that already existed
+
+An intent rule for his exile half existed, written for him BY NAME, and could
+never win. Intent wants are scaled to 0.65 when the rest of the plan is thick,
+so `eff:exile-own` asked for 0.85 and arrived at 0.55, under the aristocrats
+half's 0.90 and 0.85. **Raising that scale was measured the same day and moved
+his deck by ZERO cards.** A want has to be a facet want to compete with facet
+wants:
+
+    before   eff:add-counters 0.90  cost:sacrifice 0.85  ...  eff:exile-own 0.55
+    after    cost:sacrifice 0.85    eff:exile-own 0.85       trig:enters-self 0.75
+
+Both halves loud, both from the record. `eff:add-counters` is gone because the
+fresh compiler emits `eff:add-counters-self` — he grows HIMSELF, he is not a
+Hardened Scales deck, which is the 3 Sep split working as intended.
+
+### Measured
+
+    Syr Vondam + Blink        ways to blink 8 -> 9, arrivals worth repeating
+                              20 -> 24, blink engines 5/17 -> 6/17, and the
+                              deck now holds WALL OF OMENS and SPIRITED
+                              COMPANION, which are what "worth blinking" means
+                              total against two human decks 26/92, unchanged
+
+    catalogue-wide, 33,036 cards recompiled
+      eighteen shells         ONE row moved: Value engine keyed 53% -> 51%.
+                              Named, packages and ramp identical everywhere
+      twenty commanders       51/71 jobs, 8 zero groups, IDENTICAL
+      shape vs 192 real decks 182/200 -> 183/200
+      read the whole card     11,090 -> 11,108
+
+> **The overlap total did not move and the deck is better.** That is the probe's
+> own warning working as designed: overlap rewards copying and punishes a
+> different-but-correct card. Teleportation Circle and Felidar Guardian came in,
+> Conjurer's Closet went out; the capability counts are the ones that moved.
+
+### The version dance, done in full
+
+Writer bumped to 23 and deployed, refilled 33,036 rows, BOTH readers moved —
+`public.facets(cards_unique)` and the `cards_pool` join — the matview rebuilt
+ALONGSIDE and swapped in one transaction with rows, columns, indexes and ACL
+verified identical first, then `vacuum (analyze)` as its OWN statement. 21 and
+22 are still held as the rollback.

@@ -337,6 +337,49 @@ export function parseTriggerEvent(phrase: string, ctx: BuildCtx): TriggerEvent[]
     }
   }
 
+  /* --- "<subject> dies OR is put into exile" and "<subject> enters or dies" ---
+     A GENUINE TWO-EVENT TRIGGER, which the DSL has always been able to hold:
+     `orAnother` above already returns two events for "enters or attacks", and
+     `{on:'leaves', who, from:'battlefield'}` is already produced for "~ leaves
+     the battlefield". Only this WORDING could not reach either.
+
+     It is worth its own rule because the refusal is total. A trigger head that
+     does not parse fails the WHOLE ability, so Syr Vondam, Sunstar Exemplar -
+     "whenever another creature you control dies or is put into exile" - compiled
+     to nothing but his two keywords, and the blink half of his card reached the
+     deck only as a discounted English guess. Raising that discount was measured
+     and changed his deck by zero cards; the half needs to be a FACET.
+
+     Measured 5 Sep 2026: 198 cards in the catalogue carry a genuine dual-event
+     trigger of this shape, 38 of them in the 4,000 most played. "dies or is put
+     into exile" is 10 cards, "enters or dies" 29.
+
+     `is put into exile` is `leaves` FROM THE BATTLEFIELD, not a bare exile: the
+     card is on the battlefield and goes to exile, which is exactly what blinking
+     it does. The optional "from the battlefield" tail is the God-Eternal cycle's
+     wording for the same event. */
+  const twoEvents = p.match(
+    /^(?:(?:a|an|another|one or more) )?(.+?) (dies or is put into exile|is put into exile or dies|enters or dies|dies or enters)(?: from the battlefield)?$/,
+  );
+  if (twoEvents) {
+    const who = triggerSubject(
+      /^(?:a|an|another|one or more) /.test(p) && /^another /.test(p)
+        ? 'another ' + twoEvents[1]
+        : twoEvents[1],
+    );
+    if (!who) return null;
+    const dies = { on: 'dies', who } as const;
+    const leaves = { on: 'leaves', who, from: 'battlefield' } as const;
+    const enters = { on: 'enters', who } as const;
+    switch (twoEvents[2]) {
+      case 'enters or dies':
+      case 'dies or enters':
+        return [enters, dies];
+      default:
+        return [dies, leaves];
+    }
+  }
+
   /* --- any other subject: another permanent, a group, an Aura's host ---
          `triggerSubject` owns the vocabulary, so "another creature you control
          dies", "a creature you control attacks" and "equipped creature attacks"

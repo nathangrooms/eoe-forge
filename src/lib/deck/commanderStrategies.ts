@@ -471,12 +471,19 @@ export function strategiesFor(commander: StrategyCommander | null | undefined): 
       if (!shell) continue;
 
       let best = 0;
+      let wantBest = 0;
       let synergy = '';
       for (const facet of signal.facets) {
         const hit = wantWeight.get(facet);
-        if (hit && hit.weight > best) {
-          best = hit.weight;
-          synergy = hit.because;
+        if (hit) {
+          /* The sentence is taken from the strongest WANT that matched, even
+             when a carried facet scores higher: a want carries the reason the
+             plan actually derived, and a carried facet carries none. */
+          if (!synergy || hit.weight > wantBest) {
+            wantBest = hit.weight;
+            synergy = hit.because;
+          }
+          if (hit.weight > best) best = hit.weight;
         }
         /*
          * AND WHAT THE COMMANDER DOES, not only what it wants.
@@ -504,7 +511,22 @@ export function strategiesFor(commander: StrategyCommander | null | undefined): 
          */
         if (facets.has(facet) && CARRIED_WEIGHT > best) {
           best = CARRIED_WEIGHT;
-          synergy = signal.fallback;
+          /*
+           * THE SCORE COMES FROM THE CARRIED FACET, THE SENTENCE DOES NOT.
+           *
+           * `signal.fallback` is a generic line — "This commander is paid when
+           * creatures leave and come back" — and writing it here overwrote the
+           * engine's own reasoning whenever a want ALSO matched. Syr Vondam
+           * wants `eff:exile-own` at 0.85 with the sentence "is paid when
+           * another creature you control leaves the battlefield, including when
+           * it is exiled", and because `CARRIED_WEIGHT` is 0.9 the fallback won
+           * and the player was told the template instead.
+           *
+           * `commanderStrategies.test.ts` asserts on exactly this — "the reason
+           * shown to a player has to be the reason the engine actually had" —
+           * and it caught it.
+           */
+          if (!synergy) synergy = signal.fallback;
         }
       }
 

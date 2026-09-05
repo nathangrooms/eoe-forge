@@ -1261,6 +1261,31 @@ function readTriggerDirection(
     else if (who) out.add('trig:enters-other');
     return;
   }
+  /*
+   * `leaves` SPLITS THE SAME WAY, and for the same reason `enters` does.
+   *
+   * A card leaving the battlefield is two completely different statements
+   * depending on whose it is, and the two want opposite decks:
+   *
+   *   God-Eternal Oketra   "when ~ dies or is put into exile from the
+   *                         battlefield, put it into its owner's library third
+   *                         from the top" - a card protecting ITSELF, and it
+   *                         says nothing about what the deck should hold
+   *   Syr Vondam           "whenever ANOTHER creature you control dies or is
+   *                         put into exile, put a +1/+1 counter on him" - the
+   *                         deck is built on sending your own creatures away
+   *                         and bringing them back, which is blink
+   *
+   * A plan rule keyed on a bare `trig:leaves` would hand the God-Eternal cycle
+   * a blink deck. The base facet is still emitted, so anything reading
+   * `trig:leaves` today is untouched.
+   */
+  if (event.on === 'leaves') {
+    const who = (event as { who?: { sel?: string } }).who?.sel;
+    if (who === 'self') out.add('trig:leaves-self');
+    else if (who) out.add('trig:leaves-other');
+    return;
+  }
   if (event.on === 'step') {
     const step = (event as { step?: string }).step;
     if (typeof step === 'string' && step) out.add(`trig:step:${step.replace(/_/g, '-')}`);

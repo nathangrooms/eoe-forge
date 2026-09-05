@@ -6820,3 +6820,46 @@ So the shell-admission trade recorded above stands as it was measured. Its shape
 cost is two decks one card under a floor the generator never targeted, and
 closing that gap by clamping is now a measured dead end rather than an untried
 idea.
+
+## SIXTH and final refusal: shell admission costs 5 points of commander synergy
+
+The trade was quantified last round but only on instruments that see twenty
+commanders. Taken to the broadest one — the DEPLOYED random sweep, forty
+commanders nobody chose, which names no archetype and so builds derived shells —
+with a same-session baseline and a verified revert:
+
+    baseline (production)        keyed median 71%   80%+ decks 13
+    carried-facet admission      keyed median 66%   80%+ decks  9
+    after reverting              keyed median 71%   80%+ decks 13
+
+Every gate held at 40/40 both ways. **The revert restores the number exactly, so
+the attribution is sound** — which matters, because the same measurement fooled
+me twice earlier today when a `cards_pool` refresh moved it instead.
+
+### The whole ledger, six attempts
+
+    the naming fold          jobs 23 -> 22, Sythis 2/3 -> 1/3
+    the fold again           Feather median rank 414 -> 1,139
+    the echo constant        +1 job, +1 zero group
+    constant + budget yield  +1 job, [NONE] groups 6 -> 10
+    carried facet, local     archetypes 7/10 -> 10/10, jobs 49 -> 48, shape -2
+    carried facet, DEPLOYED  keyed 71% -> 66%, strongly-on-theme decks 13 -> 9
+
+**The benefit is real and so is the cost, and they are different currencies.**
+Three commanders gain the archetype they plainly are. Forty commanders lose five
+points of the thing the owner has complained about most: *"the deck doesn't feel
+like mine"*. A shell's packages spend slots that would otherwise go to cards the
+commander itself wants, and at forty-commander scale that shows up as keyed
+synergy falling.
+
+> **This is the sixth measurement and the question is closed on the mechanism as
+> it stands.** Baral cannot reach Control by admitting more shells, because
+> every route to admission spends the commander's own slots. Reaching him needs
+> a shell whose packages do NOT compete with the commander's plan — a Control
+> shell built from what a Control commander already wants, rather than from
+> twelve exemplar cards — and that is a change to `archetypeShells.ts`, not to
+> admission. Nothing in six attempts has touched that.
+
+`scripts/probe/derived-archetype.mjs` stays: 7/10 is the standing number, and it
+is the only instrument that can score the benefit when somebody builds that
+shell.

@@ -7452,3 +7452,62 @@ deriving the bands PER ARCHETYPE rather than pooling 192 precons, which needs
 real decks bucketed by archetype and the repo has none. Do not fix it by
 exempting the archetype from the ceiling: the tribe exemption was that shape and
 was measured and removed (shape 177 -> 181).
+
+## Asking for Tribal BY NAME built no tribe (5 Sep 2026)
+
+The Tribal shell's own cards are the lords, banners and Coat of Arms that work
+for ANY tribe, because the tribe is different for every commander and no
+shell's exemplars can name it. So the shell buys the SCAFFOLDING and something
+else has to buy the TRIBE. That something is `withTribePackage`, which states
+`The angels` outright, wanting `sub:angel` and `type:creature`.
+
+**It was built inside the DERIVED branch only** - the path taken when no
+archetype is named. Naming Tribal takes the other branch, so it never ran.
+
+Giada, Font of Hope, named tribal, before. Three packages, 23 cards, and not one
+Angel in any of them:
+
+    Paid for the type 9/9   Herald's Horn, Urza's Incubator, Metallic Mimic,
+                            Patchwork Banner, Vanquisher's Banner
+    The lords 5/9           Obelisk of Urd, Pillar of Origins, Progenitor's Icon
+    Ending it 9/9           Springleaf Drum, Myr Reservoir, Exploding Barrel
+
+**So choosing the strategy BY NAME gave a worse deck than not choosing it**,
+which is the owner's repeated complaint about named strategies in its purest
+form. The comment above the block documents the exact failure it was written to
+fix, "4 Angels of 20", and Giada was sitting at 5 of 20 next to it.
+
+    eighteen shells    Tribal jobs 22/27 -> 29/36, keyed 53% -> 56%
+                       the other seventeen BYTE-IDENTICAL
+    deck shape         183/200 unchanged      roster unchanged
+    twenty commanders  48/71 -> 47/71
+
+    DEPLOYED, archetype=tribal
+      Giada       9 Angels    Lyra Dawnbringer, Emeria Angel, Karmic Guide
+      Edgar      14 Vampires  Elenda, Bloodghast, Yahenni, Indulgent Aristocrat
+      Lathliss   16 Dragons   Goldspan Dragon, Ancient Copper Dragon
+
+**The bench cost is real: Edgar gains two Vampires and loses Skullclamp**, so
+his "payoff for going wide" falls 2/2 to 1/2. One card in one deck against a
+decisively more tribal result on every tribal commander. A metric that counts
+JOBS cannot see that 23 of the cards it was counting were scaffolding with no
+tribe underneath.
+
+> **The lens.** Not a probe. A tribal commander holding five Angels, then
+> reading the build log rather than the summary row. The log names every card
+> each package took, and all 23 were colourless.
+
+**And the instrument was wrong first, twice, before the product was.**
+`_tribe.mjs` spread a raw PostgREST row into `planForCommander`, which reads
+`typeLine` and got `undefined` from a row carrying `type_line`, so it reported
+`tribe = null` for Giada, Edgar AND Lathliss. That is the camelCase trap this
+file already records for `oracleText`. I then went looking for a mangled
+em-dash in `tribeOf` - both literals are U+2014 and so is the data. **Tribe
+detection was correct the whole time.**
+
+**REFUSED, measured: a smaller share for the named path.** The named shell
+already takes `ARCHETYPE_SLOT_SHARE_CHOSEN` (0.45) against the derived 0.35, so
+a 0.34 package on top plausibly overpays. 0.34 and 0.25 measure IDENTICALLY on
+every number, Edgar included. Fifth weight sweep on this project to move
+nothing, and one more instance of METHOD rule 1: if a sweep barely moves the
+number, the knob is not the cause. One share, both paths.

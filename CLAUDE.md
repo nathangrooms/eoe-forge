@@ -7511,3 +7511,52 @@ a 0.34 package on top plausibly overpays. 0.34 and 0.25 measure IDENTICALLY on
 every number, Edgar included. Fifth weight sweep on this project to move
 nothing, and one more instance of METHOD rule 1: if a sweep barely moves the
 number, the knob is not the cause. One share, both paths.
+
+## A package could not ask for a card TYPE, so Superfriends bought no planeswalkers
+
+`ARCHETYPE_WANT_PREFIXES` is `eff: cares: trig: cost: ctr: tok:`. **No `type:`**,
+so no shell package can ask for a card type. Superfriends' "The walkers" is four
+planeswalkers - Teferi, Ugin, Karn Liberated, Narset - and the only facets all
+four share are `type:legendary` and `type:planeswalker`, both unsayable. It
+could ask only for the three-of-four incidental agreement, `eff:exile` and
+`acost:0`, and bought this:
+
+    The walkers 2/9   Kozilek's Command, Scrabbling Claws
+
+Scrabbling Claws carries `acost:0` and `eff:exile` and scores **exactly 0.60**
+on `packageFit`, which is `PACKAGE_MATCH` to two decimals, while missing the one
+facet that makes a card a planeswalker.
+
+**DERIVING THE TYPE WAS MEASURED WORSE, TWICE:**
+
+    type: at any share            keyed 1149 -> 1112 (-37)
+                                  Aggro 28/29 packages -> 16/29
+    type: only when UNANIMOUS     keyed 1205 -> 1181 (-24)
+                                  Big mana -8, Tokens -8, Tribal -5
+    DECLARED on the one package   keyed 1205 -> 1202 (-3), ONE shell moved
+
+A type three of four exemplars happen to share is a coincidence, and four cards
+is too small a sample to tell that from a subject - the same argument the
+strict-majority note already makes about every other facet. So `subject` is a
+field on the package, declared by the shell author, set only where the type
+genuinely is the job.
+
+    Superfriends   packages 20/27 -> 25/27, keyed 78 -> 75, ramp 16 -> 14
+                   The walkers 2/9 -> 9/9
+    seventeen shells BYTE-IDENTICAL   shape 183/200   bench 47/71   3,358 tests
+
+    DEPLOYED   Tekuthal 10 planeswalkers, Atraxa 8 - The Wandering Emperor,
+               Liliana Dreadhorde General, Vraska Golgari Queen
+
+**The other fifteen type-unanimous packages were read before any rule was
+written**, and a blanket rule would have been wrong about most of them:
+`type:enchantment` on Voltron's "The suit" bars every Equipment, `type:artifact`
+on "Keeping it alive" bars every protection spell, and Tribal's "The lords" is
+unanimous on `type:artifact` because its four exemplars are Obelisk of Urd and
+friends - so requiring it would bar the actual creature lords. **That last one
+is a defect in the shell's card list, not in the rule**, and is worth fixing.
+
+> **The 18-shell probe is DETERMINISTIC.** Two runs of identical code differ on
+> 0 of 18 shells, keyed 1181 both times. Checked because a -24 reading was about
+> to be acted on, and this file records four separate occasions where the
+> instrument was the fault.

@@ -7669,12 +7669,38 @@ Reverted. Fixing one named card for nineteen points of commander synergy across
 the strategy space is the trade this project keeps refusing, and the same shape
 as the ceiling and the shell-admission experiments.
 
-> **What a real fix needs.** The problem is not the rank line, it is that
-> `planFit` cannot say WHICH want a card serves. A package asks for a
-> conjunction and then ranks on fit against the WHOLE plan, so a card matching
-> the package's own two wants plus two unrelated ones outranks the card that is
-> exactly the package. Scoring a package candidate on `packageFit` alone -
-> which is already computed, and IS the conjunction - rather than on plan fit
-> is the untried shape. It was not tried here because the ordering key and the
-> gate would then be the same number, and every candidate that clears the gate
-> would tie.
+### CORRECTION, same day: the package fill was never the cause
+
+The paragraph that stood here said "a package asks for a conjunction and then
+ranks on fit against the WHOLE plan" and named scoring on `packageFit` as the
+untried fix. **Both halves are wrong.** The package fill's `entry.fit` IS
+`packageFit(card, pkg.wants)` and always was, so it already ranks on the
+conjunction. The 0.900 and 0.921 quoted above are `planFit`, which is what my
+probe computed and is NOT the number that pass uses.
+
+What actually happens, from the build log rather than from reading the code:
+
+    creatures that draw cards 2/2   Esper Sentinel, BEAST WHISPERER
+    round 1: Beast Whisperer out (6.8, weak fit) for Aftermath Analyst (7.9)
+    round 2: Phyrexian Metamorph out for Pollywog Symbiote (7.3)
+
+**The package took Beast Whisperer. The REVIEW ROUNDS cut it**, and a later
+round brought Pollywog in for a different card. So this is the review-round
+behaviour this file already documents twice, not a ranking fault in the
+package fill, and the staple-tier experiment above was aimed at the wrong pass -
+which is why it cost 19 keyed points to fix one card.
+
+**And the swap is defensible.** Chulane HIMSELF draws a card whenever you cast
+a creature, so Beast Whisperer is redundancy for an effect the commander
+already provides, while Aftermath Analyst returns lands and Chulane puts a land
+onto the battlefield free every trigger. The bench job "more card draw off
+casting or landing a creature" is asking for redundancy the deck does not need.
+
+Protecting package placements from the rounds is NOT untried either: package
+picks carry `bucket: 'commander'`, so a guard on them is the blanket ban this
+file already measured at 45/71 jobs and nine dead groups.
+
+> **The lens.** I read the code and wrote a diagnosis from it. The build log
+> named the pass in one line and said something different. This file already
+> records that rule - "read what the deck says about a card before
+> instrumenting the code that put it there" - and I did it in the wrong order.

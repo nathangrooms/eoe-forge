@@ -7259,3 +7259,48 @@ through rather than leaving the deck short.
 > rank-500 one. Tightening it is a weight change on a constant shared with the
 > floors and the optimiser, so it wants its own measurement rather than a nudge
 > here.
+
+## The blink package takes rank 6,097 over rank 960, and the cause is the noisy-OR again
+
+After compiler 23 Syr Vondam's Blink packages all fill completely — 30 cards,
+10/10 in each of "The blinks", "Things worth blinking" and "Doubling the
+arrival". He IS getting a blink deck now. What he is not getting is the RIGHT
+blink cards:
+
+    taken                          not taken
+    Eldrazi Confluence   2,666     Eerie Interlude    960   <- rank 960
+    Elesh Norn           4,137     Ghostway         3,359
+    Kaya the Inexorable  6,097     Scrollshift      5,191
+
+**All three of the missing ones carry `eff:exile-own`** — checked, they are
+visible to the engine, and Scrollshift is `rec:full` with
+`eff:exile-own`, `eff:return-from` and `cares:zone:exile`. They are not blind
+spots. They lost inside a package that was already full.
+
+The suspect is `PACKAGE_MATCH`, the gate for "does this card do the job".
+Eerie Interlude does ONE thing — exile your creatures and bring them back — and
+carries two facets. Eldrazi Confluence and Elesh Norn carry more, and `planFit`
+is a noisy-OR, so **a card matching several package wants weakly outranks the
+card that IS the package's job.** This file records the identical fault in the
+reserve pass and in the flex pass, and both were fixed by ordering on something
+other than the score.
+
+> **This is the sharpest remaining lead on deck quality and it is not measured
+> yet.** The next session should print what `PACKAGE_MATCH` scores for Eerie
+> Interlude against Eldrazi Confluence in "The blinks" package before changing
+> anything: if the cheap correct card is failing the GATE, the gate is wrong; if
+> it is clearing the gate and losing the ORDER, the order is wrong, and those
+> want different fixes.
+
+### And Moxfield now returns 403 to any automated read
+
+The owner linked five decks on 5 Sep 2026, three of them new. **All return HTTP
+403 Forbidden**, so they cannot be read programmatically, and that is not to be
+worked around — it is their access control and this file's rule already says do
+not write a scraper. The two decks already in `vondam-benchmark.json` were
+obtained before that and stand.
+
+**To add a deck to the benchmark, the card list has to be pasted in.** Moxfield's
+own export produces plain text, and card names are facts about what is in a deck
+rather than anything authored, which is the same ground the existing two stand
+on.

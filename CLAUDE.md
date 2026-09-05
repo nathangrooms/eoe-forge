@@ -6728,3 +6728,51 @@ admission is not in question.
 > commanders whose archetype is not in doubt — Baral, Isperia, Talrand, Sythis —
 > would show what these five attempts bought, and every one of them was
 > abandoned on a number that could only show what they cost.
+
+## The missing instrument exists now, and it makes the trade visible
+
+`scripts/probe/derived-archetype.mjs`. It builds with **NO archetype named**, on
+ten commanders whose archetype no Commander player would argue about, and asks
+which shell the engine chose for itself.
+
+    7/10 built as the archetype the commander plainly is
+
+    Baral, Chief of Compliance   (none)         WRONG
+    Niv-Mizzet, Parun            (none)         WRONG
+    Sythis, Harvest's Hand       (none)         WRONG
+    Talrand / Tatyova / Azusa / Meren / Brago / Krenko / Edgar    all correct
+
+The three failures are exactly the commanders the five refused attempts were
+trying to reach. **This is the first time the gap has been measured as anything
+other than a cost.**
+
+> ⚠️ **The derived shell is announced on the CONSOLE, not in the response.** The
+> result carries `deck`, `commander`, `totals`, `analysis`, `changeLog` and
+> `validation`, and not one of them says which shell the engine picked. The
+> first version of this probe parsed `changeLog` and reported `(none)` ten times
+> out of ten — a perfect score for a broken instrument. It captures `console.log`
+> around the build instead.
+
+### The trade, both sides, for the first time
+
+Re-measuring the fifth attempt — admit a shell on a facet the commander CARRIES —
+against the instrument built to see it:
+
+    derived-archetype   7/10 -> 10/10 correct, and the archetype's own cards
+                        held rises: Baral 1/12 -> 4/12, Sythis 1/12 -> 3/12
+    derived benchmark   49/71 -> 48/71 jobs, groups at zero 6 -> 7
+    shape vs real decks 183/200 -> 181/200  (creature 3 -> 4 decks outside,
+                        removal 1 -> 2; both single-deck drifts)
+    named benchmark     47/71, 7 zero groups, unchanged
+    seven-deck roster   keyed 62%, staples 46/61, unchanged
+
+**NOT SHIPPED, and this is a genuinely close call rather than a clear refusal.**
+The standing rule is that a deck is good when it measures well against REAL
+decks, and `deck-shape-check` IS that yardstick — it went down by two. The new
+instrument's expectations are typed from knowledge, like the benchmark's job
+lists: legitimate, but not real decks.
+
+So the sixth attempt now has what the first five lacked: **a number on the
+benefit.** Three commanders gaining their actual archetype against one commander
+job, one dead group and two single-deck role drifts. The next person to weigh
+this can weigh it, instead of only seeing what it costs.

@@ -776,7 +776,41 @@ const GRANTED_PROTECTION: ReadonlySet<string> = new Set([
 function facetRoleQualifies(role: Role, facets: readonly Facet[]): boolean {
   // A land taps for mana; that is not ramp, it is a land, and crediting it
   // would re-open the land quota inside the spell passes.
-  if (role === 'ramp') return !facets.includes('type:land');
+  if (role === 'ramp') {
+    if (facets.includes('type:land')) return false;
+    /*
+     * PUTTING A PERMANENT ONTO THE BATTLEFIELD IS NOT MANA.
+     *
+     * `eff:put-onto-battlefield` is in ROLE_FACETS.ramp for the land-fetchers -
+     * Elvish Rejuvenator, Kamahl's Druidic Vow, Cartographer's Survey - and it
+     * also claims every card that CHEATS A PERMANENT into play. Measured over
+     * the commander-legal pool: 50 cards carry the facet, 49 hold the ramp role
+     * SOLELY because of it, and only 7 of those put a land anywhere. The other
+     * 42, read as a player, produce no mana at all:
+     *
+     *   Stoneforge Mystic, Sneak Attack, Master Transmuter, Elvish Piper,
+     *   Quicksilver Amulet, Goblin Lackey, Warren Instigator, Collected
+     *   Company, Garruk Caller of Beasts, Mayael the Anima, Deploy the
+     *   Gatewatch
+     *
+     * Gandalf the White's deck held DEPLOY THE GATEWATCH - rank 10,827,
+     * commander fit 0.00 - in a RAMP slot, because "put up to two planeswalkers
+     * onto the battlefield" reads as ramp. A deck can meet an eleven-card ramp
+     * floor with cards that make no mana, which is the floor being satisfied
+     * and the game still being unplayable.
+     *
+     * So this facet alone confers ramp only when the card puts a LAND. Any
+     * other ramp facet stands on its own and is untouched.
+     */
+    const onlyClaim =
+      facets.includes('eff:put-onto-battlefield') &&
+      !facets.includes('eff:add-mana') &&
+      !facets.includes('cares:zone:library-land') &&
+      !facets.includes('eff:extra-land-drop') &&
+      !facets.includes('eff:play-from-graveyard');
+    if (onlyClaim) return facets.includes('cares:type:land');
+    return true;
+  }
   // Fetching a basic is ramp, not tutoring. Cultivate is not Demonic Tutor.
   if (role === 'tutor') return !facets.includes('cares:zone:library-land');
 

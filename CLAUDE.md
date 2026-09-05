@@ -5972,3 +5972,64 @@ four type shells and counted mass answers to their own type:
 Two cards in one of four decks, and both arrived through the strict-majority
 change that is now reverted. A third `ATTACKS` entry needs a check in SEVEN
 passes; this does not earn it. Revisit only if a probe shows it reaching decks.
+
+## The review rounds undo a strategy the player NAMED (5 Sep 2026)
+
+Diagnosed, three fixes attempted and measured, **none shipped.** The diagnosis is
+solid and is the part worth keeping.
+
+Syr Vondam asked for **Blink by name**. The archetype packages placed the blink
+engines. Then the review rounds cut them:
+
+    round 2: Karmic Guide out (5.6, weak fit) for Chronomancer
+    round 4: Felidar Guardian out (6.3, weak fit) for Hangarback Walker
+
+The rounds rank against `withUrgency(commanderPlan, picked)` — the COMMANDER'S
+plan — which knows nothing about a strategy the player typed. Vondam's own plan
+wants counters and sacrifice, so a blink engine genuinely is a "weak fit" by
+that measure, and the rounds rebuilt the deck into what the commander alone
+would have made. That is the owner's complaint in one line: *"I gave you 2
+reference syr vondom decks which are soooo good why do none of those cards
+appear"*.
+
+> **The build log said the package filled and the deck did not hold the card.**
+> "Doubling the arrival 9/9" listed Felidar Guardian; the finished deck did not
+> contain it. CLAUDE.md already records this trap for the named staples. Check
+> the DECK, never the pass's own sentence.
+
+### Three fixes, all measured, all rejected
+
+| | Vondam vs 2 human decks | bench jobs | groups at zero | roster keyed |
+|---|---|---|---|---|
+| baseline | 26/92 | 47/71 | 6 | 63% |
+| never cut an archetype-placed card | 28/92 | **45/71** | **9** | 60% |
+| cut only if archetype fit does not fall | 28/92 | 48/71 | **8** | 61% |
+| ...and only if the card is there FOR the archetype | 26/92 | 47/71 | 6 | 63% |
+
+Shape held at 182/200 throughout, and `named` and package fills were identical
+across all four on the eighteen shells.
+
+**The blanket ban froze up to 45% of the spells** and the rounds are
+demonstrably worth having, so it cost two jobs and three whole capabilities.
+
+**The comparison version is the closest call**: +2 on the external yardstick and
++1 job, against TWO MORE jobs a deck cannot do at all — Animar's *"one and two
+mana creatures that make mana"* and Niv-Mizzet's *"Curiosity effects and other
+draw-into-damage payoffs"*. Two cards of overlap against two whole capabilities
+is not a trade worth taking.
+
+**The narrowest version is a no-op for the case that motivated it.** Restricting
+the guard to cards whose archetype fit exceeds their commander fit excludes
+Felidar Guardian, because Vondam's plan likes it too — it is cut for its score,
+not for being off-plan.
+
+### What a real fix would need
+
+Not a guard on the cut. The rounds need to rank against **both** plans when the
+player named a strategy, the way `scoreCandidate` already blends commander fit
+and archetype fit for the passes that CHOOSE cards. `roundProfile` is already
+built with `plan.archetype`, so the influence is present and merely outweighed:
+`ARCHETYPE_FIT_SHARE` is 0.6 of the commander's weight, and in a non-empty deck
+the commander term is small enough that the role gap decides. Raising that share
+inside the rounds only is the next thing to measure, and it must be measured on
+the bench's zero groups, because that is what every version above paid with.

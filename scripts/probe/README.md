@@ -55,6 +55,17 @@ duplicated header nav hidden. `field-borders` · does any field still draw a
 hairline. `live-regions` · does one message land in two of them.
 `play-space` · how much screen the play flow uses.
 
+## The deck generator, scored against real decks
+
+| probe | what it asks |
+|---|---|
+| `real-deck-roles.mjs` | What a real Commander deck holds in OUR role vocabulary, from 192 MTGJSON decks. Writes `real-deck-roles.json` AND reports drift against `REAL_DECK_ROLES` in `shape.ts`. **These bands are the generator's floors and ceilings**, so re-deriving them is its own change with its own measurement. |
+| `deck-shape-check.mjs` | Are our role counts inside the range real decks occupy? Reads the json above, so it is only as current as the last derivation. |
+| `real-deck-overlap.mjs` | Do we reach for the same CARDS a real deck did, per commander. **Comparative, never absolute**: 14.7% of a real precon's nonland cards are past EDHREC rank 12,000, so a chunk of every real list is unreachable by design and an overlap in the teens is the expected shape. Read the outliers as a player; a change that raises the number by taking unplayed cards has made the deck worse. |
+| `commander-bench.mjs` | Can twenty commanders DO the jobs their strategy needs? `LOCAL=1 ARCHETYPE=1`. A group at zero is the failure worth fixing. |
+| `strategy-decks.mjs` | A deck in every one of the 18 shells, asked for BY NAME. `LOCAL=1`. The universal test: a fix that helps one commander and hurts the rest is not a fix. |
+| `random-commander-sweep.mjs` | Seeded random commanders against the DEPLOYED function. Catches what the fixed lists cannot. |
+
 ## Accessibility and the public routes
 
 `auth-a11y` · sign-in and register by keyboard alone. `public-card-audit` ·

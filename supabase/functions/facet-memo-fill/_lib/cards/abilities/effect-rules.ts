@@ -1056,15 +1056,17 @@ export const EFFECT_RULES: EffectRule[] = [
      * is a gift rather than a blink and the two are opposites.
      */
     re: new RegExp(
-      `^(?:you may )?exile (.+?),? then return (?:it|that card|those cards|them)` +
+      `^(?:you may )?exile (.+?)(?:,? then| ?\.) return (?:it|that card|those cards|them)` +
         `(?: to the battlefield)?` +
         `(?<mods>(?: tapped| attacking| transformed` +
         `| under (?:its owners|their owners|your|an opponents) control` +
-        `| with [^.]{1,48})*)$`
+        `| with [^.]{1,48})*)` +
+        `(?: at the beginning of the next end step)?\.?$`
     ),
     note:
-      'The immediate wording. The delayed one ("... at the beginning of the ' +
-      'next end step") is two sentences and is read by the spell rules already.',
+      'Both wordings. The immediate "exile X, then return it" and the DELAYED ' +
+      '"exile X. Return those cards ... at the beginning of the next end step", ' +
+      'which is two sentences.',
     build(m, ctx) {
       const what = phraseSelector(m[1], ctx, 'Choose what to blink');
       if (!what) return null;

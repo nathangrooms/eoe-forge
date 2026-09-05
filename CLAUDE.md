@@ -7304,3 +7304,58 @@ obtained before that and stand.
 own export produces plain text, and card names are facts about what is in a deck
 rather than anything authored, which is the same ground the existing two stand
 on.
+
+## Compiler 24: the delayed blink wording, and the rule's own note was wrong
+
+Chasing why Eerie Interlude (rank 960) lost its slot to Kaya the Inexorable
+(6,097), the answer was the GATE and not the order, which is what the previous
+entry said to check first. Measured `packageFit` against the Blink shell's "The
+blinks" package, whose wants are `cares:type:creature@1.00`,
+`cares:zone:exile@1.00`, `eff:return-from@1.00`, `eff:exile-own@0.75`:
+
+    1.000 PASS  Scrollshift, Ephemerate, Conjurer's Closet
+    0.800 PASS  Eldrazi Confluence, Elesh Norn, Kaya the Inexorable
+    0.467 FAIL  Eerie Interlude, Ghostway          <- the gate is 0.6
+
+They fail because they carry only `cares:type:creature` and `eff:exile-own`.
+**The return half of their own text produced nothing**, and the blink rule's
+note said why it would not:
+
+    'The immediate wording. The delayed one ("... at the beginning of the next
+     end step") is two sentences and is read by the spell rules already.'
+
+**It is not.** Third instance today of code contradicting its own comment, after
+the Lands echo and the shell signals. The rule now matches both wordings —
+`exile X, then return it` AND `exile X. Return those cards ... at the beginning
+of the next end step`.
+
+### The population, read as a player
+
+55 cards use the two-sentence form, 10 in the top 4,000, and the 16 most played
+are the blink toolbox itself with nothing else mixed in: Eerie Interlude,
+Charming Prince, The Eternal Wanderer, Flickerwisp, Teferi's Time Twist,
+Lae'zel's Acrobatics, Oath of Teferi, Ghostway, Kykar, Yorion, Norin the Wary,
+Nahiri's Resolve, Abuelo, Cosmic Intervention. **16 of 16 correct.**
+
+    Eerie Interlude   cares:type:creature eff:exile-own rec:PARTIAL
+    now               cares:type:creature cares:zone:exile eff:exile-own
+                      eff:return-from rec:FULL          -> packageFit 1.000
+
+### Measured
+
+    eighteen shells        BLINK keyed 38% -> 66%. Named 2/4 -> 1/4 and its
+                           packages 31/31 -> 25/27; every other row IDENTICAL
+    twenty commanders      51/71 jobs, 8 zero groups, IDENTICAL
+    shape vs 192 real decks 183/200, IDENTICAL
+    seven-deck roster      keyed 62% -> 63%, staples 47/61, orphans 0
+    read the whole card    11,108 -> 11,129
+
+    Syr Vondam + Blink     26/92 -> 28/92 against the two human decks
+                           ways to blink 9 -> 11, worth blinking 4 -> 5
+                           and the deck now holds EERIE INTERLUDE, FLICKERWISP,
+                           GUARDIAN OF GHIRAPUR, SENU and BATTLE AT THE HELVAULT
+
+> **The lesson that keeps repeating.** Three times today a comment stated an
+> intent the code did not implement, and each was worth real cards: the Lands
+> echo, sixteen dead shell signals, and this. **When a comment explains why
+> something is handled elsewhere, check that it is.**

@@ -3187,6 +3187,73 @@ const PACKAGE_MATCH = 0.6;
   }
 
   /* ---------------------------------------------------------------- *
+   * 5z. The reasons quoted a deck that no longer exists.
+   *
+   * Every pass above chooses against a profile of the deck AS IT WAS WHEN
+   * THAT PASS RAN, and the quota loop runs against a seed profile holding
+   * only the commander. That is deliberate and argued for above. What was
+   * NOT deliberate is that the sentence each pass wrote is kept verbatim and
+   * shown to the player, counts and all.
+   *
+   * Measured on Krenko, Mob Boss, 5 Sep 2026: the finished deck holds 30
+   * creatures and 12 removal spells, and it told the player
+   *
+   *     "Fills a creature gap (1 of 26)"     on Magmablood Archaic
+   *     "Fills a removal gap (0 of 6)"       on Flame Javelin
+   *
+   * Both numbers were true of an empty deck at the moment the card was
+   * chosen and are false about the deck on screen. Design law 7 is that
+   * nothing is fabricated: a number a player can disprove by counting the
+   * list is worse than no number.
+   *
+   * So the clause is restated against the FINISHED deck. Where the deck
+   * still ends up short of the target the count is corrected and the claim
+   * stands; where the deck met or passed the target the claim is simply not
+   * true any more and the clause is dropped, leaving the reasons that are -
+   * castability, popularity, and what the commander wanted.
+   *
+   * THE PICK IS NOT CHANGED, only what is said about it. Ranking against the
+   * seed profile is a design decision with its own argument; this pass is
+   * about honesty, so every deck-quality number is unchanged by construction.
+   */
+  {
+    const finalRoleCount: Partial<Record<Role, number>> = {};
+    for (const entry of picked) {
+      if (entry.bucket === 'land' || entry.bucket === 'basic') continue;
+      for (const role of rolesOf(entry.card)) {
+        finalRoleCount[role] = (finalRoleCount[role] ?? 0) + entry.quantity;
+      }
+    }
+    /* "an interaction gap" as well as "a creature gap" - the article is part
+       of the clause `rank.ts` writes, so it has to be part of what is matched. */
+    const gapClause = /fills an? ([a-z]+) gap \((\d+) of (\d+)\)/i;
+    for (const entry of picked) {
+      const match = entry.reason.match(gapClause);
+      if (!match) continue;
+      const role = match[1].toLowerCase() as Role;
+      const target = Number(match[3]);
+      const have = finalRoleCount[role] ?? 0;
+      let reason: string;
+      if (have < target) {
+        reason = entry.reason.replace(gapClause, `fills a${/^[aeiou]/i.test(role) ? 'n' : ''} ${role} gap (${have} of ${target})`);
+      } else {
+        /* Drop the clause and the separator that joined it, from either side,
+           so "A; b; c" and "a; B" both come out as prose rather than with a
+           stray semicolon at one end. */
+        reason = entry.reason
+          .replace(new RegExp(`${gapClause.source}; ?`, 'i'), '')
+          .replace(new RegExp(`; ?${gapClause.source}`, 'i'), '')
+          .replace(gapClause, '')
+          .trim();
+      }
+      reason = reason.replace(/^[;\s]+/, '');
+      entry.reason = reason.length > 0
+        ? reason.charAt(0).toUpperCase() + reason.slice(1)
+        : 'Rounds out the deck.';
+    }
+  }
+
+  /* ---------------------------------------------------------------- *
    * 6. One evaluation for the score, the castability and the cut order.
    * ---------------------------------------------------------------- */
 

@@ -5596,3 +5596,56 @@ rather than a guess. It now also needs a check in SEVEN passes, and the one
 that will be forgotten is the popularity filler, because it is the only pass
 that does not consult fit at all. Anything added to `ATTACKS` should be
 verified against a deck by building one, not by reading the guards.
+
+## The deck explained itself with numbers from a deck that never existed
+
+Chasing the cards past EDHREC rank 15,000 on the deployed sweep, the reasons on
+them turned out to be the more serious defect. Krenko, Mob Boss, measured 5 Sep
+2026, finished deck holding **30 creatures and 12 removal spells**, telling the
+player:
+
+    Magmablood Archaic   "Fills a creature gap (1 of 26)"
+    Flame Javelin        "Fills a removal gap (0 of 6)"
+
+Both were true of an empty deck at the moment the card was chosen. `generate.ts`
+says so in a comment that has been right all along: *"Every pass above chooses
+cards against a profile of the deck AS IT WAS WHEN THAT PASS RAN — the quota
+loop against a seed profile holding only the commander."* That is a design
+decision with its own argument. **Keeping the sentence it wrote and showing it
+to a player as a fact about the finished list is not.** Design law 7: a number
+a player disproves by counting the cards in front of them is worse than no
+number.
+
+Section 5z restates the clause against the FINISHED deck: corrected where the
+deck is still short, dropped where the deck met the target, and the pick itself
+is untouched — so every deck-quality figure is unchanged by construction, and
+was measured unchanged (18 shells byte-identical).
+
+### Stripping the false clause exposed a worse one underneath
+
+    "played in a lot of decks (EDHREC rank 22,084)"
+
+The popularity signal fired for any rank inside `POPULARITY_HORIZON` (25,000)
+and wrote the same sentence at every rank in that span. Three bands now, and
+the bottom one returns **no sentence at all** rather than a negative one: its
+score is about 0.01 against a role gap of 3.0, so it is not a reason the card is
+in the deck and should not be written as one. `buildReason` drops empty details.
+
+Flame Javelin's whole justification is now *"You could pay for this 63% of the
+time on turn 6."* — which is the engine admitting, in the player's own words,
+that the card is filler. That is the right outcome: **the honest sentence is
+also the bug report.**
+
+### The test was holding the bug in place
+
+`generate.test.ts` asserted the gap clause was PRESENT. It now asserts that any
+claim still on screen is TRUE of the finished list — a gap must be a real gap,
+its count must match the deck, and nothing over rank 1,500 may be called widely
+played. Strictly stronger, and it fails on the exact sentences above.
+
+> **How this was found, because reading did not do it.** Six passes were guarded
+> and the card still appeared, so I instrumented three of them in turn. Each
+> print was correct and told me only where the card was NOT. What located it was
+> the deck entry's own `reason` string, which names the pass in one line. **Read
+> what the deck says about a card before instrumenting the code that put it
+> there.**

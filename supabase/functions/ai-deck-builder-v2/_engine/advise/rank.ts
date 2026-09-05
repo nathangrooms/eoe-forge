@@ -584,7 +584,7 @@ export function scoreCandidate(
       signals.push({
         kind: 'popularity',
         score: popularityWeight(options) * decay,
-        detail: `played in a lot of decks (EDHREC rank ${card.edhrecRank.toLocaleString('en')})`,
+        detail: popularityDetail(card.edhrecRank),
       });
     }
   }
@@ -608,9 +608,38 @@ export function scoreCandidate(
 }
 
 /** Assemble the reason from the signals that actually fired. */
+/**
+ * The sentence has to match the number it quotes.
+ *
+ * The signal fires for any rank inside `POPULARITY_HORIZON`, which is 25,000,
+ * so a card ranked 22,084 was being described to the player as "played in a lot
+ * of decks" alongside its own rank. That is a claim a player disproves by
+ * reading the rest of the sentence, and design law 7 is that nothing is
+ * fabricated. Measured on Krenko, Mob Boss, 5 Sep 2026: Flame Javelin at 22,084
+ * and Magmablood Archaic at 19,920 both carried it.
+ *
+ * The bottom band returns NO SENTENCE rather than a negative one. Its score is
+ * about 0.01 out of a scale where the role gap is 3.0, so it is not a reason
+ * the card is in the deck and should not be written as one; the other clauses
+ * say why it is there. `buildReason` drops empty details.
+ *
+ * 12,000 is `PLAYED_ENOUGH_RANK`, the line this project already uses to
+ * separate "does this card do the job" from "is this card any good".
+ */
+function popularityDetail(rank: number): string {
+  const at = `(EDHREC rank ${rank.toLocaleString('en')})`;
+  if (rank <= 1500) return `played in a lot of decks ${at}`;
+  if (rank <= 12000) return `played in plenty of decks ${at}`;
+  return '';
+}
+
 export function buildReason(signals: readonly Signal[]): string {
-  if (!signals.length) return 'No distinguishing signal.';
-  const parts = signals.map(s => s.detail);
+  /* A signal may carry a score and NO SENTENCE. Popularity does exactly that
+     for a card nobody plays: the tiny score is still worth having in the
+     ranking, and there is no honest sentence to go with it. Without this
+     filter an empty detail joins as "a; ; b". */
+  const parts = signals.map(s => s.detail).filter(d => d.trim().length > 0);
+  if (!parts.length) return 'No distinguishing signal.';
   return parts.join('; ').replace(/^./, c => c.toUpperCase()) + '.';
 }
 

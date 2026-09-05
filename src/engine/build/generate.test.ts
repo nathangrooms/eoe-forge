@@ -15,6 +15,8 @@ import assert from 'node:assert/strict';
 
 import { generateDeck, allocateBasics, pipDemand, type BuildCard } from './generate.ts';
 import { normalizeRow, type RawCardRow } from '../advise/query.ts';
+import { ROLES } from '../core/types.ts';
+import { cardRole } from '../advise/roles.ts';
 
 const COMMANDER_LEGAL = { commander: 'legal' };
 
@@ -361,9 +363,52 @@ test('the reason on every card is the engine speaking, never free text', () => {
   for (const entry of deck.entries) {
     assert.ok(entry.reason.length > 0, `${entry.card.name} has no reason`);
   }
-  // A role pick names the role it filled and the count it filled it to.
-  const rolePick = deck.entries.find(e => e.bucket === 'ramp');
-  if (rolePick) assert.match(rolePick.reason, /fills a ramp gap \(\d+ of \d+\)/i);
+  /*
+   * AND NO REASON MAY DESCRIBE A DECK THAT DOES NOT EXIST.
+   *
+   * Every pass chooses against a profile of the deck as it was when that pass
+   * ran, and the quota loop runs against a seed profile holding only the
+   * commander, so the sentence a pass writes goes stale the moment a later
+   * pass adds a card. Krenko, Mob Boss told the player "fills a creature gap
+   * (1 of 26)" on a finished deck holding thirty creatures.
+   *
+   * The old form of this test asserted the clause was PRESENT, which is what
+   * kept the stale count in place. What matters is not that the clause exists,
+   * it is that any claim still on screen is true of the finished list.
+   */
+  const gapClause = /fills an? ([a-z]+) gap \((\d+) of (\d+)\)/i;
+  const finalCount = new Map<string, number>();
+  for (const entry of deck.entries) {
+    if (entry.bucket === 'land' || entry.bucket === 'basic') continue;
+    for (const role of ROLES) {
+      if (cardRole(entry.card, role)) finalCount.set(role, (finalCount.get(role) ?? 0) + entry.quantity);
+    }
+  }
+  for (const entry of deck.entries) {
+    const gap = entry.reason.match(gapClause);
+    if (gap) {
+      const [, role, have, target] = gap;
+      assert.ok(
+        Number(have) < Number(target),
+        `${entry.card.name} claims a ${role} gap it has already filled: ${entry.reason}`
+      );
+      assert.equal(
+        Number(have),
+        finalCount.get(role.toLowerCase()) ?? 0,
+        `${entry.card.name} quotes a ${role} count the finished deck does not have: ${entry.reason}`
+      );
+    }
+    /* And popularity has to match the number in its own sentence. Flame
+       Javelin at EDHREC rank 22,084 was described as "played in a lot of
+       decks" beside its own rank. */
+    if (/played in a lot of decks/.test(entry.reason)) {
+      const rank = entry.card.edhrecRank ?? 0;
+      assert.ok(
+        rank > 0 && rank <= 1500,
+        `${entry.card.name} is called widely played at EDHREC rank ${rank}`
+      );
+    }
+  }
 });
 
 test('a planner may only reorder cards already in the pool', () => {

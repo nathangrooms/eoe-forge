@@ -7963,6 +7963,26 @@ rewriting it is editorial rather than measured.
 > is 5 of 53. **Two of the three "verbless" packages in the first run were an
 > artefact of the missing normaliser.**
 
+## VALIDATED: probe mode makes the universal test cost 30 seconds
+
+`DM_CATALOG_CACHE=1` plus the superset path in `Catalog.poolFor`, exercised on
+the eighteen-shell probe:
+
+    whole run                    30.6 s  (it used to take minutes)
+    pool fetches, in order       1970 ms, 2599 ms, 1516 ms, then 68 ms
+    results vs the pre-shortcut run   IDENTICAL on all 18 shells
+
+**Identical output is the proof that matters.** No deck-affecting code changed
+between the two runs, so any difference would have been the shortcut corrupting
+the pool. There is also a self-check inside `poolFor`: the first call in a
+process runs the ordinary server-filtered query as well and THROWS if the row
+lists disagree. It did not throw.
+
+So a full measurement pass is now affordable, which it had stopped being - three
+production outages on 5 Sep came from probe load rather than players. Use it:
+
+    node --experimental-strip-types scripts/probe/db-gate.mjs &&       DM_CATALOG_CACHE=1 LOCAL=1 node --experimental-strip-types scripts/probe/strategy-decks.mjs
+
 ## One pool fetch, shared by every analysis probe
 
 `scripts/probe/pool-snapshot.mjs`. Every probe that ranks cards against each

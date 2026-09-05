@@ -132,6 +132,7 @@ export const DECK_ARCHETYPES: DeckArchetype[] = [
         name: 'Sweepers',
         blurb: 'One-sided or asymmetric wipes, so resetting the board is not a reset for you.',
         cards: ['Cyclonic Rift', 'Toxic Deluge', 'Supreme Verdict', 'Farewell'],
+        subject: 'eff:destroy|eff:exile|eff:shrink|eff:move-zone|eff:bounce',
       },
       {
         name: 'Draw engines',

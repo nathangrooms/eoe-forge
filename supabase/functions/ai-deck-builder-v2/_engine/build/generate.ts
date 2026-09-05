@@ -1734,7 +1734,18 @@ const PACKAGE_MATCH = 0.6;
         .map(rec => {
           const card = rec.card as BuildCard;
           const hit = fitOf(card);
-          return { rec, fit: packageFit(card, pkg.wants), commander: hit.fit };
+          /* THE GATE FIRST. `pkg.requires` is the shell's declared subject as
+             a disjunction: carry one of these or the package is not for you. It
+             is deliberately not a want, which would only tilt the ranking. */
+          const gated =
+            pkg.requires && pkg.requires.length > 0
+              ? (card.facets ?? []).some(f => pkg.requires!.includes(f as string))
+              : true;
+          return {
+            rec,
+            fit: gated ? packageFit(card, pkg.wants) : 0,
+            commander: hit.fit,
+          };
         })
         .filter(entry => entry.fit >= PACKAGE_MATCH)
         /*

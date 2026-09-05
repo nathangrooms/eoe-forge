@@ -4382,6 +4382,18 @@ export interface ArchetypeInput {
 export interface ArchetypePackagePlan {
   name: string;
   wants: readonly Want[];
+  /**
+   * Facets a candidate MUST carry at least one of, from the shell's declared
+   * `subject`. A GATE, not a preference, so it never dilutes the fit share.
+   *
+   * A subject may be a disjunction (`a|b|c`) and Sweepers is why: Cyclonic Rift
+   * bounces, Toxic Deluge shrinks, Supreme Verdict destroys and Farewell
+   * exiles, so no removal verb is shared by even half the package. It could ask
+   * only for `cares:type:creature` and `scope:all`, and bought Skullclamp,
+   * Ashnod's Altar, Worldly Tutor and Garruk's Uprising - none of which sweeps
+   * anything.
+   */
+  requires?: readonly string[];
   /** Cards of this package the catalogue resolved. */
   read: number;
   /** This package's share of the shell, by exemplar count. */
@@ -4820,6 +4832,7 @@ export function planForArchetype(
      * not something its cards happen to share.
      */
     const subject = cards.find(c => c.subject)?.subject;
+    const requires = subject ? subject.split('|').filter(Boolean) : [];
     const seen = new Map<Facet, number>();
     const firstSeen = new Map<Facet, string>();
     /*
@@ -4860,9 +4873,14 @@ export function planForArchetype(
       }
     }
     const pkgWants: Want[] = [];
-    if (subject) {
+    /* A SINGLE subject is also a want, which is how it shipped for
+       Superfriends' "The walkers" and is left exactly as measured. A
+       disjunction is the gate ONLY: pushing three alternatives as wants would
+       mean a card carrying one of them scores a third of the subject's weight,
+       which is the opposite of "must have one of these". */
+    if (requires.length === 1) {
       pkgWants.push({
-        facet: subject as Facet,
+        facet: requires[0] as Facet,
         weight: 1,
         because: `every card in "${name}" is one`,
       });
@@ -4923,6 +4941,7 @@ export function planForArchetype(
       wants: pkgWants,
       read: cards.length,
       share: cards.length / Math.max(1, read),
+      requires: requires.length > 1 ? requires : undefined,
     });
   }
   /* FIRST, not last. A package stated by the caller is the deck's defining

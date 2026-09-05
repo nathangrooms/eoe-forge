@@ -3217,6 +3217,51 @@ ranking and slot policy, not vocabulary, and it is the next piece of work.
 
 ---
 
+## "28 of 92" DOUBLE COUNTED, and part of it scored the mana base (5 Sep 2026)
+
+The owner, on the Syr Vondam figure: *"28 of 92 is very low..."*. It is, and the
+number was also wrong in two ways, both of which flatter it.
+
+`scratch/_blink.mjs` summed FOUR groups from `vondam-benchmark.json` -
+`blinkSpells` 13, `blinkEngines` 17, `worthBlinking` 30, `inBothDecks` 32 - and
+those groups OVERLAP:
+
+    sum of the four groups                     92
+    DISTINCT cards across them                 72
+    inBothDecks entries also in another group  20
+
+Worse, of the 12 `inBothDecks` cards appearing in no other group, **NINE ARE
+LANDS**: Command Tower, Path of Ancestry, Rogue's Passage, Vault of the
+Archangel, Caves of Koilos, Fetid Heath, Isolated Chapel, Evolving Wilds,
+Brightclimb Pathway. The mana base is chosen by the land solver and has nothing
+to do with blinking, so part of the headline measured a different subsystem.
+
+    TOTAL (sums groups)   28/92
+    DISTINCT cards        21/72   29%
+    ...excluding lands    16/63   25%   <-- THE THEME NUMBER, quote this one
+
+**The probe prints all three now.** `scratch/` is gitignored, so that change
+cannot be committed and this paragraph is the durable record of it: if the probe
+reports only `28/92`, the fix has been lost and needs reapplying.
+
+### What is actually missing, and it is not fit or legality
+
+Measured with `scratch/_vmiss.mjs`. Nearly every missing card is LEGAL in W/B
+and scores a HIGH commander fit, so nothing is refusing them on merit:
+
+    Solemn Simulacrum        #38    fit 0.805
+    Gray Merchant of Asphodel #245  fit 0.815
+    Conjurer's Closet        #472   fit 0.868
+    Knight of the White Orchid #644 fit 0.773
+    Teleportation Circle     #992   fit 0.868
+    Wall of Omens            #1096  fit 0.773
+    Skyclave Apparition      #1219  fit 0.815
+
+A handful genuinely cannot be chosen and should not be counted against the
+generator: **Malakir Rebirth is not in the pool at all**, and Panharmonicon,
+Blade of Selves, Beyond the Quiet, Morningtide's Light and Emergency Eject score
+fit **0.000**, which is a COMPILER gap rather than a ranking one.
+
 ## The yardstick was in the database all along (3 Sep 2026)
 
 Owner: *"We should be getting similar results to them."* Nothing measured

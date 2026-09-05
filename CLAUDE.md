@@ -7963,6 +7963,27 @@ rewriting it is editorial rather than measured.
 > is 5 of 53. **Two of the three "verbless" packages in the first run were an
 > artefact of the missing normaliser.**
 
+## One pool fetch, shared by every analysis probe
+
+`scripts/probe/pool-snapshot.mjs`. Every probe that ranks cards against each
+other was paging the whole pool for itself - 43 requests each - and that, not
+player traffic, is what took production down three times on 5 Sep.
+
+    node --experimental-strip-types scripts/probe/pool-snapshot.mjs --refresh
+    import { loadPool } from './pool-snapshot.mjs'
+
+It gates itself before refreshing, refuses a snapshot older than 24 hours, and
+**refuses a rank band that comes back at 1000 rows** rather than returning a
+truncated pool silently - which is the fault that made the 56% and 45%
+dominance figures measure a sixth of the catalogue.
+
+> ⚠️ **FOR ANALYSIS, NEVER FOR BUILDING A DECK.** This file already records a
+> snapshot being used that way: `.shots/pool-snapshot.json` carried no
+> `oracle_text`, so every facet computed from it came from nothing and Kaalia
+> was diagnosed as a compiler bug on the strength of it. A build goes through
+> `Catalog` against the live database. A probe that asks "what was left out and
+> was it better" wants a CONSISTENT pool, and that is what this is for.
+
 ## 🔴 THE GATE NEVER GATED. Production went down a THIRD time (5 Sep 2026)
 
 The health check written after the first two outages was an inline `node -e`

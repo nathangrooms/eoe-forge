@@ -6979,3 +6979,64 @@ jobs and the benchmark scores the COMMANDER'S.
 
 Sythis is the one of ten that does not make it: her Enchantress score sits just
 under the floor. That is the floor being honest rather than tuned to her.
+
+## CORRECTION: "45 of 72 reference cards score fit 0.00" was the PROBE, not the engine
+
+Work-list item (b) has said for days that Syr Vondam's blink cards score zero
+because *"his card says 'or is put into exile' and the compiler emits nothing for
+it, so blink cards score only through the shell"*. Measured properly on 5 Sep
+2026, **every part of that is wrong except the first clause.**
+
+`scratch/_whynot.mjs` built its plan from a `cards_pool` row:
+
+    planForCommander({ name, typeLine, facets, tags })     // no oracleText
+
+**`cards_pool` does not carry `oracle_text`** — this file says so in four other
+places — and `planForCommander` runs the 113 English INTENT RULES only when it
+is handed the text. One of those rules is written for this commander by name,
+with the owner's own words in the comment above it:
+
+    when:  /(dies or is put into exile|creature you control is put into exile|…)/i
+    reads: "is also paid when your own creatures are exiled, which is what
+            blinking them does"
+    wants: eff:exile-own 0.85, trig:enters 0.7, eff:return-from 0.6,
+           trig:leaves 0.5
+
+So the probe measured the deck against a plan with **the entire blink half
+missing**, and the difference was reported as a fault in the engine. The
+generator passes the text correctly; the probe did not.
+
+    with the text          without it (what was reported)
+    IN            19       IN            19
+    ZERO FIT      12       ZERO FIT      35
+    OUTRANKED     39       OUTRANKED     16
+
+### What the real numbers say, and it is a different problem
+
+**Only 12 of 72 score zero, and four of those need no fit at all** — Rogue's
+Passage, Fetid Heath and Vault of the Archangel are LANDS, chosen by the mana
+base, and Talisman of Hierarchy is a rock that gets in on the ramp role. The
+genuine gap in that list is **Panharmonicon**, which needs
+`eff:multiply-triggers` and he has no want for it.
+
+**39 are OUTRANKED — he wants them and they lose.** Eerie Interlude 0.55,
+Ghostway 0.55, Felidar Guardian 0.62, Charming Prince 0.73, Circuit Mender 0.75,
+Ashen Rider 0.73, Flickerwisp 0.45. The blink toolbox is wanted at 0.45 to 0.75
+and outranked by cards his aristocrats half wants at 0.85 to 0.90.
+
+### The structural cause, precisely
+
+His plan reads `eff:add-counters@0.90, cost:sacrifice@0.85, eff:proliferate@0.80`
+from FACETS, and `eff:exile-own@0.55` from the intent rule. The rule asks for
+0.85; it arrives at 0.55 because of this line:
+
+    const scale = wants.size === 0 ? 1 : thin ? 0.8 : 0.65;
+
+**The half of a card the compiler cannot read is permanently quieter than the
+half it can**, and by a factor that depends on how much of the OTHER half it
+managed to read. For a commander whose two halves want different decks, that is
+not a tie-break, it is a thumb on the scale.
+
+The probe is fixed and now fetches `oracle_text` and `faces` from
+`cards_unique` alongside the pool row. **Work-list item (b) should be rewritten:
+the compiler gap is real but it is not why the blink cards lose.**

@@ -6094,3 +6094,65 @@ being offered cards that are only cheap if you pay nothing for them.
 That is a facet, so fixing it means bumping the compiler, refilling and moving
 both readers. **19 cards do not justify a bump on their own; ride it along with
 the next one.**
+
+## Edgar Markov is Mardu and his deck has no removal spell (5 Sep 2026)
+
+`commander-bench` says *"removal that fits 0 of 2 needed"* on a deck holding
+EIGHT cards with the `removal` role, in the three colours with the best removal
+in Magic. The eight:
+
+    Staff of Compleation   Piper of the Swarm   Orcish Bowmasters
+    Walking Ballista       Agatha's Soul Cauldron   Loki's Scepter
+    Clive, Ifrit's Dominant   Sunset Strikemaster
+
+Not one of them can answer a creature the way Swords to Plowshares does, and
+none is an instant or a sorcery. The build log gives the mechanism in one line:
+
+    6 removal: fewer than that and a 99-card deck has not drawn one by turn 6
+
+**The quota was satisfied, so no pass ever reached for real removal.** The role
+is not short, so the popularity filler never fires, the floors never fire, and
+the deck is finished.
+
+### `eff:damage` cannot say how much, and the card type nearly separates it
+
+Of 2,782 cards whose ONLY removal facet is `eff:damage`, 1,125 are instants or
+sorceries and 1,657 are permanents, and read as a player the two groups are
+different cards entirely:
+
+    instant/sorcery   Lightning Bolt, Boros Charm, Blasphemous Act, Chandra's
+                      Ignition, Chain Reaction, Grapeshot — how a deck ANSWERS
+    permanent         Impact Tremors, Purphoros, Warstorm Surge, Guttersnipe,
+                      Terror of the Peaks, Dragon Tempest — damage as a PAYOFF
+
+### REVERTED: gating `eff:damage` on the card type
+
+`facetRoleQualifies` was given the facet as well as the role, so `eff:damage`
+could confer `removal` only on a spell. It **did not fix Edgar at all**, and the
+reason is the one this file already records: **a role has TWO DOORS.** Orcish
+Bowmasters is `rec:partial`, so it falls past the facet door to `tagFallback`,
+and our own tagger calls it `targeted-removal` — which is defensible, since it
+does point at a creature and kill a small one.
+
+Measured, and mixed rather than better:
+
+    twenty commanders   47/71 jobs unchanged, groups at zero 6 -> 5
+    shape vs real decks 182/200 -> 180/200
+    eighteen shells     shell cards held DOWN on three - +1/+1 counters 2/6 -> 0/6,
+                        Tokens 2/3 -> 1/3, Artifacts 4/9 -> 3/9;
+                        packages +1 on two
+
+A rule that fixes one dead job, costs two real-deck role checks and four shell
+cards, and does not touch the case that motivated it, is not a fix.
+
+### What the next attempt needs to know
+
+1. **Both doors have to close together**, and the tag door is the harder one:
+   `targeted-removal` on a one-damage ping is not obviously wrong tagging.
+2. **Scryfall Tagger does not separate them either.** `spot-removal` (5,309
+   cards, unmapped) tags Orcish Bowmasters and Walking Ballista alongside
+   Swords to Plowshares. Checked before writing a rule, per the method, and it
+   is not the discriminator.
+3. The honest cost of any type-based rule: Eiganjo, Walking Ballista and Goblin
+   Bombardment are permanents that genuinely do answer a creature and would lose
+   the role with the payoffs.

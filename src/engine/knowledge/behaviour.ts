@@ -4330,6 +4330,8 @@ function describeFacet(facet: Facet): string {
 export interface ArchetypeExemplar {
   name: string;
   facets: readonly Facet[];
+  /** The card type this card's PACKAGE is about, declared by the shell. */
+  subject?: string;
   /**
    * WHICH PACKAGE OF THE SHELL THIS CARD BELONGS TO, and it is the whole of
    * why an archetype can now be built rather than merely leaned toward.
@@ -4809,6 +4811,15 @@ export function planForArchetype(
 
   const packages: ArchetypePackagePlan[] = [];
   for (const [name, cards] of byPackage) {
+    /*
+     * THE PACKAGE'S DECLARED SUBJECT, admitted whatever the derivation says.
+     *
+     * `ARCHETYPE_WANT_PREFIXES` excludes every `type:` facet and DERIVING one
+     * was measured worse twice (see `DeckArchetype.packages.subject`), so the
+     * shell author declares it. Weight 1: it is the definition of the package,
+     * not something its cards happen to share.
+     */
+    const subject = cards.find(c => c.subject)?.subject;
     const seen = new Map<Facet, number>();
     const firstSeen = new Map<Facet, string>();
     /*
@@ -4849,6 +4860,13 @@ export function planForArchetype(
       }
     }
     const pkgWants: Want[] = [];
+    if (subject) {
+      pkgWants.push({
+        facet: subject as Facet,
+        weight: 1,
+        because: `every card in "${name}" is one`,
+      });
+    }
     for (const [facet, n] of seen) {
       /*
        * HALF THE PACKAGE, so one card of four cannot define the job. With four

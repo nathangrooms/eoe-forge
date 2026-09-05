@@ -64,7 +64,29 @@ export interface DeckArchetype {
   /** Where a well-built version of this shell scores. A target, not a score. */
   targetPower: { min: number; max: number };
   /** The pieces the shell is actually made of. */
-  packages: Array<{ name: string; blurb: string; cards: string[] }>;
+  packages: Array<{
+    name: string;
+    blurb: string;
+    cards: string[];
+    /*
+     * THE CARD TYPE THIS PACKAGE IS ABOUT, when it has one.
+     *
+     * A package's wants are derived from what its exemplars SHARE, and `type:`
+     * is not a facet family that derivation admits. "The walkers" is four
+     * planeswalkers and could ask only for what they incidentally shared,
+     * `eff:exile` and `acost:0`, so it bought Kozilek's Command and Scrabbling
+     * Claws: 2 of 9, no walkers in a Superfriends deck.
+     *
+     * DERIVING IT WAS TRIED AND MEASURED WORSE, twice, 5 Sep 2026. Admitting
+     * `type:` at any share cost 37 keyed points across the eighteen shells and
+     * took Aggro from 28 packages to 16; admitting it only when every exemplar
+     * carries it still cost 24. A type three of four exemplars happen to share
+     * is a coincidence, and four is too small a sample to tell that from a
+     * subject. So it is DECLARED by the shell author, who knows, and set only
+     * where the type genuinely is the job.
+     */
+    subject?: string;
+  }>;
 }
 
 export const DECK_ARCHETYPES: DeckArchetype[] = [
@@ -508,6 +530,7 @@ export const DECK_ARCHETYPES: DeckArchetype[] = [
         name: 'The walkers',
         blurb: 'Ones that defend themselves, or leave something behind if they die.',
         cards: ['Teferi, Hero of Dominaria', 'Ugin, the Spirit Dragon', 'Karn Liberated', 'Narset Transcendent'],
+        subject: 'type:planeswalker',
       },
       {
         name: 'More loyalty, more often',

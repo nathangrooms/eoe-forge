@@ -535,10 +535,12 @@ function archetypeFor(
      First package wins for a name that appears in two, which is rare and does
      not matter: the card is an example of both jobs. */
   const pkgOf = new Map<string, string>();
+  const subjectOf = new Map<string, string>();
   for (const pkg of shell.packages) {
     for (const card of pkg.cards) {
       const key = normalizeName(card);
       if (!pkgOf.has(key)) pkgOf.set(key, pkg.name);
+      if (pkg.subject && !subjectOf.has(key)) subjectOf.set(key, pkg.subject);
     }
   }
 
@@ -561,6 +563,7 @@ function archetypeFor(
       name,
       facets: poolFacets.get(row.name ?? '') ?? facetsForCard(row).facets,
       pkg: pkgOf.get(key),
+      subject: subjectOf.get(key),
     });
   }
 

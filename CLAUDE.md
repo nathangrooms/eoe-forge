@@ -6156,3 +6156,61 @@ cards, and does not touch the case that motivated it, is not a fix.
 3. The honest cost of any type-based rule: Eiganjo, Walking Ballista and Goblin
    Bombardment are permanents that genuinely do answer a creature and would lose
    the role with the payoffs.
+
+## The yardstick is DERIVED from the engine, so it drifts as the engine learns
+
+Last session concluded the removal-role rule "measured worse on shape, 182/200
+-> 180/200". **That measurement was invalid**, and the reason is the trap
+`real-deck-roles.mjs` warns about in its own header, walked into from the other
+side.
+
+`REAL_DECK_ROLES` and `scripts/probe/real-deck-roles.json` are produced by
+running OUR `cardRole` over 192 real decks. Change `cardRole` and BOTH sides of
+the comparison should move — but the json is stored and the constant is frozen,
+so a role change is measured against a yardstick describing the old rule. Two
+vocabularies, one subtraction, the difference called a fault.
+
+**Isolated properly, 5 Sep 2026.** Re-deriving on the CURRENT pool with the OLD
+rule, then again with the new one:
+
+    role       stored (stale)   current pool, old rule   with the new rule
+    ramp       11 16 21 31      10 15 20 30              10 15 20 30
+    removal     9 13 20 33       9 14 20 33               8 12 16 24
+    protection  0  1  5 10       0  2  5 11               0  2  5 11
+
+So the rule changes ONLY removal, exactly as intended — and the stored file was
+independently stale, because the pool's facets have moved under it all week
+(tag maps, compiler versions 17 through 22).
+
+### Refreshing the yardstick makes the decks WORSE, measured
+
+    stored bands (the baseline)     47/71 jobs, 6 groups at zero, shape 182/200
+    refreshed bands, old rule       47/71 jobs, 8 groups at zero, shape 182/200
+    refreshed bands, new rule       48/71 jobs, 7 groups at zero, shape 182/200
+
+These bands are not only a scoreboard: the generator takes its role FLOORS and
+CEILINGS from them. A more accurate yardstick tightened the ceilings and dropped
+the ramp floor, and the decks lost two capabilities.
+
+> ⚠️ **RAMP p10 HAS DRIFTED FROM 11 TO 10 and it was NOT changed.** The standing
+> instruction is that ramp is non-negotiable and nothing may take a deck below
+> 11, on the grounds that the game is unplayable otherwise. The measurement now
+> says real decks run 10 at the tenth percentile. **That is an owner decision,
+> not a silent edit**, so the constant stays at 11 and the drift is recorded
+> here.
+
+### And the removal rule still does not fix Edgar
+
+With its own re-derived bands it is +1 job and +1 group at zero, and the
+motivating case goes BACKWARDS: Edgar Markov 2/3 jobs -> 1/3, "payoff for going
+wide" 2/2 -> 1/2, and "removal that fits" still 0/2 with seven pings in the
+deck. The cards reach the role through the TAG door, which this rule does not
+touch. Reverted.
+
+### The durable finding
+
+**Any change to `cardRole` invalidates `real-deck-roles.json` and
+`REAL_DECK_ROLES` until they are re-derived, and nothing does that
+automatically.** Re-derive both before believing a shape number after a role
+change — and treat the re-derivation as its own change with its own
+measurement, because it moves the generator's floors and ceilings too.

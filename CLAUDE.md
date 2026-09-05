@@ -6023,13 +6023,29 @@ the guard to cards whose archetype fit exceeds their commander fit excludes
 Felidar Guardian, because Vondam's plan likes it too — it is cut for its score,
 not for being off-plan.
 
-### What a real fix would need
+### And a FOURTH attempt: the weight is not the lever either
 
-Not a guard on the cut. The rounds need to rank against **both** plans when the
-player named a strategy, the way `scoreCandidate` already blends commander fit
-and archetype fit for the passes that CHOOSE cards. `roundProfile` is already
-built with `plan.archetype`, so the influence is present and merely outweighed:
-`ARCHETYPE_FIT_SHARE` is 0.6 of the commander's weight, and in a non-empty deck
-the commander term is small enough that the role gap decides. Raising that share
-inside the rounds only is the next thing to measure, and it must be measured on
-the bench's zero groups, because that is what every version above paid with.
+The paragraph that stood here predicted the fix was `ARCHETYPE_FIT_SHARE`, whose
+own comment says it is *"what a guess is worth against a certainty"* — reasoning
+that does not survive the player TYPING the name, and the build already draws
+that distinction for the slot share. So a chosen archetype was given the full
+commander weight rather than 0.6 of it, plumbed through `RecommendOptions`.
+
+**It did not move the motivating case at all.** Vondam stayed at 26/92 and
+Felidar Guardian was still cut. The flag was verified to reach the ranker — five
+other shells moved — so this is the knob genuinely not being the cause, which is
+rule 1 of the method restated: *if a sweep barely moves the number, the knob is
+not the cause.*
+
+On its own merits it measured slightly worse and was reverted:
+
+    twenty commanders   47/71 -> 46/71 jobs, groups at zero 6 -> 7
+    eighteen shells     Tokens named 2/3 -> 1/3, packages identical
+    seven-deck roster   keyed 63% -> 62%, staples 46/61 -> 47/61
+    shape               182/200, unchanged
+
+So the cut is decided by the role gap and castability, not by how much archetype
+fit is worth. **A real fix has to change what the rounds are ALLOWED to cut, and
+the three guards above are the shapes that do not work.** Anything new should be
+measured on the bench's zero groups first, because that is what every version
+tried so far has paid with.

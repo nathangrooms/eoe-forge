@@ -1836,6 +1836,32 @@ const PACKAGE_MATCH = 0.6;
          * draws, ramps or removes something. Preferring them over a flicker
          * effect that only enables other cards is the correct bias, not a tax.
          */
+        /*
+         * A PACKAGE MAY LEAVE A SLOT EMPTY RATHER THAN TAKE A CARD WITH NO CASE.
+         *
+         * A package fills its slots whatever the candidates look like, and in a
+         * NARROW pool there may be nothing good left. Zhulodok, Void Gorger is
+         * colourless, and his "Two-card combo: Protection" package filled 4/4
+         * with Conqueror's Flail, Hope of Ghirapur, Steel Golem and CITY IN A
+         * BOTTLE - an Arabian Nights hoser at EDHREC rank 29,881, past the
+         * popularity horizon entirely, with commander fit 0.00.
+         *
+         * The bar is deliberately the narrowest thing that can be said: no case
+         * on EITHER axis. Not "unpopular", which is the right answer in a small
+         * pool and is why Kozilek's deep colourless cards are correct - it is
+         * unpopular AND doing nothing for this commander. Measured across six
+         * random commanders that is 3 cards of 366.
+         *
+         * The slot is not lost: it falls through to the quota loop, the floors
+         * and the popularity filler, which have their own two-sweep fallbacks
+         * and will take a card that at least somebody plays.
+         */
+        const noCaseAtAll =
+          fitOf(card).fit < NO_CASE_FIT &&
+          typeof card.edhrecRank === 'number' &&
+          card.edhrecRank > NO_CASE_RANK;
+        if (noCaseAtAll) continue;
+
         const needed = ROLES.find(
           role => role !== 'land' && quota[role] > 0 && rolesOf(card).has(role)
         );
@@ -3751,6 +3777,15 @@ function orderPreferredFirst<T extends { card: CandidateCard }>(
  * genuinely runs out of played cards, and this must degrade to "take it anyway"
  * rather than to a deck that is short.
  */
+/*
+ * A card with commander fit below this AND a play rate worse than
+ * `NO_CASE_RANK` has no argument for its slot on either axis. Both together,
+ * never either alone: an unpopular card is often the right answer in a narrow
+ * colour identity, and a low-fit card is often a format staple.
+ */
+const NO_CASE_FIT = 0.25;
+const NO_CASE_RANK = 10_000;
+
 const PLAYED_ENOUGH_RANK = 12_000;
 
 /**

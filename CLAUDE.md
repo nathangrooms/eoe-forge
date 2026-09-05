@@ -7744,3 +7744,56 @@ because it is TRUE, so a non-artifact cannot take a mana-rock slot later.
 > pass. That is consistent with the guard already refused above ("a deck holding
 > the answer to its own type", measured at 2 cards in 1 of 4 decks and not worth
 > a third `ATTACKS` entry). The subject constrains the PACKAGE, not the deck.
+
+## A package whose exemplars use four different verbs cannot ask for the verb
+
+Control's "Sweepers" is Cyclonic Rift, Toxic Deluge, Supreme Verdict and
+Farewell, which **move-zone, shrink, destroy and exile** respectively. No
+removal verb is shared by even half of them, so the derived wants were only
+`cares:type:creature` and `scope:all` - and the package that exists to buy
+board wipes bought this:
+
+    Sweepers 9/9   Swords to Plowshares, Path to Exile, SKULLCLAMP,
+                   GARRUK'S UPRISING, ASHNOD'S ALTAR, WORLDLY TUTOR,
+                   Austere Command, Farewell, RETURN OF THE WILDSPEAKER
+
+Five of nine sweep nothing. This is the Superfriends walkers fault in a second
+form: **the package's defining property is unsayable**, there because `type:` is
+not an admitted want prefix, here because the exemplars are verb-diverse.
+
+`subject` accepts a DISJUNCTION now (`a|b|c`) and a disjunction is applied as a
+**GATE, not a want**. Three alternatives pushed as wants would mean a card
+carrying one scores a third of the subject's weight, which is the opposite of
+"must have one of these". A single subject stays a want, exactly as measured
+for the walkers.
+
+    Sweepers 9/9   Swords to Plowshares, Path to Exile, Austere Command,
+                   Farewell, Dispatch, Archdruid's Charm, WRATH OF GOD,
+                   Elspeth Storm Slayer, Collective Resistance
+
+    eighteen shells    Control packages 21/35 -> 22/35, seventeen IDENTICAL
+                       keyed 1303 unchanged, named 41 unchanged
+    deck shape         183/200 unchanged      roster staples 47/61 unchanged
+    twenty commanders  47/71 jobs, 7 dead groups, unchanged
+
+**The metric movement is ONE package job and that is the honest headline.** The
+argument is correctness: three cards that sweep nothing leave slots reserved for
+board wipes, Wrath of God takes one, and no yardstick calls it worse.
+
+### REJECTED, measured: mapping Tagger's `sweeper` tag to `scope:wipe`
+
+739 cards, and the 40 most played are 38-40 genuine wipes - Wrath of God,
+Damnation, Fumigate, Cleansing Nova, Evacuation, Blast Zone, Massacre Girl. High
+precision, and still wrong, because **`scope:wipe` is deliberately narrow**: the
+compiler emits it only for a `destroy` on a mass battlefield selector NOT
+restricted to opponents, "Wrath of God yes, Massacre Wurm no". Its consumer is
+the `ATTACKS` entry that keeps wipes out of go-wide decks.
+
+The tag includes **The Meathook Massacre** and **Bane of Progress**, which a
+token deck genuinely wants, so widening the word would make the anti-synergy
+check refuse cards those decks should play.
+
+> **Two consumers, two precisions.** The Sweepers package wants "is this a
+> sweeper" (broad). The anti-synergy check wants "does this destroy MY board"
+> (narrow). One word cannot serve both, and the gate is how the broad question
+> gets answered without moving the narrow word.

@@ -5749,3 +5749,22 @@ roll-up is not.
 `overRoleFloorCeiling` KEEPS its tribe exemption. That is the floor's higher
 ceiling, the largest count real decks actually hold, and a floor is not choosing
 freely. Only the p90 ceiling was measured, so only the p90 ceiling was changed.
+
+### Verified on the DEPLOYED function, not the repo
+
+    forty RANDOM commanders (seed 1)
+      built / 99 cards / every staple      40/40  40/40  40/40
+      ramp >= 11                           40/40   median 19
+      lands >= 35                          40/40   median 40
+      NOTHING flagged                      40/40
+      keyed synergy                        median 75%, unchanged
+      strongly on-theme (80%+)             15 -> 13
+      build time                           median 1.8 s, slowest 3.0 s
+
+    fourteen deployed decks                14/14, 82/94 staples
+
+The one number that moved the wrong way is the count of decks at 80%+ keyed,
+13 against 15, with the MEDIAN unchanged at 75% and the generic tail unchanged
+at 3. A ceiling that binds takes its cards from the roles that were overshooting,
+which on a tribal deck are the themed ones, so a little top-end theme is exactly
+what it should cost. The four named yardsticks all improved or held.

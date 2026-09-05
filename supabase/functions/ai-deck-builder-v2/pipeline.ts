@@ -481,6 +481,45 @@ function mergeShellInputs(
   };
 }
 
+/**
+ * State the tribe itself as a package.
+ *
+ * The Tribal shell's own cards are the lords, banners and Coat of Arms that
+ * work for ANY tribe, because the tribe is different for every commander and
+ * no shell's exemplars can name it. So the shell buys the scaffolding and
+ * nothing buys the tribe, and a named Angel deck comes back holding Herald's
+ * Horn, Urza's Incubator, Metallic Mimic, Patchwork Banner and Vanquisher's
+ * Banner with five Angels in it.
+ *
+ * BOTH PATHS OR NEITHER. This was written for the DERIVED path only, so
+ * asking for Tribal BY NAME - which is what the deck generator's own strategy
+ * picker does, and what the twenty-commander bench does - skipped it and built
+ * a worse deck than not asking at all.
+ */
+function withTribePackage(
+  input: ArchetypeInput,
+  tribe: string,
+  commanderName: string
+): ArchetypeInput {
+  if ((input.extraPackages ?? []).some(p => p.name === `The ${tribe}s`)) return input;
+  const because = `${commanderName} is a ${tribe} that counts ${tribe}s`;
+  return {
+    ...input,
+    extraPackages: [
+      ...(input.extraPackages ?? []),
+      {
+        name: `The ${tribe}s`,
+        wants: [
+          { facet: `sub:${tribe}`, weight: 1, because },
+          { facet: 'type:creature', weight: 1, because },
+        ],
+        read: 0,
+        share: 0.34,
+      },
+    ],
+  };
+}
+
 function archetypeFor(
   shell: DeckArchetype,
   rows: readonly CatalogRow[],
@@ -914,24 +953,7 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
       ? [{ ...tribal, score: 1 }, ...scored.filter(x => x.shell.id !== 'tribal')].slice(0, 2)
       : scored;
     derived = mergeShellInputs(picked);
-    if (derived && tribe) {
-      const because = `${commanderName} is a ${tribe} that counts ${tribe}s`;
-      derived = {
-        ...derived,
-        extraPackages: [
-          ...(derived.extraPackages ?? []),
-          {
-            name: `The ${tribe}s`,
-            wants: [
-              { facet: `sub:${tribe}`, weight: 1, because },
-              { facet: 'type:creature', weight: 1, because },
-            ],
-            read: 0,
-            share: 0.34,
-          },
-        ],
-      };
-    }
+    if (derived && tribe) derived = withTribePackage(derived, tribe, commanderName);
     if (picked.length) {
       console.log(
         `  no archetype asked for; ${commanderName} reads as ` +
@@ -942,7 +964,17 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
       console.log(`  no archetype asked for, and no shell overlaps ${commanderName}'s plan`);
     }
   }
-  const archetypeInput = archetype ?? derived;
+  let archetypeInput = archetype ?? derived;
+  /* A NAMED tribal shell needs the tribe stated as well, for the reason in
+     `withTribePackage`. `planForCommander` is pure and reads facets already on
+     the row, so calling it here costs nothing. */
+  if (archetype && shell?.id === 'tribal') {
+    const namedTribe = planForCommander(commander).tribe;
+    if (namedTribe) {
+      archetypeInput = withTribePackage(archetypeInput, namedTribe, commanderName);
+      console.log(`  tribe ${namedTribe} stated as a package alongside the named Tribal shell`);
+    }
+  }
 
   // Both halves now carry oracle text, so where a card appears in both either
   // row would do. The land row still wins, because it is the one whose text was

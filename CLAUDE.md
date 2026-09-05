@@ -6227,3 +6227,43 @@ The `shape.ts` half is the load-bearing one and persists across runs, because
 the script rewrites the json but never the constant. **Running it does not adopt
 anything** — copying the numbers into `REAL_DECK_ROLES` is a deliberate act, and
 the measurements above are why it needs its own before and after.
+
+## The 187 real decks can be compared card for card, and the number is not what it looks like
+
+`meta_decks` holds **187 complete Commander decks with a single named
+commander**, and until now nothing compared our list against theirs for the same
+commander. Every other instrument in this repo scores a deck against something
+WE wrote: role floors we chose, job lists typed from knowledge, or the two Syr
+Vondam decks. `scripts/probe/real-deck-overlap.mjs` is the exception.
+
+Ten decks spread across the alphabet, nonland cards only:
+
+    median overlap 11%, worst 3% (Prossh), best 24% (Kotori)
+
+**That is not a bad result, and reading it as one is the trap.** Calibrated over
+all 11,650 nonland cards in those decks:
+
+    median EDHREC rank of a card in a real deck   3,547
+    past rank 12,000                              14.7%
+    past rank 15,000                               8.3%
+
+Our decks run about **1%** past rank 15,000. So roughly a seventh of every real
+list is set filler a precon carries because it was printed in that set, and that
+fraction is unreachable for us BY DESIGN.
+
+Prossh, Skyraider of Kher is the worked example and the reason the caveat is in
+the probe's header rather than in a note. At 3% overlap, the cards his real deck
+holds and ours does not are **Vile Requiem (22,024), Deepfire Elemental
+(27,909), Quagmire Druid (24,049), Jar of Eyeballs (19,038), Capricious Efreet
+(21,624)**. Declining those is correct, and a change that "improved" the overlap
+by taking them would have made the deck worse.
+
+> **So the number is COMPARATIVE, never absolute.** Worth reading across
+> commanders and across time for the same commander; not worth maximising. The
+> finding it can produce is the outlier read AS A PLAYER: a commander where the
+> cards we are missing are GOOD ones is a systematic gap, which is a different
+> thing from missing a precon's filler.
+
+`scripts/probe/README.md` had no section for the deck generator at all — the six
+probes the brief names were not in the index that exists precisely so a tool
+nobody can find does not get rewritten. They are now.

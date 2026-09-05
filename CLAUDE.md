@@ -7634,3 +7634,47 @@ missing plan rule. **Only 14 commander-legal legendary creatures carry
 `eff:extra-combat`** (`trig:becomes-blocked` 18, `cares:lifegain` 10). That is
 fixing one commander. Three plan rules already WANT the facet; none is keyed on
 it, and that asymmetry is correct.
+
+## REFUSED, measured: a FORMAT STAPLE tier inside the package fill
+
+The sharpest single example of the noisy-OR fault this file records five times.
+Chulane, Teller of Tales is paid when you cast a creature, and his deck holds
+Pollywog Symbiote (rank 9,080) while **Beast Whisperer (rank 213), the
+definitive card for that commander, is absent** - along with Zendikar Resurgent
+and Primordial Sage, all in his colours.
+
+    Chulane wants   type:creature 0.85 · trig:enters-self 0.75 ·
+                    cares:type:land 0.70 · eff:bounce-own 0.70 · eff:copy 0.70 ·
+                    eff:draw 0.70 · trig:cast:creature 0.70
+
+    Beast Whisperer     #213    fit 0.900   eff:draw + trig:cast:creature
+    Pollywog Symbiote   #9,080  fit 0.921   the same two, PLUS mv:cheap and
+                                            eff:reduce-cost
+
+Pollywog wins on two EXTRA facets that are real wants of his and are not what
+the package is for. Both sit under `PLAYED_ENOUGH_RANK` (12,000), so the
+two-sweep `playedFirst` puts them in one tier and fit alone decides. This file
+already says that line "is too generous to separate a rank-9,000 equipment from
+a rank-500 one" and asked for its own measurement. Here it is.
+
+**A third tier at `FORMAT_STAPLE_RANK = 2,000`, inside the package fill only:**
+
+    it DOES fix the case          Beast Whisperer enters Chulane's deck
+    eighteen shells, keyed        1304 -> 1285  (-19)
+    eighteen shells, packages     459 -> 460    (+1)
+    shell cards held (named)      41 -> 40
+    Artifacts                     keyed 66 -> 56, packages 27 -> 25
+
+Reverted. Fixing one named card for nineteen points of commander synergy across
+the strategy space is the trade this project keeps refusing, and the same shape
+as the ceiling and the shell-admission experiments.
+
+> **What a real fix needs.** The problem is not the rank line, it is that
+> `planFit` cannot say WHICH want a card serves. A package asks for a
+> conjunction and then ranks on fit against the WHOLE plan, so a card matching
+> the package's own two wants plus two unrelated ones outranks the card that is
+> exactly the package. Scoring a package candidate on `packageFit` alone -
+> which is already computed, and IS the conjunction - rather than on plan fit
+> is the untried shape. It was not tried here because the ordering key and the
+> gate would then be the same number, and every candidate that clears the gate
+> would tie.

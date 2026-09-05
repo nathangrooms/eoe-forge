@@ -7220,3 +7220,42 @@ Measured the same day: only **7.9% of commander ability lines produce nothing**
 (532 of 6,764), and the top unread shapes are 3 to 4 cards each. There is no big
 win left in commander reading; compiler 23 took the last one that was worth 198
 cards.
+
+## The flex pass took the worst cards that technically did something
+
+Read Syr Vondam's finished Blink deck as a player, 5 Sep 2026. Six of its
+sixty-three spells were marginal equipment and auras in a deck with no voltron
+plan:
+
+    Gold Pan                10,212      Thieves' Tools       5,964
+    Gilded Pinions           8,970      Eternal Thirst       5,919
+    Field-Tested Frying Pan  6,757      Braids's Frightful Return  11,665
+
+Every one came from the FLEX pass, and every one carried a reason saying it
+*"does 3 of what it wants"*. Every one is under `PLAYED_ENOUGH_RANK`, so the
+rank floor never saw them.
+
+**`planFit` is a noisy-OR**, so a card matching five wants weakly outranks the
+card that IS one of them — the same fault this file records in the reserve pass,
+where the fix was to order by want instead of by score. The flex pass sorted its
+"does something" tier by pure SCORE.
+
+It now takes played cards first within that tier, the same two-sweep
+`playedFirst` shape the floor fills and the package pass already use. **An
+ordering, not a filter**: a pool that runs out of played cards still falls
+through rather than leaving the deck short.
+
+    eighteen shells    Blink keyed 34% -> 38%; Lifegain 66% -> 65%; named,
+                       packages and every other row IDENTICAL
+    twenty commanders  51/71 jobs, 8 zero groups, identical
+    shape              183/200, identical
+    seven-deck roster  keyed 62%, staples 47/61, identical
+
+> **It is a partial fix and the reason is worth writing down.** Gold Pan and
+> Field-Tested Frying Pan leave; Gilded Pinions (8,970) and Thieves' Tools
+> (5,964) stay, because `PLAYED_ENOUGH_RANK` is 12,000 and all of them are under
+> it. The line separates "does this card do the job" from "is this card any
+> good", and it is too generous to separate a rank-9,000 equipment from a
+> rank-500 one. Tightening it is a weight change on a constant shared with the
+> floors and the optimiser, so it wants its own measurement rather than a nudge
+> here.

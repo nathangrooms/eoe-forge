@@ -2689,7 +2689,34 @@ const PACKAGE_MATCH = 0.6;
       for (const rec of ordered) {
         (doesSomething(rec.card as BuildCard) ? useful : idle).push(rec);
       }
-      return [...useful, ...idle];
+      /*
+       * AND PLAYED CARDS FIRST AMONG THE ONES THAT DO SOMETHING.
+       *
+       * `doesSomething` sorts a card that serves a role or a want ahead of one
+       * that does neither, and within that it was pure SCORE. `planFit` is a
+       * noisy-OR, so a card matching five wants weakly outranks the card that
+       * IS one of them — this file records the same fault in the reserve pass,
+       * where the fix was to order by want rather than by score.
+       *
+       * Read as a player, 5 Sep 2026, Syr Vondam asked for Blink. The flex pass
+       * gave him GOLD PAN (rank 10,212), GILDED PINIONS (8,970), FIELD-TESTED
+       * FRYING PAN (6,757), THIEVES' TOOLS (5,964) and ETERNAL THIRST (5,919) —
+       * six slots of marginal equipment in a deck with no voltron plan, each
+       * carrying a reason that it "does 3 of what it wants". Every one is under
+       * `PLAYED_ENOUGH_RANK`, so the rank floor never saw them.
+       *
+       * The same two-sweep `playedFirst` shape the floor fills and the package
+       * pass already use. AN ORDERING, NOT A FILTER: a pool that genuinely runs
+       * out of played cards still falls through to the rest rather than leaving
+       * the deck short.
+       */
+      const played = (rec: (typeof ordered)[number]) => {
+        const rank = (rec.card as BuildCard).edhrecRank;
+        return typeof rank === 'number' && rank > 0 && rank <= PLAYED_ENOUGH_RANK;
+      };
+      const usefulPlayed = useful.filter(played);
+      const usefulRest = useful.filter(rec => !played(rec));
+      return [...usefulPlayed, ...usefulRest, ...idle];
     })();
 
     const takeFlex = (wanted: (card: BuildCard) => boolean) => {

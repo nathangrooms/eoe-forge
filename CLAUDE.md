@@ -6619,3 +6619,25 @@ refresh.
 **Capture the before and the after in the same session, back to back**, the way
 `git stash push` was used before it became unsafe here. Any comparison spanning
 06:00 or 12:00 UTC is suspect, and one of today's own measurements was.
+
+### And the pool-refresh trap caught me AGAIN, in the same hour, on the revert
+
+The change above was deployed and the production random sweep read **keyed
+median 75% -> 71%, decks under 30% keyed 3 -> 7.** That is the sweep's own case
+— it names no archetype, so it builds DERIVED shells, which is exactly what the
+change touches. The mechanism was even plausible: shrinking the shell's budget
+without handing the freed slots to the commander's own packages would leave the
+deck with fewer themed cards.
+
+**It was the pool refresh, not the change.** Reverted, redeployed, re-measured:
+still **71%, still 7 under 30%.** The number had moved for the same reason Big
+mana moved an hour earlier, and I had already written the warning about it.
+
+So the change is neutral on the sweep and +1 job on the derived benchmark, and
+it is reapplied.
+
+> **VERIFY THE REVERT, not just the change.** A revert that does not restore the
+> old number proves the change was never the cause. That one extra deploy is
+> what separated "my change did this" from "the ground moved under both
+> measurements", and without it a strictly-better change would have been thrown
+> away on a false attribution.

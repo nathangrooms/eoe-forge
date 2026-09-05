@@ -7797,3 +7797,56 @@ check refuse cards those decks should play.
 > sweeper" (broad). The anti-synergy check wants "does this destroy MY board"
 > (narrow). One word cannot serve both, and the gate is how the broad question
 > gets answered without moving the narrow word.
+
+## The verbless packages, measured, and where `subject` stops working
+
+`scratch/_pkgverbs.mjs` asks the general form of the Sweepers question: for every
+package in every shell, does what its exemplars SHARE include a verb? A package
+with none can only ask "cares about X" and "affects everything".
+
+**5 of 53**, and three are fine:
+
+    Control         Sweepers                    now declared, see above
+    Two-card combo  The combo                   mv:cheap 4/4 - combos come from
+                                                combo_pool, not from this package
+    Aggro           One-drops                   mv:cheap 3/3, kw:haste 2/3, and
+                                                that IS what a one-drop is
+    Lifegain        Turning it into a win       type:enchantment 2/4
+    Superfriends    Keeping them on the board   cares:type:planeswalker 2/4
+
+### REFUSED, measured: declaring a subject for "Keeping them on the board"
+
+It filled 9/9 with **Imprisoned in the Moon, Skysovereign, Dawnsire, Sunstar
+Dreadnought, Syr Ginger, Azure Beastbinder** - removal spells, not one of which
+keeps a planeswalker alive. Declaring `cares:type:planeswalker|type:planeswalker`
+moved it only to **7/9 with the same cards**.
+
+**Because those cards carry `cares:type:planeswalker` for KILLING one.**
+"Deals 3 damage to target creature or planeswalker" mentions the type, and the
+facet records that it is mentioned. This file already states the general form -
+"every card that ANSWERS a type carries the same `cares:type:X` as every card
+PAID for it" - and refused a deck-level guard after measuring two cards in one
+of four decks. Inside this package the same ambiguity is **7 of 9**, so the
+earlier refusal was right about decks and says nothing about packages.
+
+> **The limit of `subject`.** It works when the defining property is a TYPE the
+> card IS (`type:planeswalker`, `type:enchantment`, `type:artifact`) or a VERB
+> it performs (the Sweepers disjunction). It cannot work when the property is a
+> RELATIONSHIP - supports rather than answers - because `cares:` does not carry
+> direction. That is the same gap `effect.who` closed for effects on 1 Sep, and
+> closing it for `cares:` would be the equivalent piece of work.
+
+The Lifegain package is the same shape from the other side: Aetherflux
+Reservoir, Sanguine Bond, Exquisite Blood and Felidar Sovereign genuinely share
+no mechanic - they are an alt-win card, two halves of a combo, and a life-total
+check. Its exemplar list is grouped by INTENT the vocabulary cannot express, and
+rewriting it is editorial rather than measured.
+
+> ⚠️ **The probe was wrong before the product was, again.** Its first run
+> reported "3 of 37 packages" because it matched shell spellings against pool
+> names LITERALLY, so every card with a typographic apostrophe missed - Atraxa
+> came back "not in pool" while the engine reported 12 of 12 resolved - which
+> silently shrank packages and changed what they appeared to derive. It imports
+> the engine's own `normalizeName` now, all 53 packages resolve, and the answer
+> is 5 of 53. **Two of the three "verbless" packages in the first run were an
+> artefact of the missing normaliser.**

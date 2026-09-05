@@ -455,11 +455,13 @@ export const DECK_ARCHETYPES: DeckArchetype[] = [
         name: 'Enchantments worth drawing off',
         blurb: 'Each one has to do a job as well as trigger the draw.',
         cards: ['Ghostly Prison', 'Smothering Tithe', 'Rhystic Study', 'Sterling Grove'],
+        subject: 'type:enchantment',
       },
       {
         name: 'The payoff',
         blurb: 'What all those enchantments add up to.',
         cards: ['Sigil of the Empty Throne', 'Starfield of Nyx', 'Eidolon of Blossoms', "Mirri's Guile"],
+        subject: 'type:enchantment',
       },
     ],
   },
@@ -475,6 +477,7 @@ export const DECK_ARCHETYPES: DeckArchetype[] = [
         name: 'The rocks',
         blurb: 'An artifact deck is a mana deck first: the payoffs need something to count.',
         cards: ['Sol Ring', 'Arcane Signet', 'Mind Stone', 'Thran Dynamo'],
+        subject: 'type:artifact',
       },
       {
         name: 'Turning them into something',

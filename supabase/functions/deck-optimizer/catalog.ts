@@ -211,6 +211,9 @@ export class Catalog {
   readonly #anonKey: string;
   readonly #authorization: string;
   readonly #responseCache = new Map<string, { rows: unknown[]; contentRange: string | null }>();
+  /* Probe mode only. See `poolFor`. */
+  readonly #poolSuperset = new Map<string, CatalogRow[]>();
+  #supersetProven = false;
 
   constructor(opts: CatalogOptions) {
     this.#url = opts.url.replace(/\/+$/, '');
@@ -641,6 +644,57 @@ export class Catalog {
 
        The ceiling still applies where the caller set one, because at three
        colours and up it exists for MEMORY rather than for speed. */
+    /*
+     * PROBE MODE: ONE SUPERSET FETCH, FILTERED LOCALLY.
+     *
+     * The identity filter is server-side, so twenty builds of twenty different
+     * commanders are twenty pool fetches even with the response cache on. That
+     * load - not player traffic - took production down three times on 5 Sep
+     * 2026. Under DM_CATALOG_CACHE=1 the whole commander-legal pool is fetched
+     * ONCE and every commander is served by filtering it in memory.
+     *
+     * NOT IN PRODUCTION, and the reason is written in the ceiling comment
+     * above: the edge function ran out of MEMORY holding the full pool, and
+     * Golos, Najeela and Kenrith all returned 546. A probe runs in Node with
+     * room to spare; the deployed function must keep its server-side filter.
+     *
+     * IT PROVES ITSELF ON FIRST USE. Today has been full of probes that
+     * silently measured the wrong thing, so the first call in a process also
+     * runs the ordinary filtered query and throws if the two disagree. One
+     * extra request per process, and after that the shortcut is trusted.
+     */
+    if (CATALOG_CACHE && useNarrowPool && !opts?.withOracleText) {
+      const wanted = new Set<string>(query.colorIdentityFilter.containedBy as readonly string[]);
+      const superKey = `${base.replace(`&color_identity=cd.${encodeURIComponent(identity)}`, '')}` +
+        `&edhrec_rank=not.is.null${rankCeiling}`;
+      let all = this.#poolSuperset.get(superKey);
+      if (!all) {
+        all = await this.fetchAll<CatalogRow>(superKey, 'rank');
+        this.#poolSuperset.set(superKey, all);
+      }
+      const local = all.filter(r =>
+        ((r as { color_identity?: string[] }).color_identity ?? []).every(c => wanted.has(c))
+      );
+      const limited = opts?.limit !== undefined ? local.slice(0, opts.limit) : local;
+      if (!this.#supersetProven) {
+        const server = await this.fetchAll<CatalogRow>(
+          `${base}&edhrec_rank=not.is.null${rankCeiling}`,
+          'rank',
+          opts?.limit
+        );
+        const a = server.map(r => r.name).join('|');
+        const b = limited.map(r => r.name).join('|');
+        if (a !== b) {
+          throw new Error(
+            `DM_CATALOG_CACHE superset filter DISAGREES with the server ` +
+              `(${server.length} server rows vs ${limited.length} local). Refusing to measure on it.`
+          );
+        }
+        this.#supersetProven = true;
+      }
+      return limited;
+    }
+
     const ranked = await this.fetchAll<CatalogRow>(
       `${base}&edhrec_rank=not.is.null${rankCeiling}`,
       'rank',

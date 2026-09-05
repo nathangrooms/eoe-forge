@@ -7040,3 +7040,58 @@ not a tie-break, it is a thumb on the scale.
 The probe is fixed and now fetches `oracle_text` and `faces` from
 `cards_unique` alongside the pool row. **Work-list item (b) should be rewritten:
 the compiler gap is real but it is not why the blink cards lose.**
+
+## REFUSED: keying the intent-rule SCALE on coverage instead of the want count
+
+The gate for the 113 English intent rules was fixed on 31 Aug to ask the
+compiler's own verdict, and its comment says in so many words that *"the want
+count never was"* the right measure. **Three lines below, the SCALE was still
+keyed on the want count**, and the two disagreed:
+
+    const scale = wants.size === 0 ? 1 : thin ? 0.8 : 0.65;
+
+That inconsistency is real and the reasoning against it is sound. Syr Vondam is
+paid when your creatures die OR are exiled; the compiler refuses both of his
+printed lines but the tag merge reads the dying half, so his plan arrives THICK
+and the English rule written for the exile half BY NAME was scaled to 0.65 for
+being thick. `eff:exile-own` asks for 0.85 and arrives at 0.55, below every want
+the other half produced.
+
+Changed so the scale asks the same question the gate does — no new constant,
+reusing the existing 0.80 tier for "anything left unread". It does exactly what
+it was predicted to do:
+
+    Syr Vondam's plan   eff:exile-own  0.55 -> 0.68, now above his token want
+
+### And his deck does not change. At all.
+
+    Syr Vondam + Blink, against two human decks    26/92 -> 26/92
+    blink spells 3/13, blink engines 5/17, worth blinking 4/30   ALL UNCHANGED
+
+**0.68 is still under `eff:add-counters` 0.90 and `cost:sacrifice` 0.85**, so the
+ranking order among the cards competing for his slots never moves. No defensible
+scale fixes that: the rule asks for 0.85, so even at full parity it would TIE his
+aristocrats half rather than beat it.
+
+The rest of the measurement, same-session and back-to-back:
+
+    derived benchmark   51/71 jobs unchanged, groups at zero 8 -> 7
+    shape               182/200 -> 183/200
+    eighteen shells     shell cards held DOWN on two (Aristocrats 5/10 -> 3/10,
+                        Tokens 2/3 -> 0/3); keyed down on four, up on two
+
+Reverted, and the revert restores 51/71 with 8 zero groups and 182/200 exactly.
+
+> **Rule 1, and I aimed it at the wrong thing.** The knob moved its own number
+> by 24% and moved the deck by zero cards. **The scale was never the
+> constraint** — the constraint is that a want must EXCEED the other half's
+> wants to win a slot, and an intent rule capped at 0.85 cannot beat a facet
+> want of 0.90 however it is scaled.
+>
+> What would actually reach it: the aristocrats half of his plan is loud because
+> the TAG MERGE supplies `eff:add-counters` and `cost:sacrifice` at facet
+> weights, while the blink half has no tag at all. Reaching parity means giving
+> the exile half a FACET, which means the compiler reading "dies or is put into
+> exile" — 198 cards carry a genuine dual-event trigger, 38 of them in the top
+> 4,000, and the DSL already has `{on:'leaves'}` and returns two events for
+> "enters or attacks". That is a grammar rule, not a weight.

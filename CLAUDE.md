@@ -6641,3 +6641,45 @@ it is reapplied.
 > what separated "my change did this" from "the ground moved under both
 > measurements", and without it a strictly-better change would have been thrown
 > away on a false attribution.
+
+## FOURTH refusal of the echo constant, and this time in the mode the fix was for
+
+The yield above was built because this file said: *"make a derived shell's
+packages yield to a commander's own job when they compete, then flip the
+constant."* The yield shipped. The constant was then flipped WITH it, and
+measured in DERIVED mode — the mode the yield acts in, and the mode a player who
+does not name a strategy actually gets:
+
+    derived benchmark, yield only        49/71 jobs
+    derived benchmark, yield + constant  50/71 jobs
+
+    job groups printing [NONE]            6  ->  10
+
+The extra job is not worth the four. The groups that died are not edge cases:
+
+    payoff for going wide        0/3
+    recursion                    0/3
+    payoffs when things die      0/4
+    more card draw off casting or landing a creature   0/2
+
+**So the yield did NOT unblock the constant, and the recorded next step was
+wrong about why.** The cost was never a derived shell's packages crowding out
+the commander's own — the third measurement's casualty was Niv-Mizzet under
+`ARCHETYPE=1`, where the shell is CHOSEN and the yield is a no-op by
+construction. Raising `TYPE_ECHO_WEIGHT` changes the commander's OWN plan, so
+`cares:type:instant` becomes a loud want and competes inside his own packages.
+The shell budget was never the mechanism.
+
+    attempt 1   the fold, 4 Sep            jobs 23 -> 22, Sythis 2/3 -> 1/3
+    attempt 2   the fold again, 4 Sep      Feather median rank 414 -> 1,139
+    attempt 3   the constant, 5 Sep        +1 job, +1 zero group (Niv, chosen)
+    attempt 4   constant + yield, 5 Sep    +1 job, [NONE] groups 6 -> 10
+
+> **Four measurements, one conclusion: the problem is not the shell budget and
+> not the naming.** Raising the echo makes `cares:type:X` a LOUD want on 700
+> commanders, and a loud want reorders that commander's own packages. Anything
+> that wants Baral to reach Spellslinger has to give the shell a route that does
+> NOT go through the commander's want weights — a separate admission signal
+> rather than a louder want. `strategiesFor` already has one: it matches a facet
+> the commander CARRIES, at a weight below a tag. `shellsForCommander` is where
+> that idea belongs next, and it is untried.

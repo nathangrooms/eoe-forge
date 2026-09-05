@@ -190,10 +190,27 @@ export interface ComboRow {
   needs_commander: boolean | null;
 }
 
+/*
+ * PROBE-ONLY response cache switch. See `#get`. Defensive on purpose: a throw
+ * while reading an env would break the edge function for a debugging aid.
+ */
+const CATALOG_CACHE = (() => {
+  try {
+    const g = globalThis as {
+      Deno?: { env?: { get(k: string): string | undefined } };
+      process?: { env?: Record<string, string | undefined> };
+    };
+    return (g.Deno?.env?.get('DM_CATALOG_CACHE') ?? g.process?.env?.DM_CATALOG_CACHE) === '1';
+  } catch {
+    return false;
+  }
+})();
+
 export class Catalog {
   readonly #url: string;
   readonly #anonKey: string;
   readonly #authorization: string;
+  readonly #responseCache = new Map<string, { rows: unknown[]; contentRange: string | null }>();
 
   constructor(opts: CatalogOptions) {
     this.#url = opts.url.replace(/\/+$/, '');
@@ -241,6 +258,30 @@ export class Catalog {
     rows: T[];
     contentRange: string | null;
   }> {
+    /*
+     * A PROCESS-LIFETIME RESPONSE CACHE, FOR PROBES ONLY.
+     *
+     * Off unless DM_CATALOG_CACHE=1, so the edge function is untouched: there
+     * every request is a fresh instance and a cache would only hold memory.
+     *
+     * The yardsticks build twenty decks in ONE process and every build refetches
+     * its own pool - roughly 600,000 rows per run. That load saturated this
+     * project's disk IO twice on 5 Sep 2026, once badly enough to take the live
+     * deck generator down for players, and it is why a full measurement pass
+     * became something that could not be run safely. Identical requests inside
+     * one process are answered once now.
+     *
+     * Keyed on the path AND the Range header, because `fetchAll` pages with
+     * Range and two pages of one query are different requests.
+     *
+     * It does not rescue an already-saturated database - the first fetch still
+     * has to succeed - it stops a measurement pass from causing that state.
+     */
+    const cacheKey = CATALOG_CACHE ? `${pathAndQuery}|${extraHeaders.Range ?? ''}` : '';
+    if (CATALOG_CACHE) {
+      const hit = this.#responseCache.get(cacheKey);
+      if (hit) return hit as { rows: T[]; contentRange: string | null };
+    }
     let lastStatus = 0;
     let lastBody = '';
     for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
@@ -249,7 +290,12 @@ export class Catalog {
         headers: this.#headers(extraHeaders),
       });
       if (res.ok) {
-        return { rows: (await res.json()) as T[], contentRange: res.headers.get('content-range') };
+        const out = {
+          rows: (await res.json()) as T[],
+          contentRange: res.headers.get('content-range'),
+        };
+        if (CATALOG_CACHE) this.#responseCache.set(cacheKey, out);
+        return out;
       }
       lastStatus = res.status;
       lastBody = await res.text();

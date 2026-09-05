@@ -7963,6 +7963,58 @@ rewriting it is editorial rather than measured.
 > is 5 of 53. **Two of the three "verbless" packages in the first run were an
 > artefact of the missing normaliser.**
 
+## `npm run vendor` SILENTLY REVERTS AN EDIT TO A GENERATED COPY
+
+`catalog.ts` cannot live under `src/engine/` - nothing in that tree may open a
+socket - so it is mirrored between edge functions, and **`deck-optimizer` HOLDS
+THE SOURCE**. `ai-deck-builder-v2/catalog.ts` is a generated copy.
+
+Edit the copy, run `npm run vendor`, and the edit is GONE with no error. Worse,
+the usual verification passes: `tsc` and `npm test` then check the restored
+file and report clean, so the change looks applied and measured when it has
+been thrown away. A workflow agent lost its instrumentation to the same thing
+the same day and said so in its report.
+
+    the source           supabase/functions/deck-optimizer/catalog.ts
+    generated copies     ai-deck-builder-v2, facet-memo-fill, mtg-brain
+    check                grep -c '<your marker>' on BOTH, after vendoring
+
+The engine files are the same shape in reverse: `src/engine/**` is the source
+and every `supabase/functions/*/\_engine/**` is a copy, so editing a vendored
+engine file is equally futile.
+
+## The yardsticks cost about 600,000 rows a run, and that is what broke the database
+
+A full measurement pass is roughly sixty deck builds across four probes, and
+**every build refetches its own candidate pool**. Twenty builds in one process
+is about 600,000 rows. That is the load behind both saturations on 5 Sep.
+
+`Catalog` now memoises identical requests for the life of the process, keyed on
+the path plus the Range header, **behind `DM_CATALOG_CACHE=1`**. Off by default
+so the edge function is untouched: there every request is a fresh instance and
+a cache would only hold memory.
+
+    DM_CATALOG_CACHE=1 node --experimental-strip-types scripts/probe/deck-shape-check.mjs
+
+> ⚠️ **The benefit is NOT yet measured.** The database was too degraded to run a
+> full pass either way when this was written, and the mechanism only prevents
+> saturation - it cannot rescue an already-saturated instance, because the first
+> fetch still has to succeed. Measure the row count with and without before
+> claiming a figure.
+
+### The health gate to run BEFORE any measurement pass
+
+Six single-row reads from `cards_pool`, discarding the first because a cold
+connection measures the connection:
+
+    warm median under 0.30 s   ->  safe to measure
+    anything worse             ->  stay off it
+
+Measured during recovery on 5 Sep: 7.3 s at the worst, then 1.4, 0.93, and
+0.10 s warm once recovered. **A single cold read of 1.12 s next to warm reads of
+0.17 s made my first gate say DEGRADED when the database was fine** - the gate
+itself needed the same instrument discipline as everything else here.
+
 ## 🔴 I TOOK PRODUCTION DOWN WITH A PARALLEL AGENT WORKFLOW (5 Sep 2026)
 
 **Third time this database has been saturated, and the rule against it was

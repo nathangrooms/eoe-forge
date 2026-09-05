@@ -7174,3 +7174,49 @@ Writer bumped to 23 and deployed, refilled 33,036 rows, BOTH readers moved —
 ALONGSIDE and swapped in one transaction with rows, columns, indexes and ACL
 verified identical first, then `vacuum (analyze)` as its OWN statement. 21 and
 22 are still held as the rollback.
+
+## REFUSED: a plan rule on `trig:step:end` — a timing is not a strategy
+
+After compiler 23, `silent-facets.mjs` ranks `trig:step` (149 thin commanders)
+and `trig:step:end` (76) as the largest rows not already refused in this file.
+Read the whole population as a player — the 18 most played commanders carrying
+`trig:step:end`:
+
+    Braids            sacrifice        Thassa, Deep-Dwelling   BLINK
+    Mahadi            treasures        Y'shtola Rhul           BLINK
+    Meren             recursion        Toxrill                 -1/-1 counters
+    Jin-Gitaxias      draw seven       Atraxa                  proliferate
+    Prosper           impulse draw     Thalisse                tokens
+    Alesha            reanimate        The Gaffer              lifegain
+    Rakdos            edicts           Bennie Bracks           tokens and draw
+
+**"At the beginning of your end step" names NO deck.** The EFFECT after it names
+the deck, and every one of those effects already produces its own facet —
+`eff:create-token`, `eff:proliferate`, `eff:draw`, `eff:exile-own`,
+`eff:return-from`. A rule on the timing would give all eighteen the same wants
+and be wrong for seventeen of them.
+
+This is the same verdict `acost:0/1/3` already carries — *an activated ability is
+not a strategy* — and it closes the last large row on that list. **Every top row
+in `silent-facets.mjs` is now refused with a reason:**
+
+    sub:human 446          being a Human does not make it Human tribal
+    cares:type:creature    nearly every commander cares about creatures
+    pt:big / mv:big 229    Purphoros and Aesi are big value engines that never attack
+    mv:cheap 180           being cheap names no deck
+    trig:step / :end 149   a timing is not a strategy      <- this entry
+    acost:* 114            an activated ability is not a strategy
+    sub:hero/warrior/wizard  the tribe path already covers a real tribe
+
+### So thin plans are not a plan-rule problem any more
+
+**35% of commanders still have two or fewer loud wants**, and the 76 thin ones
+carrying `trig:step:end` are thin because the EFFECT after the timing was not
+read either — not because the timing lacks a rule. Reaching them is compiler
+work on the effect, card by card, which is the long tail this file already sized
+at roughly 15,800 independent pieces.
+
+Measured the same day: only **7.9% of commander ability lines produce nothing**
+(532 of 6,764), and the top unread shapes are 3 to 4 cards each. There is no big
+win left in commander reading; compiler 23 took the last one that was worth 198
+cards.

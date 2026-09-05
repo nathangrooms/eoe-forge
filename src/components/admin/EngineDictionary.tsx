@@ -247,6 +247,16 @@ const OUR_WORDS: Array<{ facet: string; means: string; why: string }> = [
     why: 'The other half of the same split. These decks want more permanents entering, which is tokens and extra land drops, not a way to flicker the commander.',
   },
   {
+    facet: 'trig:leaves-other',
+    means: 'It is paid when ANOTHER of your permanents leaves the battlefield, including when it is exiled. Syr Vondam, Kaya’s Ghostform.',
+    why: 'Sending your own creature away and bringing it back is what a blink deck does every turn, so this is the facet that makes a blink deck a correct reading of a commander. It could not exist until the compiler learned to read a genuine two-event trigger: "whenever another creature you control dies OR IS PUT INTO EXILE" refused to parse, and a trigger head that fails takes the whole ability with it, so Syr Vondam compiled to two keywords and nothing else.',
+  },
+  {
+    facet: 'trig:leaves-self',
+    means: 'It is paid when IT leaves the battlefield. The God-Eternal cycle, Ilharg.',
+    why: 'The other half of the same split, and it says nothing about what the deck should hold. "When this dies or is put into exile, put it into its owner’s library third from the top" is a card protecting itself; a plan rule on the undivided word would have handed all five God-Eternals a blink deck. 144 cards carry this, 2 carry the other.',
+  },
+  {
     facet: 'trig:cast-own',
     means: 'Paid when YOU cast a spell. Talrand, Birgi, Sai, K’rrik.',
     why: 'A spellslinger deck.',

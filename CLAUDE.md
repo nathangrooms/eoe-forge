@@ -7963,6 +7963,54 @@ rewriting it is editorial rather than measured.
 > is 5 of 53. **Two of the three "verbless" packages in the first run were an
 > artefact of the missing normaliser.**
 
+## THE 192 REAL DECKS ARE ALL PRECONS, AND USING THEM AS CEILINGS WAS WRONG
+
+The owner, 6 Sep 2026: *"Why are you looking at precons at all?"*
+
+They are right, and it had been vetoing the fix for two days.
+
+`REAL_DECK_ROLES` is derived from `meta_decks`, which is 192 MTGJSON
+preconstructed decks. As **floors** that is sound: any deck needs its mana, and
+`ramp.p10 = 11` is the one non-negotiable in this project. As **CEILINGS** it
+caps every archetype at what a preconstructed product happens to run, and **no
+precon is a blink deck**.
+
+    eff:exile-own is in ROLE_FACETS.protection, so blinking your own creature
+    IS protection. The ceiling is 5. Swiftfoot Boots and Lightning Greaves take
+    two before any blink spell is considered.
+
+So a Syr Vondam blink deck could hold THREE ways to blink against the thirteen
+two human builders ran, and the engine reported protection **FULL (5 carried)
+and SHORT (3 assigned) at the same instant**.
+
+**Three separate fixes were refused on `deck-shape-check`, which is
+precon-derived.** The fourth - exempting the one role a NAMED archetype's own
+package wants definitionally are, from the p90 only, still bounded by
+`overRoleFloorCeiling` - does not move shape at all:
+
+    eighteen shells    packages 460 -> 489 (+29), keyed 1310 unchanged,
+                       named 42 -> 41, one deck at ramp 23 against a precon
+                       p90 of 21 and a real MAX of 31
+    deck shape         184/200 UNCHANGED
+    twenty commanders  48/71 -> 46/71 jobs, dead groups 6 -> 7
+    Syr Vondam blink   spells 3/13 -> 6/13, blink effects held 9 -> 12,
+                       cards BOTH human builders played 14/32 -> 15/32
+    DEPLOYED, verified 12 blink cards: Ephemerate, Cloudshift, Eerie Interlude,
+                       Ghostway, Another Round, Scrollshift, Acrobatic
+                       Maneuver, Conjurer's Closet, Teleportation Circle,
+                       Restoration Angel, Felidar Guardian, Flickerwisp
+
+**CHOSEN ONLY.** A derived shell is one of eighteen picked by a cosine, and this
+file argues repeatedly that a guess is worth less than a certainty. A name the
+player typed is the whole reason they are on the page.
+
+> **The lesson is about the yardstick, not the ceiling.** "A deck is good when
+> it measures well against REAL decks" is right, and `meta_decks` was the only
+> real-deck source available - but a precon is a real deck the way a starter
+> chess set is a real chess set. Its FLOORS generalise and its CEILINGS do not.
+> Anything derived from it that says "no more than N" should be read as "no
+> precon ran more than N", which is a different claim.
+
 ## Where production stands, 6 Sep 2026, forty RANDOM commanders
 
 The broadest instrument there is: commanders nobody chose, built against the

@@ -20,9 +20,17 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { cardRole, ROLES } from '../../src/engine/index.ts';
+import { REAL_DECK_ROLES } from '../../src/engine/build/shape.ts';
 
 const URL = 'https://udnaflcohfyljrsgqggy.supabase.co/rest/v1';
 const K = readFileSync('scratch/anon.txt', 'utf8').trim();
+/* The last derivation, so the run can say what moved. Absent on a first run. */
+let previous = null;
+try {
+  previous = JSON.parse(readFileSync('scripts/probe/real-deck-roles.json', 'utf8'));
+} catch {
+  previous = null;
+}
 const H = { apikey: K, Authorization: `Bearer ${K}` };
 
 async function page(path, from = 0, size = 1000, acc = []) {
@@ -96,5 +104,42 @@ for (const role of ROLES) {
       String(out[role].max).padStart(6)
   );
 }
+/*
+ * WHAT MOVED SINCE LAST TIME, and against the constant the GENERATOR uses.
+ *
+ * These bands are produced by running our own `cardRole` over real decks, so
+ * they drift every time the engine learns to read a card differently - and
+ * nothing re-derives them automatically. On 5 Sep 2026 a role change was
+ * measured against a stored yardstick describing the OLD rule, and the
+ * difference was reported as a fault in the DECKS. Two vocabularies, one
+ * subtraction, which is the trap this file's own header warns about.
+ *
+ * `REAL_DECK_ROLES` in `src/engine/build/shape.ts` is these numbers copied by
+ * hand, and it is not a scoreboard: the generator takes its role FLOORS and
+ * CEILINGS from it. So a drift here is a change to what every deck asks for.
+ */
+const drift = [];
+for (const role of ROLES) {
+  const was = previous?.roles?.[role];
+  const engine = REAL_DECK_ROLES[role];
+  for (const q of ['p10', 'p50', 'p90', 'max']) {
+    if (was && was[q] !== out[role][q]) {
+      drift.push(`  ${role.padEnd(12)} ${q.padEnd(3)} stored file ${String(was[q]).padStart(3)} -> ${String(out[role][q]).padStart(3)}`);
+    }
+    if (engine && engine[q] !== out[role][q]) {
+      drift.push(`  ${role.padEnd(12)} ${q.padEnd(3)} shape.ts    ${String(engine[q]).padStart(3)} -> ${String(out[role][q]).padStart(3)}   <-- the generator uses this`);
+    }
+  }
+}
+if (drift.length) {
+  console.log('\nDRIFT. The yardstick has moved, so anything measured against the old one is suspect:');
+  console.log(drift.join('\n'));
+  console.log('\nRe-deriving is its OWN change with its own measurement, because it moves the');
+  console.log("generator's floors and ceilings. Measure the bench and the shape check before");
+  console.log('and after copying these into REAL_DECK_ROLES.');
+} else {
+  console.log('\nNo drift: the stored file and REAL_DECK_ROLES both describe the current pool.');
+}
+
 writeFileSync('scripts/probe/real-deck-roles.json', JSON.stringify({ decks: perDeck.size, roles: out }, null, 2));
 console.log('\nwrote scripts/probe/real-deck-roles.json');

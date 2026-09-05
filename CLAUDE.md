@@ -6214,3 +6214,16 @@ touch. Reverted.
 automatically.** Re-derive both before believing a shape number after a role
 change — and treat the re-derivation as its own change with its own
 measurement, because it moves the generator's floors and ceilings too.
+
+`real-deck-roles.mjs` SAYS SO NOW rather than leaving it to be noticed. It
+compares every band against the stored file AND against `REAL_DECK_ROLES` in
+`shape.ts`, and prints what moved with the generator's own numbers flagged:
+
+    ramp         p90 shape.ts     21 ->  20   <-- the generator uses this
+    removal      p50 shape.ts     13 ->  14   <-- the generator uses this
+    protection   max shape.ts     10 ->  11   <-- the generator uses this
+
+The `shape.ts` half is the load-bearing one and persists across runs, because
+the script rewrites the json but never the constant. **Running it does not adopt
+anything** — copying the numbers into `REAL_DECK_ROLES` is a deliberate act, and
+the measurements above are why it needs its own before and after.

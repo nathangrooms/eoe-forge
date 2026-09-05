@@ -5649,3 +5649,29 @@ played. Strictly stronger, and it fails on the exact sentences above.
 > the deck entry's own `reason` string, which names the pass in one line. **Read
 > what the deck says about a card before instrumenting the code that put it
 > there.**
+
+### Open, measured, not acted on: the review rounds trade good cards for small ones
+
+The swap log from the same Krenko build, every swap the four rounds made:
+
+    r1  Brash Taunter        -> Goblin Chirurgeon
+    r1  Vanquisher's Banner  -> Dawn-Blessed Pennant
+    r1  Siege-Gang Commander -> Battle Cry Goblin
+    r1  Goldspan Dragon      -> Goblin Instigator
+    r2  Purphoros, God of the Forge -> Siege-Gang Lieutenant
+    r2  Door of Destinies    -> Slobad, Goblin Tinkerer
+    r3  Crystalline Crawler  -> Ardoz, Cobbler of War
+
+Goldspan Dragon, Siege-Gang Commander and Purphoros are three of the best cards
+a Krenko deck can play, and each left for a cheaper goblin. Every swap's stated
+reason is *"Krenko is a goblin that counts goblins, and this does 2 of what it
+wants"*, so the mechanism is legible: the rounds rank against `withUrgency`, a
+two-mana goblin satisfies the loud want as completely as a six-mana one, and
+`REFINE_MARGIN` of 0.75 is then cleared on curve and castability alone.
+
+This is the same shape as the `EMPTY_DECK_COMMANDER_FIT` finding — a want is a
+facet, and a facet does not know that one card doing the thing is far better at
+it than another. **Do not fix it by raising the margin**; this file records four
+weight sweeps that moved nothing. The measurement to take first is whether the
+rounds improve any deck at all: they were added to fix a real fault, and nobody
+has measured them since the urgency change.

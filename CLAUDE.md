@@ -7704,3 +7704,43 @@ file already measured at 45/71 jobs and nine dead groups.
 > named the pass in one line and said something different. This file already
 > records that rule - "read what the deck says about a card before
 > instrumenting the code that put it there" - and I did it in the wrong order.
+
+## The declared subject, applied to the three other packages that have one
+
+`subject` shipped for Superfriends' "The walkers". Three more packages are
+genuinely ABOUT a card type and now say so:
+
+    Enchantress  'Enchantments worth drawing off'   type:enchantment
+    Enchantress  'The payoff'                       type:enchantment
+    Artifacts    'The rocks'                        type:artifact
+
+**It closes a recorded anti-synergy.** This file already noted "The payoff"
+filling with **Austere Command and Farewell**, cards that DESTROY enchantments,
+in an enchantress deck. Both are sorceries, so a declared `type:enchantment`
+excludes them by construction rather than by a guard:
+
+    The payoff 9/9   Sphere of Safety, Ethereal Armor, All That Glitters,
+                     Test of Endurance, Aura of Silence, Land Tax
+
+    eighteen shells    Enchantress packages 24/43 -> 30/43, keyed 91 -> 90,
+                       ramp 17 -> 13 (floor 11)
+                       the other seventeen IDENTICAL, keyed total 1304 -> 1303
+    twenty commanders  47/71 jobs, 7 dead groups, unchanged
+    deck shape         183/200, unchanged
+    DEPLOYED           Sythis + enchantress: 22 enchantments
+    production sweep   40/40 clean, keyed median 79%, spread unchanged
+
+**The other twelve type-unanimous packages were read and left alone**, because a
+blanket rule would be wrong about most of them: `type:enchantment` on Voltron's
+"The suit" bars every Equipment, `type:artifact` on "Keeping it alive" bars
+every protection spell, and Tribal's "The lords" is unanimous on `type:artifact`
+only because its four exemplars are Obelisk of Urd and friends, so requiring it
+would bar the actual creature lords.
+
+`The rocks` binds nothing today - it already filled 27/27 - and is declared
+because it is TRUE, so a non-artifact cannot take a mana-rock slot later.
+
+> Austere Command still reaches a live Sythis deck ONCE, through a different
+> pass. That is consistent with the guard already refused above ("a deck holding
+> the answer to its own type", measured at 2 cards in 1 of 4 decks and not worth
+> a third `ATTACKS` entry). The subject constrains the PACKAGE, not the deck.

@@ -5675,3 +5675,77 @@ it than another. **Do not fix it by raising the margin**; this file records four
 weight sweeps that moved nothing. The measurement to take first is whether the
 rounds improve any deck at all: they were added to fix a real fault, and nobody
 has measured them since the urgency change.
+
+## CORRECTION: the review rounds are net positive, and I called them a fault on an opinion
+
+The section above records Krenko's swap log — Goldspan Dragon, Siege-Gang
+Commander and Purphoros leaving for cheaper goblins — and calls it a defect.
+**That was my opinion of three cards, which is exactly the standard this project
+forbids.** Measured 5 Sep 2026 by running every yardstick with `REFINE_ROUNDS`
+at 4 and at 0:
+
+| yardstick | 4 rounds | 0 rounds | better |
+|---|---|---|---|
+| eighteen shells, keyed | higher on 11, lower on 2 | | **rounds** |
+| eighteen shells, named / packages | identical | identical | tie |
+| seven-deck roster, keyed | 63% | 59% | **rounds** |
+| seven-deck roster, staples | 46/61 | 46/61 | tie |
+| twenty commanders | 46/71, 6 zero | 44/71, 7 zero | **rounds** |
+| shape vs 192 real decks | 177/200 | 180/200 | none |
+
+Read as a player, Adeline's fourteen swaps are the argument: they turn a generic
+artifact pile into a Human tribal deck, taking **Skullclamp (rank 40)**,
+**Chrome Mox (148)**, Ranger-Captain of Eos, Thalia's Lieutenant and Champion of
+the Parish. Her median EDHREC rank rises 1,328 → 1,871 and her keyed synergy
+does not move, which reads as a loss and is not one: **a deck's median rank goes
+up when the deck stops being generic**, because tribal cards are less
+universally played than generic artifacts.
+
+**The rounds stay.** Two swaps in that log are still wrong — Teferi's Protection
+(rank 109) cut as a "weak fit", which is the known compiler gap where its only
+compiled effect is an exile of itself and the phasing is unread — but the pass
+as a whole earns its place three times over.
+
+## The tribe exemption let tribal decks past every ceiling except the two it was for
+
+The one thing the rounds genuinely cost was real-deck shape, 180 → 177, and
+chasing that found a bigger fault underneath. All three decks the shape check
+flagged were TRIBAL, and every flag was for a role that has nothing to do with a
+tribe:
+
+    Krenko (goblin)    protection 7    against a real p90 of 5
+    Edgar  (vampire)   protection 6
+    Giada  (angel)     wincon 3        against a real p90 of 2
+
+`overRoleCeiling` opened with a line waiving the ceiling for any card carrying
+the commander's tribe facet, on the argument that *"thirty mana Elves are the
+plan"*. **It already skips `land` and `creature`** — the two roles a tribe
+actually fills — so the exemption could never have been what let a tribal deck
+run its tribe. Its only remaining effect was letting a tribal card past the
+ceiling of every OTHER role it happened to carry.
+
+Removed, and measured against its own motivating case rather than only against
+the decks that showed the fault:
+
+    Marwyn, the Nurturer      ramp 28 -> 21, creature 32 -> 29, draw 13 -> 14
+    Lathril, Blade of Elves   ramp 27 -> 21, creature 34 -> 29, draw 11 -> 13
+
+21 is the p90 of the 192 real decks exactly, and both Elf decks gain draw toward
+a real floor of 11 they were sitting under.
+
+    shape vs 192 real decks   177/200 -> 181/200   (91%)
+    twenty commanders         46/71 -> 47/71 jobs, 6 zero groups unchanged
+    eighteen shells           named and packages identical, keyed net zero, and
+                              BOTH "ramp high" flags cleared: Magda 23 -> 21,
+                              Lathliss 28 -> 21
+    seven-deck roster         keyed 63%, staples 46/61, both unchanged
+
+**THE COST, stated rather than hidden:** the engine's own power score falls
+6.3 → 5.8 on Marwyn and 5.6 → 5.4 on Lathril. That score rewards more ramp and
+more creatures, and this file already records that its blind spots are exactly
+where the format's staples live. The 192 real decks are the yardstick; the
+roll-up is not.
+
+`overRoleFloorCeiling` KEEPS its tribe exemption. That is the floor's higher
+ceiling, the largest count real decks actually hold, and a floor is not choosing
+freely. Only the p90 ceiling was measured, so only the p90 ceiling was changed.

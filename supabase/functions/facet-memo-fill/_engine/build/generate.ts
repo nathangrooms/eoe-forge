@@ -1076,8 +1076,41 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
     }
     return carried[role] ?? 0;
   };
+  /*
+   * THE COMMANDER'S TRIBE IS NOT EXEMPT FROM THIS CEILING. It used to be, on
+   * the argument that "thirty mana Elves are the plan", and that argument does
+   * not survive being measured.
+   *
+   * `land` and `creature` are skipped below, so the exemption could never have
+   * been what let a tribal deck run its tribe: those are the two roles a tribe
+   * fills. Its only remaining effect was to let a tribal card past the ceiling
+   * of every OTHER role it happened to carry, and that is what it was doing.
+   * Measured 5 Sep 2026, all three decks the shape check flagged were tribal
+   * and all three were flagged for a role that has nothing to do with a tribe:
+   *
+   *     Krenko (goblin)   protection 7   against a real p90 of 5
+   *     Edgar  (vampire)  protection 6
+   *     Giada  (angel)    wincon 3       against a real p90 of 2
+   *
+   * Against its own motivating case it is still the right call. Removing it
+   * caps Marwyn at 21 ramp instead of 28 and Lathril at 21 instead of 27,
+   * which is exactly the p90 of the 192 real decks, and both decks gain draw
+   * (13 -> 14, 11 -> 13) toward a real floor of 11 they were under.
+   *
+   *     shape vs 192 real decks   177/200 -> 181/200
+   *     twenty commanders         46/71 jobs -> 47/71, 6 zero groups unchanged
+   *     eighteen shells           named and packages identical, keyed net zero,
+   *                               and BOTH "ramp high" flags cleared - Magda
+   *                               23 -> 21, Lathliss 28 -> 21
+   *     seven-deck roster         keyed 63%, staples 46/61, both unchanged
+   *
+   * THE COST, measured and stated: the engine's own power score falls 6.3 ->
+   * 5.8 on Marwyn and 5.6 -> 5.4 on Lathril. That score is a castability, role
+   * and fit roll-up which rewards more ramp and more creatures, and this file
+   * already records that its blind spots are exactly where the format's
+   * staples live. The real decks are the yardstick, not the roll-up.
+   */
   const overRoleCeiling = (card: BuildCard, exempt?: Role): boolean => {
-    if (tribeFacet && (card.facets ?? []).includes(tribeFacet)) return false;
     for (const r of rolesOf(card)) {
       if (r === 'land' || r === 'creature' || r === exempt) continue;
       if (carriedCount(r) >= roleCeiling(r)) return true;

@@ -7962,3 +7962,75 @@ rewriting it is editorial rather than measured.
 > the engine's own `normalizeName` now, all 53 packages resolve, and the answer
 > is 5 of 53. **Two of the three "verbless" packages in the first run were an
 > artefact of the missing normaliser.**
+
+## 🔴 I TOOK PRODUCTION DOWN WITH A PARALLEL AGENT WORKFLOW (5 Sep 2026)
+
+**Third time this database has been saturated, and the rule against it was
+already written in this file.** "Never run two database-heavy agents at once."
+I ran EIGHT, in a Workflow, each building decks and querying `cards_pool`, on
+top of my own repeated builds.
+
+### The timeline, from `cron.job_run_details`
+
+    18:30   jobs 3 and 30 succeed in 0-2 seconds, as always
+    18:45   BOTH fail: "job startup timeout"
+    19:00   BOTH fail: "job startup timeout"
+
+The database could no longer START a background job. The workflow ran for 25
+minutes immediately before that window.
+
+### What production did
+
+    Krenko    HTTP 500 / 504   after 108 s
+    Talrand   HTTP 500 / 504   after  22 s
+    Atraxa    HTTP 500 / 504   after  28 s
+
+The client sees `IDLE_TIMEOUT` at 150 s, which says nothing. The cause is in
+the timings:
+
+    select id limit 1 from cards_pool         7.3 s    normal is under 0.3
+    the generator's own pool walk             57014, statement timeout
+    commander lookup by name, order=id.asc   30.0 s
+    the same lookup with no order             0.7 s
+
+**A single-row read from a 13 MB view taking seven seconds is DISK IO
+THROTTLING, not a query plan.** Nothing was holding a lock: 13 idle
+connections, one active, no long queries, no rogue cron job, project
+`ACTIVE_HEALTHY` throughout. Burst capacity was simply spent.
+
+### Recovery
+
+Stopping all load is the fix; there is nothing to kill. Measured 15 minutes
+after stopping: single-row read 7.3 s -> 1.4 s, pool walk still timing out. It
+recovers on its own and slowly.
+
+> **THE RULE, restated because the existing one was not specific enough.**
+> "Never run two database-heavy agents at once" did not stop me, because a
+> Workflow does not FEEL like running agents by hand. It is the same thing and
+> worse: `parallel()` and `pipeline()` fan out to the concurrency cap with no
+> awareness of a shared external resource.
+>
+> **DO NOT USE THE WORKFLOW TOOL FOR ANYTHING THAT BUILDS DECKS OR READS
+> `cards_pool`.** The engine work is local and does not need agents. If a
+> workflow is genuinely wanted, give every agent the SAME single pre-fetched
+> snapshot and forbid live queries in the prompt.
+
+### Two real findings from the diagnosis, worth keeping
+
+**`cards_pool` had NO INDEX ON `name`.** The commander facet lookup is
+`name=in.(...)&order=id.asc`, so the planner walked `cards_pool_id_idx` in id
+order filtering on name - 33,036 random heap fetches to return one row. Added
+`cards_pool_name_idx`. It did not fix the outage, because the outage was IO,
+but that query measured 30 s with the index and 0.7 s without the `order=id`
+clause, so it was always fragile.
+
+> ⚠️ **It must be recreated whenever `cards_pool` is rebuilt.** The swap
+> procedure recreates five indexes; this is the SIXTH. A rebuild that forgets
+> it is silent until a commander lookup starts timing out.
+
+**Cron job 20 carries `set statement_timeout = 0`** - `select
+public.price_snapshot_run(200, 300)` at 11:00 daily. This file's own database
+rule 3 forbids exactly that, because "a query with no timeout holds its
+connection indefinitely and nothing can kill it without a restart". It was not
+running during this outage, so it is not the cause, but it is a live hazard
+sitting in the schedule.

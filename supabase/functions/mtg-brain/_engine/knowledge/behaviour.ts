@@ -3667,8 +3667,39 @@ export function planForCommander(commander: {
      */
     if (type !== 'land') {
       add(`type:${type}`, TYPE_WANT_WEIGHT, `${commander.name} triggers on ${type} spells`);
+      add(f, TYPE_ECHO_WEIGHT, `${commander.name} triggers on ${type} spells`);
+      continue;
     }
-    add(f, TYPE_ECHO_WEIGHT, `${commander.name} triggers on ${type} spells`);
+    /*
+     * AND THE LAND ECHO NEEDS A SECOND SIGNAL, because `cares:type:land` comes
+     * from a word scan and cannot say whether the card is ABOUT lands or merely
+     * POINTS AT one. Both false positives found by reading the population are
+     * the second kind:
+     *
+     *   Quake, Agent of S.H.I.E.L.D.  "tap target creature or land"
+     *   Thalia, Heretic Cathar        "nonbasic lands your opponents control
+     *                                  enter tapped"
+     *
+     * Neither wants lands-matter cards, and Quake's deck paid for it: 38 lands
+     * down to 32 and power 6.6 down to 5.1.
+     *
+     * This is NOT a same-clause conjunction, which this file warns is unsound
+     * over a flat facet set. It is a weaker and safer test: a SECOND,
+     * independent statement that the commander does something with lands
+     * beyond naming one. Tatyova has `trig:enters-other` (landfall), Azusa
+     * `eff:extra-land-drop`, Muldrotha `eff:play-from-graveyard`, Chulane
+     * `eff:put-onto-battlefield`, and the fetch commanders
+     * `cares:zone:library-land`.
+     */
+    const alsoDoesSomethingWithLands =
+      facets.includes('trig:enters-other') ||
+      facets.includes('eff:extra-land-drop') ||
+      facets.includes('cares:zone:library-land') ||
+      facets.includes('eff:play-from-graveyard') ||
+      facets.includes('eff:put-onto-battlefield');
+    if (alsoDoesSomethingWithLands) {
+      add(f, TYPE_ECHO_WEIGHT, `${commander.name} cares about lands`);
+    }
   }
 
   /* SUBTYPES the commander's own filters name, when they are NOT a tribe.

@@ -6363,3 +6363,59 @@ one only decides which strategies a player is OFFERED rather than what a role is
 genuinely does put lands onto the battlefield, so the new want is correct for
 him; it competes with his creature-draw want and dilutes it. Four measures
 improved and one worsened by a single job.
+
+### The echo needs a SECOND signal, and the deployed sweep is what said so
+
+The first version added the echo to any commander carrying `cares:type:land`,
+and production caught what four local yardsticks did not: **lands >= 35 went
+40/40 to 39/40.** The deck was Quake, Agent of S.H.I.E.L.D., at 34.
+
+`cares:type:land` comes from a word scan and cannot say whether a card is ABOUT
+lands or merely POINTS AT one. Both false positives are the second kind:
+
+    Quake, Agent of S.H.I.E.L.D.  "tap target creature or land"
+    Thalia, Heretic Cathar        "nonbasic lands your opponents control enter
+                                   tapped"
+
+Quake's deck paid for it: **38 lands -> 32, power 6.6 -> 5.1.**
+
+The echo now needs a second, independent statement that the commander does
+something with lands — `trig:enters-other` (landfall), `eff:extra-land-drop`,
+`cares:zone:library-land`, `eff:play-from-graveyard`, `eff:put-onto-battlefield`.
+**Not a same-clause conjunction**, which this file warns is unsound over a flat
+facet set; a weaker and safer test.
+
+    Quake      back to 38 lands and power 6.6, and now reads as Spellslinger
+               (0.74), which is what "whenever you cast a noncreature spell"
+               actually is
+    Tatyova    still Lands matter (0.72)      Azusa  still Lands matter (0.69)
+    Lands matter earned   85 commanders -> 106 (the wide version gave 172)
+    everything else       unchanged from the wide version: shape 183/200,
+                          Lands matter keyed 90%, roster and 18 shells identical
+
+> **The local yardsticks all passed the wide version.** Shape improved, the
+> shells were clean, the roster was unchanged. Only the DEPLOYED random sweep,
+> which builds forty commanders nobody chose, caught it. That is what it is for.
+
+## ⚠️ `git stash` IS SHARED ACROSS WORKTREES ON THIS MACHINE. DO NOT USE IT
+
+Nine entries sit in the stash list, and eight of their own messages say the same
+thing: *"popped by accident. git stash is SHARED across worktrees."* Other agents
+working in `.claude/worktrees/` push onto the SAME stack.
+
+It happened again today. A `git stash push -- <file>` followed by `git stash pop`
+popped ANOTHER worktree's entry and left **13 files in an unresolved conflict**,
+including four vendored copies. Worse, the failed push meant a before/after
+measurement ran with BOTH arms identical, and the "before" number was believed.
+
+**Use `git checkout <commit> -- <path>` instead.** It is precise, it touches no
+shared state, and it is how the Quake before/after was finally measured:
+
+    git checkout HEAD~1 -- src/engine/knowledge/behaviour.ts && npm run vendor
+    ...measure...
+    git checkout HEAD   -- src/engine/knowledge/behaviour.ts && npm run vendor
+
+Recovering from the conflict: a stash pop that CONFLICTS does not drop the
+stash, so nothing was lost — verified, the list was still nine deep afterwards.
+`git checkout HEAD -- <each conflicted file>` restores the tree without touching
+the stash stack.

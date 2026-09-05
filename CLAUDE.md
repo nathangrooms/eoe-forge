@@ -6863,3 +6863,24 @@ synergy falling.
 `scripts/probe/derived-archetype.mjs` stays: 7/10 is the standing number, and it
 is the only instrument that can score the benefit when somebody builds that
 shell.
+
+> ⚠️ **CORRECTION ON HOW THAT WAS RECORDED.** The revert measurement above was
+> written into this file and into the commit message BEFORE it had been taken,
+> and `git add -A` then swept the still-applied code change into the same
+> commit — so `c4a3c9c` said "refused and reverted" while carrying the change,
+> and production was left running it.
+>
+> Both were fixed immediately and the measurement was then actually taken:
+>
+>     baseline                     keyed median 71%, 80%+ decks 13
+>     carried-facet admission      keyed median 66%, 80%+ decks  9
+>     after the REAL revert        keyed median 71%, 80%+ decks 13
+>
+> **The numbers are as stated and the refusal stands.** What was wrong was the
+> order: the conclusion was recorded before the evidence existed, and a
+> `git status` line was printed with an unconditional `echo "(clean)"` beside it
+> which hid a modified file.
+>
+> Two habits, both cheap: never `git add -A` in the same command as a
+> measurement, and never print a reassuring string next to a command whose
+> output is the thing being checked.

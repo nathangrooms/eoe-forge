@@ -7963,6 +7963,56 @@ rewriting it is editorial rather than measured.
 > is 5 of 53. **Two of the three "verbless" packages in the first run were an
 > artefact of the missing normaliser.**
 
+## Where the bad cards actually come from, and a flex fix that measured neutral
+
+`scratch/_worst.mjs` prints a built deck's worst cards by rank with the ROLE
+they filled and the reason they carry. Run on four random commanders it is
+unambiguous: **the worst pick in every deck came through FLEX**, the pass that
+places cards filling no role the deck is short of.
+
+    Confounding Riddle     #7,634   fit 0.92   flex
+    Thassa's Intervention  #7,149   fit 0.92   flex
+    Consign to Memory      #7,303   fit 0.74   flex
+    Verdant Confluence     #11,225  fit 0.57   flex
+
+**They are not junk by fit** - 0.92 is high. They are cards nobody plays,
+reaching the deck because `PLAYED_ENOUGH_RANK` is 12,000 and inside that line
+ordering is pure score, so rank 7,634 sorts alongside rank 200.
+
+A third sweep at `FLEX_STAPLE_RANK = 2,000`, **in the flex pass only**, removes
+them - and measured NEUTRAL:
+
+    eighteen shells   keyed 1306 -> 1305, packages 464 -> 464, named 42 -> 40
+    deck shape        184/200 -> 184/200
+    ramp              0 under the floor, 0 over the p90
+
+Reverted on the standard: shape flat and two shell cards lost is not "measured
+better", however much better the cards read.
+
+> **AND THE PROBLEM MOVED RATHER THAN GOING AWAY.** With flex fixed, the worst
+> cards in the same deck became `role=commander` and `role=refined`:
+> **Orcrist, Goblin-cleaver #6,864 at fit 0.00**, Campsite Cuisine #10,072 at
+> fit 0.40, Commune with Beavers #8,429. So flex was one outlet, not the cause,
+> and a fix aimed at any single pass will keep squeezing the balloon. The next
+> attempt should be at what all these passes SHARE - the ranker - not at a
+> fourth ordering rule.
+
+### Two instrument faults found on the way, both mine
+
+**PostgREST caps every response at 1000 rows whatever `limit` says.** Paging the
+pool in rank bands of 5,000 silently returned the first 1,000 of each band, so a
+"6,000 card pool" was a sixth of itself and Kinnan at rank 1,271 was absent
+entirely. **The 56% and 45% dominance figures were computed against that
+truncated pool and should be re-derived before being quoted.** Bands of 600
+ranks stay under the cap.
+
+**The `reason` string no longer identifies the pass that took a card.** It was
+rewritten on 5 Sep to describe the FINISHED deck - a gap clause is dropped when
+the deck ends up meeting that target - so a probe classifying passes by reason
+reported ZERO cards from the role gap and 36 to 50 from "archetype package" on
+every deck. `bucket` is set where the card is taken and is the right field, but
+the RESPONSE does not carry it; it exposes `role` and `reason` only.
+
 ## The package flex budget was spent by whoever ran first (5 Sep 2026)
 
 `packageFlexBudget = spellSlots - floorTotal - commanderReserve - topEndBudget`,

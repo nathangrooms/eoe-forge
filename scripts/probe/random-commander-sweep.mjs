@@ -92,6 +92,36 @@ while (picked.length < Math.min(N, pool.length)) {
   picked.push(pool[i]);
 }
 
+/* THE TEXT FOR THE SAMPLED COMMANDERS ONLY, from `cards_unique`, because
+   `cards_pool` carries no `oracle_text` and `planForCommander` needs it to run
+   the English intent rules. Forty names, one chunked read. */
+{
+  const names = picked.map(p => p.name);
+  for (let i = 0; i < names.length; i += 40) {
+    const chunk = names
+      .slice(i, i + 40)
+      .map(n => `"${String(n).replace(/"/g, '')}"`)
+      .join(',');
+    const res = await fetch(
+      `${BASE}/rest/v1/cards_unique?select=name,oracle_text,faces&name=in.(${encodeURIComponent(chunk).replace(/%2C/g, ',')})`,
+      { headers: { apikey: K, Authorization: `Bearer ${K}` } }
+    );
+    if (!res.ok) continue;
+    const rows = await res.json();
+    if (!Array.isArray(rows)) continue;
+    const byName = new Map(rows.map(r => [r.name, r]));
+    for (const p of picked) {
+      const r = byName.get(p.name);
+      if (r) {
+        p.oracle_text = r.oracle_text ?? null;
+        p.faces = r.faces ?? null;
+      }
+    }
+  }
+  const withText = picked.filter(p => p.oracle_text != null).length;
+  console.log(`oracle text read for ${withText} of ${picked.length} sampled commanders`);
+}
+
 const STAPLES = ['Sol Ring', 'Arcane Signet'];
 const CREATURE_STAPLES = ['Lightning Greaves', 'Swiftfoot Boots'];
 const norm = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '');
@@ -159,11 +189,28 @@ for (const c of picked) {
   const have = new Set(deck.map(x => norm(x.name)));
   const staples = want.filter(s => have.has(norm(s))).length;
 
+  /*
+   * THE ORACLE TEXT, because the generator reads the commander WITH it.
+   *
+   * `planForCommander` runs the 113 English intent rules only when it is
+   * handed the text, and `cards_pool` does not carry `oracle_text` - it is a
+   * thin projection by design. So this scored every deck against a plan
+   * missing the intent-rule half, and reported decks as generic that are not:
+   * Isamaru, Hound of Konda came back at 18% holding Sram, Kor Spiritdancer,
+   * All That Glitters, Eidolon of Countless Battles and Sage's Reverie, which
+   * is a good voltron deck by any reading.
+   *
+   * The generator builds its commander through `toBuildCard(commanderRow)` and
+   * that row DOES carry the text, so this was the instrument being wrong and
+   * not the product. Same trap `scratch/_whynot.mjs` was fixed for.
+   */
   const plan = planForCommander({
     name: c.name,
     typeLine: c.type_line,
     facets: c.facets ?? [],
     tags: c.tags ?? [],
+    oracleText: c.oracle_text ?? null,
+    faces: c.faces ?? null,
   });
   const nonland = deck.filter(x => !/\bLand\b/i.test(String(x.type_line ?? '')));
   const keyed = nonland.filter(

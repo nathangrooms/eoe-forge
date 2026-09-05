@@ -3538,6 +3538,24 @@ export const COMMANDER_SURVIVAL_FLOOR: ReadonlyArray<readonly [Facet, number]> =
  * saying "permanent" rather than naming a type. See the comment inside
  * {@link planForCommander} for the population this was measured over.
  */
+/**
+ * Does this card name EVERY permanent type, so `cares:type:*` on it means
+ * "permanent" rather than any one type?
+ *
+ * Exported because the collapse is a statement about READING THE CARD, not a
+ * detail of building a plan, and anything that reads those facets as "this
+ * commander cares about X" needs it. `strategiesFor` matches shell signals
+ * against the commander's facets and re-opened this exact bug the moment it
+ * did: Braids, Arisen Nightmare came back as the format's best Enchantress and
+ * Superfriends commander for the second time in one day, and the Enchantress
+ * deck built on her fell from 24 of 43 packages filled to 7 of 27.
+ */
+export function namesEveryPermanentType(facets: readonly string[]): boolean {
+  let n = 0;
+  for (const f of PERMANENT_TYPE_CARES) if (facets.includes(f)) n += 1;
+  return n >= ENUMERATES_EVERY_PERMANENT;
+}
+
 const PERMANENT_TYPES = new Set([
   'artifact', 'creature', 'enchantment', 'land', 'planeswalker',
   /* BATTLE IS A PERMANENT TYPE, and leaving it out is not a small omission.

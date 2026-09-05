@@ -65,6 +65,7 @@ hairline. `live-regions` · does one message land in two of them.
 | `commander-bench.mjs` | Can twenty commanders DO the jobs their strategy needs? `LOCAL=1 ARCHETYPE=1`. A group at zero is the failure worth fixing. |
 | `strategy-decks.mjs` | A deck in every one of the 18 shells, asked for BY NAME. `LOCAL=1`. The universal test: a fix that helps one commander and hurts the rest is not a fix. |
 | `random-commander-sweep.mjs` | Seeded random commanders against the DEPLOYED function. Catches what the fixed lists cannot. |
+| `shell-signal-reach.mjs` | Can each of the 18 shells actually be EARNED through the facets it keys on? `strategiesFor` scores shells against the commander's PLAN, so a signal facet no plan produces can never fire. Found sixteen such signals, four of which were the whole of Control. |
 
 ## Accessibility and the public routes
 

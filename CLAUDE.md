@@ -6419,3 +6419,62 @@ Recovering from the conflict: a stash pop that CONFLICTS does not drop the
 stash, so nothing was lost — verified, the list was still nine deep afterwards.
 `git checkout HEAD -- <each conflicted file>` restores the tree without touching
 the stash stack.
+
+## Sixteen shell signals could never fire, and four of them were the whole of Control
+
+The Lands bug generalises, and `scripts/probe/shell-signal-reach.mjs` asks the
+general question: for every facet each shell keys on, how many commanders CARRY
+it and how many get it as a WANT? `strategiesFor` scores shells against the
+plan's wants, so a signal no plan produces is decoration.
+
+Over 3,358 commanders, **sixteen signals are carried and never wanted.** Most
+are harmless redundancy — Spellslinger still fires on `cares:type:instant`
+whatever `trig:cast` does. **Control's are all four of its signals:**
+
+    eff:counter        14 commanders carry it, 0 want it
+    eff:destroy        75
+    eff:tap            48
+    eff:unless-pays     3
+
+So the Control shell could never be earned through a facet at all, only through
+its tag fallback — which is work-list item (c), *"Control 0/1 named"*, explained.
+
+### `SHELL_SIGNALS` conflates two questions and the loop only asked one
+
+`cares:type:instant` is a WANT: the commander wants instants in the deck.
+`eff:counter` is not a want at all — it says the COMMANDER counters spells,
+which is the whole of why it belongs to Control. Matching signals against plan
+wants alone makes the second kind unreachable.
+
+The loop now also matches a facet the commander CARRIES, at `CARRIED_WEIGHT`
+(0.9), below `TAG_WEIGHT` (1.1) deliberately: a tag is a person's reading of the
+whole card, a bare facet is one clause, and a want carries a weight the plan
+derived rather than mere presence.
+
+    strategies EARNED       3.9 -> 4.4 per commander   (the owner asked for 4-10)
+    entirely-generic lists  36 -> 13
+    Control earned           82 commanders -> 195      (2.4% -> 5.8%)
+    Lands matter earned     106 -> 172
+    Aggro earned            57% -> 69.8%
+
+    eighteen shells   BYTE-IDENTICAL to the baseline
+    twenty commanders 47/71 jobs, 7 zero groups, unchanged
+    shape             183/200, unchanged
+    seven-deck roster keyed 63%, staples 46/61, unchanged
+
+**Every deck-quality yardstick is unchanged and the MENU is better**, which is
+the right shape: `strategiesFor` decides what a player is OFFERED, and the
+generator picks its own shell by cosine. This file already records that
+`strategiesFor` is not a drop-in replacement for that cosine.
+
+> ⚠️ **It re-opened the Braids bug within the hour.** Matching raw facets brought
+> back "sacrifice an artifact, creature, enchantment, land, or planeswalker" as
+> enchantment and planeswalker signals, and Braids was once again the format's
+> best Enchantress commander — the Enchantress deck fell from 24 of 43 packages
+> to 7 of 27. The permanent-type collapse lived in `planForCommander` and
+> nowhere else.
+>
+> `namesEveryPermanentType` is exported now, because **the collapse is a
+> statement about READING THE CARD, not a detail of building a plan.** Anything
+> that reads `cares:type:*` as "this commander cares about X" needs it. With it
+> applied the eighteen shells are byte-identical again.

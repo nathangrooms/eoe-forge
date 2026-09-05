@@ -46,7 +46,7 @@
  */
 
 import { deriveCardTags } from '../../engine/knowledge/tagger.ts';
-import { planForCommander } from '../../engine/knowledge/behaviour.ts';
+import { planForCommander, namesEveryPermanentType } from '../../engine/knowledge/behaviour.ts';
 import { facetsForCard } from './recommend/behaviour.ts';
 import { DECK_ARCHETYPES, type DeckArchetype } from './archetypeShells.ts';
 
@@ -314,7 +314,23 @@ const ALWAYS_OFFERED: ReadonlyArray<{ id: string; synergy: string }> = [
  * this commander IS this deck, which is a stronger claim and should outrank any
  * single facet.
  */
+/* The five permanent types plus battle, as `cares:` facets. Kept beside the
+   signal loop rather than imported so the list is visible where it is used;
+   `namesEveryPermanentType` owns the decision. */
+const PERMANENT_TYPE_CARES_FOR_SIGNALS = [
+  'cares:type:artifact', 'cares:type:creature', 'cares:type:enchantment',
+  'cares:type:land', 'cares:type:planeswalker', 'cares:type:battle',
+];
+
 const TAG_WEIGHT = 1.1;
+/*
+ * What a signal facet the COMMANDER CARRIES is worth, against a want the plan
+ * STATES. Below `TAG_WEIGHT` deliberately: a tag is a person's reading of the
+ * whole card, a bare facet is one clause, and a want carries a weight the plan
+ * derived rather than mere presence. See the signal loop for the sixteen dead
+ * signals this exists to reach, four of which are the whole of Control.
+ */
+const CARRIED_WEIGHT = 0.9;
 
 /** How many to offer. Two columns, three rows, no scrolling on a phone. */
 /*
@@ -384,11 +400,9 @@ export function strategiesFor(commander: StrategyCommander | null | undefined): 
      * `planForCommander` passes facets; this one was written without them and
      * nothing noticed, because a plan with no tribe still returns wants.
      */
-    const plan = planForCommander({
-      name: commander.name,
-      typeLine: commander.type_line,
-      tags: [...tags],
-      facets: commander.facets ?? facetsForCard({
+    const commanderFacets: readonly string[] =
+      commander.facets ??
+      facetsForCard({
         name: commander.name,
         type_line: commander.type_line,
         oracle_text: commander.oracle_text,
@@ -396,7 +410,12 @@ export function strategiesFor(commander: StrategyCommander | null | undefined): 
         mana_cost: commander.mana_cost,
         cmc: commander.cmc,
         faces: commander.faces ?? commander.card_faces,
-      }).facets,
+      }).facets;
+    const plan = planForCommander({
+      name: commander.name,
+      typeLine: commander.type_line,
+      tags: [...tags],
+      facets: commanderFacets,
       oracleText: commander.oracle_text,
       faces: commander.faces ?? commander.card_faces,
     });
@@ -406,6 +425,21 @@ export function strategiesFor(commander: StrategyCommander | null | undefined): 
        wants is not a better read than one that answers the commander's single
        loudest want, and summing made Value win everything because `eff:draw`
        is in so many plans. */
+    /* What the commander DOES, for the signals that describe a commander rather
+       than a deck. See the loop below. */
+    /* The permanent-type collapse applies HERE TOO. A commander that names
+       every permanent type is saying "permanent", and reading those facets as
+       five separate cares is what made Braids the best Enchantress commander
+       in the format. The plan already collapses them; the signal loop reads
+       raw facets and has to do the same. */
+    const collapsePermanentTypes = namesEveryPermanentType(commanderFacets);
+    const facets = new Set<string>(
+      collapsePermanentTypes
+        ? commanderFacets.filter(
+            f => !PERMANENT_TYPE_CARES_FOR_SIGNALS.includes(f)
+          )
+        : commanderFacets
+    );
     const wantWeight = new Map<string, { weight: number; because: string }>();
     for (const want of plan.wants) {
       const prev = wantWeight.get(want.facet);
@@ -443,6 +477,34 @@ export function strategiesFor(commander: StrategyCommander | null | undefined): 
         if (hit && hit.weight > best) {
           best = hit.weight;
           synergy = hit.because;
+        }
+        /*
+         * AND WHAT THE COMMANDER DOES, not only what it wants.
+         *
+         * `SHELL_SIGNALS` conflates two different questions and this loop only
+         * ever asked one of them. `cares:type:instant` is a WANT - the
+         * commander wants instants in the deck. `eff:counter` is not a want at
+         * all: it says the COMMANDER counters spells, which is the whole of
+         * why it belongs to Control. Matching signals against plan wants alone
+         * makes the second kind unreachable.
+         *
+         * Measured 5 Sep 2026 with `scripts/probe/shell-signal-reach.mjs` over
+         * 3,358 commanders: SIXTEEN signals are carried by commanders and
+         * wanted by none, and CONTROL'S ARE ALL FOUR OF THEM — `eff:counter`
+         * (14 commanders), `eff:destroy` (75), `eff:tap` (48),
+         * `eff:unless-pays` (3). The Control shell could never be earned
+         * through a facet, only through its tag fallback, which is why it is
+         * earned by 2.4% of commanders and reads 0 of 1 on its own probe row.
+         *
+         * A facet the commander CARRIES is worth less than a want the plan
+         * STATES, because a want has a weight the plan derived and a facet is
+         * only ever present or absent. `CARRIED_WEIGHT` sits below the tag
+         * fallback for the same reason: a tag is a human's reading of the
+         * whole card, and a bare facet is one clause.
+         */
+        if (facets.has(facet) && CARRIED_WEIGHT > best) {
+          best = CARRIED_WEIGHT;
+          synergy = signal.fallback;
         }
       }
 

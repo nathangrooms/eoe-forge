@@ -6776,3 +6776,47 @@ So the sixth attempt now has what the first five lacked: **a number on the
 benefit.** Three commanders gaining their actual archetype against one commander
 job, one dead group and two single-deck role drifts. The next person to weigh
 this can weigh it, instead of only seeing what it costs.
+
+## REFUSED: giving `removal` and `creature` the real-deck p10 floor
+
+Chasing the two shape checks that shell admission cost, both turned out to be
+**one card SHORT of a real floor**, not over a ceiling:
+
+    Yuriko, the Tiger's Shadow   removal 8   real p10 9
+    Feather, the Redeemed        creature 21 real p10 22
+
+And the generator's own removal target is 6, so those decks were correct by
+their own arithmetic and short by the format's. The two numbers have never been
+reconciled: `ramp` is clamped to `REAL_DECK_ROLES.ramp.p10` and nothing else is.
+
+The argument on record for singling ramp out is that tutor and wincon have a
+real median of ZERO, so a floor there asks for something no deck runs. **That
+argument does not cover removal (p10 9) or creature (p10 22)**, which every real
+Commander deck holds — so extending the clamp to those two looked obviously
+right.
+
+**It is not. All three combinations were measured and all three are worse:**
+
+    baseline                shape 183/200  derived 49/71, 6 zero  keyed 62%  orphans 0
+    removal + creature      shape 185/200  derived 49/71, 8 zero  keyed 63%  orphans 2
+    removal only            shape 183/200  derived 48/71, 10 zero keyed 60%  orphans 0
+    creature only           shape 182/200  derived 48/71, 9 zero  keyed 64%  orphans 2
+
+The shape gain only appears when BOTH are set, and it is paid for on the
+benchmark every time. The orphan warnings are the sharpest signal, because they
+are the roster probe describing a real fault in plain words:
+
+    ORPHAN: 3 x equipment payoff, only 3 equipments to trigger it
+
+**A floor that fills itself with cards nothing else in the deck supports has
+made the deck worse, whatever the role count says.** That is the difference
+between holding 22 creatures and holding 22 creatures that belong.
+
+> Rule 1 of the method, restated by a 2x2: when every combination of a knob is
+> mixed and none is a clear win, the knob is not the cause. The role floors are
+> not why two decks land a card short.
+
+So the shell-admission trade recorded above stands as it was measured. Its shape
+cost is two decks one card under a floor the generator never targeted, and
+closing that gap by clamping is now a measured dead end rather than an untried
+idea.

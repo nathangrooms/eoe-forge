@@ -317,7 +317,8 @@ const SURVIVAL_FLOOR_FACETS = new Set<string>(
 function shellsForCommander(
   commanderWants: ReadonlyMap<string, number>,
   candidates: readonly { shell: DeckArchetype; input: ArchetypeInput }[],
-  take: number
+  take: number,
+  commanderFacets: ReadonlySet<string>
 ): { shell: DeckArchetype; input: ArchetypeInput; score: number }[] {
   /*
    * A SHELL MUST SERVE WHAT THE COMMANDER SHOUTS FOR.
@@ -409,12 +410,34 @@ function shellsForCommander(
      * top want is often a broad facet the commander expresses differently.
      */
     const score = shellMagnitude > 0 ? overlap / Math.sqrt(shellMagnitude) : 0;
-    const serves = plan.wants.some(w => loud.has(w.facet));
-    return { shell, input, score, packages: plan.packages.length, serves };
+    const servesLoud = plan.wants.some(w => loud.has(w.facet));
+    const serves = servesLoud || plan.wants.some(w => commanderFacets.has(w.facet));
+    return { shell, input, score, packages: plan.packages.length, serves, servesLoud };
   });
   return scored
     .filter(x => x.serves && x.score > 0 && x.packages > 0)
     .sort((a, b) => b.score - a.score || a.shell.id.localeCompare(b.shell.id))
+    /*
+     * A CARRIED FACET NEEDS A REAL SCORE, NOT JUST FIRST PLACE.
+     *
+     * Admitting on what the commander DOES rather than what its plan WANTS is
+     * what lets Baral reach Control at all. Restricting it to the lead slot was
+     * not enough: when a commander had no other shell, the carried one WAS the
+     * lead. Read across 25 commanders, the two populations separate cleanly by
+     * score and by nothing else:
+     *
+     *   right   Niv-Mizzet 0.95, Baral 0.87, Sythis 0.73
+     *   wrong   Arbaaz Mir Aggro 0.70, Gwenom Two-card combo 0.51,
+     *           Brimaz Tokens 0.39, Klauth Artifacts 0.31,
+     *           Dwynen Lifegain 0.17
+     *
+     * This file records that no score floor separates a LOUD-WANT shell from a
+     * wrong one - Giada's Counters at 0.68 was wrong and Chulane's Control at
+     * 0.49 was wrong. That measurement was about loud wants. For the carried
+     * route the score is the only evidence there is, so it has to carry the
+     * weight, and 0.72 sits in the gap this sample leaves.
+     */
+    .filter(x => x.servesLoud || x.score >= 0.72)
     .slice(0, take)
     .map(({ shell, input, score }) => ({ shell, input, score }));
 }
@@ -868,7 +891,7 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
       shell: one,
       input: archetypeFor(one, shellRows, shellFacets),
     }));
-    const scored = shellsForCommander(commanderWants, candidates, 2);
+    const scored = shellsForCommander(commanderWants, candidates, 2, new Set(commanderFacets.facets));
     /*
      * A TRIBE IS A SHELL BEFORE IT IS A SCORE.
      *

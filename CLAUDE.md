@@ -6935,3 +6935,47 @@ and both are things the owner has asked for in different sessions.
 > is that three correct archetypes are worth two points, the change is nine
 > lines and the measurements are here. Nothing else in this area is untried
 > except rewriting the shells themselves.
+
+## SHIPPED, on the eighth attempt: a carried facet admits a shell, above a score floor
+
+Seven attempts failed. The eighth works, and the difference is one measurement
+nobody had taken: **reading the commanders whose shell actually CHANGED.**
+
+Restricting carried-facet admission to the lead slot still cost 2 points of
+commander synergy, and the reason was legible the moment 25 commanders were read
+as a player rather than counted:
+
+    right   Niv-Mizzet 0.95, Baral 0.87, Sythis 0.73
+    wrong   Arbaaz Mir Aggro 0.70, Gwenom Two-card combo 0.51,
+            Brimaz Tokens 0.39, Klauth Artifacts 0.31, Dwynen Lifegain 0.17
+
+The lead-slot rule could not stop those, because a commander with no other shell
+has the junk one AS its lead. The two populations separate cleanly by SCORE and
+by nothing else, so a carried-only shell must clear **0.72**.
+
+> This file records that no score floor separates a LOUD-WANT shell from a wrong
+> one — Giada's Counters at 0.68 was wrong, Chulane's Control at 0.49 was wrong.
+> That measurement was about loud wants, where the plan is the evidence. For the
+> carried route the score IS the only evidence, so it has to carry the weight.
+
+### Measured, with a same-session baseline and back-to-back local runs
+
+    DEPLOYED, forty random commanders     keyed 71% -> 71%, 80%+ decks 13 -> 13,
+                                          every gate 40/40 -> 40/40   UNCHANGED
+    derived archetype                     7/10 -> 9/10
+    derived benchmark                     49/71 -> 51/71 jobs, zero groups 6 -> 8
+    shape vs 192 real decks               183/200 -> 182/200
+    named benchmark, roster, staples      all unchanged
+
+**The production sweep being untouched is what separates this from the seven
+before it.** Every earlier version paid for archetype fidelity in commander
+synergy across forty commanders nobody chose — 71% to 66%, then 71% to 69%.
+This one pays nothing there.
+
+The cost is one real-deck shape check and a benchmark that gains two jobs while
+losing two groups to zero — the same instrument disagreeing with itself, which
+is the documented shape of this trade: a shell's packages serve the ARCHETYPE'S
+jobs and the benchmark scores the COMMANDER'S.
+
+Sythis is the one of ten that does not make it: her Enchantress score sits just
+under the floor. That is the floor being honest rather than tuned to her.

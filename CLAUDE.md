@@ -7963,6 +7963,38 @@ rewriting it is editorial rather than measured.
 > is 5 of 53. **Two of the three "verbless" packages in the first run were an
 > artefact of the missing normaliser.**
 
+## Where production stands, 6 Sep 2026, forty RANDOM commanders
+
+The broadest instrument there is: commanders nobody chose, built against the
+DEPLOYED function.
+
+    built / 99 + commander            40/40   40/40
+    ramp >= 11                        40/40   median 20
+    lands >= 35                       40/40   median 39
+    every named staple                40/40
+    NOTHING flagged                   40/40   (was 39/40)
+    keyed synergy                     median 80%   (was 79%)
+      under 30% - a generic deck           0   (was 3)
+      80%+ - strongly on theme            20   (was 19)
+    build time                        median 1.8 s, slowest 5.1 s
+
+**No deck in the sample comes back generic.** That number was 11 when the sweep
+was first written, 7 once its own oracle-text fault was fixed, 3 after the
+tribal and package work, and is 0 now.
+
+### The sweep was scanning 33,000 rows forty times to list commanders
+
+`allCommanders()` asked PostgREST for `type_line=like.*Legendary*Creature*` -
+a LEADING WILDCARD, which cannot use a btree index - inside a loop of forty. It
+returned 57014 on 6 Sep immediately after the health gate had passed at 0.18 s,
+which is how it was found: a gate saying the database is healthy and a probe
+failing anyway means the PROBE is the load.
+
+It pages `edhrec_rank` bands of 600 now, riding `cards_pool_rank_idx`, and
+filters the type in JavaScript. It also THROWS on a band of 1000 rows rather
+than silently accepting PostgREST's cap, which is the fault that made the
+dominance figures measure a sixth of the catalogue.
+
 ## A package may leave a slot empty rather than take a card with no case
 
 A package fills its slots whatever the candidates look like, and in a NARROW

@@ -58,23 +58,38 @@ function rng(seed) {
 
 /* Rank keyset, never `offset`: this file's own repo records page two of an
    offset walk returning 57014. */
+/*
+ * PAGE BY RANK, FILTER THE TYPE LOCALLY.
+ *
+ * This asked PostgREST for `type_line=like.*Legendary*Creature*` - a LEADING
+ * WILDCARD, which cannot use a btree index - inside a loop of forty. Each
+ * iteration was a sequential scan of 33,000 rows plus an ordering, and on
+ * 6 Sep 2026 it returned 57014 immediately after the health gate had passed at
+ * 0.18 s. CLAUDE.md already records the same shape costing 2,007 ms against
+ * 172 ms elsewhere.
+ *
+ * `edhrec_rank` bands ride `cards_pool_rank_idx`. 600 keeps every band under
+ * PostgREST's 1000-row cap, which is silent when exceeded.
+ */
 async function allCommanders() {
   const seen = new Map();
-  let from = 0;
-  for (let i = 0; i < 40; i++) {
+  const BAND = 600;
+  for (let from = 0; from < 30000; from += BAND) {
     const res = await fetch(
       `${BASE}/rest/v1/cards_pool?select=name,type_line,color_identity,edhrec_rank,tags,facets` +
-        `&commander_legal=eq.legal&type_line=like.*Legendary*Creature*` +
-        `&edhrec_rank=gte.${from}&order=edhrec_rank.asc&limit=1000`,
+        `&commander_legal=eq.legal&edhrec_rank=gte.${from}&edhrec_rank=lt.${from + BAND}` +
+        `&order=edhrec_rank.asc`,
       { headers: { apikey: K, Authorization: `Bearer ${K}` } }
     );
     if (!res.ok) throw new Error(`${res.status} ${(await res.text()).slice(0, 140)}`);
     const rows = await res.json();
-    if (!rows.length) break;
-    for (const r of rows) seen.set(r.name, r);
-    const last = rows[rows.length - 1].edhrec_rank;
-    if (rows.length < 1000) break;
-    from = last === from ? last + 1 : last;
+    if (rows.length >= 1000) {
+      throw new Error(`rank band ${from}-${from + BAND} returned ${rows.length} rows; PostgREST caps at 1000 and this band may be TRUNCATED. Narrow BAND.`);
+    }
+    for (const r of rows) {
+      const t = String(r.type_line ?? '');
+      if (t.includes('Legendary') && t.includes('Creature')) seen.set(r.name, r);
+    }
   }
   return [...seen.values()];
 }

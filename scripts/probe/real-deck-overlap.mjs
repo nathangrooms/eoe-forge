@@ -44,6 +44,27 @@
  * where the cards we are missing are GOOD ones is a systematic gap, and that
  * is a different finding from missing a precon's filler.
  *
+ * ⚠️ AND A CARD ON THE "MISSING" LIST IS NOT A CARD THE ENGINE CANNOT REACH.
+ * Ranking the well-played misses across nine decks put Cultivate (rank 20) at
+ * the top, absent from four of them, with Farseek, Rampant Growth, Kodama's
+ * Reach and Nature's Lore below it - which reads as "the generator never takes
+ * the green ramp package". It was checked on four commanders, all of which
+ * declined it, and that looked like confirmation.
+ *
+ * IT IS FALSE. Widened to eight, 5 Sep 2026: Azusa takes Cultivate, Farseek,
+ * Rampant Growth, Nature's Lore, Kodama's Reach, Three Visits, Sakura-Tribe
+ * Elder, Wayfarer's Bauble and Expedition Map; Ghalta takes four of them;
+ * Chulane four. The commanders that decline have better ramp of their own -
+ * Lathril has the Elves, Tatyova has Exploration and Dryad of the Ilysian
+ * Grove - and every deck lands on exactly 21 ramp, which is the p90 ceiling.
+ * They are full, not blind.
+ *
+ * So before believing a missing card is a gap, BUILD A DECK FOR A COMMANDER
+ * THAT SHOULD WANT IT MOST and check there. And note that this list conflates
+ * fetch LANDS with ramp SPELLS: Evolving Wilds and Misty Rainforest carry
+ * `cares:zone:library-land` too, and they are chosen by the mana base rather
+ * than by any ramp pass.
+ *
  * Lands are excluded on both sides. A mana base is solved separately and
  * counting 38 lands would drown the signal.
  */

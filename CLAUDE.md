@@ -6267,3 +6267,54 @@ by taking them would have made the deck worse.
 `scripts/probe/README.md` had no section for the deck generator at all — the six
 probes the brief names were not in the index that exists precisely so a tool
 nobody can find does not get rewritten. They are now.
+
+## REFUTED: "the generator never takes the green ramp package"
+
+The overlap probe's first real use ranked the well-played cards a real deck
+holds and we do not, across nine decks. The top of that list is damning at a
+glance:
+
+    4 decks    20  Cultivate
+    3 decks    51  Commander's Sphere
+    2 decks    23  Farseek        2 decks    26  Rampant Growth
+    2 decks    32  Mind Stone     2 decks    41  Three Visits
+    1 deck     27  Nature's Lore  1 deck     37  Kodama's Reach
+
+Four commanders were checked — Lathril, Tatyova, Prossh, Zimone — and **none of
+them took Cultivate, Kodama's Reach, Rampant Growth or Farseek.** Four for four
+looked like confirmation that the engine cannot see the format's standard green
+ramp.
+
+**It is false, and the fifth commander would have said so.** Widened to eight:
+
+    Azusa      9   Cultivate, Farseek, Rampant Growth, Nature's Lore, Kodama's
+                   Reach, Three Visits, Sakura-Tribe Elder, Wayfarer's Bauble,
+                   Expedition Map
+    Chulane    4   Farseek, Rampant Growth, Wayfarer's Bauble, Sword of the Animist
+    Ghalta     4   Cultivate, Farseek, Rampant Growth, Solemn Simulacrum
+
+The commanders that decline have better ramp of their own — Lathril has the
+Elves (Llanowar, Priest of Titania, Elvish Archdruid, Heritage Druid), Tatyova
+has Exploration, Dryad of the Ilysian Grove and Spelunking — and **every deck
+lands on exactly 21 ramp, which is the p90 ceiling.** They are full, not blind.
+
+### Two lessons, both about the instrument
+
+1. **A card on a "missing" list is not a card the engine cannot reach.** Before
+   believing it, build a deck for the commander that should want it MOST. Four
+   commanders that all decline the same card is not a population, it is four
+   commanders with better options.
+2. **The land-fetch facet conflates lands with spells.** Most hits for
+   `cares:zone:library-land` are FETCH LANDS — Evolving Wilds, Misty Rainforest
+   — which are chosen by the mana base, not by any ramp pass. A count that
+   mixes them reads far higher than the ramp spells it means to measure.
+
+Both are now written into `real-deck-overlap.mjs`'s header, because this is the
+first thing anybody will do with that probe.
+
+### What the exercise did confirm
+
+The ramp the engine takes is GOOD. Lathril's 21: Sol Ring, Arcane Signet,
+Fellwar Stone, Mind Stone, Commander's Sphere, Llanowar Elves, Elvish Mystic,
+Joraga Treespeaker, Fyndhorn Elves, Priest of Titania, Elvish Archdruid,
+Heritage Druid, Deathrite Shaman. That is what an Elf deck's mana looks like.

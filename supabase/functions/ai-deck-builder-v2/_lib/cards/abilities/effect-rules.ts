@@ -1056,7 +1056,9 @@ export const EFFECT_RULES: EffectRule[] = [
      * is a gift rather than a blink and the two are opposites.
      */
     re: new RegExp(
-      `^(?:you may )?exile (.+?)(?:,? then| ?\.) return (?:it|that card|those cards|them)` +
+      `^(?:you may )?exile (.+?)(?:,? then| ?\.)` +
+        `(?: at the beginning of the next end step,)?` +
+        ` return (?:it|each of them|that card|those cards|them)` +
         `(?: to the battlefield)?` +
         `(?<mods>(?: tapped| attacking| transformed` +
         `| under (?:its owners|their owners|your|an opponents) control` +
@@ -1064,9 +1066,16 @@ export const EFFECT_RULES: EffectRule[] = [
         `(?: at the beginning of the next end step)?\.?$`
     ),
     note:
-      'Both wordings. The immediate "exile X, then return it" and the DELAYED ' +
-      '"exile X. Return those cards ... at the beginning of the next end step", ' +
-      'which is two sentences.',
+      'Three wordings. The immediate "exile X, then return it"; the delayed ' +
+      '"exile X. Return those cards ... at the beginning of the next end step"; ' +
+      'and the delayed one with the TIMING FIRST, "exile X. At the beginning of ' +
+      'the next end step, return those cards", which is how Wizards writes it ' +
+      'more often - 15 cards against 76 - and which left fourteen of them with ' +
+      '`eff:exile-own` and no `eff:return-from`, so the blink was half read. ' +
+      'PHELIA, EXUBERANT SHEPHERD is a blink COMMANDER and was one of them; so ' +
+      'were Otherworldly Journey, Flickerform, Long Road Home, Gilraen, ' +
+      "Semester's End and Morningtide's Light. `each of them` is in the return " +
+      "subject list for Semester's End, which says it that way.",
     build(m, ctx) {
       const what = phraseSelector(m[1], ctx, 'Choose what to blink');
       if (!what) return null;

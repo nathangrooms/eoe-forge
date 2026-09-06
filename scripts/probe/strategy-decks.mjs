@@ -217,6 +217,29 @@ for (const shell of shells) {
    * "ramp high" by an instrument that was not measuring ramp.
    */
   const deckFacets = await catalog.poolFacetsByName(deck.map(c => c.name));
+
+  /*
+   * HOW MANY CARDS CAN ACTUALLY ANSWER A PERMANENT.
+   *
+   * The `removal` ROLE is conferred by `eff:damage`, which cannot say whether
+   * the damage points at a creature or a face, so a deck holding eight pings
+   * reads as fully stocked with removal and cannot kill anything. That is why
+   * Edgar Markov - MARDU - came back with ONE card able to answer a permanent
+   * and no yardstick complained.
+   *
+   * Measured against the real decks on the SAME metric, 6 Sep 2026, over the
+   * 30 MTGJSON Commander decks whose cards all resolve in `cards_pool`:
+   *
+   *     answers   min 4   p10 6   p50 9   p90 12   max 12
+   *
+   * A hard verb only. `eff:damage` is deliberately excluded, which UNDERCOUNTS
+   * a real burn spell - both sides of the comparison are counted the same way,
+   * so the gap is real even though neither number is the whole truth.
+   */
+  const ANSWER_FACETS = ['eff:destroy', 'eff:exile', 'eff:neutralise', 'eff:gain-control'];
+  const answers = nonland.filter(c =>
+    ANSWER_FACETS.some(f => (deckFacets.get(c.name) ?? []).includes(f))
+  ).length;
   const ramp = deck.filter(c =>
     cardRole(
       {
@@ -242,6 +265,7 @@ for (const shell of shells) {
       `pkgs ${String(filled).padStart(2)}/${String(asked).padStart(2)}  ` +
       `keyed ${String(Math.round((100 * keyed) / Math.max(1, nonland.length))).padStart(3)}%  ` +
       `ramp ${String(ramp).padStart(2)}${rampFlag}` +
+      `  answers ${String(answers).padStart(2)}${answers < 6 ? ' LOW' : ''}` +
       /*
        * `named` IS NAME OVERLAP, and overlap punishes a different-but-correct
        * card. Say so on the row where it happens, rather than leaving a `0/4`

@@ -2775,6 +2775,10 @@ const PACKAGE_MATCH = 0.6;
     };
   };
   const flexRoom = spellSlots - (picked.length - chosenLands.length);
+  const answerFloor = answerFloorFor(input.commander.colorIdentity ?? []);
+  const answersSoFar = () =>
+    picked.reduce((n, e) => (answersAPermanent(e.card as BuildCard) ? n + 1 : n), 0);
+
   if (flexRoom > 0) {
     // The profile now has real tags, a real curve and real role counts, so
     // synergy and curve fit finally have something to measure against. At the
@@ -2941,9 +2945,6 @@ const PACKAGE_MATCH = 0.6;
      * Bounded by the real tenth percentile: once the deck can answer six
      * permanents this is a no-op, and a pool with nothing left falls through.
      */
-    const answerFloor = answerFloorFor(input.commander.colorIdentity ?? []);
-    const answersSoFar = () =>
-      picked.reduce((n, e) => (answersAPermanent(e.card as BuildCard) ? n + 1 : n), 0);
     if (answersSoFar() < answerFloor) {
       /*
        * FROM THE WHOLE RANKED POOL, NOT THE SHORTLIST, which is what the ramp
@@ -2985,83 +2986,6 @@ const PACKAGE_MATCH = 0.6;
         answerOrder
       );
 
-      /*
-       * AND IF THE ROLE IS FULL OF PINGS, TRADE ONE FOR A REAL ANSWER.
-       *
-       * This is the whole diagnosis, and nothing else reaches it. Inferno of
-       * the Star Mounts came back holding TWENTY cards with the `removal` role
-       * - exactly its p90 ceiling - of which THREE could answer a permanent.
-       * Every one of the 300 candidates above was refused, all 300 by the
-       * removal ceiling. The role was full of cards that do not do its job, so
-       * the deck was locked out of removal by its own removal count.
-       *
-       * A SWAP, NOT AN ADDITION, which is what makes it safe. Both cards carry
-       * `removal`, so the role count does not move and no ceiling, floor or
-       * budget changes - the earlier floor-guarantee attempt swapped the worst
-       * card in the DECK and cascaded, taking two decks over the ramp p90
-       * without a ramp card moving. Here only the composition of one role
-       * changes.
-       *
-       * Never trades a played card for an unplayed one, the same rule the ramp
-       * guarantee and `deck-optimizer` both use, and never gives up a preferred
-       * card or the last of some other job.
-       */
-      for (const rec of answerOrder) {
-        if (answersSoFar() >= answerFloor) break;
-        const incoming = rec.card as BuildCard;
-        if (takenOracleIds.has(incoming.oracleId)) continue;
-        if (overColourlessCap(incoming)) continue;
-        if (worksAgainstPlan(commanderPlan, incoming)) continue;
-        const inRank = incoming.edhrecRank ?? Number.MAX_SAFE_INTEGER;
-
-        let worstAt = -1;
-        let worstScore = Infinity;
-        for (let i = 0; i < picked.length; i++) {
-          const entry = picked[i];
-          const card = entry.card as BuildCard;
-          if (entry.preferred || preferred.has(card.oracleId)) continue;
-          if (isLandCandidate(card)) continue;
-          if (answersAPermanent(card)) continue;
-          const roles = rolesOf(card);
-          if (!roles.has('removal')) continue;
-          /* Only the removal role may be given up here: anything else this card
-             does must survive the trade, or a swap that fixes interaction
-             leaves a different job short. */
-          let lastOfSomething = false;
-          for (const r of roles) {
-            if (r === 'land' || r === 'removal') continue;
-            if (!rolesOf(incoming).has(r) && carriedCount(r) - 1 < (targets[r] ?? 0)) {
-              lastOfSomething = true;
-              break;
-            }
-          }
-          if (lastOfSomething) continue;
-          if ((card.edhrecRank ?? Number.MAX_SAFE_INTEGER) < inRank) continue;
-          const score = entry.score ?? 0;
-          if (score < worstScore) { worstScore = score; worstAt = i; }
-        }
-        if (worstAt < 0) continue;
-
-        const outgoing = picked[worstAt].card as BuildCard;
-        takenOracleIds.delete(outgoing.oracleId);
-        takenOracleIds.add(incoming.oracleId);
-        if (!hasColour(incoming) && hasColour(outgoing)) colourlessPicked += 1;
-        if (hasColour(incoming) && !hasColour(outgoing)) colourlessPicked -= 1;
-        picked[worstAt] = {
-          card: incoming,
-          quantity: 1,
-          reason: rec.reason,
-          score: rec.score,
-          bucket: 'removal',
-          preferred: false,
-        };
-        carriedStamp += 1;
-        notes.push(
-          `${outgoing.name} out for ${incoming.name}: this deck had ${answersSoFar() - 1} ways to ` +
-            `answer a permanent and real decks in these colours run ${answerFloor}. ` +
-            `Dealing one damage is not removal.`
-        );
-      }
     }
     takeFlex(card => !cardRole(card, 'creature') || creaturesPicked < creatureFloor);
     const beforeOverflow = creaturesPicked;
@@ -3080,6 +3004,98 @@ const PACKAGE_MATCH = 0.6;
         `${creaturesPicked - beforeOverflow} creature${creaturesPicked - beforeOverflow === 1 ? '' : 's'} ` +
           `over the ${creatureFloor} this commander asked for, because the pool had nothing ` +
           `else left that this deck could use`
+      );
+    }
+  }
+
+  /*
+   * AND IF THE ROLE IS FULL OF PINGS, TRADE ONE FOR A REAL ANSWER.
+   *
+   * OUTSIDE THE FLEX BLOCK, which is where this used to sit and is why it never
+   * ran for the decks that needed it most. `takeFlex` genuinely needs a spare
+   * slot; A SWAP DOES NOT - it exchanges one card for another and the deck size
+   * never moves. Nesting the two together meant that a deck with no room had no
+   * answers pass AT ALL.
+   *
+   * Measured 6 Sep 2026: mono-blue Curie, Glacian and Jhoira all finished with
+   * `flexRoom 0`, so every line of this pass was skipped. Curie came back with
+   * ONE way to answer a permanent while holding NINE cards carrying the removal
+   * role that could not answer one, and fourteen real blue answers sat unused in
+   * her pool under rank 4,000 - Pongify, Rapid Hybridization, Reality Shift,
+   * Imprisoned in the Moon, Curse of the Swine.
+   *
+   * A SWAP, NOT AN ADDITION, which is what makes it safe here. Both cards carry
+   * `removal`, so the role count does not move and no ceiling, floor or budget
+   * changes; only the composition of one role does.
+   *
+   * Never trades a played card for an unplayed one, the same rule the ramp
+   * guarantee and `deck-optimizer` both use, and never gives up a preferred card
+   * or the last of some other job.
+   */
+  if (answersSoFar() < answerFloor) {
+    const answerOrder = playedFirst(
+      rankedSpells
+        .filter(
+          rec =>
+            !takenOracleIds.has((rec.card as BuildCard).oracleId) &&
+            answersAPermanent(rec.card as BuildCard)
+        )
+        .slice(0, 300)
+    );
+    for (const rec of answerOrder) {
+      if (answersSoFar() >= answerFloor) break;
+      const incoming = rec.card as BuildCard;
+      if (takenOracleIds.has(incoming.oracleId)) continue;
+      if (overColourlessCap(incoming)) continue;
+      if (worksAgainstPlan(commanderPlan, incoming)) continue;
+      const inRank = incoming.edhrecRank ?? Number.MAX_SAFE_INTEGER;
+
+      let worstAt = -1;
+      let worstScore = Infinity;
+      for (let i = 0; i < picked.length; i++) {
+        const entry = picked[i];
+        const card = entry.card as BuildCard;
+        if (entry.preferred || preferred.has(card.oracleId)) continue;
+        if (isLandCandidate(card)) continue;
+        if (answersAPermanent(card)) continue;
+        const roles = rolesOf(card);
+        if (!roles.has('removal')) continue;
+        /* Only the removal role may be given up here: anything else this card
+           does must survive the trade, or a swap that fixes interaction
+           leaves a different job short. */
+        let lastOfSomething = false;
+        for (const r of roles) {
+          if (r === 'land' || r === 'removal') continue;
+          if (!rolesOf(incoming).has(r) && carriedCount(r) - 1 < (targets[r] ?? 0)) {
+            lastOfSomething = true;
+            break;
+          }
+        }
+        if (lastOfSomething) continue;
+        if ((card.edhrecRank ?? Number.MAX_SAFE_INTEGER) < inRank) continue;
+        const score = entry.score ?? 0;
+        if (score < worstScore) { worstScore = score; worstAt = i; }
+      }
+      if (worstAt < 0) continue;
+
+      const outgoing = picked[worstAt].card as BuildCard;
+      takenOracleIds.delete(outgoing.oracleId);
+      takenOracleIds.add(incoming.oracleId);
+      if (!hasColour(incoming) && hasColour(outgoing)) colourlessPicked += 1;
+      if (hasColour(incoming) && !hasColour(outgoing)) colourlessPicked -= 1;
+      picked[worstAt] = {
+        card: incoming,
+        quantity: 1,
+        reason: rec.reason,
+        score: rec.score,
+        bucket: 'removal',
+        preferred: false,
+      };
+      carriedStamp += 1;
+      notes.push(
+        `${outgoing.name} out for ${incoming.name}: this deck had ${answersSoFar() - 1} ways to ` +
+          `answer a permanent and real decks in these colours run ${answerFloor}. ` +
+          `Dealing one damage is not removal.`
       );
     }
   }

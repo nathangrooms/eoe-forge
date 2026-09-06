@@ -38,7 +38,7 @@ import {
 } from './_engine/knowledge/behaviour.ts';
 import { evaluateDeck } from './_engine/evaluate.ts';
 import type { EngineCard } from './_engine/core/card.ts';
-import { facetsForCard, rowDerivedFacets, type FacetCensus } from './_lib/deck/recommend/behaviour.ts';
+import { facetsForCard, type FacetCensus } from './_lib/deck/recommend/behaviour.ts';
 import {
   DECK_ARCHETYPES,
   shellCardNames,
@@ -228,13 +228,7 @@ function facetsForPoolRows(
        the miss, which is a card the filler has not reached yet. */
     const stored = (row as { facets?: unknown }).facets;
     if (Array.isArray(stored)) {
-      /* Row-derived facets are added on top of the stored ones. They are a
-         property of the ROW, not a reading of the card, so they need no memo
-         entry and no compiler version - see `rowDerivedFacets`. */
-      const derived = rowDerivedFacets(row);
-      const facets = (derived.length === 0
-        ? stored
-        : [...(stored as readonly string[]), ...derived]) as readonly string[];
+      const facets = stored as readonly string[];
       byOracleId.set(id, facets);
       census.cards += 1;
       census.facets += facets.length;

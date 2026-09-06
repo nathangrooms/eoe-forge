@@ -748,28 +748,16 @@ function readSizeAndCost(row: FacetInput, out: Set<Facet>): void {
    * cost is not colourless for this purpose even with no coloured pip in its
    * mana cost. Lands are excluded - almost every land is identity-empty and
    * calling them colourless would put the word on a third of the pool.
+   *
+   * IN THE MEMO like every other facet, on 2,565 cards at compiler 27. It was
+   * briefly ALSO derived at read time in the pipeline, on the argument that a
+   * colour identity is not a reading of rules text and so needs no version -
+   * but this function IS what `facet-memo-fill` calls, so the word was written
+   * to the memo regardless and the runtime copy was a second source for one
+   * word. Verified identical, 2,565 both ways, and the runtime copy removed.
    */
   const identity = (r as { color_identity?: unknown }).color_identity;
   if (!isLand && Array.isArray(identity) && identity.length === 0) out.add('col:none');
-}
-
-/*
- * Facets that are a property of the ROW rather than a reading of the card, so
- * they can be derived wherever a row is held and never need a memo entry.
- *
- * `col:none` is the only member today. It is deliberately NOT in the memo: the
- * memo is keyed on oracle_id and versioned by the COMPILER, and a version bump
- * costs a refill and two reader moves. A colour identity is not a reading of
- * rules text and cannot change with the compiler, so paying that price would
- * buy nothing.
- */
-export function rowDerivedFacets(row: FacetInput): readonly string[] {
-  const out = new Set<Facet>();
-  const r = row as { type_line?: string | null; color_identity?: unknown };
-  const isLand = /Land/.test(r.type_line ?? '');
-  const identity = r.color_identity;
-  if (!isLand && Array.isArray(identity) && identity.length === 0) out.add('col:none');
-  return [...out];
 }
 
 function readTypeLine(typeLine: string | null, out: Set<Facet>): void {

@@ -9420,3 +9420,60 @@ A deck that does not build is worse than a deck scored 0.2 lower.
 > ALL-CACHE-HIT query measured 1,565 ms. The gate is a single-row read and does
 > not detect starvation of a bigger query. When a plan's buffers are all hits
 > and it is still slow, stop tuning and wait.
+
+## Lands get the real-deck floor that ramp already had (6 Sep 2026)
+
+`landDropFloor` answers *"the fewest lands that hit three land drops by turn
+three"*, which is **29** in a 99-card deck. That is a mathematical floor and no
+real deck goes near it: over the 192 MTGJSON decks the tenth percentile is
+**37** and the median is 38. The land CEILING was already the real p90; this is
+the other end of the same measurement.
+
+The gap showed up as decks the castability solve was happy with and a player
+would not be:
+
+    Patron of the Akki   34 lands, 21 ramp
+    Progenitus           32 lands, 21 ramp
+
+Both are decks whose ramp let the solve buy spells instead of lands.
+
+**Why lands get a p10 clamp when tutors and win conditions do not:** their real
+median is 38, not zero, and their absence stops the game rather than losing it.
+That is exactly the argument this file already makes for ramp, and it is the
+whole test for whether a role deserves a floor.
+
+    192 real decks      182/200 -> 185/200, and `land` leaves the
+                        failing-roles list entirely (3 decks -> 0)
+    eighteen shells     keyed 1304 -> 1318, packages 489 -> 485, named 40 -> 39
+    twenty commanders   47/71 jobs, 5 zero groups, unchanged
+
+    DEPLOYED, sixty random commanders, seed 7
+      lands >= 35        58/60 -> 60/60
+      NOTHING flagged    58/60 -> 60/60      the first fully clean sweep of sixty
+      keyed median 80%, 0 decks generic, slowest build 3.6 s
+
+**Keyed rose as well as shape**, which is the sign this was a constraint
+fighting the deck rather than a trade: the spells those five slots were buying
+were worth less than the lands to cast them.
+
+## The answers probes counted nonland; their baseline did not
+
+The real-deck bands come from `meta_deck_cards` with NO type filter, so counting
+only nonland cards in our decks compares a smaller number against a larger one.
+
+**The Reaper, King No More** holds Boseiju, Who Endures - a land that answers a
+permanent. The generator counted 5, met its floor of 5 and stopped; the sweep
+reported 4 and called the deck short. The generator and the yardstick were
+disagreeing about the same deck and the yardstick was wrong.
+
+    eighteen shells   answers 145 -> 148, decks under their floor 2 -> 0
+    DEPLOYED, sixty   below their own colours' p10  8/60 -> 6/60
+
+> ⚠️ **TWO DEFINITIONS OF "GREEN" ARE NOT DRIFT.** The bands were re-derived on
+> the current pool first, because this file records that a yardstick derived
+> from the engine moves as the engine learns. With the ORIGINAL definition -
+> green-heavy meaning more than a quarter of the deck's cards are green - they
+> are unchanged: green p10 5 median 8, other p10 8 median 11. Slicing instead on
+> "the deck contains ANY green card" puts nearly every multicolour deck in the
+> green bucket and reports p10 6 for both. Same word, two questions, and only
+> one of them is the baseline that was shipped against.

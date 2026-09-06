@@ -9851,3 +9851,57 @@ front of them is worse than no sentence.**
 `scratch/_short.mjs` reports it over all twenty. Note that moving the note
 changed the measurement too, so the honest baseline was taken with the same note
 and the swap disabled (`COMMANDER_ASK_SWAPS = 0`), not against the old figure.
+
+## Half the commanders could not ask for a count of anything (6 Sep 2026)
+
+A package is the ONLY machinery in the engine that can say *"I need six of these
+and I have two"*. The flat want list is a mood: the reserve takes ONE card per
+want and the ranker scores cards one at a time. This file has recorded that gap
+for days as the reason job groups sit at zero.
+
+`packagesForCommander` pairs a loud DOING want with a SHAPE want -
+`type:creature`, `mv:big`, `pt:big`, `mv:cheap` - and returned **nothing** when
+the commander has no shape want. **TEN OF THE TWENTY** benchmark commanders got
+zero packages: Prosper, Meren, Brago, Muldrotha, Atraxa, Korvold, Yawgmoth,
+Giada, Azusa, Krenko.
+
+A commander that says only one thing now gets ONE job named after it.
+
+**THE GUARD IS RARITY AND IT IS MEASURED.** A single want is broader than a
+conjunction, so a common one would claim a fifth of the deck under the name of a
+job. The loud wants of the ten package-less commanders, against the pool:
+
+    eff:proliferate 0.2%   tok:goblin 0.2%       eff:exile-own 0.4%
+    eff:impulse 0.8%       tok:treasure 0.9%     eff:mill 2.3%
+    cost:sacrifice 2.5%    eff:return-from 5.8%  cares:zone:graveyard 9.5%
+
+and the one that is not is `trig:enters-self` at **14.0%** - the facet
+`facetBackground` already discards as too common to name a deck. The bar sits
+between them at 12%, which is the population choosing it rather than me.
+
+    eighteen shells     keyed 1322 -> 1328, named 40 -> 40 UNCHANGED
+    192 real decks      193/200 -> 194/200
+    twenty commanders   46/71 jobs unchanged, zero groups 5 -> 4
+    decks short of a loud want   11/20 -> 10/20
+    DEPLOYED, sixty     60/60 every gate, strongly on-theme 23 -> 25
+
+**ONE JOB, NOT THREE, AND THE DIFFERENCE WAS MEASURED.** Three cost two shell
+cards (Aristocrats and Blink) and a Brago capability for the same keyed and
+shape gain. One is strictly better on every axis.
+
+> ⚠️ **THE LOWER BOUND IS NOT `background.minCards`.** That is the DECK SIZE and
+> it is the right bar for a SHELL want - *"a want fewer cards than the deck holds
+> can satisfy cannot shape the deck"*. A package is not the deck: it asks for a
+> handful of slots. Using the wrong one made this rule a NO-OP for the case it
+> was written for - `eff:impulse` is on 51 cards of Prosper's own pool against a
+> bar of 99, and 51 is ten times the slots his package asks for. It looked like
+> the rule being wrong rather than absent, which is the same shape as a missing
+> `npm run vendor`.
+
+### The lens: ask what the commander can even REQUEST, not what it got
+
+Every probe in this repo scores what a deck HOLDS. Prosper's zero impulse cards
+looked like a ranking failure for two sessions. Calling `packagesForCommander`
+directly and printing the COUNT is what found it, and the count was zero for
+half the field. `scratch/_pkgs.mjs` does that; `scratch/_freq.mjs` prints a
+commander's loud wants beside how much of the pool carries each.

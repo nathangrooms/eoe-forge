@@ -46,7 +46,11 @@
  */
 
 import { deriveCardTags } from '../../engine/knowledge/tagger.ts';
-import { planForCommander, namesEveryPermanentType } from '../../engine/knowledge/behaviour.ts';
+import {
+  planForCommander,
+  namesEveryPermanentType,
+  readsAsMinusCounters,
+} from '../../engine/knowledge/behaviour.ts';
 import { facetsForCard } from './recommend/behaviour.ts';
 import { DECK_ARCHETYPES, type DeckArchetype } from './archetypeShells.ts';
 
@@ -470,6 +474,23 @@ export function strategiesFor(commander: StrategyCommander | null | undefined): 
        in the format. The plan already collapses them; the signal loop reads
        raw facets and has to do the same. */
     const collapsePermanentTypes = namesEveryPermanentType(commanderFacets);
+    /*
+     * A -1/-1 COMMANDER NEVER GETS THE "+1/+1 COUNTERS" SHELL.
+     *
+     * `planForCommander` already refuses to turn `eff:add-counters` into +1/+1
+     * wants for one - "Yawgmoth, Thran Physician puts -1/-1 counters on other
+     * creatures; `eff:add-counters` is true of him and of Hardened Scales, and
+     * the rule keyed on it wanted Hardened Scales" - and this loop reads RAW
+     * FACETS AND TAGS, so the guard leaked.
+     *
+     * Filtering the one facet is not enough and measuring showed it: with the
+     * facet dropped Yawgmoth was STILL the highest-scoring commander of all
+     * 3,363 for this shell, because he also carries the `proliferate` TAG, and
+     * proliferate is as counter-kind-blind as `eff:add-counters` is. Every
+     * signal this shell has is blind to the KIND, so the refusal belongs on the
+     * shell rather than on each signal in turn.
+     */
+    const minusCounters = readsAsMinusCounters(commanderFacets as never);
     const facets = new Set<string>(
       collapsePermanentTypes
         ? commanderFacets.filter(
@@ -506,6 +527,7 @@ export function strategiesFor(commander: StrategyCommander | null | undefined): 
     for (const [id, signal] of Object.entries(SHELL_SIGNALS)) {
       const shell = shellById.get(id);
       if (!shell) continue;
+      if (id === 'counters' && minusCounters) continue;
 
       let best = 0;
       let wantBest = 0;

@@ -3696,6 +3696,20 @@ export const COMMANDER_SURVIVAL_FLOOR: ReadonlyArray<readonly [Facet, number]> =
  * Superfriends commander for the second time in one day, and the Enchantress
  * deck built on her fell from 24 of 43 packages filled to 7 of 27.
  */
+/**
+ * Does this card put counters on things and mean MINUS ones?
+ *
+ * `eff:add-counters` is true of Yawgmoth, Thran Physician and of Hardened
+ * Scales alike; the KIND is on the `ctr:` facet and it decides. Exported for
+ * the same reason {@link namesEveryPermanentType} is: `planForCommander`
+ * applies it, and anything else that reads a commander's raw facets to decide
+ * what deck it is has to apply it too, or the guard holds in the plan and
+ * leaks everywhere else.
+ */
+export function readsAsMinusCounters(facets: readonly Facet[]): boolean {
+  return facets.includes('ctr:-1/-1') && !facets.includes('ctr:+1/+1');
+}
+
 export function namesEveryPermanentType(facets: readonly string[]): boolean {
   let n = 0;
   for (const f of PERMANENT_TYPE_CARES) if (facets.includes(f)) n += 1;
@@ -3761,7 +3775,7 @@ export function planForCommander(commander: {
      puts -1/-1 counters on other creatures; `eff:add-counters` is true of him
      and of Hardened Scales, and the rule keyed on it wanted Hardened Scales.
      The kind is on the `ctr:` facet, and it decides. */
-  const minusOnly = facets.includes('ctr:-1/-1') && !facets.includes('ctr:+1/+1');
+  const minusOnly = readsAsMinusCounters(facets);
   for (const rule of PLAN_RULES) {
     if (PLAN_IGNORED.has(rule.when)) continue;
     if (!facets.includes(rule.when)) continue;

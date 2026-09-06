@@ -9105,3 +9105,45 @@ misread was the only one worth a rule.
 > failures that are not yours.** One run gave `1 FAILED` and a 20-second worst
 > case; both were a PostgREST 500 on `combo_pool`, and a clean re-run gave 40/40
 > at 2.9 s. Re-gate and re-run before believing a timing regression.
+
+## REVERTED, same day: the tribe viability guard took Yuriko's Ninjas
+
+The section above ships a rule that drops `plan.tribe` when the commander's own
+pool holds fewer than 100 of that subtype. **It is reverted, and the bench
+caught it within the hour.**
+
+    Yuriko, the Tiger's Shadow    Ninjas in her deck   11  ->  ZERO
+                                  ninja in UB pool     62, under the threshold
+
+Yuriko is one of the most played commanders in the format and her entire card is
+Ninjutsu. A Ninja deck built from 62 available Ninjas is emphatically a real
+deck. The threshold refused it.
+
+**And no count can separate these cases**, which is the durable finding:
+
+    ninja    62 in UB    A REAL TRIBE, and a top-tier one
+    serpent  48 in UG    not a deck
+    robot    88 in UR    not a deck
+
+62 is real and 88 is not, so the population size is simply not the signal. Nor
+is provenance: all three tribes come from the commander's own TYPE LINE - Koma
+is a Serpent, Vision is a Robot, Yuriko is a Ninja - so "the tribe is a token
+output rather than a theme" cannot be read off the card either.
+
+**The threshold was fitted to seven samples**, which is exactly what METHOD rule
+3 forbids, and the seven happened not to include a real narrow tribe. The rule
+looked measured because every number in it was measured; the population it was
+fitted to was the problem.
+
+    bench, archetype named   46/71 jobs, 6 zero groups  ->  47/71, 5 zero groups
+    production               below their colours' p10 7/40 -> 8/40
+
+So the guard bought ONE deck's interaction and cost a top commander its whole
+archetype. What it was built for - Koma at 54% keyed, Vision at 34% - is real
+and remains open, and any future attempt needs a signal that separates Ninja
+from Serpent. Card count is not it.
+
+> **The lens that caught it.** Not a probe I wrote for the purpose: the
+> twenty-commander bench, run for a different reason, reported a job that had
+> been `ok 11/6` for weeks as `NONE 0/6`. A fixed list of commanders is exactly
+> the instrument a threshold fitted to a different fixed list cannot survive.

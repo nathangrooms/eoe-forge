@@ -9188,3 +9188,68 @@ A query every single build makes deserves an EXPLAIN whenever it is touched.
 `combo_pool` still has NO scheduled vacuum, unlike `cards_unique` (job 27) and
 `cards_pool` (job 28). It was not the cause here - it was vacuumed the same day
 and carried zero dead tuples - but the gap CLAUDE.md recorded is still open.
+
+## "83 of 94 staples" is measured against a list we typed (6 Sep 2026)
+
+`deployed-deck-sweep.mjs` names the missing ones now, and the eleven are three
+cards:
+
+    Demonic Tutor   missing from 5 decks   Sheoldred, Meren, Teysa, Atraxa, Najeela
+    Cultivate       missing from 4         Meren, Atraxa, Najeela, Sythis
+    Counterspell    missing from 2         Talrand, Niv-Mizzet
+
+That reads as a clear fault, and it is not one the evidence supports. Checked
+against the 30 real MTGJSON Commander decks, counting only decks whose identity
+allows the card:
+
+    Sol Ring         29 of 30 decks     97%
+    Cultivate         8 of 21 green     38%
+    Demonic Tutor     0 of 17 black      0%
+    Counterspell      0 of 21 blue       0%
+
+**Sol Ring is a staple by measurement. Demonic Tutor and Counterspell are
+staples by our opinion**, which is the one thing THE STANDARD rules out.
+
+The two human Vondam decks hold Sol Ring and Arcane Signet and none of the
+three - but that file records only the themed groups rather than both full
+lists, so it cannot settle the question either way.
+
+**The precon evidence is biased and that cuts both ways.** These are budget
+products and Demonic Tutor is expensive, so its absence is partly a price
+artefact rather than a statement about deck construction - which is exactly the
+"precon ceilings do not generalise" warning. But absence at 0 of 17 is not
+weak evidence, and nothing else in the repo contradicts it.
+
+**So nothing was changed.** What is now true is that the number is honest about
+itself: a shortfall against `STAPLES` is a question, not a fault, for any entry
+except the four named staples the generator already places by name (Sol Ring,
+Arcane Signet, Swiftfoot Boots, Lightning Greaves), which ARE measured.
+
+Cultivate at 38% is the only one of the three with real support, and CLAUDE.md
+already records why decks decline it: they are at the ramp p90 ceiling holding
+BETTER ramp. Riku's deck was read as a player - Sol Ring, Arcane Signet,
+Cultivate, Farseek, Commander's Sphere, Chromatic Lantern (rank 85, ahead of
+Izzet Signet at 172) - and declining a Signet for a Lantern is correct.
+
+### The same check refuted the Signet complaint
+
+Comparing our decks card-for-card against real ones for the same commander,
+Signets looked systematically missing: Izzet (rank 172), Simic (610), Golgari
+(699), Gruul (808), Selesnya (1073) all absent. They are declined because the
+ramp role is FULL of better ramp, which is the same shape as the Cultivate
+refutation already in this file. Read the ramp list before believing a missing
+rock is a fault.
+
+### 23% of the ramp role carries no mana facet, and most of it is fine
+
+Measured across five deployed decks: 19 of 81 ramp-role cards carry none of
+`eff:add-mana`, `cares:zone:library-land`, `eff:extra-land-drop`. Read as a
+player they are mostly TREASURE MAKERS - Academy Manufactor, Storm-Kiln Artist,
+Big Score, Xorn - and a Treasure is mana, so the role is right and only the
+facet is missing.
+
+The one clear error is **An Offer You Can't Refuse (rank 35)**, tagged `ramp`
+because it creates two Treasures - for the spell's CONTROLLER, who is the
+opponent. The whole population of that shape is 12 cards and only three are
+played at all, so it is not worth a rule; it is recorded because a top-40 card
+carrying a wrong role will keep turning up in these reads.

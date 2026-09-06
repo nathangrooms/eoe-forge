@@ -141,7 +141,10 @@ for (const { name, ci } of COMMANDERS) {
 
   console.log(
     `${name.padEnd(30)} ${String(total).padStart(3)}+1  median ${String(median).padStart(5)}  ` +
-      `past15k ${String(deep).padStart(2)}  staples ${found.length}/${eligible.length}  ` +
+      `past15k ${String(deep).padStart(2)}  staples ${found.length}/${eligible.length}` +
+      (found.length < eligible.length
+        ? ` [missing ${eligible.filter(x => !found.includes(x)).map(([n]) => n).join(', ')}]`
+        : '  ') + `  ` +
       `power ${String(body.result.analysis.power).padEnd(4)} ${String(ms).padStart(5)}ms`
   );
   for (const f of flags) console.log(`    !! ${f}`);

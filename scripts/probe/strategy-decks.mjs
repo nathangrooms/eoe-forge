@@ -242,6 +242,22 @@ for (const shell of shells) {
       `pkgs ${String(filled).padStart(2)}/${String(asked).padStart(2)}  ` +
       `keyed ${String(Math.round((100 * keyed) / Math.max(1, nonland.length))).padStart(3)}%  ` +
       `ramp ${String(ramp).padStart(2)}${rampFlag}` +
+      /*
+       * `named` IS NAME OVERLAP, and overlap punishes a different-but-correct
+       * card. Say so on the row where it happens, rather than leaving a `0/4`
+       * next to a full package fill to be read as a shell that cannot be built.
+       *
+       * Measured 6 Sep 2026, after this sat on the work list as "some shells
+       * cannot be honoured at all" for days:
+       *   Superfriends on Tekuthal   named 0/4, deck holds TEN planeswalkers
+       *   Tokens on Ragavan          named 0/3, 35 cards make tokens
+       * Both had every package filled. A shell's own examples are strongly
+       * coloured, so a commander in one colour can play none of them and still
+       * build the archetype - the RIGHT outcome, not a failure.
+       */
+      (wanted.size > 0 && named === 0 && asked > 0 && filled === asked
+        ? '  <- every job filled, with cards other than the shell own examples'
+        : '') +
       (combo ? `\n${' '.repeat(20)}combo: ${combo}` : '')
   );
   console.log(rows[rows.length - 1]);
